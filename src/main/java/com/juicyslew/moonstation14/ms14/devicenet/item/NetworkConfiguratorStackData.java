@@ -50,3 +50,4 @@ public record NetworkConfiguratorStackData(DeviceIdentity identity, String addre
     }
     public static NetworkConfiguratorStackData create() { return new NetworkConfiguratorStackData(DeviceIdentity.random(), "", Mode.LINK, List.of(), null, null); }
 }
+

@@ -36,3 +36,4 @@ public record SlipData(float requiredSlipSpeed, Optional<Boolean> superSlippery,
         return slipFriction.orElse(DEFAULT_SLIP_FRICTION);
     }
 }
+

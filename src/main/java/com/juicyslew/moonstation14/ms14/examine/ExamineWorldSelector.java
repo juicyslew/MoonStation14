@@ -116,7 +116,7 @@ public final class ExamineWorldSelector {
                 && !e.isInvisible() && (ignoredEntityIds == null || !ignoredEntityIds.contains(e.getId())))) {
             Hit hit = intersect(rayOrigin, direction, Math.min(limit, opaqueStop), entity.getBoundingBox());
             if (hit != null) candidates.add(new Candidate(ExamineTarget.entity(entity), hit.point(), hit.distance(),
-                    entity.getDisplayName().getString(), entity.getBoundingBox(), false));
+                    com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(entity).getString(), entity.getBoundingBox(), false));
         }
         LinkedHashMap<ExamineTarget, Candidate> unique = new LinkedHashMap<>();
         candidates.stream().sorted(Comparator.comparingDouble(Candidate::distance))
@@ -200,3 +200,4 @@ public final class ExamineWorldSelector {
     private static double delta(double v){return v==0?Double.POSITIVE_INFINITY:Math.abs(1/v);}
     private static double firstBoundary(double origin,double direction,int cell,int step){return step==0?Double.POSITIVE_INFINITY:((step>0?cell+1.0:cell)-origin)/direction;}
 }
+

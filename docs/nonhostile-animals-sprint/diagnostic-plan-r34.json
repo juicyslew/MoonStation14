@@ -1,0 +1,40 @@
+{
+  "title": "Route-local support reuse equivalence and affected population measurement",
+  "kind": "diagnostic",
+  "acceptance_criteria": [
+    "Do cached and uncached routes preserve outcomes and exact waypoints while reducing repeated support work and observing changed world geometry between attempts?",
+    "Do obstruction-safe fixture placement and authenticated per-case join/render evidence establish useful parrot and mixed population measurements?"
+  ],
+  "fixture": "docs/nonhostile-animals-sprint/OWNER-FEEDBACK.md",
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat runGameTestServer '-Pms14GameTestTags=animals_route_reuse' '-Pms14GameTestDir=build/gametest-tags-fixture'; exit $LASTEXITCODE"],
+      "rationale": "Focused lead-owned native route equivalence and work-reduction fixtures. Exercise identical cached/uncached route implementation, non-direct searches and world changes between attempts. Report filtered selected/total and pass/failure counts; tags are not isolation. This is a diagnostic for an unaccepted optimization, not full-suite readiness.",
+      "covers": [
+        "Do cached and uncached routes preserve outcomes and exact waypoints while reducing repeated support work and observing changed world geometry between attempts?"
+      ],
+      "log": "build/reports/nonhostile-animals/route-reuse-r34.log"
+    },
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Parrots"],
+      "rationale": "Isolated real-client 100-parrot capture of support-cache hits versus computations, actual collision work, route durations, tick/frame distributions and separate JVM GC. Preserve owned-process admission and per-case join/log/JFR evidence. Fixture location may change, so this alone is not a controlled before/after timing comparison.",
+      "covers": [
+        "Do cached and uncached routes preserve outcomes and exact waypoints while reducing repeated support work and observing changed world geometry between attempts?",
+        "Do obstruction-safe fixture placement and authenticated per-case join/render evidence establish useful parrot and mixed population measurements?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-parrots-r34.log"
+    },
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Mixed"],
+      "rationale": "40 animals, eight each bat/kobold/parrot/hamster/cow. R33 failed before spawning on existing station-floor headroom obstruction. Try only bounded preflighted camera-facing candidates without clearing station blocks, body/camera teleportation or timeout increases; retain exact failure if none is safe. Short stationary windows cannot establish prolonged growth, jumping, native visual quality, manual readiness or owner acceptance.",
+      "covers": [
+        "Do obstruction-safe fixture placement and authenticated per-case join/render evidence establish useful parrot and mixed population measurements?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-mixed-r34.log"
+    }
+  ]
+}

@@ -64,8 +64,6 @@ public final class DamageSystem {
             return new ChangeResult(Result.FAILED, Map.of());
         }
         Map<String, Float> delta = scaleDelta(rawDelta, scale);
-        if (!ignoreResistances && !delta.isEmpty())
-            delta = com.juicyslew.moonstation14.ms14.equipment.EquipmentArmorSystem.apply(entity, delta);
         if (delta.isEmpty()) {
             return new ChangeResult(Result.APPLIED, Map.of());
         }
@@ -82,6 +80,11 @@ public final class DamageSystem {
         }
 
         if (!positives.isEmpty()) {
+            if (!ignoreResistances) positives = new LinkedHashMap<>(EquippedArmor.modify(entity, positives));
+            if (positives.isEmpty()) {
+                if (!negatives.isEmpty()) commit(entity, DamageReducer.applyDelta(existing(entity), negatives));
+                return new ChangeResult(Result.APPLIED, Map.of());
+            }
             DamageSource source = ignoreResistances
                     ? reagentBypassSource(entity.level(), origin)
                     : reagentSource(entity.level(), origin);
@@ -90,16 +93,10 @@ public final class DamageSystem {
             DamageTransactionStack<DamageSource, PendingTransaction> stack = pendingFor(entity);
             stack.push(source, transaction);
             try {
-                boolean retainedDead = com.juicyslew.moonstation14.ms14.mobs.MobNativeHealthProjection
-                        .shouldCommitRetainedDead(!entity.level().isClientSide(), entity.isRemoved(),
-                                entity.level().getEntity(entity.getId()) == entity,
-                                com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(entity),
-                                entity.getHealth() <= 0f);
-                if (retainedDead) {
-                    observePost(entity, source, DamageReducer.total(positives) / TYPED_PER_HEALTH);
-                } else {
-                    entity.hurt(source, DamageReducer.total(positives) / TYPED_PER_HEALTH);
-                }
+                // Native hurt owns admission/cancellation. Only its completed
+                // damage event may commit this transaction; calling observePost
+                // here would bypass cancellation for retained corpses.
+                entity.hurt(source, DamageReducer.total(positives) / TYPED_PER_HEALTH);
             } finally {
                 removePending(entity, source);
             }
@@ -110,6 +107,20 @@ public final class DamageSystem {
 
         commit(entity, DamageReducer.applyDelta(existing(entity), delta));
         return new ChangeResult(Result.APPLIED, Map.of());
+    }
+
+    /** Reports native positive-damage admission independently from transaction processing status. */
+    public static DamageApplication applyHealthChangeWithAdmission(LivingEntity entity, Map<String, Float> rawDelta,
+                                             float scale, boolean ignoreResistances, Cause cause) {
+        // Legacy adapter has no attribution parameter; preserve its prior null-origin semantics.
+        return applyHealthChangeWithAdmission(entity, rawDelta, scale, ignoreResistances, cause, null);
+    }
+
+    public static DamageApplication applyHealthChangeWithAdmission(LivingEntity entity, Map<String, Float> rawDelta,
+                                             float scale, boolean ignoreResistances, Cause cause,
+                                             net.minecraft.world.entity.Entity origin) {
+        ChangeResult detailed = applyHealthChangeDetailed(entity, rawDelta, scale, ignoreResistances, cause, origin);
+        return new DamageApplication(detailed.status(), !detailed.committedPositive().isEmpty());
     }
 
     /** Applies EvenHealthChange's stable, group-sequential healing policy. */
@@ -223,11 +234,14 @@ public final class DamageSystem {
 
     /** Previews the ledger a health change would start from, without creating damage state. */
     public static Map<String, Float> existingOrVanillaBaseline(LivingEntity entity) {
-        if (entity == null || entity.level().isClientSide() || !entity.isAlive()) {
+        if (entity == null || entity.level().isClientSide() || entity.isRemoved()) {
             return Map.of();
         }
         DamageData stored = entity.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
-        return stored != null ? stored.getMap() : missingVanillaBaseline(entity);
+        // A retained medical corpse can have zero native health while its typed
+        // damage ledger remains authoritative. Never import a baseline for dead
+        // entities, but do keep exposing an already-existing ledger to consumers.
+        return stored != null ? stored.getMap() : entity.isAlive() ? missingVanillaBaseline(entity) : Map.of();
     }
 
     private static Map<String, Float> missingVanillaBaseline(LivingEntity entity) {
@@ -271,12 +285,14 @@ public final class DamageSystem {
             return;
         }
         String key = classify(source);
-        float typed = appliedDamage * TYPED_PER_HEALTH;
-        commit(entity, DamageReducer.applyDelta(existing(entity), Map.of(key, typed)));
-        com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, Map.of(key, typed));
+        Map<String, Float> delta = DamageReducer.externalDamageDelta(key, appliedDamage, existing(entity));
+        if (delta.isEmpty()) return;
+        float typed = delta.get(key);
+        commit(entity, DamageReducer.applyDelta(existing(entity), delta));
+        com.juicyslew.moonstation14.ms14.blood.BloodSystem.observeTypedDamage(entity, delta);
         NeoForge.EVENT_BUS.post(new AppliedDamageEvent(entity, typed,
                 ModDamageFeedback.server(causeFor(source).profile), source.getEntity()));
-        NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, Map.of(key, typed), source.getEntity()));
+        NeoForge.EVENT_BUS.post(new TypedDamageAppliedEvent(entity, delta, source.getEntity()));
     }
 
     /** Returns an unambiguous canonical fallback for an external source. */
@@ -417,7 +433,8 @@ public final class DamageSystem {
         FIRE(ModDamageFeedback.id("fire")),
         ELECTRICAL(ModDamageFeedback.id("electrical")),
         EXPLOSION(ModDamageFeedback.id("explosion")),
-        COMBAT(ModDamageFeedback.id("combat"));
+        COMBAT(ModDamageFeedback.id("combat")),
+        RADIATION(ModDamageFeedback.id("radiation"));
         private final net.minecraft.resources.ResourceLocation profile;
         Cause(net.minecraft.resources.ResourceLocation profile) { this.profile = profile; }
         public net.minecraft.resources.ResourceLocation profileId() { return profile; }
@@ -472,4 +489,6 @@ public final class DamageSystem {
         SKIPPED_UNSUPPORTED,
         FAILED
     }
+
+    public record DamageApplication(Result status, boolean positiveDamageAdmitted) { }
 }

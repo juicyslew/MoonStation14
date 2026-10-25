@@ -1,0 +1,17 @@
+{
+  "disabled": true,
+  "configuration": {
+    "version": 1,
+    "coordinator_endpoint": "http://127.0.0.1:<distinct-coordinator-listener-port>",
+    "targets": [
+      {
+        "target": "main",
+        "coordinator_config": "C:\\Users\\<user>\\AppData\\Local\\Temp\\opencode\\coordinator-config.json",
+        "roles": [
+          {"role":"author","agent":"<existing-author-agent>","caller":"<matching-author-caller>","session_id":"<existing-author-session>","worktree":"<configured-main-worktree>","token_file":"<matching-private-author-token>"},
+          {"role":"fidelity","agent":"workflow-reviewer-fidelity","caller":"<matching-fidelity-caller>","worktree":"<configured-main-worktree>","token_file":"<matching-private-fidelity-token>","profile_path":".opencode/agents/fidelity-reviewer.md"}
+        ]
+      }
+    ]
+  }
+}

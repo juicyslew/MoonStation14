@@ -44,3 +44,4 @@ final class HealthAnalyzerLifecycle {
                 last.totalDamage(), last.groups(), last.damage());
     }
 }
+

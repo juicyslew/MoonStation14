@@ -21,3 +21,4 @@ public record GhostOnMoveComponent(boolean mustBeDead, boolean canReturn) implem
 
     @Override public String type() { return TYPE; }
 }
+

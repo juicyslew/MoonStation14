@@ -84,6 +84,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
@@ -128,6 +129,8 @@ public class MoonStation14Client {
             new PrototypeCatalogSyncAssembler(PrototypeRuntime.clientManager()::publishEncodedCatalogs);
 
     public MoonStation14Client(IEventBus modEventBus, ModContainer container) {
+        modEventBus.addListener(com.juicyslew.moonstation14.entities.client.SingularityAmbientClient::registerReloadListener);
+        modEventBus.addListener(com.juicyslew.moonstation14.entities.client.SingularityRenderer::registerShaders);
         var analyzerWorkspace = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
         analyzerWorkspace.closeSender(request -> net.neoforged.neoforge.network.PacketDistributor.sendToServer(request));
         var chemMasterWorkspace = com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE;
@@ -170,8 +173,10 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerItemColors);
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
         modEventBus.addListener(MoonStation14Client::registerJugModels);
+        modEventBus.addListener(MoonStation14Client::registerEmitterImpactParticle);
         modEventBus.addListener(MoonStation14Client::onRegisterRenderers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.mobs.client.MouseMobRenderer::registerLayer);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.mobs.client.AnimalModelAdapters::registerLayers);
         modEventBus.addListener(MoonStation14Client::registerMenuScreens);
         modEventBus.addListener(LocalSpeechReviewKey::register);
         modEventBus.addListener(BodyHandClient::registerKeys);
@@ -210,11 +215,19 @@ public class MoonStation14Client {
                 (open, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.open(open.windowId(), open.session())),
                 (response, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.accept(response)),
                 (close, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.close(close.windowId(), close.session())));
+        com.juicyslew.moonstation14.ms14.atmos.tank.CanisterNetworking.installClientReceiver(
+                com.juicyslew.moonstation14.ms14.atmos.tank.client.CanisterClientCache::handle);
+        com.juicyslew.moonstation14.ms14.singularity.pa.control.PaControlNetworking.installClientReceiver(snapshot ->
+                Minecraft.getInstance().execute(() -> com.juicyslew.moonstation14.ms14.singularity.pa.control.client.PaControlWorkspace.INSTANCE.receive(snapshot)));
+        com.juicyslew.moonstation14.ms14.radiation.control.RadiationCollectorControlNetworking.installClientReceiver(snapshot ->
+                Minecraft.getInstance().execute(() -> com.juicyslew.moonstation14.ms14.radiation.control.client.RadiationCollectorControlClient.receive(snapshot)));
         BodyHandClient.install();
         com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().bind();
         TimedInteractionSnapshot.setClientHandler(snapshot -> Minecraft.getInstance().execute(() -> TimedInteractionClient.accept(snapshot)));
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
         NeoForge.EVENT_BUS.addListener(MachineUiGalleryCommands::register);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.player_body_control.client.MovementTraceClient::register);
+        NeoForge.EVENT_BUS.register(com.juicyslew.moonstation14.ms14.player_body_control.client.MovementTraceClient.class);
         com.juicyslew.moonstation14.ms14.ghost_roles.client.GhostRoleNetworking.installDefaultSnapshotRequester();
         com.juicyslew.moonstation14.ms14.ghost_roles.client.GhostRoleNetworking.installClientHandler(
                 com.juicyslew.moonstation14.ms14.ghost_roles.client.GhostRoleNetworking::handleClientPayload);
@@ -245,6 +258,8 @@ public class MoonStation14Client {
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems::bootstrapClientBundled);
+        event.enqueueWork(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks::bootstrapClientBundled);
+        event.enqueueWork(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals::bootstrapClientBundled);
         ModSpecialProperties.addCustomItemProperties(event);
         DisposalTubeBlock.setRecordProvider((level,pos) -> DISPOSAL_TUBES.get(level.dimension().location(),pos));
         DisposalConstructionClient.register();
@@ -274,6 +289,62 @@ public class MoonStation14Client {
     @SubscribeEvent
     public static void renderCableVisuals(RenderLevelStageEvent event) {
         CableVisualRenderer.render(event, CABLE_VISUALS);
+    }
+
+    private static void registerEmitterImpactParticle(RegisterParticleProvidersEvent event) {
+        event.registerSpriteSet(com.juicyslew.moonstation14.entities.ModEmitterImpactParticles.EMITTER_IMPACT.get(),
+                com.juicyslew.moonstation14.entities.client.EmitterImpactParticle.Provider::new);
+    }
+
+    @SubscribeEvent
+    public static void renderSingularityVisualPreview(RenderLevelStageEvent event) {
+        com.juicyslew.moonstation14.ms14.singularity.client.SingularityVisualPreview.render(event);
+    }
+
+    @SubscribeEvent
+    public static void registerSingularityPreviewCommand(net.neoforged.neoforge.client.event.RegisterClientCommandsEvent event) {
+        event.getDispatcher().register(com.mojang.brigadier.builder.LiteralArgumentBuilder.<net.minecraft.commands.CommandSourceStack>literal("ms14_singularity_visual_preview")
+                .then(com.mojang.brigadier.builder.RequiredArgumentBuilder.<net.minecraft.commands.CommandSourceStack, Integer>argument("level", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 6))
+                        .executes(context -> { com.juicyslew.moonstation14.ms14.singularity.client.SingularityVisualPreview.preview(
+                                com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "level")); return 1; })));
+        event.getDispatcher().register(com.mojang.brigadier.builder.LiteralArgumentBuilder.<net.minecraft.commands.CommandSourceStack>literal("ms14_singularity_visual_clear")
+                .executes(context -> { com.juicyslew.moonstation14.ms14.singularity.client.SingularityVisualPreview.clear(); return 1; }));
+        event.getDispatcher().register(com.mojang.brigadier.builder.LiteralArgumentBuilder.<net.minecraft.commands.CommandSourceStack>literal("ms14_singularity_visual_reduced_motion")
+                .executes(context -> { com.juicyslew.moonstation14.ms14.singularity.client.SingularityVisualPreview.toggleReducedMotion(); return 1; }));
+        event.getDispatcher().register(com.mojang.brigadier.builder.LiteralArgumentBuilder.<net.minecraft.commands.CommandSourceStack>literal("ms14_singularity_visual_status")
+                .executes(context -> {
+                    var mc = Minecraft.getInstance();
+                    var source = context.getSource();
+                    String nativePa = com.juicyslew.moonstation14.ms14.singularity.client.SingularityVisualPreview.nativePaDiagnostic();
+                    source.sendSuccess(() -> net.minecraft.network.chat.Component.literal("Singularity visuals: reducedMotion="
+                            + com.juicyslew.moonstation14.ms14.singularity.client.SingularityVisualPreview.reducedMotion()
+                            + " " + com.juicyslew.moonstation14.ms14.singularity.client.SingularityVisualPreview.diagnosticStatus()
+                            + " renderDistanceChunks=" + (mc.options == null ? "?" : mc.options.renderDistance().get())
+                            + " profileKeys=" + com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.clientManager()
+                            .snapshot(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE).asMap().keySet()
+                            + " " + nativePa), false);
+                    if (mc.level == null || mc.player == null) {
+                        source.sendSuccess(() -> net.minecraft.network.chat.Component.literal("No client level/player"), false);
+                        return 1;
+                    }
+                    var camera = mc.gameRenderer.getMainCamera().getPosition();
+                    for (var entity : mc.level.getEntitiesOfClass(com.juicyslew.moonstation14.entities.SingularityEntity.class,
+                            mc.player.getBoundingBox().inflate(4096), e -> !e.isRemoved()).stream().limit(5).toList()) {
+                        int level = entity.singularityLevel();
+                        var profile = com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.get(level);
+                        double cameraDistance = entity.position().distanceTo(camera);
+                        double playerDistance = entity.distanceTo(mc.player);
+                        source.sendSuccess(() -> net.minecraft.network.chat.Component.literal("Live " + entity.getUUID()
+                                + " level=" + level + " pos=" + entity.position() + " energy=" + entity.energy()
+                                + " profile=" + (profile == null ? "MISSING" : "ready/frame=" + profile.frameWidthPixels()
+                                + "/sprite=" + com.juicyslew.moonstation14.MoonStation14.MOD_ID + ":textures/singularity/singularity_" + level + ".png")
+                                + " cameraDist=" + String.format(java.util.Locale.ROOT, "%.1f", cameraDistance)
+                                + " playerDist=" + String.format(java.util.Locale.ROOT, "%.1f", playerDistance)
+                                + " " + com.juicyslew.moonstation14.entities.client.SingularityRenderer.diagnosticSnapshot(entity.getUUID())), false);
+                        if (profile == null) MoonStation14.LOGGER.warn("No singularity visual profile for live level {} entity {}", level, entity.getUUID());
+                    }
+                    return 1;
+                }));
     }
 
     @SubscribeEvent public static void renderDisposalTubes(RenderLevelStageEvent event) {
@@ -949,6 +1020,8 @@ public class MoonStation14Client {
         }
         com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer.additionalModels()
                 .forEach(event::register);
+        com.juicyslew.moonstation14.ms14.atmos.tank.client.GasCanisterRenderer.additionalModels()
+                .forEach(event::register);
         com.juicyslew.moonstation14.ms14.botany.client.HydroponicsTrayBlockEntityRenderer.additionalModels()
                 .forEach(event::register);
     }
@@ -959,11 +1032,18 @@ public class MoonStation14Client {
         event.registerBlockEntityRenderer(ModBlockEntities.REAGENT_GRINDER.get(), com.juicyslew.moonstation14.ms14.botany.client.ReagentGrinderBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.LOOSE_ITEM.get(), LooseItemRenderer::new);
         event.registerEntityRenderer(ModEntities.TYPED_PROJECTILE.get(), com.juicyslew.moonstation14.ms14.combat.client.TypedProjectileRenderer::new);
+        event.registerEntityRenderer(ModEntities.GAS_CANISTER.get(), com.juicyslew.moonstation14.ms14.atmos.tank.client.GasCanisterRenderer::new);
         event.registerEntityRenderer(ModEntities.MOUSE.get(), com.juicyslew.moonstation14.ms14.mobs.client.MouseMobRenderer::new);
+        com.juicyslew.moonstation14.entities.AnimalMobRegistration.types().forEach((modelId, type) ->
+                event.registerEntityRenderer(type.get(), context ->
+                        new com.juicyslew.moonstation14.ms14.mobs.client.AnimalMobRenderer(context, modelId)));
         // This is the simplest 2D renderer. It just draws the Item's icon.
         event.registerEntityRenderer(ModEntities.THROWN_JUG.get(), ThrownItemRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.VISUAL_PIPE.get(), VisualPipeBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.THROWN_GRENADE.get(), ThrownItemRenderer::new);
+        event.registerEntityRenderer(ModEntities.EMITTER_BOLT.get(), com.juicyslew.moonstation14.entities.client.EmitterBoltRenderer::new);
+        event.registerEntityRenderer(ModEntities.PA_PARTICLE.get(), com.juicyslew.moonstation14.entities.client.ParticleAcceleratorParticleRenderer::new);
+        event.registerEntityRenderer(ModEntities.SINGULARITY.get(), com.juicyslew.moonstation14.entities.client.SingularityRenderer::new);
         event.registerEntityRenderer(ModEntities.DISPOSAL_TRANSIT_HOLDER.get(), context -> new net.minecraft.client.renderer.entity.EntityRenderer<>(context) {
             @Override public net.minecraft.resources.ResourceLocation getTextureLocation(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder entity) {
                 return net.minecraft.resources.ResourceLocation.withDefaultNamespace("textures/misc/white.png");
@@ -1147,6 +1227,7 @@ final class MoonStation14ClientNetworkEvents {
 
     @SubscribeEvent
     public static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+        com.juicyslew.moonstation14.entities.client.SingularityRenderer.clearDiagnostics();
         LocalSpeechClient.clear();
         BodyHandClient.reset();
         MoonStation14Client.clearCatalogSync();
@@ -1158,6 +1239,8 @@ final class MoonStation14ClientNetworkEvents {
     @SubscribeEvent
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         com.juicyslew.moonstation14.ms14.combat.client.GunMuzzleFlashClient.clear();
+        com.juicyslew.moonstation14.entities.client.SingularityRenderer.clearDiagnostics();
+        com.juicyslew.moonstation14.ms14.singularity.client.SingularityVisualPreview.clear();
         LocalSpeechClient.clear();
         BodyHandClient.reset();
         MoonStation14Client.clearCatalogSync();
@@ -1184,3 +1267,4 @@ final class MoonStation14ClientNetworkEvents {
         MoonStation14Client.flushPendingAtmosphere(level);
     }
 }
+

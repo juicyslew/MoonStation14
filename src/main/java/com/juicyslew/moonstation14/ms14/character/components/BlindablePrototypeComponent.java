@@ -15,3 +15,4 @@ public record BlindablePrototypeComponent() implements CharacterComponent {
 
     @Override public String type() { return TYPE; }
 }
+

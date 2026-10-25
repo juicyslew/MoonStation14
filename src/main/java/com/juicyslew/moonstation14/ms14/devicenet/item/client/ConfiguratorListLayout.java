@@ -10,3 +10,4 @@ public final class ConfiguratorListLayout {
     private ConfiguratorListLayout(){}
     public static Rect row(int index){return new Rect(12,ROW_TOP+index*ROW_HEIGHT-2,316,17);}
 }
+

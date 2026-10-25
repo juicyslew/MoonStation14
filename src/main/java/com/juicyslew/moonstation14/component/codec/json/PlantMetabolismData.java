@@ -221,3 +221,4 @@ public sealed interface PlantMetabolismData permits
         @Override public String type() { return "PlantAdjustPotency"; }
     }
 }
+

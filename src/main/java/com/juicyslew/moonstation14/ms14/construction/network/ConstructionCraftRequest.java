@@ -16,3 +16,4 @@ public record ConstructionCraftRequest(long epoch, long sequence, long handsRevi
     public ConstructionCraftRequest { if(epoch<=0||sequence<=0||handsRevision<0||recipe==null||recipe.isBlank()||recipe.length()>256||(!cancel&&(quantity<1||quantity>CraftQueue.MAX_QUANTITY))||cancel&&quantity!=0)throw new IllegalArgumentException("Invalid craft request"); }
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

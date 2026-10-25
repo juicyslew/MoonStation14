@@ -14,3 +14,4 @@ public record StripTargetBinding(UUID uuid, int entityId, ResourceKey<Level> dim
         return uuid.equals(candidateUuid) && entityId == candidateEntityId && dimension.equals(candidateDimension);
     }
 }
+

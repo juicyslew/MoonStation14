@@ -26,3 +26,4 @@ public final class ChemMasterMergeStrategy implements PrototypeMergeStrategy {
         return result;
     }
 }
+

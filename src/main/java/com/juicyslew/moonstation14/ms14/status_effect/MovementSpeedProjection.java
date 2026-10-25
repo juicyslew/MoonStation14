@@ -62,3 +62,4 @@ public final class MovementSpeedProjection {
                 id, amount, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
     }
 }
+

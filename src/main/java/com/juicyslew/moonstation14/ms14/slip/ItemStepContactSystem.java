@@ -34,7 +34,8 @@ public final class ItemStepContactSystem {
             var profile = com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile
                     .resolveForStack(source.getItem(), false);
             var override = source.getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.ITEM_SLIPPERY_COMPOSITION.get());
-            var trigger = profile.stepTrigger() != null ? profile.stepTrigger() : override == null ? null : override.stepTrigger();
+            var trigger = com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile
+                    .resolveStepTriggerForStack(source.getItem(), false);
             var response = override != null ? override.response() : profile.slippery();
             if (trigger == null) continue;
             if (profile.preventableStepTrigger()

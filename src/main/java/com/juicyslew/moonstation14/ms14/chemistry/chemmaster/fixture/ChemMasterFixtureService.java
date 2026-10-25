@@ -109,3 +109,4 @@ public final class ChemMasterFixtureService {
     }
     private static void place(ServerLevel l,BlockPos p,PowerDeviceKind kind,Direction facing){if(kind==PowerDeviceKind.APC){if(!PowerDeviceFixturePlacement.placeApc(l,p,facing))throw new IllegalStateException("ChemMaster fixture APC support/placement failed at "+p);return;}var b=switch(kind){case HV_SOURCE->ModBlocks.HV_SOURCE.get();case HV_MV_SUBSTATION->ModBlocks.HV_MV_SUBSTATION.get();default->throw new IllegalArgumentException();};l.setBlock(p,b.defaultBlockState().setValue(PowerDeviceBlock.FACING,facing),3);}
 }
+

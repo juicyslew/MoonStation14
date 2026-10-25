@@ -8,3 +8,4 @@ public record DeviceFrequency(int frequency) {
             Codec.INT.fieldOf("frequency").forGetter(DeviceFrequency::frequency)).apply(i, DeviceFrequency::new));
     public DeviceFrequency { if (frequency < 1 || frequency > 9999) throw new IllegalArgumentException("frequency out of range"); }
 }
+

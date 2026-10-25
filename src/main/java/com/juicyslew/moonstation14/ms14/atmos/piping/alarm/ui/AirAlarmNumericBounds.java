@@ -18,3 +18,4 @@ public final class AirAlarmNumericBounds {
                     ? MAX_PRESSURE_KPA : MAX_VOLUME_RATE_M3_PER_SECOND);
     }
 }
+

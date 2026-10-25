@@ -9,3 +9,4 @@ public final class BodyWorldRenderPolicy {
         return !(locallyOwnedBody && cameraBoundToBody && firstPerson);
     }
 }
+

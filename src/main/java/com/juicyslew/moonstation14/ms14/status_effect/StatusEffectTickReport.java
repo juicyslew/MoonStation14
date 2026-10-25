@@ -12,3 +12,4 @@ public record StatusEffectTickReport(
         changes = List.copyOf(Objects.requireNonNull(changes, "changes"));
     }
 }
+

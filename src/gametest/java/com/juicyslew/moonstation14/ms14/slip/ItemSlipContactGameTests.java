@@ -37,13 +37,17 @@ public final class ItemSlipContactGameTests {
     public static void acceptedMovementContactsResolvedSlipperyItemComposition(GameTestHelper helper) {
         FakePlayer player = null;
         AtomicInteger puddleEvents = new AtomicInteger();
-        java.util.function.Consumer<SlipEvent> listener = ignored -> puddleEvents.incrementAndGet();
+        java.util.concurrent.atomic.AtomicReference<UUID> fixtureActor = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.function.Consumer<SlipEvent> listener = event -> {
+            if (event.target().getUUID().equals(fixtureActor.get())) puddleEvents.incrementAndGet();
+        };
         boolean listening = false;
         try {
             ServerLevel level = (ServerLevel) helper.getLevel();
             BlockPos floor = new BlockPos(2, 0, 2);
             helper.setBlock(floor, Blocks.STONE);
             player = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "item-slip-contact"));
+            fixtureActor.set(player.getUUID());
             putAt(player, helper, floor.above());
             require(level.addFreshEntity(player), "FakePlayer/ServerPlayer added to test level");
             SlipSystem.addListener(listener);
@@ -94,16 +98,27 @@ public final class ItemSlipContactGameTests {
         AtomicInteger gates = new AtomicInteger();
         AtomicInteger events = new AtomicInteger();
         java.util.concurrent.atomic.AtomicBoolean reject = new java.util.concurrent.atomic.AtomicBoolean(true);
+        java.util.concurrent.atomic.AtomicReference<FakePlayer> fixtureActor = new java.util.concurrent.atomic.AtomicReference<>();
         java.util.concurrent.atomic.AtomicReference<LooseItemEntity> fixtureSource = new java.util.concurrent.atomic.AtomicReference<>();
-        java.util.function.Predicate<ItemStepContactSystem.TriggerContext> gate = attempt -> { gates.incrementAndGet(); return !reject.get(); };
-        java.util.function.Predicate<ItemStepContactSystem.TriggerContext> latchObserver = attempt -> { gates.incrementAndGet(); return true; };
-        java.util.function.Consumer<SlipEvent> listener = ignored -> events.incrementAndGet();
+        java.util.function.Predicate<ItemStepContactSystem.TriggerContext> gate = attempt -> {
+            if (attempt.target() != fixtureActor.get() || attempt.source() != fixtureSource.get()) return true;
+            gates.incrementAndGet();
+            return !reject.get();
+        };
+        java.util.function.Predicate<ItemStepContactSystem.TriggerContext> latchObserver = attempt -> {
+            if (attempt.target() == fixtureActor.get() && attempt.source() == fixtureSource.get()) gates.incrementAndGet();
+            return true;
+        };
+        java.util.function.Consumer<SlipEvent> listener = event -> {
+            if (event.target() == fixtureActor.get()) events.incrementAndGet();
+        };
         boolean gateAdded = false, listenerAdded = false;
         try {
             ServerLevel level = (ServerLevel) helper.getLevel();
             BlockPos floor = new BlockPos(2, 0, 2);
             for (int x = 1; x <= 7; x++) helper.setBlock(new BlockPos(x, 0, 2), Blocks.STONE);
             player = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "item-slip-retry"));
+            fixtureActor.set(player);
             putAt(player, helper, floor.above());
             require(level.addFreshEntity(player), "FakePlayer added");
             gateAdded = ItemStepContactSystem.addTriggerGate(gate);

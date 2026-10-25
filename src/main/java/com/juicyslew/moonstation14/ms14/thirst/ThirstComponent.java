@@ -32,3 +32,4 @@ public record ThirstComponent(float thirst) implements IMS14Component<ThirstComp
     @Override public Codec<ThirstComponent> getCodec() { return CODEC; }
     @Override public StreamCodec<RegistryFriendlyByteBuf, ThirstComponent> getStreamCodec() { return STREAM_CODEC; }
 }
+

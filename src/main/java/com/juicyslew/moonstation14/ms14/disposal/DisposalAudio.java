@@ -34,3 +34,4 @@ public final class DisposalAudio {
         level.playSound(null, pos, ModSounds.DISPOSAL_PIPE_CLANG.get(), SoundSource.BLOCKS, PIPE_CLANG_GAIN, 1.0F);
     }
 }
+

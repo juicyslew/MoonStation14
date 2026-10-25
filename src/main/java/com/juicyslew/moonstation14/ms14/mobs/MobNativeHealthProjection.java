@@ -25,3 +25,4 @@ public final class MobNativeHealthProjection {
 
     public record Result(double maxHealth, double health, boolean lockedDead) { }
 }
+

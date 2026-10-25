@@ -19,3 +19,4 @@ public final class ModJugs {
     public static JugData resolved(Level level) { return level == null ? null : catalog(level).get(JUG_ID); }
     public static JugData serverResolved() { return PrototypeRuntime.serverJugs().get(JUG_ID); }
 }
+

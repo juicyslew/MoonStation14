@@ -63,9 +63,19 @@ public record CharacterMovementPolicy(double accelerationPerSecondSquared,
                 groundFrictionNoInputPerSecond * factor, minimumFrictionSpeed);
     }
 
+    /** Converts an absolute NPC task speed into the motor's selected resolved walk/sprint speed factor. */
+    public double factorForAbsoluteSpeed(double absoluteSpeedPerSecond, boolean sprint) {
+        if (!Double.isFinite(absoluteSpeedPerSecond) || absoluteSpeedPerSecond < 0d)
+            throw new IllegalArgumentException("absolute speed must be finite and nonnegative");
+        double profileSpeed = sprint ? sprintSpeedPerSecond : walkSpeedPerSecond;
+        if (profileSpeed <= 0d) throw new IllegalArgumentException("selected profile speed must be positive");
+        return absoluteSpeedPerSecond / profileSpeed;
+    }
+
     private static void requireNonnegative(double value, String name) {
         if (!Double.isFinite(value) || value < 0d) {
             throw new IllegalArgumentException(name + " must be finite and nonnegative");
         }
     }
 }
+

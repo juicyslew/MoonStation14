@@ -13,3 +13,4 @@ public final class InteractionReach {
         return Double.isFinite(baseReach) && baseReach >= 0 ? baseReach + MINECRAFT_ADDITION : Double.NaN;
     }
 }
+

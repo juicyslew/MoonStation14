@@ -28,6 +28,17 @@ class LifecycleCharacterSessionControlTest {
     }
 
     @Test
+    void trustedDevelopmentCommitAuthorizesMovementWithoutOrdinaryRoleButOrdinaryDenyStillWins() {
+        var development = LifecycleGhostSessionControl.OfferOrigin.OPERATOR_DEVELOPMENT;
+        var ordinary = LifecycleGhostSessionControl.OfferOrigin.NORMAL_GHOST_ROLE;
+        assertTrue(LifecycleCharacterSessionControl.roleMovementAllowed(true, false, false, development, true));
+        assertFalse(LifecycleCharacterSessionControl.roleMovementAllowed(true, false, false, development, false));
+        assertFalse(LifecycleCharacterSessionControl.roleMovementAllowed(true, true, false, ordinary, true));
+        assertFalse(LifecycleCharacterSessionControl.roleMovementAllowed(true, false, false, ordinary, true));
+        assertTrue(LifecycleCharacterSessionControl.roleMovementAllowed(false, false, false, development, false));
+    }
+
+    @Test
     void reconnectRestoresOnlyExactlyBoundOrdinaryRoleBodies() {
         assertTrue(LifecycleCharacterSessionControl.reconnectRoleDecision(false, true, true));
         assertFalse(LifecycleCharacterSessionControl.reconnectRoleDecision(false, true, false));
@@ -147,17 +158,20 @@ class LifecycleCharacterSessionControlTest {
     @Test void intentGateEnforcesEpochRateAndStrictSequenceWithoutApplyingAnythingWhenUnused() {
         GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
         assertFalse(LifecycleCharacterSessionControl.intentRateAllows(0));
-        assertTrue(LifecycleCharacterSessionControl.intentRateAllows(8));
-        assertFalse(LifecycleCharacterSessionControl.intentRateAllows(9));
+        assertTrue(LifecycleCharacterSessionControl.intentRateAllows(64));
+        assertFalse(LifecycleCharacterSessionControl.intentRateAllows(65));
         GhostControlPayloads.Intent intent = intent(4, 1);
-        assertTrue(gate.offer(intent.sequence(), 12, intent));
-        assertFalse(gate.offer(intent.sequence(), 13, intent));
-        assertFalse(gate.offer(2, 12, intent));
-        assertEquals(intent, gate.take());
-        assertTrue(gate.offer(3, 13, intent(4, 3)));
-        assertEquals(3, gate.take().sequence());
-        assertFalse(gate.offer(4, 13, intent(5, 4)));
-        assertEquals(null, gate.take());
+        assertTrue(gate.offer(intent.sequence(), intent));
+        assertFalse(gate.offer(intent.sequence(), intent));
+        assertFalse(gate.offer(1, intent));
+        GhostControlPayloads.Intent third = intent(4, 3);
+        assertTrue(gate.offer(third.sequence(), third));
+        assertEquals(java.util.List.of(intent, third), gate.takeBatch(100));
+        assertEquals(java.util.List.of(), gate.takeBatch(100));
+        assertTrue(gate.offer(4, intent(4, 4)));
+        assertEquals(java.util.List.of(), gate.takeBatch(100));
+        assertEquals(java.util.List.of(), gate.takeBatch(99));
+        assertEquals(java.util.List.of(intent(4, 4)), gate.takeBatch(101));
     }
 
     @Test void snapshotsMustRemainBoundToCommittedCharacterEpochAndEntity() {

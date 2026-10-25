@@ -17,3 +17,4 @@ public final class ModChemMasters {
     public static PrototypeCatalog<ChemMasterData> catalog(Level level) { return level.isClientSide() ? PrototypeRuntime.clientChemMasters() : PrototypeRuntime.serverChemMasters(); }
     public static ChemMasterData resolved(Level level, ResourceLocation id) { return level == null ? null : catalog(level).get(id); }
 }
+

@@ -20,3 +20,4 @@ public record DeviceComposition(List<DevicePort> sources, List<DevicePort> sinks
  /** Bind the generated/persisted endpoint address; addressPrefix is only a generation hint. */
   public DeviceComposition withAddress(String address) { return new DeviceComposition(sources, sinks, network.map(net -> net.withAddress(address)), deviceList, sourceConfig, sinkConfig, connection,soundOnOverload); }
 }
+

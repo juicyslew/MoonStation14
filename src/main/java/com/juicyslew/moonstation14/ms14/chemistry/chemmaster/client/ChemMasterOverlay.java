@@ -195,3 +195,4 @@ final class ChemMasterOverlay implements PointerOverlayWindow {
     @Override public void clearTextFocus(){if(window.outputEditors!=null)window.outputEditors.clearFocus();}
     @Override public void resetOwnedContext(){clearTextFocus();workspace.closeLocal(window);}
 }
+

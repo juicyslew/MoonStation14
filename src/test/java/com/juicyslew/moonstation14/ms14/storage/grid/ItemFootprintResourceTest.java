@@ -28,10 +28,10 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(66, raw.size());
+        assertEquals(72, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(61, resolved.size());
+        assertEquals(67, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -39,7 +39,7 @@ class ItemFootprintResourceTest {
                 "network_configurator", "remote_signaller", "remote_signaller_advanced", "signal_button", "signal_switch",
                 "beaker", "beaker_large", "chem_master", "black_bandana", "black_gloves", "black_shoes",
                 "blank_id_card", "earpieces", "glasses", "grey_cap", "grey_jumpsuit", "red_tie", "simple_coat",
-                "utility_case", "pill", "pill_canister"};
+                "utility_case", "pill", "pill_canister", "mothroach_normal", "hamster_tiny", "plasma_tank", "suit_rad", "hood_rad", "meatwheat_seeds", "meatwheat_bushel"};
         for (String name : coreItems) assertTrue(resolved.get(id(name)) != null, "missing profile " + name);
 
         assertCounts(resolved, 4, "steel", "glass", "plastic", "cloth", "wood", "jug",
@@ -52,7 +52,7 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(61, catalog.size());
+        assertEquals(67, catalog.size());
         var pocket = new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData(java.util.List.of(
                 new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.Slot("pocket1", "Pocket",
                         ResourceLocation.withDefaultNamespace("test"), "Default", 0, 0, java.util.List.of(
@@ -73,11 +73,33 @@ class ItemFootprintResourceTest {
         assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id("poppy")).itemSize());
         assertTrue(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fitsPocket(pocket, "pocket1",
                 catalog.get(id("poppy")), 1, 64, java.util.Set.of()));
+        for (String item : new String[]{"meatwheat_seeds"}) {
+            assertEquals(1, catalog.get(id(item)).cells().size(), item + " resolves Tiny footprint");
+            assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id(item)).itemSize(), item);
+            assertTrue(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fitsPocket(pocket, "pocket1",
+                    catalog.get(id(item)), 1, 64, java.util.Set.of()), item + " fits pocket");
+        }
+        for (String item : new String[]{"meatwheat_bushel"}) {
+            assertEquals(2, catalog.get(id(item)).cells().size(), item + " resolves Small footprint");
+            assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id(item)).itemSize(), item);
+            assertTrue(com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fitsPocket(pocket, "pocket1",
+                    catalog.get(id(item)), 1, 64, java.util.Set.of()), item + " fits pocket");
+        }
         for (String item : new String[]{"pill", "pill_canister"}) {
             assertEquals(java.util.List.of(new GridGeometry.Cell(0, 0)), catalog.get(id(item)).cells(),
                     item + " resolves inherited tiny footprint");
             assertFalse(catalog.get(id(item)).cells().isEmpty(), item + " must have a usable footprint");
         }
+        assertEquals(4, catalog.get(id("mothroach_normal")).cells().size());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Normal), catalog.get(id("mothroach_normal")).itemSize());
+        assertEquals(1, catalog.get(id("hamster_tiny")).cells().size());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("hamster_tiny")).itemSize());
+        assertEquals(4, catalog.get(id("plasma_tank")).cells().size());
+        assertEquals(9, catalog.get(id("suit_rad")).cells().size());
+        assertEquals(1, catalog.get(id("hood_rad")).cells().size());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Normal), catalog.get(id("plasma_tank")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Huge), catalog.get(id("suit_rad")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id("hood_rad")).itemSize());
         assertEquals(catalog.get(id("wirecutter")).cells(), catalog.get(id("screwdriver")).cells());
         for (String item : new String[]{"screwdriver", "crowbar", "wirecutter", "multitool", "atmosphere_analyzer"})
             assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id(item)).itemSize(), item);
@@ -96,6 +118,16 @@ class ItemFootprintResourceTest {
         assertEquals(1, catalog.get(id("signal_button")).cells().size());
         assertEquals(1, catalog.get(id("signal_switch")).cells().size());
         assertTrue(catalog.get(id("bag")).cells().contains(new GridGeometry.Cell(3, 3)));
+    }
+
+    @Test
+    void portableBodyFootprintsKeepCarrierGeometryBodySpecificForGridAdmission() throws IOException {
+        var catalog = PrototypeResolver.resolve(loadResources());
+        assertCounts(catalog, 4, "mothroach_normal");
+        assertCounts(catalog, 1, "hamster_tiny");
+        assertCounts(catalog, 4, "plasma_tank");
+        assertCounts(catalog, 9, "suit_rad");
+        assertCounts(catalog, 1, "hood_rad");
     }
 
     @Test void pocketAdmissionUsesExplicitPhysicalSizeAndNeverInfersItFromFootprintGeometry() {

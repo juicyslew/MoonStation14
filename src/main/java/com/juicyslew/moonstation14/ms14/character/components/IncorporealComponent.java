@@ -14,3 +14,4 @@ public record IncorporealComponent() implements CharacterComponent {
     }));
     @Override public String type() { return TYPE; }
 }
+

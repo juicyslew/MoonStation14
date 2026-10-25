@@ -91,3 +91,4 @@ public final class CableVisualAdjacency {
         return possible.indexOf(neighbor);
     }
 }
+

@@ -49,3 +49,4 @@ final class OwnershipClaimPlan {
     List<BlockPos> uncommittedPositions() { return positions.subList(cursor, positions.size()); }
     boolean dependsOn(ChunkPos chunk) { return chunks.contains(chunk); }
 }
+

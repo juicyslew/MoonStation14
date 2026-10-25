@@ -5,7 +5,7 @@ final class ExternalFlightPredictionPolicy {
     private int remaining;
 
     void reset(int ticks) {
-        if (ticks < 0 || ticks > 6) throw new IllegalArgumentException("flight ticks must be within [0,6]");
+        if (ticks < 0) throw new IllegalArgumentException("flight ticks must be nonnegative");
         remaining = ticks;
     }
 
@@ -17,3 +17,4 @@ final class ExternalFlightPredictionPolicy {
 
     void clear() { remaining = 0; }
 }
+

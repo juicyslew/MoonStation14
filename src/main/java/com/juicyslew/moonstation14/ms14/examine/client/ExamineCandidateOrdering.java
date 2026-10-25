@@ -22,3 +22,4 @@ public final class ExamineCandidateOrdering {
         return List.copyOf(sorted.subList(0, Math.min(maximum, sorted.size())));
     }
 }
+

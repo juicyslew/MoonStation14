@@ -4,9 +4,9 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
+import com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyWorldGridAction;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
-import com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
 import net.minecraft.server.level.ServerLevel;
@@ -106,10 +106,16 @@ public final class BodyWorldGridTransfer {
                 || host.getItem() != reference || !same(copy, reference) || GridContents.read(copy).isEmpty()
                 || !BodyItemTargetProbe.reachableStorageHost(level, body, host, 5))
             return Result.DENIED;
+        ItemStack bodySource = mode == Mode.STORE ? beforeStack(body, hand) : ItemStack.EMPTY;
+        if (mode == Mode.STORE && PortableBodyCarrying.containsPortableReferences(bodySource)
+                && !PortableBodyKeys.isKeyItem(bodySource)) return Result.DENIED;
         if (!sameOwners(body, host, level) || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || !unchangedWorld(host, level, reference, copy, position)) return Result.DENIED;
         var contents = GridContents.read(copy).orElseThrow();
         List<GridContents.Entry> entries = new ArrayList<>(contents.entries());
+        if (PortableBodyCarrying.containsPortableReferences(copy)
+                && !PortableBodyCarrying.worldRootReferencesOwned(level, host.getUUID(), copy))
+            return Result.DENIED;
         // Reject collisions with hand and equipment tokens, including unrelated existing children.
         for (String id : before.handIds()) {
             String owned = before.token(id).orElse(null);
@@ -126,6 +132,12 @@ public final class BodyWorldGridTransfer {
         try {
             if (mode == Mode.STORE) {
                 if (child != null) return Result.DENIED;
+                ItemStack incoming = before.stackCopy(hand).orElse(ItemStack.EMPTY);
+                var incomingRef = PortableBodyKeys.reference(incoming);
+                if (incomingRef != null && entries.stream().filter(e -> PortableBodyKeys.isKeyItem(e.stack()))
+                        .map(e -> PortableBodyKeys.reference(e.stack()))
+                        .anyMatch(existingRef -> existingRef != null && existingRef.body().equals(incomingRef.body())))
+                    return Result.DENIED;
                 LiveHands.WholeResult cleared = before.takeWhole(revision, hand, new ItemToken(token));
                 if (!cleared.succeeded()) return Result.DENIED;
                 stagedBody = cleared.state();
@@ -142,9 +154,9 @@ public final class BodyWorldGridTransfer {
                 } else {
                     LiveHands.WholeResult filled = before.putWhole(revision, hand, new ItemToken(token), child.stack());
                     if (!filled.succeeded()) return Result.DENIED;
-                    finalBody = MeleeSelectionCooldown.stageSelectedInsertion(body, before, filled.state());
-                    entries.remove(child);
-                    stagedWorld = GridContents.applyCopyWithGrid(copy, GridContents.of(entries)).orElse(null);
+                    finalBody = com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown
+                            .stageSelectedInsertion(body, before, filled.state());
+                    stagedWorld = prepareGridRemoval(copy, child);
                     finalWorld = stagedWorld;
                 }
             }
@@ -152,6 +164,15 @@ public final class BodyWorldGridTransfer {
         if (finalWorld == null || mode == Mode.TAKE && !BodyHandStateService.representable(finalBody, body)
                 || mode == Mode.STORE && !BodyHandStateService.representable(stagedBody, body)
                 || !ready(body, host, level, before, reference, copy, position, valid)) return Result.DENIED;
+
+        GridContents.Entry portableChild = mode == Mode.STORE
+                ? entries.stream().filter(e -> PortableBodyKeys.isKeyItem(e.stack())).findFirst().orElse(null)
+                : mode == Mode.TAKE && child != null && PortableBodyKeys.isKeyItem(child.stack()) ? child : null;
+        if (mode == Mode.STORE && before.stackCopy(hand)
+                .filter(PortableBodyKeys::isKeyItem).isPresent() || mode == Mode.TAKE && portableChild != null) {
+            return transferPortableKey(body, host, level, before, reference, copy, position, finalWorld,
+                    stagedBody, finalBody, hand, token, mode, portableChild, valid);
+        }
 
         if (mode == Mode.STORE) {
             try { LiveHandsCommitGateway.commitOwned(body, stagedBody); }
@@ -173,8 +194,7 @@ public final class BodyWorldGridTransfer {
                     || host.hasPickUpDelay() || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != stagedBody
                     || !same(finalWorld, host.getItem())) return Result.RECOVERY_REQUIRED;
         } else {
-            try { host.setItem(finalWorld); }
-            catch (RuntimeException failure) {
+            if (!publishGridRoot(host, reference, copy, finalWorld)) {
                 return unchangedWorld(host, level, reference, copy, position)
                         && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before ? Result.DENIED : Result.RECOVERY_REQUIRED;
             }
@@ -198,6 +218,108 @@ public final class BodyWorldGridTransfer {
                     || host.getTarget() != null || host.hasPickUpDelay()) return Result.RECOVERY_REQUIRED;
         }
         return Result.SUCCESS;
+    }
+
+    private static Result transferPortableKey(LivingEntity body, ItemEntity host, ServerLevel level,
+            LiveHands before, ItemStack reference, ItemStack copy, Vec3 position, ItemStack finalWorld,
+            LiveHands stagedBody, LiveHands finalBody, String hand, String token, Mode mode,
+            GridContents.Entry child, BooleanSupplier valid) {
+        if (child == null || !PortableBodyKeys.isKey(child.stack()) || child.stack().getCount() != 1) return Result.DENIED;
+        var portableRef = PortableBodyKeys.reference(child.stack());
+        LivingEntity portableBody = portableRef == null || !portableRef.dimension().equals(level.dimension().location())
+                ? null : level.getEntity(portableRef.body()) instanceof LivingEntity living ? living : null;
+        if (portableBody == null || !com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(portableBody, level))
+            return Result.DENIED;
+        var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
+        var previousOwner = containment.registeredOwnerOf(portableBody).orElse(null);
+        if (!(previousOwner instanceof PortableBodyCarrierOwner carrierOwner && carrierOwner.carrier() == body)
+                && !(previousOwner instanceof PortableWorldStorageOwner worldOwner
+                && worldOwner.reference().equals(portableRef))) return Result.DENIED;
+        PortableWorldStorageOwner worldOwner = new PortableWorldStorageOwner(level, host.getUUID(), child.token(), portableRef);
+        if (mode == Mode.STORE) {
+            if (!(previousOwner instanceof PortableBodyCarrierOwner) || !ready(body, host, level, before,
+                    reference, copy, position, valid)) return Result.DENIED;
+            try { host.setItem(finalWorld); }
+            catch (RuntimeException failure) { return unchangedWorld(host, level, reference, copy, position) ? Result.DENIED : Result.RECOVERY_REQUIRED; }
+            if (!same(finalWorld, host.getItem()) || !containment.transfer(portableBody, previousOwner, worldOwner)) {
+                restoreWorldAndOwner(host, finalWorld, copy, position, portableBody, containment, previousOwner, worldOwner);
+                return Result.DENIED;
+            }
+            try { LiveHandsCommitGateway.commitOwned(body, before, stagedBody); }
+            catch (RuntimeException failure) {
+                boolean restored = restoreWorldAndOwner(host, finalWorld, copy, position, portableBody, containment,
+                        previousOwner, worldOwner);
+                return restored && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
+                        ? Result.DENIED : Result.RECOVERY_REQUIRED;
+            }
+            return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == stagedBody
+                    && host.getItem() != reference && same(finalWorld, host.getItem())
+                    && containment.registeredOwnerOf(portableBody).orElse(null) == worldOwner
+                    ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
+        }
+        if (!(previousOwner instanceof PortableWorldStorageOwner) || !ready(body, host, level, before,
+                reference, copy, position, valid)) return Result.DENIED;
+        try { host.setItem(finalWorld); }
+        catch (RuntimeException failure) { return unchangedWorld(host, level, reference, copy, position) ? Result.DENIED : Result.RECOVERY_REQUIRED; }
+        if (!same(finalWorld, host.getItem())) return Result.RECOVERY_REQUIRED;
+        try { LiveHandsCommitGateway.commitOwned(body, before, finalBody); }
+        catch (RuntimeException failure) {
+            try { host.setItem(copy.copy()); }
+            catch (RuntimeException ignored) { return Result.RECOVERY_REQUIRED; }
+            return same(copy, host.getItem()) && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
+                    ? Result.DENIED : Result.RECOVERY_REQUIRED;
+        }
+        return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == finalBody
+                && same(finalWorld, host.getItem())
+                && containment.registeredOwnerOf(portableBody).orElse(null) instanceof PortableBodyCarrierOwner owner
+                && owner.carrier() == body && owner.reference().equals(portableRef)
+                ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
+    }
+
+    /** Same detached-grid removal staging used by regular world-grid extraction and live-body release. */
+    static ItemStack prepareGridRemoval(ItemStack root, GridContents.Entry exactEntry) {
+        if (root == null || exactEntry == null) return null;
+        var contents = GridContents.read(root).orElse(null);
+        if (contents == null) return null;
+        var remaining = new ArrayList<>(contents.entries());
+        var current = remaining.stream().filter(entry -> entry.token().equals(exactEntry.token())
+                && entry.x() == exactEntry.x() && entry.y() == exactEntry.y()
+                && entry.rotation() == exactEntry.rotation() && same(entry.stack(), exactEntry.stack()))
+                .findFirst().orElse(null);
+        if (current == null) return null;
+        // Entry.stack() and GridContents.entries() are defensive copies; remove the entry
+        // selected from this exact list rather than a value reconstructed from another list.
+        remaining.remove(current);
+        return GridContents.applyCopyWithGrid(root, GridContents.of(remaining)).orElse(null);
+    }
+
+    /** Canonical root publication point shared by ordinary world-grid extraction and prepared release plans. */
+    static boolean publishGridRoot(ItemEntity root, ItemStack expectedReference, ItemStack expectedEvidence,
+                                   ItemStack staged) {
+        if (root == null || expectedReference == null || expectedEvidence == null || staged == null
+                || !(root.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread() || level.getEntity(root.getUUID()) != root
+                || root.getItem() != expectedReference || !same(expectedEvidence, expectedReference)) return false;
+        try { root.setItem(staged); } catch (RuntimeException failure) { return false; }
+        return level.getEntity(root.getUUID()) == root && same(staged, root.getItem());
+    }
+
+    private static ItemStack beforeStack(LivingEntity body, String hand) {
+        LiveHands state = body == null ? null : body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        return state == null || hand == null ? ItemStack.EMPTY : state.stackCopy(hand).orElse(ItemStack.EMPTY);
+    }
+
+    private static boolean restoreWorldAndOwner(ItemEntity host, ItemStack stagedWorld, ItemStack copy, Vec3 position,
+            LivingEntity body, com.juicyslew.moonstation14.ms14.containment.BodyContainmentService containment,
+            com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner previous,
+            PortableWorldStorageOwner stagedOwner) {
+        if (host.getItem() == null || !same(stagedWorld, host.getItem()) || !position.equals(host.position())) return false;
+        if (containment.registeredOwnerOf(body).orElse(null) == stagedOwner
+                && !containment.transfer(body, stagedOwner, previous)) return false;
+        try { host.setItem(copy.copy()); }
+        catch (RuntimeException failure) { return false; }
+        return same(copy, host.getItem()) && position.equals(host.position())
+                && containment.registeredOwnerOf(body).orElse(null) == previous;
     }
 
     static Result compensateBody(LivingEntity body, ItemEntity host, ServerLevel level, LiveHands before,

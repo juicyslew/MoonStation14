@@ -57,3 +57,4 @@ public record LungAttachment(LungComponent component) {
         component.gasMoles().keySet().forEach(GasType::fromId);
     }
 }
+

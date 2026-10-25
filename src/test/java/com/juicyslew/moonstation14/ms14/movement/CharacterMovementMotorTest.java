@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -109,6 +110,118 @@ class CharacterMovementMotorTest {
                 .cadenceScale(human.sprintSpeedPerSecond() / 20d, 0, human.walkSpeedPerSecond()) > 1f);
     }
 
+    @Test
+    void resolvedHumanFrictionAndWishAccelerationFollowExistingTickOrder() throws IOException {
+        CharacterMovementPolicy human = CharacterMovementPolicy.fromCharacterData(readCharacter("human.json"));
+        assertEquals(20d, human.groundFrictionWithInputPerSecond());
+        assertEquals(20d, human.groundFrictionNoInputPerSecond());
+        CharacterMovementMotor motor = new CharacterMovementMotor(human);
+        CharacterMovementEnvironment pulse = env(.05d, 0d, 0d,
+                new MovementVector(1.6666667d, 0d, 0d), 1.6666667d, OPEN);
+        var idle = new CharacterMovementCommand(0d, 0d, false, false);
+        var afterIdle = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true), idle, pulse, false);
+        assertEquals(.49382717037037055d, afterIdle.velocity().x(), 1e-8);
+        assertEquals(.0390946521604938d, afterIdle.position().x(), 1e-8);
+
+        var oppose = new CharacterMovementCommand(-1d, 0d, false, false);
+        var afterOpposingWish = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true), oppose, pulse, false);
+        assertEquals(-1.7052469037037032d, afterOpposingWish.velocity().x(), 1e-8,
+                "friction consumes the pulse before projected wish acceleration follows the existing motor order");
+    }
+
+    @Test
+    void groundedSixtyHertzMotorSubstepsStillUseOneNativeCollisionSweep() {
+        var sweeps = new java.util.concurrent.atomic.AtomicInteger();
+        MovementCollisionResolver singleSweep = (position, requested, grounded) -> {
+            sweeps.incrementAndGet();
+            return new MovementCollisionResolver.CollisionResult(requested, grounded);
+        };
+        var policy = CharacterMovementPolicy.HUMAN;
+        var result = new CharacterMovementMotor(policy).tick(
+                state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, false, false),
+                env(.05d, 0d, 0d, new MovementVector(5d / 3d, 0d, 0d), 5d / 3d, singleSweep), false);
+        assertEquals(1, sweeps.get(), "horizontal math substeps must not multiply native Entity.move calls");
+        assertEquals(40d / 81d, result.velocity().x(), 1e-12);
+        assertEquals(19d / 486d, result.position().x(), 1e-12);
+    }
+
+    @Test
+    void naturalFlightUsesResolvedFrictionForReleaseTurningAndRestWithoutSurfaceFriction() throws IOException {
+        CharacterMovementPolicy bat = CharacterMovementPolicy.fromCharacterData(readResolvedCharacter("bat"));
+        assertEquals(20d, bat.groundFrictionWithInputPerSecond());
+        assertEquals(20d, bat.groundFrictionNoInputPerSecond());
+        assertEquals(.005d, bat.minimumFrictionSpeed());
+        assertEquals(3.75d, bat.walkSpeedPerSecond());
+        assertEquals(7.5d, bat.sprintSpeedPerSecond());
+        CharacterMovementMotor motor = new CharacterMovementMotor(bat);
+        CharacterMovementEnvironment environment = envWithSurface(.05d, 32d, 8.4d,
+                MovementVector.ZERO, 0d, .05d, OPEN);
+        CharacterMovementCommand noInput = new CharacterMovementCommand(0d, 0d, false, false);
+        CharacterMovementState released = state(MovementVector.ZERO, new MovementVector(3d, 0d, 2d), false);
+        for (int i = 0; i < 20; i++) released = motor.tick(released, noInput, environment, false, false, 0d, true);
+        assertTrue(released.velocity().horizontalLength() < Math.hypot(3d, 2d));
+        for (int i = 0; i < 100; i++) released = motor.tick(released, noInput, environment, false, false, 0d, true);
+        assertEquals(0d, released.velocity().x(), 0d);
+        assertEquals(0d, released.velocity().z(), 0d);
+        assertEquals(0d, released.velocity().y(), 0d);
+
+        for (boolean sprint : new boolean[]{false, true}) {
+            double target = sprint ? bat.sprintSpeedPerSecond() : bat.walkSpeedPerSecond();
+            CharacterMovementState turning = state(MovementVector.ZERO, new MovementVector(target, 0d, 0d), false);
+            for (int tick = 0; tick < 200; tick++) {
+                double angle = Math.toRadians(tick * 15d);
+                turning = motor.tick(turning, new CharacterMovementCommand(Math.cos(angle), Math.sin(angle), false, sprint),
+                        environment, false, false, 0d, true);
+                assertTrue(turning.velocity().horizontalLength() <= target + 1e-9);
+            }
+        }
+    }
+
+    @Test
+    void naturalFlightSettlesTinyResidualBeforeConstraintAndExternalFlightRemainsUndamped() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 8.4d, .98d,
+                MovementVector.ZERO, 1d, 0d, OPEN, 1d, 1d, new MovementVector(.25d, .5d, -.5d));
+        CharacterMovementState tiny = motor.tick(state(MovementVector.ZERO,
+                        new MovementVector(.002d, 0d, 0d), false),
+                new CharacterMovementCommand(0d, 0d, false, false), environment, false, false, 0d, true);
+        assertEquals(.25d, tiny.velocity().x(), 1e-12, "constraint impulse is applied after rest settling");
+        assertEquals(-.5d, tiny.velocity().z(), 1e-12);
+        assertEquals(.5d, tiny.velocity().y(), 1e-12);
+
+        CharacterMovementState launched = motor.tick(state(MovementVector.ZERO,
+                        new MovementVector(2d, 0d, 1d), false),
+                new CharacterMovementCommand(1d, 1d, false, false), environment, false, true, 0d, true);
+        assertEquals(2.25d, launched.velocity().x(), 0d, "external flight bypasses natural friction and steering");
+        assertEquals(.5d, launched.velocity().z(), 0d, "constraint still applies in its existing post-motor phase");
+    }
+
+    @Test
+    void collisionClearsTerminalVelocityIntoWallButPreservesReversedVelocityAwayFromIt() {
+        var intoWallCalls = new java.util.concurrent.atomic.AtomicInteger();
+        MovementCollisionResolver wall = (position, requested, grounded) -> {
+            intoWallCalls.incrementAndGet();
+            return new MovementCollisionResolver.CollisionResult(
+                    new MovementVector(0d, requested.y(), requested.z()), grounded);
+        };
+        var motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        var idle = new CharacterMovementCommand(0d, 0d, false, false);
+        var into = motor.tick(state(MovementVector.ZERO, new MovementVector(10d, 0d, 0d), true), idle,
+                env(.05d, 0d, 0d, MovementVector.ZERO, 0d, wall), false);
+        assertEquals(0d, into.velocity().x(), 0d, "terminal velocity still directed into the clipped wall is cleared");
+        assertEquals(1, intoWallCalls.get(), "only one native collision sweep per motor tick");
+
+        var reversePolicy = new CharacterMovementPolicy(200d, 2.5d, 4.5d, 20d, 20d, .005d);
+        var reverseMotor = new CharacterMovementMotor(reversePolicy);
+        var opposing = new CharacterMovementCommand(-1d, 0d, false, false);
+        var away = reverseMotor.tick(state(MovementVector.ZERO, new MovementVector(50d, 0d, 0d), true), opposing,
+                env(.05d, 0d, 0d, MovementVector.ZERO, 0d, wall), false);
+        assertEquals(-2.5d, away.velocity().x(), 1e-12,
+                "averaged displacement clipped into wall does not erase terminal velocity now pointing away");
+        assertEquals(2, intoWallCalls.get(), "reversal case also performs exactly one native collision sweep");
+    }
+
     private static CharacterData readCharacter(String name) throws IOException {
         String path = "data/moonstation14/moonstation14/character/" + name;
         try (var stream = CharacterMovementMotorTest.class.getClassLoader().getResourceAsStream(path)) {
@@ -182,7 +295,7 @@ class CharacterMovementMotorTest {
         assertEquals(1d, Math.hypot(diagonal.wishX(), diagonal.wishZ()), 1e-12);
         CharacterMovementState result = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true), diagonal,
                 env(.05d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false);
-        assertEquals(2.5d, result.velocity().horizontalLength(), 1e-12); // accel * tick * wishSpeed
+        assertEquals(1.759259259259259d, result.velocity().horizontalLength(), 1e-12);
     }
 
     @Test
@@ -210,20 +323,107 @@ class CharacterMovementMotorTest {
         CharacterMovementEnvironment environment = env(.1d, 10d, 0d, MovementVector.ZERO, 0d, leavesGround);
         CharacterMovementState result = motor.tick(state(MovementVector.ZERO, new MovementVector(2d, 0d, 0d), true),
                 new CharacterMovementCommand(0d, 0d, false, false), environment, false);
-        assertEquals(0d, result.velocity().x(), 0d);
+        assertEquals(2d * Math.pow(1d - 20d / 60d, 6), result.velocity().x(), 1e-12);
         assertEquals(-1d, result.velocity().y(), 1e-12);
-        assertEquals(0d, result.position().x(), 0d);
+        assertEquals(.06081390032007318d, result.position().x(), 1e-12);
         assertEquals(-.001d, result.position().y(), 1e-12);
     }
 
     @Test
-    void humanNeutralGroundFrictionStopsOnTheNextTwentyHertzNoWishTick() {
+    void activeExternalFlightSuppressesSteeringAndGroundFrictionButNotGravityOrVerticalDrag() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 0d, .98d,
+                MovementVector.ZERO, 0d, 0d, OPEN);
+        CharacterMovementCommand steering = new CharacterMovementCommand(1d, 0d, false, false);
+        CharacterMovementState flight = state(MovementVector.ZERO, new MovementVector(2d, .5d, 1d), false);
+        double expectedVerticalVelocity = .5d;
+
+        for (int tick = 0; tick < 3; tick++) {
+            flight = motor.tick(flight, steering, environment, false, true);
+            expectedVerticalVelocity = (expectedVerticalVelocity - 32d * .05d) * .98d;
+            assertEquals(2d, flight.velocity().x(), 1e-12);
+            assertEquals(1d, flight.velocity().z(), 1e-12);
+            assertEquals(.1d * (tick + 1), flight.position().x(), 1e-12);
+            assertEquals(.05d * (tick + 1), flight.position().z(), 1e-12);
+            assertEquals(expectedVerticalVelocity, flight.velocity().y(), 1e-12,
+                    "each tick moves at current velocity, then applies gravity and drag for the next tick");
+        }
+        assertTrue(flight.velocity().y() < .5d, "external flight integrates ordinary gravity during the lease");
+    }
+
+    @Test
+    void resolvedMouseAutonomousSpeedIsAbsoluteRatherThanAMultiplierOfMinecraftSprintBaseline() throws IOException {
+        CharacterMovementPolicy mouse = CharacterMovementPolicy.fromCharacterData(
+                readCharacterComponentData("mouse.json", "MovementSpeedModifier"));
+        CharacterMovementMotor motor = new CharacterMovementMotor(mouse);
+        double wish = .917d;
+
+        assertAutonomousSpeed(motor, mouse, wish, 5d);
+        assertEquals(3.125d, mouse.walkSpeedPerSecond(), 1e-12);
+        assertEquals(6.25d, mouse.sprintSpeedPerSecond(), 1e-12);
+    }
+
+    private static void assertAutonomousSpeed(CharacterMovementMotor motor, CharacterMovementPolicy policy,
+                                               double wish, double absoluteSpeed) {
+        double factor = policy.factorForAbsoluteSpeed(absoluteSpeed, true);
+        CharacterMovementEnvironment scaled = envWithVoluntarySpeed(.05d, 0d, 0d, factor, OPEN);
+        CharacterMovementState state = state(MovementVector.ZERO, MovementVector.ZERO, false);
+        CharacterMovementCommand command = new CharacterMovementCommand(0d, wish, false, true);
+        for (int tick = 0; tick < 120; tick++) state = motor.tick(state, command, scaled, false);
+        assertEquals(absoluteSpeed * wish, state.velocity().z(), 1e-9,
+                "resolved task rate is an absolute speed before intent magnitude");
+    }
+
+    private static CharacterData readCharacterComponentData(String name, String componentType) throws IOException {
+        String path = "data/moonstation14/moonstation14/character/" + name;
+        try (var stream = CharacterMovementMotorTest.class.getClassLoader().getResourceAsStream(path)) {
+            if (stream == null) throw new IOException("Missing resource " + path);
+            JsonObject source = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+            var components = new com.google.gson.JsonArray();
+            for (var value : source.getAsJsonArray("components")) {
+                JsonObject component = value.getAsJsonObject();
+                if (componentType.equals(component.get("type").getAsString())) components.add(component.deepCopy());
+            }
+            if (components.size() != 1) throw new IOException("Expected one " + componentType + " component in " + path);
+            JsonObject typedData = new JsonObject();
+            typedData.add("components", components);
+            return CharacterData.CODEC.parse(JsonOps.INSTANCE, typedData).getOrThrow();
+        }
+    }
+
+    private static CharacterData readResolvedCharacter(String id) throws IOException {
+        try {
+            Path root = Path.of(System.getProperty("moonstation14.projectDir"),
+                    "src/main/resources/data/moonstation14/moonstation14/character");
+            var raw = new java.util.LinkedHashMap<net.minecraft.resources.ResourceLocation, JsonObject>();
+            try (var paths = java.nio.file.Files.walk(root)) {
+                for (Path file : paths.filter(java.nio.file.Files::isRegularFile)
+                        .filter(path -> path.toString().endsWith(".json")).toList()) {
+                    String name = root.relativize(file).toString().replace('\\', '/');
+                    raw.put(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14",
+                                    name.substring(0, name.length() - 5)),
+                            JsonParser.parseString(java.nio.file.Files.readString(file)).getAsJsonObject());
+                }
+            }
+            var manager = new com.juicyslew.moonstation14.ms14.prototype.PrototypeManager();
+            manager.register(com.juicyslew.moonstation14.ms14.character.ModCharacters.CHARACTER_TYPE);
+            manager.reload(com.juicyslew.moonstation14.ms14.character.ModCharacters.CHARACTER_TYPE, raw);
+            var resolved = manager.snapshot(com.juicyslew.moonstation14.ms14.character.ModCharacters.CHARACTER_TYPE)
+                    .get(net.minecraft.resources.ResourceLocation.parse("moonstation14:" + id));
+            return resolved;
+        } catch (RuntimeException exception) {
+            throw new IOException("Failed to resolve character prototype " + id, exception);
+        }
+    }
+
+    @Test
+    void humanNeutralGroundFrictionStopsAtTwentyHertzAfterResolvedTwentyRate() {
         CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
         CharacterMovementState result = motor.tick(
                 state(MovementVector.ZERO, new MovementVector(2.5d, 0d, 0d), true),
                 new CharacterMovementCommand(0d, 0d, false, false),
                 env(1d / 20d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false);
-        assertEquals(MovementVector.ZERO, result.velocity());
+        assertEquals(2.5d * Math.pow(1d - 20d / 60d, 3), result.velocity().x(), 1e-12);
     }
 
     @Test
@@ -235,7 +435,7 @@ class CharacterMovementMotorTest {
                 state(MovementVector.ZERO, new MovementVector(2d, 0d, 0d), true),
                 new CharacterMovementCommand(0d, 0d, false, false),
                 env(.1d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false);
-        assertEquals(1.5d, result.velocity().x(), 1e-12);
+        assertEquals(2d * Math.pow(1d - 2.5d / 60d, 6), result.velocity().x(), 1e-12);
     }
 
     @Test
@@ -258,9 +458,13 @@ class CharacterMovementMotorTest {
         CharacterMovementState atThreshold = motor.tick(
                 state(MovementVector.ZERO, new MovementVector(threshold, 0d, 0d), true),
                 noWish, environment, true);
-        double frictionFactor = Math.max(0d, 1d - policy.groundFrictionNoInputPerSecond() * dt);
-        assertEquals(threshold * frictionFactor, atThreshold.velocity().x(), 1e-12);
-        assertEquals(threshold * frictionFactor * dt, atThreshold.position().x(), 1e-12);
+        double frictionFactor = Math.pow(Math.max(0d, 1d - policy.groundFrictionNoInputPerSecond() / 60d), 6);
+        assertEquals(threshold * (1d - policy.groundFrictionNoInputPerSecond() / 60d), atThreshold.velocity().x(), 1e-12);
+        double oneStepFactor = 1d - policy.groundFrictionNoInputPerSecond() / 60d;
+        double displacementFactor = dt / 6d * (oneStepFactor + Math.pow(oneStepFactor, 2)
+                + Math.pow(oneStepFactor, 3) + Math.pow(oneStepFactor, 4)
+                + Math.pow(oneStepFactor, 5) + frictionFactor);
+        assertEquals(threshold * (1d - policy.groundFrictionNoInputPerSecond() / 60d) * dt, atThreshold.position().x(), 1e-12);
         assertEquals(-.001d, atThreshold.position().y(), 1e-12);
     }
 
@@ -275,8 +479,8 @@ class CharacterMovementMotorTest {
         CharacterMovementState moving = motor.tick(initial, wish, environment, false);
         CharacterMovementState stopped = motor.tick(initial, wish, environment, true);
 
-        assertEquals(1.8d, moving.velocity().x(), 1e-12); // with-input friction
-        assertEquals(1.2d, stopped.velocity().x(), 1e-12); // stun suppresses wish before friction selection
+        assertEquals(2d * Math.pow(1d - 1d / 60d, 6), moving.velocity().x(), 1e-12);
+        assertEquals(2d * Math.pow(1d - 4d / 60d, 6), stopped.velocity().x(), 1e-12);
     }
 
     @Test
@@ -404,6 +608,33 @@ class CharacterMovementMotorTest {
     }
 
     @Test
+    void ordinaryGravityAirSteeringCannotGrowHorizontalSpeedByRotatingWish() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment gravity = env(.05d, 32d, 8.4d, MovementVector.ZERO, 0d, OPEN);
+        for (boolean sprint : new boolean[]{false, true}) {
+            double target = sprint ? CharacterMovementPolicy.HUMAN.sprintSpeedPerSecond()
+                    : CharacterMovementPolicy.HUMAN.walkSpeedPerSecond();
+            CharacterMovementCommand straight = new CharacterMovementCommand(1d, 0d, false, sprint);
+            CharacterMovementState state = state(MovementVector.ZERO, new MovementVector(target, 0d, 0d), false);
+            state = motor.tick(state, straight, gravity, false);
+            assertEquals(target, state.velocity().horizontalLength(), 1e-12);
+
+            for (int angle : new int[]{10, 15}) {
+                state = state(MovementVector.ZERO, new MovementVector(target, 0d, 0d), false);
+                double cap = target;
+                for (int tick = 0; tick < 40; tick++) {
+                    double radians = Math.toRadians(tick * angle);
+                    state = motor.tick(state, new CharacterMovementCommand(Math.cos(radians),
+                            Math.sin(radians), false, sprint), gravity, false);
+                    assertTrue(Double.isFinite(state.velocity().horizontalLength()));
+                    assertTrue(state.velocity().horizontalLength() <= cap + 1e-12,
+                            "rotating gravity-air steering cannot add horizontal energy");
+                }
+            }
+        }
+    }
+
+    @Test
     void jumpingIntoOneBlockWallClipsBlockedAxisUntilClearanceButKeepsLateralMomentum() throws IOException {
         MovementCollisionResolver wallUntilOneBlockHigh = (position, requested, grounded) ->
                 new MovementCollisionResolver.CollisionResult(new MovementVector(
@@ -430,11 +661,12 @@ class CharacterMovementMotorTest {
             current = motor.tick(current, new CharacterMovementCommand(1d, 0d, false, true), environment, false);
             assertEquals(1.001336d, current.position().y(), 1e-12,
                     "third jump displacement crosses fixture clearance");
-            assertEquals(wish, current.velocity().x(), 1e-12, prototype + " projected wish after wall");
+            double expectedForwardSpeed = Math.sqrt(Math.max(wish, 3d) * Math.max(wish, 3d) - 9d);
+            assertEquals(expectedForwardSpeed, current.velocity().x(), 1e-12,
+                    prototype + " voluntary forward speed respects air-energy budget");
             assertEquals(3d, current.velocity().z(), 1e-12);
-            assertEquals(Math.hypot(wish, 3d), current.velocity().horizontalLength(), 1e-12,
-                    prototype + " resultant after clearance");
-            assertEquals(wish * .05d, current.position().x(), 1e-12);
+            assertTrue(current.velocity().horizontalLength() <= Math.max(wish, 3d) + 1e-12);
+            assertEquals(expectedForwardSpeed * .05d, current.position().x(), 1e-12);
             assertEquals(.3d, current.position().z(), 1e-12);
         }
     }
@@ -468,10 +700,18 @@ class CharacterMovementMotorTest {
 
             CharacterMovementState stopped = motor.tick(landed, noInput, environment, false);
             assertTrue(stopped.onGround());
-            assertEquals(0d, stopped.velocity().horizontalLength(), 0d,
-                    prototype + " 20/s friction at .05s gives factor zero");
-            assertEquals(landed.position().x(), stopped.position().x(), 0d);
-            assertEquals(landed.position().z(), stopped.position().z(), 0d);
+            double friction = policy.groundFrictionNoInputPerSecond();
+            double oneStepFactor = Math.max(0d, 1d - friction * environment.secondsPerTick() / 3d);
+            double expectedFactor = Math.pow(oneStepFactor, 3);
+            assertEquals(landed.velocity().horizontalLength() * expectedFactor,
+                    stopped.velocity().horizontalLength(), 1e-12,
+                    prototype + " neutral grounded friction follows resolved prototype");
+            double displacementFactor = environment.secondsPerTick() / 3d
+                    * (oneStepFactor + oneStepFactor * oneStepFactor + expectedFactor);
+            assertEquals(landed.position().x() + landed.velocity().x() * displacementFactor,
+                    stopped.position().x(), 1e-12);
+            assertEquals(landed.position().z() + landed.velocity().z() * displacementFactor,
+                    stopped.position().z(), 1e-12);
         }
     }
 
@@ -485,7 +725,7 @@ class CharacterMovementMotorTest {
                 env(.1d, 10d, 7d, MovementVector.ZERO, 0d, wallAndGround), true);
         assertEquals(0d, result.velocity().x(), 0d); // wall blocked the horizontal axis
         assertEquals(0d, result.velocity().y(), 0d); // grounded collision clears downward velocity
-        assertEquals(0d, result.position().z(), 0d); // high neutral-ground friction applies before stunned movement
+        assertEquals(.06081390032007318d, result.position().z(), 1e-12);
     }
 
     @Test
@@ -497,8 +737,8 @@ class CharacterMovementMotorTest {
                 envWithSurface(.05d, 0d, 0d, MovementVector.ZERO, 0d, 1d, OPEN), false);
         CharacterMovementState lubeCoast = motor.tick(initial, noWish,
                 envWithSurface(.05d, 0d, 0d, MovementVector.ZERO, 0d, .05d, OPEN), false);
-        assertEquals(0d, normalCoast.velocity().x(), 0d);
-        assertEquals(2.375d, lubeCoast.velocity().x(), 1e-12);
+        assertEquals(.740740740740741d, normalCoast.velocity().x(), 1e-12);
+        assertEquals(2.3770717592592585d, lubeCoast.velocity().x(), 1e-12);
         assertTrue(lubeCoast.velocity().horizontalLength() < initial.velocity().horizontalLength(),
                 "contact friction still brakes, but must not add speed");
 
@@ -508,10 +748,10 @@ class CharacterMovementMotorTest {
                 envWithSurface(.05d, 0d, 0d, MovementVector.ZERO, 0d, 1d, OPEN), false);
         CharacterMovementState lubeTurn = motor.tick(lateral, turn,
                 envWithSurface(.05d, 0d, 0d, MovementVector.ZERO, 0d, .05d, OPEN), false);
-        assertEquals(2.5d, normalTurn.velocity().x(), 1e-12);
-        assertEquals(.125d, lubeTurn.velocity().x(), 1e-12);
+        assertEquals(1.759259259259259d, normalTurn.velocity().x(), 1e-12);
+        assertEquals(.12292824074074071d, lubeTurn.velocity().x(), 1e-12);
         assertTrue(lubeTurn.velocity().z() > normalTurn.velocity().z());
-        assertEquals(1.9d, lubeTurn.velocity().z(), 1e-12, "contact does not erase lateral momentum");
+        assertEquals(1.9016574074074073d, lubeTurn.velocity().z(), 1e-12, "contact does not erase lateral momentum");
     }
 
     @Test
@@ -538,7 +778,7 @@ class CharacterMovementMotorTest {
             assertTrue(state.velocity().x() - previousSpeed <= .09d,
                     "per-tick lube-scaled acceleration must not jump to 1.8 blocks/s");
         }
-        assertEquals(.05d * (1d - Math.pow(.95d, 8)) / .05d, state.velocity().x(), 1e-12,
+        assertEquals(.3319356913153201d, state.velocity().x(), 1e-12,
                 "lube-scaled knockdown acceleration remains bounded each tick instead of jumping to 1.8 blocks/s");
 
         CharacterMovementEnvironment lubeNoInput = envWithSurface(1d / 20d, 32d, 0d,
@@ -546,7 +786,7 @@ class CharacterMovementMotorTest {
         CharacterMovementState coasting = motor.tick(
                 state(MovementVector.ZERO, new MovementVector(2d, 0d, 0d), true),
                 new CharacterMovementCommand(0d, 0d, false, false), lubeNoInput, false);
-        assertEquals(1.9d, coasting.velocity().x(), 1e-12,
+        assertEquals(1.9016574074074073d, coasting.velocity().x(), 1e-12,
                 "grounded no-input momentum retains the configured .95 lube friction factor");
         assertTrue(coasting.onGround());
     }
@@ -581,8 +821,8 @@ class CharacterMovementMotorTest {
         CharacterMovementState stickyCoast = motor.tick(
                 state(MovementVector.ZERO, new MovementVector(2d, 0d, 0d), true),
                 new CharacterMovementCommand(0d, 0d, false, false), sticky, false);
-        assertEquals(1d, normalCoast.velocity().x(), 1e-12);
-        assertEquals(.5d, stickyCoast.velocity().x(), 1e-12);
+        assertEquals(1.125d, normalCoast.velocity().x(), 1e-12);
+        assertEquals(.78125d, stickyCoast.velocity().x(), 1e-12);
 
         CharacterMovementCommand forward = new CharacterMovementCommand(1d, 0d, false, false);
         CharacterMovementEnvironment normalAccelerationEnvironment =
@@ -626,8 +866,8 @@ class CharacterMovementMotorTest {
                 envWithSurface(.1d, 0d, 0d, MovementVector.ZERO, 0d, .05d, OPEN), true);
         CharacterMovementState stunnedNormal = motor.tick(slipping, blockedWish,
                 envWithSurface(.1d, 0d, 0d, MovementVector.ZERO, 0d, 1d, OPEN), true);
-        assertEquals(1.8d, stunnedLube.velocity().x(), 1e-12);
-        assertEquals(0d, stunnedNormal.velocity().x(), 0d);
+        assertEquals(1.8081504475737307d, stunnedLube.velocity().x(), 1e-12);
+        assertEquals(.1755829903978053d, stunnedNormal.velocity().x(), 1e-12);
         assertEquals(0d, stunnedLube.velocity().z(), 0d);
         assertTrue(stunnedLube.position().x() > 0d, "friction must not fabricate an immediate stop");
 
@@ -636,7 +876,7 @@ class CharacterMovementMotorTest {
         CharacterMovementState leftSource = motor.tick(stunnedLube,
                 new CharacterMovementCommand(0d, 0d, false, false),
                 envWithSurface(.1d, 0d, 0d, MovementVector.ZERO, 0d, 1d, OPEN), true);
-        assertEquals(0d, leftSource.velocity().x(), 0d);
+        assertEquals(.15874023133706286d, leftSource.velocity().x(), 1e-12);
     }
 
     @Test
@@ -855,7 +1095,7 @@ class CharacterMovementMotorTest {
         CharacterMovementState landed = motor.tick(flight,
                 new CharacterMovementCommand(0d, 0d, false, false),
                 env(.05d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false);
-        assertEquals(0d, landed.velocity().x(), 0d, "ordinary ground friction resumes after flight ends");
+        assertEquals(2.962962962962964d, landed.velocity().x(), 1e-12, "ordinary ground friction resumes after flight ends");
     }
 
     @Test
@@ -874,7 +1114,7 @@ class CharacterMovementMotorTest {
         assertEquals(10d, landed.velocity().x(), 0d,
                 "the collision landing tick retains horizontal momentum; tracking must not end yet");
         CharacterMovementState settled = motor.tick(landed, idle, environment, false, false);
-        assertEquals(0d, settled.velocity().horizontalLength(), 0d,
+        assertEquals(2.962962962962964d, settled.velocity().horizontalLength(), 1e-12,
                 "the following normal grounded idle step applies native-profile friction");
     }
 
@@ -885,8 +1125,8 @@ class CharacterMovementMotorTest {
         CharacterMovementCommand idle = new CharacterMovementCommand(0d, 0d, false, false);
         CharacterMovementState landed = state(MovementVector.ZERO, new MovementVector(-10d, 0d, 0d), true);
         CharacterMovementState settled = motor.tick(landed, idle, environment, false);
-        assertEquals(0d, settled.velocity().x(), 0d);
-        assertEquals(0d, settled.velocity().x() * settled.velocity().x()
+        assertEquals(-10d * Math.pow(1d - 20d / 60d, 3), settled.velocity().x(), 1e-12);
+        assertEquals(8.779149519890268d, settled.velocity().x() * settled.velocity().x()
                         + settled.velocity().y() * settled.velocity().y()
                         + settled.velocity().z() * settled.velocity().z(), 0d,
                 "negative zero from westward friction is still physically settled");
@@ -924,7 +1164,7 @@ class CharacterMovementMotorTest {
     }
 
     @Test
-    void externalFlightRetainsVerticalLaunchMomentumThenResumesAdapterGravity() {
+    void externalFlightIntegratesGravityDuringLeaseAndAfterward() {
         CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
         CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 8.4d, .98d,
                 MovementVector.ZERO, 0d, 0d, OPEN);
@@ -932,14 +1172,16 @@ class CharacterMovementMotorTest {
         CharacterMovementCommand noInput = new CharacterMovementCommand(0d, 0d, false, false);
 
         for (int tick = 0; tick < 6; tick++) {
+            double before = current.velocity().y();
             current = motor.tick(current, noInput, environment, false, true);
-            assertEquals(10d, current.velocity().y(), 0d, "flight lease retains vertical launch momentum");
+            assertEquals((before - 32d * .05d) * .98d, current.velocity().y(), 1e-12);
         }
-        assertEquals(3d, current.position().y(), 1e-12);
+        assertTrue(current.velocity().y() < 10d, "flight lease applies ordinary gravity and drag");
 
+        double beforeExpiryStep = current.velocity().y();
         current = motor.tick(current, noInput, environment, false, false);
-        assertEquals(8.232d, current.velocity().y(), 1e-12,
-                "adapter gravity and vertical drag resume when the lease expires");
+        assertEquals((beforeExpiryStep - 32d * .05d) * .98d, current.velocity().y(), 1e-12,
+                "adapter gravity continues when the lease expires");
     }
 
     @Test

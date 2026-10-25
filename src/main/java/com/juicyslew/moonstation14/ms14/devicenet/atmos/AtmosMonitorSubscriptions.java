@@ -17,3 +17,4 @@ public final class AtmosMonitorSubscriptions {
 
     public boolean isRegistered(String address) { return addresses.contains(address); }
 }
+

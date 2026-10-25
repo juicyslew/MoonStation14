@@ -39,7 +39,7 @@ final class StorageDragPreviewPolicy {
         }
         var id = net.minecraft.resources.ResourceLocation.tryParse(item == null ? "" : item);
         if (id == null) return null;
-        return new Source(item, count, ItemFootprints.clientForId(id), identity, valid, itemPresentation);
+        return new Source(item, count, ItemFootprints.clientForPresentation(id, itemPresentation), identity, valid, itemPresentation);
     }
 
     private static BodyHandStateSnapshot.Hand handForToken(BodyHandClientPolicy.InventoryView view, String token) {

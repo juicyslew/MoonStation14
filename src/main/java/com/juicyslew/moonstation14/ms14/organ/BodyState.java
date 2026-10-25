@@ -80,3 +80,4 @@ public record BodyState(List<OrganInstance> organs, RespirationState respiration
     }
     public void validateAll(PrototypeCatalog<OrganData> catalog) { organs.forEach(o -> validate(o, catalog)); }
 }
+

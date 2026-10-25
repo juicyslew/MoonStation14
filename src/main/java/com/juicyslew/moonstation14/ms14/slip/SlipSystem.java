@@ -164,6 +164,7 @@ public final class SlipSystem {
         CharacterData character = ActiveCharacterPolicy.resolveActor(target).orElse(null);
         if (character == null || character.component(StunnableComponent.class).isEmpty()
                 || character.component(StandingStateComponent.class).filter(StandingStateComponent::standingEligible).isEmpty()
+                || character.component(com.juicyslew.moonstation14.ms14.character.components.FlightComponent.class).isPresent()
                 || !(target instanceof IStatusEffectTrait statusTrait)) return;
         if (!Double.isFinite(speed)) return;
 
@@ -229,6 +230,7 @@ public final class SlipSystem {
         boolean down = StatusEffectSystem.hasStatus(statusTrait.toHandleSelf(), context.level(), KNOCKDOWN);
         if (character.component(NoSlipComponent.class).isPresent()
                 || com.juicyslew.moonstation14.ms14.equipment.EquipmentNoSlipPolicy.hasWornFeetNoSlip(target)
+                || character.component(com.juicyslew.moonstation14.ms14.character.components.FlightComponent.class).isPresent()
                 || (down && !response.superSlippery())) return;
         respond(new SlipResponse(context.level(), context.source(), target, response, context.velocity(),
                 isSliding(target), down, character.component(StandingStateComponent.class)

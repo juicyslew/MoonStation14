@@ -38,3 +38,4 @@ public final class ControlledSoundDispatch {
         return dx * dx + dy * dy + dz * dz <= RADIUS * RADIUS;
     }
 }
+

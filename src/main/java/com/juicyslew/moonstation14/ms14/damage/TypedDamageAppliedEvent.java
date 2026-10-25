@@ -24,3 +24,4 @@ public final class TypedDamageAppliedEvent extends Event {
     public Map<String, Float> delta() { return delta; }
     public net.minecraft.world.entity.Entity origin() { return origin; }
 }
+

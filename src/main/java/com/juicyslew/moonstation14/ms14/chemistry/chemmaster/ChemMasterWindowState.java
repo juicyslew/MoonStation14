@@ -74,3 +74,4 @@ public record ChemMasterWindowState(long frame, long stateRevision, long slotRev
   return ReagentUnits.total(amounts);
  }
 }
+

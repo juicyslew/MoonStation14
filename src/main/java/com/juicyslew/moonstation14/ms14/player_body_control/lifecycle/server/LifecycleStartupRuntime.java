@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -128,6 +129,114 @@ public final class LifecycleStartupRuntime {
         synchronized (SERVERS) {
             return Optional.ofNullable(SERVERS.get(server));
         }
+    }
+
+    /** Read-only in-memory owner availability check; no lifecycle store reads occur on entity ticks. */
+    public static boolean isExactOfflineOwnerBody(net.minecraft.world.entity.Entity body,
+                                                   com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding binding) {
+        if (body == null || binding == null || !(body.level() instanceof net.minecraft.server.level.ServerLevel level)
+                || level.getServer() == null || !level.getServer().isSameThread()) return false;
+        LifecycleServerContext context;
+        synchronized (SERVERS) { context = CONTEXTS.get(level.getServer()); }
+        if (context == null) return false;
+        var profile = context.lifecycle().profile(binding.accountId()).orElse(null);
+        if (profile != null) return profile.state() == com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry.LifecycleState.OFFLINE
+                && profile.bodyId().value().equals(body.getUUID());
+        // Startup deliberately does not hydrate profiles. A durable account reservation with no
+        // in-memory body proof is conservatively parked; once a current profile is known, an old
+        // abandoned-body binding no longer pins a different UUID.
+        return context.hasReservedClaim(binding.accountId());
+    }
+
+    /**
+     * Persist the actual pose of a physically held/flight-moved OFFLINE bound body, only when its
+     * recovery chunk or dimension changed. The caller's proof must establish current physical
+     * custody; this method independently revalidates the exact loaded entity and binding.
+     */
+    public static boolean recordOfflineBodyRelocation(net.minecraft.world.entity.Entity body,
+            long expectedGeneration, Predicate<net.minecraft.world.entity.Entity> physicalOwnerProof) {
+        return recordOfflineBodyRelocation(body, expectedGeneration, null, physicalOwnerProof);
+    }
+
+    /** Production caller form: derive expected generation from the exact current OFFLINE row. */
+    public static boolean recordOfflineBodyRelocation(net.minecraft.world.entity.Entity body,
+            Predicate<net.minecraft.world.entity.Entity> physicalOwnerProof) {
+        if (body == null || physicalOwnerProof == null
+                || !(body.level() instanceof net.minecraft.server.level.ServerLevel level)
+                || level.getServer() == null || !level.getServer().isSameThread()) return false;
+        var binding = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
+                .PlayerCharacterHarnessBinder.binding(body);
+        if (binding == null) return false;
+        LifecycleServerContext context;
+        synchronized (SERVERS) { context = CONTEXTS.get(level.getServer()); }
+        if (context == null) return false;
+        final SavedLifecycleProfile row;
+        try { row = context.currentAccountProfile(binding.accountId()).orElse(null); }
+        catch (IOException | RuntimeException unavailable) { return false; }
+        if (!offlineRelocationBindingMatches(row, binding, body.getUUID(),
+                row == null ? -1 : row.connectionGeneration())) return false;
+        return recordOfflineBodyRelocation(body, row.connectionGeneration(), row, physicalOwnerProof);
+    }
+
+    private static boolean recordOfflineBodyRelocation(net.minecraft.world.entity.Entity body,
+            long expectedGeneration, SavedLifecycleProfile expectedRow,
+            Predicate<net.minecraft.world.entity.Entity> physicalOwnerProof) {
+        if (body == null || expectedGeneration < 0 || physicalOwnerProof == null
+                || !(body instanceof net.minecraft.world.entity.Mob)
+                || !(body.level() instanceof net.minecraft.server.level.ServerLevel level)
+                || level.getServer() == null || !level.getServer().isSameThread()
+                || body.isRemoved() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body)
+            return false;
+        var binding = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
+                .PlayerCharacterHarnessBinder.binding(body);
+        if (binding == null) return false;
+        LifecycleServerContext context;
+        synchronized (SERVERS) { context = CONTEXTS.get(level.getServer()); }
+        if (context == null) return false;
+        var harnessId = new com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId(body.getUUID());
+        var harness = context.ownership().registeredHarness(harnessId).orElse(null);
+        if (harness != null && harness.kind()
+                != com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER) return false;
+        if (harness == null) harness = new com.juicyslew.moonstation14.ms14.player_body_control.MobHarness(
+                harnessId, com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER);
+        if (!(body instanceof net.minecraft.world.entity.Mob mobBody)
+                || com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(mobBody).isEmpty())
+            return false;
+        final SavedLifecycleProfile row;
+        try { row = context.currentAccountProfile(binding.accountId()).orElse(null); }
+        catch (IOException | RuntimeException unavailable) { return false; }
+        if (!offlineRelocationBindingMatches(row, binding, body.getUUID(), expectedGeneration)
+                || !offlineRelocationRowUnchanged(expectedRow, row)) return false;
+        Predicate<SavedLifecycleProfile> exactCustody = candidate -> {
+            if (!row.equals(candidate) || !offlineRelocationRowUnchanged(expectedRow, candidate)
+                    || body.isRemoved() || !body.isAddedToLevel()
+                    || body.level() != level || level.getEntity(body.getUUID()) != body
+                    || !binding.equals(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
+                            .PlayerCharacterHarnessBinder.binding(body))) return false;
+            try { return physicalOwnerProof.test(body); }
+            catch (RuntimeException rejected) { return false; }
+        };
+        if (!exactCustody.test(row)) return false;
+        var pose = new SavedLifecycleProfile.Location(body.getX(), body.getY(), body.getZ());
+        try {
+            return context.relocateOfflineBody(binding.accountId(), binding.mindId(), body.getUUID(),
+                    expectedGeneration, harness, level.dimension().location().toString(), pose, exactCustody);
+        } catch (IOException | RuntimeException unavailable) { return false; }
+    }
+
+    static boolean offlineRelocationBindingMatches(SavedLifecycleProfile row,
+            com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding binding,
+            UUID bodyId, long expectedGeneration) {
+        return row != null && binding != null && bodyId != null && expectedGeneration >= 0
+                && row.state() == SavedLifecycleProfile.State.OFFLINE
+                && row.connectionGeneration() == expectedGeneration
+                && row.accountId().equals(binding.accountId()) && row.profileKey().equals(binding.profileKey())
+                && row.mindId().equals(binding.mindId()) && row.bodyId().equals(bodyId);
+    }
+
+    static boolean offlineRelocationRowUnchanged(SavedLifecycleProfile sampled,
+            SavedLifecycleProfile current) {
+        return current != null && (sampled == null || sampled.equals(current));
     }
 
     /**
@@ -283,3 +392,4 @@ public final class LifecycleStartupRuntime {
         return value.length() <= 240 ? value : value.substring(0, 240);
     }
 }
+

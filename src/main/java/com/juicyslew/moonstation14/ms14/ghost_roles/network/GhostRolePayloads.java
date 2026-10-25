@@ -26,7 +26,10 @@ public final class GhostRolePayloads {
         static Context read(RegistryFriendlyByteBuf buf) { return new Context(buf.readUUID(), readEpoch(buf)); }
     }
 
-    public record Entry(UUID target, String roleId, String displayName, boolean teleport, boolean takeover) {
+    public record Entry(UUID target, String roleId, String displayName, boolean teleport, boolean takeover, boolean development) {
+        public Entry(UUID target, String roleId, String displayName, boolean teleport, boolean takeover) {
+            this(target, roleId, displayName, teleport, takeover, false);
+        }
         public Entry {
             if (target == null || roleId == null || roleId.isBlank() || roleId.length() > MAX_TEXT_LENGTH
                     || displayName == null || displayName.length() > MAX_TEXT_LENGTH || (!teleport && !takeover))
@@ -41,14 +44,14 @@ public final class GhostRolePayloads {
                     Context.write(buf, value.context); buf.writeVarInt(value.entries.size());
                     for (Entry entry : value.entries) {
                         buf.writeUUID(entry.target); buf.writeUtf(entry.roleId, MAX_TEXT_LENGTH);
-                        buf.writeUtf(entry.displayName, MAX_TEXT_LENGTH); buf.writeBoolean(entry.teleport); buf.writeBoolean(entry.takeover);
+                        buf.writeUtf(entry.displayName, MAX_TEXT_LENGTH); buf.writeBoolean(entry.teleport); buf.writeBoolean(entry.takeover); buf.writeBoolean(entry.development);
                     }
                 }, buf -> {
                     Context context = Context.read(buf); int count = buf.readVarInt();
                     if (count < 0 || count > MAX_ENTRIES) throw new IllegalArgumentException("too many ghost roles");
                     java.util.ArrayList<Entry> entries = new java.util.ArrayList<>(count);
                     for (int i = 0; i < count; i++) entries.add(new Entry(buf.readUUID(), buf.readUtf(MAX_TEXT_LENGTH),
-                            buf.readUtf(MAX_TEXT_LENGTH), buf.readBoolean(), buf.readBoolean()));
+                            buf.readUtf(MAX_TEXT_LENGTH), buf.readBoolean(), buf.readBoolean(), buf.readBoolean()));
                     return new Snapshot(context, entries);
                 });
         public Snapshot { if (context == null || entries == null || entries.size() > MAX_ENTRIES) throw new IllegalArgumentException("invalid snapshot"); entries = List.copyOf(entries); }

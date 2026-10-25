@@ -28,6 +28,9 @@ import com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerStackData;
 import com.juicyslew.moonstation14.ms14.damage.ItemDamageState;
 import com.juicyslew.moonstation14.ms14.slip.ItemSlipperyComposition;
 import com.juicyslew.moonstation14.ms14.combat.RevolverState;
+import com.juicyslew.moonstation14.ms14.hands.PortableBodyReference;
+import com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance;
+import com.juicyslew.moonstation14.ms14.atmos.tank.GasTankContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -43,6 +46,13 @@ public class ModDataComponents {
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ReagentComponent>> REAGENT =
             register_component("reagent", builder -> builder.persistent(ReagentComponent.CODEC).networkSynchronized(ReagentComponent.STREAM_CODEC));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<PortableBodyReference>> PORTABLE_BODY_REFERENCE =
+            register_component("portable_body_reference", builder -> builder.persistent(PortableBodyReference.CODEC)
+                    .networkSynchronized(PortableBodyReference.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<PortableBodyAppearance>> PORTABLE_BODY_APPEARANCE =
+            register_component("portable_body_appearance", builder -> builder.persistent(PortableBodyAppearance.CODEC)
+                    .networkSynchronized(PortableBodyAppearance.STREAM_CODEC));
 
     /** Item-side half of the stomach bridge; ingestion currently writes character attachments only. */
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ReagentComponent>> STOMACH =
@@ -114,6 +124,9 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<WelderFuelData>> WELDER_FUEL =
             register_component("welder_fuel", builder -> builder.persistent(WelderFuelData.CODEC)
                     .networkSynchronized(WelderFuelData.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<GasTankContents>> GAS_TANK_CONTENTS =
+            register_component("gas_tank_contents", builder -> builder.persistent(GasTankContents.CODEC)
+                    .networkSynchronized(GasTankContents.STREAM_CODEC));
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ResourceLocation>> LOOSE_OBJECT_PROFILE =
             register_component("loose_object_profile", builder -> builder.persistent(ResourceLocation.CODEC)
                     .networkSynchronized(ResourceLocation.STREAM_CODEC));

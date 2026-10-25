@@ -17,6 +17,9 @@ import com.juicyslew.moonstation14.ms14.character.components.DamageableComponent
 import com.juicyslew.moonstation14.ms14.character.components.HumanoidProfileComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ExaminerComponent;
 import com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent;
+import com.juicyslew.moonstation14.ms14.character.components.SpeciesComponent;
+import com.juicyslew.moonstation14.ms14.character.components.MobStateComponent;
+import com.juicyslew.moonstation14.ms14.character.components.MobThresholdsComponent;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 import com.mojang.serialization.JsonOps;
@@ -37,6 +40,64 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CharacterPrototypeTest {
     @Test
+    void everyResolvedHostBoundMedicalCharacterHasSpeciesLabelAndNewHostIsCovered() throws IOException {
+        Map<ResourceLocation, JsonObject> definitions = discoverCharacterDefinitions();
+        PrototypeManager manager = new PrototypeManager();
+        manager.register(ModCharacters.CHARACTER_TYPE);
+        manager.reload(ModCharacters.CHARACTER_TYPE, definitions);
+        assertMedicalHostsHaveSpecies(manager.snapshot(ModCharacters.CHARACTER_TYPE).asMap());
+
+        // A newly-added host binding enters the same catalog enumeration and is caught by the contract.
+        ResourceLocation fixtureId = ResourceLocation.parse("moonstation14:future_unlabeled_medical_host");
+        JsonObject fixture = JsonParser.parseString("""
+                {"parent":"supported_animal","host_entity_types":["test:future_medical_host"]}
+                """).getAsJsonObject();
+        JsonObject mouse = definitions.get(ResourceLocation.parse("moonstation14:mouse"));
+        var medical = new com.google.gson.JsonArray();
+        for (var component : mouse.getAsJsonArray("components")) {
+            String type = component.getAsJsonObject().get("type").getAsString();
+            if (type.equals("MobState") || type.equals("MobThresholds")) medical.add(component.deepCopy());
+        }
+        fixture.add("components", medical);
+        definitions.put(fixtureId, fixture);
+        manager.reload(ModCharacters.CHARACTER_TYPE, definitions);
+        AssertionError failure = assertThrows(AssertionError.class,
+                () -> assertMedicalHostsHaveSpecies(manager.snapshot(ModCharacters.CHARACTER_TYPE).asMap()));
+        assertTrue(failure.getMessage().contains(fixtureId.toString()), failure.getMessage());
+    }
+
+    private static void assertMedicalHostsHaveSpecies(Map<ResourceLocation, CharacterData> catalog) {
+        var supported = catalog.entrySet().stream().filter(entry -> !entry.getValue().hostEntityTypes().isEmpty())
+                .filter(entry -> entry.getValue().component(MobStateComponent.class).isPresent()
+                        || entry.getValue().component(MobThresholdsComponent.class).isPresent()).toList();
+        assertFalse(supported.isEmpty(), "catalog must contain a concrete supported medical host");
+        for (var entry : supported) {
+            assertTrue(entry.getValue().component(SpeciesComponent.class).isPresent(),
+                    "medical host prototype " + entry.getKey() + " must declare or inherit a Species label");
+        }
+    }
+
+    private static Map<ResourceLocation, JsonObject> discoverCharacterDefinitions() throws IOException {
+        String resourceRoot = "data/moonstation14/moonstation14/character";
+        String projectDir = System.getProperty("moonstation14.projectDir");
+        if (projectDir == null || projectDir.isBlank())
+            throw new IOException("Missing required test system property moonstation14.projectDir");
+        var root = java.nio.file.Path.of(projectDir).resolve("src/main/resources").resolve(resourceRoot);
+        if (!java.nio.file.Files.isDirectory(root)) throw new IOException("Missing character resource directory " + root);
+        Map<ResourceLocation, JsonObject> definitions = new java.util.LinkedHashMap<>();
+        try (var paths = java.nio.file.Files.walk(root)) {
+            for (var path : paths.filter(java.nio.file.Files::isRegularFile)
+                    .filter(file -> file.getFileName().toString().endsWith(".json")).sorted().toList()) {
+                String relative = root.relativize(path).toString().replace('\\', '/');
+                String prototypePath = relative.substring(0, relative.length() - ".json".length());
+                ResourceLocation id = ResourceLocation.fromNamespaceAndPath("moonstation14", prototypePath);
+                definitions.put(id, JsonParser.parseString(java.nio.file.Files.readString(path)).getAsJsonObject());
+            }
+        }
+        return definitions;
+    }
+
+    @Test
     void combatModeDefaultsAndNullableDisarmArePreserved() {
         var absent = com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.CODEC.parse(JsonOps.INSTANCE,
                 JsonParser.parseString("{\"type\":\"CombatMode\"}")).getOrThrow();
@@ -51,6 +112,7 @@ class CharacterPrototypeTest {
                 JsonParser.parseString("{\"type\":\"CombatMode\",\"can_disarm\":null}")).getOrThrow();
         assertTrue(explicitNull.canDisarm().isEmpty());
     }
+
     @Test
     void standingStateDownSoundDefaultsAndCustomizes() throws IOException {
         var defaultComponent = StandingStateComponent.CODEC.parse(JsonOps.INSTANCE,
@@ -182,15 +244,19 @@ class CharacterPrototypeTest {
     void oralHandlessCapabilityComesFromResolvedMouthAndHandsCompositionNotMouseType() throws IOException {
         ResourceLocation simple = ResourceLocation.parse("moonstation14:supported_simple_mob");
         ResourceLocation animal = ResourceLocation.parse("moonstation14:supported_animal");
+        ResourceLocation animalCore = ResourceLocation.parse("moonstation14:supported_animal_core");
+        ResourceLocation npc = ResourceLocation.parse("moonstation14:supported_npc");
         ResourceLocation fixture = ResourceLocation.parse("moonstation14:oral_test_animal");
         JsonObject fixtureJson = JsonParser.parseString("""
                 {"parent":"supported_animal","host_entity_types":["minecraft:cow"]}
                 """).getAsJsonObject();
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModCharacters.CHARACTER_TYPE);
-        manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(simple,
-                readResource("data/moonstation14/moonstation14/character/supported_simple_mob.json"), animal,
-                readResource("data/moonstation14/moonstation14/character/supported_animal.json"), fixture, fixtureJson));
+         manager.reload(ModCharacters.CHARACTER_TYPE, Map.of(simple,
+                 readResource("data/moonstation14/moonstation14/character/supported_simple_mob.json"),
+                 animalCore, readResource("data/moonstation14/moonstation14/character/supported_animal_core.json"),
+                 animal, readResource("data/moonstation14/moonstation14/character/supported_animal.json"),
+                npc, readResource("data/moonstation14/moonstation14/character/supported_npc.json"), fixture, fixtureJson));
         CharacterData resolved = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(fixture);
         assertTrue(com.juicyslew.moonstation14.ms14.ingestion.OralAccess.supportsHandlessOralAccess(resolved),
                 "resolved child gets oral/no-hands capability from typed parent composition");
@@ -357,11 +423,12 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-        assertEquals(38, data.components().size(), "Human composition includes status admission alongside existing component families");
+        assertEquals(39, data.components().size(), "merged Human composition retains botany and main component families");
         assertTrue(data.component(ExaminerComponent.class).isPresent());
         assertTrue(data.component(StunnableComponent.class).isPresent());
         assertEquals(Optional.of("Biological"), data.component(DamageableComponent.class).orElseThrow().damageContainer());
         assertEquals("Human", data.component(HumanoidProfileComponent.class).orElseThrow().species());
+        assertEquals("Human", data.component(com.juicyslew.moonstation14.ms14.character.components.SpeciesComponent.class).orElseThrow().label());
         assertTrue(data.component(NoSlipComponent.class).isEmpty());
         assertTrue(data.component(StandingStateComponent.class).orElseThrow().standingEligible());
         assertTrue(data.component(StandingStateComponent.class).orElseThrow().proneEligible());
@@ -461,7 +528,7 @@ class CharacterPrototypeTest {
         JsonObject pigJson = readResource("data/moonstation14/moonstation14/character/pig.json");
         CharacterData pig = CharacterData.CODEC.parse(JsonOps.INSTANCE, pigJson).getOrThrow();
         assertEquals(Optional.of("Biological"), pig.component(DamageableComponent.class).orElseThrow().damageContainer());
-        assertTrue(pig.component(HumanoidProfileComponent.class).isEmpty(), "Pig has no humanoid profile and scans as unknown species");
+        assertTrue(pig.component(HumanoidProfileComponent.class).isEmpty(), "Pig has no humanoid profile; its Species label is independent of humanoid capability");
         assertEquals(4.0, pig.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class).orElseThrow().walkSpeed());
         assertEquals(5.0, com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy
                 .fromCharacterData(pig).sprintSpeedPerSecond());

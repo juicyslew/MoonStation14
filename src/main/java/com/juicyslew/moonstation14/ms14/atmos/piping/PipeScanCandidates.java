@@ -99,3 +99,4 @@ public final class PipeScanCandidates {
         return ((int) Math.floor(coordinate)) >> 4;
     }
 }
+

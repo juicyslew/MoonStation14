@@ -20,7 +20,7 @@ public final class EmoteEffect {
         Objects.requireNonNull(delivery, "delivery");
         Plan plan = plan(id, showInChat, target);
         if (plan == null) return EffectResult.SKIPPED_UNSUPPORTED;
-        delivery.sound(level, target, plan.sound());
+        delivery.sound(level, target, plan.sound(), plan.pitchVariation());
         if (plan.chat() != null) delivery.chat(level, target, plan.chat());
         return EffectResult.APPLIED;
     }
@@ -28,25 +28,38 @@ public final class EmoteEffect {
     public static Plan plan(String id, boolean showInChat, Entity target) {
         if (!(target instanceof LivingEntity)) return null;
         return EmoteRegistry.find(id)
-                .map(spec -> new Plan(spec.sound(), showInChat
+                .map(spec -> new Plan(spec.sound(), spec.pitchVariation(), showInChat
                         ? Component.translatable("moonstation14.emote." + id, target.getDisplayName())
                         : null))
                 .orElse(null);
     }
 
-    public record Plan(String sound, Component chat) { }
+    public record Plan(String sound, float pitchVariation, Component chat) { }
 
     public interface EmoteDelivery {
         void sound(ServerLevel level, Entity source, String soundId);
+        default void sound(ServerLevel level, Entity source, String soundId, float pitchVariation) {
+            sound(level, source, soundId);
+        }
         void chat(ServerLevel level, Entity source, Component line);
     }
 
-    static final EmoteDelivery SERVER = new EmoteDelivery() {
+    public static final EmoteDelivery SERVER = new EmoteDelivery() {
         @Override
         public void sound(ServerLevel level, Entity source, String id) {
-            EmoteRegistry.find(id).ifPresent(spec -> level.playSound(null, source,
-                    com.juicyslew.moonstation14.sounds.ModSounds.emote(spec.sound()).get(),
-                    SoundSource.VOICE, 1f, 1f));
+            sound(level, source, id, 0f);
+        }
+
+        @Override
+        public void sound(ServerLevel level, Entity source, String id, float pitchVariation) {
+            EmoteRegistry.ids().stream().map(EmoteRegistry::find).flatMap(java.util.Optional::stream)
+                    .filter(spec -> spec.sound().equals(id)).findFirst().ifPresent(spec -> {
+                float variation = Math.max(0f, Math.min(1f, pitchVariation));
+                float pitch = 1f + (level.getRandom().nextFloat() * 2f - 1f) * variation;
+                level.playSound(null, source,
+                        com.juicyslew.moonstation14.sounds.ModSounds.emote(spec.sound()).get(),
+                        SoundSource.VOICE, 1f, pitch);
+            });
         }
 
         @Override
@@ -56,3 +69,4 @@ public final class EmoteEffect {
         }
     };
 }
+

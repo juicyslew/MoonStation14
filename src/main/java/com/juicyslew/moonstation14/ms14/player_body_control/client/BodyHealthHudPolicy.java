@@ -111,3 +111,4 @@ public final class BodyHealthHudPolicy {
         return tenths.toPlainString();
     }
 }
+

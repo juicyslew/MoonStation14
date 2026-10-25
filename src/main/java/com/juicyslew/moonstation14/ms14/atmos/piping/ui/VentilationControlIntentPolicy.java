@@ -43,3 +43,4 @@ public final class VentilationControlIntentPolicy {
                 current.targetPressureKPa(), current.volumeRateM3PerSecond(), mode, filters, current.selectedLayer()));
     }
 }
+

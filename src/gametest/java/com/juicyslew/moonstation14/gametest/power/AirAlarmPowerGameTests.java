@@ -21,8 +21,10 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.chunk.LevelChunk;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
@@ -38,7 +40,7 @@ public final class AirAlarmPowerGameTests {
     @GameTestTags({"airlock", "power", "power_loaded_index_reconcile"})
     // Full-chunk footprint isolates this deliberate service-level unload from peer fixtures.
     @GameTest(template = "power_receiver_tall_clear", batch = "power_loaded_index_reconcile",
-            timeoutTicks = 320, templateNamespace = "moonstation14")
+            timeoutTicks = 600, templateNamespace = "moonstation14")
     public static void receiverReconcilesAlreadyLoadedMissingFootprint(GameTestHelper helper) {
         FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(2, 8, 2)),
                 helper.absolutePos(new BlockPos(4, 12, 10)), 0);
@@ -68,6 +70,55 @@ public final class AirAlarmPowerGameTests {
         require(PowerGraphService.nodesNear(level, alarmPos, 3, CableTier.APC) == null, "repeated query stays unknown while queued");
         awaitFreshAlarmMeter(helper, level, alarm, alarmPos, apc, helper.absolutePos(new BlockPos(4, y, 7)),
                 "loaded missing-footprint reconciliation proves delivered 100 W", helper::succeed);
+    }
+
+    @GameTestTags({"power", "power_loaded_index_reconcile"})
+    @GameTest(template = "power_receiver_tall_clear", batch = "power_loaded_index_reconcile",
+            timeoutTicks = 600, templateNamespace = "moonstation14")
+    public static void directStateReconcilesAlreadyLoadedMissingComponentFrontier(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos anchor = helper.absolutePos(new BlockPos(2, 8, 2));
+        int chunkX = anchor.getX() >> 4;
+        int chunkZ = anchor.getZ() >> 4;
+        BlockPos host = new BlockPos(chunkX * 16 + 15, anchor.getY() + 4, chunkZ * 16 + 8);
+        ChunkPos frontierChunk = new ChunkPos(chunkX + 1, chunkZ);
+        BlockPos frontierPos = new BlockPos(frontierChunk.getMinBlockX() + 8, host.getY(), host.getZ());
+        FixtureChunkTickets.around(helper, host, frontierPos, 0);
+        level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
+        require(CableStorage.place(level, host, Direction.UP, CableTier.HV), "border HV cable");
+        CableFaceNode node = new CableFaceNode(host, Direction.UP, CableTier.HV);
+        PowerFixtureReadiness.await(helper, level, 350,
+                () -> PowerGraphService.topologyReady(level)
+                        && PowerGraphService.diagnostics(level, node).nodeIndexed(),
+                () -> "initial border node index: " + PowerGraphService.diagnosticSnapshot(level), () -> {
+                    var physical = level.getChunkSource().getChunkNow(frontierChunk.x, frontierChunk.z);
+                    require(physical instanceof LevelChunk, "frontier chunk remains FULL before missed-bookkeeping simulation");
+                    PowerGraphService.onChunkUnload(new net.neoforged.neoforge.event.level.ChunkEvent.Unload(physical));
+                    var precondition = PowerGraphService.diagnostics(level, node);
+                    require(precondition.state().knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN
+                                    && precondition.unloadedPotentialNeighborChunks().contains(frontierChunk),
+                            "stored component frontier is unknown and includes FULL-but-unindexed chunk: " + precondition);
+                    require(level.getChunkSource().getChunkNow(frontierChunk.x, frontierChunk.z) == physical,
+                            "controlled bookkeeping miss did not unload physical chunk");
+                    var initial = PowerGraphService.state(level, node);
+                    require(initial.knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN
+                                    && !PowerGraphService.topologyReady(level),
+                            "direct state query queues reconciliation but remains UNKNOWN: " + initial);
+                    awaitDirectStateKnown(helper, level, node, 0);
+                });
+    }
+
+    private static void awaitDirectStateKnown(GameTestHelper helper, ServerLevel level, CableFaceNode node, int elapsed) {
+        var answer = PowerGraphService.state(level, node);
+        if (answer.knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.KNOWN) {
+            helper.succeed();
+            return;
+        }
+        require(elapsed < 350, "direct state reconciliation did not converge: answer=" + answer
+                + ", diagnostics=" + PowerGraphService.diagnostics(level, node)
+                + ", graph=" + PowerGraphService.diagnosticSnapshot(level));
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5,
+                () -> awaitDirectStateKnown(helper, level, node, elapsed + 5));
     }
 
     @GameTest(template = "empty", timeoutTicks = 40, templateNamespace = "moonstation14")

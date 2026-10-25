@@ -9,3 +9,4 @@ final class WireEmbeddedScreenInitPolicy {
         return !initialized || !fontBound || currentWidth != width || currentHeight != height;
     }
 }
+

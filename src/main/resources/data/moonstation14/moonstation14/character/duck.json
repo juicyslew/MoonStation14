@@ -1,0 +1,1 @@
+{"parent":"moonstation14:supported_nonhostile_animal","host_entity_types":["moonstation14:duck"],"components":[{"type":"Species","label":"Duck"},{"type":"AnimalAppearance","model_ids":["duck_0","duck_1","duck_2"]},{"type":"Speech","accent":"duck"},{"type":"Bloodstream","reference_solution":{"moonstation14:blood":100.0}},{"type":"EggLayer"}]}

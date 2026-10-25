@@ -48,7 +48,7 @@ public record LocalSpeechPayload(int speakerEntityId, UUID speakerUuid, String a
                     || !ChatIdentityRegistry.validColor(rgb)
                     || azimuthSector != NO_BEARING || verticalBand != NO_BEARING
                     || distanceTier != DistanceTier.NONE)
-                || soundCue == null || !(soundCue.isEmpty() || "mouse_squeak".equals(soundCue))
+                || soundCue == null || !(soundCue.isEmpty() || com.juicyslew.moonstation14.sounds.ModSounds.hasSpeechSound(soundCue))
                 || mode == Mode.W_MUFFLED && !soundCue.isEmpty()
                 || !LocalSpeechPolicy.validText(text)
                   || !LocalSpeechPolicy.validPosition(x, y, z)

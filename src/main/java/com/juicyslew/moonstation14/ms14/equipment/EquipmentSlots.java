@@ -7,3 +7,4 @@ public final class EquipmentSlots {
     public static final String OUTER_CLOTHING = "outerClothing";
     public static final List<String> SLOT_ORDER = List.of("shoes", "jumpsuit", "outerClothing", "gloves", "neck", "mask", "eyes", "ears", "head", "pocket1", "pocket2", "suitstorage", "id", "belt", "back");
 }
+

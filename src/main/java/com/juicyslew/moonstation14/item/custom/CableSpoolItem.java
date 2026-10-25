@@ -30,3 +30,4 @@ public final class CableSpoolItem extends Item {
                 && player.mayUseItemAt(context.getClickedPos(), context.getClickedFace(), context.getItemInHand());
     }
 }
+

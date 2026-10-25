@@ -96,3 +96,4 @@ public final class SlidingFrictionSystem {
         private static final ContactFactor NONE = new ContactFactor(false, NEUTRAL);
     }
 }
+

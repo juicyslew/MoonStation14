@@ -13,3 +13,4 @@ public record TimedOperation(long id, String kind, String sourceKey, long startT
     }
     public long dueTick() { return Math.addExact(startTick, durationTicks); }
 }
+

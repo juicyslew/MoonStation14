@@ -26,3 +26,4 @@ public final class AtmosphereUnits {
     public static double referenceTileVolumeCubicMeters() { return UPSTREAM_TILE_VOLUME_LITERS / 1000.0; }
     public static double minecraftCellVolumeCubicMeters() { return MINECRAFT_CELL_VOLUME_LITERS / 1000.0; }
 }
+

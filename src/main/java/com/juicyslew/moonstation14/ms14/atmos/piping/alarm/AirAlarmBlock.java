@@ -71,3 +71,4 @@ public final class AirAlarmBlock extends Block implements EntityBlock {
         return ModBlockEntities.AIR_ALARM.get().create(pos, state);
     }
 }
+

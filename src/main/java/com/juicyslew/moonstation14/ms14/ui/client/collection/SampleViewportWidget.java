@@ -95,3 +95,4 @@ public final class SampleViewportWidget extends AbstractWidget {
     @Override
     protected void updateWidgetNarration(NarrationElementOutput output) { defaultButtonNarrationText(output); }
 }
+

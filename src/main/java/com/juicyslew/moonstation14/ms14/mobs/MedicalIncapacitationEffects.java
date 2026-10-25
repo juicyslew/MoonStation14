@@ -49,3 +49,4 @@ public final class MedicalIncapacitationEffects {
         NativeHeldItemTransfer.forceDrop(body);
     }
 }
+

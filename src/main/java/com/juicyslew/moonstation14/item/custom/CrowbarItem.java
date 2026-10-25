@@ -15,3 +15,4 @@ public class CrowbarItem extends Item implements BodyMetalTool {
     @Override public BodyBlockUseResult.Outcome use(BodyUseItemContext context) { return BodyBlockUseResult.Outcome.DENIED; }
     @Override public InteractionResult useOn(UseOnContext context) { return InteractionResult.FAIL; }
 }
+

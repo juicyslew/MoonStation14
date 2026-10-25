@@ -77,3 +77,4 @@ public final class BodyGrenadePrime {
                 && level.getEntity(body.getUUID()) == body;
     }
 }
+

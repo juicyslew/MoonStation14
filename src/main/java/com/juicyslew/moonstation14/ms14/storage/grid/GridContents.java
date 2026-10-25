@@ -188,3 +188,4 @@ public final class GridContents {
     // A constant hash preserves the equals/hashCode contract for detached stack copies.
     @Override public int hashCode() { return 0; }
 }
+

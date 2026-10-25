@@ -65,3 +65,4 @@ public final class PronePoseMath {
         return posture != null && posture.down() && !posture.ownCrawling();
     }
 }
+

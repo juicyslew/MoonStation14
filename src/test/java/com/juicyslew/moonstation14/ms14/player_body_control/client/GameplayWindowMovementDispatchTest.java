@@ -43,4 +43,16 @@ class GameplayWindowMovementDispatchTest {
         assertEquals(1, screen.samples.get());
         assertEquals(2, sent.get());
     }
+
+    @Test void explicitLogicalTickIsPublishedOnTheSameIntentObject() {
+        var screen = new TextOwningWindow();
+        var sent = new java.util.concurrent.atomic.AtomicReference<com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent>();
+        var dispatched = GameplayWindowMovementDispatch.dispatch(4, 7, 123, MobHarnessKind.CHARACTER, screen,
+                new PopupMovementIntent.State(0, 1, false, false, false), 0, 0, intent -> {
+                    assertEquals(123, intent.intendedSimulationTick());
+                    return true;
+                }, sent::set);
+        assertSame(dispatched, sent.get());
+        assertEquals(123, sent.get().intendedSimulationTick());
+    }
 }

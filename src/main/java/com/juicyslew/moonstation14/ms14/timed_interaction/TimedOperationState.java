@@ -15,3 +15,4 @@ public record TimedOperationState(List<TimedOperation> operations, long revision
         }
     }
 }
+

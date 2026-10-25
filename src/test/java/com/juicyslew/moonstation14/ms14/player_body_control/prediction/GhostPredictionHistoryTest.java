@@ -183,10 +183,56 @@ class GhostPredictionHistoryTest {
     @Test
     void intentSchemaRejectsNonfiniteValuesBeforeHistoryCanStoreThem() {
         assertThrows(IllegalArgumentException.class, () -> new GhostControlPayloads.Intent(
-                EPOCH, 1, (short) 0, (short) 0, (byte) 0, 0, Float.NaN, 0));
+                EPOCH, 1, 0, (short) 0, (short) 0, (byte) 0, 0, Float.NaN, 0));
         GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
         history.record(intent(1));
         assertFalse(history.reconcile(snapshot(EPOCH, BODY, 0, 0)).replayFrames().isEmpty());
+    }
+
+    @Test
+    void replayPlansOneFixedStepPerTickAndFoldsAllDueCommands() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
+        GhostControlPayloads.Intent first = tickIntent(1, 11, GhostControlPayloads.BUTTON_JUMP, 0);
+        GhostControlPayloads.Intent release = tickIntent(2, 11, 0, 4);
+        history.record(first); history.record(release);
+        GhostControlPayloads.Snapshot base = snapshot(EPOCH, BODY, 10, 0);
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY, history.reconcile(base).status());
+        var result = history.planReplayTicks(base, 13);
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY, result.status());
+        assertEquals(3, result.ticks().size());
+        assertEquals(2, result.ticks().get(0).sequence());
+        assertTrue(result.ticks().get(0).receivedInput());
+        assertTrue((result.ticks().get(0).effectiveState().buttons() & GhostControlPayloads.BUTTON_JUMP) != 0);
+        assertEquals(result.ticks(), history.planReplayTicks(base, 13).ticks());
+        assertEquals(2, history.pendingCount());
+    }
+
+    @Test
+    void replayPlanCapsTicksRetainsFutureCommandsAndHeldState() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
+        history.record(tickIntent(1, 200, 0, 0));
+        var anchor = snapshot(EPOCH, BODY, 100, 0);
+        history.reconcile(anchor);
+        var result = history.planReplayTicks(anchor, Long.MAX_VALUE);
+        assertEquals(GhostPredictionHistory.MAX_REPLAY_TICKS, result.ticks().size());
+        assertEquals(0, result.ticks().get(0).sequence());
+        assertTrue(result.ticks().get(0).receivedInput());
+        assertEquals(1, history.pendingCount());
+    }
+
+    @Test
+    void rejectsDecreasingIntendedTicksButAllowsEqualTicks() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
+        assertEquals(GhostPredictionHistory.RecordResult.RECORDED, history.record(tickIntent(1, 4, 0, 0)));
+        assertEquals(GhostPredictionHistory.RecordResult.RECORDED, history.record(tickIntent(2, 4, 0, 0)));
+        assertEquals(GhostPredictionHistory.RecordResult.REJECTED, history.record(tickIntent(3, 3, 0, 0)));
+        history.onAuthorityBarrier();
+        assertEquals(4, history.lastRecordedIntendedTick());
+    }
+
+    private static GhostControlPayloads.Intent tickIntent(long sequence, long tick, int buttons, int wishX) {
+        return new GhostControlPayloads.Intent(EPOCH, sequence, tick, (short) wishX, (short) 0, (byte) 0,
+                buttons, 0f, 0f);
     }
 
     private static void assertRejected(GhostPredictionHistory history, GhostControlPayloads.Snapshot snapshot) {

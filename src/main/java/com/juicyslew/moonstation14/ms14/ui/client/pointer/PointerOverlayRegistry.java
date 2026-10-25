@@ -38,7 +38,8 @@ public final class PointerOverlayRegistry {
     public static void unregister(PointerOverlayWindow window) { WINDOWS.remove(window); }
     /** Pin traversal order for one dispatch; new registrations join only the next dispatch. */
     private static List<PointerOverlayWindow> snapshot() { return List.copyOf(WINDOWS); }
-    private static boolean active(PointerOverlayWindow window) { return WINDOWS.contains(window) && window.visible(); }
+    /** A dispatch uses its pinned membership/order; callbacks cannot remove peers mid-dispatch. */
+    private static boolean active(PointerOverlayWindow window) { return window.visible(); }
     public static void bringToFront(PointerOverlayWindow window) { if(WINDOWS.remove(window)) WINDOWS.add(window); wireFront=false; }
     public static void bringWireToFront() { wireFront=true; }
     public static boolean wireFront() { return wireFront; }
@@ -125,3 +126,4 @@ public final class PointerOverlayRegistry {
         }
     }
 }
+

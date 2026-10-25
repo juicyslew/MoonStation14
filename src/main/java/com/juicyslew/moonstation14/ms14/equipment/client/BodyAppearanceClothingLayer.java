@@ -41,3 +41,4 @@ public final class BodyAppearanceClothingLayer extends RenderLayer<PlayerCharact
         }
     }
 }
+

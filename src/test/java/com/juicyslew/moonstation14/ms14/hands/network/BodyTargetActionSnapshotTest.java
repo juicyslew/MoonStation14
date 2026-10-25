@@ -13,6 +13,7 @@ import net.minecraft.world.item.Items;
 import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Test;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyTargetActionSnapshotTest {
@@ -29,5 +30,20 @@ class BodyTargetActionSnapshotTest {
         assertEquals(value, BodyTargetActionSnapshot.STREAM_CODEC.decode(buffer)); assertFalse(buffer.isReadable());
         assertThrows(IllegalArgumentException.class, () -> new BodyTargetActionSnapshot(3, 8, 12, "right", "token", id, Component.literal("gun"), List.of(value.actions().get(0), value.actions().get(0))));
         assertThrows(IllegalArgumentException.class, () -> new BodyTargetActionSnapshot.ActionEntry(BodyTargetActionSnapshot.ActionId.BUTCHER, Component.literal("x"), true, Component.literal("bad")));
+    }
+
+    @Test void clientHandlerBridgeDeliversAndToleratesMissingHandler() {
+        var snapshot = new BodyTargetActionSnapshot(3, 8, 12, "right", "token", UUID.randomUUID(),
+                Component.literal("gun"), List.of(new BodyTargetActionSnapshot.ActionEntry(
+                BodyTargetActionSnapshot.ActionId.BUTCHER, Component.literal("cut"), true, null)));
+        var received = new AtomicReference<BodyTargetActionSnapshot>();
+        try {
+            BodyTargetActionSnapshot.setClientHandler(received::set);
+            BodyTargetActionSnapshot.deliverClient(snapshot);
+            assertSame(snapshot, received.get());
+        } finally {
+            BodyTargetActionSnapshot.setClientHandler(null);
+        }
+        assertDoesNotThrow(() -> BodyTargetActionSnapshot.deliverClient(snapshot));
     }
 }

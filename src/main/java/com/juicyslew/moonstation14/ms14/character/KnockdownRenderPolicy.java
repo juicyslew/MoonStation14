@@ -34,3 +34,4 @@ public final class KnockdownRenderPolicy {
         return knockedDown && !dead && !sleeping && !passenger && !spectator && !flying && !swimming && !climbing;
     }
 }
+

@@ -33,3 +33,4 @@ public record ThirstPrototypeComponent(float overHydrated, float okay, float thi
 
     @Override public String type() { return TYPE; }
 }
+

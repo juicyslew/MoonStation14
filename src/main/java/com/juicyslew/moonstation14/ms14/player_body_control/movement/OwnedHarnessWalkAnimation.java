@@ -26,3 +26,4 @@ public final class OwnedHarnessWalkAnimation {
         return (float) Math.max(1d, observed / walkBlocksPerTick);
     }
 }
+

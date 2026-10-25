@@ -18,3 +18,4 @@ public final class DamageFeedbackNetworking {
     }
     public static void installClientHandler(Consumer<DamageFeedbackPayload> handler) { clientHandler = handler; }
 }
+

@@ -36,3 +36,4 @@ public final class AppliedDamageEvent extends Event {
     public DamageFeedbackProfile feedback() { return feedback; }
     public net.minecraft.world.entity.Entity origin() { return origin; }
 }
+

@@ -13,3 +13,4 @@ public final class LocalCarrierRenderPolicy {
                 && carrier != null && body != null && !carrier.equals(body);
     }
 }
+

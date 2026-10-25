@@ -468,3 +468,4 @@ final class EffectHandlers {
         return Math.max(minimum, Math.min(maximum, value));
     }
 }
+

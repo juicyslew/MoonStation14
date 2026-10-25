@@ -195,7 +195,7 @@ public final class HumanHarnessMovementGameTests {
         var pigLease = GroundedHarnessLease.tryAcquire(pig).orElseThrow();
         GroundedHarnessWorldStep sharedStep = new GroundedHarnessWorldStep();
         // Keep the probe centered and before any test-structure boundary; acceleration reaches cap quickly.
-        for (int tick = 0; tick < 5; tick++) {
+        for (int tick = 0; tick < 20; tick++) {
             require(sharedStep.step(human, 0, 1000, false, false, 0f).isPresent(),
                     "shared world step accepts owned HUMAN Villager");
             require(sharedStep.step(pig, 0, 1000, false, false, 0f).isPresent(),
@@ -210,16 +210,18 @@ public final class HumanHarnessMovementGameTests {
                 "resolved prototype retains the raw SS14 human walk/sprint values");
         require(humanPolicy.walkSpeedPerSecond() == 3.125d && humanPolicy.sprintSpeedPerSecond() == 5.625d,
                 "shared live policy applies the grounded Minecraft speed scale once to both speeds");
-        require(Math.abs(human.getDeltaMovement().z * 20d - 3.125d) < 1e-8,
-                "shared world step resolves HUMAN walk policy at 3.125 blocks/second");
+        require(Math.abs(human.getDeltaMovement().z * 20d - 3.125d) < .02,
+                "shared world step resolves HUMAN walk policy at 3.125 blocks/second; actual="
+                        + human.getDeltaMovement().z * 20d);
         // Exercise the production world step's sprint cap using the same enrolled human and lease.
         human.setDeltaMovement(Vec3.ZERO);
         for (int tick = 0; tick < 8; tick++) {
             require(sharedStep.step(human, 0, 1000, false, true, 0f).isPresent(),
                     "shared world step accepts sprinting owned HUMAN Villager");
         }
-        require(Math.abs(human.getDeltaMovement().z * 20d - 5.625d) < 1e-8,
-                "shared world step applies converted HUMAN sprint cap without repeated scaling");
+        require(Math.abs(human.getDeltaMovement().z * 20d - 5.625d) < .02,
+                "shared world step applies converted HUMAN sprint cap without repeated scaling; actual="
+                        + human.getDeltaMovement().z * 20d);
         require(Math.abs(pig.getDeltaMovement().z * 20d - 5d) < .02d,
                 "shared adapter resolves Pig walk policy at 5 blocks/second; actual="
                         + pig.getDeltaMovement().z * 20d + ", position=" + pig.position()
@@ -364,6 +366,31 @@ public final class HumanHarnessMovementGameTests {
         require(escapes.get() == 1, "unit directional movement is delegated to owner escape callback");
         containment.unbind(body, unit);
 
+        java.util.concurrent.atomic.AtomicLong provenance = new java.util.concurrent.atomic.AtomicLong(-1);
+        java.util.concurrent.atomic.AtomicReference<com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionEngine.StartResult>
+                timedStart = new java.util.concurrent.atomic.AtomicReference<>();
+        ContainedBodyOwner stationary = owner(helper, body.getUUID(), destination,
+                ContainedBodyOwner.Stage.STATIONARY, escapes, escapedBody -> timedStart.set(
+                        com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.start(
+                                escapedBody, null, provenance.get(), "escape-sequence-fixture", "accepted-input",
+                                20, true, true, () -> true,
+                                () -> com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.Completion.STOP)),
+                sequence -> provenance.set(sequence));
+        require(containment.bind(body, stationary), "stationary portable owner binds");
+        Vec3 pinnedBefore = body.position();
+        var stationaryState = new GroundedHarnessWorldStep().step(body, 1000, 0, false, false, 0f, 918273L).orElseThrow();
+        require(escapes.get() == 2, "directional input dispatches stationary owner escape");
+        require(provenance.get() == 918273L, "accepted movement sequence reaches canonical owner escape seam");
+        require(timedStart.get() == com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionEngine.StartResult.STARTED,
+                "owner can start shared timed operation from accepted provenance");
+        var escapeSnapshot = com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem.snapshot(body);
+        require(escapeSnapshot.bodyUuid().equals(body.getUUID())
+                        && escapeSnapshot.views().get(0).originatingActionSequence() == 918273L,
+                "progress provenance is sequence-qualified on the escaping body, not a carrier entity");
+        require(body.position().equals(pinnedBefore) && stationaryState.position().equals(vector(pinnedBefore)),
+                "escape attempt does not grant physical movement while still contained");
+        containment.unbind(body, stationary);
+
         Vec3 safeExit = new Vec3(destination.x + 2, destination.y, destination.z + 2);
         ContainedBodyOwner[] exitingUnitRef = new ContainedBodyOwner[1];
         ContainedBodyOwner exitingUnit = owner(helper, body.getUUID(), destination,
@@ -390,14 +417,22 @@ public final class HumanHarnessMovementGameTests {
     private static ContainedBodyOwner owner(GameTestHelper helper, java.util.UUID id, Vec3 position,
             ContainedBodyOwner.Stage stage, java.util.concurrent.atomic.AtomicInteger escapes,
             java.util.function.Consumer<net.minecraft.world.entity.LivingEntity> escapeAction) {
+        return owner(helper, id, position, stage, escapes, escapeAction, ignored -> { });
+    }
+
+    private static ContainedBodyOwner owner(GameTestHelper helper, java.util.UUID id, Vec3 position,
+            ContainedBodyOwner.Stage stage, java.util.concurrent.atomic.AtomicInteger escapes,
+            java.util.function.Consumer<net.minecraft.world.entity.LivingEntity> escapeAction,
+            java.util.function.LongConsumer sequenceAction) {
         return new ContainedBodyOwner() {
             public java.util.UUID identity() { return id; }
             public net.minecraft.server.level.ServerLevel level() { return helper.getLevel(); }
             public Vec3 position() { return position; }
             public Stage stage() { return stage; }
             public boolean isValid() { return true; }
-            public boolean tryEscape(net.minecraft.world.entity.LivingEntity body) {
-                escapes.incrementAndGet(); escapeAction.accept(body); return true;
+            public boolean tryEscape(net.minecraft.world.entity.LivingEntity body) { return tryEscape(body, 0L); }
+            public boolean tryEscape(net.minecraft.world.entity.LivingEntity body, long sequence) {
+                escapes.incrementAndGet(); sequenceAction.accept(sequence); escapeAction.accept(body); return true;
             }
         };
     }

@@ -1,0 +1,1 @@
+{"parent":"base_clothing","item":{"size":"Huge"},"clothing":{"slot_flags":["OUTERCLOTHING"],"region":"TORSO","color":-1,"worn_model":{"mesh":"moonstation14:wearables/meshes/outerclothing/suit_rad.json","body_shape":"WIDE"}},"allow_suit_storage":true,"armor":{"modifiers":{"radiation":{"coefficient":0.01}}}}

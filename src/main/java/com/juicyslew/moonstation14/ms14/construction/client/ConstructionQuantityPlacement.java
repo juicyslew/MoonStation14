@@ -10,3 +10,4 @@ final class ConstructionQuantityPlacement {
                 bounds.y()+(bounds.height()-fontHeight*scale)/2f);
     }
 }
+

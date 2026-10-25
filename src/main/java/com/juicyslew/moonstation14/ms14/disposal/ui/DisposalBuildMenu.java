@@ -201,3 +201,4 @@ public final class DisposalBuildMenu extends AbstractContainerMenu {
 
     @Override public ItemStack quickMoveStack(Player player, int index) { return ItemStack.EMPTY; }
 }
+

@@ -20,7 +20,7 @@ public final class ResolvedWornEquipment {
         return entries(snapshot.orElseThrow(), layout.orElseThrow(), ModEquipmentItems.catalog(body.level()));
     }
 
-    static List<Entry> entries(LiveHands.EquipmentSnapshot snapshot, InventoryTemplateData layout,
+    public static List<Entry> entries(LiveHands.EquipmentSnapshot snapshot, InventoryTemplateData layout,
                                PrototypeCatalog<EquipmentItemData> catalog) {
         var result = new java.util.ArrayList<Entry>();
         for (var slot : snapshot.slots()) {

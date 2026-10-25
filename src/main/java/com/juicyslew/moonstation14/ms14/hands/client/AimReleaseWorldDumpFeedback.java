@@ -51,3 +51,4 @@ final class AimReleaseWorldDumpFeedback {
     boolean pending() { return pending; }
     void clear() { current = source = body = null; epoch = 0; pending = false; beginAccepted = false; releaseQueued = false; }
 }
+

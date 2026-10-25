@@ -13,15 +13,10 @@ permission:
   bash:
     "*": deny
     "*workflow.py*--help*": allow
-    "*workflow.py*status*": allow
-    "*workflow.py*gate-preflight*": allow
-    "*workflow.py*gate-validate*": allow
-    "*workflow.py*gate-clear-blocker*": allow
-    "*workflow.py*candidate-review*": allow
-    "*workflow.py*gate-finish*": allow
-    "*workflow.py*gate-scope-review*": allow
-    "*workflow.py*manual-tests*": allow
-    "*workflow.py*manual-notify*": allow
+  ms14_workflow_status: allow
+  ms14_workflow_validate: allow
+  ms14_workflow_review: allow
+  ms14_workflow_finish: allow
   webfetch: allow
   websearch: allow
   lsp: allow

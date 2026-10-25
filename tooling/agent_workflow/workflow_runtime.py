@@ -1,0 +1,1721 @@
+#!/usr/bin/env python3
+"""Filesystem-backed asset and coding handoff queue; no git/game mutation."""
+import argparse, contextvars, hashlib, json, os, re, shutil, subprocess, sys, time, types
+from contextlib import contextmanager
+from pathlib import Path
+try:
+    import validation_evidence
+except ModuleNotFoundError:
+    from tooling.agent_workflow import validation_evidence
+
+ID = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$')
+PNG = b'\x89PNG\r\n\x1a\n'
+GIT_TIMEOUT_SECONDS = 20
+_operation_deadline = contextvars.ContextVar('workflow_operation_deadline', default=None)
+
+class OperationDeadlineExceeded(RuntimeError):
+    pass
+
+class GitCommandTimeout(RuntimeError):
+    def __init__(self,timeout,pid,cleanup_verified):
+        self.timeout=timeout; self.pid=pid; self.cleanup_verified=cleanup_verified
+        detail=(f'Git timed out after {timeout:.1f}s; its process tree was stopped' if cleanup_verified else
+                f'Git timed out after {timeout:.1f}s and process-tree cleanup is unverified (PID {pid})')
+        super().__init__(detail+'; inspect status and retry only the same candidate ID' if cleanup_verified else
+                         detail+'; do not retry or create another candidate until process-tree cleanup is verified')
+
+class GateFinalizationPending(ValueError):
+    """A valid finalization attempt is waiting on already-admitted workflow work."""
+
+@contextmanager
+def operation_deadline(seconds):
+    """Install a monotonic deadline shared by all nested Git work in an operation."""
+    token=_operation_deadline.set(time.monotonic()+seconds)
+    try: yield
+    finally: _operation_deadline.reset(token)
+
+def check_operation_deadline():
+    deadline=_operation_deadline.get()
+    if deadline is not None and time.monotonic()>=deadline:
+        raise OperationDeadlineExceeded('submit deadline expired; inspect status and retry only with the same candidate ID')
+
+
+
+def sha(path):
+    h=hashlib.sha256()
+    with path.open('rb') as f:
+        for b in iter(lambda:f.read(1024*1024),b''): h.update(b)
+    return h.hexdigest()
+
+def readjson(path):
+    try: return json.loads(Path(path).read_text(encoding='utf-8'))
+    except (OSError,json.JSONDecodeError) as e: raise ValueError(f'{path}: {e}') from e
+
+def read_report(path):
+    path=Path(path)
+    if path.stat().st_size>1024*1024: raise ValueError('review report exceeds 1 MiB limit')
+    return readjson(path)
+
+def writejson(path,obj):
+    path=Path(path); path.parent.mkdir(parents=True,exist_ok=True)
+    tmp=path.with_name(path.name+'.tmp'); tmp.write_text(json.dumps(obj,indent=2,sort_keys=True)+'\n',encoding='utf8'); os.replace(tmp,path)
+
+def validid(value):
+    if not isinstance(value,str) or not ID.fullmatch(value) or value.endswith(('.', ' ')) or value.split('.')[0].upper() in {'CON','PRN','AUX','NUL',*(f'COM{i}' for i in range(1,10)),*(f'LPT{i}' for i in range(1,10))}: raise ValueError('invalid id (use a portable 1-80 letter/digit/_/- ID; start alphanumeric)')
+    return value
+
+def safe(root,value):
+    if not isinstance(value,str) or not value: raise ValueError('path must be a non-empty string')
+    p=(Path(root).resolve()/value).resolve()
+    if not p.is_relative_to(Path(root).resolve()): raise ValueError(f'path escapes root: {value}')
+    return p
+
+def author_report_dir(candidate):
+    """Return the candidate-bound, ignored report folder in its author worktree."""
+    repo=Path(candidate['worktree']['worktree']).resolve()
+    sprint=validid(candidate.get('sprint_id'))
+    folder=safe(repo, f'build/agent-workflow/{sprint}/reports')
+    ignored=git_status(repo,'check-ignore','-q',str(folder), quiet=True)==0
+    if not ignored:
+        raise ValueError(f'author report path is not gitignored: {folder}')
+    tracked=git(repo,'ls-files','--',str(folder.relative_to(repo)))
+    if tracked.strip(): raise ValueError(f'author report path contains tracked files: {folder}')
+    return folder
+
+def sprint_lock(root,repo,sprint):
+    key=hashlib.sha256((str(Path(repo).resolve()).casefold()+'\0'+validid(sprint)).encode()).hexdigest()
+    return gate_lock(Path(root)/'sprint-locks'/key)
+
+def try_sprint_lock(root,repo,sprint):
+    key=hashlib.sha256((str(Path(repo).resolve()).casefold()+'\0'+validid(sprint)).encode()).hexdigest()
+    try: return gate_lock(Path(root)/'sprint-locks'/key,nonblocking=True)
+    except (BlockingIOError,TimeoutError) as exc: raise ValueError('sprint cleanup or another mutation is in progress; retry later') from exc
+
+def validate_review_report(report,candidate,reviewer):
+    if not isinstance(report,dict): raise ValueError('review report must be a JSON object')
+    if (report.get('candidate_id')!=candidate['id'] or report.get('snapshot_key')!=candidate['snapshot_key'] or
+        report.get('reviewer')!=reviewer or report.get('decision') not in ('needs_changes','ready_for_owner')):
+        raise ValueError('review report identity/decision mismatch')
+    findings=report.get('findings')
+    if not isinstance(findings,list) or not findings or len(findings)>100 or any(not isinstance(x,str) or not x.strip() or len(x)>2000 for x in findings):
+        raise ValueError('review report findings must contain 1-100 bounded strings')
+    if not isinstance(report.get('viewed_images',[]),list): raise ValueError('review report viewed_images must be an array')
+    return report
+
+def git(repo,*args):
+    env=os.environ.copy(); env['GIT_OPTIONAL_LOCKS']='0'
+    return _bounded_git(repo,args,env).stdout
+
+def git_status(repo,*args,quiet=False):
+    env=os.environ.copy(); env['GIT_OPTIONAL_LOCKS']='0'
+    result=_bounded_git(repo,args,env,check=False,quiet=quiet)
+    return result.returncode
+
+def _bounded_git(repo,args,env,check=True,quiet=False):
+    """Run a bounded, silent Git child and reap its owned process tree on timeout."""
+    repo=Path(repo).resolve()
+    kwargs=dict(cwd=repo,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL if quiet else subprocess.PIPE,
+        stderr=subprocess.DEVNULL if quiet else subprocess.PIPE,env=env,shell=False,
+        creationflags=(getattr(subprocess,'CREATE_NEW_PROCESS_GROUP',0)|getattr(subprocess,'CREATE_NO_WINDOW',0)) if os.name=='nt' else 0,
+        start_new_session=os.name!='nt')
+    check_operation_deadline()
+    remaining=_operation_deadline.get()
+    timeout=GIT_TIMEOUT_SECONDS if remaining is None else min(GIT_TIMEOUT_SECONDS,max(0.001,remaining-time.monotonic()))
+    proc=subprocess.Popen(['git','-C',str(repo),*args],**kwargs)
+    try:
+        out,err=proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        try: stop_owned_tree(proc)
+        except GateTreeBlocked as blocked:
+            raise GitCommandTimeout(timeout,blocked.pid,False) from exc
+        raise GitCommandTimeout(timeout,proc.pid,True) from exc
+    result=subprocess.CompletedProcess(proc.args,proc.returncode,out or b'',err or b'')
+    if check and proc.returncode:
+        raise subprocess.CalledProcessError(proc.returncode,proc.args,output=result.stdout,stderr=result.stderr)
+    return result
+
+def gitid(repo):
+    return {'worktree':str(Path(repo).resolve()),'head':git(repo,'rev-parse','HEAD').decode().strip(),'branch':git(repo,'branch','--show-current').decode().strip()}
+
+def queue(a,create=False):
+    if a.asset_workspace: root=Path(a.asset_workspace).resolve()/'work'/'agent_exchange'
+    else:
+        repo=Path(a.repo).resolve(); common=Path(git(repo,'rev-parse','--git-common-dir').decode().strip())
+        if not common.is_absolute(): common=(repo/common).resolve()
+        # common is <owning-repo>/.git; its parent is the repo, grandparent has sibling workspace.
+        root=common.parent.parent/'Asset Building Workspace'/'work'/'agent_exchange'
+    if create: root.mkdir(parents=True,exist_ok=True)
+    return root
+
+def getrequest(root,rid):
+    validid(rid); folder=root/'requests'/rid
+    if not (folder/'request.json').is_file(): raise ValueError(f'unknown request: {rid}')
+    r=readjson(folder/'request.json'); verify_request(folder,r)
+    return folder,r
+
+def request_snapshot_material(r):
+    mutable={'status','requester','context_snapshot','snapshot_key','delivery','review','import_receipt'}
+    return {k:v for k,v in r.items() if k not in mutable}|{'context_snapshot':r.get('context_snapshot',[])}
+
+def verify_request(folder,r):
+    if snapshot_key(request_snapshot_material(r))!=r.get('snapshot_key'): raise ValueError('request snapshot key mismatch')
+    for item in r.get('context_snapshot',[]):
+        p=safe(folder/'context',item['path'])
+        if not p.is_file() or sha(p)!=item['sha256']: raise ValueError(f'context snapshot stale: {item["path"]}')
+
+def flatmanifest(path,source_root):
+    """Deliberately narrow accepted format: complete flat files[] rows with file+destination."""
+    path=Path(path).resolve(); m=readjson(path); rows=m.get('files')
+    if not isinstance(rows,list):
+        if 'items' in m: raise ValueError('unsupported manifest: nested items (wearable geometry/bone_mesh/nullable destinations) need an explicit reviewed adapter')
+        raise ValueError('unsupported manifest: expected flat files[] format')
+    if not rows: raise ValueError('manifest files[] is empty')
+    base=Path(source_root).resolve(); output=[]; srcs=set(); dests=set()
+    for i,row in enumerate(rows):
+        if not isinstance(row,dict): raise ValueError(f'files[{i}] must be an object')
+        src=row.get('file'); dest=row.get('destination')
+        if not isinstance(src,str) or not isinstance(dest,str) or not src or not dest: raise ValueError(f'files[{i}] missing file or destination')
+        status=row.get('status','')
+        if isinstance(status,str) and any(word in status.casefold() for word in ('remap','transform','unsupported')):
+            raise ValueError(f'unsupported manifest transform at files[{i}]: {status}')
+        if Path(src).suffix.casefold()=='.mtl': raise ValueError(f'unsupported MTL remapping/transform: {src}')
+        sp=safe(base,src); dp=Path(dest)
+        if dp.is_absolute() or '..' in dp.parts or not dp.parts: raise ValueError(f'invalid destination: {dest}')
+        sk=src.casefold(); dk=dp.as_posix().casefold()
+        if sk in srcs: raise ValueError(f'duplicate source: {src}')
+        if dk in dests: raise ValueError(f'duplicate destination: {dest}')
+        srcs.add(sk); dests.add(dk)
+        if not sp.is_file(): raise ValueError(f'missing source/dependency: {src}')
+        output.append({'source':src,'destination':dp.as_posix(),'source_sha256':sha(sp),'size':sp.stat().st_size})
+    return path,m,output
+
+def context_snapshot(values,base,folder):
+    prepared=[]; names=set()
+    for value in values:
+        src=safe(base,value)
+        if not src.is_file(): raise ValueError(f'missing context: {value}')
+        rel=Path(value)
+        if rel.is_absolute() or '..' in rel.parts: raise ValueError(f'context path must be relative: {value}')
+        name=rel.as_posix(); key=name.casefold()
+        if key in names: raise ValueError(f'duplicate context path: {value}')
+        names.add(key); prepared.append((src,name,sha(src)))
+    return prepared
+
+def snapshot_key(value):
+    return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+
+def cmd_request(a,root):
+    r=readjson(a.from_json); rid=validid(r.get('id'))
+    if not isinstance(r.get('brief'),str) or not r['brief'].strip(): raise ValueError('request requires non-empty brief')
+    if not isinstance(r.get('context',[]),list): raise ValueError('context must be a path list')
+    folder=root/'requests'/rid
+    if folder.exists(): raise ValueError(f'request id already exists: {rid}')
+    prepared=context_snapshot(r.get('context',[]),Path(a.context_root or a.repo),folder)
+    folder.mkdir(parents=True)
+    try:
+        ctx=[]
+        for src,name,h in prepared:
+            dst=folder/'context'/Path(name); dst.parent.mkdir(parents=True,exist_ok=True); shutil.copyfile(src,dst)
+            ctx.append({'path':name,'sha256':h})
+        r.update(status='open',requester=gitid(a.repo),context_snapshot=ctx)
+        r['snapshot_key']=snapshot_key(request_snapshot_material(r))
+        writejson(folder/'request.json',r)
+    except Exception:
+        shutil.rmtree(folder,ignore_errors=True); raise
+    print(rid)
+
+def cmd_claim(a,root):
+    folder,r=getrequest(root,a.id); validid(a.id)
+    try: fd=os.open(folder/'claim.json',os.O_CREAT|os.O_EXCL|os.O_WRONLY)
+    except FileExistsError: raise ValueError('already claimed')
+    with os.fdopen(fd,'w',encoding='utf8') as f: json.dump({'agent':a.agent,'worktree':str(Path(a.repo).resolve())},f)
+    r['status']='claimed'; writejson(folder/'request.json',r); print('claimed')
+
+def cmd_plan(a,root):
+    path,m,rows=flatmanifest(a.manifest,a.source_root)
+    target=Path(a.target).resolve() if a.target else None
+    if target:
+        for row in rows:
+            dst,existing=inspect_destination(target,row['destination']); row['target_sha256']=existing
+            row['action']='unchanged' if row['target_sha256']==row['source_sha256'] else ('conflict' if row['target_sha256'] else 'would-copy')
+    print(json.dumps({'mode':'read-only-plan','manifest':str(path),'manifest_sha256':sha(path),'target':str(target) if target else None,'files':rows},indent=2))
+
+def cmd_deliver(a,root):
+    folder,r=getrequest(root,a.id)
+    if not (folder/'claim.json').is_file(): raise ValueError('claim required')
+    path,m,rows=flatmanifest(a.manifest,a.source_root)
+    if (folder/'delivery').exists(): raise ValueError('delivery is immutable; create a new request/revision id')
+    # Complete group only. Bind explicit lineage/provenance/editable/gallery records, not guessed sidecars.
+    if not a.provenance or not a.editable or not a.review_images: raise ValueError('explicit --provenance, --editable and --review-images metadata required')
+    sidecars=[]
+    for label,values in [('provenance',a.provenance),('editable',a.editable),('review_image',a.review_images)]:
+        for val in values:
+            p=safe(a.source_root,val)
+            if not p.is_file(): raise ValueError(f'missing {label}: {val}')
+            sidecars.append({'kind':label,'path':val,'sha256':sha(p)})
+    delivered=folder/'delivery'; deliverables=delivered/'files'
+    # All validation precedes creating/copying delivery; once published immutable.
+    delivered.mkdir(parents=True)
+    try:
+        for row in rows:
+            src=safe(a.source_root,row['source']); dst=deliverables/row['destination']; dst.parent.mkdir(parents=True,exist_ok=True); shutil.copyfile(src,dst)
+        manifest_copy=delivered/'source_manifest.json'; shutil.copyfile(path,manifest_copy)
+        manifest_copy_hash=sha(manifest_copy)
+        r['delivery']={'revision':a.revision,'source_root':str(Path(a.source_root).resolve()),'manifest_path':str(path),'manifest_sha256':manifest_copy_hash,'files':rows,'metadata':sidecars,'digest':delivery_digest(manifest_copy_hash,rows,sidecars,a.revision)}
+        r['status']='delivered'; writejson(folder/'request.json',r)
+    except Exception:
+        shutil.rmtree(delivered,ignore_errors=True); raise
+    print(f'delivered complete group: {len(rows)} files; new revision {a.revision}')
+
+def delivery_digest(manifest_hash,rows,metadata,revision):
+    blob=json.dumps({'manifest':manifest_hash,'files':rows,'metadata':metadata,'revision':revision},sort_keys=True,separators=(',',':')).encode()
+    return hashlib.sha256(blob).hexdigest()
+
+def verify_delivery(folder,r):
+    d=r.get('delivery')
+    if not d: raise ValueError('no delivery')
+    mp=folder/'delivery'/'source_manifest.json'
+    if not mp.is_file() or sha(mp)!=d['manifest_sha256']: raise ValueError('captured manifest hash changed')
+    srcroot=Path(d['source_root']); path=Path(d['manifest_path'])
+    if not path.is_file() or sha(path)!=d['manifest_sha256']: raise ValueError('original source manifest stale; create a new revision')
+    _,_,current=flatmanifest(path,srcroot)
+    if current!=d['files']: raise ValueError('source files changed since delivery; create a new revision')
+    if delivery_digest(d['manifest_sha256'],d['files'],d['metadata'],d['revision'])!=d['digest']: raise ValueError('delivery receipt digest mismatch')
+    for row in d['files']:
+        copied=folder/'delivery'/'files'/row['destination']
+        if not copied.is_file() or sha(copied)!=row['source_sha256']: raise ValueError(f'delivered bytes changed: {row["source"]}')
+    for x in d['metadata']:
+        p=safe(srcroot,x['path'])
+        if not p.is_file() or sha(p)!=x['sha256']: raise ValueError(f'delivery metadata stale: {x["path"]}')
+    return d
+
+def evidence_paths(paths,base):
+    out=[]
+    for value in paths:
+        p=safe(base,value)
+        if not p.is_file(): raise ValueError(f'missing evidence: {value}')
+        if p.stat().st_size>64*1024*1024: raise ValueError(f'evidence exceeds 64 MiB limit: {value}')
+        item={'path':str(p),'sha256':sha(p)}
+        if p.suffix.lower()=='.png':
+            with p.open('rb') as f: head=f.read(24)
+            if len(head)<24 or head[:8]!=PNG: raise ValueError(f'not a valid PNG header: {value}')
+            item['png_dimensions']=[int.from_bytes(head[16:20],'big'),int.from_bytes(head[20:24],'big')]
+            if min(item['png_dimensions'])<1 or max(item['png_dimensions'])>8192: raise ValueError(f'invalid or excessive PNG dimensions: {value}')
+        out.append(item)
+    return out
+
+def reviewed_images(records,base):
+    if not isinstance(records,list) or not records: raise ValueError('review report requires viewed_images array')
+    paths=[]
+    for item in records:
+        if not isinstance(item,dict) or not isinstance(item.get('path'),str) or not re.fullmatch(r'[0-9a-f]{64}',str(item.get('sha256',''))): raise ValueError('viewed_images entries require path and sha256')
+        if Path(item['path']).suffix.lower()!='.png': raise ValueError('viewed image evidence must be PNG')
+        paths.append(item['path'])
+    actual=evidence_paths(paths,base)
+    for given,current in zip(records,actual):
+        if given['sha256']!=current['sha256']: raise ValueError(f"review image hash mismatch: {given['path']}")
+    return actual
+
+def verify_original_images(records,candidate,report_base=None):
+    if not isinstance(records,list): raise ValueError('original_images must be an array')
+    repo=Path(candidate['worktree']['worktree']).resolve(); evidence={Path(x['path']).resolve():x['sha256'] for x in candidate.get('evidence',[])}
+    result=[]
+    for item in records:
+        if not isinstance(item,dict): raise ValueError('original_images entries must be objects')
+        if 'original_path' in item:
+            if report_base is None or not isinstance(item.get('path'),str) or not re.fullmatch(r'[0-9a-f]{64}',str(item.get('sha256',''))): raise ValueError('copied original_images require report path/hash binding')
+            copied=safe(report_base,item['path']); source=Path(item.get('original_path','')).resolve(); digest=item.get('original_sha256')
+            if not copied.is_file() or sha(copied)!=item['sha256']: raise ValueError(f'copied original review image stale: {copied}')
+            if item['sha256']!=digest: raise ValueError('copied/original image hashes differ')
+            path=source
+        else:
+            if not isinstance(item.get('path'),str): raise ValueError('original_images require path and sha256')
+            raw=Path(item['path']); path=(raw if raw.is_absolute() else repo/raw).resolve(); digest=item.get('sha256')
+        if not isinstance(digest,str) or not re.fullmatch(r'[0-9a-f]{64}',digest): raise ValueError('original_images require SHA-256')
+        if path.suffix.lower()!='.png' or (not path.is_relative_to(repo) and path not in evidence): raise ValueError(f'original image outside candidate source/evidence scope: {path}')
+        if not path.is_file() or sha(path)!=digest or (path in evidence and evidence[path]!=digest): raise ValueError(f'original image missing/stale: {path}')
+        result.append({'path':str(path),'sha256':digest})
+    return result
+
+def capture_review_images(records,originals,report_path,ident):
+    if not isinstance(records,list): raise ValueError('viewed_images must be an array')
+    base=Path(report_path).resolve().parent; original_by_hash={x['sha256']:Path(x['path']) for x in originals}; copied=[]
+    for index,item in enumerate(records):
+        if not isinstance(item,dict) or item.get('sha256') not in original_by_hash: raise ValueError('each viewed image must bind a verified original_images SHA-256')
+        source=original_by_hash[item['sha256']]
+        target=base/'reviewed-images'/f'{ident}-{index+1}-{item["sha256"][:16]}.png'
+        target.parent.mkdir(parents=True,exist_ok=True)
+        if target.exists() and sha(target)!=item['sha256']: raise ValueError(f'review image capture conflict: {target}')
+        if not target.exists(): shutil.copyfile(source,target)
+        copied.append({'path':target.relative_to(base).as_posix(),'sha256':item['sha256']})
+    return copied
+
+def preflight_review_image_captures(records,originals,report_path,ident):
+    base=Path(report_path).resolve().parent
+    hashes={x['sha256'] for x in originals}
+    for index,item in enumerate(records):
+        digest=item.get('sha256') if isinstance(item,dict) else None
+        if digest not in hashes: raise ValueError('each viewed image must bind a verified original_images SHA-256')
+        target=base/'reviewed-images'/f'{ident}-{index+1}-{digest[:16]}.png'
+        if target.exists() and sha(target)!=digest:
+            raise ValueError(f'review image capture conflict: {target}')
+
+def prepare_candidate_review(report,candidate,reviewer,result,report_path):
+    report=validate_review_report(report,candidate,reviewer)
+    if report.get('decision')!=result: raise ValueError('candidate review report decision mismatch')
+    originals=verify_original_images(report.get('original_images',[]),candidate,Path(report_path).resolve().parent)
+    if result=='ready_for_owner' and candidate['visual_review_required'] and not originals:
+        raise ValueError('visual review must bind original_images in candidate/source evidence')
+    images=optional_reviewed_images(report.get('viewed_images',[]),Path(report_path).resolve().parent)
+    if result=='ready_for_owner' and candidate['visual_review_required'] and not images:
+        raise ValueError('visual candidate ready report needs viewed PNG evidence')
+    if result=='ready_for_owner' and candidate['visual_review_required'] and not originals:
+        raise ValueError('visual review must bind original_images in candidate/source evidence')
+    if originals: preflight_review_image_captures(report.get('viewed_images',[]),originals,report_path,candidate['id'])
+    return report,originals,images
+
+def save_candidate_review(path,candidate,result,report_path,report,images,originals):
+    if not path.is_file(): raise ValueError('candidate was removed during review')
+    current=readjson(path)
+    if current.get('snapshot_key')!=candidate['snapshot_key']: raise ValueError('candidate changed during review')
+    current['review']={'result':result,'report_path':str(Path(report_path).resolve()),'report':report,
+        'report_sha256':sha(Path(report_path)),'viewed_images':images,'original_images':originals,
+        'inspection_is_reviewer_assertion':True}
+    writejson(path,current)
+
+def optional_reviewed_images(records,base):
+    if not isinstance(records,list): raise ValueError('viewed_images must be an array')
+    return reviewed_images(records,base) if records else []
+
+def cmd_review(a,root):
+    folder,r=getrequest(root,a.id); d=verify_delivery(folder,r)
+    if a.reviewer==readjson(folder/'claim.json').get('agent'): raise ValueError('reviewer must differ from implementer/claim agent')
+    report=read_report(a.report)
+    required={'request_id':a.id,'snapshot_key':r['snapshot_key'],'delivery_digest':d['digest'],'reviewer':a.reviewer,'findings':report.get('findings'),'viewed_images':report.get('viewed_images')}
+    if report.get('request_id')!=a.id or report.get('snapshot_key')!=r['snapshot_key'] or report.get('delivery_digest')!=d['digest'] or report.get('reviewer')!=a.reviewer: raise ValueError('review report request/snapshot/delivery/reviewer mismatch')
+    if report.get('decision')!=a.result: raise ValueError('review report decision mismatch')
+    if not isinstance(required['findings'],list) or not required['findings'] or len(required['findings'])>100 or any(not isinstance(x,str) or len(x)>2000 for x in required['findings']): raise ValueError('review report requires 1-100 bounded text findings')
+    images=reviewed_images(required['viewed_images'],Path(a.report).resolve().parent)
+    r['review']={'result':a.result,'report_path':str(Path(a.report).resolve()),'report_sha256':sha(Path(a.report)),'report':report,'viewed_images':images,'inspection_is_reviewer_assertion':True}
+    r['status']=a.result; writejson(folder/'request.json',r); print(a.result)
+
+def current_review(folder,r):
+    d=verify_delivery(folder,r); review=r.get('review')
+    if not review or review['result']!='ready_for_owner': raise ValueError('independent ready_for_owner review required')
+    if not Path(review.get('report_path','')).is_file() or review['report_sha256']!=sha(Path(review['report_path'])): raise ValueError('review report changed')
+    report=read_report(review['report_path'])
+    if report.get('delivery_digest')!=d['digest'] or report.get('request_id')!=r['id'] or report.get('snapshot_key')!=r['snapshot_key']: raise ValueError('review report no longer matches delivery/request snapshot')
+    for x in review['viewed_images']:
+        p=Path(x['path'])
+        if not p.is_file() or sha(p)!=x['sha256']: raise ValueError('review image changed')
+    return d,review
+
+def inspect_destination(target,destination):
+    root=Path(target).resolve()
+    if root.exists() and not root.is_dir(): raise ValueError(f'target root is not a directory: {root}')
+    dst=safe(root,destination)
+    parent=dst.parent
+    while parent!=root and parent.is_relative_to(root):
+        if parent.exists() and not parent.is_dir(): raise ValueError(f'destination parent exists but is not a directory: {parent}')
+        parent=parent.parent
+    if dst.exists() and not dst.is_file(): raise ValueError(f'destination exists but is not a regular file: {destination}')
+    return dst,sha(dst) if dst.is_file() else None
+
+def target_plan(target,d,overwrite=False):
+    result=[]
+    for row in d['files']:
+        dst,existing=inspect_destination(target,row['destination'])
+        if existing==row['source_sha256']: action='unchanged'
+        elif existing and not overwrite: raise ValueError(f'overwrite conflict: {row["destination"]}; inspect fresh plan and explicitly authorize overwrite')
+        else: action='copy'
+        result.append({'destination':row['destination'],'expected_existing_sha256':existing,'new_sha256':row['source_sha256'],'action':action})
+    return result
+
+def cmd_import(a,root):
+    folder,r=getrequest(root,a.id); d=verify_delivery(folder,r)
+    owner_hash=None
+    if a.owner_receipt:
+        owner=readjson(a.owner_receipt)
+        if owner.get('request_id')!=a.id or owner.get('decision')!='accepted' or owner.get('delivery_digest')!=d['digest']: raise ValueError('owner receipt must accept this exact request and delivery digest')
+        owner_hash=sha(Path(a.owner_receipt))
+    if a.apply:
+        d,review=current_review(folder,r)
+        if owner_hash is None: raise ValueError('owner receipt required for --apply')
+        if (folder/'import_receipt.json').exists(): raise ValueError('this request already has a successful import receipt; use a new request/revision id')
+    target=Path(a.target).resolve(); plan=target_plan(target,d,a.allow_overwrite)
+    if a.plan_out:
+        if Path(a.plan_out).exists(): raise ValueError(f'plan file already exists; choose a new output path: {a.plan_out}')
+        writejson(a.plan_out,{'request_id':a.id,'delivery_digest':d['digest'],'owner_receipt_sha256':owner_hash,'target':str(target),'overwrite_acknowledged':a.allow_overwrite,'files':plan})
+    if not a.apply:
+        print(json.dumps({'dry_run':True,'target':str(target),'files':plan},indent=2)); return
+    if not a.plan: raise ValueError('--apply requires --plan from the reviewed dry-run; target changes must be re-planned')
+    saved=readjson(a.plan)
+    if saved.get('request_id')!=a.id or saved.get('delivery_digest')!=d['digest'] or saved.get('owner_receipt_sha256')!=owner_hash or owner_hash is None or Path(saved.get('target','')).resolve()!=target or saved.get('files')!=plan: raise ValueError('target, acceptance receipt or plan changed; create a fresh post-acceptance dry-run')
+    if saved.get('overwrite_acknowledged')!=a.allow_overwrite: raise ValueError('overwrite authorization differs from plan')
+    for row in d['files']:
+        dst=safe(target,row['destination']); src=folder/'delivery'/'files'/row['destination']
+        if sha(src)!=row['source_sha256']: raise ValueError('delivery changed after plan')
+        if sha(safe(d['source_root'],row['source']))!=row['source_sha256']: raise ValueError('source changed after plan')
+    outcomes=[]
+    for index,(row,p) in enumerate(zip(d['files'],plan)):
+        dst=safe(target,row['destination'])
+        if p['action']=='unchanged': outcomes.append({'destination':row['destination'],'status':'unchanged'}); continue
+        try:
+            dst.parent.mkdir(parents=True,exist_ok=True); shutil.copyfile(folder/'delivery'/'files'/row['destination'],dst)
+            outcomes.append({'destination':row['destination'],'status':'copied'})
+        except OSError as exc:
+            outcomes.append({'destination':row['destination'],'status':'failed','error':str(exc)})
+            outcomes.extend({'destination':future['destination'],'status':'not_attempted'} for future in d['files'][index+1:])
+            attempt={'request_id':a.id,'delivery_digest':d['digest'],'plan':str(Path(a.plan).resolve()),'owner_receipt_sha256':owner_hash,'result':'partial_failure_no_rollback','paths':outcomes}
+            writejson(folder/'import_attempt.json',attempt); r['status']='import_failed'; writejson(folder/'request.json',r)
+            raise ValueError(f"import partially failed at {row['destination']}; earlier copies may remain; inspect {folder/'import_attempt.json'} (no rollback)") from exc
+    receipt={'request_id':a.id,'delivery_digest':d['digest'],'plan':str(Path(a.plan).resolve()),'files':plan,'owner_receipt_sha256':owner_hash,'paths':outcomes,'result':'complete'}
+    writejson(folder/'import_receipt.json',receipt); r['status']='imported'; writejson(folder/'request.json',r); print('imported')
+
+def git_changes(repo,base):
+    base_sha=git(repo,'rev-parse',base).decode().strip()
+    committed=git(repo,'diff','--name-status','-z',base_sha,'--').decode(errors='surrogateescape').split('\0'); committed_rows=[]
+    i=0
+    while i<len(committed) and committed[i]:
+        status=committed[i]; i+=1; name=committed[i]; i+=1
+        if status.startswith('R') or status.startswith('C'):
+            old=name; name=committed[i]; i+=1; committed_rows.append({'status':status,'old_path':old,'path':name})
+        else: committed_rows.append({'status':status,'path':name})
+    raw=git(repo,'status','--porcelain=v1','-z','--untracked-files=all').decode(errors='surrogateescape').split('\0'); dirty=[]; i=0
+    while i<len(raw) and raw[i]:
+        entry=raw[i]; i+=1; status=entry[:2]; name=entry[3:]
+        item={'status':status,'path':name}
+        if 'R' in status or 'C' in status:
+            item['old_path']=raw[i]; i+=1
+        p=safe(repo,name)
+        item['sha256']=sha(p) if p.is_file() else None
+        dirty.append(item)
+    return base_sha,committed_rows,dirty
+
+def cmd_submit(a,root):
+    try:
+        from admission import maintenance
+    except ModuleNotFoundError:
+        from tooling.agent_workflow.admission import maintenance
+    held=maintenance(root,a.id)
+    if held:
+        print(json.dumps(held,indent=2)); return
+    rid=validid(a.id); repo=Path(a.repo).resolve()
+    sprint=validid(a.sprint)
+    if not a.build_identity.strip(): raise ValueError('candidate requires non-empty build identity')
+    diagnostic=bool(getattr(a,'diagnostic_only',False))
+    if not diagnostic and not a.steps.strip(): raise ValueError('candidate requires non-empty manual validation steps (or explicitly say blocked/not run)')
+    if diagnostic and not re.search(r'diagnostic\s+only.*no\s+owner/manual\s+readiness',a.steps,re.I):
+        raise ValueError('diagnostic --steps must explicitly say "diagnostic only; no owner/manual readiness"')
+    if diagnostic and a.visual_review_required: raise ValueError('diagnostic-only submission cannot require visual review')
+    lock=try_sprint_lock(root,repo,sprint)
+    try:
+        _cmd_submit_locked(a,root,rid,repo,sprint)
+    finally: lock.close()
+
+def _cmd_submit_locked(a,root,rid,repo,sprint):
+    try:
+        from admission import maintenance
+    except ModuleNotFoundError:
+        from tooling.agent_workflow.admission import maintenance
+    held=maintenance(root,a.id)
+    if held:
+        print(json.dumps(held,indent=2)); return
+    base,committed,dirty=git_changes(repo,a.base_ref); ev=evidence_paths(a.evidence,repo)
+    p=root/'candidates'/f'{rid}.json'
+    if p.exists(): raise ValueError('candidate id collision; use new revision id')
+    plan=None
+    if a.gate_plan:
+        plan=resolve_gate_plan(readjson(a.gate_plan),repo)
+        diagnostic=bool(getattr(a,'diagnostic_only',False))
+        if diagnostic != (plan['kind']=='diagnostic'): raise ValueError('use --diagnostic-only exactly when gate plan kind is diagnostic')
+    if p.exists(): raise ValueError('candidate id collision; use new revision id')
+    prior=[]; revision=1
+    for old_path in (root/'candidates').glob('*.json') if (root/'candidates').exists() else []:
+        old=readjson(old_path)
+        if old.get('sprint_id')==sprint and Path(old.get('worktree',{}).get('worktree','')).resolve()==repo:
+            prior.append(old.get('id'))
+            revision=max(revision,int(old.get('revision_sequence',0))+1)
+    if getattr(a,'diagnostic_only',False) and not plan: raise ValueError('--diagnostic-only requires a diagnostic gate plan')
+    candidate={'id':rid,'sprint_id':sprint,'status':'diagnostic_request' if getattr(a,'diagnostic_only',False) else 'candidate','agent':a.agent,'visual_review_required':a.visual_review_required,'worktree':gitid(repo),'base_ref':a.base_ref,'base_sha':base,'committed_changes':committed,'dirty_changes':dirty,'evidence':ev,'build_identity':a.build_identity,'steps':a.steps,'unverified':a.unverified,'gate_plan':plan,'submitted_at':time.time(),'revision_sequence':revision,'supersedes':prior}
+    check_operation_deadline()
+    candidate['snapshot_key']=snapshot_key(candidate); writejson(p,candidate)
+    print(p)
+
+def validate_gate_plan(plan,repo):
+    if not isinstance(plan,dict): raise ValueError('gate plan must be a JSON object')
+    allowed={'title','kind','acceptance_criteria','fixture','manual_steps','checks','no_checks_rationale','references','unverified','deferred_boundaries'}
+    if set(plan)-allowed: raise ValueError(f'unsupported gate plan keys: {sorted(set(plan)-allowed)}')
+    if 'unverified' in plan and (not isinstance(plan['unverified'],str) or len(plan['unverified'])>4000):
+        raise ValueError('gate plan unverified metadata must be bounded text')
+    if 'deferred_boundaries' in plan and (not isinstance(plan['deferred_boundaries'],list) or len(plan['deferred_boundaries'])>100 or any(not isinstance(x,str) or not x.strip() or len(x)>1000 for x in plan['deferred_boundaries'])):
+        raise ValueError('gate plan deferred_boundaries must be a bounded list of non-empty descriptive strings')
+    for key in ('title','kind','acceptance_criteria','fixture','manual_steps','checks'):
+        if key not in plan: raise ValueError(f'gate plan missing {key}')
+    if plan['kind'] not in ('sprint','feature','bugfix','docs','art','other','diagnostic'): raise ValueError('invalid gate plan kind')
+    for key in ('title','fixture'):
+        if not isinstance(plan[key],str) or not plan[key].strip(): raise ValueError(f'gate plan {key} must be non-empty')
+    diagnostic=plan['kind']=='diagnostic'
+    if not isinstance(plan['acceptance_criteria'],list) or not plan['acceptance_criteria']: raise ValueError('gate plan acceptance_criteria must be a non-empty array')
+    if not isinstance(plan['manual_steps'],list) or (not diagnostic and not plan['manual_steps']): raise ValueError('gate plan manual_steps must be a non-empty array except for diagnostic plans')
+    if not isinstance(plan['checks'],list): raise ValueError('checks must be an array')
+    if not plan['checks'] and (plan['kind']!='docs' or not isinstance(plan.get('no_checks_rationale'),str) or not plan['no_checks_rationale'].strip()): raise ValueError('empty checks require docs kind and explicit no_checks_rationale')
+    fixture=safe(repo,plan['fixture'])
+    if not fixture.is_file(): raise ValueError('gate fixture must identify an existing file')
+    if any(not isinstance(x,str) or not x.strip() for x in plan['acceptance_criteria']+plan['manual_steps']): raise ValueError('criteria/manual steps must be non-empty text')
+    for check in plan['checks']:
+        allowed_check={'argv','rationale','covers','kind','selectors','artifacts','ready_patterns','error_patterns','log'}
+        if diagnostic: allowed_check.add('artifact_globs')
+        if set(check)-allowed_check: raise ValueError(f'unsupported check orchestration keys: {sorted(set(check)-allowed_check)}')
+        if 'artifact_globs' in check:
+            patterns=check['artifact_globs']
+            if not diagnostic or not isinstance(patterns,list) or not patterns: raise ValueError('artifact_globs are only allowed as a non-empty diagnostic list')
+            for pattern in patterns:
+                if (not isinstance(pattern,str) or not pattern.strip() or Path(pattern).is_absolute() or '\\' in pattern or
+                    any(part in ('','..','.') for part in pattern.split('/'))):
+                    raise ValueError('artifact_globs must be safe repo-relative patterns')
+        if not isinstance(check,dict) or not isinstance(check.get('argv'),list) or not check['argv'] or any(not isinstance(x,str) or not x.strip() for x in check['argv']) or not isinstance(check.get('rationale'),str) or not check['rationale'].strip() or not check.get('covers'):
+            raise ValueError('checks require argv, rationale and covered criteria')
+        if not isinstance(check['covers'],list) or any(x not in plan['acceptance_criteria'] for x in check['covers']): raise ValueError('check covers must reference acceptance criteria')
+        kind=check.get('kind','command')
+        if kind not in ('build','junit','readiness','gametest','launch-smoke','command'): raise ValueError(f'unsupported evidence kind: {kind}')
+        cmd=' '.join(check['argv']).casefold()
+        if 'rungametestserver' in cmd and kind!='gametest': raise ValueError('runGameTestServer checks must declare kind gametest')
+        if 'featurereadiness' in cmd and kind!='readiness': raise ValueError('featureReadiness checks must declare kind readiness')
+        if (' test' in cmd or cmd.endswith('test')) and ('gradlew' in cmd or 'gradle' in cmd) and kind!='junit': raise ValueError('Gradle test checks must declare kind junit')
+        if kind=='readiness' and (not isinstance(check.get('selectors'),list) or not check['selectors']): raise ValueError('readiness checks require exact selectors')
+        if kind=='build' and (not isinstance(check.get('artifacts'),list) or not check['artifacts']): raise ValueError('build checks require explicit artifacts')
+        if kind=='launch-smoke' and (not isinstance(check.get('ready_patterns'),list) or not check['ready_patterns']): raise ValueError('launch-smoke checks require ready_patterns')
+        if kind in ('gametest','launch-smoke') and not isinstance(check.get('log'),str): raise ValueError(f'{kind} checks require a repo-relative log path')
+        if kind=='launch-smoke':
+            if not isinstance(check.get('ready_patterns'),list) or not isinstance(check.get('error_patterns',[]),list): raise ValueError('launch-smoke patterns must be arrays')
+            patterns=check['ready_patterns']+check.get('error_patterns',[])
+            if any(not isinstance(x,str) or not x or len(x)>300 for x in patterns): raise ValueError('launch-smoke regex patterns must be bounded text')
+            try:
+                for pattern in patterns: re.compile(pattern)
+            except re.error as exc: raise ValueError(f'invalid launch-smoke regex: {exc}') from exc
+            if 'timeout' in check: raise ValueError('per-check timeout overrides are not supported')
+    if plan['kind'] not in ('docs','diagnostic') and not plan['checks']: raise ValueError('non-documentation plans require validation checks')
+    if diagnostic and plan['manual_steps']: raise ValueError('diagnostic plans must not claim manual steps')
+    return plan
+
+def resolve_gate_plan(plan,repo):
+    """Validate a candidate plan and freeze the same fixture/reference hashes as submit."""
+    resolved=validate_gate_plan(plan,repo)
+    references={}
+    for ref in [resolved['fixture']]+[item for item in resolved.get('references',{})]:
+        path=safe(repo,ref)
+        if not path.exists(): raise ValueError(f'gate fixture/reference missing: {ref}')
+        if path.is_file(): references[ref]=sha(path)
+    resolved['references']=references
+    return resolved
+
+def verify_gate(c):
+    verify_candidate(c)
+    plan=c.get('gate_plan')
+    if not plan: raise ValueError('candidate has no structured gate plan; submit a new revision')
+    repo=Path(c['worktree']['worktree'])
+    validate_gate_plan(plan,repo)
+    for key,record in plan.get('references',{}).items():
+        p=safe(repo,key)
+        if not p.is_file() or sha(p)!=record: raise ValueError(f'gate fixture/plan reference stale: {key}')
+    return repo,plan
+
+def verify_gate_receipt(c, *, require_pass):
+    """Validate the candidate-bound receipt shared by report and publication paths."""
+    _,plan=verify_gate(c)
+    if is_diagnostic(c) and require_pass: raise ValueError('diagnostic evidence is not a passing readiness gate')
+    ref=c.get('gate_validation') or {}; gate=Path(ref.get('path',''))
+    expected=author_report_dir(c)/f"{c['id']}-gate-validation.json"
+    if gate.resolve()!=expected.resolve(): raise ValueError('gate validation receipt is not in the candidate-owned report folder')
+    if not gate.is_file() or sha(gate)!=ref.get('sha256'): raise ValueError('gate validation receipt missing or stale')
+    g=readjson(gate); items=g.get('checks',[]); planned=plan.get('checks',[])
+    if is_diagnostic(c) != (g.get('purpose')=='diagnostic'): raise ValueError('gate receipt purpose does not match candidate type')
+    if g.get('actor')!='integration-lead' or g.get('snapshot_key')!=c['snapshot_key'] or g.get('plan_digest')!=snapshot_key(plan): raise ValueError('gate validation receipt identity mismatch')
+    if len(items)>len(planned) or (require_pass and (len(items)!=len(planned) or not g.get('passed'))): raise ValueError('passing validation for exact candidate plan required')
+    for check,item in zip(planned,items):
+        if item.get('argv')!=check['argv'] or item.get('rationale')!=check['rationale'] or item.get('covers')!=check['covers'] or item.get('kind','command')!=check.get('kind','command'): raise ValueError('validation check record does not match submitted plan')
+        lp=Path(item.get('log',''))
+        if not lp.is_file() or sha(lp)!=item.get('log_sha256'): raise ValueError('validation log stale')
+        evidence=item.get('evidence',{})
+        if require_pass and (item.get('exit_code')!=0 or evidence.get('status')!='PASS'): raise ValueError('check lacks fresh passing evidence')
+        for artifact in evidence.get('artifacts',[]):
+            ap=Path(artifact['path'])
+            if not ap.is_file() or sha(ap)!=artifact['sha256']: raise ValueError(f'validation artifact stale: {ap}')
+    if require_pass and any(x.get('exit_code')!=0 or x.get('evidence',{}).get('status')!='PASS' for x in items): raise ValueError('check lacks fresh passing evidence')
+    return gate,g
+
+def is_diagnostic(candidate):
+    """Diagnostic submissions are immutable non-readiness candidates."""
+    return (candidate.get('gate_plan') or {}).get('kind')=='diagnostic'
+
+def cmd_gate_preflight(a,root):
+    c=readjson(root/'candidates'/f'{validid(a.id)}.json'); repo,plan=verify_gate(c)
+    print(json.dumps({'candidate':a.id,'worktree':str(repo),'kind':plan['kind'],'fixture':plan['fixture'],'checks':len(plan['checks']),'ready_to_run':bool(plan['checks'])},indent=2))
+
+def gate_lock(root,nonblocking=False):
+    check_operation_deadline()
+    deadline=_operation_deadline.get()
+    remaining=None if deadline is None else max(0,int((deadline-time.monotonic())*1000))
+    if os.name=='nt':
+        import ctypes
+        name='Local\\MoonStation14-AgentWorkflow-'+hashlib.sha256(str(root.resolve()).casefold().encode()).hexdigest()
+        kernel=ctypes.WinDLL('kernel32',use_last_error=True); kernel.CreateMutexW.restype=ctypes.c_void_p
+        kernel.CreateMutexW.argtypes=[ctypes.c_void_p,ctypes.c_int,ctypes.c_wchar_p]
+        handle=kernel.CreateMutexW(None,False,name)
+        kernel.WaitForSingleObject.argtypes=[ctypes.c_void_p,ctypes.c_uint]; kernel.WaitForSingleObject.restype=ctypes.c_uint
+        kernel.ReleaseMutex.argtypes=[ctypes.c_void_p]; kernel.CloseHandle.argtypes=[ctypes.c_void_p]
+        if not handle: raise OSError('CreateMutexW failed')
+        wait=kernel.WaitForSingleObject(handle,0 if nonblocking else (0xFFFFFFFF if remaining is None else remaining))
+        if wait not in (0,0x80):
+            kernel.CloseHandle(handle)
+            if nonblocking and wait==0x102: raise TimeoutError('shared gate mutex is busy')
+            if remaining is not None and wait==0x102: raise OperationDeadlineExceeded('submit deadline expired waiting for the workflow mutex; inspect status and retry only the same candidate ID')
+            raise OSError('shared gate mutex wait failed')
+        class Handle:
+            def close(self): kernel.ReleaseMutex(handle); kernel.CloseHandle(handle)
+        try: check_operation_deadline()
+        except Exception:
+            kernel.ReleaseMutex(handle); kernel.CloseHandle(handle); raise
+        return Handle()
+    path=root/'gate-validation.lock'; path.parent.mkdir(parents=True,exist_ok=True); f=path.open('a+b')
+    import fcntl
+    try:
+        if remaining is None and not nonblocking: fcntl.flock(f,fcntl.LOCK_EX)
+        else:
+            until=time.monotonic()+(0 if nonblocking else remaining/1000 if remaining is not None else 0)
+            while True:
+                try: fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB); break
+                except BlockingIOError:
+                    if nonblocking or time.monotonic()>=until: raise TimeoutError('shared gate mutex is busy')
+                    time.sleep(min(.05,max(0,until-time.monotonic())))
+    except (BlockingIOError,TimeoutError):
+        f.close(); raise
+    try: check_operation_deadline()
+    except Exception:
+        f.close(); raise
+    return f
+
+def cmd_gate_validate(a,root):
+    if a.actor!='integration-lead': raise ValueError('only integration-lead runs expensive gate checks')
+    try: import gate_execution
+    except ModuleNotFoundError: from tooling.agent_workflow import gate_execution
+    job=gate_execution.request(root,a.id,workflow=sys.modules.get(__name__) or types.SimpleNamespace(**globals()))
+    print(json.dumps({k:job.get(k) for k in ('state','job_id','candidate_id','snapshot_key','reason')},indent=2))
+
+def execution_argv(repo, argv, *, os_name=None):
+    """Resolve only the supported Windows Gradle wrapper spelling to its actual launcher."""
+    result=list(argv)
+    if (os_name or os.name)=='nt' and result and result[0] in ('./gradlew','gradlew'):
+        wrapper=Path(repo)/'gradlew.bat'
+        if wrapper.is_file(): result[0]=str(wrapper.resolve())
+    return result
+
+
+def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, verify_inputs=None, child_started=None, progress=None, record_completed=None, cleanup_blocked=None, completed_prefix=()):
+    """Run a finite, sequential check plan and return its typed evidence records."""
+    checks=plan['checks']
+    prefix=list(completed_prefix)
+    if len(prefix)>len(checks): raise ValueError('completed check prefix exceeds frozen plan')
+    if prefix and verify_inputs: verify_inputs()
+    accepted=[]
+    for i,record in enumerate(prefix):
+        check=checks[i]
+        if not isinstance(record,dict) or any(record.get(key)!=check.get(key,default) for key,default in (('argv',None),('kind','command'),('covers',None))):
+            raise ValueError('completed record does not match frozen plan prefix')
+        evidence=record.get('evidence',{})
+        log=Path(record.get('log',''))
+        if record.get('exit_code')!=0 or evidence.get('status')!='PASS' or not log.is_file() or sha(log)!=record.get('log_sha256'):
+            raise ValueError('completed record lacks verified passing log evidence')
+        for artifact in evidence.get('artifacts',[]):
+            path=Path(artifact['path'])
+            if not path.is_file() or path.stat().st_size!=artifact.get('size') or sha(path)!=artifact.get('sha256'):
+                raise ValueError('completed record artifact is stale')
+        accepted.append(json.loads(json.dumps(record)))
+    records=accepted
+    for i,check in enumerate(checks[len(accepted):],start=len(accepted)):
+        if verify_inputs: verify_inputs()
+        check_kind=check.get('kind','command')
+        executed_argv=execution_argv(repo,check['argv'])
+        before=validation_evidence.snapshot_evidence(check,repo,hash_file=sha,safe_path=safe)
+        started=time.time(); log=Path(logdir)/f'{i+1}.log'
+        if check_kind in ('gametest','launch-smoke'):
+            producer=safe(repo,check['log'])
+            capture_key=os.path.normcase(str(log.resolve(strict=False)))
+            producer_key=os.path.normcase(str(producer.resolve(strict=False)))
+            aliases=capture_key==producer_key
+            if not aliases and log.exists() and producer.exists():
+                try: aliases=os.path.samefile(log,producer)
+                except OSError: pass
+            if aliases: raise ValueError('coordinator capture log aliases typed-check producer log')
+        log.parent.mkdir(parents=True,exist_ok=True)
+        code=127; cleanup='not_needed'; blocker=None; smoke=None; smoke_started=time.monotonic(); proc=None; callback_error=None; monotonic_started=time.monotonic()
+        with log.open('w',encoding='utf-8',errors='replace') as stream:
+            stream.write(f'GATE COMMAND STARTED: {started:.9f}\n'); stream.flush()
+            def invoke_owned(callback,*args):
+                nonlocal blocker,cleanup
+                try: callback(*args)
+                except BaseException as exc:
+                    if proc is not None and proc.poll() is None:
+                        try: stop_owned_tree(proc); cleanup='terminated'
+                        except GateTreeBlocked as blocked:
+                            blocker=blocked; cleanup='unverified'
+                            raise blocked from exc
+                    raise
+            try:
+                proc=subprocess.Popen(executed_argv,cwd=repo,stdout=stream,stderr=subprocess.STDOUT,shell=False,creationflags=(getattr(subprocess,'CREATE_NEW_PROCESS_GROUP',0)|getattr(subprocess,'CREATE_NO_WINDOW',0)) if os.name=='nt' else 0,start_new_session=os.name!='nt')
+                if child_started: invoke_owned(child_started,proc,check,log)
+                if progress: invoke_owned(progress,check,i+1,0.0)
+                if check_kind=='launch-smoke':
+                    limit=min(smoke_timeout,120)
+                    try:
+                        smoke=monitor_launch_smoke(proc,safe(repo,check['log']),check,limit,stream,heartbeat=lambda: invoke_owned(progress,check,i+1,time.monotonic()-smoke_started) if progress else None); code=smoke['code']; cleanup='terminated' if smoke['controlled_stop'] else 'not_needed'
+                    except GateTreeBlocked as exc:
+                        code=124; cleanup='unverified'; blocker=exc
+                        stream.write(f'\nLAUNCH SMOKE OWNED PROCESS TREE TERMINATION UNVERIFIED; PID {exc.pid}; {exc.detail}\n')
+                    if smoke:
+                        for pattern in smoke.get('matched_ready',[]): stream.write(f'\nGATE READY PATTERN MATCHED: {pattern}\n')
+                        if smoke.get('error_pattern'): stream.write(f'\nGATE ERROR PATTERN MATCHED: {smoke["error_pattern"]}\n')
+                        if smoke['controlled_stop']: stream.write('\nGATE CONTROLLED OWNED PROCESS TREE STOP: confirmed\n')
+                else:
+                    deadline=time.monotonic()+timeout
+                    while True:
+                        remaining=deadline-time.monotonic()
+                        if remaining<=0:
+                            code=124
+                            try:
+                                stop_owned_tree(proc); cleanup='terminated'
+                                stream.write('\nTIMEOUT: owned process tree termination command and root exit confirmed\n')
+                            except GateTreeBlocked as exc:
+                                cleanup='unverified'; blocker=exc
+                                stream.write(f'\nTIMEOUT: OWNED PROCESS TREE TERMINATION UNVERIFIED; PID {exc.pid}; {exc.detail}\n')
+                            break
+                        try: code=proc.wait(timeout=min(10,remaining)); break
+                        except subprocess.TimeoutExpired:
+                            if progress: invoke_owned(progress,check,i+1,time.monotonic()-monotonic_started)
+            except OSError as e: stream.write(f'COMMAND START FAILED: {e}\n')
+            except BaseException as exc:
+                callback_error=exc
+                code=124 if cleanup=='unverified' else 127
+                stream.write(f'FINITE CHECK CALLBACK FAILED: {exc}\n')
+            finished=time.time(); stream.write(f'GATE COMMAND EXIT: {code}; finished={finished:.9f}\n')
+        evidence_check=dict(check,exit_code=code)
+        evidence=validation_evidence.collect_evidence(evidence_check,repo,started,finished,log,before,hash_file=sha,safe_path=safe)
+        record={'argv':check['argv'],'kind':check_kind,'rationale':check['rationale'],'covers':check['covers'],'exit_code':code,'tree_cleanup':cleanup,'controlled_stop':bool(smoke and smoke['controlled_stop']),'startup_seconds':time.monotonic()-smoke_started if check_kind=='launch-smoke' else None,'started':started,'finished':finished,'log':str(log),'log_sha256':sha(log),'evidence':evidence}
+        if executed_argv!=check['argv']: record['executed_argv']=executed_argv
+        records.append(record)
+        if blocker and cleanup_blocked: cleanup_blocked(blocker,log,record)
+        if callback_error: raise callback_error
+        if record_completed: record_completed(record)
+        if code or evidence.get('status')!='PASS': break
+    return records
+
+
+def _run_gate_validation(a,root, *, timeout=3600, smoke_timeout=120, child_started=None):
+    """Private fixed-policy implementation, invoked only by the admitted worker."""
+    a.timeout=timeout
+    p=root/'candidates'/f'{validid(a.id)}.json'; c=readjson(p); repo,plan=verify_gate(c)
+    if not (is_diagnostic(c) and c.get('gate_outcome',{}).get('result')=='diagnostic_complete'):
+        _gate_progress(root,c,'queued',runner_pid=os.getpid(),started=time.time(),detail='Waiting for serialized validation slot')
+    lock=gate_lock(root)
+    report_written=False
+    try:
+        require_clear_gate(root)
+        c=readjson(p); repo,plan=verify_gate(c); records=[]
+        if is_diagnostic(c) and c.get('gate_outcome',{}).get('result')=='diagnostic_complete':
+            gate,_=verify_gate_receipt(c,require_pass=False)
+            if c['gate_outcome'].get('validation')!=str(gate) or c['gate_outcome'].get('validation_sha256')!=sha(gate):
+                raise ValueError('completed diagnostic receipt/outcome mismatch; submit a fresh diagnostic request')
+            print(gate)
+            return
+        _gate_progress(root,c,'running',detail='Integration lead validation running')
+        if c.get('gate_outcome',{}).get('result')=='ready_for_owner' or c.get('owner_decision'):
+            raise ValueError('published/owner-disposition candidate validation is immutable; submit a new revision')
+        folder=author_report_dir(c); folder.mkdir(parents=True,exist_ok=True)
+        out=folder/f'{a.id}-gate-validation.json'; logdir=folder/f'{a.id}-logs'; logdir.mkdir(exist_ok=True)
+        def report_progress(check,index,elapsed):
+            verify_gate(readjson(p))
+            phase_detail=f'Running check {index}/{len(plan["checks"])}' if elapsed==0 else f'Check {index}/{len(plan["checks"])} still running'
+            log=logdir/f'{index}.log'
+            _gate_progress(root,c,'running',check_index=index,total=len(plan['checks']),argv=check['argv'],log=str(log),runner_pid=os.getpid(),started=time.time()-elapsed,detail=phase_detail)
+        def report_blocked(blocker,log,record):
+            writejson(blocker_path(root),{'candidate_id':a.id,'pid':blocker.pid,'created':time.time(),'reason':blocker.detail,'log':str(log),'log_sha256':record['log_sha256']})
+        records=run_finite_checks(repo,plan,logdir,timeout=timeout,smoke_timeout=smoke_timeout,
+            verify_inputs=lambda: verify_gate(readjson(p)),
+            child_started=(lambda proc,check,log: child_started(next(i for i,x in enumerate(plan['checks'],1) if x is check),proc.pid)) if child_started else None,
+            progress=report_progress,cleanup_blocked=report_blocked)
+        verify_gate(readjson(p))
+        report={'candidate_id':a.id,'snapshot_key':c['snapshot_key'],'plan_digest':snapshot_key(plan),'actor':a.actor,'checks':records,'passed':len(records)==len(plan['checks']) and all(x['exit_code']==0 and x['evidence']['status']=='PASS' for x in records),'created':time.time(),'no_checks_rationale':plan.get('no_checks_rationale')}
+        if is_diagnostic(c): report['purpose']='diagnostic'
+        writejson(out,report); report_written=True; c=readjson(p); verify_gate(c); c['gate_validation']={'path':str(out),'sha256':sha(out)}; writejson(p,c); print(out)
+        if is_diagnostic(c):
+            summary=_gate_evidence_summary(c,root,'diagnostic_complete')
+            summary['status']='DIAGNOSTIC_COMPLETE'
+            summary['checks_status']='ALL_PASS' if report['passed'] else 'FAILED_OR_PARTIAL'
+            c=readjson(p); c['gate_outcome']={'result':'diagnostic_complete','validation':str(out),
+                'validation_sha256':sha(out),'purpose':'diagnostic','evidence_summary':summary}; writejson(p,c)
+            _gate_progress(root,c,'diagnostic_complete',detail='Diagnostic run complete; findings available, no readiness verdict')
+        else:
+            _gate_progress(root,c,'awaiting_review',detail='Validation complete; awaiting integration-lead verdict')
+            if not report['passed']: raise ValueError(f'gate checks failed; actionable logs: {logdir}')
+    except Exception as exc:
+        if not report_written:
+            _gate_progress(root,c,'blocked',detail=f'Validation could not complete: {str(exc)[:500]}')
+        raise
+    finally:
+        lock.close()
+    # Completion delivery belongs to the existing observer/liveness owner; the
+    # finite runner must not invoke the service or delay durable receipt writing.
+
+
+def _gate_progress(root,candidate,phase,**fields):
+    """Progress is informational; filesystem/board errors never affect verdicts."""
+    try:
+        try: import gate_progress
+        except ModuleNotFoundError: from tooling.agent_workflow import gate_progress
+        gate_progress.update(root,candidate,phase,**fields)
+    except Exception as exc:
+        print(f'progress update unavailable: {exc}',file=sys.stderr)
+
+def cmd_gate_finish(a,root):
+    p=root/'candidates'/f'{validid(a.id)}.json'
+    initial=readjson(p)
+    lock=sprint_lock(root,initial['worktree']['worktree'],initial['sprint_id'])
+    try:
+        # Hold the candidate's serialization boundary across re-read, guard,
+        # and outcome persistence. gate-report releases this before calling us.
+        phase=_cmd_gate_finish_locked(a,root)
+    finally: lock.close()
+    p=root/'candidates'/f'{validid(a.id)}.json'
+    if phase=='ready_for_owner':
+        # Owner registration takes the sprint lock itself: call it only after
+        # releasing this command's serialization lock, using fresh state.
+        c=readjson(p)
+        if (c.get('gate_outcome',{}).get('result')=='ready_for_owner' and not c.get('owner_decision')
+                and c.get('gate_request',{}).get('origin_session_id')):
+            try:
+                try: import owner_attention
+                except ModuleNotFoundError: from tooling.agent_workflow import owner_attention
+                owner_attention.register_request(root,c,requested_at=time.time(),origin_session_id=c['gate_request']['origin_session_id'],workflow=sys.modules.get(__name__) or types.SimpleNamespace(**globals()))
+                c=readjson(p)
+                observer=c.get('owner_review',{}).get('observer') or {}
+                if observer.get('status') in (None,'unavailable','failed'):
+                    _ensure_owner_feedback(root,p,c)
+            except (ValueError,OSError) as exc: print(f'owner-attention registration unavailable: {exc}',file=sys.stderr)
+        _send_gate_completion(a,root,phase)
+        c=readjson(p); notification=(c.get('gate_outcome') or {}).get('notification','pending')
+        if notification=='pending' or str(notification).startswith('failed:'):
+            try: print(send_manual_notification(p,root))
+            except (ValueError,OSError,subprocess.SubprocessError) as e: print(f'notification failed; retry with manual-notify {a.id}: {e}',file=sys.stderr)
+    else:
+        _send_gate_completion(a,root,phase)
+        print('needs_changes: return findings to author; submit a new candidate revision after fixes')
+
+def _cmd_gate_finish_locked(a,root):
+    p=root/'candidates'/f'{validid(a.id)}.json'; c=readjson(p); repo,plan=verify_gate(c)
+    if is_diagnostic(c): raise ValueError('diagnostic requests cannot enter gate finish or readiness publication')
+    if not c.get('review') or c['review']['result']!=a.result: raise ValueError('fresh independent candidate-review with matching decision required')
+    review=c['review']; rp=Path(review['report_path'])
+    if Path(a.report).resolve()!=rp or not rp.is_file() or sha(rp)!=review['report_sha256']: raise ValueError('finish report must be the exact current independent review report')
+    rr=read_report(rp)
+    # Finalization is permitted only after the admitted native execution has
+    # completed and its receipt is the one recorded by that execution.
+    readiness_finalization_guard(c,root,a.result,rr)
+    if a.result=='needs_changes':
+        findings=rr.get('findings')
+        if not findings: raise ValueError('actionable findings report required')
+        outcome=c.get('gate_outcome') or {}
+        if outcome.get('result')=='needs_changes':
+            if outcome.get('report_sha256')!=sha(rp): raise ValueError('final needs_changes evidence is immutable; retry with the exact existing report')
+            print('needs_changes already finalized with this exact report'); return 'needs_changes'
+        c['gate_outcome']={'result':'needs_changes','findings':findings,'report_sha256':sha(Path(a.report))}; writejson(p,c)
+        return 'needs_changes'
+    if not plan['checks'] and (plan['kind']!='docs' or not plan.get('no_checks_rationale')): raise ValueError('only explicitly justified docs plans may publish without checks')
+    gate,g=verify_gate_receipt(c,require_pass=True)
+    verify_gate(c)
+    if c.get('owner_decision'): raise ValueError('candidate already has an explicit owner disposition; no new manual request')
+    md=root/'manual-tests.md'
+    if c.get('gate_outcome',{}).get('result')=='ready_for_owner':
+        if c.get('review',{}).get('report_sha256')!=sha(rp): raise ValueError('final readiness evidence is immutable; retry with the exact existing report')
+        print(f'manual testing already published: {md}')
+        return 'ready_for_owner'
+    item={'candidate_id':a.id,'title':plan['title'],'kind':plan['kind'],'status':'open','worktree':str(repo),'snapshot_key':c['snapshot_key'],'build_identity':c['build_identity'],'fixture':plan['fixture'],'manual_steps':plan['manual_steps'],'validation':str(gate),'boundaries':c.get('unverified','')}
+    lock=_manual_publication_lock(root)
+    try:
+        c=readjson(p); verify_gate(c); verify_publication(c,root)
+        if c.get('owner_decision'): raise ValueError('candidate has owner disposition')
+        if c.get('gate_outcome',{}).get('result')!='ready_for_owner':
+            md.parent.mkdir(parents=True,exist_ok=True)
+            c['gate_outcome']={'result':'ready_for_owner','manual_entry':a.id,'notification':'pending'}; writejson(p,c)
+        render_manual_index(root)
+    finally:
+        lock.close()
+    print(f'manual testing published: {md} (owner acceptance is not implied)')
+    return 'ready_for_owner'
+
+
+def _send_gate_completion(a,root,phase):
+    try:
+        try: import gate_dispatch
+        except ModuleNotFoundError: from tooling.agent_workflow import gate_dispatch
+        result=gate_dispatch.deliver_gate_completion(a,root,workflow=sys.modules.get(__name__) or types.SimpleNamespace(**globals()))
+        print('author completion:',result)
+    except (ValueError,OSError,subprocess.SubprocessError) as exc:
+        result={'status':'failed','reason':str(exc)}
+        print(f'author completion unavailable; retry gate-deliver {a.id}: {exc}',file=sys.stderr)
+    try:
+        state=readjson(root/'candidates'/f'{validid(a.id)}.json')
+        receipt=state.get('author_completion',{})
+        _gate_progress(root,state,phase,detail=f"Final {phase} verdict; author delivery {receipt.get('status','unavailable')} (API acknowledgement is not consumption)")
+    except (ValueError,OSError) as exc: print(f'progress update unavailable: {exc}',file=sys.stderr)
+    return result
+
+
+def _ensure_owner_feedback(root, candidate_path, candidate):
+    """Start the bounded feedback observer after owner-attention locks have been released."""
+    try:
+        try: import owner_feedback
+        except ModuleNotFoundError: from tooling.agent_workflow import owner_feedback
+        health = owner_feedback.ensure_started(root)
+    except (ImportError, OSError, ValueError, RuntimeError) as exc:
+        health = {'status':'unavailable','reason':str(exc)[:300]}
+    lock = sprint_lock(root, candidate['worktree']['worktree'], candidate['sprint_id'])
+    try:
+        current = readjson(candidate_path)
+        review = current.get('owner_review', {})
+        if review.get('candidate_id') == candidate.get('id') and review.get('snapshot_key') == candidate.get('snapshot_key'):
+            review['observer'] = health
+            current['owner_review'] = review
+            writejson(candidate_path, current)
+    finally:
+        lock.close()
+    return health
+
+
+def _manual_publication_lock(root):
+    """A cheap shared namespace, separate from serialized gate validation."""
+    return gate_lock(Path(root) / 'manual-publication')
+
+
+def cmd_gate_deliver(a,root):
+    if a.actor!='integration-lead': raise ValueError('only integration-lead retries author completion delivery')
+    try: import gate_dispatch
+    except ModuleNotFoundError: from tooling.agent_workflow import gate_dispatch
+    result=gate_dispatch.deliver_gate_completion(a,root,workflow=sys.modules.get(__name__) or types.SimpleNamespace(**globals()))
+    print(json.dumps(result,indent=2))
+
+def _integration_status_uri(manual_path):
+    passed=Path(manual_path)
+    board=passed if passed.name.casefold()=='integration-status.html' else passed.parent/'integration-status.html'
+    return board.resolve().as_uri()
+
+
+def native_notify(manual_path,title,message=None):
+    """Launch a bounded transient balloon listener; activation is not guaranteed."""
+    if os.name!='nt': raise ValueError('native Windows notification unavailable on this platform')
+    target=_integration_status_uri(manual_path)
+    title=str(title)[:63]
+    text=str(message or f'Manual testing is ready. Open {target}')
+    if len(text)>255: text=text[:255]
+    def psstring(value):
+        payload=__import__('base64').b64encode(str(value).encode('utf-8')).decode('ascii')
+        return f"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{payload}'))"
+    script=r'''
+$ErrorActionPreference='Stop'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$n=New-Object System.Windows.Forms.NotifyIcon
+$form=New-Object System.Windows.Forms.Form
+$timer=New-Object System.Windows.Forms.Timer
+$n.Icon=[System.Drawing.SystemIcons]::Information
+$n.Visible=$true
+$form.ShowInTaskbar=$false
+$form.WindowState=[System.Windows.Forms.FormWindowState]::Minimized
+$form.Opacity=0
+$n.BalloonTipTitle=__TITLE__
+$n.BalloonTipText=__TEXT__
+$targetUri=__TARGET__
+$timer.Interval=120000
+$timer.add_Tick({$timer.Stop();$form.Close()})
+$form.add_Shown({$form.Hide();$timer.Start();$n.ShowBalloonTip(5000)})
+$n.add_BalloonTipClicked({
+  try {$psi=New-Object System.Diagnostics.ProcessStartInfo;$psi.FileName=$targetUri;$psi.UseShellExecute=$true;[System.Diagnostics.Process]::Start($psi)|Out-Null} catch {}
+  $timer.Stop();$form.Close()
+})
+try {[System.Windows.Forms.Application]::Run($form)} finally {$timer.Stop();$timer.Dispose();$form.Dispose();$n.Visible=$false;$n.Dispose()}
+'''.replace('__TITLE__',psstring(title)).replace('__TEXT__',psstring(text)).replace('__TARGET__',psstring(target))
+    encoded=__import__('base64').b64encode(script.encode('utf-16le')).decode('ascii')
+    subprocess.Popen(['powershell','-NoProfile','-NonInteractive','-EncodedCommand',encoded],stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0),close_fds=True)
+    return 'listener_launched; OS visibility and click are not verified'
+
+def manual_notification_title(candidate, plan=None):
+    """Candidate-bound human title shared by automatic and explicit notification."""
+    plan = plan or candidate.get('gate_plan', {})
+    title = str(plan.get('title') or '').strip()
+    folded = re.sub(r'[^a-z0-9]+', ' ', title.casefold()).strip()
+    generic = folded in {'fixture', 'test fixture', 'visual testing fixture', 'visual test fixture', 'visual coding fixture', 'example fixture'}
+    if generic or not title:
+        title = str(candidate.get('sprint_id') or candidate.get('id') or 'candidate').replace('-', ' ').replace('_', ' ').title()
+    worktree = Path(candidate.get('worktree', {}).get('worktree', '')).name
+    agent_match = re.search(r'(agent[-_ ]?\d+)', worktree, re.I)
+    author = agent_match.group(1).replace('_', '-').replace(' ', '-').lower() if agent_match else (worktree or 'author worktree')
+    suffix=f' — ready ({author})'
+    available=max(1,63-len(suffix))
+    return title[:available]+suffix
+
+def cmd_manual_notify(a,root):
+    p=root/'candidates'/f'{validid(a.id)}.json'; print(send_manual_notification(p,root))
+
+def send_manual_notification(p,root):
+    lock=_manual_publication_lock(root)
+    try:
+        c=readjson(p); repo,plan=verify_gate(c)
+        outcome=c.get('gate_outcome',{})
+        review=c.get('owner_review',{})
+        if c.get('owner_decision') or outcome.get('result')!='ready_for_owner': raise ValueError('manual request is no longer fresh/open')
+        if (review.get('state')!='awaiting_owner' or review.get('candidate_id')!=c.get('id') or
+            review.get('snapshot_key')!=c.get('snapshot_key') or not review.get('origin_session_id')):
+            raise ValueError('no current owner-review handoff is registered; refusing a historical/generic notification')
+        try:
+            try: import owner_attention
+            except ModuleNotFoundError: from tooling.agent_workflow import owner_attention
+            heads=owner_attention.current_work(root,workflow=sys.modules.get(__name__) or types.SimpleNamespace(**globals()))
+            if not any(x.get('head') and x['head'].get('id')==c.get('id') and x['head'].get('snapshot_key')==c.get('snapshot_key') for x in heads):
+                raise ValueError('candidate is no longer the current worktree/sprint head')
+        except (ImportError, OSError, KeyError, TypeError) as exc:
+            raise ValueError(f'cannot verify current owner-review handoff: {exc}') from exc
+        state=outcome.get('notification','pending')
+        if state.startswith(('delivered_to_os','listener_launched')): raise ValueError('notification already sent')
+        if state=='sending' and time.time()-c['gate_outcome'].get('notification_started',time.time())<60: raise ValueError('notification send already in progress')
+        verify_publication(c,root)
+        title=manual_notification_title(c,plan)
+        review=c.get('review',{})
+        report_path=str(review.get('report_path') or outcome.get('manual_entry') or c['id'])
+        report_hash=str(review.get('report_sha256') or 'unavailable')
+        target_url=_integration_status_uri(root/'manual-tests.md')
+        prior=outcome.get('notification_receipt') or {}
+        identity=(c['id'],c['snapshot_key'],report_hash,outcome.get('manual_entry'))
+        old_identity=(prior.get('candidate_id'),prior.get('snapshot_key'),prior.get('report_sha256'),prior.get('manual_entry'))
+        if prior and old_identity[:2]==identity[:2] and old_identity!=identity:
+            raise ValueError('saved notification body is bound to changed report/manual-entry identity')
+        if prior and old_identity==identity and isinstance(prior.get('message'),str) and isinstance(prior.get('title'),str):
+            if prior.get('target_url') not in (None,target_url):
+                raise ValueError('saved notification target differs from current integration status page')
+            title,message=prior['title'],prior['message']
+            receipt=dict(prior,target_url=prior.get('target_url',target_url),status='sending',retry_started_at=time.time())
+        else:
+            # NotifyIcon truncates BalloonTipText at 255 characters. Put all
+            # proof identity first and keep the feature-specific step visible;
+            # the durable receipt/board retain complete steps and report path.
+            prefix=f'{c["id"]} s{c["snapshot_key"][:8]} review {report_hash[:8]}: '
+            suffix='; full steps: manual-tests.md'
+            steps='; '.join(str(x) for x in plan.get('manual_steps',[])) or 'Follow manual test entry'
+            available=max(1,255-len(prefix.replace("'","''"))-len(suffix.replace("'","''")))
+            step=steps[:available]
+            while step and len((prefix+step+suffix).replace("'","''"))>255: step=step[:-1]
+            message=prefix+step+suffix
+            receipt={'candidate_id':c['id'],'snapshot_key':c['snapshot_key'],'report_sha256':report_hash,
+                     'report_path':report_path,'manual_entry':outcome.get('manual_entry'),'title':title,
+                     'message':message,'manual_steps':list(plan.get('manual_steps',[])),
+                     'target_url':target_url,
+                     'created_at':time.time(),'status':'sending'}
+        c['gate_outcome']['notification']='sending'; c['gate_outcome']['notification_started']=receipt['created_at']
+        c['gate_outcome']['notification_receipt']=receipt; writejson(p,c)
+    finally: lock.close()
+    try:
+        result=native_notify(root/'manual-tests.md',title,message)
+    except (ValueError,OSError,subprocess.SubprocessError) as e:
+        lock=_manual_publication_lock(root)
+        try:
+            c=readjson(p); c['gate_outcome']['notification']=f'failed: {e}'
+            saved=c['gate_outcome'].get('notification_receipt',receipt); saved.update(status='failed',error=str(e)[:500]); c['gate_outcome']['notification_receipt']=saved; writejson(p,c)
+        finally: lock.close()
+        raise
+    lock=_manual_publication_lock(root)
+    try:
+        c=readjson(p); c['gate_outcome']['notification']=result
+        saved=c['gate_outcome'].get('notification_receipt',receipt); saved.update(status='listener_launched',result=result); c['gate_outcome']['notification_receipt']=saved; writejson(p,c)
+    finally: lock.close()
+    return result
+
+def verify_publication(c,root):
+    if is_diagnostic(c): raise ValueError('diagnostic requests cannot be published for owner readiness')
+    p=Path(c['review']['report_path'])
+    if not p.is_file() or sha(p)!=c['review']['report_sha256']: raise ValueError('review stale')
+    verify_gate_receipt(c,require_pass=True)
+
+def render_manual_index(root):
+    entries=[]
+    for p in sorted((root/'candidates').glob('*.json')) if (root/'candidates').exists() else []:
+        c=readjson(p)
+        if c.get('gate_outcome',{}).get('result')!='ready_for_owner': continue
+        plan=c.get('gate_plan',{}); state='open'
+        try:
+            verify_gate(c); verify_publication(c,root)
+            if c.get('owner_decision'): state='owner_'+c['owner_decision']['decision']
+        except (ValueError,OSError,KeyError,subprocess.CalledProcessError): state='STALE/BLOCKED'
+        gate_path=Path(c.get('gate_validation',{}).get('path',''))
+        checks=[]; counts_unknown=False
+        if gate_path.is_file():
+            try:
+                g=readjson(gate_path)
+                for x in g.get('checks',[]):
+                    ev=x.get('evidence',{}); count=ev.get('counts',{}); test_count=count.get('tests')
+                    if test_count is None: counts_unknown=True; summary='counts unknown'
+                    else: summary=f"{test_count} tests ({count.get('passed')} passed, {count.get('failed')} failed, {count.get('errors')} errors, {count.get('skipped')} skipped)"
+                    selection=ev.get('selection','unknown')
+                    if count.get('selected') is not None: selection+=f"; {count['selected']}/{count.get('total')} selected/total"
+                    checks.append(f"- {x.get('kind','command')}: {ev.get('status')} — {summary}; {selection}")
+            except (ValueError,KeyError): pass
+        notification=c.get('gate_outcome',{}).get('notification','')
+        notify_line=f"\n**Notification:** {notification}\n" if str(notification).startswith('failed:') else ''
+        validation_line=f"\nValidation: [detailed evidence report](<{gate_path.resolve().as_uri()}>)" if gate_path.is_file() else '\nValidation details unavailable.'
+        if not checks and plan.get('no_checks_rationale'): checks=[f"- NOT APPLICABLE: {plan['no_checks_rationale']} (no automated tests run)"]
+        entries.append((0 if state=='open' else 1 if state=='STALE/BLOCKED' else 2,
+            f"## {plan.get('title',c['id'])} — {c['id']} ({state})\n\nBuild: {c.get('build_identity')}\n\nWorktree: `{c.get('worktree',{}).get('worktree')}`\n\nPreparation: {plan.get('fixture')}\n\nManual steps:\n"+'\n'.join(f'{i}. {s}' for i,s in enumerate(plan.get('manual_steps',[]),1))+f"\n\nValidation summary:\n"+'\n'.join(checks)+validation_line+f"\n\nBoundaries: {c.get('unverified','')}\n\nSnapshot: `{c.get('snapshot_key')}`\n"+notify_line))
+    path=root/'manual-tests.md'; path.parent.mkdir(parents=True,exist_ok=True)
+    path.write_text('# Manual testing\n\n'+''.join(row for _,row in sorted(entries,key=lambda x:(x[0],x[1]))),encoding='utf-8')
+
+def cmd_manual_tests(a,root):
+    render_manual_index(root); print(root/'manual-tests.md')
+
+def _owned_tree_files(repo,sprint):
+    lexical=Path(repo).resolve()/ 'build'/'agent-workflow'/sprint
+    cursor=Path(repo).resolve()
+    for part in ('build','agent-workflow',sprint):
+        cursor=cursor/part
+        if cursor.is_symlink() or (cursor.exists() and getattr(cursor.stat(),'st_file_attributes',0)&getattr(__import__('stat'),'FILE_ATTRIBUTE_REPARSE_POINT',0)):
+            raise ValueError(f'owned sprint path contains a link/reparse point: {cursor}')
+    if not lexical.exists(): return []
+    if not lexical.is_dir(): raise ValueError(f'owned sprint path is not a directory: {lexical}')
+    result=[]
+    for base,dirs,files in os.walk(lexical,followlinks=False):
+        for name in dirs+files:
+            item=Path(base)/name
+            if item.is_symlink() or getattr(item.stat(),'st_file_attributes',0)&getattr(__import__('stat'),'FILE_ATTRIBUTE_REPARSE_POINT',0):
+                raise ValueError(f'owned sprint path contains a link/reparse point: {item}')
+        result.extend(Path(base)/name for name in files)
+    return result
+
+def _cleanup_candidates(root,repo,sprint):
+    found=[]
+    for path in sorted((root/'candidates').glob('*.json')) if (root/'candidates').exists() else []:
+        c=readjson(path)
+        if c.get('sprint_id')!=sprint: continue
+        try: owner=Path(c['worktree']['worktree']).resolve()
+        except (KeyError,TypeError,OSError): continue
+        if owner!=repo: continue
+        if validid(c.get('id'))!=path.stem: raise ValueError(f'candidate identity/path mismatch: {path}')
+        req=c.get('gate_request',{})
+        if req and req.get('snapshot_key')==c.get('snapshot_key') and (req.get('prompt_admitted') or req.get('admission_unknown')) and not c.get('gate_outcome'):
+            raise ValueError(f"cleanup blocked: candidate {c['id']} has an admitted gate request without a final outcome")
+        for reviewer,record in c.get('scoped_reviews',{}).items():
+            if record.get('snapshot_key')==c.get('snapshot_key'):
+                report_path=Path(record.get('report_path',''))
+                if record.get('admission_unknown') or not record.get('report_path') or not report_path.is_file() or sha(report_path)!=record.get('report_sha256'):
+                    raise ValueError(f"cleanup blocked: candidate {c['id']} has unfinished/stale scoped review {reviewer}")
+                try: validate_review_report(read_report(report_path),c,reviewer)
+                except (ValueError,OSError): raise ValueError(f"cleanup blocked: candidate {c['id']} has unfinished/stale scoped review {reviewer}")
+        found.append((path,c))
+    return found
+
+def _candidate_managed_reports(candidate,report_root):
+    """Resolve only files explicitly named by this candidate's current receipts."""
+    owned={}; ident=validid(candidate['id'])
+    def add(path,digest,relative_pattern=None):
+        if not isinstance(path,str): return
+        p=Path(path)
+        if not p.is_absolute(): p=(report_root/p)
+        try:
+            resolved=p.resolve(); rel=resolved.relative_to(report_root.resolve()).as_posix()
+        except (OSError,ValueError): return
+        if relative_pattern and not re.fullmatch(relative_pattern,rel): return
+        if resolved.is_file() and isinstance(digest,str) and re.fullmatch(r'[0-9a-f]{64}',digest) and sha(resolved)==digest:
+            owned[resolved]=digest
+    receipt=candidate.get('gate_validation',{})
+    validation=report_root/f'{ident}-gate-validation.json'
+    if receipt.get('path') and Path(receipt['path']).resolve()==validation.resolve():
+        add(str(validation),receipt.get('sha256'),re.escape(validation.name))
+        if validation.is_file() and sha(validation)==receipt.get('sha256'):
+            try: checks=readjson(validation).get('checks',[])
+            except (ValueError,OSError): checks=[]
+            for item in checks:
+                log=item.get('log'); log_path=Path(log) if isinstance(log,str) else Path()
+                try: rel=log_path.resolve().relative_to(report_root.resolve()).as_posix()
+                except (OSError,ValueError): continue
+                if re.fullmatch(re.escape(f'{ident}-logs')+r'/[1-9][0-9]*\.log',rel):
+                    add(str(log_path),item.get('log_sha256'),re.escape(f'{ident}-logs')+r'/[1-9][0-9]*\.log')
+    review=candidate.get('review',{})
+    lead=report_root/f'{ident}-integration-lead-review.json'
+    if review.get('report_path') and Path(review['report_path']).resolve()==lead.resolve():
+        add(str(lead),review.get('report_sha256'),re.escape(lead.name))
+        body=review.get('report',{})
+        for item in body.get('original_images',[]):
+            if isinstance(item,dict):
+                add(item.get('path'),item.get('sha256'),r'reviewed-images/'+re.escape(ident)+r'-[1-9][0-9]*-[0-9a-f]{16}\.png')
+        for item in body.get('viewed_images',[]):
+            if isinstance(item,dict):
+                add(item.get('path'),item.get('sha256'),r'reviewed-images/'+re.escape(ident)+r'-[1-9][0-9]*-[0-9a-f]{16}\.png')
+    for reviewer,record in candidate.get('scoped_reviews',{}).items():
+        if reviewer not in ('review','fidelity-reviewer') or not isinstance(record,dict): continue
+        scoped=report_root/f'{ident}-{reviewer}.json'
+        if record.get('report_path') and Path(record['report_path']).resolve()==scoped.resolve():
+            add(str(scoped),record.get('report_sha256'),re.escape(scoped.name))
+            for item in record.get('original_images',[]):
+                if isinstance(item,dict):
+                    add(item.get('path'),item.get('sha256'),re.escape(ident)+r'/'+re.escape(reviewer)+r'/images/[1-9][0-9]*\.png')
+            if scoped.is_file() and sha(scoped)==record.get('report_sha256'):
+                try: body=readjson(scoped)
+                except (ValueError,OSError): body={}
+                for item in body.get('original_images',[]):
+                    if isinstance(item,dict):
+                        add(item.get('path'),item.get('sha256'),re.escape(ident)+r'/'+re.escape(reviewer)+r'/images/[1-9][0-9]*\.png')
+    return set(owned)
+
+def _remove_empty_tree(root):
+    root=Path(root)
+    if not root.exists(): return
+    for base,_,_ in os.walk(root,topdown=False,followlinks=False):
+        p=Path(base)
+        if p.is_dir() and not any(p.iterdir()): p.rmdir()
+
+def cmd_sprint_cleanup(a,root):
+    repo=Path(a.repo).resolve(); sprint=validid(a.sprint)
+    if a.apply and (not isinstance(a.owner_reference,str) or not a.owner_reference.strip()):
+        raise ValueError('--apply requires a nonblank explicit --owner-reference confirming sprint closure')
+    # Validation and dispatch locks serialize against active checks and already-admitted work.
+    gate_handle=gate_lock(root)
+    dispatch=[]; sprint_handle=None
+    try:
+        candidates=_cleanup_candidates(root,repo,sprint)
+        for path,c in candidates:
+            dlock=gate_lock(root/'dispatch-locks'/c['id']); dispatch.append(dlock)
+        sprint_handle=sprint_lock(root,repo,sprint)
+        candidates=_cleanup_candidates(root,repo,sprint)
+        report_dir=safe(repo,f'build/agent-workflow/{sprint}')
+        owned_files=_owned_tree_files(repo,sprint)
+        # Ensure the exact report hierarchy remains within this author root before mutation.
+        if report_dir.exists() and not report_dir.is_relative_to(repo): raise ValueError('owned sprint report path escapes author worktree')
+        selected={c['id'] for _,c in candidates}
+        blocker=blocker_path(root)
+        if blocker.is_file():
+            b=readjson(blocker); blocker_log=Path(b.get('log',''))
+            log_owned=False
+            for _,candidate in candidates:
+                receipt=candidate.get('gate_validation',{}); validation=Path(receipt.get('path',''))
+                if validation.is_file() and sha(validation)==receipt.get('sha256'):
+                    try: records=readjson(validation).get('checks',[])
+                    except (ValueError,OSError): records=[]
+                    if any(Path(x.get('log','')).resolve()==blocker_log.resolve() for x in records): log_owned=True
+            if b.get('candidate_id') in selected or log_owned:
+                raise ValueError('cleanup blocked: selected candidate has quarantined/unverified process ownership; preserve candidate and log until explicitly cleared')
+        report_root=report_dir/'reports'
+        managed=set()
+        for _,candidate in candidates: managed.update(_candidate_managed_reports(candidate,report_root))
+        preserved=[p for p in owned_files if p.resolve() not in managed]
+        plan={'author_worktree':str(repo),'sprint_id':sprint,'candidate_ids':[c['id'] for _,c in candidates],
+              'candidate_records_removed':[str(p) for p,_ in candidates],
+              'managed_files_removed':[str(p) for p in sorted(managed)],
+              'preserved_paths':[str(p) for p in preserved],
+              'manual_index':str(root/'manual-tests.md'),'apply':bool(a.apply)}
+        if not a.apply:
+            print(json.dumps(plan,indent=2)); return
+        for path,c in candidates:
+            path.unlink()
+            lockfile=root/'dispatch-locks'/c['id']/'gate-validation.lock'
+            if lockfile.is_file(): lockfile.unlink()
+            lockdir=root/'dispatch-locks'/c['id']
+            if lockdir.is_dir() and not any(lockdir.iterdir()): lockdir.rmdir()
+        for path in sorted(managed,reverse=True):
+            if path.is_file(): path.unlink()
+        _remove_empty_tree(report_dir)
+        render_manual_index(root)
+        plan['owner_reference']=a.owner_reference.strip(); plan['applied']=True
+        print(json.dumps(plan,indent=2))
+    finally:
+        if sprint_handle: sprint_handle.close()
+        for handle in reversed(dispatch): handle.close()
+        gate_handle.close()
+
+class WorkflowExit(Exception):
+    def __init__(self,code): self.code=code
+
+class GateTreeBlocked(RuntimeError):
+    def __init__(self,pid,detail): self.pid=pid; self.detail=detail
+
+def stop_owned_tree(proc,timeout=5):
+    """Bounded stop of this runner's process tree; never searches/kills by image name."""
+    try:
+        if os.name=='nt':
+            result=subprocess.run(['taskkill','/PID',str(proc.pid),'/T','/F'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False,timeout=timeout,
+                creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+            if result.returncode!=0: raise GateTreeBlocked(proc.pid,f'taskkill returned {result.returncode}')
+        else: os.killpg(proc.pid,9)
+        proc.wait(timeout=timeout)
+    except GateTreeBlocked: raise
+    except (OSError,subprocess.SubprocessError) as exc: raise GateTreeBlocked(proc.pid,str(exc)) from exc
+
+def monitor_launch_smoke(proc,log,check,timeout,stream,heartbeat=None):
+    ready=[re.compile(x) for x in check['ready_patterns']]
+    errors=[re.compile(x) for x in check.get('error_patterns',[])]
+    deadline=time.monotonic()+timeout; cursor=0; tail=''; matched=[]; last_heartbeat=time.monotonic()
+    while time.monotonic()<deadline:
+        with Path(log).open('r',encoding='utf-8',errors='replace') as source:
+            source.seek(cursor); chunk=source.read(); cursor=source.tell()
+        if chunk:
+            tail=(tail+chunk)[-16384:]
+            for pattern in errors:
+                if pattern.search(tail):
+                    if proc.poll() is None: stop_owned_tree(proc)
+                    return {'code':1,'controlled_stop':False,'matched_ready':matched,'error_pattern':pattern.pattern}
+            matched.extend(p.pattern for p in ready if p.search(tail) and p.pattern not in matched)
+            if len(matched)==len(ready):
+                if proc.poll() is None:
+                    stop_owned_tree(proc)
+                    return {'code':0,'controlled_stop':True,'matched_ready':matched}
+                return {'code':1,'controlled_stop':False,'matched_ready':matched,'error_pattern':'process exited before controlled stop'}
+        status=proc.poll()
+        if status is not None:
+            return {'code':status if status else 1,'controlled_stop':False,'matched_ready':matched,'error_pattern':'process exited before readiness marker'}
+        time.sleep(.05)
+        now=time.monotonic()
+        if heartbeat and now-last_heartbeat>=10:
+            heartbeat(); last_heartbeat=now
+    stop_owned_tree(proc)
+    return {'code':124,'controlled_stop':False,'matched_ready':matched,'error_pattern':'readiness marker timeout'}
+
+def blocker_path(root): return root/'gate-blocker.json'
+
+def require_clear_gate(root):
+    p=blocker_path(root)
+    if p.is_file():
+        b=readjson(p); raise ValueError(f"gate quarantined: owned process tree PID {b['pid']} may still run; integration-lead must confirm cleanup with gate-clear-blocker")
+
+def cmd_gate_clear_blocker(a,root):
+    if a.actor!='integration-lead' or not a.confirmed_stopped: raise ValueError('explicit integration-lead confirmation required')
+    p=blocker_path(root)
+    if not p.is_file(): raise ValueError('no gate blocker')
+    record=readjson(p)
+    if record.get('pid')!=a.pid: raise ValueError('PID does not match quarantined process')
+    try: import gate_execution
+    except ModuleNotFoundError: from tooling.agent_workflow import gate_execution
+    gate_execution.verify_cleanup_proof(root,record,sys.modules.get(__name__) or types.SimpleNamespace(**globals()))
+    if process_presence(a.pid)!='absent': raise ValueError('cannot clear gate quarantine: blocker PID is present or its absence is unknown')
+    p.unlink(); print(f"cleared gate blocker for program-verified stopped process tree PID {a.pid}; artifacts: {record.get('log','(unrecorded)')}")
+
+def process_presence(pid):
+    """OS process-table check; PID reuse or inaccessible state is not absence."""
+    if os.name=='nt':
+        import ctypes
+        from ctypes import wintypes
+        class ENTRY(ctypes.Structure):
+            _fields_=[('dwSize',wintypes.DWORD),('cntUsage',wintypes.DWORD),('th32ProcessID',wintypes.DWORD),('th32DefaultHeapID',ctypes.c_size_t),('th32ModuleID',wintypes.DWORD),('cntThreads',wintypes.DWORD),('th32ParentProcessID',wintypes.DWORD),('pcPriClassBase',ctypes.c_long),('dwFlags',wintypes.DWORD),('szExeFile',wintypes.WCHAR*260)]
+        kernel=ctypes.WinDLL('kernel32',use_last_error=True); snap=kernel.CreateToolhelp32Snapshot(2,0)
+        if snap==ctypes.c_void_p(-1).value: return 'unknown'
+        try:
+            entry=ENTRY(); entry.dwSize=ctypes.sizeof(entry)
+            if not kernel.Process32FirstW(snap,ctypes.byref(entry)): return 'unknown'
+            while True:
+                if entry.th32ProcessID==pid: return 'present'
+                if not kernel.Process32NextW(snap,ctypes.byref(entry)): break
+            return 'absent'
+        finally: kernel.CloseHandle(snap)
+    proc=Path('/proc')/str(pid)
+    if proc.exists(): return 'present'
+    return 'absent' if Path('/proc').is_dir() else 'unknown'
+
+def cmd_gate_request(a,root):
+    try: import gate_dispatch
+    except ModuleNotFoundError: from tooling.agent_workflow import gate_dispatch
+    result=gate_dispatch.request_gate(a,root,workflow=sys.modules.get(__name__) or types.SimpleNamespace(**globals()))
+    print(json.dumps(result,indent=2))
+    if result.get('status')=='blocked': raise WorkflowExit(2)
+    if result.get('status')=='needs_changes': raise WorkflowExit(3)
+
+def cmd_gate_scope_review(a,root):
+    try: import gate_dispatch
+    except ModuleNotFoundError: from tooling.agent_workflow import gate_dispatch
+    result=gate_dispatch.scoped_review(a,root,workflow=sys.modules.get(__name__) or types.SimpleNamespace(**globals()))
+    print(json.dumps(result,indent=2))
+
+def verify_candidate(c):
+    repo=Path(c['worktree']['worktree']); base,committed,dirty=git_changes(repo,c['base_ref'])
+    identity_changed=gitid(repo)!=c['worktree']
+    reasons=[]
+    if identity_changed: reasons.append('worktree identity changed')
+    if base!=c['base_sha']: reasons.append('base/head changed')
+    if committed!=c['committed_changes']: reasons.append('committed changes changed')
+    if dirty!=c['dirty_changes']:
+        old={row.get('path'):row for row in c['dirty_changes']}; new={row.get('path'):row for row in dirty}
+        changed=sorted(path for path in old.keys()|new.keys() if old.get(path)!=new.get(path))
+        shown=', '.join(str(path) for path in changed[:8])
+        if len(changed)>8: shown+=f', and {len(changed)-8} more'
+        reasons.append(f'dirty changes changed: {shown or "unknown paths"}')
+    if reasons: raise ValueError('candidate stale; '+'; '.join(reasons)+'; submit a new candidate revision')
+    for ev in c['evidence']:
+        ep=Path(ev['path'])
+        if not ep.is_file() or sha(ep)!=ev['sha256']: raise ValueError(f'candidate evidence stale: {ep}')
+    review=c.get('review')
+    if review:
+        rp=Path(review['report_path'])
+        if not rp.is_file() or sha(rp)!=review['report_sha256']: raise ValueError('review report stale')
+        report=read_report(rp)
+        if report.get('candidate_id')!=c['id'] or report.get('snapshot_key')!=c['snapshot_key'] or report.get('decision')!=review['result']: raise ValueError('review report binding stale')
+        current=optional_reviewed_images(report.get('viewed_images',[]),rp.parent)
+        if current!=review['viewed_images']: raise ValueError('review image stale')
+        originals=verify_original_images(report.get('original_images',[]),c,rp.parent)
+        if originals!=review.get('original_images',[]): raise ValueError('original review image stale')
+        if review['result']=='ready_for_owner' and c['visual_review_required'] and not originals: raise ValueError('visual review must bind source original_images')
+        if review['result']=='ready_for_owner' and c['visual_review_required'] and not current: raise ValueError('visual review image missing')
+    return c
+
+def verify_owner_decision(c):
+    decision=c.get('owner_decision')
+    if not decision: return None
+    receipt=Path(decision['receipt_path'])
+    if not receipt.is_file() or sha(receipt)!=decision['receipt_sha256']: raise ValueError('owner decision receipt stale')
+    data=read_report(receipt)
+    if data.get('candidate_id')!=c['id'] or data.get('snapshot_key')!=c['snapshot_key'] or data.get('decision')!=decision['decision']: raise ValueError('owner decision receipt binding stale')
+    if data.get('owner_reference')!=decision['owner_reference'] or data.get('note')!=decision['note']: raise ValueError('owner decision reference stale')
+    review_hash=c.get('review',{}).get('report_sha256')
+    if review_hash!=decision.get('review_report_sha256'): raise ValueError('owner decision review reference stale')
+    return decision
+
+def cmd_candidate_review(a,root):
+    rid=validid(a.id); p=root/'candidates'/f'{rid}.json'
+    if not p.is_file(): raise ValueError('unknown candidate')
+    c=verify_candidate(readjson(p))
+    if is_diagnostic(c): raise ValueError('diagnostic requests cannot receive candidate readiness review')
+    if a.reviewer==c['agent']: raise ValueError('reviewer must differ from candidate author')
+    report,originals,images=prepare_candidate_review(read_report(a.report),c,a.reviewer,a.result,a.report)
+    lock=sprint_lock(root,c['worktree']['worktree'],c['sprint_id'])
+    try:
+        if originals:
+            report['viewed_images']=capture_review_images(report.get('viewed_images',[]),originals,a.report,rid)
+            writejson(a.report,report)
+        save_candidate_review(p,c,a.result,a.report,report,images if not originals else optional_reviewed_images(report['viewed_images'],Path(a.report).resolve().parent),originals)
+        print(a.result)
+    finally: lock.close()
+
+def cmd_gate_report(a,root):
+    rid=validid(a.id); p=root/'candidates'/f'{rid}.json'
+    if a.actor!='integration-lead' or not p.is_file(): raise ValueError('only integration-lead may report an existing candidate')
+    c=verify_candidate(readjson(p)); folder=author_report_dir(c)
+    if is_diagnostic(c): raise ValueError('diagnostic requests do not use integration-lead readiness reports')
+    lock=sprint_lock(root,c['worktree']['worktree'],c['sprint_id'])
+    try:
+        if not p.is_file(): raise ValueError('candidate was removed before report persistence')
+        c=verify_candidate(readjson(p))
+        prior_final=(c.get('gate_outcome') or {}).get('result')
+        if c.get('owner_decision'):
+            raise ValueError('owner-disposition candidate report is immutable; submit a new revision')
+        if prior_final=='ready_for_owner' and not (getattr(a,'finish',False) and a.result=='ready_for_owner'):
+            raise ValueError('published candidate report is immutable; an exact ready_for_owner finish retry is required')
+        folder=author_report_dir(c)
+        target=folder/f'{rid}-integration-lead-review.json'
+        report={'candidate_id':rid,'snapshot_key':c['snapshot_key'],'reviewer':'integration-lead',
+                'decision':a.result,'findings':a.finding,'viewed_images':[]}
+        if getattr(a,'finish',False):
+            _,_,summary=readiness_finalization_guard(c,root,a.result,None)
+            report['evidence_summary']=summary
+        if a.scoped_review:
+            reviewer=a.scoped_review; receipt=c.get('scoped_reviews',{}).get(reviewer)
+            if not receipt or receipt.get('snapshot_key')!=c['snapshot_key'] or receipt.get('admission_unknown'):
+                raise ValueError('scoped review receipt missing, stale, or uncertain')
+            scoped_path=Path(receipt.get('report_path',''))
+            if not scoped_path.is_file() or sha(scoped_path)!=receipt.get('report_sha256'):
+                raise ValueError('scoped review report missing or hash-stale')
+            scoped=validate_review_report(read_report(scoped_path),c,reviewer)
+            if scoped.get('decision')!=a.result: raise ValueError('scoped review decision does not match lead result')
+            checked_originals=verify_original_images(scoped.get('original_images',[]),c,scoped_path.parent)
+            receipt_originals=verify_original_images(receipt.get('original_images',[]),c,scoped_path.parent)
+            if checked_originals!=receipt_originals: raise ValueError('scoped review image receipt binding mismatch')
+            report['scoped_review']={'reviewer':reviewer,'report_sha256':receipt['report_sha256'],
+                                     'inspection_by':reviewer,'integration_lead_personally_viewed':False}
+            report['viewed_images']=scoped.get('viewed_images',[])
+            report['original_images']=scoped.get('original_images',[])
+        prepared,originals,images=prepare_candidate_review(report,c,'integration-lead',a.result,target)
+        folder.mkdir(parents=True,exist_ok=True)
+        if originals:
+            prepared['viewed_images']=capture_review_images(prepared.get('viewed_images',[]),originals,target,rid)
+        prior_outcome=(c.get('gate_outcome') or {}).get('result')
+        if prior_outcome in ('needs_changes','ready_for_owner') and target.is_file():
+            prior_report=read_report(target)
+            if prior_report!=prepared or (c.get('review') or {}).get('report_sha256')!=sha(target):
+                raise ValueError('final verdict is immutable; retry with the exact existing report and evidence')
+            # Exact retries reuse immutable report/review bytes.
+            already_final=True
+        else:
+            already_final=False
+        # Nothing is written until identity, decision, findings, scoped receipts,
+        # original/copy hashes, and candidate mutability have all been checked.
+        if not already_final:
+            writejson(target,prepared)
+            images=optional_reviewed_images(prepared.get('viewed_images',[]),target.parent)
+            save_candidate_review(p,c,a.result,target,prepared,images,originals)
+    finally: lock.close()
+    print(target)
+    if getattr(a,'finish',False):
+        cmd_gate_finish(argparse.Namespace(id=rid,result=a.result,report=str(target)),root)
+
+def _gate_evidence_summary(candidate,root,result):
+    """A compact derivative of the bound receipt, never an independent finding."""
+    _,plan=verify_gate(candidate)
+    if not plan['checks'] and not (plan['kind']=='docs' and plan.get('no_checks_rationale')):
+        raise ValueError('only explicitly justified docs plans may publish without checks')
+    if not candidate.get('gate_validation'):
+        if result=='ready_for_owner': raise ValueError('fresh bound gate validation receipt required before ready report')
+        return {'status':'NOT_RUN','checks':[]}
+    diagnostic=is_diagnostic(candidate)
+    if diagnostic and result!='diagnostic_complete': raise ValueError('diagnostic evidence summary cannot be used as readiness verdict')
+    gate,g=verify_gate_receipt(candidate,require_pass=(result=='ready_for_owner'))
+    rows=[]
+    for item in g['checks']:
+        lp=Path(item['log'])
+        evidence=item.get('evidence',{}); counts=evidence.get('counts',{})
+        rows.append({'status':evidence.get('status','UNKNOWN'),'counts':counts,'selection':evidence.get('selection','unknown'),'log':str(lp)})
+    return {'status':'PASS' if g.get('passed') else 'FAILED_OR_PARTIAL','receipt':str(gate),'receipt_sha256':sha(gate),'snapshot_key':g['snapshot_key'],'plan_digest':g['plan_digest'],'checks':rows}
+
+def readiness_finalization_guard(candidate,root,result,report):
+    """Shared no-write gate for final readiness decisions (report and direct finish)."""
+    try: import gate_execution
+    except ModuleNotFoundError: from tooling.agent_workflow import gate_execution
+    _,plan=verify_gate(candidate)
+    if result not in ('needs_changes','ready_for_owner'):
+        raise ValueError('readiness finalization requires needs_changes or ready_for_owner')
+    gate_request=candidate.get('gate_request') or {}
+    if (not gate_request.get('prompt_admitted') or gate_request.get('snapshot_key')!=candidate['snapshot_key']
+            or not gate_request.get('session_id')):
+        raise ValueError('readiness finalization blocked: wait for a candidate/plan/snapshot/lead-bound admitted validation job')
+    job=gate_execution.read(root,candidate['id'])
+    expected_digest=snapshot_key(plan)
+    if (not job or job.get('candidate_id')!=candidate['id'] or job.get('snapshot_key')!=candidate['snapshot_key']
+            or job.get('plan_digest')!=expected_digest or job.get('lead_session_id')!=gate_request['session_id']):
+        raise ValueError('readiness finalization blocked: matching bound execution job is missing; wait for validation, do not resubmit')
+    if job.get('state') in ('requested','launching','running'):
+        raise GateFinalizationPending(f"validation job is {job['state']}; observer completion is pending")
+    if job.get('state')!='completed':
+        raise ValueError(f"readiness finalization blocked: validation job is {job.get('state','unknown')}; inspect or resolve its execution block")
+    if not candidate.get('gate_validation'):
+        raise GateFinalizationPending('validation receipt has not been produced yet')
+    gate,receipt=verify_gate_receipt(candidate,require_pass=(result=='ready_for_owner'))
+    recorded=job.get('receipt') or {}
+    if recorded.get('path')!=str(gate) or recorded.get('sha256')!=sha(gate):
+        raise ValueError('readiness finalization blocked: completed execution job receipt does not match the verified candidate receipt')
+    summary=_gate_evidence_summary(candidate,root,result)
+    if report is not None and report.get('evidence_summary') != summary:
+        raise ValueError('readiness report evidence summary does not match the authoritative current validation receipt')
+    for reviewer,record in (candidate.get('scoped_reviews') or {}).items():
+        if (not isinstance(record,dict) or record.get('snapshot_key')!=candidate['snapshot_key']
+                or record.get('admission_unknown') or record.get('dispatch_pending') or record.get('collection_pending')):
+            raise GateFinalizationPending(f'requested scoped review {reviewer} is still pending collection')
+        path=Path(record.get('report_path',''))
+        if not path.is_file() or sha(path)!=record.get('report_sha256'):
+            if record.get('collection_pending') or record.get('dispatch_pending'):
+                raise GateFinalizationPending(f'requested scoped review {reviewer} is still pending collection')
+            raise ValueError(f'readiness finalization blocked: requested scoped review {reviewer} is missing or stale')
+        scoped=validate_review_report(read_report(path),candidate,reviewer)
+        if result=='ready_for_owner' and scoped.get('decision')!='ready_for_owner':
+            raise ValueError(f'readiness finalization blocked: scoped review {reviewer} is not ready_for_owner')
+        originals=verify_original_images(scoped.get('original_images',[]),candidate,path.parent)
+        if originals!=verify_original_images(record.get('original_images',[]),candidate,path.parent):
+            raise ValueError(f'readiness finalization blocked: scoped review {reviewer} image receipt mismatch')
+    return gate,receipt,summary
+
+def cmd_candidate_decision(a,root):
+    rid=validid(a.id); p=root/'candidates'/f'{rid}.json'
+    if not p.is_file(): raise ValueError('unknown candidate')
+    c=verify_candidate(readjson(p))
+    if is_diagnostic(c): raise ValueError('diagnostic requests cannot receive owner disposition')
+    receipt=Path(a.owner_receipt).resolve(); data=read_report(receipt)
+    if data.get('candidate_id')!=rid or data.get('snapshot_key')!=c['snapshot_key'] or data.get('decision') not in ('accepted','deferred','needs_changes'):
+        raise ValueError('owner receipt candidate/snapshot/decision mismatch')
+    owner_reference=data.get('owner_reference'); note=data.get('note')
+    if not isinstance(owner_reference,str) or not owner_reference.strip() or not isinstance(note,str) or not note.strip(): raise ValueError('receipt requires explicit owner_reference and note')
+    if data['decision']=='accepted' and c.get('review',{}).get('result')!='ready_for_owner': raise ValueError('accepted decision requires a fresh independent ready_for_owner review')
+    c['owner_decision']={'decision':data['decision'],'owner_reference':owner_reference,'note':note,'receipt_path':str(receipt),'receipt_sha256':sha(receipt),'review_report_sha256':c.get('review',{}).get('report_sha256')}
+    writejson(p,c); render_manual_index(root); print(f"owner_{data['decision']}")
+
+def _candidate_status_line(c, *, verify=False, root=None):
+    outcome=c.get('gate_outcome') or {}
+    recorded=outcome.get('result') or (c.get('review') or {}).get('result') or c.get('status','candidate')
+    owner=c.get('owner_decision') or {}
+    if owner.get('decision'): recorded='owner_'+str(owner['decision'])
+    details=''
+    if outcome.get('result')=='needs_changes':
+        details+=f"; findings: {' | '.join(str(x) for x in outcome.get('findings',[]))}"
+    report=outcome.get('report_path') or (c.get('review') or {}).get('report_path')
+    if report: details+=f'; report: {report}'
+    if not verify:
+        detail=f'{recorded} (recorded; freshness not checked){details}'
+        return f"code {c['id']}: {detail}"
+    try:
+        verify_candidate(c)
+        if outcome.get('result')=='ready_for_owner':
+            verify_gate(c); verify_publication(c,root)
+        elif outcome.get('result')=='needs_changes':
+            review=c.get('review') or {}; rp=Path(review.get('report_path',''))
+            if (review.get('result')!='needs_changes' or outcome.get('report_sha256')!=review.get('report_sha256') or
+                not rp.is_file() or sha(rp)!=review.get('report_sha256')):
+                raise ValueError('needs_changes outcome is not bound to a current independent review report')
+        if owner.get('decision'): verify_owner_decision(c)
+        return f"code {c['id']}: {recorded} (verified current){details}"
+    except (ValueError,OSError,subprocess.CalledProcessError,KeyError) as exc:
+        historic=f' (owner_{owner["decision"]} recorded)' if owner.get('decision') else ''
+        return f"code {c['id']}: STALE/BLOCKED{historic} (recorded {recorded}; {str(exc)[:240]}){details}"
+
+
+def cmd_status(a,root):
+    if not root.exists(): print('No agent exchange records.'); return
+    selected=getattr(a,'candidate',None)
+    if selected:
+        p=root/'candidates'/f'{validid(selected)}.json'
+        if not p.is_file(): raise ValueError(f'unknown candidate: {selected}')
+        c=readjson(p)
+        if c.get('id')!=selected: raise ValueError('candidate filename/identity mismatch')
+        print(_candidate_status_line(c,verify=bool(getattr(a,'verify',False)),root=root)); return
+    for p in sorted((root/'requests').glob('*/request.json')) if (root/'requests').exists() else []:
+        r=readjson(p); state=r['status']
+        try: verify_request(p.parent,r)
+        except (ValueError,OSError): state='STALE/BLOCKED'
+        if r.get('delivery'):
+            try:
+                verify_delivery(p.parent,r)
+                if r.get('review',{}).get('result')=='ready_for_owner': current_review(p.parent,r)
+            except (ValueError,OSError): state='STALE/BLOCKED'
+        print(f"asset {r['id']}: {state} — {r.get('title','')}")
+    for p in sorted((root/'candidates').glob('*.json')) if (root/'candidates').exists() else []:
+        c=readjson(p); print(_candidate_status_line(c,verify=bool(getattr(a,'verify',False)),root=root))
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__); p.add_argument('--repo',default='.'); p.add_argument('--asset-workspace')
+    s=p.add_subparsers(dest='command',required=True)
+    q=s.add_parser('request'); q.add_argument('--from-json',required=True); q.add_argument('--context-root',default='.'); q.set_defaults(fn=cmd_request)
+    q=s.add_parser('claim'); q.add_argument('id'); q.add_argument('--agent',required=True); q.set_defaults(fn=cmd_claim)
+    q=s.add_parser('plan-manifest'); q.add_argument('--manifest',required=True); q.add_argument('--source-root',required=True); q.add_argument('--target',help='optional destination root for existing-file/conflict inspection'); q.set_defaults(fn=cmd_plan)
+    q=s.add_parser('deliver'); q.add_argument('id'); q.add_argument('--manifest',required=True); q.add_argument('--source-root',required=True); q.add_argument('--revision',required=True); q.add_argument('--provenance',nargs='+',required=True); q.add_argument('--editable',nargs='+',required=True); q.add_argument('--review-images',nargs='+',required=True); q.set_defaults(fn=cmd_deliver)
+    q=s.add_parser('review'); q.add_argument('id'); q.add_argument('--reviewer',required=True); q.add_argument('--result',choices=['needs_changes','ready_for_owner'],required=True); q.add_argument('--report',required=True); q.set_defaults(fn=cmd_review)
+    q=s.add_parser('import-assets'); q.add_argument('id'); q.add_argument('--target',required=True); q.add_argument('--owner-receipt'); q.add_argument('--plan-out'); q.add_argument('--plan'); q.add_argument('--apply',action='store_true'); q.add_argument('--allow-overwrite',action='store_true'); q.set_defaults(fn=cmd_import)
+    q=s.add_parser('submit'); q.add_argument('id'); q.add_argument('--agent',required=True); q.add_argument('--sprint',required=True); q.add_argument('--base-ref',default='main'); q.add_argument('--evidence',nargs='*',default=[]); q.add_argument('--build-identity',required=True); q.add_argument('--steps',required=True); q.add_argument('--unverified',default=''); q.add_argument('--gate-plan'); q.add_argument('--diagnostic-only',action='store_true'); q.add_argument('--visual-review-required',action='store_true'); q.set_defaults(fn=cmd_submit)
+    q=s.add_parser('candidate-review'); q.add_argument('id'); q.add_argument('--reviewer',required=True); q.add_argument('--report',required=True); q.add_argument('--result',choices=['needs_changes','ready_for_owner'],required=True); q.set_defaults(fn=cmd_candidate_review)
+    q=s.add_parser('gate-report'); q.add_argument('id'); q.add_argument('--actor',required=True); q.add_argument('--result',choices=['needs_changes','ready_for_owner'],required=True); q.add_argument('--finding',action='append',required=True); q.add_argument('--scoped-review',choices=['review','fidelity-reviewer']); q.add_argument('--finish',action='store_true'); q.set_defaults(fn=cmd_gate_report)
+    q=s.add_parser('candidate-decision'); q.add_argument('id'); q.add_argument('--owner-receipt',required=True); q.set_defaults(fn=cmd_candidate_decision)
+    q=s.add_parser('gate-preflight'); q.add_argument('id'); q.set_defaults(fn=cmd_gate_preflight)
+    q=s.add_parser('gate-validate'); q.add_argument('id'); q.add_argument('--actor',required=True); q.set_defaults(fn=cmd_gate_validate)
+    q=s.add_parser('gate-clear-blocker'); q.add_argument('--actor',required=True); q.add_argument('--pid',type=int,required=True); q.add_argument('--confirmed-stopped',action='store_true'); q.set_defaults(fn=cmd_gate_clear_blocker)
+    q=s.add_parser('gate-finish'); q.add_argument('id'); q.add_argument('--result',choices=['needs_changes','ready_for_owner'],required=True); q.add_argument('--report',required=True); q.set_defaults(fn=cmd_gate_finish)
+    q=s.add_parser('gate-deliver'); q.add_argument('id'); q.add_argument('--actor',required=True); q.set_defaults(fn=cmd_gate_deliver)
+    q=s.add_parser('manual-notify'); q.add_argument('id'); q.set_defaults(fn=cmd_manual_notify)
+    q=s.add_parser('manual-tests'); q.set_defaults(fn=cmd_manual_tests)
+    q=s.add_parser('sprint-cleanup'); q.add_argument('--repo',required=True); q.add_argument('--sprint',required=True); q.add_argument('--apply',action='store_true'); q.add_argument('--owner-reference',default=''); q.set_defaults(fn=cmd_sprint_cleanup)
+    q=s.add_parser('gate-request'); q.add_argument('id'); q.set_defaults(fn=cmd_gate_request)
+    q=s.add_parser('gate-scope-review'); q.add_argument('id'); q.add_argument('--reviewer',choices=['review','fidelity-reviewer'],required=True); q.add_argument('--actor',required=True); q.set_defaults(fn=cmd_gate_scope_review)
+    q=s.add_parser('status'); q.add_argument('--candidate',help='show one code candidate without scanning history'); q.add_argument('--verify',action='store_true',help='explicitly verify source freshness and publication proofs (all candidates unless --candidate is supplied)'); q.set_defaults(fn=cmd_status)
+    a=p.parse_args()
+    try:
+        root=queue(a,create=a.command not in ('status','plan-manifest')); a.fn(a,root)
+    except WorkflowExit as e: return e.code
+    except (ValueError,OSError,subprocess.CalledProcessError) as e: print(f'error: {e}',file=sys.stderr); return 2
+    return 0
+if __name__=='__main__': raise SystemExit(main())

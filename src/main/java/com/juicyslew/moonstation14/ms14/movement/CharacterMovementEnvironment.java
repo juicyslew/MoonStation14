@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.movement;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /** Tick-scaled environmental inputs; gravity and jump speed must come from the Minecraft adapter, not guessed here. */
 public record CharacterMovementEnvironment(double secondsPerTick, double gravityPerSecondSquared,
@@ -10,8 +11,9 @@ public record CharacterMovementEnvironment(double secondsPerTick, double gravity
                                            MovementCollisionResolver collisionResolver,
                                            double surfaceMovementFactor,
                                            double voluntarySpeedFactor,
-                                           MovementVector constraintImpulse) {
-    /** Compatibility constructor for neutral-surface pure motor fixtures and callers. */
+                                           MovementVector constraintImpulse,
+                                           Optional<GravityAirControl> gravityAirControl) {
+    /** Existing callers default to legacy gravity-air behavior unless an adapter supplies a profile. */
     public CharacterMovementEnvironment(double secondsPerTick, double gravityPerSecondSquared,
                                         double jumpVelocityPerSecond, double verticalDrag, MovementVector externalImpulse,
                                         double maximumExternalImpulsePerTick, double maxUpwardStepBlocks,
@@ -28,6 +30,17 @@ public record CharacterMovementEnvironment(double secondsPerTick, double gravity
         this(secondsPerTick, gravityPerSecondSquared, jumpVelocityPerSecond, verticalDrag, externalImpulse,
                 maximumExternalImpulsePerTick, maxUpwardStepBlocks, collisionResolver, surfaceMovementFactor, 1d,
                 MovementVector.ZERO);
+    }
+
+    /** Existing full constructor; no gravity-air profile means legacy behavior. */
+    public CharacterMovementEnvironment(double secondsPerTick, double gravityPerSecondSquared,
+                                         double jumpVelocityPerSecond, double verticalDrag, MovementVector externalImpulse,
+                                         double maximumExternalImpulsePerTick, double maxUpwardStepBlocks,
+                                         MovementCollisionResolver collisionResolver, double surfaceMovementFactor,
+                                         double voluntarySpeedFactor, MovementVector constraintImpulse) {
+        this(secondsPerTick, gravityPerSecondSquared, jumpVelocityPerSecond, verticalDrag, externalImpulse,
+                maximumExternalImpulsePerTick, maxUpwardStepBlocks, collisionResolver, surfaceMovementFactor,
+                voluntarySpeedFactor, constraintImpulse, Optional.empty());
     }
 
     /** Compatibility constructor retaining both existing movement modifiers. */
@@ -56,6 +69,7 @@ public record CharacterMovementEnvironment(double secondsPerTick, double gravity
         Objects.requireNonNull(externalImpulse, "externalImpulse");
         Objects.requireNonNull(constraintImpulse, "constraintImpulse");
         Objects.requireNonNull(collisionResolver, "collisionResolver");
+        Objects.requireNonNull(gravityAirControl, "gravityAirControl");
         double impulseLength = vectorLength(externalImpulse);
         if (!Double.isFinite(impulseLength) || impulseLength > maximumExternalImpulsePerTick) {
             throw new IllegalArgumentException("external impulse exceeds environment bound");

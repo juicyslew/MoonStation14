@@ -957,6 +957,79 @@ public final class PlayerLifecycleRegistry {
         }
     }
 
+    /** Removes only the exact still-inactive durable restore created by this lifecycle facade. */
+    public synchronized boolean rollbackRestoredOffline(Snapshot restored) {
+        synchronized (ownership) {
+            if (restored == null || restored.state() != LifecycleState.OFFLINE || restored.active()
+                    || restored.deadClaim()) return false;
+            ProfileRecord record = byAccount.get(restored.accountId());
+            if (record == null || !record.restoredFromStore || record.active || record.deadClaim
+                    || record.state != LifecycleState.OFFLINE || record.generation != restored.connectionGeneration()
+                    || !record.profileId.equals(restored.profileId()) || !record.mindId.equals(restored.mindId())
+                    || !record.bodyId.equals(restored.bodyId()) || byProfile.get(new ProfileKey(
+                            restored.accountId(), restored.profileId())) != record
+                    || byMind.get(restored.mindId()) != record || byBody.get(restored.bodyId()) != record)
+                return false;
+            if (!ownership.rollbackRestoredOfflineCharacterMind(restored.accountId(), restored.mindId(),
+                    restored.bodyId(), restored.connectionGeneration(), capability)) return false;
+            byAccount.remove(record.accountId);
+            byProfile.remove(new ProfileKey(record.accountId, record.profileId));
+            byMind.remove(record.mindId);
+            byBody.remove(record.bodyId);
+            return true;
+        }
+    }
+
+    /** Update only the recovery locator of an exact OFFLINE row; no lifecycle/ownership transition occurs. */
+    public synchronized Optional<SavedLifecycleProfile> relocateOfflineDurably(
+            LifecycleProfileStore.CurrentPrimary currentPrimary, SavedLifecycleProfile savedOffline,
+            String dimension, SavedLifecycleProfile.Location location) throws IOException {
+        synchronized (ownership) {
+            Objects.requireNonNull(currentPrimary, "currentPrimary");
+            Objects.requireNonNull(savedOffline, "savedOffline");
+            Objects.requireNonNull(dimension, "dimension");
+            Objects.requireNonNull(location, "location");
+            if (!currentPrimary.isActive() || savedOffline.state() != SavedLifecycleProfile.State.OFFLINE
+                    || savedOffline.offlineSinceMillis() == null) return Optional.empty();
+            LifecycleStoreEnvelope envelope = currentPrimary.envelope();
+            if (envelope.schemaVersion() != LifecycleStoreEnvelope.CURRENT_SCHEMA
+                    || !savedOffline.connectionEpoch().equals(envelope.epochToken())
+                    || savedOffline.connectionGeneration() > envelope.generationCounter()
+                    || envelope.profiles().stream().filter(savedOffline::equals).count() != 1) return Optional.empty();
+            ProfileRecord record = byAccount.get(savedOffline.accountId());
+            if (record == null || record.active || record.deadClaim || record.state != LifecycleState.OFFLINE
+                    // A cold-restored OFFLINE record gets a fresh in-memory authority epoch, while
+                    // the durable generation remains unchanged until an actual reconnect.
+                    || record.generation < savedOffline.connectionGeneration()
+                    || !record.profileId.equals(savedOffline.profileKey())
+                    || !record.mindId.value().equals(savedOffline.mindId())
+                    || !record.bodyId.value().equals(savedOffline.bodyId())) return Optional.empty();
+            if (savedOffline.dimension().equals(dimension)
+                    && Math.floor(savedOffline.location().x() / 16.0) == Math.floor(location.x() / 16.0)
+                    && Math.floor(savedOffline.location().z() / 16.0) == Math.floor(location.z() / 16.0))
+                return Optional.of(savedOffline);
+            final long revision;
+            try { revision = Math.incrementExact(savedOffline.revision()); }
+            catch (ArithmeticException overflow) { return Optional.empty(); }
+            SavedLifecycleProfile moved = new SavedLifecycleProfile(savedOffline.schemaVersion(),
+                    savedOffline.accountId(), savedOffline.profileKey(), savedOffline.mindId(), savedOffline.bodyId(),
+                    dimension, location, savedOffline.appearance(), savedOffline.connectionEpoch(),
+                    savedOffline.connectionGeneration(), SavedLifecycleProfile.State.OFFLINE, revision,
+                    savedOffline.offlineSinceMillis());
+            ArrayList<SavedLifecycleProfile> profiles = new ArrayList<>(envelope.profiles().size());
+            boolean replaced = false;
+            for (SavedLifecycleProfile row : envelope.profiles()) {
+                if (row.equals(savedOffline)) {
+                    if (replaced) return Optional.empty();
+                    profiles.add(moved); replaced = true;
+                } else profiles.add(row);
+            }
+            if (!replaced) return Optional.empty();
+            currentPrimary.compareAndSwap(envelope.generationCounter(), profiles);
+            return Optional.of(moved);
+        }
+    }
+
     /**
      * Durably transfers an active ghost Mind to an eligible ordinary CHARACTER body. Target metadata
      * is supplied by the trusted runtime adapter; this method validates identity and ownership only.
@@ -1161,3 +1234,4 @@ public final class PlayerLifecycleRegistry {
 
     private record ProfileKey(UUID accountId, String profileId) { }
 }
+

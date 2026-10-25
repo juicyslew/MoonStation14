@@ -19,3 +19,4 @@ public record BodyHandStateQuery(long epoch, long sequence) implements CustomPac
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

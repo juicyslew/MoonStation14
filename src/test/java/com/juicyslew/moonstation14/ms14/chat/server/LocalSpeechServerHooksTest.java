@@ -44,7 +44,8 @@ class LocalSpeechServerHooksTest {
         assertTrue(source.contains("lifecycleSpeechAllowed(boundIdentity.characterId(), CharacterIdentitySystem.resolve(body))"));
         assertTrue(source.contains("if (ghost.committed() || character.committed() == debug.committed()) return null;"));
         assertTrue(source.contains("SpeechAccentPolicy.replace(speech.accent(), parsed.body())"));
-        assertTrue(source.contains("\"mouse_squeak\".equals(speech.speechSound()) ? \"mouse_squeak\" : \"\""));
+        assertTrue(source.contains("ModSounds.hasSpeechSound(speech.speechSound())"));
+        assertTrue(source.contains("? speech.speechSound() : \"\""));
         assertTrue(source.contains("spokenText, position.x, position.y, position.z"));
 
         CharacterData mouse = character("data/moonstation14/moonstation14/character/mouse.json");

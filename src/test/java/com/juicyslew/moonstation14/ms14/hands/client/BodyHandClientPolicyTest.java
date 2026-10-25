@@ -993,4 +993,49 @@ class BodyHandClientPolicyTest {
         assertFalse(policy.accept(snapshot(0, nextEpoch, ACCOUNT, BODY, 8)));
         assertTrue(policy.accept(snapshot(0, newConnection, ACCOUNT, BODY, 8)));
     }
+
+@Test void handHudUsesPresentedNameForAnyNamedItemAndFallsBackWithoutPresentation() {
+        var fallback = net.minecraft.network.chat.Component.translatable("item.minecraft.paper");
+        assertSame(fallback, BodyHandClient.handDisplayName(null, fallback));
+        var stack = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.PAPER);
+        var custom = net.minecraft.network.chat.Component.literal("Scout");
+        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, custom);
+        var presentation = com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation.fromStack(stack);
+        assertEquals(custom, BodyHandClient.handDisplayName(presentation, fallback));
+    }
+
+@Test void portablePickupNominationUsesClientProjectionAndTypedCapabilityConsumer() throws Exception {
+        Path relative = Path.of("src/main/java/com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java");
+        Path root = Path.of("").toAbsolutePath();
+        while (root != null && !Files.isRegularFile(root.resolve(relative))) root = root.getParent();
+        assertNotNull(root, "BodyHandClient source must be available for projection audit");
+        String source = Files.readString(root.resolve(relative));
+        int start = source.indexOf("private static boolean resolvedPortableProfile(");
+        assertTrue(start >= 0, "portable nomination has a named client projection consumer");
+        int end = source.indexOf("\n    }", start);
+        assertTrue(end > start, "portable projection consumer body is present");
+        String consumer = source.substring(start, end);
+        assertTrue(consumer.contains("CharacterIdentitySystem") && consumer.contains("projectForActor(candidate)"));
+        assertTrue(consumer.contains("PortableLivingClientTargetPolicy.portableCapability(projectedCharacter)"));
+        assertFalse(consumer.contains("PortableBodyCarrying.resolvedPortableBodyCapability"),
+                "client nominations must not call the server-only actor resolver");
+    }
+
+@Test void oneHandSnapshotProducesUsableSingleSlotInventoryViewsWithoutInventingASecondHand() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
+        var controls = policy.inventoryView();
+        var presentation = policy.presentationView();
+        assertNotNull(controls);
+        assertNotNull(presentation);
+        assertEquals(1, controls.handCount());
+        assertEquals("left", controls.active().id());
+        assertNull(controls.second());
+        assertNull(controls.hand("right"));
+        assertNull(presentation.second());
+        assertNull(BodyHandClientPolicy.otherHandForSelection(policy.snapshot()),
+                "one-handed X selection is a no-op, not a fabricated right-hand request");
+        assertNotEquals(0, policy.action(2), "one-hand active item route still obtains action authority");
+    }
 }

@@ -73,7 +73,24 @@ public final class CharacterComponentRegistry {
             Map.entry(StatusEffectsPrototypeComponent.TYPE, new Entry<>(StatusEffectsPrototypeComponent.class, StatusEffectsPrototypeComponent.CODEC)),
             Map.entry(TemperatureComponent.TYPE, new Entry<>(TemperatureComponent.class, TemperatureComponent.CODEC)),
             Map.entry(TemperatureDamageComponent.TYPE, new Entry<>(TemperatureDamageComponent.class, TemperatureDamageComponent.CODEC)),
-            Map.entry(ThermalRegulatorComponent.TYPE, new Entry<>(ThermalRegulatorComponent.class, ThermalRegulatorComponent.CODEC)));
+            Map.entry(ThermalRegulatorComponent.TYPE, new Entry<>(ThermalRegulatorComponent.class, ThermalRegulatorComponent.CODEC)),
+            Map.entry(AnimalAppearanceComponent.TYPE, new Entry<>(AnimalAppearanceComponent.class, AnimalAppearanceComponent.CODEC)),
+            Map.entry(FlightComponent.TYPE, new Entry<>(FlightComponent.class, FlightComponent.CODEC)),
+            Map.entry(NpcRetaliationComponent.TYPE, new Entry<>(NpcRetaliationComponent.class, NpcRetaliationComponent.CODEC)),
+            Map.entry(MeleeAttackComponent.TYPE, new Entry<>(MeleeAttackComponent.class, MeleeAttackComponent.CODEC)),
+            Map.entry(ParrotListenerComponent.TYPE, new Entry<>(ParrotListenerComponent.class, ParrotListenerComponent.CODEC)),
+            Map.entry(ParrotMemoryComponent.TYPE, new Entry<>(ParrotMemoryComponent.class, ParrotMemoryComponent.CODEC)),
+            Map.entry(AmbientVocalizationComponent.TYPE, new Entry<>(AmbientVocalizationComponent.class, AmbientVocalizationComponent.CODEC)),
+            Map.entry(SpeciesComponent.TYPE, new Entry<>(SpeciesComponent.class, SpeciesComponent.CODEC)),
+            Map.entry(CollisionProfileComponent.TYPE, new Entry<>(CollisionProfileComponent.class, CollisionProfileComponent.CODEC)),
+            Map.entry(NpcBehaviorComponent.TYPE, new Entry<>(NpcBehaviorComponent.class, NpcBehaviorComponent.CODEC)),
+            Map.entry(NpcIdleAttentionComponent.TYPE, new Entry<>(NpcIdleAttentionComponent.class, NpcIdleAttentionComponent.CODEC)),
+            Map.entry(PortableBodyComponent.TYPE, new Entry<>(PortableBodyComponent.class, PortableBodyComponent.CODEC)),
+            Map.entry(CanEscapeInventoryComponent.TYPE, new Entry<>(CanEscapeInventoryComponent.class, CanEscapeInventoryComponent.CODEC)),
+            Map.entry(UdderComponent.TYPE, new Entry<>(UdderComponent.class, UdderComponent.CODEC)),
+            Map.entry(EggLayerComponent.TYPE, new Entry<>(EggLayerComponent.class, EggLayerComponent.CODEC)),
+            Map.entry(AbsorbentCleaningComponent.TYPE,
+                    new Entry<>(AbsorbentCleaningComponent.class, AbsorbentCleaningComponent.CODEC)));
 
     public static boolean registered(String type) { return TYPES.containsKey(type); }
 

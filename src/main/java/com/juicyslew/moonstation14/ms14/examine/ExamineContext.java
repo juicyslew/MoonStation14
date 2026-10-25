@@ -10,3 +10,4 @@ import net.minecraft.core.BlockPos;
 public record ExamineContext(Entity actor, ServerLevel level, ExamineTarget target, Entity targetEntity,
                              BlockPos rootBlock, BlockState blockState, BlockEntity blockEntity,
                              boolean detailsAllowed) { }
+

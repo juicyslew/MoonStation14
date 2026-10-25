@@ -15,3 +15,4 @@ public record NetworkConfiguratorRequest(UUID session, long requestId, long epoc
         if (requestId < 0 || epoch < 0 || revision < 0) throw new IllegalArgumentException("negative request counter");
     }
 }
+

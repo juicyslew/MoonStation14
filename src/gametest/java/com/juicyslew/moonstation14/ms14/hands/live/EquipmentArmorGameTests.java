@@ -104,7 +104,7 @@ public final class EquipmentArmorGameTests {
             EquipmentItemData base = prior.get(id);
             require(base != null, "registered grey cap prototype exists");
             var temporary = new EquipmentItemData(base.item(), base.clothing(), base.allowSuitStorage(), base.tags(),
-                    Optional.of(new EquipmentItemData.Armor(Map.of(DamageKeys.BLUNT, .95f, DamageKeys.CAUSTIC, .95f))));
+                    Optional.of(EquipmentItemData.Armor.fromCoefficients(Map.of(DamageKeys.BLUNT, .95f, DamageKeys.CAUSTIC, .95f))));
             var updated = new LinkedHashMap<>(prior); updated.put(id, temporary);
             var clothing = base.clothing().orElseThrow();
             var pocketCompatibleClothing = new EquipmentItemData.Clothing(
@@ -113,7 +113,7 @@ public final class EquipmentArmorGameTests {
                     clothing.region(), clothing.color(), clothing.equipDelay(), clothing.equipSound(), clothing.unequipSound(),
                     clothing.quickEquip(), clothing.wornModel(), clothing.stripDelay(), clothing.quickEquipPreferredSlotFlags());
             var pocketSurrogate = new EquipmentItemData(new EquipmentItemData.Item("Small"), Optional.of(pocketCompatibleClothing),
-                    Optional.empty(), List.of(), Optional.of(new EquipmentItemData.Armor(Map.of(DamageKeys.BLUNT, .95f))));
+                    Optional.empty(), List.of(), Optional.of(EquipmentItemData.Armor.fromCoefficients(Map.of(DamageKeys.BLUNT, .95f))));
             var vanillaHelmet = net.minecraft.resources.ResourceLocation.parse("minecraft:leather_helmet");
             updated.put(vanillaHelmet, pocketSurrogate);
             com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager()
@@ -159,7 +159,7 @@ public final class EquipmentArmorGameTests {
                 requireClose(5f, typed(bypass, DamageKeys.BLUNT), "ignoreResistances bypasses equipment armor");
 
                 var zeroBlunt = new EquipmentItemData(base.item(), base.clothing(), base.allowSuitStorage(), base.tags(),
-                        Optional.of(new EquipmentItemData.Armor(Map.of(DamageKeys.BLUNT, 0f, DamageKeys.CAUSTIC, .95f))));
+                        Optional.of(EquipmentItemData.Armor.fromCoefficients(Map.of(DamageKeys.BLUNT, 0f, DamageKeys.CAUSTIC, .95f))));
                 var zeroCatalog = new LinkedHashMap<>(updated); zeroCatalog.put(id, zeroBlunt);
                 com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager()
                         .publishDecoded(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE, zeroCatalog);

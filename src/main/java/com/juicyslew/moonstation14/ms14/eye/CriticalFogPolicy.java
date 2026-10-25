@@ -30,3 +30,4 @@ public final class CriticalFogPolicy {
 
     public record FogPlanes(float near, float far) { }
 }
+

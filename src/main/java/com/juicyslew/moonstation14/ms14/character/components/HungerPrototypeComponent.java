@@ -29,3 +29,4 @@ public record HungerPrototypeComponent(float overfed, float okay, float peckish,
     }
     @Override public String type() { return TYPE; }
 }
+

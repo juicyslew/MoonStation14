@@ -67,3 +67,4 @@ public record BarotraumaComponent(Damage damage, double maxDamage) implements Ch
         public Damage { types = Map.copyOf(Objects.requireNonNull(types, "types")); }
     }
 }
+

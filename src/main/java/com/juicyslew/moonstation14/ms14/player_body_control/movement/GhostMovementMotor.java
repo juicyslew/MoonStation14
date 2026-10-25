@@ -105,3 +105,4 @@ public final class GhostMovementMotor {
         return new CharacterMovementState(resolved.position(), resolved.velocity(), false);
     }
 }
+

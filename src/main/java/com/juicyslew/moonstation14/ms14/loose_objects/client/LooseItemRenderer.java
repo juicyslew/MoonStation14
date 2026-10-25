@@ -53,3 +53,4 @@ public final class LooseItemRenderer extends EntityRenderer<LooseItemEntity> {
         return net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS;
     }
 }
+

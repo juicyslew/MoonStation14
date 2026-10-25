@@ -116,3 +116,4 @@ public final class MinecraftLoadedBodyAdapter {
         return attachment.characterId().toString().equals(saved.appearance().get("prototype"));
     }
 }
+

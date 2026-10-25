@@ -133,3 +133,4 @@ public record ExplosionData(Map<String, Float> damagePerIntensity, List<Float> b
             throw new IllegalArgumentException("fire_stacks must be nonnegative");
     }
 }
+

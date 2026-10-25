@@ -49,3 +49,4 @@ public final class FiniteExposureAir implements ExposureAirSource {
         } catch (RuntimeException invalid) { return false; }
     }
 }
+

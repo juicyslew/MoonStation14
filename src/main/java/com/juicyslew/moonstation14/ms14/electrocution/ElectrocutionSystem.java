@@ -271,3 +271,4 @@ public final class ElectrocutionSystem {
         warningSink = message -> MoonStation14.LOGGER.warn("{}", message);
     }
 }
+

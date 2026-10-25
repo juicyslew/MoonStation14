@@ -15,3 +15,4 @@ public record MouthComponent() implements CharacterComponent {
 
     @Override public String type() { return TYPE; }
 }
+

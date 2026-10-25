@@ -31,3 +31,4 @@ final class ModelBounds {
         String id();
     }
 }
+

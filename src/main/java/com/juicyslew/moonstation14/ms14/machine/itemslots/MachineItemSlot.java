@@ -48,6 +48,36 @@ public final class MachineItemSlot {
         return !retired && expectedRevision == revision && revision < Long.MAX_VALUE && stack.isEmpty()
                 && value != null && !value.isEmpty() && accepts.test(value);
     }
+    public synchronized boolean canReplace(long expectedRevision, ItemStack value) {
+        return !retired && expectedRevision == revision && revision < Long.MAX_VALUE - 1
+                && token != null && !stack.isEmpty() && value != null && !value.isEmpty() && accepts.test(value);
+    }
+
+    /** Exchange the occupied slot payload and its hand payload with one ledger revision. */
+    public synchronized Optional<Payload> exchange(long expectedSlotRevision, long expectedLedgerRevision,
+            ItemToken incoming, ItemLocation incomingHand, ItemStack incomingStack, ItemLocation outgoingHand) {
+        Objects.requireNonNull(incoming); Objects.requireNonNull(incomingHand); Objects.requireNonNull(incomingStack);
+        Objects.requireNonNull(outgoingHand);
+        if (!canReplace(expectedSlotRevision, incomingStack)) return Optional.empty();
+        ItemLocation slotLocation = new ItemLocation.MachineSlot(owner, id);
+        if (!locations.exchangeSlotClaims(expectedLedgerRevision, incoming, incomingHand, token,
+                slotLocation, outgoingHand).accepted()) return Optional.empty();
+        Payload old = new Payload(token, stack);
+        token = incoming; stack = incomingStack.copy(); revision++;
+        return Optional.of(old);
+    }
+    /** Machine-owned one-time payload creation; directly claims this canonical slot location. */
+    public synchronized boolean initialize(long expectedRevision, ItemStack wholeStack) {
+        if (retired || expectedRevision != revision || revision != 0 || token != null || !stack.isEmpty()
+                || wholeStack == null || wholeStack.isEmpty() || !accepts.test(wholeStack)
+                || revision == Long.MAX_VALUE) return false;
+        ItemToken minted = new ItemToken(UUID.randomUUID().toString());
+        if (!locations.register(minted, new ItemLocation.MachineSlot(owner, id)).accepted()) return false;
+        token = minted;
+        stack = wholeStack.copy();
+        revision++;
+        return true;
+    }
     public static Codec<EncodedData> codec() { return CODEC.xmap(EncodedData::new, value -> value.value); }
     public synchronized EncodedData encode() {
         return new EncodedData(new Encoded(owner, id, revision, token == null ? "" : token.value(), stack));
@@ -74,6 +104,18 @@ public final class MachineItemSlot {
         if (retired) return true;
         if (token != null && !locations.consume(locations.snapshot().revision(), token,
                 new ItemLocation.MachineSlot(owner, id)).accepted()) return false;
+        retired = true;
+        return true;
+    }
+
+    /** Permanently discard an installed payload and its canonical claim with its machine owner. */
+    public synchronized boolean dispose() {
+        if (retired) return true;
+        if (token != null && !locations.consume(locations.snapshot().revision(), token,
+                new ItemLocation.MachineSlot(owner, id)).accepted()) return false;
+        token = null;
+        stack = ItemStack.EMPTY;
+        if (revision < Long.MAX_VALUE) revision++;
         retired = true;
         return true;
     }
@@ -118,6 +160,7 @@ public final class MachineItemSlot {
     /** Conditional component-preserving mutation; token identity cannot be changed. */
     public synchronized boolean mutate(long expectedRevision, ItemToken expectedToken, Predicate<ItemStack> mutation) {
         if (retired || revision != expectedRevision || token == null || !token.equals(expectedToken)) return false;
+        if (!new ItemLocation.MachineSlot(owner, id).equals(locations.snapshot().locations().get(token))) return false;
         ItemStack candidate = stack.copy();
         if (!mutation.test(candidate) || candidate.isEmpty() || !candidate.is(stack.getItem())
                 || candidate.getCount() != stack.getCount() || !accepts.test(candidate) || revision == Long.MAX_VALUE) return false;
@@ -214,3 +257,4 @@ public final class MachineItemSlot {
         @Override public ItemStack stack() { return stack.copy(); }
     }
 }
+

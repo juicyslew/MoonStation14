@@ -84,7 +84,8 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
         pose.translate(-.5, 0, -.5);
         var manager = Minecraft.getInstance().getModelManager();
         drawPart(manager,"fixed",pose,buffers,packedLight,packedOverlay,0,0,false);
-        drawPart(manager,"header_lamps",pose,buffers,packedLight,packedOverlay,0,0,false);
+        if (presentation.headerLamps())
+            drawPart(manager,"header_lamps",pose,buffers,packedLight,packedOverlay,0,0,false);
         drawPart(manager,"reader_housing",pose,buffers,packedLight,packedOverlay,0,
                 AirlockGeometry.movementY(AirlockGeometry.Part.READER_HOUSING,openness),false);
         double upper = AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_LEAF,openness);
@@ -112,7 +113,7 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
         drawComponent(manager.getModel(modelLocation(BASE+"components/"+part)),pose,buffers,light,overlay,x,y,true,powered);
     }
 
-    private static void drawComponent(BakedModel model, PoseStack pose, MultiBufferSource buffers,
+    public static void drawComponent(BakedModel model, PoseStack pose, MultiBufferSource buffers,
                                        int light, int overlay, double xTranslation, double yTranslation,
                                       boolean clip, boolean powered) {
         if (model == null) return;
@@ -222,3 +223,4 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
                 .setLight(light).setNormal(normal.x, normal.y, normal.z);
     }
 }
+

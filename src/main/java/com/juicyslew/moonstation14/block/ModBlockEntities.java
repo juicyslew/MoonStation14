@@ -4,6 +4,12 @@ import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.AtmosphereTestDeviceBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
+import com.juicyslew.moonstation14.block.block_entity.FieldGeneratorBlockEntity;
+import com.juicyslew.moonstation14.block.block_entity.SingularityGeneratorBlockEntity;
+import com.juicyslew.moonstation14.block.block_entity.SingularityBeaconBlockEntity;
+import com.juicyslew.moonstation14.block.block_entity.EmitterBlockEntity;
+import com.juicyslew.moonstation14.block.block_entity.ParticleAcceleratorPartBlockEntity;
+import com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VisualPipeBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
@@ -70,6 +76,20 @@ public class ModBlockEntities {
             () -> BlockEntityType.Builder.of(ChemMasterBlockEntity::new, ModBlocks.CHEM_MASTER.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<WallSignalControlBlockEntity>> WALL_SIGNAL_CONTROL = BLOCK_ENTITY_TYPES.register("wall_signal_control",
             () -> BlockEntityType.Builder.of(WallSignalControlBlockEntity::new, ModBlocks.SIGNAL_BUTTON.get(), ModBlocks.SIGNAL_SWITCH.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FieldGeneratorBlockEntity>> FIELD_GENERATOR = BLOCK_ENTITY_TYPES.register("field_generator",
+            () -> BlockEntityType.Builder.of(FieldGeneratorBlockEntity::new, ModBlocks.FIELD_GENERATOR.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<SingularityGeneratorBlockEntity>> SINGULARITY_GENERATOR = BLOCK_ENTITY_TYPES.register("singularity_generator",
+            () -> BlockEntityType.Builder.of(SingularityGeneratorBlockEntity::new, ModBlocks.SINGULARITY_GENERATOR.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<EmitterBlockEntity>> EMITTER = BLOCK_ENTITY_TYPES.register("emitter",
+            () -> BlockEntityType.Builder.of(EmitterBlockEntity::new, ModBlocks.EMITTER.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RadiationCollectorBlockEntity>> RADIATION_COLLECTOR = BLOCK_ENTITY_TYPES.register("radiation_collector",
+            () -> BlockEntityType.Builder.of(RadiationCollectorBlockEntity::new, ModBlocks.RADIATION_COLLECTOR.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<SingularityBeaconBlockEntity>> SINGULARITY_BEACON = BLOCK_ENTITY_TYPES.register("singularity_beacon",
+            () -> BlockEntityType.Builder.of(SingularityBeaconBlockEntity::new, ModBlocks.SINGULARITY_BEACON.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ParticleAcceleratorPartBlockEntity>> PARTICLE_ACCELERATOR_PART = BLOCK_ENTITY_TYPES.register("particle_accelerator_part",
+            () -> BlockEntityType.Builder.of(ParticleAcceleratorPartBlockEntity::new, ModBlocks.PA_CONTROL_BOX.get(), ModBlocks.PA_END_CAP.get(),
+                    ModBlocks.PA_FUEL_CHAMBER.get(), ModBlocks.PA_POWER_BOX.get(), ModBlocks.PA_EMITTER_PORT.get(),
+                    ModBlocks.PA_EMITTER_FORE.get(), ModBlocks.PA_EMITTER_STARBOARD.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<HydroponicsTrayBlockEntity>> HYDROPONICS_TRAY = BLOCK_ENTITY_TYPES.register("hydroponics_tray",
             () -> BlockEntityType.Builder.of(HydroponicsTrayBlockEntity::new, ModBlocks.HYDROPONICS_TRAY.get(), ModBlocks.EMPTY_HYDROPONICS_TRAY.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<SeedExtractorBlockEntity>> SEED_EXTRACTOR = BLOCK_ENTITY_TYPES.register("seed_extractor",

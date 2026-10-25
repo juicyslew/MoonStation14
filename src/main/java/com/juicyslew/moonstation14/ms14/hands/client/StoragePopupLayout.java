@@ -92,3 +92,4 @@ public record StoragePopupLayout(Kind kind, int x, int y, int columns, int rows)
         return Math.max(0, Math.min(coordinate, Math.max(0, viewport - size)));
     }
 }
+

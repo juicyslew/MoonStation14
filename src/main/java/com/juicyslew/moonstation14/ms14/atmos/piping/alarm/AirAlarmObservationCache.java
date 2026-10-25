@@ -27,3 +27,4 @@ public final class AirAlarmObservationCache {
 
     public synchronized void clear() { states = Map.of(); }
 }
+

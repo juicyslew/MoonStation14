@@ -42,3 +42,4 @@ public final class GrenadeDetonationService {
     static void sendBestEffort(Runnable emission) { try { emission.run(); } catch (RuntimeException ignored) { } }
     static BlockPos resolveOrigin(ServerLevel level, BlockPos pos) { return ExplosionSourceAdmission.resolveOrigin(level, pos); }
 }
+

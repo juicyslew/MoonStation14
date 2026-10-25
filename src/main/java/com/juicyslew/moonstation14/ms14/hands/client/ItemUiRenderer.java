@@ -14,6 +14,13 @@ public final class ItemUiRenderer {
 
     public static void render(GuiGraphics graphics, ItemStack presentationStack, int x, int y) {
         if (presentationStack == null || presentationStack.isEmpty()) return;
+        var portable = com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearanceResolver.fromStack(presentationStack);
+        if (portable != null) {
+            var frame = com.juicyslew.moonstation14.ms14.mob.mouse.PortableMouseIconTextures.frame(portable);
+            graphics.blit(frame.texture(), x, y, frame.drawWidth(), frame.drawHeight(), frame.sourceX(), frame.sourceY(),
+                    frame.sourceWidth(), frame.sourceHeight(), frame.sheetWidth(), frame.sheetHeight());
+            return;
+        }
         var layers = ItemUiAppearance.resolve(presentationStack);
         if (layers == null) graphics.renderItem(presentationStack, x, y);
         else {
@@ -50,3 +57,4 @@ public final class ItemUiRenderer {
     }
 
 }
+

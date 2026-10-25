@@ -11,3 +11,4 @@ public final class GaspCooldownAttachment {
         return true;
     }
 }
+

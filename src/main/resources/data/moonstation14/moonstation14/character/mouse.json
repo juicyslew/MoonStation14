@@ -1,19 +1,179 @@
 {
-  "parent": "moonstation14:supported_animal",
-  "host_entity_types": ["moonstation14:mouse"],
-  "metadata": {"name": "Mouse"},
+  "parent": "moonstation14:supported_npc",
+  "host_entity_types": [
+    "moonstation14:mouse"
+  ],
+  "metadata": {
+    "name": "Mouse"
+  },
   "components": [
-    {"type": "MouseAppearance", "variants": ["white", "brown", "gray"]},
-    {"type": "MobThresholds", "thresholds": {"0": "ALIVE", "10": "CRITICAL", "20": "DEAD"}},
-    {"type": "GhostOnMove", "must_be_dead": true, "can_return": false},
-    {"type": "GhostRole", "name": "Mouse", "description": "A small station mouse", "rules": "Follow server rules.", "takeover": true, "allow_movement": true, "allow_speech": true},
-    {"type": "Bloodstream", "reference_solution": {"moonstation14:blood": 50.0}, "metabolism_exclusions": ["moonstation14:blood"], "max_volume_modifier": 2.0, "update_interval_seconds": 3.0, "bleed_decay_per_update": 0.33, "max_bleed_rate": 10.0, "damage_bleed_multipliers": {"blunt": 0.08, "piercing": 0.2, "slash": 0.25, "heat": -0.5}, "blood_refresh_per_update": 1.0, "bloodloss_threshold_fraction": 0.9, "bloodloss_damage_per_update": {"bloodloss": 0.5}, "bloodloss_heal_per_update": {"bloodloss": 1.0}, "bloodloss_ignore_resistances": false, "bleed_puddle_threshold": 1.0},
-    {"type": "Barotrauma", "damage": {"types": {"blunt": 0.1}}, "maxDamage": 20.0},
-    {"type": "Respirator", "breath_interval_seconds": 2.0, "breath_volume_liters": 0.5, "max_saturation": 5.0, "initial_saturation": 5.0, "min_saturation": -2.0, "saturation_loss_per_update": 2.0, "suffocation_threshold": 0.0, "suffocation_damage_per_update": 0.25, "suffocation_recovery_per_update": 0.25, "suffocation_ignore_resistances": true},
-    {"type": "MovementSpeedModifier", "mode": "grounded", "acceleration": 20.0, "walk_speed": 2.5, "sprint_speed": 5.0, "ground_friction_with_input": 20.0, "ground_friction_without_input": 20.0, "minimum_friction_speed": 0.005},
-    {"type": "Speech", "accent": "mouse", "speechSound": "mouse_squeak"},
-    {"type": "Hunger", "overfed": 35, "okay": 25, "peckish": 15, "starving": 10, "dead": 0, "decay": 0.5},
-    {"type": "Thirst", "overHydrated": 35, "okay": 25, "thirsty": 15, "parched": 10, "dead": 0, "decay": 0.04, "startingThirst": 25},
-    {"type": "Metabolizer", "types": ["animal"]}
+    {
+      "type": "Species",
+      "label": "Mouse"
+    },
+    {
+      "type": "MouseAppearance",
+      "variants": [
+        "white",
+        "brown",
+        "gray"
+      ]
+    },
+    {
+      "type": "PortableBody",
+      "profile": "moonstation14:mouse_tiny"
+    },
+    {
+      "type": "CanEscapeInventory"
+    },
+    {
+      "type": "CollisionProfile",
+      "mask": 18,
+      "layer": 65
+    },
+    {
+      "type": "MobThresholds",
+      "thresholds": {
+        "0": "ALIVE",
+        "10": "CRITICAL",
+        "20": "DEAD"
+      }
+    },
+    {
+      "type": "GhostOnMove",
+      "must_be_dead": true,
+      "can_return": false
+    },
+    {
+      "type": "GhostRole",
+      "name": "Mouse",
+      "description": "A small station mouse",
+      "rules": "Follow server rules.",
+      "takeover": true,
+      "allow_movement": true,
+      "allow_speech": true
+    },
+    {
+      "type": "Bloodstream",
+      "reference_solution": {
+        "moonstation14:blood": 50.0
+      },
+      "metabolism_exclusions": [
+        "moonstation14:blood"
+      ],
+      "max_volume_modifier": 2.0,
+      "update_interval_seconds": 3.0,
+      "bleed_decay_per_update": 0.33,
+      "max_bleed_rate": 10.0,
+      "damage_bleed_multipliers": {
+        "blunt": 0.08,
+        "piercing": 0.2,
+        "slash": 0.25,
+        "heat": -0.5
+      },
+      "blood_refresh_per_update": 1.0,
+      "bloodloss_threshold_fraction": 0.9,
+      "bloodloss_damage_per_update": {
+        "bloodloss": 0.5
+      },
+      "bloodloss_heal_per_update": {
+        "bloodloss": 1.0
+      },
+      "bloodloss_ignore_resistances": false,
+      "bleed_puddle_threshold": 1.0
+    },
+    {
+      "type": "Barotrauma",
+      "damage": {
+        "types": {
+          "blunt": 0.1
+        }
+      },
+      "maxDamage": 20.0
+    },
+    {
+      "type": "Respirator",
+      "breath_interval_seconds": 2.0,
+      "breath_volume_liters": 0.5,
+      "max_saturation": 5.0,
+      "initial_saturation": 5.0,
+      "min_saturation": -2.0,
+      "saturation_loss_per_update": 2.0,
+      "suffocation_threshold": 0.0,
+      "suffocation_damage_per_update": 0.25,
+      "suffocation_recovery_per_update": 0.25,
+      "suffocation_ignore_resistances": true
+    },
+    {
+      "type": "MovementSpeedModifier",
+      "mode": "grounded",
+      "acceleration": 20.0,
+      "walk_speed": 2.5,
+      "sprint_speed": 5.0,
+      "ground_friction_with_input": 20.0,
+      "ground_friction_without_input": 20.0,
+      "minimum_friction_speed": 0.005
+    },
+    {
+      "type": "Speech",
+      "accent": "mouse",
+      "speechSound": "mouse_squeak",
+      "allowedEmotes": [
+        "squeak"
+      ]
+    },
+    {
+      "type": "AmbientVocalization",
+      "minimumIntervalTicks": 160,
+      "maximumIntervalTicks": 400,
+      "volume": 0.4
+    },
+    {
+      "type": "Hunger",
+      "overfed": 35,
+      "okay": 25,
+      "peckish": 15,
+      "starving": 10,
+      "dead": 0,
+      "decay": 0.5
+    },
+    {
+      "type": "Thirst",
+      "overHydrated": 35,
+      "okay": 25,
+      "thirsty": 15,
+      "parched": 10,
+      "dead": 0,
+      "decay": 0.04,
+      "startingThirst": 25
+    },
+    {
+      "type": "NpcBehavior",
+      "tasks": [
+        "FOOD",
+        "DRINK",
+        "IDLE"
+      ],
+      "visionRange": 10,
+      "mealRange": 1,
+      "idleRange": 7,
+      "planIntervalTicks": 9,
+      "idleMinimumTicks": 40,
+      "idleMaximumTicks": 140
+    },
+    {
+      "type": "NpcIdleAttention",
+      "range": 5,
+      "minimumProbeTicks": 40,
+      "maximumProbeTicks": 100,
+      "minimumDurationTicks": 20,
+      "maximumDurationTicks": 40
+    },
+    {
+      "type": "Metabolizer",
+      "types": [
+        "animal"
+      ]
+    }
   ]
 }

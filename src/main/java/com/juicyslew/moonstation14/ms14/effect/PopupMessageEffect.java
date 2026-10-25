@@ -189,3 +189,4 @@ public final class PopupMessageEffect {
         void broadcastCoordinates(ServerLevel level, Vec3 origin, Component message);
     }
 }
+

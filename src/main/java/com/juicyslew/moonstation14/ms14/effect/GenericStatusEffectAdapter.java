@@ -118,3 +118,4 @@ final class GenericStatusEffectAdapter {
         return value.trim().toLowerCase(Locale.ROOT);
     }
 }
+

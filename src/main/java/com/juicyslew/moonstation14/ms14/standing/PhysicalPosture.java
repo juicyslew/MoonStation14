@@ -12,3 +12,4 @@ public final class PhysicalPosture {
         if (body.getPose() != desired) body.setPose(desired);
     }
 }
+

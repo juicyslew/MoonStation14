@@ -18,20 +18,37 @@ import net.minecraft.world.level.ClipContext;
 /** Shared test-only driver for the registered player's real lifecycle Begin/Ready owner and hand query. */
 public final class RegisteredPlayerReadyDriver {
     private RegisteredPlayerReadyDriver() { }
+
+    /** Drives an already admitted public lifecycle intent through the real production post-tick owner. */
+    public static void submitAcceptedIntent(RegisteredServerPlayerFixture fixture,
+            com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent intent) {
+        LifecycleCharacterSessionControl.onPayload(intent, fixture.player());
+        LifecycleCharacterSessionControl.playerTick(new net.neoforged.neoforge.event.tick.PlayerTickEvent.Post(fixture.player()));
+    }
+
+    public static void admitIntent(RegisteredServerPlayerFixture fixture, GhostControlPayloads.Intent intent) {
+        LifecycleCharacterSessionControl.onPayload(intent, fixture.player());
+    }
+
+    public static void authoritativeTick(RegisteredServerPlayerFixture fixture) {
+        LifecycleCharacterSessionControl.playerTick(new net.neoforged.neoforge.event.tick.PlayerTickEvent.Post(fixture.player()));
+    }
+
+    /** Re-enters the public post-tick owner without another payload, to verify a consumed fixture input is not replayed. */
+    public static void tickWithoutNewIntent(RegisteredServerPlayerFixture fixture) {
+        LifecycleCharacterSessionControl.playerTick(new net.neoforged.neoforge.event.tick.PlayerTickEvent.Post(fixture.player()));
+    }
     public record Active(LivingEntity body, long epoch, BodyHandStateSnapshot initialHands) { }
 
     public static Active readyAndQuery(RegisteredServerPlayerFixture fixture) {
-        GhostControlPayloads.Begin begin = null;
-        Object outbound;
-        while ((outbound = fixture.pollOutbound()) != null) {
-            if (outbound instanceof ClientboundCustomPayloadPacket packet
-                    && packet.payload() instanceof GhostControlPayloads.Begin captured
-                    && captured.harnessKind() == MobHarnessKind.CHARACTER) {
-                begin = captured;
-                break;
-            }
-        }
-        if (begin == null) throw new IllegalStateException("normal lifecycle login emitted no CHARACTER Begin");
+        java.util.List<String> outboundKinds = new java.util.ArrayList<>();
+        GhostControlPayloads.Begin begin = takeBegin(fixture, MobHarnessKind.CHARACTER, outboundKinds);
+        if (begin == null) throw new IllegalStateException(noCharacterBeginDiagnostic(fixture, outboundKinds));
+        return readyAndQuery(fixture, begin);
+    }
+
+    public static Active readyAndQuery(RegisteredServerPlayerFixture fixture, GhostControlPayloads.Begin begin) {
+        if (begin.harnessKind() != MobHarnessKind.CHARACTER) throw new IllegalArgumentException("expected CHARACTER Begin");
         LifecycleCharacterSessionControl.onPayload(new GhostControlPayloads.Ready(begin.mindEpoch()), fixture.player());
         var active = LifecycleCharacterSessionControl.activeCharacterBody(fixture.player())
                 .orElseThrow(() -> new IllegalStateException("normal Ready did not establish active body"));
@@ -40,6 +57,91 @@ public final class RegisteredPlayerReadyDriver {
             throw new IllegalStateException("full hand query denied after Ready: " + snapshot.reason());
         BodyHandStateService.requireFreshQuery(fixture.player());
         return new Active(active.body(), active.epoch(), snapshot);
+    }
+
+    private static String noCharacterBeginDiagnostic(RegisteredServerPlayerFixture fixture, java.util.List<String> outboundKinds) {
+        var player = fixture.player();
+        var server = player.getServer();
+        var startup = server == null ? null : LifecycleStartupRuntime.snapshot(server).orElse(null);
+        var context = server == null ? null : LifecycleStartupRuntime.contextFor(server).orElse(null);
+        boolean reserved = context != null && context.hasReservedClaim(player.getUUID());
+        boolean createdHere = context != null && context.wasCreatedOnThisServer(player.getUUID());
+        String profile;
+        try {
+            profile = context == null ? "no-context" : context.currentAccountProfile(player.getUUID())
+                    .map(saved -> saved.state() + "/revision=" + saved.revision()).orElse("no-current-profile");
+        } catch (Exception failure) {
+            profile = "profile-read-failed:" + failure.getClass().getSimpleName();
+        }
+        boolean active = LifecycleCharacterSessionControl.activeCharacterBody(player).isPresent();
+        // GameTest failures are serialized into a WritableBook page (1024 chars max).
+        // Keep the actionable lifecycle state, but never append the unbounded outbound packet list.
+        return "no CHARACTER Begin; account=" + player.getUUID()
+                + " listed=" + (server != null && server.getPlayerList().getPlayer(player.getUUID()) == player)
+                + " removed=" + player.isRemoved() + " connectionAccepting=" + (player.connection != null
+                    && player.connection.isAcceptingMessages())
+                + " startup=" + (startup == null ? "none" : startup.state()) + " reserved=" + reserved + " createdHere=" + createdHere
+                 + " profile=" + profile + " activeCharacter=" + active + " outboundKinds=" + outboundKinds.size();
+    }
+
+    public static void readyGhost(RegisteredServerPlayerFixture fixture, GhostControlPayloads.Begin begin) {
+        if (begin.harnessKind() != MobHarnessKind.GHOST) throw new IllegalArgumentException("expected GHOST Begin");
+        var listener = (net.minecraft.server.network.ServerGamePacketListenerImpl) fixture.connection().getPacketListener();
+        listener.handleCustomPayload(new net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket(
+                new GhostControlPayloads.Ready(begin.mindEpoch())));
+        if (LifecycleGhostSessionControl.canonicalGhost(fixture.player()).isEmpty())
+            throw new IllegalStateException("production GHOST Ready did not commit canonical ghost session");
+    }
+
+    private static GhostControlPayloads.Begin takeBegin(RegisteredServerPlayerFixture fixture, MobHarnessKind kind) {
+        return takeBegin(fixture, kind, null);
+    }
+
+    private static GhostControlPayloads.Begin takeBegin(RegisteredServerPlayerFixture fixture, MobHarnessKind kind,
+                                                         java.util.List<String> outboundKinds) {
+        GhostControlPayloads.Begin begin = null;
+        Object outbound;
+        while ((outbound = fixture.pollOutbound()) != null) {
+            if (outboundKinds != null) outboundKinds.add(outbound.getClass().getSimpleName());
+            if (outbound instanceof ClientboundCustomPayloadPacket packet
+                    && packet.payload() instanceof GhostControlPayloads.Begin captured
+                    && captured.harnessKind() == kind) {
+                begin = captured;
+                break;
+            }
+        }
+        return begin;
+    }
+
+    /** Submits one ordinary neutral movement frame through the registered lifecycle's canonical payload path. */
+    public static void submitNeutralMovement(RegisteredServerPlayerFixture fixture, Active active, long sequence) {
+        LifecycleCharacterSessionControl.onPayload(new GhostControlPayloads.Intent(active.epoch(), sequence,
+                (short) 0, (short) 0, (byte) 0, 0, active.body().getYRot(), active.body().getXRot()), fixture.player());
+    }
+
+    /** Drives the same current-epoch GHOST Begin/Ready lifecycle transition used by the client. */
+    public static boolean readyGhost(RegisteredServerPlayerFixture fixture, long epoch) {
+        Object outbound;
+        boolean beginSeen = false;
+        while ((outbound = fixture.pollOutbound()) != null) {
+            if (outbound instanceof ClientboundCustomPayloadPacket packet
+                    && packet.payload() instanceof GhostControlPayloads.Begin begin
+                    && begin.harnessKind() == MobHarnessKind.GHOST && begin.mindEpoch() == epoch) {
+                beginSeen = true;
+                break;
+            }
+        }
+        if (!beginSeen) return false;
+        LifecycleGhostSessionControl.onPayload(new GhostControlPayloads.Ready(epoch), fixture.player());
+        return LifecycleGhostSessionControl.committedActorSnapshot(fixture.player())
+                .filter(actor -> actor.epoch() == epoch).isPresent();
+    }
+
+    /** Completes the real role-adoption OfferReady phase against its emitted target id/epoch. */
+    public static void acceptRoleOffer(RegisteredServerPlayerFixture fixture,
+                                       GhostControlPayloads.Offer offer) {
+        LifecycleGhostSessionControl.onPayload(new GhostControlPayloads.OfferReady(
+                offer.currentEpoch(), offer.targetEntityId(), offer.targetKind()), fixture.player());
     }
 
     /** Aims at a real outline hit and returns its actual face for an ordinary nominated block request. */

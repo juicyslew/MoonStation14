@@ -74,3 +74,4 @@ public final class ModToolProfiles {
                 || !json.keySet().equals(fields)) throw new IllegalArgumentException("invalid abstract profile " + id);
     }
 }
+

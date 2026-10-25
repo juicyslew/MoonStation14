@@ -63,3 +63,4 @@ public abstract class LivingEntityProneRenderMixin {
         callback.cancel();
     }
 }
+

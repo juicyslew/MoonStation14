@@ -29,3 +29,4 @@ public final class GrenadeSoundPolicy {
         return new Decision(Mode.FAR, (float) (FAR_GAIN * fraction * fraction));
     }
 }
+

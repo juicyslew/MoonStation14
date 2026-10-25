@@ -1,0 +1,18 @@
+{
+  "id": "moonstation14:gas_canister",
+  "mass": 190.0,
+  "friction": 0.2,
+  "restitution": 0.0,
+  "throw_speed": 0.75,
+  "throw_spin": 0.0,
+  "geometry": "item",
+  "render_kind": "flat_sprite",
+  "break_on_impact": false,
+  "break_threshold": 0.0,
+  "throw_range": 8.0,
+  "minimum_throw_range": 0.1,
+  "throw_cooldown": 10,
+  "physical_width": 0.5,
+  "physical_height": 1.0,
+  "visual": {"sprite_scale_x": 0.64, "sprite_scale_y": 1.0, "sprite_offset_x": 0.0, "sprite_offset_y": 0.0, "model_scale": 1.0, "model_floor_offset": 0.0}
+}

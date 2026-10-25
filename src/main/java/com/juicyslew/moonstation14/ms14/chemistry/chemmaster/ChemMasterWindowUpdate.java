@@ -12,3 +12,4 @@ public record ChemMasterWindowUpdate(ChemMasterWindowState state) implements Cus
  public ChemMasterWindowUpdate { if (state == null) throw new IllegalArgumentException("missing ChemMaster state"); }
  @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

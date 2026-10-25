@@ -26,3 +26,4 @@ public final class AirlockWireIndicators {
                 state.logWireCut() || state.logCircuitDisabled() ? Light.OFF : Light.ON);
     }
 }
+

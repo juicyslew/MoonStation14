@@ -24,9 +24,21 @@ public final class ChemMasterSessionService {
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
     private static final Map<UUID, Long> FRAMES = new HashMap<>();
     private static final Map<UUID, Long> LAST_REQUEST = new HashMap<>();
+    private static java.util.function.Consumer<InvalidationDiagnostic> testInvalidationObserver;
     private record Session(UUID id, ServerPlayer player, UUID machine, ResourceLocation dimension,
                            net.minecraft.core.BlockPos pos, UUID body, long epoch) { }
+    public record InvalidationDiagnostic(UUID player, UUID sessionId, String reason, long tick,
+                                         UUID sessionBody, long sessionEpoch,
+                                         UUID currentBody, long currentEpoch, boolean authorityRevalidated,
+                                         boolean machineLoaded, UUID sessionPlacement, UUID currentPlacement,
+                                         double distanceSquared, double uiRange,
+                                         com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.ChemMasterPowerDiagnostic power) { }
     private ChemMasterSessionService() { }
+
+    /** Narrow fixture seam: reports the exact validation predicates immediately before invalidation. */
+    public static void setTestInvalidationObserver(java.util.function.Consumer<InvalidationDiagnostic> observer) {
+        testInvalidationObserver = observer;
+    }
 
     public static boolean opensWorkspace(com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent intent,
             boolean emptyHand, boolean sneaking) {
@@ -67,9 +79,10 @@ public final class ChemMasterSessionService {
         }
         var authority = BodyActionAuthority.resolve(player).orElse(null);
         var machine = loadedMachine(player, session);
-        if (!validSession(session, authority, machine,
+        String invalidReason = sessionInvalidReason(session, authority, machine,
                 request.operation() == ChemMasterControlRequest.Operation.EJECT
-                        || request.operation() == ChemMasterControlRequest.Operation.EJECT_OUTPUT)) { invalidate(session, "interaction invalid"); return; }
+                        || request.operation() == ChemMasterControlRequest.Operation.EJECT_OUTPUT);
+        if (invalidReason != null) { invalidate(session, invalidReason); return; }
         long last = LAST_REQUEST.getOrDefault(session.id(), -1L);
         if (request.requestId() <= last) return;
         LAST_REQUEST.put(session.id(), request.requestId());
@@ -240,9 +253,8 @@ public final class ChemMasterSessionService {
             if (!(s.player().level() instanceof ServerLevel level) || level.getServer() != event.getServer()) continue;
             var a = BodyActionAuthority.resolve(s.player()).orElse(null);
             var machine = loadedMachine(s.player(), s);
-            if (!validSession(s, a, machine, false)
-                    || !com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.hasFullFreshChemMasterPower(
-                    level, machine, s.machine())) { invalidate(s, "interaction invalid"); continue; }
+            String invalidReason = sessionInvalidReason(s, a, machine, false);
+            if (invalidReason != null) { invalidate(s, invalidReason); continue; }
         }
     }
     public static void logout(PlayerEvent.PlayerLoggedOutEvent event) {
@@ -260,12 +272,19 @@ public final class ChemMasterSessionService {
             send(s, machine, -1, Optional.empty(), true, Optional.empty());
     }
 
-    private static boolean validSession(Session s, BodyActionAuthority.Snapshot a, ChemMasterBlockEntity be, boolean allowUnpowered) {
-        return a != null && a.body().getUUID().equals(s.body()) && a.identity().epoch() == s.epoch()
-                && BodyActionAuthority.revalidate(s.player(), a)
-                && validMachine(a.body(), be, false)
-                && (allowUnpowered || com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.hasFullFreshChemMasterPower(
-                (ServerLevel) be.getLevel(), be, s.machine()));
+    /** Returns the first failed predicate in the existing session-validity order. */
+    private static String sessionInvalidReason(Session s, BodyActionAuthority.Snapshot a,
+                                               ChemMasterBlockEntity be, boolean allowUnpowered) {
+        if (a == null) return "body authority unavailable";
+        if (!a.body().getUUID().equals(s.body()) || a.identity().epoch() != s.epoch()) return "body binding changed";
+        if (!BodyActionAuthority.revalidate(s.player(), a)) return "body authority stale";
+        if (be == null || !be.isLoadedValid() || a.body().level() != be.getLevel() || be.prototype() == null)
+            return "machine invalid";
+        if (a.body().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(be.getBlockPos()))
+                > (double) be.prototype().uiRange() * be.prototype().uiRange()) return "out of range";
+        if (!allowUnpowered && !com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.hasFullFreshChemMasterPower(
+                (ServerLevel) be.getLevel(), be, s.machine())) return "power unavailable";
+        return null;
     }
     private static boolean validMachine(net.minecraft.world.entity.LivingEntity body, ChemMasterBlockEntity be, boolean power) {
         if (body == null || be == null || !be.isLoadedValid() || body.level() != be.getLevel()
@@ -281,9 +300,27 @@ public final class ChemMasterSessionService {
                 && be.placementIdentity().equals(s.machine()) ? be : null;
     }
     private static void invalidate(Session s, String reason) {
+        var observer = testInvalidationObserver;
+        if (observer != null) observer.accept(invalidationDiagnostic(s, reason));
         if (SESSIONS.remove(s.id()) != null) {
             LAST_REQUEST.remove(s.id()); closeFrame(s, reason); FRAMES.remove(s.id());
         }
+    }
+    private static InvalidationDiagnostic invalidationDiagnostic(Session s, String reason) {
+        var authority = BodyActionAuthority.resolve(s.player()).orElse(null);
+        ServerLevel level = s.player().level() instanceof ServerLevel server ? server : null;
+        var machine = loadedMachine(s.player(), s);
+        boolean authorityMatches = authority != null && authority.body().getUUID().equals(s.body())
+                && authority.identity().epoch() == s.epoch() && BodyActionAuthority.revalidate(s.player(), authority);
+        double distance = authority == null || machine == null ? Double.NaN
+                : authority.body().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(machine.getBlockPos()));
+        double range = machine == null || machine.prototype() == null ? Double.NaN : machine.prototype().uiRange();
+        var power = com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime
+                .chemMasterPowerDiagnostic(level, machine);
+        return new InvalidationDiagnostic(s.player().getUUID(), s.id(), reason, level == null ? -1 : level.getGameTime(),
+                s.body(), s.epoch(), authority == null ? null : authority.body().getUUID(),
+                authority == null ? -1 : authority.identity().epoch(), authorityMatches, machine != null,
+                s.machine(), machine == null ? null : machine.placementIdentity(), distance, range, power);
     }
     private static void closeFrame(Session s, String reason) {
         // Closed payload retains exact session identity, so it cannot close a replacement workspace.

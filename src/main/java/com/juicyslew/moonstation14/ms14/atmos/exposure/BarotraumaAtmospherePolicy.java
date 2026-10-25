@@ -10,3 +10,4 @@ public final class BarotraumaAtmospherePolicy {
     public static final double HIGH_DAMAGE_SCALE_CAP = 4;
     public static final int CADENCE_TICKS = 20;
 }
+

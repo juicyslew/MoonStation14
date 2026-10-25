@@ -53,3 +53,4 @@ public record LungOrganState(Map<String, Double> gasMoles, double temperatureKel
         return new LungOrganState(legacy.gasMoles(), legacy.temperatureKelvin());
     }
 }
+

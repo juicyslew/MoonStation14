@@ -176,3 +176,4 @@ public final class VentilationDeviceBlockEntity extends BlockEntity {
         if (!settingsValid) System.err.println("Invalid persisted ventilation settings at " + worldPosition + "; device disabled");
     }
 }
+

@@ -5,6 +5,7 @@
   ],
   "metadata": { "name": "Human" },
   "components": [
+    {"type": "Species", "label": "Human"},
     {"type": "GhostRole", "name": "Human", "description": "A human crew member", "rules": "Follow server rules."},
     {"type": "Examiner"},
     {"type": "Damageable", "damage_container": "Biological"},

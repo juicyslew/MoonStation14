@@ -39,3 +39,4 @@ final class LooseItemRayGeometry {
         return offset.subtract(direction.scale(depth)).lengthSqr() / (depth * depth);
     }
 }
+

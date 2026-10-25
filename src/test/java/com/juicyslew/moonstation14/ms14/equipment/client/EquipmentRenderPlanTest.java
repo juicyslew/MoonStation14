@@ -1,6 +1,13 @@
 package com.juicyslew.moonstation14.ms14.equipment.client;
 
 import com.juicyslew.moonstation14.ms14.equipment.EquipmentItemData;
+import com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems;
+import com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyAppearanceSnapshot;
+import com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -8,6 +15,71 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EquipmentRenderPlanTest {
+    @Test void publicHandPlanRetainsSanitizedOrdinaryAndPortableStacksForAnyLivingRenderer() {
+        var animal = new ItemStack(com.juicyslew.moonstation14.item.ModItems.PORTABLE_BODY_KEY.get());
+        animal.set(com.juicyslew.moonstation14.component.ModDataComponents.PORTABLE_BODY_APPEARANCE.get(),
+                new com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance(
+                        ResourceLocation.fromNamespaceAndPath("moonstation14", "moproach_normal"), "Moproach",
+                        com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.Coat.NONE,
+                        com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.State.CRITICAL, "moproach"));
+        animal.set(com.juicyslew.moonstation14.component.ModDataComponents.GRID_CONTENTS.get(),
+                com.juicyslew.moonstation14.ms14.storage.grid.GridContents.empty());
+        var snapshot = new BodyAppearanceSnapshot(ResourceLocation.parse("minecraft:overworld"), 7,
+                java.util.UUID.randomUUID(), 3, List.of(
+                new BodyAppearanceSnapshot.Entry("left", ItemPresentation.fromStack(animal)),
+                new BodyAppearanceSnapshot.Entry("right", ItemPresentation.fromStack(new ItemStack(net.minecraft.world.item.Items.STICK)))),
+                List.of());
+        var plan = EquipmentRenderPlan.create(snapshot, ModEquipmentItems.clientCatalog());
+        assertEquals(List.of("left", "right"), plan.hands().stream().map(EquipmentRenderPlan.Hand::id).toList());
+        var sanitized = plan.hands().getFirst().stack();
+        assertNotNull(sanitized.get(com.juicyslew.moonstation14.component.ModDataComponents.PORTABLE_BODY_APPEARANCE.get()));
+        assertNull(sanitized.get(com.juicyslew.moonstation14.component.ModDataComponents.GRID_CONTENTS.get()));
+        assertFalse(BodyAppearanceItemRenderer.usesMouseAdapter(
+                sanitized.get(com.juicyslew.moonstation14.component.ModDataComponents.PORTABLE_BODY_APPEARANCE.get())));
+    }
+
+    @Test void resolvedRadiationSuitFlowsIntoAuthoredGarmentPlanAndHoodStaysSeparate() throws Exception {
+        var manager = new PrototypeManager();
+        manager.register(ModEquipmentItems.TYPE);
+        var items = new java.util.LinkedHashMap<ResourceLocation, com.google.gson.JsonObject>();
+        for (String name : List.of("base_item", "base_clothing", "suit_rad", "hood_rad")) {
+            try (var stream = getClass().getResourceAsStream("/data/moonstation14/moonstation14/equipment_item/" + name + ".json")) {
+                assertNotNull(stream, name);
+                items.put(ModInventoryTemplates.id(name), com.google.gson.JsonParser.parseReader(
+                        new java.io.InputStreamReader(stream, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject());
+            }
+        }
+        manager.reload(ModEquipmentItems.TYPE, items);
+        var catalog = manager.snapshot(ModEquipmentItems.TYPE);
+        var suitData = ModEquipmentItems.require(catalog, ModInventoryTemplates.id("suit_rad"));
+        var hoodData = ModEquipmentItems.require(catalog, ModInventoryTemplates.id("hood_rad"));
+        var suitStack = new ItemStack(com.juicyslew.moonstation14.item.ModEquipmentItems.SUIT_RAD.get());
+        var hoodStack = new ItemStack(com.juicyslew.moonstation14.item.ModEquipmentItems.HOOD_RAD.get());
+        assertEquals("item.moonstation14.suit_rad", suitStack.getItem().getDescriptionId());
+        assertEquals("item.moonstation14.hood_rad", hoodStack.getItem().getDescriptionId());
+        var snapshot = new BodyAppearanceSnapshot(ResourceLocation.parse("minecraft:overworld"), 1,
+                java.util.UUID.randomUUID(), 0, List.of(), List.of(
+                new BodyAppearanceSnapshot.Entry("outerClothing", ItemPresentation.fromStack(suitStack)),
+                new BodyAppearanceSnapshot.Entry("head", ItemPresentation.fromStack(hoodStack))));
+
+        var plan = EquipmentRenderPlan.create(snapshot, catalog);
+        var suit = plan.garments().stream().filter(g -> g.slot().equals("outerClothing")).findFirst().orElseThrow();
+        var hood = plan.garments().stream().filter(g -> g.slot().equals("head")).findFirst().orElseThrow();
+        var worn = suitData.clothing().orElseThrow().wornModel().orElseThrow();
+        assertEquals(0.01f, suitData.armor().orElseThrow().modifiers().get("radiation").coefficient());
+        assertEquals(0.65f, hoodData.armor().orElseThrow().modifiers().get("radiation").coefficient());
+        assertEquals(worn.mesh(), suit.wornModel().orElseThrow().mesh());
+        assertEquals(ResourceLocation.parse("moonstation14:wearables/meshes/outerclothing/suit_rad.json"), suit.wornModel().orElseThrow().mesh());
+        assertEquals(EquipmentItemData.AppearanceRegion.TORSO, suit.region());
+        assertEquals(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape.WIDE,
+                suit.wornModel().orElseThrow().bodyShape());
+        assertEquals(List.of(EquipmentRenderPlan.Anchor.TORSO, EquipmentRenderPlan.Anchor.LEFT_ARM,
+                EquipmentRenderPlan.Anchor.RIGHT_ARM), suit.anchors());
+        assertEquals("head", hood.slot());
+        assertTrue(hood.wornModel().isEmpty());
+        assertEquals(List.of(EquipmentRenderPlan.Anchor.HEAD), hood.anchors());
+    }
+
     @Test void articulatedAnchorsCoverSupportedWornGeometryAndNeverPockets() {
         assertEquals(List.of(EquipmentRenderPlan.Anchor.HEAD), EquipmentRenderPlan.anchors("head", EquipmentItemData.AppearanceRegion.HEAD));
         assertEquals(List.of(EquipmentRenderPlan.Anchor.TORSO, EquipmentRenderPlan.Anchor.LEFT_ARM,

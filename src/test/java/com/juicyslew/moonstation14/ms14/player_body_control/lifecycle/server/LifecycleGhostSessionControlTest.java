@@ -100,17 +100,21 @@ class LifecycleGhostSessionControlTest {
         assertFalse(LifecycleGhostSessionControl.intentMatchesSession(first, 5));
         assertFalse(LifecycleGhostSessionControl.intentMatchesSession(first, 0));
         assertFalse(LifecycleGhostSessionControl.intentRateAllows(0));
-        assertTrue(LifecycleGhostSessionControl.intentRateAllows(8));
-        assertFalse(LifecycleGhostSessionControl.intentRateAllows(9));
+        assertTrue(LifecycleGhostSessionControl.intentRateAllows(64));
+        assertFalse(LifecycleGhostSessionControl.intentRateAllows(65));
 
         GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
-        assertTrue(gate.offer(first.sequence(), 10, first));
-        assertFalse(gate.offer(intent(4, 2).sequence(), 10, intent(4, 2)));
-        assertEquals(first, gate.take());
-        assertFalse(gate.offer(first.sequence(), 11, first));
+        assertTrue(gate.offer(first.sequence(), first));
+        GhostControlPayloads.Intent second = intent(4, 2);
+        assertTrue(gate.offer(second.sequence(), second));
+        assertEquals(java.util.List.of(first, second), gate.takeBatch(100));
+        assertEquals(java.util.List.of(), gate.takeBatch(100));
+        assertFalse(gate.offer(first.sequence(), first));
         GhostControlPayloads.Intent next = intent(4, 3);
-        assertTrue(gate.offer(next.sequence(), 11, next));
-        assertEquals(next, gate.take());
+        assertTrue(gate.offer(next.sequence(), next));
+        assertEquals(java.util.List.of(next), gate.takeBatch(101));
+        assertFalse(gate.offer(next.sequence(), next));
+        assertEquals(java.util.List.of(), gate.takeBatch(102));
     }
 
     @Test

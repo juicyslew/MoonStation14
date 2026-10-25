@@ -16,11 +16,6 @@ public final class BoundedGameTestWait {
         long start = helper.getTick();
         helper.startSequence()
                 .thenWaitUntil(() -> {
-                    if (helper.getTick() - start >= maxWaitTicks) {
-                        GameTestAssertException timeout = new GameTestAssertException(timeoutMessage.get());
-                        helper.testInfo.fail(timeout);
-                        throw timeout;
-                    }
                     boolean readyNow;
                     try {
                         readyNow = ready.getAsBoolean();
@@ -29,7 +24,15 @@ public final class BoundedGameTestWait {
                         throw new GameTestAssertException("unexpected exception evaluating bounded wait predicate: "
                                 + failure);
                     }
-                    if (!readyNow) throw new GameTestAssertException("condition not ready");
+                    // A condition becoming true on the deadline tick is still ready within the
+                    // advertised bound. Check it before declaring timeout.
+                    if (readyNow) return;
+                    if (helper.getTick() - start >= maxWaitTicks) {
+                        GameTestAssertException timeout = new GameTestAssertException(timeoutMessage.get());
+                        helper.testInfo.fail(timeout);
+                        throw timeout;
+                    }
+                    throw new GameTestAssertException("condition not ready");
                 })
                 .thenExecute(() -> helper.runAfterDelay(1, onReady));
     }

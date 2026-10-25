@@ -56,3 +56,4 @@ public final class ConstructionBrowserLayout {
     }
     public static int maxScroll(int totalLines,int visibleLines){return Math.max(0,totalLines-Math.max(0,visibleLines));}
 }
+

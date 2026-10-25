@@ -56,3 +56,4 @@ public record ChemMasterControlRequest(UUID sessionId, UUID machineId, ResourceL
   }
  @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

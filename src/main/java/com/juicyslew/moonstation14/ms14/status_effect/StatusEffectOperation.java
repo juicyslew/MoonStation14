@@ -33,3 +33,4 @@ public enum StatusEffectOperation {
         return serializedName;
     }
 }
+

@@ -58,8 +58,9 @@ public final class GhostRoleNetworking {
                         && ghost.level() == player.serverLevel() && ghost.isAlive() && !ghost.isRemoved()) {
                     var level = player.serverLevel();
                     var target = level.getEntity(request.target());
-                    boolean catalogued = GhostRoleCatalog.snapshot(player.getServer()).stream()
-                            .anyMatch(entry -> entry.target().equals(request.target()) && entry.teleport());
+                    var catalogEntry = target instanceof net.minecraft.world.entity.Mob candidate
+                            ? GhostRoleCatalog.entryForTarget(player.getServer(), candidate, player.hasPermissions(2)) : null;
+                    boolean catalogued = catalogEntry != null && catalogEntry.teleport();
                     if (catalogued && target instanceof LivingEntity living && !living.isRemoved()
                             && living.isAlive() && MobStateSystem.isAlive(living)
                             && living.level() == level && LifecycleRoleAvailability.unclaimed(player.getServer(), living)) {
@@ -84,13 +85,16 @@ public final class GhostRoleNetworking {
                     var canonical = LifecycleGhostSessionControl.canonicalGhost(player).orElse(null);
                     var level = player.serverLevel();
                     var target = level.getEntity(request.target());
-                    boolean catalogued = GhostRoleCatalog.snapshot(player.getServer()).stream()
-                            .anyMatch(entry -> entry.target().equals(request.target()) && entry.takeover());
+                    var catalogEntry = target instanceof net.minecraft.world.entity.Mob candidate
+                            ? GhostRoleCatalog.entryForTarget(player.getServer(), candidate, player.hasPermissions(2)) : null;
+                    boolean catalogued = catalogEntry != null && catalogEntry.takeover();
                     if (canonical != null && canonical.epoch() == actor.epoch()
                             && canonical.ghost() == actor.ghost() && catalogued && target instanceof net.minecraft.world.entity.Mob mob
                             && !mob.isRemoved() && mob.isAlive() && MobStateSystem.isAlive(mob)
                             && mob.level() == level && LifecycleRoleAvailability.unclaimed(player.getServer(), mob)) {
-                        success = LifecycleGhostSessionControl.offerRoleTarget(player, mob);
+                        success = catalogEntry.development()
+                                ? player.hasPermissions(2) && LifecycleGhostSessionControl.offerDevelopmentTarget(player, mob)
+                                : LifecycleGhostSessionControl.offerRoleTarget(player, mob);
                         message = success ? "Role requested; waiting for server control handoff."
                                 : "Role request denied; target could not be prepared.";
                     }
@@ -103,7 +107,7 @@ public final class GhostRoleNetworking {
 
     public static void sendSnapshot(ServerPlayer player, GhostRolePayloads.Context context) {
         var level = player.serverLevel();
-        var entries = GhostRoleCatalog.snapshot(player.getServer()).stream()
+        var entries = GhostRoleCatalog.snapshot(player.getServer(), player.hasPermissions(2)).stream()
                 .filter(entry -> level.getEntity(entry.target()) != null).toList();
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,
                 new GhostRolePayloads.Snapshot(context, entries));

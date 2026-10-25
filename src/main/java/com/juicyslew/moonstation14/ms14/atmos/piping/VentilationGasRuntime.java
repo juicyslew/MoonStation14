@@ -48,3 +48,4 @@ public final class VentilationGasRuntime {
 
     public static void clear() { QUARANTINED.clear(); }
 }
+

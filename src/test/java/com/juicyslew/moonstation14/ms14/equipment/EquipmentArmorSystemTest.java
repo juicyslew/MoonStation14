@@ -22,9 +22,9 @@ class EquipmentArmorSystemTest {
                 slot("id", InventoryTemplateData.SlotFlag.HEAD, InventoryTemplateData.SlotFlag.POCKET)));
         var head = ResourceLocation.parse("minecraft:leather_helmet");
         var belt = ResourceLocation.parse("minecraft:iron_ingot");
-        var blunt = new EquipmentItemData.Armor(Map.of("blunt", .95f));
-        var caustic = new EquipmentItemData.Armor(Map.of("caustic", .95f));
-        var holy = new EquipmentItemData.Armor(Map.of("holy", .8f));
+        var blunt = new EquipmentItemData.Armor(Map.of("blunt", new EquipmentItemData.ArmorModifier(2f, .5f)));
+        var caustic = EquipmentItemData.Armor.fromCoefficients(Map.of("caustic", .95f));
+        var holy = EquipmentItemData.Armor.fromCoefficients(Map.of("holy", .8f));
         var catalog = new PrototypeCatalog<>(Map.of(head, item(blunt), belt, item(caustic),
                 ResourceLocation.parse("minecraft:stone"), item(holy)));
         var snapshot = new LiveHands.EquipmentSnapshot(true, List.of(
@@ -34,10 +34,9 @@ class EquipmentArmorSystemTest {
                 new LiveHands.EquipmentSlot("id", Optional.of("m"), Optional.of(new ItemStack(Items.STONE))),
                 new LiveHands.EquipmentSlot("unknown", Optional.of("u"), Optional.of(new ItemStack(Items.LEATHER_HELMET)))));
         var worn = ResolvedWornEquipment.entries(snapshot, layout, catalog);
-        assertEquals(List.of(blunt, caustic, holy), EquipmentArmorSystem.collect(worn));
-        assertEquals(Map.of("blunt", 4.75f, "caustic", 4.75f, "holy", 4f),
-                com.juicyslew.moonstation14.ms14.damage.ArmorModifiers.apply(Map.of("blunt", 5f, "caustic", 5f, "holy", 5f),
-                         EquipmentArmorSystem.collect(worn)));
+        assertEquals(List.of(blunt, caustic), EquipmentArmorSystem.collect(worn));
+        assertEquals(Map.of("blunt", 1.5f, "caustic", 4.75f, "holy", 5f),
+                EquipmentArmorSystem.apply(snapshot, layout, catalog, Map.of("blunt", 5f, "caustic", 5f, "holy", 5f)));
     }
 
     @Test void emptyUnresolvedAndHeldOnlySlotsAreNeutral() {

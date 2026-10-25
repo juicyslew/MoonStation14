@@ -96,6 +96,8 @@ public final class FixtureChunkTickets {
         }
 
         public boolean entityTicking(BlockPos position) { return level.isPositionEntityTicking(position); }
+        public boolean covers(net.minecraft.world.level.ChunkPos chunk) { return chunks.contains(chunk); }
+        public Set<ChunkPos> chunkPositions() { return chunks; }
         public String diagnostic(BlockPos position) {
             return position + " chunk=" + new ChunkPos(position) + " loaded=" + level.hasChunkAt(position)
                     + " entityTicking=" + entityTicking(position);

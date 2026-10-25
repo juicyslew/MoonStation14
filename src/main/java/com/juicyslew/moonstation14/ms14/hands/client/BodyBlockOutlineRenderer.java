@@ -59,7 +59,7 @@ public final class BodyBlockOutlineRenderer {
         var hit = body.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE,
                 ClipContext.Fluid.NONE, body));
         if (hit.getType() != HitResult.Type.BLOCK) return;
-        var selectedItem = BodyHandClient.selectedItemForOutline();
+        var selectedItem = BodyHandClient.selectedEntityForOutline();
         if (selectedItem != null && OutlinePriority.showItem(selectedItem.getBoundingBox(), start, end, hit)) return;
         var pos = ((BlockHitResult) hit).getBlockPos();
         var state = body.level().getBlockState(pos);
@@ -108,3 +108,4 @@ public final class BodyBlockOutlineRenderer {
     }
 
 }
+

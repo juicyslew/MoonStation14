@@ -47,3 +47,4 @@ public record ChemMasterData(double powerLoadWatts, int cableReach, float uiRang
     public ChemMasterData(double watts, int cable, float range, InputSlot slot) { this(watts, cable, range, slot, 0, new OutputSlot(List.of()), null, null, null, DumpableSolutionPolicy.DISABLED); }
     public ChemMasterData(double watts, int cable, float range, InputSlot slot, ResourceLocation click, ResourceLocation insert, ResourceLocation eject) { this(watts, cable, range, slot, 0, new OutputSlot(List.of()), click, insert, eject, DumpableSolutionPolicy.DISABLED); }
 }
+

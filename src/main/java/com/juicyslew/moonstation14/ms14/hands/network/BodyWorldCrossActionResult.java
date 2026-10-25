@@ -31,3 +31,4 @@ public record BodyWorldCrossActionResult(long epoch, long sequence, UUID target,
     }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

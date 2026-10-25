@@ -57,3 +57,4 @@ public final class WelderOwnerTickService {
         return manager.snapshot(ModTools.TOOL_TYPE).get(ModTools.WELDER);
     }
 }
+

@@ -37,3 +37,4 @@ public record AirAlarmLayout(int viewportWidth, int viewportHeight, int x, int y
     public Rect fallback() { return rect(8,height-34,width-16,14); }
     public List<Rect> filters() { return java.util.stream.IntStream.range(0,9).mapToObj(this::gas).toList(); }
 }
+

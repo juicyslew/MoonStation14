@@ -25,3 +25,4 @@ public class GrenadeItem extends Item {
         return InteractionResult.PASS;
     }
 }
+

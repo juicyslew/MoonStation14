@@ -99,3 +99,4 @@ public final class PostureClient {
                         .clip(start, end).map(start::distanceToSqr).orElse(Double.MAX_VALUE))).orElse(null);
     }
 }
+

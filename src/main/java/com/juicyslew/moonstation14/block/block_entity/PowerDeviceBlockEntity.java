@@ -132,3 +132,4 @@ public class PowerDeviceBlockEntity extends BlockEntity {
         breakerRevision = breakerRevision == Long.MAX_VALUE ? 0 : breakerRevision + 1;
     }
 }
+

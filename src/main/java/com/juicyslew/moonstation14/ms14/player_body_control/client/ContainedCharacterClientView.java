@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.player_body_control.client;
 
 import com.juicyslew.moonstation14.ms14.containment.ContainedBodyView;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -48,9 +49,29 @@ public final class ContainedCharacterClientView {
                 binding.epoch, current().filter(view -> !view.cameraCollision()).isPresent());
     }
 
+    /** Translation from native body-camera origin to the carrier-relative rendered origin. */
+    public static Optional<Vec3> cameraTranslation(net.minecraft.world.entity.Entity cameraEntity, float partialTick) {
+        OwnedBinding binding = ownedBinding();
+        if (binding == null || cameraEntity == null || !binding.body.equals(cameraEntity.getUUID())) return Optional.empty();
+        ContainedBodyView active = current().orElse(null);
+        if (active == null) return Optional.empty();
+        ContainedBodyView.RenderParent parentInfo = active.renderParent().orElse(null);
+        if (parentInfo == null || cameraEntity.level().isClientSide == false) return Optional.empty();
+        net.minecraft.world.entity.Entity parent = cameraEntity.level().getEntity(parentInfo.entityId());
+        if (parent == null || !parent.isAlive() || parent == cameraEntity || !parent.getUUID().equals(parentInfo.entityUuid())
+                || parent.level() != cameraEntity.level()) return Optional.empty();
+        Vec3 renderedParent = parent.tickCount == 0 ? parent.position() : new Vec3(
+                net.minecraft.util.Mth.lerp(partialTick, parent.xOld, parent.getX()),
+                net.minecraft.util.Mth.lerp(partialTick, parent.yOld, parent.getY()),
+                net.minecraft.util.Mth.lerp(partialTick, parent.zOld, parent.getZ()));
+        Vec3 localOffset = parentInfo.bodyFeetOffset();
+        return Optional.of(ContainedCameraTranslation.delta(renderedParent, localOffset, cameraEntity.getPosition(partialTick)));
+    }
+
     private static OwnedBinding ownedBinding() {
         GhostControlClient.OwnedCharacterBinding binding = GhostControlClient.ownedCharacterBinding();
         return binding == null ? null : new OwnedBinding(binding.body(), binding.epoch());
     }
     private record OwnedBinding(UUID body, long epoch) { }
 }
+

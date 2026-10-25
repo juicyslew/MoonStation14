@@ -15,7 +15,14 @@ import net.minecraft.world.level.Level;
 import java.util.UUID;
 
 /** Persistent, ordinary-physics Mob type reserved for future player characters. */
-public final class PlayerCharacterHarnessEntity extends Mob {
+public final class PlayerCharacterHarnessEntity extends Mob implements com.juicyslew.moonstation14.ms14.character.CharacterVisualState {
+    private record AppearanceSnapshot(PlayerCharacterAppearance appearance, PlayerCharacterBodyShape shape)
+            implements com.juicyslew.moonstation14.ms14.character.CharacterVisualState.VisualSnapshot {
+        public void applyTo(net.minecraft.world.entity.LivingEntity detached) {
+            var target = (PlayerCharacterHarnessEntity) detached;
+            target.setAppearance(appearance); target.setBodyShape(shape);
+        }
+    }
     private static final String BINDING_KEY = "Moonstation14PlayerCharacterBinding";
     private static final String APPEARANCE_KEY = "Moonstation14PlayerCharacterAppearance";
     private static final String BODY_SHAPE_KEY = "Moonstation14PlayerCharacterBodyShape";
@@ -114,6 +121,10 @@ public final class PlayerCharacterHarnessEntity extends Mob {
 
     public PlayerCharacterBodyShape bodyShape() {
         return PlayerCharacterBodyShape.fromIndex(entityData.get(BODY_SHAPE));
+    }
+
+    @Override public com.juicyslew.moonstation14.ms14.character.CharacterVisualState.VisualSnapshot captureVisualState() {
+        return new AppearanceSnapshot(appearance(), bodyShape());
     }
 
     public boolean hasOfflineBadge() { return entityData.get(OFFLINE_BADGE); }
@@ -287,3 +298,4 @@ public final class PlayerCharacterHarnessEntity extends Mob {
         }
     }
 }
+

@@ -31,3 +31,4 @@ public abstract class ServerPlayerParkedDirectDropMixin {
                     .map(key -> "moonstation14".equals(key.location().getNamespace())).orElse(false));
     }
 }
+

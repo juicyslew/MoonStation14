@@ -9,3 +9,4 @@ public final class HealthAnalyzerClientReceiver {
     public static void install(Consumer<HealthAnalyzerWindowState> consumer) { receiver = java.util.Objects.requireNonNull(consumer); }
     public static void receive(HealthAnalyzerWindowUpdate update) { receiver.accept(update.state()); }
 }
+

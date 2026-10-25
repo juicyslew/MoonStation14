@@ -28,7 +28,7 @@ public final class TimedInteractionClient {
         syncLevel(mc);
         Entity entity=mc.level.getEntity(s.bodyEntityId());
         if(entity!=null && !entity.getUUID().equals(s.bodyUuid())) return;
-        var owned = GhostControlClient.ownedCharacterForHud();
+        var owned = GhostControlClient.ownedCharacterForPresentation();
         Cached old = snapshots.get(s.bodyEntityId());
         var acceptance = reconciler.accept(s, mc.level.dimension().location(), entity == null ? null : entity.getUUID(),
                 owned == null ? null : owned.getUUID(), mc.level.dimension().location());
@@ -65,7 +65,7 @@ public final class TimedInteractionClient {
             if (expired) reconciler.forgetSnapshot(e.getKey());
             return expired;
         });
-        var owned = GhostControlClient.ownedCharacterForHud();
+        var owned = GhostControlClient.ownedCharacterForPresentation();
         reconciler.tick(now, owned == null ? null : owned.getUUID());
     }
     public static void clear() { snapshots.clear(); reconciler.clear(); dimension=null; levelIdentity=null; }
@@ -99,3 +99,4 @@ public final class TimedInteractionClient {
         return TimedInteractionMath.progress(v.startTick(),v.durationTicks(),v.terminalTick());
     }
 }
+

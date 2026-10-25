@@ -6,7 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Pure sequential coefficient armor math; callers supply already-resolved worn equipment order. */
+/** Compatibility utility; delegates every armor modifier through canonical damage modifier math. */
 public final class ArmorModifiers {
     private ArmorModifiers() { }
 
@@ -15,7 +15,13 @@ public final class ArmorModifiers {
         List<EquipmentItemData.Armor> modifiers = List.copyOf(armor);
         for (var item : modifiers) {
             if (item == null) throw new IllegalArgumentException("null armor modifier");
-            result = new LinkedHashMap<>(DamageModifierData.apply(result, new DamageModifierData(item.coefficients(), Map.of())));
+            var coefficients = new LinkedHashMap<String, Float>();
+            var reductions = new LinkedHashMap<String, Float>();
+            item.modifiers().forEach((key, modifier) -> {
+                coefficients.put(key, modifier.coefficient());
+                reductions.put(key, modifier.flatReduction());
+            });
+            result = new LinkedHashMap<>(DamageModifierData.apply(result, new DamageModifierData(coefficients, reductions)));
         }
         result.entrySet().removeIf(entry -> entry.getValue() == 0f);
         return Map.copyOf(result);

@@ -57,3 +57,4 @@ public record GrenadeSoundPayload(ResourceLocation dimension, Mode mode, double 
                 buf.readEnum(Mode.class), buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readFloat(), buf.readEnum(SoundSet.class));
     }
 }
+

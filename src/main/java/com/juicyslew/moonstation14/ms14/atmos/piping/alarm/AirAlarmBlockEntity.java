@@ -237,3 +237,4 @@ public final class AirAlarmBlockEntity extends BlockEntity {
         }
     }
 }
+

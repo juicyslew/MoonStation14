@@ -81,3 +81,4 @@ public final class CableVisualPendingSnapshots {
 
     private record Key(ResourceLocation dimension, long chunk) { }
 }
+

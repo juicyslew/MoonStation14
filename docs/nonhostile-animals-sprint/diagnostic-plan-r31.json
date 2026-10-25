@@ -1,0 +1,42 @@
+{
+  "title": "Measure animal population server cost and client stalls",
+  "kind": "diagnostic",
+  "acceptance_criteria": [
+    "What server tick, client frame, GC and sampled-stack evidence accompanies 100 parrots versus 100 kobolds and 40 mixed animals?",
+    "Do population counts, authenticated committed ownership, phase markers and actual animal renderer calls establish valid comparable captures?"
+  ],
+  "fixture": "docs/nonhostile-animals-sprint/OWNER-FEEDBACK.md",
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Parrots"],
+      "rationale": "Lead-owned real isolated client/server measurement with baseline and canonical 100-parrot population, JFR recordings, tick/frame distributions, GC and sampled stacks. Existing ownership, process lifecycle and native bounds remain in force. Capture adequacy is not a performance pass.",
+      "covers": [
+        "What server tick, client frame, GC and sampled-stack evidence accompanies 100 parrots versus 100 kobolds and 40 mixed animals?",
+        "Do population counts, authenticated committed ownership, phase markers and actual animal renderer calls establish valid comparable captures?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-parrots-r31.log"
+    },
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Kobolds"],
+      "rationale": "Same measurement with canonical 100-kobold population; inspect separate server/client evidence rather than infer a bottleneck from species composition.",
+      "covers": [
+        "What server tick, client frame, GC and sampled-stack evidence accompanies 100 parrots versus 100 kobolds and 40 mixed animals?",
+        "Do population counts, authenticated committed ownership, phase markers and actual animal renderer calls establish valid comparable captures?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-kobolds-r31.log"
+    },
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Mixed"],
+      "rationale": "Same measurement with 40 mixed animals. Initial stationary-view windows cannot certify prolonged running, physical jumping/moving, native animation quality or owner acceptance. Return actual capture artifacts/findings even if a check fails.",
+      "covers": [
+        "What server tick, client frame, GC and sampled-stack evidence accompanies 100 parrots versus 100 kobolds and 40 mixed animals?",
+        "Do population counts, authenticated committed ownership, phase markers and actual animal renderer calls establish valid comparable captures?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-mixed-r31.log"
+    }
+  ]
+}

@@ -14,3 +14,4 @@ public record DoorBumpOpenerComponent() implements CharacterComponent {
     }));
     @Override public String type() { return TYPE; }
 }
+

@@ -30,20 +30,27 @@ public final class HandBarLayout {
     private HandBarLayout() { }
 
     public static Layout calculate(int width, int height) {
+        return calculate(width, height, 2);
+    }
+
+    /** Layout only the concrete hand tiles supplied by the resolved body profile. */
+    public static Layout calculate(int width, int height, int handCount) {
         if (width < 90 || height < 120) return null;
+        if (handCount < 1 || handCount > 2) return null;
         int gap = 3;
         int hand = 18;
-        int handX = (width - (hand * 2 + gap)) / 2;
+        int handX = handCount == 1 ? (width - hand) / 2 : (width - (hand * 2 + gap)) / 2;
         int equipmentGap = 3;
         // Reserve the left clothing block before placing hotbar equipment. One
         // canonical wearable size keeps panel hitboxes aligned with this bar.
         int equipment = Math.min(15, Math.max(1, (handX - 17) / 6));
         int y = Math.max(0, height - hand - 2);
         int equipmentY = y + (hand - equipment) / 2;
-        int rightX = handX + hand * 2 + gap;
+        int rightX = handCount == 1 ? handX + hand : handX + hand * 2 + gap;
         int side = handX - equipment * 3 - equipmentGap * 3;
         int rightStart = rightX + equipmentGap;
-        return new Layout(new Rect(handX, y, hand, hand), new Rect(handX + hand + gap, y, hand, hand),
+        return new Layout(new Rect(handX, y, hand, hand), handCount == 1 ? new Rect(0, 0, 0, 0)
+                : new Rect(handX + hand + gap, y, hand, hand),
                 new Rect(handX - equipment * 2 - equipmentGap * 2, equipmentY, equipment, equipment),
                 new Rect(handX - equipment - equipmentGap, equipmentY, equipment, equipment),
                 new Rect(side, equipmentY, equipment, equipment),

@@ -22,3 +22,4 @@ public final class GameplayHudPolicy {
         return screen == null || screen instanceof ChatScreen;
     }
 }
+

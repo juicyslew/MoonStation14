@@ -24,3 +24,4 @@ public interface PrototypeMergeStrategy {
         return false;
     }
 }
+

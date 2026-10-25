@@ -410,3 +410,4 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

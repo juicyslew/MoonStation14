@@ -10,7 +10,8 @@ import java.util.Objects;
 
 /** Bounded, session-local history of quantized ghost inputs for future prediction replay. */
 public final class GhostPredictionHistory {
-    public static final int CAPACITY = 64;
+    public static final int CAPACITY = GhostControlPayloads.MAX_PENDING_INTENTS;
+    public static final int MAX_REPLAY_TICKS = CAPACITY;
 
     private final ArrayDeque<GhostControlPayloads.Intent> pending = new ArrayDeque<>(CAPACITY);
     private long epoch;
@@ -19,6 +20,7 @@ public final class GhostPredictionHistory {
     private long lastRecordedSequence;
     private long lastAcknowledgedSequence;
     private long lastServerGameTick = -1;
+    private long lastRecordedIntendedTick;
 
     public GhostPredictionHistory(long epoch, int ghostEntityId) {
         this(epoch, ghostEntityId, MobHarnessKind.GHOST);
@@ -31,10 +33,12 @@ public final class GhostPredictionHistory {
     /** Records the exact validated wire intent; sequence gaps are retained as evidence of lost history. */
     public RecordResult record(GhostControlPayloads.Intent intent) {
         Objects.requireNonNull(intent, "intent");
-        if (intent.epoch() != epoch || intent.sequence() <= lastRecordedSequence)
+        if (intent.epoch() != epoch || intent.sequence() <= lastRecordedSequence
+                || intent.intendedSimulationTick() < lastRecordedIntendedTick)
             return RecordResult.REJECTED;
 
         lastRecordedSequence = intent.sequence();
+        lastRecordedIntendedTick = intent.intendedSimulationTick();
         if (pending.size() == CAPACITY)
             pending.removeFirst();
         pending.addLast(intent);
@@ -44,9 +48,11 @@ public final class GhostPredictionHistory {
     /** Advances the wire sequence over an intentionally unpredicted input frame. */
     public RecordResult skip(GhostControlPayloads.Intent intent) {
         Objects.requireNonNull(intent, "intent");
-        if (intent.epoch() != epoch || intent.sequence() <= lastRecordedSequence)
+        if (intent.epoch() != epoch || intent.sequence() <= lastRecordedSequence
+                || intent.intendedSimulationTick() < lastRecordedIntendedTick)
             return RecordResult.REJECTED;
         lastRecordedSequence = intent.sequence();
+        lastRecordedIntendedTick = intent.intendedSimulationTick();
         pending.clear();
         return RecordResult.RECORDED;
     }
@@ -86,6 +92,7 @@ public final class GhostPredictionHistory {
         lastRecordedSequence = 0;
         lastAcknowledgedSequence = 0;
         lastServerGameTick = -1;
+        lastRecordedIntendedTick = 0;
     }
 
     /** Clears buffered inputs after an authority barrier without resetting this session's tracking. */
@@ -112,7 +119,41 @@ public final class GhostPredictionHistory {
     public MobHarnessKind harnessKind() { return harnessKind; }
     public long lastRecordedSequence() { return lastRecordedSequence; }
     public long lastAcknowledgedSequence() { return lastAcknowledgedSequence; }
+    public long lastRecordedIntendedTick() { return lastRecordedIntendedTick; }
     public int pendingCount() { return pending.size(); }
+
+    /** Builds a bounded fixed-step plan from the currently accepted authoritative anchor, without mutating history. */
+    public TickReplayResult planReplayTicks(GhostControlPayloads.Snapshot base, long targetTick) {
+        Objects.requireNonNull(base, "base");
+        if (base.epoch() != epoch || base.harnessEntityId() != harnessEntityId || base.harnessKind() != harnessKind
+                || base.serverGameTick() != lastServerGameTick
+                || base.acknowledgedAppliedSequence() != lastAcknowledgedSequence || targetTick < 0)
+            return TickReplayResult.rejected();
+        List<GhostControlPayloads.Intent> frames = List.copyOf(pending);
+        if (!isCompleteReplay(frames, lastAcknowledgedSequence))
+            return new TickReplayResult(SnapshotStatus.HISTORY_LOST, List.of());
+        if (targetTick <= base.serverGameTick())
+            return new TickReplayResult(SnapshotStatus.REPLAY, List.of());
+        long count = Math.min((long) MAX_REPLAY_TICKS, targetTick - base.serverGameTick());
+        GhostControlInputAccumulator accumulator = new GhostControlInputAccumulator();
+        accumulator.seed(base.heldControlState(), lastAcknowledgedSequence);
+        ArrayList<GhostControlInputAccumulator.TickInput> plan = new ArrayList<>((int) count);
+        int frameIndex = 0;
+        for (long offset = 1; offset <= count; offset++) {
+            long tick = base.serverGameTick() + offset;
+            while (frameIndex < frames.size() && frames.get(frameIndex).intendedSimulationTick() <= tick) {
+                GhostControlPayloads.Intent frame = frames.get(frameIndex++);
+                accumulator.accept(frame.toControlState(), frame.sequence());
+            }
+            plan.add(accumulator.consumeForTick(tick));
+        }
+        return new TickReplayResult(SnapshotStatus.REPLAY, plan);
+    }
+
+    public record TickReplayResult(SnapshotStatus status, List<GhostControlInputAccumulator.TickInput> ticks) {
+        public TickReplayResult { Objects.requireNonNull(status); ticks = List.copyOf(ticks); }
+        private static TickReplayResult rejected() { return new TickReplayResult(SnapshotStatus.REJECTED, List.of()); }
+    }
 
     private boolean isCompleteReplay(List<GhostControlPayloads.Intent> replay, long acknowledged) {
         if (acknowledged == lastRecordedSequence)

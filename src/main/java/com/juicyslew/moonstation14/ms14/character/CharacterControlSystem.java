@@ -178,6 +178,23 @@ public final class CharacterControlSystem {
                 && !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(entity);
     }
 
+    /** Whether voluntary input may change an actor's physical facing. Movement eligibility is separate. */
+    public static boolean canChangeDirection(LivingEntity entity) {
+        Objects.requireNonNull(entity, "entity");
+        return entity.isAlive() && !entity.isDeadOrDying()
+                && !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(entity);
+    }
+
+    /** Applies accepted voluntary facing through the shared medical direction gate. */
+    public static boolean applyVoluntaryLook(LivingEntity entity, float yaw, float pitch) {
+        Objects.requireNonNull(entity, "entity");
+        if (!canChangeDirection(entity) || !Float.isFinite(yaw) || !Float.isFinite(pitch)) return false;
+        entity.setYRot(yaw);
+        entity.setXRot(pitch);
+        entity.setYHeadRot(yaw);
+        return true;
+    }
+
     /** Movement eligibility shared by voluntary movement and containment escape. */
     public static boolean canMove(LivingEntity entity) {
         Objects.requireNonNull(entity, "entity");
@@ -185,3 +202,4 @@ public final class CharacterControlSystem {
                 && !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(entity);
     }
 }
+

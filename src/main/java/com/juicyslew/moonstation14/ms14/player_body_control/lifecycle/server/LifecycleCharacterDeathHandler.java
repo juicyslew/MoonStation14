@@ -104,3 +104,4 @@ public final class LifecycleCharacterDeathHandler {
                 && context.wasCreatedOnThisServer(accountId);
     }
 }
+

@@ -113,7 +113,7 @@ public final class ExamineClient {
         if (actor == null || entity == null || entity.isRemoved() || entity.level() != mc.level) return false;
         ExamineTarget target = ExamineTarget.entity(entity);
         ExamineSelector.Candidate candidate = new ExamineSelector.Candidate(target, entity.position(), 0,
-                entity.getName().getString(), entity.getBoundingBox(), false);
+                com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(entity).getString(), entity.getBoundingBox(), false);
         if (!candidateEligible(candidate)) return false;
         selected = candidate; intent = true; popupDismissed = false;
         POPUP.open(target, actor.epoch());
@@ -657,3 +657,4 @@ public final class ExamineClient {
     public static boolean escape() { if (!hasPopup() || !POPUP.escape()) return false; dismiss(); return true; }
     public static void dismiss() { popupDismissed = true; detailGateInitialized = false; detailRetryAt = 0; POPUP.clear(); clearResponseState(); }
 }
+

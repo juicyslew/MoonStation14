@@ -111,3 +111,4 @@ public final class ModAlerts {
         return createKeyFromReference(value).location();
     }
 }
+

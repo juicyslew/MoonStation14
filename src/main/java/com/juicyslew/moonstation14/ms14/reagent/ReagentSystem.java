@@ -228,3 +228,4 @@ public class ReagentSystem {
             ReactionAudio.playCommitted(serverLevel, target.getBlockPos(), staged);
     }
 }
+

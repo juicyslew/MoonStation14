@@ -19,3 +19,4 @@ public final class ConstructionStructureBlock extends Block implements Atmospher
         return data != null && !data.airtight();
     }
 }
+

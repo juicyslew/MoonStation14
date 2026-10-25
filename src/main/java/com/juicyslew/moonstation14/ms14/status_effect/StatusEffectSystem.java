@@ -589,3 +589,4 @@ public class StatusEffectSystem {
         return seconds == 0f ? 0 : secondsToTicks(seconds);
     }
 }
+

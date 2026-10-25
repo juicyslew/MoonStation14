@@ -16,3 +16,4 @@ public record SolutionTransferPolicy(boolean enabled, float transferAmount, bool
         if (!Float.isFinite(transferAmount) || transferAmount <= 0) throw new IllegalArgumentException("invalid transfer amount");
     }
 }
+

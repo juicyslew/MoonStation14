@@ -98,8 +98,8 @@ public final class SlipResponseGameTests {
                     ServerLevel level = (ServerLevel) helper.getLevel();
                     source.setPos(helper.absolutePos(new BlockPos(1, 1, 1)).getCenter());
                     victim.setPos(helper.absolutePos(new BlockPos(3, 1, 1)).getCenter());
-                    ItemStack sourceStack = new ItemStack(ModItems.WHEAT_SEEDS.get(), 2);
-                    ItemStack victimStack = new ItemStack(ModItems.WHEAT_SEEDS.get(), 3);
+                    ItemStack sourceStack = new ItemStack(ModItems.STEEL.get(), 2);
+                    ItemStack victimStack = new ItemStack(ModItems.STEEL.get(), 3);
                     var sourceHands = source.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
                     var victimHands = victim.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
                     String sourceHand = sourceHands.handIds().get(0), victimHand = victimHands.handIds().get(0);
@@ -232,7 +232,8 @@ public final class SlipResponseGameTests {
                 var zero = new SlipResponseData(.5d, 1.5d, 1d, .5d, 0d, 0d,
                         false, true, false, SlipResponseData.DEFAULT_SOUND, -100d);
                 // A living non-player is a real native carrier, deliberately distant from the near camera.
-                var carrier = helper.spawn(EntityType.VILLAGER, far);
+                // GameTestHelper.spawn expects template-relative coordinates; near/far above are absolute.
+                var carrier = helper.spawn(EntityType.VILLAGER, new BlockPos(40, 1, 40));
                 SlipSystem.respond(new SlipSystem.SlipResponse(level, carrier, body, zero,
                         Vec3.ZERO, false, false, false), (IStatusEffectTrait) body);
                 drainSounds(fixture, packets);
@@ -245,13 +246,17 @@ public final class SlipResponseGameTests {
                 body.setPos(far.getX() + .5, far.getY(), far.getZ() + .5);
                 fixture.player().setCamera(body);
                 require(fixture.player().getCamera() == body, "camera remains committed to far body");
-                var nearCarrier = helper.spawn(EntityType.VILLAGER, near);
-                SlipSystem.respond(new SlipSystem.SlipResponse(level, nearCarrier, body, zero,
-                        Vec3.ZERO, false, true, false), (IStatusEffectTrait) body);
+                var nearTarget = human(helper, new BlockPos(3, 1, 2));
+                nearTarget.setPos(near.getX() + .5, near.getY(), near.getZ() + .5);
+                var nearCarrier = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
+                SlipSystem.respond(new SlipSystem.SlipResponse(level, nearCarrier, nearTarget, zero,
+                        Vec3.ZERO, false, false, false), (IStatusEffectTrait) nearTarget);
                 drainSounds(fixture, packets);
                 require(packets.stream().noneMatch(p -> p.getSound().value() == com.juicyslew.moonstation14.sounds.ModSounds.SLIP.get()),
                         "far body camera does not hear cue even when native carrier is near");
-                require(nearCarrier.blockPosition().distSqr(body.blockPosition()) < 2, "native carrier is separately verified near target");
+                require(nearCarrier.blockPosition().distSqr(nearTarget.blockPosition()) < 2, "native carrier is separately verified near slip target");
+                require(fixture.player().getCamera().blockPosition().distSqr(nearTarget.blockPosition()) > 1000,
+                        "registered viewer camera remains far from near slip target");
                 helper.succeed();
             } catch (Throwable failure) { helper.fail("registered slip camera audio: " + failure); }
             finally { fixture.close(); }

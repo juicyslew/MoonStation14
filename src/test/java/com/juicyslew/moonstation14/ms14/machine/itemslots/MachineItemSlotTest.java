@@ -16,6 +16,58 @@ class MachineItemSlotTest {
         return new MachineItemSlot(owner, id, policy, ledger);
     }
 
+    @Test void initializeClaimsOnlyCanonicalSlotOnceAndPreservesCopiedWholeStack() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var slot = slot(owner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        ItemStack named = new ItemStack(Items.GLASS_BOTTLE);
+        named.set(DataComponents.CUSTOM_NAME, Component.literal("finite plasma tank"));
+        assertFalse(slot.initialize(1, named));
+        assertFalse(slot.initialize(0, new ItemStack(Items.STONE)));
+        assertTrue(ledger.snapshot().locations().isEmpty());
+        assertTrue(slot.initialize(0, named));
+        var stored = slot.snapshot();
+        assertEquals(1, stored.revision());
+        assertEquals(new ItemLocation.MachineSlot(owner, "tankSlot"), ledger.snapshot().locations().get(stored.token()));
+        assertEquals(Component.literal("finite plasma tank"), stored.stack().get(DataComponents.CUSTOM_NAME));
+        assertFalse(slot.initialize(1, named));
+        assertFalse(slot.initialize(0, named));
+        assertEquals(1, slot.snapshot().revision());
+        assertEquals(1, ledger.snapshot().locations().size());
+    }
+
+    @Test void initializedSlotPersistenceReclaimsExactlyOneClaimAndSavedEmptyRemainsEmpty() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var populated = slot(owner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        assertTrue(populated.initialize(0, new ItemStack(Items.GLASS_BOTTLE)));
+        var encoded = populated.encode(); var token = populated.snapshot().token();
+        assertTrue(populated.suspend());
+        var restored = slot(owner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        assertTrue(restored.restore(encoded));
+        assertEquals(new ItemLocation.MachineSlot(owner, "tankSlot"), ledger.snapshot().locations().get(token));
+        assertFalse(populated.resume());
+
+        var emptyOwner = UUID.randomUUID();
+        var empty = slot(emptyOwner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), new ItemLocationLedger());
+        var emptyCodec = MachineItemSlot.codec();
+        var savedEmpty = emptyCodec.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                emptyCodec.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, empty.encode()).result().orElseThrow())
+                .result().orElseThrow();
+        var emptyRestored = slot(emptyOwner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), new ItemLocationLedger());
+        assertTrue(emptyRestored.restore(savedEmpty));
+        assertTrue(emptyRestored.snapshot().stack().isEmpty());
+    }
+
+    @Test void mutationRequiresTheCurrentCanonicalLedgerClaim() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var slot = slot(owner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        assertTrue(slot.initialize(0, new ItemStack(Items.GLASS_BOTTLE)));
+        var before = slot.snapshot();
+        assertTrue(ledger.consume(ledger.snapshot().revision(), before.token(),
+                new ItemLocation.MachineSlot(owner, "tankSlot")).accepted());
+        assertFalse(slot.mutate(before.revision(), before.token(), stack -> { stack.setCount(2); return true; }));
+        assertEquals(before.revision(), slot.snapshot().revision());
+        assertEquals(1, slot.snapshot().stack().getCount());
+    }
     @Test void batchReplacesAndConsumesOnlyWithExactSlotAndLedgerProofs() {
         var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
         var source = slot(owner, "source", s -> s.is(Items.GLASS_BOTTLE), ledger);
@@ -248,5 +300,20 @@ class MachineItemSlotTest {
         assertTrue(ItemStack.matches(current.stack(), restored.snapshot().stack()));
         assertFalse(slot.resume()); // The exact claim now belongs to the fresh runtime owner.
         assertTrue(slot.isRetired());
+    }
+
+    @Test void permanentDisposalDeletesPayloadAndCanonicalClaimIdempotently() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var slot = slot(owner, "tankSlot", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        assertTrue(slot.initialize(0, new ItemStack(Items.GLASS_BOTTLE)));
+        var token = slot.snapshot().token();
+        assertTrue(slot.dispose());
+        assertTrue(slot.dispose());
+        assertTrue(slot.snapshot().stack().isEmpty());
+        assertNull(slot.snapshot().token());
+        assertTrue(ledger.snapshot().locations().isEmpty());
+        assertTrue(slot.isRetired());
+        assertFalse(ledger.snapshot().locations().containsKey(token));
+        assertFalse(slot.restore(slot.encode()));
     }
 }

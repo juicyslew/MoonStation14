@@ -29,3 +29,4 @@ public final class ModIngestionProfiles {
         return catalog.contains(id("jug")) && catalog.contains(id("bottle")) && catalog.contains(id("pill")) && catalog.contains(id("puddle"));
     }
 }
+

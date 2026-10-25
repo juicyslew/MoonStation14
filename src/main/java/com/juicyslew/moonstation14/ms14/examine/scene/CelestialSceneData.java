@@ -25,3 +25,4 @@ public record CelestialSceneData(String dimension, Side side, double radius, dou
             throw new IllegalArgumentException("invalid celestial scene profile");
     }
 }
+

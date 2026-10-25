@@ -18,8 +18,11 @@ public final class ModEquipmentItems {
     public static final DeferredItem<Item> EARPIECES = register("earpieces");
     public static final DeferredItem<Item> BLANK_ID_CARD = register("blank_id_card");
     public static final DeferredItem<Item> UTILITY_CASE = register("utility_case");
+    public static final DeferredItem<Item> SUIT_RAD = register("suit_rad");
+    public static final DeferredItem<Item> HOOD_RAD = register("hood_rad");
 
     private static DeferredItem<Item> register(String id) {
         return ModItems.ITEMS.register(id, () -> new Item(new Item.Properties().stacksTo(1)));
     }
 }
+

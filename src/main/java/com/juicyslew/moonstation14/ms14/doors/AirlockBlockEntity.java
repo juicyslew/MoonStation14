@@ -266,7 +266,7 @@ public final class AirlockBlockEntity extends BlockEntity {
         AABB box=doorwayBounds();
         for(LivingEntity entity:level.getEntitiesOfClass(LivingEntity.class,box,e->!e.isSpectator()&&!e.noPhysics
                 &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(e,level)))
-            if(entity.getBoundingBox().intersects(box))return true;
+            if(entity.getBoundingBox().intersects(box)&&AirlockPassagePolicy.pairCollides(entity,this))return true;
         return false;
     }
     private java.util.Map<LivingEntity,net.minecraft.world.phys.Vec3> crushOccupants(ServerLevel level,AirlockData data) {
@@ -274,7 +274,7 @@ public final class AirlockBlockEntity extends BlockEntity {
         java.util.Map<LivingEntity,net.minecraft.world.phys.Vec3> positions=new java.util.LinkedHashMap<>();
         for(LivingEntity actor:level.getEntitiesOfClass(LivingEntity.class,box,e->!e.isSpectator()&&!e.noPhysics
                 &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(e,level))) {
-            if(!actor.getBoundingBox().intersects(box))continue;
+            if(!actor.getBoundingBox().intersects(box)||!AirlockPassagePolicy.pairCollides(actor,this))continue;
             positions.put(actor,actor.position());
             crushVictims.add(actor.getUUID());
             com.juicyslew.moonstation14.ms14.damage.DamageSystem.applyHealthChange(actor,java.util.Map.of(com.juicyslew.moonstation14.ms14.damage.DamageKeys.BLUNT,(float)data.door().crushDamageBlunt()),1f,false);
@@ -293,7 +293,8 @@ public final class AirlockBlockEntity extends BlockEntity {
         AABB doorway=doorwayBounds();
         return server.getEntitiesOfClass(LivingEntity.class,doorway.inflate(1.0E-5),actor->!actor.isSpectator()&&!actor.noPhysics
                 &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(actor,server)
-                &&AirlockGeometry.touchesDoorway(actor.getBoundingBox(),doorway));
+                &&AirlockGeometry.touchesDoorway(actor.getBoundingBox(),doorway)
+                &&AirlockPassagePolicy.pairCollides(actor,this));
     }
     void onScheduledTick(ServerLevel server) {
         scheduledDeadline=0;
@@ -418,4 +419,5 @@ public final class AirlockBlockEntity extends BlockEntity {
        @Override protected void saveAdditional(CompoundTag t,HolderLookup.Provider registries){super.saveAdditional(t,registries);t.putUUID("AirlockIdentity",state.identity());t.putBoolean("AirlockPanelOpen",panelOpen);t.putLong("AirlockTransitionStartedAt",transitionStartedAt);t.putLong("AirlockRevision",state.revision());t.putString("AirlockPhase",state.phase().name());t.putBoolean("AirlockPowered",state.powered());t.putBoolean("AirlockBolts",state.boltsDown());t.putBoolean("AirlockSafety",state.safety());t.putBoolean("AirlockAutoClose",state.autoClose());t.putLong("AirlockTransitionAt",state.transitionAt());t.putLong("AirlockAutoCloseAt",state.autoCloseAt());t.putBoolean("AirlockPowerWireOneCut",state.powerWireOneCut());t.putBoolean("AirlockPowerWireTwoCut",state.powerWireTwoCut());t.putLong("AirlockPowerPulseUntil",state.powerPulseUntil());t.putBoolean("AirlockPowerPulseLatched",state.powerPulseLatched());t.putBoolean("AirlockBoltWireCut",state.boltWireCut());t.putBoolean("AirlockBoltLightWireCut",state.boltLightWireCut());t.putBoolean("AirlockTimingWireCut",state.timingWireCut());t.putBoolean("AirlockSafetyWireCut",state.safetyWireCut());t.putBoolean("AirlockAiInteractWireCut",state.aiInteractWireCut());t.putBoolean("AirlockLogWireCut",state.logWireCut());t.putBoolean("AirlockLogCircuitDisabled",state.logCircuitDisabled());t.putLong("AirlockLogPulseUntil",state.logPulseUntil());t.putBoolean("AirlockBoltLights",state.boltLightsEnabled());t.putBoolean("AirlockReceiverDisabled",state.receiverPowerDisabled());t.putDouble("AirlockTimingModifier",state.autoCloseModifier());t.putLong("AirlockTimingModifierUntil",state.timingModifierUntil());t.putDouble("AirlockSafetyModifier",state.safetyModifier());t.putLong("AirlockSafetyModifierUntil",state.safetyModifierUntil());t.putBoolean("AirlockElectrified",electrification.enabled());t.putBoolean("AirlockElectrifiedWireCut",electrification.wireCut());t.putBoolean("AirlockElectrifiedPulsed",electrification.pulsed());t.putLong("AirlockElectrifiedCancelAt",electrification.pulseCancelAt());t.putLong("AirlockElectrifiedUntil",electrification.activatedUntil());t.putLong("AirlockCrushReopenRetryAt",crushReopenRetryAt);}
       @Override protected void loadAdditional(CompoundTag t,HolderLookup.Provider registries){super.loadAdditional(t,registries);transitionStartedAt=t.getLong("AirlockTransitionStartedAt");panelOpen=t.getBoolean("AirlockPanelOpen");crushReopenRetryAt=t.getLong("AirlockCrushReopenRetryAt");persistedState=false;persistedElectrification=false;initialized=false;try{if(t.contains("AirlockPhase")){AirlockState decoded=new AirlockState(t.hasUUID("AirlockIdentity")?t.getUUID("AirlockIdentity"):UUID.randomUUID(),Math.max(0,t.getLong("AirlockRevision")),AirlockState.DoorPhase.valueOf(t.getString("AirlockPhase")),t.getBoolean("AirlockPowered"),t.getBoolean("AirlockBolts"),t.getBoolean("AirlockSafety"),t.getBoolean("AirlockAutoClose"),t.getLong("AirlockTransitionAt"),t.getLong("AirlockAutoCloseAt"),t.getBoolean("AirlockPowerWireOneCut"),t.getBoolean("AirlockPowerWireTwoCut"),t.getLong("AirlockPowerPulseUntil"),t.getBoolean("AirlockPowerPulseLatched"),t.getBoolean("AirlockBoltWireCut"),t.getBoolean("AirlockBoltLightWireCut"),t.getBoolean("AirlockTimingWireCut"),t.getBoolean("AirlockSafetyWireCut"),t.getBoolean("AirlockBoltLights"),t.getBoolean("AirlockReceiverDisabled"),t.contains("AirlockTimingModifier")?t.getDouble("AirlockTimingModifier"):1,t.contains("AirlockSafetyModifier")?t.getDouble("AirlockSafetyModifier"):1,t.getLong("AirlockSafetyModifierUntil"),t.getLong("AirlockTimingModifierUntil"),t.getBoolean("AirlockAiInteractWireCut"),t.getBoolean("AirlockLogWireCut"),t.getBoolean("AirlockLogCircuitDisabled"),t.getLong("AirlockLogPulseUntil"));state=decoded;if(t.contains("AirlockElectrified")){electrification=new AirlockElectrificationSystem.State(t.getBoolean("AirlockElectrified"),t.getBoolean("AirlockElectrifiedWireCut"),t.getBoolean("AirlockElectrifiedPulsed"),t.getLong("AirlockElectrifiedCancelAt"),t.getLong("AirlockElectrifiedUntil"));persistedElectrification=true;}persistedState=true;initialized=true;}}catch(RuntimeException bad){state=AirlockState.initial(UUID.randomUUID(),true,true);electrification=AirlockElectrificationSystem.State.initial(com.juicyslew.moonstation14.ms14.doors.prototype.ElectrifiedData.AIRLOCK_DEFAULTS);persistedState=false;persistedElectrification=false;initialized=false;}}
 }
+
 

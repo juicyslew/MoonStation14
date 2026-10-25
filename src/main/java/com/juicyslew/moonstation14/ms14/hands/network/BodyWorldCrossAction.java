@@ -56,3 +56,4 @@ public record BodyWorldCrossAction(Direction direction, long epoch, long sequenc
     private static boolean rotation(int n) { return n == 0 || n == 90 || n == 180 || n == 270; }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

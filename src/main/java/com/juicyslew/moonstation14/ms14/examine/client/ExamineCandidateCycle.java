@@ -53,3 +53,4 @@ public final class ExamineCandidateCycle {
                 .findFirst().orElse(candidates.getFirst().target());
     }
 }
+

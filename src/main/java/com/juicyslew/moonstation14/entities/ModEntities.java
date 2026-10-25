@@ -47,19 +47,33 @@ public class ModEntities {
     public static final DeferredHolder<EntityType<?>, EntityType<LooseItemEntity>> LOOSE_ITEM =
             ENTITIES.register("loose_item", () -> EntityType.Builder.<LooseItemEntity>of(LooseItemEntity::new, MobCategory.MISC)
                     .sized(.25f, .25f).clientTrackingRange(8).updateInterval(1).build("loose_item"));
+    public static final DeferredHolder<EntityType<?>, EntityType<GasCanisterEntity>> GAS_CANISTER =
+            ENTITIES.register("gas_canister", () -> EntityType.Builder.<GasCanisterEntity>of(GasCanisterEntity::new, MobCategory.MISC)
+                    .sized(.5f, 1f).clientTrackingRange(8).updateInterval(1).build("gas_canister"));
+    public static final DeferredHolder<EntityType<?>, EntityType<EmitterBoltEntity>> EMITTER_BOLT =
+            ENTITIES.register("emitter_bolt", () -> EntityType.Builder.<EmitterBoltEntity>of(EmitterBoltEntity::new, MobCategory.MISC)
+                    .sized(.4f, .4f).clientTrackingRange(8).updateInterval(1).build("emitter_bolt"));
+    public static final DeferredHolder<EntityType<?>, EntityType<SingularityEntity>> SINGULARITY =
+            ENTITIES.register("singularity", () -> EntityType.Builder.<SingularityEntity>of(SingularityEntity::new, MobCategory.MISC)
+                    .sized(1.5f, 1.5f).clientTrackingRange(16).updateInterval(1).build("singularity"));
+    public static final DeferredHolder<EntityType<?>, EntityType<ParticleAcceleratorParticleEntity>> PA_PARTICLE =
+            ENTITIES.register("particle_accelerator_particle", () -> EntityType.Builder.<ParticleAcceleratorParticleEntity>of(ParticleAcceleratorParticleEntity::new, MobCategory.MISC)
+                    .sized(.96f, .96f).clientTrackingRange(8).updateInterval(1).build("particle_accelerator_particle"));
     public static final DeferredHolder<EntityType<?>, EntityType<MouseMob>> MOUSE =
             ENTITIES.register("mouse", () -> EntityType.Builder.<MouseMob>of(MouseMob::new, MobCategory.CREATURE)
                     // SS14 collision radius is 0.2; Minecraft's sized() takes width, so diameter is 0.4.
                     // Height 0.3 is a compact Minecraft geometry adaptation, not upstream fixture data.
-                    .sized(0.4f, 0.3f).clientTrackingRange(8).build("mouse"));
+                    .sized(0.4f, 0.3f).clientTrackingRange(8).updateInterval(1).build("mouse"));
     public static final DeferredHolder<EntityType<?>, EntityType<TypedMobEntity>> MOB_TOMATO_KILLER =
             ENTITIES.register("mob_tomato_killer", () -> EntityType.Builder.<TypedMobEntity>of(TypedMobEntity::new, MobCategory.MONSTER)
                     // Upstream radius is 0.30; Minecraft sized() takes diameter. Height is a geometry adaptation.
                     .sized(0.6f, 0.6f).clientTrackingRange(8).build("mob_tomato_killer"));
     public static void register(IEventBus eventBus) {
         ENTITIES.register(eventBus);
+        AnimalMobRegistration.register(eventBus);
         eventBus.addListener((net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent event) ->
                 { event.put(MOUSE.get(), MouseMob.createAttributes().build());
-                  event.put(MOB_TOMATO_KILLER.get(), TypedMobEntity.createAttributes().build()); });
+                  event.put(MOB_TOMATO_KILLER.get(), TypedMobEntity.createAttributes().build());
+                  AnimalMobRegistration.registerAttributes(event); });
     }
 }

@@ -1,6 +1,8 @@
 package com.juicyslew.moonstation14.gametest;
 
 import com.juicyslew.moonstation14.MoonStation14;
+import com.juicyslew.moonstation14.entities.AnimalMob;
+import com.juicyslew.moonstation14.entities.AnimalMobRegistration;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
@@ -27,6 +29,50 @@ import java.util.UUID;
 @GameTestTags({"lifecycle", "character"})
 public final class CharacterBodyDespawnGameTests {
     private CharacterBodyDespawnGameTests() { }
+
+    @GameTestTags("animals")
+    @GameTest(templateNamespace = "moonstation14", template = "empty", batch = "animal_body_despawn", timeoutTicks = 100)
+    public static void distantPlayerCannotDespawnUnforcedAnimals(GameTestHelper helper) {
+        var hosts = AnimalMobRegistration.types().values().stream().limit(3).toList();
+        require(hosts.size() == 3, "representative registered animal hosts available");
+        AnimalMob[] animals = new AnimalMob[hosts.size()];
+        UUID[] ids = new UUID[hosts.size()];
+        for (int i = 0; i < hosts.size(); i++) {
+            EntityType<AnimalMob> type = hosts.get(i).get();
+            AnimalMob animal = type.create(helper.getLevel());
+            require(animal != null, "registered animal host creates");
+            BlockPos position = helper.absolutePos(new BlockPos(2 + i, 1, 1));
+            helper.getLevel().getChunkAt(position);
+            animal.setPos(position.getX() + .5, position.getY(), position.getZ() + .5);
+            require(helper.getLevel().addFreshEntity(animal), "unforced animal joins server level");
+            require(!animal.isPersistenceRequired(), "fixture must not mask natural despawn with persistenceRequired");
+            animals[i] = animal;
+            ids[i] = animal.getUUID();
+        }
+        var distant = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "far-animal-test"));
+        // Place east of the furthest animal by the category radius plus the full host spread and margin.
+        int maxDespawnDistance = java.util.Arrays.stream(animals)
+                .mapToInt(animal -> animal.getType().getCategory().getDespawnDistance()).max().orElseThrow();
+        double furthestX = java.util.Arrays.stream(animals).mapToDouble(AnimalMob::getX).max().orElseThrow();
+        distant.setPos(furthestX + maxDespawnDistance + 2, animals[0].getY(), animals[0].getZ());
+        require(helper.getLevel().addFreshEntity(distant), "distant registered server player joins level");
+        try {
+            for (int i = 0; i < animals.length; i++) {
+                AnimalMob animal = animals[i];
+                require(helper.getLevel().getNearestPlayer(animal, -1) == distant, "actual nearest player is distant fixture");
+                int radius = animal.getType().getCategory().getDespawnDistance();
+                require(distant.distanceToSqr(animal) > (double) radius * radius, "player beyond natural despawn distance");
+                require(!animal.isPersistenceRequired() && animal.requiresCustomPersistence(), "custom persistence without forced persistence");
+                animal.checkDespawn();
+                require(!animal.isRemoved() && animal.isAddedToLevel() && animal.getUUID().equals(ids[i])
+                                && helper.getLevel().getEntity(ids[i]) == animal,
+                        "original animal instance and UUID survive real checkDespawn");
+            }
+            helper.succeed();
+        } finally {
+            distant.discard();
+        }
+    }
 
     /**
      * Covers vanilla's natural far-player despawn branch with a real Creative server player.

@@ -18,3 +18,4 @@ public abstract class ChunkMapObserverCenterMixin {
         return new ChunkPos(BlockPos.containing(ObserverTracking.viewPosition(player)));
     }
 }
+

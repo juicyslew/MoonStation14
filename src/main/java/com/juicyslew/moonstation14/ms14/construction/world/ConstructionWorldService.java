@@ -519,3 +519,4 @@ public final class ConstructionWorldService {
         return id.indexOf(':') < 0 ? ModConstruction.id(id) : net.minecraft.resources.ResourceLocation.parse(id);
     }
 }
+

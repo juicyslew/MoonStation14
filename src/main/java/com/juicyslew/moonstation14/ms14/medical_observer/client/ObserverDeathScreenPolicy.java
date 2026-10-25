@@ -38,3 +38,4 @@ public final class ObserverDeathScreenPolicy {
         return MobStateSystem.isDead(player) || player.getHealth() <= 0;
     }
 }
+

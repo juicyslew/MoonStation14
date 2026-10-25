@@ -61,3 +61,4 @@ public record AirAlarmControlSnapshot(int containerId, UUID session, long reques
     }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

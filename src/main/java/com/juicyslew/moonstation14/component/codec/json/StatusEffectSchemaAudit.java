@@ -133,3 +133,4 @@ public final class StatusEffectSchemaAudit {
         throw new IllegalArgumentException("Status effect schema at " + path + ": " + message);
     }
 }
+

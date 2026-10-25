@@ -46,3 +46,4 @@ public record WelderFuelData(double fuel, boolean lit, long lastBurnTick) {
         return new WelderFuelData(nextFuel, nextFuel > 0, nextFuel > 0 ? now : -1);
     }
 }
+

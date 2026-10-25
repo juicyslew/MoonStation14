@@ -40,3 +40,4 @@ public record BreathExchange(GasMixture inhaled, GasMixture roomAfter) {
         }
     }
 }
+

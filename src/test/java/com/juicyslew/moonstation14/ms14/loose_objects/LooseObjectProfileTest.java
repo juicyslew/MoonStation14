@@ -31,6 +31,7 @@ class LooseObjectProfileTest {
         LooseObjectProfile jug = decode(resolved.get(ModLooseObjectProfiles.JUG_ID));
         LooseObjectProfile grenade = decode(resolved.get(ModLooseObjectProfiles.GRENADE_ID));
         LooseObjectProfile blockModel = decode(resolved.get(LooseObjectProfile.BLOCK_MODEL_ID));
+        LooseObjectProfile canister = decode(resolved.get(LooseObjectProfile.GAS_CANISTER_ID));
         assertEquals(.75f, generic.throwSpeed());
         assertEquals(generic.throwSpeed(), jug.throwSpeed());
         assertEquals(generic.throwSpeed(), grenade.throwSpeed());
@@ -61,6 +62,9 @@ class LooseObjectProfileTest {
         assertEquals("block_model", blockModel.renderKind());
         assertEquals(.65f, blockModel.physicalHeight());
         assertEquals(.65f * 0 + .325f, blockModel.modelFloorOffset());
+        assertEquals(.5f, canister.physicalWidth());
+        assertEquals(1f, canister.physicalHeight());
+        assertEquals(190f, canister.mass());
         assertEquals(blockModel.modelFloorOffset(), -.5f * blockModel.modelScale() + blockModel.modelFloorOffset() + .5f * blockModel.modelScale());
         assertNull(resolved.get(ResourceLocation.withDefaultNamespace("absent")));
         var catalog = new PrototypeCatalog<>(resolved.asMap().entrySet().stream().collect(

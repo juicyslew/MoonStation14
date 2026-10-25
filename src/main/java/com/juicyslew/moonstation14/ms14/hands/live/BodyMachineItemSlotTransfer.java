@@ -10,6 +10,7 @@ import com.juicyslew.moonstation14.ms14.hands.transfer.ItemLocationLedger;
 import com.juicyslew.moonstation14.ms14.machine.itemslots.MachineItemSlot;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import com.juicyslew.moonstation14.entities.LooseItemEntity;
 
@@ -30,6 +31,76 @@ public final class BodyMachineItemSlotTransfer {
         BooleanSupplier context = () -> valid(actor, authority, body, machineValid);
         return insertCore(body, hand, expectedToken, expectedHandRevision, slot, expectedSlotRevision,
                 expectedLedgerRevision, ledger, context, next -> LiveHandsCommitGateway.commit(actor, authority, next));
+    }
+
+    /** Exchange one occupied slot with the exact item in the body's active hand. */
+    public static Result swapActiveHand(HandActorAuthority.Snapshot authority, String expectedToken,
+            long expectedHandRevision, MachineItemSlot slot, long expectedSlotRevision,
+            long expectedLedgerRevision, ItemLocationLedger ledger, BooleanSupplier machineValid) {
+        if (authority == null || slot == null || ledger == null || machineValid == null) return Result.DENIED;
+        LivingEntity body = authority.body();
+        BooleanSupplier context = () -> valid(authority.actor(), authority, body, machineValid);
+        return swapCore(body, authority.handIds(), expectedToken, expectedHandRevision, slot, expectedSlotRevision,
+                expectedLedgerRevision, ledger, context,
+                next -> LiveHandsCommitGateway.commit(authority.actor(), authority, next));
+    }
+
+    static Result swapActiveHandOwnedForFixture(LivingEntity body, String expectedToken, long expectedHandRevision,
+            MachineItemSlot slot, long expectedSlotRevision, long expectedLedgerRevision,
+            ItemLocationLedger ledger, BooleanSupplier machineValid) {
+        return swapActiveHandOwnedForFixture(body, expectedToken, expectedHandRevision, slot, expectedSlotRevision,
+                expectedLedgerRevision, ledger, machineValid, null);
+    }
+
+    /** Trusted-core fixture seam for exercising a rejected commit; never used by a client request route. */
+    static Result swapActiveHandOwnedForFixture(LivingEntity body, String expectedToken, long expectedHandRevision,
+            MachineItemSlot slot, long expectedSlotRevision, long expectedLedgerRevision,
+            ItemLocationLedger ledger, BooleanSupplier machineValid, java.util.function.Predicate<LiveHands> commitOverride) {
+        BooleanSupplier context = () -> validOwnedBody(body, machineValid);
+        LiveHands current = body == null ? null : body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        return swapCore(body, current == null ? java.util.List.of() : current.handIds(), expectedToken,
+                expectedHandRevision, slot, expectedSlotRevision, expectedLedgerRevision, ledger, context,
+                commitOverride == null ? next -> LiveHandsCommitGateway.commitTrusted(body, current, next) : commitOverride);
+    }
+
+    private static Result swapCore(LivingEntity body, java.util.Collection<String> supportedHands, String expectedToken,
+            long expectedHandRevision, MachineItemSlot slot, long expectedSlotRevision, long expectedLedgerRevision,
+            ItemLocationLedger ledger, BooleanSupplier context, java.util.function.Predicate<LiveHands> commit) {
+        if (body == null || slot == null || ledger == null || expectedToken == null || !context.getAsBoolean()) return Result.DENIED;
+        LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (before == null || before.revision() != expectedHandRevision || !before.compatible(body)
+                || !supportedHands.contains(before.activeHand()) || before.revision() > Long.MAX_VALUE - 2) return Result.DENIED;
+        String hand = before.activeHand();
+        ItemToken incoming;
+        try { incoming = new ItemToken(expectedToken); } catch (IllegalArgumentException failure) { return Result.DENIED; }
+        var taken = before.takeWhole(expectedHandRevision, hand, incoming);
+        if (!taken.succeeded()) return Result.DENIED;
+        var held = before.stackCopy(hand).orElse(null);
+        var slotBefore = slot.snapshot();
+        if (held == null || !slot.canReplace(expectedSlotRevision, held) || slotBefore.token() == null
+                || slotBefore.revision() >= Long.MAX_VALUE - 1 || ledger.snapshot().revision() != expectedLedgerRevision)
+            return Result.DENIED;
+        ItemToken outgoing = slotBefore.token();
+        var placed = taken.state().putWhole(taken.state().revision(), hand, outgoing, slotBefore.stack());
+        if (!placed.succeeded() || !context.getAsBoolean()
+                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before) return Result.DENIED;
+        ItemLocation source = new ItemLocation.BodyHand(body.getUUID(), hand);
+        if (slot.exchange(expectedSlotRevision, expectedLedgerRevision, incoming, source, held, source).isEmpty())
+            return Result.DENIED;
+        try {
+            if (!commit.test(placed.state())) {
+                if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != placed.state())
+                    compensateSwap(slot, ledger, outgoing, incoming, source, slotBefore.stack());
+                return Result.RECOVERY_REQUIRED;
+            }
+        } catch (RuntimeException failure) {
+            if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != placed.state())
+                compensateSwap(slot, ledger, outgoing, incoming, source, slotBefore.stack());
+            return Result.RECOVERY_REQUIRED;
+        }
+        return context.getAsBoolean()
+                && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == placed.state()
+                ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
     }
 
     static Result insertOwnedForFixture(LivingEntity body, String hand, String expectedToken,
@@ -216,7 +287,19 @@ public final class BodyMachineItemSlotTransfer {
                 () -> validOwnedBody(body, machineValid));
     }
 
-    private static Result ejectWorldCore(LivingEntity body, MachineItemSlot slot,
+    /** Internal lifecycle release for a server-owned non-hand entity. Not a client authorization route. */
+    public static Result ejectToWorldOwned(Entity owner, MachineItemSlot slot, long expectedSlotRevision,
+            long expectedLedgerRevision, ItemLocationLedger ledger, BooleanSupplier ownerValid) {
+        if (owner == null || slot == null || ledger == null || ownerValid == null) return Result.DENIED;
+        return ejectWorldCore(owner, slot, expectedSlotRevision, expectedLedgerRevision, ledger, () -> {
+            if (!(owner.level() instanceof ServerLevel level) || !level.getServer().isSameThread()
+                    || owner.isRemoved() || !owner.isAddedToLevel() || level.getEntity(owner.getUUID()) != owner
+                    || !owner.getUUID().equals(slot.snapshot().owner()) || !ownerValid.getAsBoolean()) return false;
+            return true;
+        });
+    }
+
+    private static Result ejectWorldCore(Entity body, MachineItemSlot slot,
             long expectedSlotRevision, long expectedLedgerRevision, ItemLocationLedger ledger,
             BooleanSupplier context) {
         if (body == null || !(body.level() instanceof ServerLevel) || !context.getAsBoolean()) return Result.DENIED;
@@ -268,4 +351,10 @@ public final class BodyMachineItemSlotTransfer {
                                     ItemLocation source) {
         slot.insert(slot.snapshot().revision(), ledger.snapshot().revision(), payload.token(), source, payload.stack());
     }
+    private static void compensateSwap(MachineItemSlot slot, ItemLocationLedger ledger, ItemToken outgoing,
+            ItemToken incoming, ItemLocation hand, ItemStack oldSlotStack) {
+        slot.exchange(slot.snapshot().revision(), ledger.snapshot().revision(), outgoing, hand,
+                oldSlotStack, hand);
+    }
 }
+

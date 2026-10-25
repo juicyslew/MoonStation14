@@ -212,6 +212,10 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    useJUnitPlatform {
+        if (project.hasProperty('ms14NativeShaderCompile')) includeTags 'native-shader-compile'
+        else if (!project.hasProperty('ms14IncludeNativeShaderCompile')) excludeTags 'native-shader-compile'
+    }
     systemProperty 'moonstation14.projectDir', projectDir.toString()
     systemProperty 'moonstation14.gametestClasses', sourceSets.gametest.output.classesDirs.singleFile.toString()
     classpath += sourceSets.gametest.output
@@ -219,8 +223,8 @@ test {
 
 // Opt-in bounded catalog; never falls back to the complete JUnit suite.
 def readinessCatalog = [
-    ui: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaintPendingTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireScreenLayoutTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireLifecycleTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowChromeButtonsTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowGeometryControllerTest', 'com.juicyslew.moonstation14.ms14.ui.window.TitlePressRoutingTest', 'com.juicyslew.moonstation14.ms14.player_body_control.client.GameplayWindowMovementDispatchTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistryTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerWorkspaceRoutingTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerModePolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayersTest', 'com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest'],
-        interaction: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest', 'com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest', 'com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest', 'com.juicyslew.moonstation14.ms14.botany.SeedItemProfileTest', 'com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest', 'com.juicyslew.moonstation14.ms14.botany.processing.GrindingPlanTest', 'com.juicyslew.moonstation14.ms14.item_processing.ExtractableProfileTest', 'com.juicyslew.moonstation14.ms14.machine.itemslots.MachineItemSlotTest', 'com.juicyslew.moonstation14.ms14.item_processing.ExtractableMaterialSourceTest', 'com.juicyslew.moonstation14.ms14.item_processing.FixedCropOutputCompositionTest', 'com.juicyslew.moonstation14.ms14.item_processing.HeldItemConversionTest', 'com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest', 'com.juicyslew.moonstation14.ms14.prototype.BotanyProductIdentityTest', 'com.juicyslew.moonstation14.ms14.prototype.CocoaConversionCatalogCandidateTest', 'com.juicyslew.moonstation14.ms14.prototype.EggplantProductCatalogCandidateTest', 'com.juicyslew.moonstation14.ms14.prototype.AmbrosiaProductCatalogCandidateTest', 'com.juicyslew.moonstation14.ms14.prototype.SeedItemSourceParityTest', 'com.juicyslew.moonstation14.ms14.prototype.SeedItemCatalogCandidateTest', 'com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.FruitPitProductCatalogCandidateTest', 'com.juicyslew.moonstation14.ms14.prototype.BluePumpkinProductCatalogCandidateTest', 'com.juicyslew.moonstation14.ms14.prototype.ExtradimensionalOrangeProductCatalogCandidateTest', 'com.juicyslew.moonstation14.ms14.equipment.EquipmentArmorSystemTest', 'com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest', 'com.juicyslew.moonstation14.ms14.prototype.MelonProductCatalogCandidateTest', 'com.juicyslew.moonstation14.ms14.prototype.MelonHeadwearCatalogCandidateTest', 'com.juicyslew.moonstation14.ms14.item_processing.MelonProcessingCatalogCandidateTest', 'com.juicyslew.moonstation14.ms14.prototype.PumpkinProductCatalogCandidateTest'],
+    ui: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaintPendingTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireScreenLayoutTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireLifecycleTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowChromeButtonsTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowGeometryControllerTest', 'com.juicyslew.moonstation14.ms14.ui.window.TitlePressRoutingTest', 'com.juicyslew.moonstation14.ms14.player_body_control.client.GameplayWindowMovementDispatchTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistryTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerWorkspaceRoutingTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerModePolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayersTest', 'com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest'],
+    interaction: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.chat.server.EmoteCommandTest', 'com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfileTest', 'com.juicyslew.moonstation14.ms14.singularity.beacon.SingularityBeaconProfileTest'],
     prediction: ['com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionPacketScheduleTest', 'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest'],
     preview: ['com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest']
 ]
@@ -296,11 +300,9 @@ readinessCatalog.prediction.addAll([
     'com.juicyslew.moonstation14.ms14.combat.MeleePredictionAdmissionTest',
     'com.juicyslew.moonstation14.ms14.hands.network.BodyHandSnapshotClockTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeAttackClientPolicyTest',
-    'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest',
     'com.juicyslew.moonstation14.ms14.combat.ClientDisarmAdmissionTest',
     'com.juicyslew.moonstation14.ms14.combat.client.MeleeArcClientPolicyTest',
-    'com.juicyslew.moonstation14.ms14.combat.MeleeArcPayloadTest',
-    'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest'
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcPayloadTest'
 ])
 readinessCatalog.ui.addAll([
     'com.juicyslew.moonstation14.ms14.combat.MeleeArcTimelineTest',
@@ -309,6 +311,35 @@ readinessCatalog.ui.addAll([
     'com.juicyslew.moonstation14.ms14.combat.CombatModeHudPolicyTest'
 ])
 readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRendererAlphaTest')
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest',
+    'com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest',
+    'com.juicyslew.moonstation14.ms14.botany.SeedItemProfileTest',
+    'com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest',
+    'com.juicyslew.moonstation14.ms14.botany.processing.GrindingPlanTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.ExtractableProfileTest',
+    'com.juicyslew.moonstation14.ms14.machine.itemslots.MachineItemSlotTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.ExtractableMaterialSourceTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.FixedCropOutputCompositionTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.HeldItemConversionTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BotanyProductIdentityTest',
+    'com.juicyslew.moonstation14.ms14.prototype.CocoaConversionCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.EggplantProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.AmbrosiaProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.SeedItemSourceParityTest',
+    'com.juicyslew.moonstation14.ms14.prototype.SeedItemCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfileTest',
+    'com.juicyslew.moonstation14.ms14.prototype.FruitPitProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BluePumpkinProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.ExtradimensionalOrangeProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentArmorSystemTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.prototype.MelonProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.MelonHeadwearCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.MelonProcessingCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.PumpkinProductCatalogCandidateTest'
+])
 if (project.hasProperty('ms14Readiness')) {
     def rawSelection = project.property('ms14Readiness').toString()
     def selected = rawSelection.split(',', -1).collect { it.trim() }
@@ -502,16 +533,15 @@ Per-invocation report. This task clears its own XML result directory before exec
     }
 }
 
-if (project.hasProperty('ms14GameTestTags')) {
-    def gameTestTagPreflight = tasks.register('gameTestTagPreflight', JavaExec) {
-        dependsOn tasks.named('compileGametestJava')
-        classpath = sourceSets.gametest.runtimeClasspath
-        mainClass = 'com.juicyslew.moonstation14.gametest.support.GameTestTagPreflight'
-        args sourceSets.gametest.output.classesDirs.singleFile.absolutePath, project.property('ms14GameTestTags').toString()
-    }
-    tasks.named('runGameTestServer').configure {
-        dependsOn gameTestTagPreflight
-    }
+def gameTestTagPreflight = tasks.register('gameTestTagPreflight', JavaExec) {
+    dependsOn tasks.named('compileGametestJava')
+    classpath = sourceSets.gametest.runtimeClasspath
+    mainClass = 'com.juicyslew.moonstation14.gametest.support.GameTestTagPreflight'
+    args sourceSets.gametest.output.classesDirs.singleFile.absolutePath
+    if (project.hasProperty('ms14GameTestTags')) args project.property('ms14GameTestTags').toString()
+}
+tasks.named('runGameTestServer').configure {
+    dependsOn gameTestTagPreflight
 }
 
 neoForge {

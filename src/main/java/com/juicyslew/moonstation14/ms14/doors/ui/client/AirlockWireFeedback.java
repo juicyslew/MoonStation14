@@ -19,3 +19,4 @@ public final class AirlockWireFeedback {
         return operation == AirlockWireRequest.Operation.QUERY ? current : null;
     }
 }
+

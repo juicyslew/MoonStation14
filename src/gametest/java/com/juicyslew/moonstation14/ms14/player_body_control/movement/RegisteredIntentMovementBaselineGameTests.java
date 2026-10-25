@@ -47,8 +47,7 @@ public final class RegisteredIntentMovementBaselineGameTests {
                     active.body().setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
                     var start = active.body().position();
                     active.body().tick();
-                    LifecycleCharacterSessionControl.onPayload(new GhostControlPayloads.Intent(
-                            active.epoch(), 1, (short) 0, (short) 1000, (byte) 0, 0, 0f, 0f), fixture.player());
+                    submitMovementStream(helper, fixture, active, 0, 8);
                     helper.runAfterDelay(8, () -> {
                         try {
                             if (active.body().position().distanceToSqr(start) < .01)
@@ -129,7 +128,7 @@ public final class RegisteredIntentMovementBaselineGameTests {
                         && component.getAsJsonObject().get("type").getAsString().equals("NoSlip")) hasNoSlip = true;
                 if (!hasNoSlip) components.add(com.google.gson.JsonParser.parseString("{\"type\":\"NoSlip\"}"));
                 if (protectedFromStepTriggers) components.add(com.google.gson.JsonParser.parseString(
-                        "{\"type\":\"ProtectedFromStepTriggers\",\"profile\":{\"slot_flags\":[]}}"));
+                        "{\"type\":\"ProtectedFromStepTriggers\"}"));
                 candidate.put(humanId, com.juicyslew.moonstation14.component.codec.json.CharacterData.CODEC
                         .parse(com.mojang.serialization.JsonOps.INSTANCE, json).getOrThrow());
                 manager.publishDecoded(characterType, candidate);
@@ -139,10 +138,10 @@ public final class RegisteredIntentMovementBaselineGameTests {
             var profiles = new java.util.HashMap<>(old);
             var genericId = com.juicyslew.moonstation14.ms14.loose_objects.ModLooseObjectProfiles.GENERIC_ID;
             var generic = profiles.get(genericId);
-            var encoded = com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile.CODEC.encodeStart(
-                    net.minecraft.nbt.NbtOps.INSTANCE, generic).getOrThrow();
-            var json = net.minecraft.nbt.NbtOps.INSTANCE.convertTo(com.mojang.serialization.JsonOps.INSTANCE, encoded).getAsJsonObject();
-            json.add("step_trigger", com.google.gson.JsonParser.parseString("{\"active\":true,\"intersection_ratio\":0.2,\"required_speed\":0.1,\"ignore_weightless\":false,\"preventable_step_trigger\":true}"));
+            var json = com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile.CODEC.encodeStart(
+                    com.mojang.serialization.JsonOps.INSTANCE, generic).getOrThrow().getAsJsonObject();
+            json.add("step_trigger", com.google.gson.JsonParser.parseString("{\"active\":true,\"intersection_ratio\":0.2,\"required_speed\":0.1,\"ignore_weightless\":false}"));
+            json.addProperty("preventable_step_trigger", true);
             json.add("step_damage", com.google.gson.JsonParser.parseString("{\"damage\":{\"piercing\":4.5},\"delete_source\":true}"));
             json.add("slippery", com.google.gson.JsonParser.parseString("{\"stun_seconds\":2.0,\"knockdown_seconds\":2.0,\"launch_velocity_multiplier\":1.0,\"friction_factor\":0.5,\"friction_duration_seconds\":1.0,\"stamina_damage\":10.0}"));
             json.addProperty("physical_width", .8f); json.addProperty("physical_height", .1f);
@@ -178,7 +177,7 @@ public final class RegisteredIntentMovementBaselineGameTests {
                         helper.runAfterDelay(1, observe[0]);
                     };
                     observe[0].run();
-                    LifecycleCharacterSessionControl.onPayload(new GhostControlPayloads.Intent(active.epoch(), 1, (short)0, (short)1000, (byte)0, 0, 0f, 0f), fixture.player());
+                    submitMovementStream(helper, fixture, active, 0, 8);
                     helper.runAfterDelay(8, () -> {
                         var current = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get());
                         float after = current == null ? 0f : current.getMap().getOrDefault("piercing", 0f);
@@ -186,7 +185,7 @@ public final class RegisteredIntentMovementBaselineGameTests {
                         boolean protectedCase = protectedFromStepTriggers;
                         boolean protectionPolicy = !protectedCase || com.juicyslew.moonstation14.ms14.equipment.EquipmentStepTriggerProtectionPolicy.protects(body);
                         if (body.position().distanceToSqr(start) < .01 || !observedContact.get() || !protectionPolicy
-                                || (protectedCase ? source.isAlive() || Math.abs(after-before) > .011f : !source.isAlive() || Math.abs((after-before)-4.5f) > .011f)
+                                || (protectedCase ? !source.isAlive() || Math.abs(after-before) > .011f : source.isAlive() || Math.abs((after-before)-4.5f) > .011f)
                                 || ((noSlip || protectedCase) && ((stamina != null && stamina.state().damage() != 0f)
                                 || com.juicyslew.moonstation14.ms14.standing.PostureSystem.isDown(body))))
                             throw new GameTestAssertException("intent step damage failed: moved="+body.position().distanceToSqr(start)+" sourceAlive="+source.isAlive()+" delta="+(after-before));
@@ -195,5 +194,17 @@ public final class RegisteredIntentMovementBaselineGameTests {
                 } catch (RuntimeException | Error failure) { cleanup.run(); throw failure; }
             });
         } catch (RuntimeException | Error failure) { cleanup.run(); throw failure; }
+    }
+
+    /** Keep the ordinary registered-player input path fed at one fresh sequence per server tick. */
+    private static void submitMovementStream(GameTestHelper helper, RegisteredServerPlayerFixture fixture,
+                                             RegisteredPlayerReadyDriver.Active active, int frame, int frames) {
+        if (frame >= frames) return;
+        helper.runAfterDelay(frame == 0 ? 0 : 1, () -> {
+            RegisteredPlayerReadyDriver.submitAcceptedIntent(fixture, new GhostControlPayloads.Intent(
+                    active.epoch(), frame + 1L, (short) 0, (short) 1000, (byte) 0, 0,
+                    active.body().getYRot(), active.body().getXRot()));
+            if (frame + 1 < frames) submitMovementStream(helper, fixture, active, frame + 1, frames);
+        });
     }
 }

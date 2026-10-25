@@ -101,3 +101,4 @@ public final class ToolQualities {
         return profile.prying() == null ? 0 : profile.prying().speedModifier();
     }
 }
+

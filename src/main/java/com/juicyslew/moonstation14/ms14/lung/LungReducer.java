@@ -31,3 +31,4 @@ public final class LungReducer {
 
     public record Result(GasMixture exhaled, double saturation, double consumedOxygen) {}
 }
+

@@ -12,6 +12,7 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /** Point-in-time action availability plus the exact query proof echoed for client correlation. */
 public record BodyTargetActionSnapshot(long bodyEpoch, long sequence, long expectedRevision,
@@ -32,6 +33,12 @@ public record BodyTargetActionSnapshot(long bodyEpoch, long sequence, long expec
         }
     }
     public static final Type<BodyTargetActionSnapshot> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("moonstation14", "body_target_action_snapshot"));
+    private static volatile Consumer<BodyTargetActionSnapshot> clientHandler;
+    public static void setClientHandler(Consumer<BodyTargetActionSnapshot> handler) { clientHandler = handler; }
+    static void deliverClient(BodyTargetActionSnapshot snapshot) {
+        var handler = clientHandler;
+        if (handler != null) handler.accept(snapshot);
+    }
     public static final StreamCodec<RegistryFriendlyByteBuf, BodyTargetActionSnapshot> STREAM_CODEC = StreamCodec.of(
             (buf, value) -> {
                 buf.writeVarLong(value.bodyEpoch()); buf.writeVarLong(value.sequence()); buf.writeVarLong(value.expectedRevision());

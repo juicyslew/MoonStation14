@@ -1,0 +1,279 @@
+{
+  "task_id": "task_review_e6fdd02d4294d530dff35982",
+  "run_id": "run_c479a47eeb2f48af7106f507",
+  "evaluation_generation": 1,
+  "assignment_generation": 1,
+  "input_digest": "cf3da29d5739efb62c2914b7a35e40f2d833beacb9c53723303609a9f396f1f7",
+  "source_worktree": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpj_bnn4p2\\repo",
+  "assignment_body_sha256": "496d52e2e85bcb8373975819cd676a4a3ef0fcec6c2ff5fb13154af43d1ff99a",
+  "review_scope": {
+    "role": "implementation",
+    "objective": "Assess implementation against agreed evidence.",
+    "feature_label": "Example",
+    "manual_steps": [
+      "Run the manual scenario."
+    ],
+    "criteria": [
+      {
+        "criterion_id": "c1",
+        "evidence_refs": [
+          "artifact_evidence_27c559034cc1"
+        ],
+        "status": "COMPLETE"
+      }
+    ]
+  },
+  "assignment_artifact_refs": [
+    "artifact_evidence_27c559034cc1",
+    "artifact_task_c479a47eeb2f48af7106f507_receipt_cb0c28dbaa736b89928b"
+  ],
+  "instruction": "Return the canonical review_result JSON. inspected_refs must cite original assignment refs. FAIL findings require required_change.",
+  "review_contract": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$ref": "#/$defs/review_result",
+    "$defs": {
+      "digest": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "finding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "criterion_id",
+          "category",
+          "message",
+          "location",
+          "evidence_refs"
+        ],
+        "properties": {
+          "criterion_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "enum": [
+              "IMPLEMENTATION",
+              "PARITY_COMPOSITION",
+              "COVERAGE",
+              "FIDELITY"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "required_change": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "generation": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "ref": {
+        "type": "string",
+        "minLength": 1
+      },
+      "review_result": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contract_version",
+          "task_id",
+          "run_id",
+          "evaluation_generation",
+          "assignment_generation",
+          "input_digest",
+          "decision",
+          "findings",
+          "inspected_refs"
+        ],
+        "properties": {
+          "contract_version": {
+            "const": 1
+          },
+          "task_id": {
+            "type": "string",
+            "pattern": "^task_.+"
+          },
+          "run_id": {
+            "type": "string",
+            "pattern": "^run_.+"
+          },
+          "evaluation_generation": {
+            "$ref": "#/$defs/generation"
+          },
+          "assignment_generation": {
+            "$ref": "#/$defs/generation"
+          },
+          "input_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "decision": {
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/finding"
+            }
+          },
+          "inspected_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "decision": {
+                  "const": "FAIL"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "findings": {
+                  "minItems": 1,
+                  "items": {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/finding"
+                      },
+                      {
+                        "required": [
+                          "required_change"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "decision": {
+                  "const": "PASS"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "findings": {
+                  "minItems": 1,
+                  "items": {
+                    "not": {
+                      "required": [
+                        "required_change"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "allowed_categories": [
+    "COVERAGE",
+    "FIDELITY",
+    "IMPLEMENTATION",
+    "PARITY_COMPOSITION"
+  ],
+  "evidence": [
+    {
+      "metadata": {
+        "artifact_id": "artifact_evidence_27c559034cc1",
+        "sha256": "ee8250fb76e094b34b471f13a73dbbe51d1ae142e9df59d7c0d31ec20f0a0a8e",
+        "size_bytes": 8,
+        "source_pointer": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpj_bnn4p2\\artifacts\\submit_cdda4c21cf29118a44e72f28\\ee8250fb76e094b34b471f13a73dbbe51d1ae142e9df59d7c0d31ec20f0a0a8e\\evidence.txt"
+      },
+      "verified_locator": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpj_bnn4p2\\artifacts\\submit_cdda4c21cf29118a44e72f28\\ee8250fb76e094b34b471f13a73dbbe51d1ae142e9df59d7c0d31ec20f0a0a8e\\evidence.txt",
+      "content_embedded": false
+    },
+    {
+      "metadata": {
+        "artifact_id": "artifact_task_c479a47eeb2f48af7106f507_receipt_cb0c28dbaa736b89928b",
+        "sha256": "cb0c28dbaa736b89928bf773355724c79c23a3cc69cc7cd0a72e9287675ed8ba",
+        "size_bytes": 1748,
+        "source_pointer": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpj_bnn4p2\\artifacts\\immutable\\task_c479a47eeb2f48af7106f507\\cb0c28dbaa736b89928bf773355724c79c23a3cc69cc7cd0a72e9287675ed8ba-check-receipt.json"
+      },
+      "checks": {
+        "checks": [
+          {
+            "argv": [
+              "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\MoonStation14-shared\\.venv-workflow-coordinator\\Scripts\\python.exe",
+              "C:\\Users\\William\\AppData\\Local\\Temp\\tmpj_bnn4p2\\repo\\producer.py"
+            ],
+            "controlled_stop": false,
+            "covers": [
+              "c1"
+            ],
+            "evidence": {
+              "artifacts": [
+                {
+                  "artifact_ref": "artifact_task_c479a47eeb2f48af7106f507_build_15bfe593831695f329ca",
+                  "changed_this_run": true,
+                  "path": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpj_bnn4p2\\artifacts\\immutable\\task_c479a47eeb2f48af7106f507\\build-d74ff0ee8da3b9806b18c877dbf29bbde50b5bd8e4dad7a3a725000feb82e8f1",
+                  "preexisting": false,
+                  "sha256": "d74ff0ee8da3b9806b18c877dbf29bbde50b5bd8e4dad7a3a725000feb82e8f1",
+                  "size": 4,
+                  "source_path": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpj_bnn4p2\\repo\\build\\output.zip"
+                }
+              ],
+              "counts": {
+                "errors": null,
+                "failed": null,
+                "passed": null,
+                "selected": null,
+                "skipped": null,
+                "tests": null,
+                "total": null
+              },
+              "findings": [],
+              "selection": "unknown",
+              "status": "PASS"
+            },
+            "exit_code": 0,
+            "kind": "build",
+            "log": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpj_bnn4p2\\artifacts\\immutable\\task_c479a47eeb2f48af7106f507\\log-cfbe058b2657b2ef2d4560759007fb5df05eeed85842f4bcfcd597026b10f886",
+            "log_sha256": "cfbe058b2657b2ef2d4560759007fb5df05eeed85842f4bcfcd597026b10f886",
+            "rationale": "fixture",
+            "source_log": "C:\\Users\\William\\AppData\\Local\\Temp\\tmpj_bnn4p2\\artifacts\\task_c479a47eeb2f48af7106f507\\logs\\1.log",
+            "tree_cleanup": "not_needed"
+          }
+        ],
+        "input_digest": "cf3da29d5739efb62c2914b7a35e40f2d833beacb9c53723303609a9f396f1f7",
+        "plan_digest": "1072c1b912f36ab49c02a6a479d4ace9fedd1bbdb162b6d95c69f292b5802e01",
+        "policy_digest": "0311fc61b2d98790be268127fd72748c3bb349626b29e6710fd80a8c6cc21fe3",
+        "run_id": "run_c479a47eeb2f48af7106f507",
+        "task_id": "task_c479a47eeb2f48af7106f507"
+      }
+    }
+  ]
+}

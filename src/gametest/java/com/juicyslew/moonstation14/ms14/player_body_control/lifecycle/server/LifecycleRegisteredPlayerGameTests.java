@@ -41,6 +41,600 @@ public final class LifecycleRegisteredPlayerGameTests {
         });
     }
 
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    @GameTestTags({"observer", "lifecycle"})
+    public static void registeredLifecycleDeathGhostReviveAndReturn(GameTestHelper helper) {
+        RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(
+                helper.getLevel(), "lifecycle-return");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                require(active.body() instanceof com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity,
+                        "normal registered login owns the persistent character body");
+                var body = (com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity) active.body();
+                var player = fixture.player();
+                var bodyId = body.getUUID();
+                body.setHealth(0);
+                body.die(helper.getLevel().damageSources().generic());
+                require(body.hasConfirmedDeath() && !body.isAlive(), "native character death is confirmed without removing corpse");
+                var corpse = com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.query(player);
+                require(corpse != null && corpse.mode() == com.juicyslew.moonstation14.ms14.medical_observer.ObserverSession.Mode.CORPSE
+                                && corpse.corpseBodyId().equals(bodyId), "production death claim begins linked corpse observer session");
+                dispatchObserver(fixture, com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Request.Kind.GHOST, corpse.epoch());
+                var ghost = com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.query(player);
+                require(ghost != null && ghost.mode() == com.juicyslew.moonstation14.ms14.medical_observer.ObserverSession.Mode.GHOST,
+                        "production request dispatch stages linked ghost");
+                var ghostBegin = takeLifecycleBegin(fixture, com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.GHOST);
+                require(ghostBegin != null, "ghost staging emitted canonical GHOST Begin");
+                RegisteredPlayerReadyDriver.readyGhost(fixture, ghostBegin);
+                require(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleGhostSessionControl
+                                .canonicalGhost(player).isPresent(), "production GHOST Ready commits native ghost ownership");
+                int revived;
+                try { revived = helper.getLevel().getServer().getCommands().getDispatcher()
+                        .execute("ms14 revive", player.createCommandSourceStack().withPermission(4)); }
+                catch (com.mojang.brigadier.exceptions.CommandSyntaxException failure) {
+                    throw new GameTestAssertException("registered /ms14 revive failed: " + failure.getMessage());
+                }
+                require(revived == 1 && helper.getLevel().getEntity(bodyId) == body && body.isAlive(),
+                        "operator revive restores exact retained body");
+                var session = com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.query(player);
+                require(session != null && session.mode() == com.juicyslew.moonstation14.ms14.medical_observer.ObserverSession.Mode.GHOST,
+                        "revive retains ghost until explicit return request");
+                com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.sendSnapshot(player, true);
+                com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Snapshot snapshot = null;
+                Object outbound;
+                while ((outbound = fixture.pollOutbound()) != null)
+                    if (outbound instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket packet
+                            && packet.payload() instanceof com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Snapshot captured) snapshot = captured;
+                require(snapshot != null && snapshot.returnAvailable() && snapshot.mode()
+                                == com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Mode.GHOST,
+                        "production observer snapshot marks revived linked body returnable");
+                long staleEpoch = Math.max(0, snapshot.epoch() - 1);
+                require(staleEpoch != snapshot.epoch(), "ghost observer epoch advances beyond initial corpse epoch");
+                dispatchObserver(fixture, com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Request.Kind.RETURN,
+                        staleEpoch);
+                require(com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.query(player) == session,
+                        "stale production RETURN payload leaves ghost owner unchanged");
+                dispatchObserver(fixture, com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Request.Kind.RETURN,
+                        snapshot.epoch());
+                require(com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.query(player) == null,
+                        "production RETURN payload retires observer claim");
+                com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.sendSnapshot(player, true);
+                var transition = new ObserverReturnTransition();
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.await(helper, 80,
+                        () -> {
+                            fixture.close();
+                            return "return transition timed out; characterBegin=" + (transition.characterBegin != null)
+                                    + " END=" + transition.ended + " registered=" + fixture.isRegisteredAndAlive()
+                                    + " active=" + LifecycleCharacterSessionControl.activeCharacterBody(player).isPresent()
+                                    + " body=" + body.getUUID();
+                        }, () -> {
+                            Object next;
+                            while ((next = fixture.pollOutbound()) != null)
+                                if (next instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket packet) {
+                                    if (packet.payload() instanceof com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Snapshot endedSnapshot
+                                            && endedSnapshot.mode() == com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Mode.END)
+                                        transition.ended = true;
+                                    if (packet.payload() instanceof com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Begin begin
+                                            && begin.harnessKind() == com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER)
+                                        transition.characterBegin = begin;
+                                }
+                            return transition.ended && transition.characterBegin != null;
+                        }, () -> {
+                            try {
+                                var returned = RegisteredPlayerReadyDriver.readyAndQuery(fixture, transition.characterBegin);
+                                require(returned.body() == body && returned.body().getUUID().equals(bodyId),
+                                        "canonical character Ready after return controls original exact body");
+                                helper.succeed();
+                            } finally { fixture.close(); }
+                        });
+            } catch (RuntimeException | Error failure) {
+                fixture.close();
+                throw failure;
+            }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @GameTestTags("body-input-cadence")
+    public static void sameTickIntentBurstFoldsToHeldStateUntilExplicitRelease(GameTestHelper helper) {
+        RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "input-cadence");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+                var startX = body.getX();
+                while (fixture.pollOutbound() != null) { }
+                var first = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                        active.epoch(), 1, (short) 0, (short) 0, (byte) 0, 0, body.getYRot(), body.getXRot());
+                var second = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                        active.epoch(), 2, (short) 1000, (short) 0, (byte) 0, 0, body.getYRot(), body.getXRot());
+                RegisteredPlayerReadyDriver.admitIntent(fixture, first);
+                RegisteredPlayerReadyDriver.admitIntent(fixture, second);
+                long burstInputTick = level.getGameTime();
+                helper.runAfterDelay(1, () -> {
+                    try {
+                        long phaseTick = level.getGameTime();
+                        if (phaseTick <= burstInputTick) throw new GameTestAssertException("burst phase did not advance tick: " + phaseTick);
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        var firstSnapshot = latestSnapshot(fixture, active.epoch(), body.getId());
+                        if (firstSnapshot == null || firstSnapshot.acknowledgedAppliedSequence() != 2
+                                || firstSnapshot.heldControlState().wishX() != 1000 || body.getX() <= startX)
+                            throw new GameTestAssertException("burst snapshot=" + (firstSnapshot != null)
+                                    + " ack=" + (firstSnapshot == null ? "none" : firstSnapshot.acknowledgedAppliedSequence())
+                                    + " heldX=" + (firstSnapshot == null ? "none" : firstSnapshot.heldControlState().wishX())
+                                    + " inputTick=" + burstInputTick + " now=" + level.getGameTime()
+                                    + " x=" + body.getX() + " startX=" + startX);
+                        double firstX = body.getX();
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        if (body.getX() != firstX) throw new GameTestAssertException("second frame consumed twice in same world tick");
+                        continueHeldBurst(helper, fixture, active, body, level, firstX, phaseTick);
+                    } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                });
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 60)
+    @GameTestTags({"gravity-air-steering", "body-input-cadence", "jump-regression"})
+    public static void registeredCharacterRetainsForwardMomentumAndSteersInAir(GameTestHelper helper) {
+        RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "gravity-air-steering");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                admitSteeringIntent(fixture, active, 1, 0, 0, 0, body);
+                helper.runAfterDelay(1, () -> settleForAirSteering(helper, fixture, active, 15, 0));
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    private static void settleForAirSteering(GameTestHelper helper, RegisteredServerPlayerFixture fixture,
+            RegisteredPlayerReadyDriver.Active active, int remaining, int steps) {
+        var body = active.body();
+        try {
+            var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+            RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+            if (!body.onGround() && remaining > 1) {
+                helper.runAfterDelay(1, () -> settleForAirSteering(helper, fixture, active, remaining - 1, steps + 1));
+                return;
+            }
+            var settled = latestSnapshot(fixture, active.epoch(), body.getId());
+            require(body.onGround(), "registered character reached ordinary supported fixture floor: position="
+                    + body.position() + " velocity=" + body.getDeltaMovement() + " onGround=" + body.onGround()
+                    + " settleSteps=" + (steps + 1) + " ack=" + (settled == null ? "none" : settled.acknowledgedAppliedSequence())
+                    + " heldSeq=" + (settled == null ? "none" : settled.acknowledgedAppliedSequence())
+                    + " worldTick=" + level.getGameTime());
+            while (fixture.pollOutbound() != null) { }
+            admitSteeringIntent(fixture, active, 2, 0, 1000,
+                    com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.BUTTON_SPRINT, body);
+            warmForwardForSteering(helper, fixture, active, 3);
+        } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+    }
+
+    private static void warmForwardForSteering(GameTestHelper helper, RegisteredServerPlayerFixture fixture,
+            RegisteredPlayerReadyDriver.Active active, int remaining) {
+        helper.runAfterDelay(1, () -> {
+            try {
+                var body = active.body();
+                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                if (remaining > 1) { warmForwardForSteering(helper, fixture, active, remaining - 1); return; }
+                var groundedVelocity = body.getDeltaMovement();
+                require(body.onGround() && groundedVelocity.z > 0, "forward sprint reached grounded target before jumping: " + groundedVelocity);
+                admitSteeringIntent(fixture, active, 3, 0, 1000,
+                        com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.BUTTON_SPRINT
+                                | com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.BUTTON_JUMP, body);
+                helper.runAfterDelay(1, () -> {
+                    try {
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        var airborneVelocity = body.getDeltaMovement();
+                require(!body.onGround() && airborneVelocity.y > 0, "sequence 3 jump produced an airborne body: " + airborneVelocity);
+                        require(airborneVelocity.z > 0, "jump began with forward momentum: " + airborneVelocity);
+                        var preSteerPosition = body.position();
+                admitSteeringIntent(fixture, active, 4, 1000, 0,
+                        com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.BUTTON_SPRINT, body);
+                        helper.runAfterDelay(1, () -> {
+                            try {
+                                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                var steered = body.getDeltaMovement();
+                                var snapshot = latestSnapshot(fixture, active.epoch(), body.getId());
+                                require(!body.onGround() && steered.x > 0 && body.getX() > preSteerPosition.x,
+                                         "sequence 4 side wish caused first airborne lateral response/displacement: " + steered);
+                                require(steered.z > 0 && steered.z < airborneVelocity.z,
+                                        "air steering preserves but damps forward carry: before=" + airborneVelocity + " after=" + steered);
+                                require(snapshot != null && snapshot.acknowledgedAppliedSequence() == 4
+                                                && snapshot.heldControlState().wishX() == 1000 && snapshot.heldControlState().wishZ() == 0,
+                                        "actual public lifecycle owner snapshot confirms sequence 4 side wish");
+                                var after = body.position();
+                                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                require(body.position().equals(after), "same-world-tick owner reentry does not step physics twice");
+                                fixture.close(); helper.succeed();
+                            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                        });
+                    } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                });
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    private static void admitSteeringIntent(RegisteredServerPlayerFixture fixture, RegisteredPlayerReadyDriver.Active active,
+            long sequence, int wishX, int wishZ, int buttons, net.minecraft.world.entity.LivingEntity body) {
+        RegisteredPlayerReadyDriver.admitIntent(fixture, new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                active.epoch(), sequence, ((net.minecraft.server.level.ServerLevel) body.level()).getGameTime() + 1,
+                (short) wishX, (short) wishZ, (byte) 0, buttons, body.getYRot(), body.getXRot()));
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @GameTestTags({"body-input-cadence", "lifecycle"})
+    public static void coldReadyWithoutInputKeepsRegisteredPlayerActive(GameTestHelper helper) {
+        RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "cold-ready-input");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+                var body = active.body();
+                while (fixture.pollOutbound() != null) { }
+                long readyTick = level.getGameTime();
+                helper.runAfterDelay(1, () -> {
+                    try {
+                        if (level.getGameTime() <= readyTick) throw new GameTestAssertException("no-input tick did not advance");
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        var idle = latestSnapshot(fixture, active.epoch(), body.getId());
+                        require(idle != null && idle.acknowledgedAppliedSequence() == 0
+                                        && idle.heldControlState().equals(com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlState.neutral())
+                                        && idle.serverGameTick() == level.getGameTime(),
+                                "cold no-input snapshot must bootstrap clock with neutral state and ACK0");
+                        require(LifecycleCharacterSessionControl.activeCharacterBody(fixture.player()).isPresent()
+                                        && fixture.player().connection.isAcceptingMessages(),
+                                "no-input tick retains registered active session and connection");
+                        long idleTick = level.getGameTime();
+                        helper.runAfterDelay(1, () -> {
+                            try {
+                                if (level.getGameTime() <= idleTick) throw new GameTestAssertException("second no-input tick did not advance");
+                                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                var stillIdle = latestSnapshot(fixture, active.epoch(), body.getId());
+                                require(stillIdle != null && stillIdle.acknowledgedAppliedSequence() == 0,
+                                        "second no-input tick remains connected without fabricated ACK");
+                                var input = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                                        active.epoch(), 1, (short) 1000, (short) 0, (byte) 0, 0, body.getYRot(), body.getXRot());
+                                RegisteredPlayerReadyDriver.admitIntent(fixture, input);
+                                helper.runAfterDelay(1, () -> {
+                                    try {
+                                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                        var applied = latestSnapshot(fixture, active.epoch(), body.getId());
+                                        require(applied != null && applied.acknowledgedAppliedSequence() == 1
+                                                        && applied.heldControlState().wishX() == 1000,
+                                                "first real sequence 1 input is applied and acknowledged");
+                                        fixture.close(); helper.succeed();
+                                    } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                                });
+                            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                        });
+                    } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                });
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @GameTestTags({"body-input-cadence", "lifecycle"})
+    public static void enabledMovementTraceObservesRegisteredServerGlue(GameTestHelper helper) {
+        var fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "trace-server-glue");
+        helper.runAtTickTime(2, () -> {
+            try {
+                require(com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession.activeContext() == null,
+                        "fresh fixture must not inherit a foreign movement trace");
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+                var context = new com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceRecorder.Context(
+                        active.epoch(), body.getId(), body.getUUID(), level.dimension().location().toString(),
+                        com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER.name());
+                require(com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession
+                        .start(context, System.nanoTime(), 10), "fixture starts its own bounded movement trace");
+                while (fixture.pollOutbound() != null) { }
+                long idleTick = level.getGameTime();
+                helper.runAfterDelay(1, () -> {
+                    try {
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        var idle = latestSnapshot(fixture, active.epoch(), body.getId());
+                        require(idle != null && idle.acknowledgedAppliedSequence() == 0 && level.getGameTime() > idleTick,
+                                "registered no-input tick emits ACK0 snapshot on later world tick");
+                        var input = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                                active.epoch(), 1, (short) 1000, (short) 0, (byte) 0, 0, body.getYRot(), body.getXRot());
+                        RegisteredPlayerReadyDriver.admitIntent(fixture, input);
+                        helper.runAfterDelay(1, () -> {
+                            try {
+                                long stepTick = level.getGameTime();
+                                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                double x = body.getX();
+                                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                                require(body.getX() == x, "manual duplicate tick guard does not apply a second step");
+                                var snapshot = latestSnapshot(fixture, active.epoch(), body.getId());
+                                require(snapshot != null && snapshot.acknowledgedAppliedSequence() == 1,
+                                        "real sequence-one input acknowledged in server snapshot");
+                                var trace = com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession
+                                        .stop("fixtureComplete", "server");
+                                require(com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession
+                                        .activeContext() == null, "trace stopped");
+                                var same = trace.samples().stream().filter(s -> s.epoch() == active.epoch()
+                                        && s.logicalTick() == stepTick).toList();
+                                require(same.stream().anyMatch(s -> s.kind().equals("SERVER_STEP") && s.sequence() == 1),
+                                        "enabled trace observes actual sequence-one SERVER_STEP");
+                                require(same.stream().anyMatch(s -> s.kind().equals("SERVER_SNAPSHOT") && s.sequence() == 1),
+                                        "enabled trace observes post-send-invocation snapshot ACK1");
+                                require(same.stream().filter(s -> s.kind().equals("SERVER_STEP")).count() == 1,
+                                        "one physical server step at most in the world tick");
+                                require(trace.samples().stream().noneMatch(s -> s.kind().equals("SERVER_STEP") && s.sequence() == 0),
+                                        "no fabricated physical step for pre-input sequence zero");
+                                helper.succeed();
+                            } catch (RuntimeException | Error failure) {
+                                com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession
+                                        .stop("fixtureFailure", "server");
+                                throw failure;
+                            }
+                            finally { fixture.close(); }
+                        });
+                    } catch (RuntimeException | Error failure) {
+                        com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession
+                                .stop("fixtureFailure", "server");
+                        fixture.close(); throw failure;
+                    }
+                });
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    private static void continueHeldBurst(GameTestHelper helper, RegisteredServerPlayerFixture fixture,
+            RegisteredPlayerReadyDriver.Active active, net.minecraft.world.entity.LivingEntity body,
+            net.minecraft.server.level.ServerLevel level, double firstX, long previousTick) {
+        helper.runAfterDelay(1, () -> {
+            try {
+                long heldTick = level.getGameTime();
+                if (heldTick <= previousTick) throw new GameTestAssertException("held phase tick did not advance: " + heldTick);
+                RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                if (body.getX() <= firstX) throw new GameTestAssertException("held wish did not continue: priorX=" + firstX + " x=" + body.getX());
+                var held = latestSnapshot(fixture, active.epoch(), body.getId());
+                if (held == null || held.acknowledgedAppliedSequence() != 2 || held.heldControlState().wishX() != 1000)
+                    throw new GameTestAssertException("held snapshot=" + (held != null) + " ack="
+                            + (held == null ? "none" : held.acknowledgedAppliedSequence()) + " heldX="
+                            + (held == null ? "none" : held.heldControlState().wishX()) + " tick=" + heldTick);
+                var release = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
+                        active.epoch(), 3, (short) 0, (short) 0, (byte) 0, 0, body.getYRot(), body.getXRot());
+                RegisteredPlayerReadyDriver.admitIntent(fixture, release);
+                helper.runAfterDelay(1, () -> {
+                    try {
+                        long releaseTick = level.getGameTime();
+                        if (releaseTick <= heldTick) throw new GameTestAssertException("release phase tick did not advance: " + releaseTick);
+                        RegisteredPlayerReadyDriver.authoritativeTick(fixture);
+                        var released = latestSnapshot(fixture, active.epoch(), body.getId());
+                        if (released == null || released.acknowledgedAppliedSequence() != 3
+                                || released.heldControlState().wishX() != 0 || released.heldControlState().wishZ() != 0)
+                            throw new GameTestAssertException("release snapshot=" + (released != null)
+                                    + " ack=" + (released == null ? "none" : released.acknowledgedAppliedSequence())
+                                    + " held=" + (released == null ? "none" : released.heldControlState().wishX()
+                                    + "," + released.heldControlState().wishZ()) + " tick=" + releaseTick);
+                        fixture.close(); helper.succeed();
+                    } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+                });
+            } catch (RuntimeException | Error failure) { fixture.close(); throw failure; }
+        });
+    }
+
+    private static com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Snapshot latestSnapshot(
+            RegisteredServerPlayerFixture fixture, long epoch, int bodyId) {
+        com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Snapshot latest = null;
+        Object packet;
+        while ((packet = fixture.pollOutbound()) != null)
+            if (packet instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket custom
+                    && custom.payload() instanceof com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Snapshot snapshot
+                    && snapshot.epoch() == epoch && snapshot.harnessEntityId() == bodyId) latest = snapshot;
+        return latest;
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @GameTestTags({"hands", "portable-living-pickup"})
+    public static void selectedPortableLivingRequestBindsExactTarget(GameTestHelper helper) {
+        RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(
+                helper.getLevel(), "portable-pickup");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                var level = helper.getLevel();
+                var origin = helper.absolutePos(new net.minecraft.core.BlockPos(2, 1, 2));
+                body.setPos(origin.getX() + .5, origin.getY(), origin.getZ() + .5);
+                body.setYRot(-90);
+                body.setYHeadRot(-90);
+                body.setXRot(0);
+                var mouse = com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
+                require(mouse != null, "portable living target created");
+                mouse.setNoAi(true);
+                var eye = body.getEyePosition();
+                mouse.setPos(origin.getX() + 2.5, eye.y - .15, origin.getZ() + .5);
+                require(level.addFreshEntity(mouse), "portable living target joins normal server level");
+                com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(mouse, level);
+                require(com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe.probeSelected(
+                        level, body, mouse.getUUID(), com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe.MAX_REACH) != null,
+                        "server first-hit ray admits the exact portable living target");
+                var originalFlags = new com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.ContainedBodyFlags(
+                        mouse.isInvisible(), mouse.noPhysics, mouse.isNoGravity());
+
+                var hand = active.initialHands().activeHand();
+                var request = new BodyHandActionRequest(BodyHandActionRequest.Action.PICKUP_SELECTED, hand,
+                        active.epoch(), 2, active.initialHands().revision(), mouse.getUUID(), null);
+                var result = BodyHandRequestService.apply(fixture.player(), request);
+                var owner = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
+                        .registeredOwnerOf(mouse).orElse(null);
+                require(result.reason() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK
+                                && owner instanceof com.juicyslew.moonstation14.ms14.hands.live.PortableBodyCarrierOwner portable
+                                && portable.carrier() == body
+                                && portable.reference().body().equals(mouse.getUUID())
+                                && level.getEntity(mouse.getUUID()) == mouse,
+                        "normal authoritative PICKUP_SELECTED request binds the original same-UUID living entity: result="
+                                + result.reason() + ", owner=" + owner + ", mouse=" + mouse.getUUID());
+
+                var carriedHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                String keyToken = result.itemToken();
+                var fresh = com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.query(
+                        fixture.player(), new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateQuery(active.epoch(), 3));
+                require(fresh.reason() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.Reason.OK
+                                && fresh.revision() == carriedHands.revision(),
+                        "fresh authoritative query after pickup matches canonical hand ledger: query=" + fresh.reason()
+                                + ", queryRevision=" + fresh.revision() + ", ledgerRevision=" + carriedHands.revision());
+                var staleDrop = new BodyHandActionRequest(BodyHandActionRequest.Action.DROP, hand,
+                        active.epoch(), 3, fresh.revision(), null, keyToken + "-stale");
+                var staleResult = BodyHandRequestService.apply(fixture.player(), staleDrop);
+                require(staleResult.reason() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.STALE_HAND
+                                && body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()) == carriedHands
+                                && com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
+                                .registeredOwnerOf(mouse).orElse(null) == owner
+                                && carriedHands.token(hand).filter(keyToken::equals).isPresent()
+                                && owner instanceof com.juicyslew.moonstation14.ms14.hands.live.PortableBodyCarrierOwner portable
+                                && portable.handToken().equals(keyToken),
+                        "wrong-token normal DROP is rejected by existing stale-hand admission without changing ledger/custody: reason="
+                                + staleResult.reason() + ", requestRevision=" + fresh.revision()
+                                + ", ledgerRevision=" + carriedHands.revision() + ", hand=" + hand
+                                + ", actualToken=" + carriedHands.token(hand) + ", wrongToken=" + (keyToken + "-stale")
+                                + ", owner=" + owner);
+                var drop = new BodyHandActionRequest(BodyHandActionRequest.Action.DROP, hand,
+                        active.epoch(), 4, fresh.revision(), null, keyToken);
+                var dropResult = BodyHandRequestService.apply(fixture.player(), drop);
+                var postDropHands = body.getExistingDataOrNull(
+                        com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                require(dropResult.reason() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK
+                                && level.getEntity(mouse.getUUID()) == mouse
+                                && com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
+                                .registeredOwnerOf(mouse).isEmpty()
+                                && postDropHands != null && postDropHands.compatible(body)
+                                && postDropHands.token(hand).isEmpty()
+                                && postDropHands.stackCopy(hand).isEmpty()
+                                && mouse.isInvisible() == originalFlags.invisible()
+                                && mouse.noPhysics == originalFlags.noPhysics()
+                                && mouse.isNoGravity() == originalFlags.noGravity(),
+                        "normal authenticated DROP request releases original UUID from its live key: reason="
+                                + dropResult.reason() + ", entity=" + level.getEntity(mouse.getUUID())
+                                + ", postDropHandToken=" + (postDropHands == null ? null : postDropHands.token(hand))
+                                + ", postDropStack=" + (postDropHands == null ? null : postDropHands.stackCopy(hand))
+                                + ", originalFlags=" + originalFlags + ", runtimeFlags=" + mouse.isInvisible()
+                                + "/" + mouse.noPhysics + "/" + mouse.isNoGravity());
+                helper.succeed();
+            } catch (RuntimeException | Error failure) {
+                helper.fail("registered-player portable living pickup request failed: " + failure);
+            } finally {
+                fixture.close();
+            }
+        });
+    }
+
+    private static final class ObserverReturnTransition {
+        private com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Begin characterBegin;
+        private boolean ended;
+    }
+
+    private static void dispatchObserver(RegisteredServerPlayerFixture fixture,
+            com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Request.Kind kind, long epoch) {
+        var listener = (net.minecraft.server.network.ServerGamePacketListenerImpl) fixture.connection().getPacketListener();
+        listener.handleCustomPayload(new net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket(
+                new com.juicyslew.moonstation14.ms14.medical_observer.ObserverPayloads.Request(kind, epoch)));
+    }
+
+    private static com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Begin takeLifecycleBegin(
+            RegisteredServerPlayerFixture fixture, com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind kind) {
+        com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Begin result = null;
+        Object outbound;
+        while ((outbound = fixture.pollOutbound()) != null)
+            if (outbound instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket packet
+                    && packet.payload() instanceof com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Begin begin
+                    && begin.harnessKind() == kind) result = begin;
+        return result;
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @GameTestTags({"hands", "portable-living-pickup", "medical-state"})
+    public static void criticalPortableLivingTargetUsesOrdinaryPickupEligibility(GameTestHelper helper) {
+        portableLivingStateRequest(helper, com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL);
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @GameTestTags({"hands", "portable-living-pickup", "medical-state"})
+    public static void deadPortableLivingTargetUsesRetainedBodyEligibility(GameTestHelper helper) {
+        portableLivingStateRequest(helper, com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD);
+    }
+
+    private static void portableLivingStateRequest(GameTestHelper helper,
+            com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State targetState) {
+        RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(
+                helper.getLevel(), "portable-state");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                var level = helper.getLevel();
+                var origin = helper.absolutePos(new net.minecraft.core.BlockPos(2, 1, 2));
+                body.setPos(origin.getX() + .5, origin.getY(), origin.getZ() + .5);
+                body.setYRot(-90); body.setYHeadRot(-90); body.setXRot(0);
+                var mouse = com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
+                require(mouse != null, "state portable mouse created");
+                mouse.setNoAi(true);
+                var eye = body.getEyePosition();
+                mouse.setPos(origin.getX() + 2.5, eye.y - .15, origin.getZ() + .5);
+                require(level.addFreshEntity(mouse), "state target joins server level");
+                com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(mouse, level);
+                mouse.setData(com.juicyslew.moonstation14.component.ModDataAttachments.MOB_STATE.get(),
+                        new com.juicyslew.moonstation14.ms14.mobs.MobStateAttachment(
+                                new com.juicyslew.moonstation14.ms14.mobs.MobStateData(targetState, 1)));
+                if (targetState != com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.ALIVE)
+                    mouse.setHealth(0);
+                boolean stateEstablished = targetState == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD
+                        ? com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(mouse)
+                        : com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isCritical(mouse);
+                require(stateEstablished, "resolved target state established: " + targetState);
+                if (targetState != com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.ALIVE)
+                    require(!mouse.isAlive(), "native " + targetState + " target presents isAlive=false");
+                var originalFlags = new com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.ContainedBodyFlags(
+                        mouse.isInvisible(), mouse.noPhysics, mouse.isNoGravity());
+                var request = new BodyHandActionRequest(BodyHandActionRequest.Action.PICKUP_SELECTED,
+                        active.initialHands().activeHand(), active.epoch(), 2, active.initialHands().revision(),
+                        mouse.getUUID(), null);
+                var result = BodyHandRequestService.apply(fixture.player(), request);
+                var owner = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
+                        .registeredOwnerOf(mouse).orElse(null);
+                var carriedHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                var heldKey = carriedHands == null ? null : carriedHands.stackCopy(active.initialHands().activeHand()).orElse(null);
+                require(result.reason() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK,
+                        "normal request pickup reason for " + targetState + ": " + result.reason());
+                require(level.getEntity(mouse.getUUID()) == mouse,
+                        "pickup retains exact same-UUID entity for " + targetState + ": lookup=" + level.getEntity(mouse.getUUID()));
+                require(owner instanceof com.juicyslew.moonstation14.ms14.hands.live.PortableBodyCarrierOwner,
+                        "pickup establishes canonical portable-body owner for " + targetState + ": " + owner);
+                var portable = (com.juicyslew.moonstation14.ms14.hands.live.PortableBodyCarrierOwner) owner;
+                require(portable.carrier() == body && portable.reference().body().equals(mouse.getUUID()),
+                        "owner references exact carrier/body for " + targetState + ": carrier=" + portable.carrier()
+                                + ", ref=" + portable.reference() + ", body=" + mouse.getUUID());
+                require(result.itemToken() != null && portable.handToken().equals(result.itemToken()),
+                        "request key token matches canonical owner token for " + targetState + ": result="
+                                + result.itemToken() + ", owner=" + portable.handToken());
+                require(heldKey != null && com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys.isKey(heldKey),
+                        "canonical current hand ledger contains portable key for " + targetState + ": " + heldKey);
+                require(mouse.isInvisible() && mouse.noPhysics && mouse.isNoGravity(),
+                        "containment suppresses runtime flags for " + targetState + ": invisible=" + mouse.isInvisible()
+                                + ", noPhysics=" + mouse.noPhysics + ", noGravity=" + mouse.isNoGravity());
+                var exportedFlags = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
+                        .export(mouse, portable).orElse(null);
+                require(originalFlags.equals(exportedFlags),
+                        "containment retains original pre-bind flags for " + targetState + ": original="
+                                + originalFlags + ", exported=" + exportedFlags);
+                helper.succeed();
+            } catch (RuntimeException | Error failure) {
+                helper.fail("registered-player portable " + targetState + " pickup failed: " + failure);
+            } finally {
+                fixture.close();
+            }
+        });
+    }
+
     private static void exerciseOrdinaryHeldIngestion(GameTestHelper helper, RegisteredServerPlayerFixture fixture,
                                                        net.minecraft.world.entity.LivingEntity body, long epoch) {
         try {

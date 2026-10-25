@@ -10,3 +10,4 @@ public record StripSlotRef(Kind kind, String id) {
         if (id == null || id.isBlank() || id.length() > 64) throw new IllegalArgumentException("Invalid strip slot id");
     }
 }
+

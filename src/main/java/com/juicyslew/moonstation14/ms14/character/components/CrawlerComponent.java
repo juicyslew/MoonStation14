@@ -21,3 +21,4 @@ public record CrawlerComponent(double speedModifier, double defaultKnockedDurati
     public CrawlerComponent { if (!Double.isFinite(speedModifier) || speedModifier < 0 || !Double.isFinite(defaultKnockedDurationSeconds) || defaultKnockedDurationSeconds < 0 || !Double.isFinite(standTimeSeconds) || standTimeSeconds < 0 || !Double.isFinite(damageThreshold) || damageThreshold < 0 || !Double.isFinite(frictionModifier) || frictionModifier < 0) throw new IllegalArgumentException("crawler values must be finite and nonnegative"); }
     @Override public String type() { return TYPE; }
 }
+

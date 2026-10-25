@@ -69,3 +69,4 @@ public final class AtmosphereTopology {
         return loaded && passable && y >= firstFreeY;
     }
 }
+

@@ -86,3 +86,4 @@ public record BodyWorldGridSnapshot(long requestedEpoch, long sequence, Reason r
     static void deliverClient(BodyWorldGridSnapshot s) { var h=clientHandler; if(h!=null) h.accept(s); }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

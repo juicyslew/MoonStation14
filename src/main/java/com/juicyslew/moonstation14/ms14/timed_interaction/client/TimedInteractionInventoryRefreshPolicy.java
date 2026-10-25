@@ -21,3 +21,4 @@ public final class TimedInteractionInventoryRefreshPolicy {
                         && old.phase() != TimedOperation.Phase.ACTIVE)));
     }
 }
+

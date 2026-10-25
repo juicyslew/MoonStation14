@@ -1,0 +1,12 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/block/power_collection/generation_singularity_collector/motion_deactivate_02.obj",
+  "textures": {
+    "atlas": "moonstation14:block/power_collection/generation_singularity_collector/default",
+    "particle": "moonstation14:block/power_collection/generation_singularity_collector/default"
+  },
+  "flip_v": false,
+  "automatic_culling": false,
+  "shade_quads": true,
+  "render_type": "minecraft:cutout"
+}

@@ -34,6 +34,8 @@ public final class StripSlotAvailability {
     /** Shared policy adapter used by runtime projection and focused composition tests. */
     public static boolean dependenciesSatisfied(InventoryTemplateData.Slot slot,Set<String> occupied,
                                                 EquipmentItemData outerComposition) {
+        if (slot != null && slot.whitelistComponents().contains(InventoryTemplateData.SlotComponent.GAS_TANK))
+            return occupied != null && slot.dependsOn().stream().allMatch(occupied::contains);
         boolean allows=outerComposition!=null&&outerComposition.allowSuitStorage()
                 .map(EquipmentItemData.AllowSuitStorage::enabled).orElse(false);
         return EquipmentFitPolicy.dependenciesSatisfied(slot,occupied,allows);

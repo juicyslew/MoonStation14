@@ -76,6 +76,14 @@ public final class OwnedCorpsePhysics {
         if (body.level() instanceof ServerLevel level
                 && com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
                 .ownerOf(body).isPresent()) return false;
+        return hasCorpseCharacterProfile(body);
+    }
+
+    /** Resolved movement composition and incapacitated mob state, before portable custody restores physics flags. */
+    public static boolean hasCorpseCharacterProfile(net.minecraft.world.entity.LivingEntity entity) {
+        if (!(entity instanceof Mob body)
+                || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.policy(body) == null
+                || !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(body)) return false;
         var data = CharacterIdentitySystem.resolveForActor(body).orElse(null);
         if (data == null) return false;
         try {
@@ -99,3 +107,4 @@ public final class OwnedCorpsePhysics {
         return Double.isFinite(value.x) && Double.isFinite(value.y) && Double.isFinite(value.z);
     }
 }
+

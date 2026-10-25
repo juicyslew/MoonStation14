@@ -29,4 +29,24 @@ public final class ActiveCharacterPolicy {
     public static Optional<Mob> activeCharacterBody(ServerPlayer player) {
         return GhostMobHarnessControl.activeCharacterBody(player);
     }
+
+    /** True only for a native player or the exact body of that player's authenticated active session. */
+    public static boolean isPlayerCharacterBody(LivingEntity body, net.minecraft.server.level.ServerLevel level) {
+        if (body instanceof ServerPlayer player) return !isCarrier(player);
+        if (!(body instanceof Mob mob)) return false;
+        return level.getServer().getPlayerList().getPlayers().stream()
+                .anyMatch(player -> authenticatedActiveCharacterBody(player).filter(mob::equals).isPresent());
+    }
+
+    /**
+     * Core classification must recognize both character-session owners. Prefer the committed lifecycle
+     * authority; retain the legacy experimental owner as a separate, authenticated route.
+     */
+    private static Optional<Mob> authenticatedActiveCharacterBody(ServerPlayer player) {
+        var committed = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server
+                .LifecycleCharacterSessionControl.activeCharacterBody(player);
+        return committed.map(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server
+                .LifecycleCharacterSessionControl.ActiveCharacterBody::body)
+                .or(() -> activeCharacterBody(player));
+    }
 }

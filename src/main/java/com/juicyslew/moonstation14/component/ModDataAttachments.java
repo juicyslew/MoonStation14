@@ -25,6 +25,7 @@ import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.PortableBodyContainmentRelation;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
 import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment;
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperationState;
@@ -45,6 +46,22 @@ public class ModDataAttachments {
 
     public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.loose_objects.ItemContactTimer>> ITEM_CONTACT_TIMER = ATTACHMENT_TYPES.register(
             "item_contact_timer", () -> AttachmentType.builder(com.juicyslew.moonstation14.ms14.loose_objects.ItemContactTimer::new).build());
+
+    /** Natural flight mode is retained across save/load and replicated for state-dependent presentation. */
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment>> FLIGHT = ATTACHMENT_TYPES.register(
+            "flight", () -> AttachmentType.builder((Supplier<com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment>) com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment::new)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment.CODEC)
+                    .sync(com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment.STREAM_CODEC).build());
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.UdderAttachment>> UDDER = ATTACHMENT_TYPES.register(
+            "udder", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.UdderAttachment.EMPTY)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.UdderAttachment.CODEC).build());
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.EggLayerAttachment>> EGG_LAYER = ATTACHMENT_TYPES.register(
+            "egg_layer", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.EggLayerAttachment.EMPTY)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.EggLayerAttachment.CODEC).build());
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.AbsorbentCleaningAttachment>> ABSORBENT_CLEANING = ATTACHMENT_TYPES.register(
+            "absorbent_cleaning", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.AbsorbentCleaningAttachment.EMPTY)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.AbsorbentCleaningAttachment.CODEC,
+                            state -> state.nextUseTick() != 0 || state.nextCycleTick() != 0).build());
 
     public static final Supplier<AttachmentType<ReagentAttachment>> REAGENT = ATTACHMENT_TYPES.register(
             "reagent", () -> AttachmentType.builder(() -> new ReagentAttachment())
@@ -164,6 +181,12 @@ public class ModDataAttachments {
             "complex_interaction", () -> AttachmentType.builder(() -> new ComplexInteractionAttachment(false, false))
                     .serialize(ComplexInteractionAttachment.CODEC, ComplexInteractionAttachment::initialized)
                     .build());
+
+    /** Persisted relation hint used only to reconcile a loaded body with its real portable root ledger. */
+    public static final Supplier<AttachmentType<PortableBodyContainmentRelation>> PORTABLE_BODY_CONTAINMENT =
+            ATTACHMENT_TYPES.register("portable_body_containment", () -> AttachmentType.builder(
+                    (Supplier<PortableBodyContainmentRelation>) () -> null)
+                    .serialize(PortableBodyContainmentRelation.CODEC).sync(PortableBodyContainmentRelation.STREAM_CODEC).build());
 
     /** Persisted scalar blood state; presence records one-time initialization, even at zero values. */
     public static final Supplier<AttachmentType<BloodAttachment>> BLOOD = ATTACHMENT_TYPES.register(

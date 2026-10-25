@@ -51,6 +51,11 @@ public final class StarterStationLifecycleGameTests {
         StarterStationSavedData data = level.getDataStorage().get(
                 StarterStationSavedData.FACTORY, StarterStationSavedData.DATA_NAME);
         if (data != null && data.state() == StarterStationPlacementState.State.COMPLETED) {
+            StarterStationLayout layout = StarterStationLayout.standard();
+            MoonStation14.LOGGER.info("[starter station GameTest] COMPLETED origin={} bounds={}..{} markerState={}",
+                    data.selectedOrigin(), data.selectedOrigin().offset(layout.minX(), StarterStationLayout.FLOOR_Y, layout.minZ()),
+                    data.selectedOrigin().offset(layout.maxX(), StarterStationLayout.FLOOR_Y + layout.clearHeight(), layout.maxZ()),
+                    data.state());
             assertStation(level, data);
             awaitLampRuntime(helper, level, data, 0);
             return;
@@ -150,9 +155,16 @@ public final class StarterStationLifecycleGameTests {
         StarterStationPowerPlan power = StarterStationPowerPlan.standard();
         require(power.devices().size() == 7, "power plan must contain seven devices");
         for (StarterStationPowerPlan.Device device : power.devices()) {
-            var state = level.getBlockState(origin.offset(device.position()));
-            require(state.getBlock() instanceof PowerDeviceBlock block && block.kind() == device.kind(),
-                    "planned device missing or wrong kind: " + device);
+            BlockPos devicePos = origin.offset(device.position());
+            var state = level.getBlockState(devicePos);
+            if (!(state.getBlock() instanceof PowerDeviceBlock block && block.kind() == device.kind())) {
+                String diagnostic = "selectedOrigin=" + origin + " absoluteDevicePos=" + devicePos
+                        + " expectedBlock/kind=" + device.kind().id() + "/" + device.kind()
+                        + " expectedFacing=" + device.facing() + " actualBlockState=" + state
+                        + " markerState=" + data.state();
+                MoonStation14.LOGGER.error("[starter station GameTest] planned device mismatch: {}", diagnostic);
+                throw new GameTestAssertException("planned device missing or wrong kind: " + device + "; " + diagnostic);
+            }
             require(state.getValue(PowerDeviceBlock.FACING) == device.facing(), "wrong device facing: " + device);
         }
         require(power.cables().size() <= StarterStationPowerPlan.MAX_CABLE_NODES,

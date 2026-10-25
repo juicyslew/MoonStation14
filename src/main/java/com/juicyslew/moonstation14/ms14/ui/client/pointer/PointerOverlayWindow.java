@@ -21,3 +21,4 @@ public interface PointerOverlayWindow {
     void clearTextFocus();
     void resetOwnedContext();
 }
+

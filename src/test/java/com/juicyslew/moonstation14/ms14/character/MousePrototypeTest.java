@@ -15,6 +15,22 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MousePrototypeTest {
     @Test
+    void collisionProfileDiscriminatorRoundTripsAndResolvedMouseKeepsInheritedFixturePairing() throws Exception {
+        var codec=com.juicyslew.moonstation14.ms14.character.components.CollisionProfileComponent.CODEC;
+        var original=new com.juicyslew.moonstation14.ms14.character.components.CollisionProfileComponent(18,65);
+        var encoded=codec.encodeStart(JsonOps.INSTANCE,original).getOrThrow();
+        assertEquals("CollisionProfile",encoded.getAsJsonObject().get("type").getAsString());
+        assertEquals(original,codec.parse(JsonOps.INSTANCE,encoded).getOrThrow());
+        var manager=new PrototypeManager();manager.register(ModCharacters.CHARACTER_TYPE);
+         manager.reload(ModCharacters.CHARACTER_TYPE,java.util.Map.of(id("supported_simple_mob"),read("supported_simple_mob"),
+                 id("supported_animal_core"),read("supported_animal_core"),
+                 id("supported_animal"),read("supported_animal"),id("supported_npc"),read("supported_npc"),id("mouse"),read("mouse")));
+        var resolved=manager.snapshot(ModCharacters.CHARACTER_TYPE).get(id("mouse"));
+        assertEquals(original,resolved.component(com.juicyslew.moonstation14.ms14.character.components.CollisionProfileComponent.class).orElseThrow());
+        var fixture=new com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData.Collision(158,205);
+        assertFalse(original.collidesWith(new com.juicyslew.moonstation14.ms14.character.components.CollisionProfileComponent(fixture.mask(),fixture.layer())));
+    }
+    @Test
     void deterministicMouseAppearanceSelectionCoversEveryAllowedVariant() {
         JsonObject defaultJson = new JsonObject();
         defaultJson.addProperty("type", "MouseAppearance");
@@ -35,9 +51,14 @@ class MousePrototypeTest {
         manager.register(ModCharacters.CHARACTER_TYPE);
         manager.reload(ModCharacters.CHARACTER_TYPE, java.util.Map.of(
                 id("supported_simple_mob"), read("supported_simple_mob"),
-                id("supported_animal"), read("supported_animal"),
-                id("mouse"), read("mouse")));
-        var data = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(id("mouse"));
+                id("supported_animal_core"), read("supported_animal_core"),
+                  id("supported_animal"), read("supported_animal"),
+                  id("supported_npc"), read("supported_npc"),
+                  id("mouse"), read("mouse"), id("human"), read("human")));
+         var data = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(id("mouse"));
+         assertTrue(com.juicyslew.moonstation14.ms14.hands.client.PortableLivingClientTargetPolicy
+                         .portableCapability(data).isPresent(),
+                 "client nomination consumes the same resolved mouse portable-body projection");
         var appearance = data.component(com.juicyslew.moonstation14.ms14.character.components.MouseAppearanceComponent.class).orElseThrow();
         assertEquals(java.util.List.of(com.juicyslew.moonstation14.ms14.character.components.MouseAppearanceComponent.Variant.WHITE,
                 com.juicyslew.moonstation14.ms14.character.components.MouseAppearanceComponent.Variant.BROWN,
@@ -80,6 +101,19 @@ class MousePrototypeTest {
         var speech = data.component(com.juicyslew.moonstation14.ms14.character.components.SpeechComponent.class).orElseThrow();
         assertEquals("mouse", speech.accent());
         assertEquals("mouse_squeak", speech.speechSound());
+        assertEquals(java.util.Set.of("squeak"), speech.allowedEmotes());
+        var attention = data.component(com.juicyslew.moonstation14.ms14.character.components.NpcIdleAttentionComponent.class).orElseThrow();
+        assertEquals(5f, attention.range());
+        assertEquals(40, attention.minimumProbeTicks());
+        assertEquals(100, attention.maximumProbeTicks());
+        var human = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(id("human"));
+        assertTrue(com.juicyslew.moonstation14.ms14.hands.client.PortableLivingClientTargetPolicy
+                        .portableCapability(human).isEmpty(),
+                "ordinary human projection is not a portable-body pickup target");
+        assertTrue(human.component(com.juicyslew.moonstation14.ms14.character.components.NpcIdleAttentionComponent.class).isEmpty(),
+                "ordinary human composition does not opt into NPC attention");
+        assertTrue(human.component(com.juicyslew.moonstation14.ms14.character.components.SpeechComponent.class)
+                .orElseThrow().allowedEmotes().isEmpty(), "ordinary human composition cannot use closed mouse squeak capability");
         var lungResource = getClass().getClassLoader().getResourceAsStream(
                 "data/moonstation14/moonstation14/organ/organ_lungs_pig.json");
         assertNotNull(lungResource);

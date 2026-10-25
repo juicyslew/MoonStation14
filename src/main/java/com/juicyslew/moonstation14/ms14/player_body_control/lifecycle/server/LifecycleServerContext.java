@@ -379,6 +379,73 @@ final class LifecycleServerContext {
                 id, com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER));
     }
 
+    /** Trusted server caller records a physically verified external move of a disconnected body. */
+    synchronized boolean relocateOfflineBody(UUID accountId, UUID mindId, UUID bodyId, long generation,
+            com.juicyslew.moonstation14.ms14.player_body_control.MobHarness loadedBody,
+            String dimension, SavedLifecycleProfile.Location location,
+            java.util.function.Predicate<SavedLifecycleProfile> ownerProof) throws IOException {
+        if (accountId == null || mindId == null || bodyId == null || generation < 0 || loadedBody == null
+                || dimension == null || location == null || ownerProof == null
+                || !loadedBody.id().value().equals(bodyId)) return false;
+        return primaryStore.withCurrentPrimary(lease -> {
+            var rows = lease.envelope().profiles().stream().filter(row -> row.accountId().equals(accountId)
+                    && row.mindId().equals(mindId) && row.bodyId().equals(bodyId)
+                    && row.connectionGeneration() == generation && row.state() == SavedLifecycleProfile.State.OFFLINE).toList();
+            if (rows.size() != 1) return false;
+            SavedLifecycleProfile saved = rows.get(0);
+            try {
+                if (!ownerProof.test(saved)) return false;
+            } catch (RuntimeException invalidProof) { return false; }
+            if (loadedBody.kind() != com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER)
+                return false;
+            var registered = ownership.registeredHarness(loadedBody.id()).orElse(null);
+            if (registered != null && registered != loadedBody) return false;
+            var memory = lifecycle.profile(accountId).orElse(null);
+            if (memory != null && (registered != loadedBody || memory.active()
+                    || memory.state() != PlayerLifecycleRegistry.LifecycleState.OFFLINE
+                    || memory.connectionGeneration() < generation
+                    || !memory.profileId().equals(saved.profileKey())
+                    || !memory.mindId().value().equals(mindId) || !memory.bodyId().value().equals(bodyId)))
+                return false;
+            boolean registeredHere = false;
+            PlayerLifecycleRegistry.Snapshot restoredHere = null;
+            if (registered == null) {
+                if (!ownership.registerHarness(loadedBody)) return false;
+                registeredHere = true;
+            }
+            if (memory == null) {
+                memory = lifecycle.restoreOffline(lease, saved, target -> target == loadedBody
+                        && target.kind() == com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER
+                        && target.id().equals(loadedBody.id())).orElse(null);
+                if (memory == null) {
+                    rollbackOfflineRelocationRestore(null, registeredHere, loadedBody);
+                    return false;
+                }
+                restoredHere = memory;
+            }
+            try {
+                if (!ownerProof.test(saved)) {
+                    rollbackOfflineRelocationRestore(restoredHere, registeredHere, loadedBody);
+                    return false;
+                }
+            } catch (RuntimeException invalidProof) {
+                rollbackOfflineRelocationRestore(restoredHere, registeredHere, loadedBody);
+                return false;
+            }
+            if (lifecycle.relocateOfflineDurably(lease, saved, dimension, location).isPresent()) return true;
+            rollbackOfflineRelocationRestore(restoredHere, registeredHere, loadedBody);
+            return false;
+        }).orElse(false);
+    }
+
+    /** Undo only the authority introduced by this failed locator attempt, in dependency order. */
+    private void rollbackOfflineRelocationRestore(PlayerLifecycleRegistry.Snapshot restoredHere,
+            boolean registeredHere, com.juicyslew.moonstation14.ms14.player_body_control.MobHarness loadedBody) {
+        if (restoredHere != null && !lifecycle.rollbackRestoredOffline(restoredHere)) return;
+        if (registeredHere && ownership.registeredHarness(loadedBody.id()).orElse(null) == loadedBody)
+            ownership.unregisterHarness(loadedBody.id());
+    }
+
     /** Remove only our unowned registration; durable profile references fail closed. */
     synchronized void releaseUnclaimedRoleTarget(com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId id) {
         if (id == null) return;
@@ -401,3 +468,4 @@ final class LifecycleServerContext {
 
     LifecycleProfileStore primaryStore() { return primaryStore; }
 }
+

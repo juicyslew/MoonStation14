@@ -12,3 +12,4 @@ public record StatusEffectClearReport(
         changes = List.copyOf(Objects.requireNonNull(changes, "changes"));
     }
 }
+

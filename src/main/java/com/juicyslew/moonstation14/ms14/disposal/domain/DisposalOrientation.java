@@ -37,3 +37,4 @@ public record DisposalOrientation(Direction forward, Direction up) {
     }
     private static int tie(Direction d, Direction f) { return d == null ? 99 : d.getAxis()==Direction.Axis.Y ? 0 : d.getAxis()==Direction.Axis.Z ? 1 : 2; }
 }
+

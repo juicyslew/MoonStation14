@@ -156,3 +156,4 @@ public final class ReagentComponent implements IMS14Component<ReagentComponent, 
     @Override public Codec<ReagentComponent> getCodec() { return CODEC; }
     @Override public StreamCodec<RegistryFriendlyByteBuf, ReagentComponent> getStreamCodec() { return STREAM_CODEC; }
 }
+

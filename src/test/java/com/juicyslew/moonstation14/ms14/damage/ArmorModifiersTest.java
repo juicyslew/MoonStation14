@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ArmorModifiersTest {
     private static EquipmentItemData.Armor armor(float blunt, float caustic) {
-        return new EquipmentItemData.Armor(Map.of(DamageKeys.BLUNT, blunt, DamageKeys.CAUSTIC, caustic));
+        return EquipmentItemData.Armor.fromCoefficients(Map.of(DamageKeys.BLUNT, blunt, DamageKeys.CAUSTIC, caustic));
     }
     @Test void appliesSequentiallyQuantizedCoefficientsOnlyToPositiveConfiguredDamage() {
         assertEquals(4.51f, ArmorModifiers.apply(Map.of("blunt", 5f), List.of(armor(.95f, .95f), armor(.95f, .95f))).get("blunt"));
@@ -20,13 +20,13 @@ class ArmorModifiersTest {
         assertEquals(.5f, ArmorModifiers.apply(Map.of("blunt", 1.009f), List.of(armor(.5f, .5f))).get("blunt"));
     }
     @Test void validatesCanonicalFiniteNonnegativeImmutableCoefficients() {
-        assertThrows(IllegalArgumentException.class, () -> new EquipmentItemData.Armor(Map.of("Blunt", 1f)));
-        assertThrows(IllegalArgumentException.class, () -> new EquipmentItemData.Armor(Map.of("blunt", Float.NaN)));
-        assertThrows(IllegalArgumentException.class, () -> new EquipmentItemData.Armor(Map.of("blunt", -0.1f)));
+        assertThrows(IllegalArgumentException.class, () -> EquipmentItemData.Armor.fromCoefficients(Map.of("Blunt", 1f)));
+        assertThrows(IllegalArgumentException.class, () -> EquipmentItemData.Armor.fromCoefficients(Map.of("blunt", Float.NaN)));
+        assertThrows(IllegalArgumentException.class, () -> EquipmentItemData.Armor.fromCoefficients(Map.of("blunt", -0.1f)));
         var source = new java.util.HashMap<String, Float>(); source.put("blunt", 0f);
-        var armor = new EquipmentItemData.Armor(source); source.put("blunt", 2f);
+        var armor = EquipmentItemData.Armor.fromCoefficients(source); source.put("blunt", 2f);
         assertEquals(0f, armor.coefficients().get("blunt"));
         assertThrows(UnsupportedOperationException.class, () -> armor.coefficients().put("blunt", 1f));
-        assertEquals(1.5f, new EquipmentItemData.Armor(Map.of("blunt", 1.5f)).coefficients().get("blunt"));
+        assertEquals(1.5f, EquipmentItemData.Armor.fromCoefficients(Map.of("blunt", 1.5f)).coefficients().get("blunt"));
     }
 }

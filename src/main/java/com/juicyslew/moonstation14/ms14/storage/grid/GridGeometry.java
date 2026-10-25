@@ -306,3 +306,4 @@ public final class GridGeometry {
             throw new IllegalArgumentException("Storage cell outside domain: " + cell);
     }
 }
+

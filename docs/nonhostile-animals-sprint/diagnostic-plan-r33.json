@@ -1,0 +1,42 @@
+{
+  "title": "Animal population route-work and camera-facing fixture measurements",
+  "kind": "diagnostic",
+  "acceptance_criteria": [
+    "Does the settled camera-facing fixture capture the expected population, actual animal rendering and authenticated committed ownership while retaining per-case join logs?",
+    "What phase-attributed route work, server tick, client frame and separate JVM GC evidence accompanies 100 parrots, 100 kobolds and 40 mixed animals?"
+  ],
+  "fixture": "docs/nonhostile-animals-sprint/OWNER-FEEDBACK.md",
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Parrots"],
+      "rationale": "Lead-owned isolated real client/server measurement with 100 parrots. Measure actual route collision/support work without changing routing behavior. Verify settled fixture geometry and actual renderer calls; retain individual join proof, logs and recordings. Existing native limits and process lifecycle remain unchanged.",
+      "covers": [
+        "Does the settled camera-facing fixture capture the expected population, actual animal rendering and authenticated committed ownership while retaining per-case join logs?",
+        "What phase-attributed route work, server tick, client frame and separate JVM GC evidence accompanies 100 parrots, 100 kobolds and 40 mixed animals?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-parrots-r33.log"
+    },
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Kobolds"],
+      "rationale": "Same isolated capture with 100 kobolds. R32 rendered only a fraction of the population; improved camera-relative setup requires new measured coverage, not an assumed 100 visible entities. Changed geometry is not a controlled optimization comparison.",
+      "covers": [
+        "Does the settled camera-facing fixture capture the expected population, actual animal rendering and authenticated committed ownership while retaining per-case join logs?",
+        "What phase-attributed route work, server tick, client frame and separate JVM GC evidence accompanies 100 parrots, 100 kobolds and 40 mixed animals?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-kobolds-r33.log"
+    },
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Mixed"],
+      "rationale": "Same capture with 40 animals: eight each bat, kobold, parrot, hamster and cow. R32 aborted before spawning; retain precise preflight reason if still blocked. No timeout increase or weakened ownership admission. Short stationary windows do not establish prolonged-running, jumping or owner-world behavior, nor readiness or owner acceptance.",
+      "covers": [
+        "Does the settled camera-facing fixture capture the expected population, actual animal rendering and authenticated committed ownership while retaining per-case join logs?",
+        "What phase-attributed route work, server tick, client frame and separate JVM GC evidence accompanies 100 parrots, 100 kobolds and 40 mixed animals?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-mixed-r33.log"
+    }
+  ]
+}
