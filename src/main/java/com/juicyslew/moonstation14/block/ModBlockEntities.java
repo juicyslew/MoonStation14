@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.block.block_entity.AtmosphereTestDeviceBlockE
 import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.FieldGeneratorBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.SingularityGeneratorBlockEntity;
+import com.juicyslew.moonstation14.ms14.tesla.TeslaMachineBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.SingularityBeaconBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.EmitterBlockEntity;
 import com.juicyslew.moonstation14.block.block_entity.ParticleAcceleratorPartBlockEntity;
@@ -79,7 +80,9 @@ public class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FieldGeneratorBlockEntity>> FIELD_GENERATOR = BLOCK_ENTITY_TYPES.register("field_generator",
             () -> BlockEntityType.Builder.of(FieldGeneratorBlockEntity::new, ModBlocks.FIELD_GENERATOR.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<SingularityGeneratorBlockEntity>> SINGULARITY_GENERATOR = BLOCK_ENTITY_TYPES.register("singularity_generator",
-            () -> BlockEntityType.Builder.of(SingularityGeneratorBlockEntity::new, ModBlocks.SINGULARITY_GENERATOR.get()).build(null));
+            () -> BlockEntityType.Builder.of(SingularityGeneratorBlockEntity::new, ModBlocks.SINGULARITY_GENERATOR.get(), ModBlocks.TESLA_GENERATOR.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<TeslaMachineBlockEntity>> TESLA_MACHINE = BLOCK_ENTITY_TYPES.register("tesla_machine",
+            () -> BlockEntityType.Builder.of(TeslaMachineBlockEntity::new, ModBlocks.TESLA_COIL.get(), ModBlocks.TESLA_GROUNDING_ROD.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<EmitterBlockEntity>> EMITTER = BLOCK_ENTITY_TYPES.register("emitter",
             () -> BlockEntityType.Builder.of(EmitterBlockEntity::new, ModBlocks.EMITTER.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RadiationCollectorBlockEntity>> RADIATION_COLLECTOR = BLOCK_ENTITY_TYPES.register("radiation_collector",

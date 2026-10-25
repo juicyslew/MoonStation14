@@ -119,17 +119,20 @@ public final class ParticleAcceleratorParticleEntity extends Projectile implemen
             entryPoint(living.getBoundingBox().inflate(p.halfExtent()), from, to).ifPresent(hit ->
                     contacts.add(new Contact(from.distanceToSqr(hit), living.getUUID(), () -> { recordContact("living-hit", hit, living.getUUID(), 0, 0, 0); hitLiving(living, p); })));
         }
-        double maxEventHorizon = ModSingularityGameplay.catalog(level()).values().stream()
-                .mapToDouble(profile -> profile.eventHorizonRadiusAtLevel(profile.levelThresholds().size() - 1)).max().orElse(0);
-        for (Entity e : server.getEntities(this, segmentBounds(from, to, maxEventHorizon + p.halfExtent()), candidate -> candidate instanceof SingularityEntity)) {
-            SingularityEntity singularity = (SingularityEntity)e;
-            double radius = singularity.gravityProfile().eventHorizonRadiusAtLevel(singularity.singularityLevel());
-            double t = sphereEntry(from, to, singularity.position(), radius + p.halfExtent());
-            if (t >= 0) contacts.add(new Contact(t * t * from.distanceToSqr(to), singularity.getUUID(), () -> {
-                int food = strength == null ? 0 : strength.singularityFood();
-                double before = singularity.energy();
-                if (strength != null) singularity.feed(food);
-                recordContact("singularity-feed", from.lerp(to, t), singularity.getUUID(), food, before, singularity.energy());
+        double maxSourceRadius = Math.max(ModSingularityGameplay.catalog(level()).values().stream()
+                .mapToDouble(profile -> profile.eventHorizonRadiusAtLevel(profile.levelThresholds().size()-1)).max().orElse(0),
+                com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.balls(level()).values().stream()
+                        .mapToDouble(profile -> profile.contactRadius() == null ? 0 : profile.contactRadius()).max().orElse(0));
+        AABB receiverSweep = new AABB(from, to).inflate(maxSourceRadius + p.halfExtent(), maxSourceRadius + p.halfExtent() + p.energyReceiverVerticalPadding(), maxSourceRadius + p.halfExtent());
+        for (Entity e : server.getEntities(this, receiverSweep, candidate -> candidate instanceof com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorEnergyReceiver)) {
+            var receiver = (com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorEnergyReceiver)e;
+            double radius = receiver.particleContactRadius();
+            if (radius <= 0) continue;
+            double t = com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorReceiverContactGeometry.entry(from, to, e.position(), radius + p.halfExtent(), p.energyReceiverVerticalPadding());
+            if (t >= 0) contacts.add(new Contact(t * t * from.distanceToSqr(to), e.getUUID(), () -> {
+                double before = receiver.particleEnergy();
+                if (strength != null) receiver.receiveParticleEnergy(strength);
+                recordContact(e instanceof SingularityEntity ? "singularity-feed" : "tesla-feed", from.lerp(to, t), e.getUUID(), strength == null ? 0 : strength.singularityFood(), before, receiver.particleEnergy());
                 discard();
             }));
         }
@@ -175,7 +178,9 @@ public final class ParticleAcceleratorParticleEntity extends Projectile implemen
     private void refreshOverlaps(ServerLevel server, ParticleAcceleratorParticleProfile p, Vec3 at) {
         Set<UUID> now = new HashSet<>();
         AABB bounds = segmentBounds(at, at, p.halfExtent());
-        for (Entity e : server.getEntities(this, bounds, candidate -> candidate instanceof LivingEntity || candidate instanceof SingularityEntity))
+        // Receiver contact consumes the projectile and is decided by its exact profile ellipsoid.
+        // Do not cache its broader physical AABB here: that can suppress a later valid ellipsoid entry.
+        for (Entity e : server.getEntities(this, bounds, candidate -> candidate instanceof LivingEntity))
             if (e.getBoundingBox().intersects(bounds)) now.add(e.getUUID());
         BlockPos.betweenClosedStream(BlockPos.containing(bounds.minX,bounds.minY,bounds.minZ),BlockPos.containing(bounds.maxX,bounds.maxY,bounds.maxZ)).forEach(pos -> {
             if (server.getBlockEntity(pos) instanceof SingularityGeneratorBlockEntity generator && new AABB(pos).inflate(p.halfExtent()).contains(at)) now.add(generator.placementIdentity());
@@ -188,12 +193,6 @@ public final class ParticleAcceleratorParticleEntity extends Projectile implemen
     private static Optional<Vec3> entryPoint(AABB bounds, Vec3 from, Vec3 to) {
         if (bounds.contains(from)) return Optional.of(from);
         return bounds.clip(from, to);
-    }
-    private static double sphereEntry(Vec3 a, Vec3 b, Vec3 center, double radius) {
-        Vec3 d=b.subtract(a), m=a.subtract(center); double aa=d.dot(d), cc=m.dot(m)-radius*radius;
-        if (cc<=0) return 0; if (aa<=1e-12) return -1;
-        double bb=m.dot(d), disc=bb*bb-aa*cc; if(disc<0) return -1;
-        double t=(-bb-Math.sqrt(disc))/aa; return t>=0&&t<=1?t:-1;
     }
     private record Contact(double distance, UUID identity, Runnable action) { }
 

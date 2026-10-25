@@ -12,6 +12,14 @@ import java.util.LinkedHashMap;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ParticleAcceleratorParticlePrototypeTest {
+    @Test void receiverCaptureAddsOnlyAuthoredVerticalAllowance() {
+        var center = new net.minecraft.world.phys.Vec3(0, 0, 0);
+        assertEquals(-1, ParticleAcceleratorReceiverContactGeometry.entry(new net.minecraft.world.phys.Vec3(0, 1.5, 0), new net.minecraft.world.phys.Vec3(0, 1.5, 0), center, .98, 0));
+        assertEquals(0, ParticleAcceleratorReceiverContactGeometry.entry(new net.minecraft.world.phys.Vec3(0, 1.5, 0), new net.minecraft.world.phys.Vec3(0, 1.5, 0), center, .98, 1));
+        assertEquals(-1, ParticleAcceleratorReceiverContactGeometry.entry(new net.minecraft.world.phys.Vec3(1.01, 0, 0), new net.minecraft.world.phys.Vec3(1.01, 0, 0), center, .98, 1));
+        assertEquals(-1, ParticleAcceleratorReceiverContactGeometry.entry(center, center, center, 0, 1));
+    }
+
     @Test void resolvesBaseBulletDefaultsAndParticleOverridesThroughRegisteredType() throws Exception {
         var manager = new PrototypeManager();
         manager.register(ModParticleAcceleratorParticles.TYPE);
@@ -31,6 +39,7 @@ class ParticleAcceleratorParticlePrototypeTest {
         assertEquals(25f, resolved.radiationDamage());
         assertEquals(60, resolved.lifetimeTicks());
         assertEquals(.48, resolved.halfExtent());
+        assertEquals(1.0, resolved.energyReceiverVerticalPadding());
         assertFalse(resolved.deleteOnCollide());
         assertEquals("moonstation14:textures/entity/pa_particle/particle", resolved.sprite());
         assertEquals("moonstation14:projectile/fly_by", resolved.flyBy().sound().toString());

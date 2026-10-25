@@ -272,9 +272,15 @@ public final class BodyHandActionNetworking {
                            } else if (held != null && held.is(ModItems.SCREWDRIVER.get())) {
                                outcome = BodyDisposalTubeJunctionUse.begin(actor, request, admission)
                                        ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
-                           } else if (held != null && held.is(ModItems.WELDER.get())) {
-                               outcome = BodyDisposalTubeWelderUse.begin(actor, request, admission)
-                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
+                            } else if (held != null && held.is(ModItems.WELDER.get())) {
+                                var target = body.level().getBlockEntity(admission.hit().pos());
+                                outcome = target instanceof com.juicyslew.moonstation14.ms14.tesla.TeslaMachineBlockEntity
+                                        && com.juicyslew.moonstation14.ms14.tesla.TeslaMachineRepairUse.begin(actor, request, admission)
+                                        ? BodyBlockUseResult.Outcome.NO_CHANGE
+                                        : target instanceof com.juicyslew.moonstation14.ms14.tesla.TeslaMachineBlockEntity
+                                                ? BodyBlockUseResult.Outcome.DENIED
+                                                : BodyDisposalTubeWelderUse.begin(actor, request, admission)
+                                        ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
                           } else if (held != null && held.is(ModItems.DISPOSAL_UNIT.get())) {
                              var result = FunctionalDisposalUnitPlacement.place(actor, request, admission);
                              outcome = result == FunctionalDisposalUnitPlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED

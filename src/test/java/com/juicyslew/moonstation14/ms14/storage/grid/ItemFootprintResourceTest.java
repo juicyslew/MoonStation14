@@ -28,10 +28,10 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(66, raw.size());
+        assertEquals(69, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(61, resolved.size());
+        assertEquals(64, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -52,7 +52,7 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(61, catalog.size());
+        assertEquals(64, catalog.size());
         for (String item : new String[]{"wheat_seeds", "tomato_seeds", "potato_seeds", "poppy_seeds", "aloe_seeds"})
             assertEquals(1, catalog.get(id(item)).cells().size(), item + " resolves Tiny footprint");
         for (String item : new String[]{"wheat_bushel", "tomato", "potato", "poppy", "aloe"})
@@ -84,6 +84,11 @@ class ItemFootprintResourceTest {
         assertEquals(1, catalog.get(id("signal_button")).cells().size());
         assertEquals(1, catalog.get(id("signal_switch")).cells().size());
         assertTrue(catalog.get(id("bag")).cells().contains(new GridGeometry.Cell(3, 3)));
+        for (String name : new String[]{"tesla_coil", "tesla_generator", "tesla_grounding_rod"}) {
+            assertTrue(catalog.get(id(name)) != null, "Tesla footprint loads through typed resource codec: " + name);
+            assertEquals(1, catalog.get(id(name)).cells().size(), name + " footprint");
+            assertTrue(catalog.get(id(name)).itemSize().isPresent(), name + " has explicit physical carry size");
+        }
     }
 
     @Test void pocketAdmissionUsesExplicitPhysicalSizeAndNeverInfersItFromFootprintGeometry() {

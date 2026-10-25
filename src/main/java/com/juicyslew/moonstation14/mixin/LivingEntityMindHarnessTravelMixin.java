@@ -50,7 +50,7 @@ public abstract class LivingEntityMindHarnessTravelMixin {
     private void moonstation14$skipVanillaTravelForHarnessOwnedMob(Vec3 input, CallbackInfo callback) {
         Object entity = this;
         if (entity instanceof Mob mob && (com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics
-                .eligible(mob) || ((MindControlledMob) mob).moonstation14$isMovementOwned()
+                .eligible(mob) || mob instanceof MindControlledMob controlled && controlled.moonstation14$isMovementOwned()
                 || (!(mob instanceof MindControlledMob controlled && controlled.moonstation14$isMovementOwned())
                 && mob instanceof NpcMovementDriven driven && driven.moonstation14$isNpcMovementDriven()))) {
             LivingEntity body = (LivingEntity) entity;

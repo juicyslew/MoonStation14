@@ -73,7 +73,8 @@ public final class CharacterComponentRegistry {
             Map.entry(NpcIdleAttentionComponent.TYPE, new Entry<>(NpcIdleAttentionComponent.class, NpcIdleAttentionComponent.CODEC)),
             Map.entry(PortableBodyComponent.TYPE, new Entry<>(PortableBodyComponent.class, PortableBodyComponent.CODEC)),
             Map.entry(CanEscapeInventoryComponent.TYPE, new Entry<>(CanEscapeInventoryComponent.class, CanEscapeInventoryComponent.CODEC)),
-            Map.entry(ThermalRegulatorComponent.TYPE, new Entry<>(ThermalRegulatorComponent.class, ThermalRegulatorComponent.CODEC)));
+            Map.entry(ThermalRegulatorComponent.TYPE, new Entry<>(ThermalRegulatorComponent.class, ThermalRegulatorComponent.CODEC)),
+            Map.entry(LightningTargetComponent.TYPE, new Entry<>(LightningTargetComponent.class, LightningTargetComponent.CODEC)));
 
     public static boolean registered(String type) { return TYPES.containsKey(type); }
 
@@ -98,4 +99,3 @@ public final class CharacterComponentRegistry {
         }
     });
 }
-

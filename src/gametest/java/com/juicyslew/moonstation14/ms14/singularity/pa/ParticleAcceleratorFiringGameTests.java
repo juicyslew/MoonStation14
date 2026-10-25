@@ -208,7 +208,7 @@ public final class ParticleAcceleratorFiringGameTests {
     }
 
     @GameTestTags({"reactor-models", "pa-session-demand", "reactor-interaction"})
-    @GameTest(templateNamespace="moonstation14", template="singularity_fixture_clear", timeoutTicks=1000)
+    @GameTest(templateNamespace="moonstation14", template="singularity_fixture_clear", batch="pa_natural_power_strength_transitions", timeoutTicks=1000)
     public static void resolvedAssemblyProjectsEveryPartAcrossNaturalPowerAndStrengthTransitions(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
         var fixture=poweredAssembly(h,level,0);
@@ -257,7 +257,13 @@ public final class ParticleAcceleratorFiringGameTests {
                                 Runnable[] next={null};
                                 next[0]=()->{
                                     if(index[0]>=levels.size()) {
-                                        require(control.firingEligible(),"naturally powered APC plus resolved MV box remains firing-eligible");
+                                         var apcMeter=PowerRuntime.apcPowerMeter(level,control);
+                                         var mvMeter=PowerRuntime.mvPowerMeter(level,power);
+                                         require(control.firingEligible(),"naturally powered APC plus resolved MV box remains firing-eligible"
+                                                 +"; APCmeter="+apcMeter+" APCready="+control.apcPowerReady()
+                                                 +" firingEligible="+control.firingEligible()+" MVmeter="+mvMeter
+                                                 +" demand="+power.mvPowerDemandWatts()+" gameTick="+level.getGameTime()
+                                                 +" graphGeneration="+com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService.topologyGeneration(level));
                                         var lost=assembly.parts().get("fuel");
                                         level.setBlock(lost.getBlockPos(),Blocks.AIR.defaultBlockState(),3);
                                         BoundedGameTestWait.await(h,PowerRuntime.TICKS_PER_SOLVE*3,

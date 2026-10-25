@@ -68,7 +68,8 @@ class ServerClassloadingTest {
              "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java",
              "com/juicyslew/moonstation14/ms14/player_body_control/client/DevelopmentModeHotkeys.java",
              "com/juicyslew/moonstation14/ms14/player_body_control/client/DevelopmentModeHotkeyRegistration.java",
-            "com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCameraPolicy.java",
+             "com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCameraPolicy.java",
+            "com/juicyslew/moonstation14/validation/client/ClientStartupProbe.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCharacterClientView.java",
             "com/juicyslew/moonstation14/ms14/power/cable/client/CableVisualRenderer.java",
             "com/juicyslew/moonstation14/ms14/hands/client/BodyBlockOutlineRenderer.java",
@@ -158,7 +159,8 @@ class ServerClassloadingTest {
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/mouse/client/")
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mobs/client/")
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")
-                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")) {
+                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")
+                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/tesla/client/")) {
                     continue;
                 }
 
@@ -234,6 +236,16 @@ class ServerClassloadingTest {
                         () -> relativePath + " must declare its client UI package");
             }
         }
+    }
+
+    @Test
+    void clientStartupProbeIsExplicitlyClientOnly() throws IOException {
+        Path source = findProductionSourceRoot().resolve("com/juicyslew/moonstation14/validation/client/ClientStartupProbe.java");
+        String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+        Matcher declaration = PACKAGE_DECLARATION.matcher(code);
+        assertTrue(declaration.find());
+        assertEquals("com.juicyslew.moonstation14.validation.client", declaration.group(1));
+        assertTrue(code.contains("net.minecraft.client.Minecraft"));
     }
 
     @Test

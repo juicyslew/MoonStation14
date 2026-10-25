@@ -1,0 +1,1 @@
+{"type":"minecraft:block","pools":[{"rolls":1,"entries":[{"type":"minecraft:item","name":"moonstation14:tesla_generator"}],"conditions":[{"condition":"minecraft:survives_explosion"}]}]}

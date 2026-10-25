@@ -138,6 +138,8 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.containment.ModFieldGenerators.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.emitter.ModEmitters.TYPE);
@@ -336,7 +338,9 @@ class PrototypeRuntimeTest {
                  com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE.typeId()), exported.keySet());
+                  com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);

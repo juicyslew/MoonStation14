@@ -408,5 +408,28 @@
       "moonstation14:ss14/atmos/squeak2",
       "moonstation14:ss14/atmos/squeak3"
     ]
+  },
+  "tesla/ambient": {
+    "sounds": [
+      {
+        "name": "moonstation14:tesla/tesla",
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "tesla/spawn": {
+    "sounds": [
+      "moonstation14:tesla/tesla_collapse"
+    ]
+  },
+  "tesla/consume": {
+    "sounds": [
+      "moonstation14:tesla/tesla_consume"
+    ]
+  },
+  "tesla/lightning_shock": {
+    "sounds": [
+      "moonstation14:lightning/lightningshock"
+    ]
   }
 }

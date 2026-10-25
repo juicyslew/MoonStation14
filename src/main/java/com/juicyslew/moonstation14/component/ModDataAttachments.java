@@ -43,6 +43,7 @@ public class ModDataAttachments {
     // Create the DeferredRegister for attachment types
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, MoonStation14.MOD_ID);
 
+
     public static final Supplier<AttachmentType<ReagentAttachment>> REAGENT = ATTACHMENT_TYPES.register(
             "reagent", () -> AttachmentType.builder(() -> new ReagentAttachment())
                     .serialize(ReagentAttachment.CODEC, attachment -> !attachment.isEmpty())
@@ -261,4 +262,3 @@ public class ModDataAttachments {
         ATTACHMENT_TYPES.register(eventBus);
     }
 }
-

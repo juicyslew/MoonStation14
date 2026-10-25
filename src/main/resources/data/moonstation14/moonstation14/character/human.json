@@ -128,5 +128,6 @@
     {"type": "Speech"},
     {"type": "Mouth"},
     {"type": "DoorBumpOpener"}
+    ,{"type":"lightningTarget","priority":2,"probability":1.0,"resistance":1.0,"structuralDamage":1.0,"explodes":false}
   ]
 }

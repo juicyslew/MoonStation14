@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -31,6 +32,8 @@ import java.util.UUID;
 
 /** Explicit server-side test adapter only. Not a gameplay trigger/API. */
 public final class ServerExplosionService {
+    private static final TagKey<net.minecraft.world.level.block.Block> BLAST_DAMAGE_IMMUNE = TagKey.create(
+            net.minecraft.core.registries.Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("moonstation14", "blast_damage_immune"));
     public static final double FIXTURE_TOLERANCE = 2.0;
     private static final int MAX_ENTITIES_INSPECTED = 256;
     private static final int MAX_ENTITY_HITS = 128;
@@ -160,6 +163,9 @@ public final class ServerExplosionService {
             if (stateIfLoaded(level, pos) == null || !Objects.equals(observed.get(pos), stateIfLoaded(level, pos))) {
                 failed = true; continue;
             }
+            // Immune blocks remain ordinary finite blast samples: they do not stop propagation,
+            // but the execution phase must not bypass their damage immunity with setBlock-to-air.
+            if (level.getBlockState(pos).is(BLAST_DAMAGE_IMMUNE)) continue;
             try {
                 var old = level.getBlockState(pos);
                 boolean changed = level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
@@ -176,7 +182,9 @@ public final class ServerExplosionService {
                 AtmosphereService.INSTANCE.topologyChanged(level, pos);
             } catch (RuntimeException ignored) { failed = true; }
         }
-        return new Result(failed ? Status.PARTIAL : Status.APPLIED, plan.visited(), plan.breached().size(), mutated, damaged);
+        Result result = new Result(failed ? Status.PARTIAL : Status.APPLIED, plan.visited(), plan.breached().size(), mutated, damaged);
+        try { ExplosionPresentation.present(level, source); } catch (RuntimeException ignored) { /* cosmetic only */ }
+        return result;
     }
 
     /**
@@ -231,4 +239,3 @@ public final class ServerExplosionService {
     private static Result result(Status status, int visited) { return new Result(status, visited, 0, 0, 0); }
     private record EntityHit(LivingEntity entity, double intensity) { }
 }
-

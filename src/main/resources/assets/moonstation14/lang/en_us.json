@@ -1,4 +1,12 @@
 {
+  "examine.moonstation14.tesla.damage.0": "It looks fully intact.",
+  "examine.moonstation14.tesla.damage.1": "It has a few scratches.",
+  "examine.moonstation14.tesla.damage.2": "It has a few small cracks.",
+  "examine.moonstation14.tesla.damage.3": "It has several big cracks running along its surface.",
+  "examine.moonstation14.tesla.damage.4": "It has deep cracks across multiple layers.",
+  "examine.moonstation14.tesla.damage.5": "It's extremely cracked and on the verge of shattering.",
+  "entity.moonstation14.tesla_energy_ball": "Ball lightning",
+  "entity.moonstation14.tesla_mini_energy_ball": "Mini ball lightning",
   "item.moonstation14.ointment": "Ointment",
   "item.moonstation14.brutepack": "Brutepack",
   "item.moonstation14.gauze": "Gauze",
@@ -1125,5 +1133,11 @@
   "gui.moonstation14.pa.part.fore": "Fore",
   "gui.moonstation14.pa.part.starboard": "Starboard",
   "block.moonstation14.singularity_beacon": "Singularity beacon",
-  "item.moonstation14.singularity_beacon": "Singularity beacon"
+  "item.moonstation14.singularity_beacon": "Singularity beacon",
+  "block.moonstation14.tesla_generator": "Tesla Generator",
+  "item.moonstation14.tesla_generator": "Tesla Generator",
+  "block.moonstation14.tesla_coil": "Tesla Coil",
+  "item.moonstation14.tesla_coil": "Tesla Coil",
+  "block.moonstation14.tesla_grounding_rod": "Tesla Grounding Rod",
+  "item.moonstation14.tesla_grounding_rod": "Tesla Grounding Rod"
 }

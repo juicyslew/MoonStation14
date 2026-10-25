@@ -85,6 +85,7 @@ import com.juicyslew.moonstation14.ms14.atmos.tank.GasTankData;
 import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks;
 import com.juicyslew.moonstation14.ms14.atmos.tank.GasCanisterProfile;
 import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters;
+import com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -254,6 +255,10 @@ public final class PrototypeRuntime {
      public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorControlProfile> clientParticleAccelerators() { return CLIENT_MANAGER.snapshot(ModParticleAccelerators.TYPE); }
      public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticleProfile> serverParticleAcceleratorParticles() { return SERVER_MANAGER.snapshot(ModParticleAcceleratorParticles.TYPE); }
      public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticleProfile> clientParticleAcceleratorParticles() { return CLIENT_MANAGER.snapshot(ModParticleAcceleratorParticles.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.tesla.TeslaBallProfile> serverTeslaBalls() { return SERVER_MANAGER.snapshot(ModTeslaProfiles.BALL_TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.tesla.TeslaBallProfile> clientTeslaBalls() { return CLIENT_MANAGER.snapshot(ModTeslaProfiles.BALL_TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.tesla.TeslaMachineProfile> serverTeslaMachines() { return SERVER_MANAGER.snapshot(ModTeslaProfiles.MACHINE_TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.tesla.TeslaMachineProfile> clientTeslaMachines() { return CLIENT_MANAGER.snapshot(ModTeslaProfiles.MACHINE_TYPE); }
 
     private static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
@@ -302,6 +307,8 @@ public final class PrototypeRuntime {
         manager.register(ModEmitters.TYPE);
          manager.register(ModParticleAccelerators.TYPE);
          manager.register(ModParticleAcceleratorParticles.TYPE);
+         manager.register(ModTeslaProfiles.BALL_TYPE);
+         manager.register(ModTeslaProfiles.MACHINE_TYPE);
         manager.register(ModDeviceNetworks.FREQUENCY_TYPE);
         manager.register(ModDeviceNetworks.NETWORK_TYPE);
         manager.register(ModDeviceNetworks.PORT_TYPE);
