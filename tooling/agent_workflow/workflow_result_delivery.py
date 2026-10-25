@@ -199,6 +199,11 @@ def _feature_feedback_text(payload):
             lines.append("Recovery incident: " + str(incident_ref))
     for finding in findings:
         lines.append("Finding: " + json.dumps(finding, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+    for followup in payload.get("owner_followups", []):
+        lines.append("Owner testing follow-up (does not block technical readiness): " +
+                     json.dumps(followup, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+    if payload.get("result") == "PASS":
+        lines.append("PASS means ready for owner testing; it is not owner acceptance.")
     ack = {"contract_version": 1, "command_id": "ack_" + hashlib.sha256(payload["event_id"].encode()).hexdigest()[:24],
            "event_id": payload["event_id"], "run_id": payload["run_id"],
            "evaluation_generation": payload["evaluation_generation"], "result_id": payload["result_id"],

@@ -191,8 +191,11 @@ class CutoverBarrierTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             wf=WF(); head={'id':'head-1','gate_request':{'session_id':'lead-1'}}
             groups=[{'head':head}]
-            request=mock.Mock(return_value=(200,{'data':[{'id':'ordinary','delivery':'message','payload':{'metadata':{}}},
-                                                         {'id':'workflow','delivery':'message','payload':{'metadata':{'workflow_gate_request':True}}}]}))
+            def request(server, method, path, **kwargs):
+                if path == '/api/session/lead-1': return 200, {'id':'lead-1'}
+                return 200, {'data':[{'id':'ordinary','delivery':'message','payload':{'metadata':{}}},
+                                     {'id':'workflow','delivery':'message','payload':{'metadata':{'workflow_gate_request':True}}}]}
+            request=mock.Mock(side_effect=request)
             barrier=workflow_cutover.DrainBarrier(d,{},workflow=wf,request=request)
             attention={k:[] for k in ('awaiting_owner','agent_work','unconfirmed','completed')}
             with mock.patch.object(workflow_cutover.admission,'verified_hold_handle',return_value=(123,None)), \
@@ -216,6 +219,23 @@ class CutoverBarrierTests(unittest.TestCase):
                     result=barrier.recheck()
                     self.assertEqual(result['status'],'HELD')
                     self.assertIn('AWAITING_OWNER',{x['code'] for x in result['current']['blockers']})
+
+    def test_canonical_missing_lead_session_is_positive_absence(self):
+        with tempfile.TemporaryDirectory() as d:
+            wf=WF(); groups=[{'head':{'id':'head','gate_request':{'session_id':'legacy'}}}]
+            def request(server, method, path, **kwargs):
+                self.assertEqual(kwargs, {'accepted_http_statuses':(404,)})
+                return 404, None
+            request=mock.Mock(side_effect=request)
+            barrier=workflow_cutover.DrainBarrier(d,{},workflow=wf,request=request)
+            with mock.patch.object(workflow_cutover.admission,'verified_hold_handle',return_value=(123,None)), \
+                 mock.patch.object(workflow_cutover.owner_attention,'current_work',return_value=groups), \
+                 mock.patch.object(workflow_cutover.owner_attention,'collect',return_value={k:[] for k in ('awaiting_owner','agent_work','unconfirmed','completed')}):
+                with barrier:
+                    result=barrier.inspect()
+                    self.assertEqual(result['status'],'OBSERVED_ZERO')
+                    self.assertEqual(result['lead_inboxes'],[{'session_id':'legacy','status':'absent'}])
+                    self.assertEqual(request.call_count,2)  # initial inspection and explicit inspection
 
     @unittest.skipUnless(os.name=='nt','Windows owned-file handle semantics required')
     def test_owned_hold_handle_is_64bit_safe_and_does_not_remove_hold(self):

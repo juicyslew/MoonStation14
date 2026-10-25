@@ -22,8 +22,8 @@ except ModuleNotFoundError:
     from tooling.agent_workflow import workflow_preflight, workflow_runtime, workflow_store, workflow_submission, gate_execution, workflow_regression, workflow_task_artifacts, workflow_toolchain, workflow_native_fixtures
 
 
-def load_native_inputs(store, run_id):
-    """Load accepted request and integrity-checked frozen bundle; verify live source."""
+def load_native_inputs(store, run_id, *, verify_current_source=True):
+    """Load integrity-checked frozen inputs, optionally requiring the live source snapshot."""
     run=store.get_run(run_id)
     if run and run['run'].get('run_kind')=='POST_ACCEPTANCE_REGRESSION':
         return _load_regression_inputs(store,run_id,run['run'])
@@ -54,8 +54,9 @@ def load_native_inputs(store, run_id):
     if (len(manifest_bytes)!=manifest['size_bytes'] or hashlib.sha256(manifest_bytes).hexdigest()!=manifest['sha256'] or
         manifest_bytes!=workflow_store.canonical_json(bundle['source_manifest']).encode('utf-8')):
         raise ValueError('frozen source manifest integrity mismatch')
-    live=workflow_preflight.capture_source(Path(request['source_worktree']))
-    if live!=bundle['source_manifest']: raise ValueError('current source differs from admitted snapshot')
+    if verify_current_source:
+        live=workflow_preflight.capture_source(Path(request['source_worktree']))
+        if live!=bundle['source_manifest']: raise ValueError('current source differs from admitted snapshot')
     return request,bundle
 
 
@@ -134,7 +135,7 @@ def _preflight_fixture_bindings(plan, execution_plan, input_digest, *, repo=None
     expected=plan
     if retry_bindings:
         if any(binding.get('policy_id') != workflow_native_fixtures.POLICY_ID or
-               binding.get('mode') != 'FRESH_RETRY' for binding in retry_bindings.values()):
+               binding.get('mode') not in ('FRESH_RETRY', 'FRESH_INITIAL') for binding in retry_bindings.values()):
             raise ValueError('native retry bindings contain an unsupported execution policy')
         expected=workflow_native_fixtures.adapt_plan(expected,retry_bindings.values())
     managed=(workflow_native_fixtures.package_execution_bindings(plan['checks'])+
@@ -275,10 +276,18 @@ def execute_native_task(store, *, task_id, process_identity, claim_token,
             completed_check_index=len(completed_prefix)
         package_bindings=workflow_native_fixtures.package_execution_bindings(plan['checks'])
         unit_bindings=workflow_native_fixtures.managed_execution_bindings(plan['checks'])
-        all_bindings=package_bindings+unit_bindings
+        initial_bindings=[]
+        if not recovery_metadata and regression_fixture_context is None:
+            initial_bindings=workflow_native_fixtures.derive_initial_bindings(plan['checks'],
+                input_digest=request['input_digest'],run_id=task['run_id'],
+                generation=task['evaluation_generation'],task_id=task_id)
+            workflow_native_fixtures.reserve_retry_bindings(repo,initial_bindings)
+        all_bindings=package_bindings+unit_bindings+initial_bindings
         if all_bindings:
             execution_plan=workflow_native_fixtures.adapt_plan(execution_plan,all_bindings)
             runtime_fixture_bindings.update({binding['check_index']:binding for binding in all_bindings})
+            if initial_bindings:
+                retry_fixture_bindings.update({binding['check_index']:binding for binding in initial_bindings})
         # Validate every accepted fixture before the runtime can launch even the
         # first child. Completion-time provenance checks are too late for this.
         _preflight_fixture_bindings(plan,execution_plan,request['input_digest'],

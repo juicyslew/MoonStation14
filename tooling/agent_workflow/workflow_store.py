@@ -218,7 +218,9 @@ def _schema_inventory():
         ref.close()
 
 
-def _readonly_run_record(db, run_id, worktree, sprint):
+def _readonly_run_record(db, run_id, worktree, sprint, *, submission_by_run=None,
+        artifacts_by_submission=None, artifacts_by_run=None, events_by_run=None, deliveries_by_run=None, include_details=True,
+        include_terminal_event=False, summary_history=False):
     row=db.execute("SELECT run_json,current_generation,sequence FROM runs WHERE id=?",(run_id,)).fetchone()
     if row is None: raise StoreError("feature head references a missing run")
     run=json.loads(row['run_json']); run.update(current_attempt=row['current_generation'],sequence=row['sequence'])
@@ -227,48 +229,91 @@ def _readonly_run_record(db, run_id, worktree, sprint):
     if attempt_row is None: raise StoreError("run current attempt is missing")
     terminal_row=db.execute("SELECT e.payload FROM history h JOIN events e ON e.id=h.event_id WHERE h.run_id=? AND h.generation=? AND json_extract(e.payload,'$.result_id') IS NOT NULL ORDER BY h.sequence DESC LIMIT 1",
         (run_id,row['current_generation'])).fetchone()
+    terminal_event=None
+    if include_terminal_event and terminal_row is not None:
+        terminal_payload=json.loads(terminal_row['payload'])
+        result_id=terminal_payload.get('result_id') if isinstance(terminal_payload,dict) else None
+        if result_id:
+            event=db.execute("SELECT e.id,e.generation,e.payload,e.created_ms FROM history h JOIN events e ON e.id=h.event_id WHERE h.run_id=? AND h.generation=? AND e.id=? AND json_extract(e.payload,'$.result_id')=? ORDER BY h.sequence DESC LIMIT 1",
+                (run_id,row['current_generation'],result_id,result_id)).fetchone()
+            if event is not None:
+                terminal_event={'event_id':event['id'],'generation':event['generation'],
+                    'payload':json.loads(event['payload']),'created_ms':event['created_ms']}
     tasks=[]
-    for taskrow in db.execute("SELECT task_json,logical_key FROM tasks WHERE run_id=? ORDER BY generation,id",(run_id,)):
+    task_sql=("SELECT json_object('task_id',json_extract(task_json,'$.task_id'),'evaluation_generation',generation,'kind',json_extract(task_json,'$.kind'),'state',json_extract(task_json,'$.state'),'result',json_object('decision',json_extract(task_json,'$.result.decision'))) AS task_json,logical_key FROM tasks WHERE run_id=? AND generation=? ORDER BY id"
+        if summary_history else "SELECT task_json,logical_key FROM tasks WHERE run_id=? ORDER BY generation,id")
+    task_args=(run_id,row['current_generation']) if summary_history else (run_id,)
+    for taskrow in db.execute(task_sql,task_args):
         task=json.loads(taskrow['task_json']); task['logical_key']=taskrow['logical_key']
         tasks.append(task)
+    incident_fields=('incident_id','run_id','kind','state','summary','message','code','recovery_owner',
+        'owner_action_required','evaluation_generation','generation','task_id','next_retry_ms',
+        'next_automatic_retry_ms','retry_after_ms')
+    incident_json='incident_json'
+    if summary_history:
+        pairs=[]; missing=[]
+        for field in incident_fields:
+            path='$.{}'.format(field)
+            value=(f"CASE WHEN json_type(incident_json,'{path}')='true' THEN json('true') "
+                f"WHEN json_type(incident_json,'{path}')='false' THEN json('false') "
+                f"ELSE json_extract(incident_json,'{path}') END")
+            pairs.extend(("'{}'".format(field),value))
+            missing.append(f"CASE WHEN json_type(incident_json,'{path}') IS NULL THEN '$.{field}' ELSE '$.__absent__' END")
+        incident_json='json_object('+','.join(pairs)+')'
+        for path in missing:
+            incident_json=f'json_remove({incident_json},{path})'
     incidents=[{'incident':json.loads(r['incident_json']),'seen_ms':r['seen_ms'],
         'resolved_ms':r['resolved_ms'],'resolution_proof_ref':r['resolution_proof_ref'],
         'linked_delivery_id':r['linked_delivery_id']} for r in db.execute(
-        "SELECT incident_json,seen_ms,resolved_ms,resolution_proof_ref,linked_delivery_id FROM incidents WHERE run_id=? ORDER BY id",(run_id,))]
+        f"SELECT {incident_json} AS incident_json,seen_ms,resolved_ms,resolution_proof_ref,linked_delivery_id FROM incidents WHERE run_id=? ORDER BY id",(run_id,))]
     resources=[{'claim_id':r['claim_id'],'resource_key':r['resource_key'],'run_id':r['run_id'],
         'generation':r['generation'],'task_id':r['task_id'],'assignment_generation':r['assignment_generation'],
         'identity_proof':r['identity_proof'],'state':r['state'],'cleanup_proof':r['cleanup_proof'],
         'request_digest':r['request_digest']} for r in db.execute(
         "SELECT * FROM resources WHERE run_id=? ORDER BY generation,resource_key,claim_id",(run_id,))]
-    submissions=db.execute("SELECT id,request_json,response_json,caller,idem_key FROM submissions ORDER BY id").fetchall()
-    submission=None
-    for s in submissions:
-        response=json.loads(s['response_json'])
-        if response.get('run_id')==run_id:
-            submission={'submission_id':s['id'],'request':json.loads(s['request_json']),
-                'response':response,'caller':s['caller'],'idempotency_key':s['idem_key']}
-            break
+    if submission_by_run is None:
+        submission_by_run={}
+        for s in db.execute("SELECT id,request_json,response_json,caller,idem_key FROM submissions ORDER BY id"):
+            response=json.loads(s['response_json'])
+            if response.get('run_id') is not None and response['run_id'] not in submission_by_run:
+                submission_by_run[response['run_id']]={'submission_id':s['id'],'request_json':s['request_json'],
+                    'response':response,'caller':s['caller'],'idempotency_key':s['idem_key']}
+    selected=submission_by_run.get(run_id)
+    submission=None if selected is None else {'submission_id':selected['submission_id'],
+        'request':json.loads(selected['request_json']),'response':selected.get('response'),
+        'caller':selected.get('caller'),'idempotency_key':selected.get('idempotency_key')}
     request=submission['request'] if submission else None
-    decisions=[{'decision':json.loads(r['decision_json']),'response':json.loads(r['response_json'])}
+    decisions=[] if summary_history else [{'decision':json.loads(r['decision_json']),'response':json.loads(r['response_json'])}
         for r in db.execute("SELECT decision_json,response_json FROM owner_decisions WHERE run_id=? ORDER BY generation,id",(run_id,))]
     acceptance_ids=[]; acceptances=[]
-    for r in db.execute("SELECT id,run_id,generation,input_digest,decision_id FROM acceptances WHERE run_id=? ORDER BY generation,id",(run_id,)):
+    acceptance_rows=() if summary_history else db.execute("SELECT id,run_id,generation,input_digest,decision_id FROM acceptances WHERE run_id=? ORDER BY generation,id",(run_id,))
+    for r in acceptance_rows:
         acceptance_ids.append(r['id']); acceptances.append({'acceptance_id':r['id'],'run_id':r['run_id'],
             'evaluation_generation':r['generation'],'input_digest':r['input_digest'],'decision_id':r['decision_id']})
     if run.get('owner_acceptance_id') and run['owner_acceptance_id'] not in acceptance_ids:
         acceptance_ids.append(run['owner_acceptance_id'])
     regression_jobs=[]
-    for acceptance_id in acceptance_ids:
-        for r in db.execute("SELECT id,acceptance_id,job_json,inputs_json FROM regression_jobs WHERE acceptance_id=? ORDER BY id",(acceptance_id,)):
+    for acceptance_id in (() if summary_history else acceptance_ids):
+        regression_sql=("SELECT id,acceptance_id,job_json FROM regression_jobs WHERE acceptance_id=? ORDER BY id" if not include_details
+            else "SELECT id,acceptance_id,job_json,inputs_json FROM regression_jobs WHERE acceptance_id=? ORDER BY id")
+        for r in db.execute(regression_sql,(acceptance_id,)):
             regression_jobs.append({'regression_id':r['id'],'acceptance_id':r['acceptance_id'],
-                'job':json.loads(r['job_json']),'inputs':json.loads(r['inputs_json'])})
+                'job':json.loads(r['job_json']),'inputs':json.loads(r['inputs_json']) if include_details else {}})
     event_rows=[]
-    for r in db.execute("SELECT e.id,e.run_id,e.generation,e.kind,e.payload,e.payload_digest,e.created_ms,h.sequence FROM events e LEFT JOIN history h ON h.event_id=e.id WHERE e.run_id=? ORDER BY COALESCE(h.sequence,2147483647),e.created_ms,e.id",(run_id,)):
+    event_source=(events_by_run.get(run_id,()) if events_by_run is not None else db.execute("SELECT e.id,e.run_id,e.generation,e.kind,e.payload,e.payload_digest,e.created_ms,h.sequence FROM events e LEFT JOIN history h ON h.event_id=e.id WHERE e.run_id=? ORDER BY COALESCE(h.sequence,2147483647),e.created_ms,e.id",(run_id,))) if include_details else ()
+    for r in event_source:
         event_rows.append({'event_id':r['id'],'run_id':r['run_id'],'generation':r['generation'],
             'kind':r['kind'],'payload':json.loads(r['payload']),'payload_digest':r['payload_digest'],
             'created_ms':r['created_ms'],'sequence':r['sequence']})
     deliveries=[]
-    for r in db.execute("SELECT d.*,e.run_id,e.generation,e.kind,e.payload FROM deliveries d JOIN events e ON e.id=d.event_id WHERE e.run_id=? ORDER BY e.created_ms,d.id",(run_id,)):
+    if summary_history:
+        delivery_source=db.execute("SELECT d.id,d.state FROM deliveries d JOIN events e ON e.id=d.event_id WHERE e.run_id=? ORDER BY d.id",(run_id,))
+    else:
+        delivery_source=(deliveries_by_run.get(run_id,()) if deliveries_by_run is not None else db.execute("SELECT d.*,e.run_id,e.generation,e.kind,e.payload FROM deliveries d JOIN events e ON e.id=d.event_id WHERE e.run_id=? ORDER BY e.created_ms,d.id",(run_id,))) if include_details else ()
+    for r in delivery_source:
+        if summary_history:
+            deliveries.append({'delivery_id':r['id'],'state':r['state']})
+            continue
         deliveries.append({'delivery_id':r['id'],'event_id':r['event_id'],'run_id':r['run_id'],
             'generation':r['generation'],'event_kind':r['kind'],'recipient':json.loads(r['recipient_json']),
             'target_kind':r['target_kind'],'state':r['state'],'payload_digest':r['payload_digest'],
@@ -278,9 +323,12 @@ def _readonly_run_record(db, run_id, worktree, sprint):
             'attempts':r['attempts'],'claim_generation':r['claim_generation'],
             'lease_token':r['lease_token'],'lease_until_ms':r['lease_until_ms']})
     artifacts=[]
-    for r in db.execute("SELECT artifact_json FROM artifacts WHERE run_id=? ORDER BY id",(run_id,)):
-        artifacts.append(json.loads(r['artifact_json']))
-    if submission:
+    artifact_source=(artifacts_by_run.get(run_id,()) if artifacts_by_run is not None else db.execute("SELECT artifact_json FROM artifacts WHERE run_id=? ORDER BY id",(run_id,))) if include_details else ()
+    for artifact in artifact_source:
+        artifacts.append(artifact if isinstance(artifact,dict) else json.loads(artifact['artifact_json']))
+    if submission and artifacts_by_submission is not None:
+        artifacts.extend(artifacts_by_submission.get(submission['submission_id'],()))
+    elif submission:
         for r in db.execute("SELECT artifact_json FROM artifacts WHERE run_id IS NULL ORDER BY id"):
             artifact=json.loads(r['artifact_json'])
             if artifact.get('artifact',{}).get('submission_id')==submission['submission_id']:
@@ -292,11 +340,14 @@ def _readonly_run_record(db, run_id, worktree, sprint):
             'paused_since_ms':max(0,pause_ms),'active':pause_ms>=0,
             'last_resumed_ms':abs(pause_ms) if pause_ms<0 else None,
             'accumulated_paused_ms':abs(accumulated),'context':json.loads(r['context_json'])})
-    return {'worktree':worktree,'sprint':sprint,'run':run,'attempt':json.loads(attempt_row['attempt_json']),
+    result={'worktree':worktree,'sprint':sprint,'run':run,'attempt':json.loads(attempt_row['attempt_json']),
         'terminal_result':None if terminal_row is None else json.loads(terminal_row['payload']),
         'tasks':tasks,'request':request,'owner_decisions':decisions,'acceptances':acceptances,
         'regression_jobs':regression_jobs,'incidents':incidents,'resources':resources,
         'dependency_pauses':pauses,'deliveries':deliveries,'events':event_rows,'artifacts':artifacts}
+    if terminal_event is not None:
+        result['terminal_result_event']=terminal_event
+    return result
 
 
 _DDL = """
@@ -407,6 +458,15 @@ class WorkflowStore:
 
     @staticmethod
     def readonly_snapshot(database_path, *, worktree=None, timeout=5.0):
+        return WorkflowStore._readonly_snapshot(database_path, worktree=worktree, timeout=timeout, include_details=True)
+
+    @staticmethod
+    def readonly_board_snapshot(database_path, *, worktree=None, timeout=5.0):
+        """Return the live-board summary without audit-only artifact/event payloads."""
+        return WorkflowStore._readonly_snapshot(database_path, worktree=worktree, timeout=timeout, include_details=False)
+
+    @staticmethod
+    def _readonly_snapshot(database_path, *, worktree=None, timeout=5.0, include_details=True):
         """Read an existing store as one consistent, strictly read-only snapshot.
 
         Unlike WorkflowStore construction this never creates directories, opens a
@@ -439,14 +499,74 @@ class WorkflowStore:
             head_sql+=" ORDER BY worktree,sprint"
             head_rows=db.execute(head_sql,head_args).fetchall()
             head_ids={row['run_id'] for row in head_rows}
-            head_records=[_readonly_run_record(db,row['run_id'],row['worktree'],row['sprint']) for row in head_rows]
+            submission_by_run={}
+            if include_details:
+                submission_rows=db.execute("SELECT id,request_json,response_json,caller,idem_key FROM submissions ORDER BY id")
+                for s in submission_rows:
+                    response=json.loads(s['response_json'])
+                    if response.get('run_id') is not None and response['run_id'] not in submission_by_run:
+                        submission_by_run[response['run_id']]={'submission_id':s['id'],'request_json':s['request_json'],
+                            'response':response,'caller':s['caller'],'idempotency_key':s['idem_key']}
+            else:
+                # The board needs labels for every retained run, but only live heads
+                # need author/manual-step metadata. Project those fields in SQLite;
+                # never materialize or decode historical submission request bodies.
+                diagnostic_ids={row['id'] for row in db.execute("SELECT r.id FROM runs r JOIN attempts a ON a.run_id=r.id AND a.generation=r.current_generation WHERE json_extract(r.run_json,'$.run_kind')='DIAGNOSTIC' AND upper(json_extract(a.attempt_json,'$.phase')) NOT IN ('DECIDED','CLOSED')")}
+                live_ids=tuple(sorted(head_ids|diagnostic_ids))
+                projection="json_object('title',json_extract(request_json,'$.title'),'feature_label',json_extract(request_json,'$.feature_label')"
+                projection_args=()
+                if live_ids:
+                    marks=','.join('?' for _ in live_ids)
+                    projection+=(",'author',CASE WHEN json_extract(response_json,'$.run_id') IN ("+marks+") THEN json_extract(request_json,'$.author') END"
+                        ",'revision',CASE WHEN json_extract(response_json,'$.run_id') IN ("+marks+") THEN json_extract(request_json,'$.revision') END"
+                        ",'manual_steps',CASE WHEN json_extract(response_json,'$.run_id') IN ("+marks+") THEN json_extract(request_json,'$.manual_steps') END")
+                    projection_args=live_ids*3
+                projection+=")"
+                sql=("SELECT id,json_extract(response_json,'$.run_id') AS run_id,"+projection+" AS request_projection "
+                     "FROM submissions WHERE json_extract(response_json,'$.run_id') IS NOT NULL ORDER BY id")
+                for s in db.execute(sql,projection_args):
+                    rid=s['run_id']
+                    if rid not in submission_by_run:
+                        submission_by_run[rid]={'submission_id':s['id'],'request_json':s['request_projection']}
             history_sql="SELECT id,sprint,worktree,run_json FROM runs"; history_args=()
             if worktree is not None: history_sql+=" WHERE worktree=?"; history_args=(worktree,)
             history_sql+=" ORDER BY worktree,sprint,id"
-            history=[]
-            for runrow in db.execute(history_sql,history_args):
-                if runrow['id'] not in head_ids:
-                    history.append(_readonly_run_record(db,runrow['id'],runrow['worktree'],runrow['sprint']))
+            history_rows=[row for row in db.execute(history_sql,history_args) if row['id'] not in head_ids]
+            selected_run_ids=list(dict.fromkeys([row['run_id'] for row in head_rows]+[row['id'] for row in history_rows]))
+            artifacts_by_submission={}; artifacts_by_run={}; events_by_run={}; deliveries_by_run={}
+            # Fetch selected run artifacts and submission-bound artifacts together, once
+            # per snapshot; chunking keeps this safe under SQLite's bind-variable limit.
+            for start in (range(0,len(selected_run_ids),500) if include_details else ()):
+                chunk=selected_run_ids[start:start+500]
+                marks=','.join('?' for _ in chunk)
+                sql=f"SELECT run_id,artifact_json FROM artifacts WHERE run_id IN ({marks}) ORDER BY id"
+                for r in db.execute(sql,chunk):
+                    artifact=json.loads(r['artifact_json'])
+                    if r['run_id'] is not None:
+                        artifacts_by_run.setdefault(r['run_id'],[]).append(artifact)
+                        continue
+                    submission_id=artifact.get('artifact',{}).get('submission_id')
+                    if submission_id is not None:
+                        artifacts_by_submission.setdefault(submission_id,[]).append(artifact)
+                event_sql=f"SELECT e.id,e.run_id,e.generation,e.kind,e.payload,e.payload_digest,e.created_ms,h.sequence FROM events e LEFT JOIN history h ON h.event_id=e.id WHERE e.run_id IN ({marks}) ORDER BY e.run_id,COALESCE(h.sequence,2147483647),e.created_ms,e.id"
+                for r in db.execute(event_sql,chunk): events_by_run.setdefault(r['run_id'],[]).append(r)
+                delivery_sql=f"SELECT d.*,e.run_id,e.generation,e.kind,e.payload FROM deliveries d JOIN events e ON e.id=d.event_id WHERE e.run_id IN ({marks}) ORDER BY e.run_id,e.created_ms,d.id"
+                for r in db.execute(delivery_sql,chunk): deliveries_by_run.setdefault(r['run_id'],[]).append(r)
+            if include_details:
+                for r in db.execute("SELECT artifact_json FROM artifacts WHERE run_id IS NULL ORDER BY id"):
+                    artifact=json.loads(r['artifact_json'])
+                    submission_id=artifact.get('artifact',{}).get('submission_id')
+                    if submission_id is not None:
+                        artifacts_by_submission.setdefault(submission_id,[]).append(artifact)
+            head_records=[_readonly_run_record(db,row['run_id'],row['worktree'],row['sprint'],
+                submission_by_run=submission_by_run,artifacts_by_submission=artifacts_by_submission,
+                artifacts_by_run=artifacts_by_run,events_by_run=events_by_run,deliveries_by_run=deliveries_by_run,
+                include_details=include_details,include_terminal_event=not include_details) for row in head_rows]
+            history=[_readonly_run_record(db,row['id'],row['worktree'],row['sprint'],
+                submission_by_run=submission_by_run,artifacts_by_submission=artifacts_by_submission,
+                artifacts_by_run=artifacts_by_run,events_by_run=events_by_run,deliveries_by_run=deliveries_by_run,
+                include_details=include_details,summary_history=(not include_details and json.loads(row['run_json']).get('run_kind')!='DIAGNOSTIC'))
+                for row in history_rows]
             unscoped_incidents={'open':0,'recovering':0,'total':0}
             for row in db.execute("SELECT incident_json FROM incidents WHERE run_id IS NULL AND resolved_ms IS NULL"):
                 incident=strict_loads(row['incident_json'])
@@ -597,7 +717,7 @@ class WorkflowStore:
                 oldattempt=db.execute("SELECT attempt_json FROM attempts WHERE run_id=? AND generation=?",(head[0],prior_generation)).fetchone()
                 oldjson=None if oldattempt is None else json.loads(oldattempt[0])
                 if author_request_target and oldjson is not None and oldjson.get("phase") in ("DECIDED","CLOSED") and (
-                    oldjson.get("phase")!="DECIDED" or oldjson.get("result")!="FAIL"):
+                    oldjson.get("phase")!="DECIDED" or oldjson.get("result") not in ("PASS","FAIL")):
                     raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
                 unsettled=db.execute("SELECT 1 FROM tasks WHERE run_id=? AND json_extract(task_json,'$.state') NOT IN ('COMPLETED','CANCELLED')",(head[0],)).fetchone() if oldattempt else True
                 held=db.execute("SELECT 1 FROM resources WHERE run_id=? AND state IN ('HELD','UNKNOWN')",(head[0],)).fetchone()
@@ -606,7 +726,7 @@ class WorkflowStore:
                 if oldjson is None or oldjson["phase"] not in allowed_phase or unsettled or held or dirty_scope:
                     raise SubmissionHeadConflict(SubmissionHeadConflict.ACTIVE_OR_UNSETTLED)
                 if author_request_target:
-                    if oldjson.get("result")!="FAIL" or oldjson.get("cleanup_state") not in ("NOT_REQUIRED","CONFIRMED"):
+                    if oldjson.get("result") not in ("PASS","FAIL") or oldjson.get("cleanup_state") not in ("NOT_REQUIRED","CONFIRMED"):
                         raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
             elif not diagnostic and target is not None:
                 raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
@@ -1404,8 +1524,17 @@ class WorkflowStore:
                 task["assigned_session_id"] != session_id or task["state"] not in ("CLAIMED","RUNNING") or
                 runrow is None or runrow[0] != result["evaluation_generation"]):
                 raise StaleCommand("stale task generation, assignment, session, input or admission")
-            self._require_artifacts(db, result["inspected_refs"] + [ref for finding in result["findings"] for ref in finding["evidence_refs"]], result["run_id"], input_digest=result["input_digest"])
-            self._commit_task_result(db, task, {"decision":result["decision"],"findings":result["findings"],"artifact_refs":result["inspected_refs"]}, body, result_hash)
+            refs=result["inspected_refs"] + [ref for finding in result["findings"] for ref in finding["evidence_refs"]]
+            refs += [ref for item in result.get("owner_followups",[]) for ref in item.get("evidence_refs",[])]
+            submission=db.execute("SELECT request_json FROM submissions WHERE json_extract(response_json,'$.run_id')=? ORDER BY id LIMIT 1",(result['run_id'],)).fetchone()
+            if submission is None:
+                raise ProtocolError("review run has no frozen submission criteria")
+            criteria={item['criterion_id'] for item in json.loads(submission[0]).get('criteria',[])}
+            if any(item['criterion_id'] not in criteria for item in result.get('owner_followups',[])):
+                raise ProtocolError("owner_followups criterion_id must name an assigned criterion")
+            self._require_artifacts(db, refs, result["run_id"], input_digest=result["input_digest"])
+            stored_findings=[{key:value for key,value in finding.items() if key!="validation_stage"} for finding in result["findings"]]
+            self._commit_task_result(db, task, {"decision":result["decision"],"findings":stored_findings,"owner_followups":result.get("owner_followups",[]),"artifact_refs":result["inspected_refs"]}, body, result_hash)
             db.commit()
             return {"disposition":"ACCEPTED","result_digest":result_hash,"result_id":self._task_result_event_id(result["task_id"],result_hash)}
         except BaseException:
@@ -1433,7 +1562,7 @@ class WorkflowStore:
             if db.execute("SELECT 1 FROM task_dependency_pauses WHERE task_id=? AND paused_since_ms>=0", (report["task_id"],)).fetchone():
                 raise StaleCommand("review task is dependency-paused")
             current = db.execute("SELECT current_generation FROM runs WHERE id=?", (report["run_id"],)).fetchone()
-            if (task["run_id"], task["evaluation_generation"], task["assignment_generation"], task["input_digest"], task["assigned_session_id"]) != (report["run_id"], report["evaluation_generation"], report["assignment_generation"], report["input_digest"], session_id) or task["state"] not in ("CLAIMED", "RUNNING") or current is None or current[0] != report["evaluation_generation"]:
+            if (task["run_id"], task["evaluation_generation"], task["assignment_generation"], task["input_digest"], task["assigned_session_id"]) != (report["run_id"], report["evaluation_generation"], report["assignment_generation"], report["input_digest"], session_id) or task["state"] not in ("DISPATCHING", "CLAIMED", "RUNNING") or current is None or current[0] != report["evaluation_generation"]:
                 raise StaleCommand("stale task generation, assignment, session, input or admission")
             self._require_artifacts(db, report["artifact_refs"], report["run_id"], input_digest=report["input_digest"])
             self._commit_task_result(db, task, {"decision":"ERROR","findings":[],"artifact_refs":report["artifact_refs"]}, body, digest)
@@ -1812,11 +1941,15 @@ class WorkflowStore:
             return [dict(claim_id=r[0],resource_key=r[1],run_id=r[2],generation=r[3],task_id=r[4],assignment_generation=r[5],identity_proof=json.loads(r[6]),state=r[7],cleanup_proof=r[8]) for r in db.execute('SELECT claim_id,resource_key,run_id,generation,task_id,assignment_generation,identity_proof,state,cleanup_proof FROM resources WHERE task_id=? ORDER BY claim_id',(task_id,))]
         finally: db.close()
 
-    def begin_review_retry(self, *, task_id, caller, command_id, binding, proof, mode='PATCH', controls_snapshot=None):
+    def begin_review_retry(self, *, task_id, caller, command_id, binding, proof, mode='PATCH', controls_snapshot=None, purpose='PROVIDER_RETRY'):
         """Durably fence one explicit provider-retry command before its API effect."""
         if not all(isinstance(x,str) and x for x in (task_id,caller,command_id)):
             raise ProtocolError('retry command identity required')
-        request={'task_id':task_id,'binding':binding,'proof':proof,'mode':mode,'controls_snapshot':controls_snapshot}
+        if purpose not in ('PROVIDER_RETRY','REVIEW_COMPLETION'):
+            raise ProtocolError('unsupported review continuation purpose')
+        if purpose=='REVIEW_COMPLETION' and caller!='SYSTEM':
+            raise ProtocolError('completion continuation is code-owned')
+        request={'task_id':task_id,'binding':binding,'proof':proof,'mode':mode,'controls_snapshot':controls_snapshot,'purpose':purpose}
         request_digest=digest(request); db=self._connect()
         try:
             db.execute('BEGIN IMMEDIATE')
@@ -1828,15 +1961,15 @@ class WorkflowStore:
             if unresolved: raise StaleCommand('task already has an unresolved review retry intent')
             row=db.execute('SELECT task_json FROM tasks WHERE id=?',(task_id,)).fetchone()
             pause=db.execute('SELECT dependency_key,paused_since_ms,context_json FROM task_dependency_pauses WHERE task_id=?',(task_id,)).fetchone()
-            if not row or not pause: raise StaleCommand('review retry task is not paused')
+            if not row or (purpose=='PROVIDER_RETRY' and not pause) or (purpose=='REVIEW_COMPLETION' and pause and pause[1]>=0): raise StaleCommand('review retry task pause state is invalid')
             task=json.loads(row[0]); current=db.execute('SELECT current_generation FROM runs WHERE id=?',(task['run_id'],)).fetchone()
             actual={k:task.get(k) for k in ('run_id','evaluation_generation','assignment_generation','input_digest','assigned_session_id')}
             held=db.execute("SELECT identity_proof FROM resources WHERE task_id=? AND state='HELD'",(task_id,)).fetchall()
             if (task.get('kind')!='REVIEW' or task.get('state') not in ('DISPATCHING','CLAIMED','RUNNING') or
                 current is None or current[0]!=task['evaluation_generation'] or actual!=binding or
-                pause[1]<0 or json.loads(pause[2])!=binding or len(held)!=1 or json.loads(held[0][0])!=proof):
+                (purpose=='PROVIDER_RETRY' and (pause[1]<0 or json.loads(pause[2])!=binding)) or len(held)!=1 or json.loads(held[0][0])!=proof):
                 raise StaleCommand('review retry task binding or exclusive claim is stale')
-            response={'status':'INTENT','task_id':task_id,'command_id':command_id,'binding':binding,'proof':proof,'mode':mode,'controls_snapshot':controls_snapshot,'intent_ms':int(time.time()*1000)}
+            response={'status':'INTENT','task_id':task_id,'command_id':command_id,'binding':binding,'proof':proof,'mode':mode,'purpose':purpose,'controls_snapshot':controls_snapshot,'intent_ms':int(time.time()*1000)}
             db.execute("INSERT INTO command_receipts VALUES('review_retry',?,?,?,?)",(caller,command_id,request_digest,canonical_json(response)))
             db.commit(); return {'disposition':'ACCEPTED','response':response}
         except BaseException:
@@ -2133,7 +2266,7 @@ class WorkflowStore:
 
     @staticmethod
     def _assert_global_submission_lane(db, run_id, generation, *, allow_queued_target=False):
-        """Permit only one current run in a work-owning phase at a time.
+        """Permit one current native-validation owner at a time.
 
         Attempt rows are already the durable admission authority. Keeping this
         check in the same SQLite write transaction as QUEUED->CHECKING makes
@@ -2152,21 +2285,25 @@ class WorkflowStore:
         rows=db.execute("SELECT a.run_id,a.generation,a.attempt_json FROM runs r JOIN attempts a ON a.run_id=r.id AND a.generation=r.current_generation").fetchall()
         for other_run,other_generation,attempt_json in rows:
             other=json.loads(attempt_json); phase=other["phase"]
-            active=phase in ("CHECKING","REVIEWING","STOPPING")
+            active=phase=="CHECKING"
             if (active and
                     (other_run,other_generation)!=(run_id,generation)):
-                raise SubmissionLaneBusy("another current submission owns the active lane")
-        # A terminal ERROR may be durably reported while cleanup remains
-        # unresolved. Keep the lane occupied only while actual resource/task
-        # ownership remains unsettled; do not treat the saved cleanup label as
-        # permanent ownership after the existing cleanup APIs prove cessation.
-        held=db.execute("SELECT run_id,generation FROM resources WHERE state IN ('HELD','UNKNOWN')").fetchall()
-        if any((owner_run,owner_generation)!=(run_id,generation) for owner_run,owner_generation in held):
-            raise SubmissionLaneBusy("another attempt retains a HELD or UNKNOWN resource")
-        unresolved=db.execute("SELECT t.run_id,t.generation FROM tasks t JOIN attempts a ON a.run_id=t.run_id AND a.generation=t.generation WHERE json_extract(a.attempt_json,'$.phase')='DECIDED' AND json_extract(a.attempt_json,'$.result')='ERROR' AND json_extract(t.task_json,'$.state') IN ('DISPATCHING','CLAIMED','RUNNING','CANCEL_REQUESTED')").fetchall()
+                raise SubmissionLaneBusy("another current submission owns native validation")
+        # Review-session claims are deliberately independent; every other held
+        # resource remains safety-sensitive and keeps native admission closed.
+        held=db.execute("SELECT run_id,generation,resource_key FROM resources WHERE state IN ('HELD','UNKNOWN')").fetchall()
+        def is_review_session_key(key):
+            prefix='review-session:'
+            suffix=key[len(prefix):] if isinstance(key,str) and key.startswith(prefix) else ''
+            return len(suffix)==64 and all(char in '0123456789abcdef' for char in suffix)
+        if any((owner_run,owner_generation)!=(run_id,generation) and not is_review_session_key(resource_key)
+               for owner_run,owner_generation,resource_key in held):
+            raise SubmissionLaneBusy("another attempt retains a HELD or UNKNOWN native/unclassified resource")
+        # CHECK ownership can outlive its phase (notably terminal ERROR).
+        unresolved=db.execute("SELECT t.run_id,t.generation FROM tasks t WHERE json_extract(t.task_json,'$.kind')='CHECK' AND json_extract(t.task_json,'$.state') IN ('DISPATCHING','CLAIMED','RUNNING','CANCEL_REQUESTED')").fetchall()
         if any((owner_run,owner_generation)!=(run_id,generation) for owner_run,owner_generation in unresolved):
             raise SubmissionLaneBusy("another terminal ERROR attempt retains an unsettled dispatched task")
-        scopes=db.execute("SELECT t.run_id,t.generation FROM native_scopes s JOIN tasks t ON t.id=s.task_id JOIN attempts a ON a.run_id=t.run_id AND a.generation=t.generation WHERE json_extract(a.attempt_json,'$.phase')='DECIDED' AND json_extract(a.attempt_json,'$.result')='ERROR' AND s.state!='CLEANED'").fetchall()
+        scopes=db.execute("SELECT t.run_id,t.generation FROM native_scopes s JOIN tasks t ON t.id=s.task_id WHERE s.state!='CLEANED'").fetchall()
         if any((owner_run,owner_generation)!=(run_id,generation) for owner_run,owner_generation in scopes):
             raise SubmissionLaneBusy("another terminal ERROR attempt retains an uncleaned native scope")
 
@@ -2339,7 +2476,9 @@ class WorkflowStore:
                     validate(attempt,"attempt")
                     db.execute("UPDATE attempts SET attempt_json=? WHERE run_id=? AND generation=?",(canonical_json(attempt),run_id,generation))
                     findings=[f for t in saved_tasks if t["state"]=="COMPLETED" and (t.get("result") or {}).get("decision")=="FAIL" for f in (t.get("result") or {}).get("findings",[])] if terminal_result=="FAIL" else [f for t in saved_tasks if t["state"]=="COMPLETED" for f in (t.get("result") or {}).get("findings",[])]
+                    owner_followups=[item for t in saved_tasks if t["state"]=="COMPLETED" for item in (t.get("result") or {}).get("owner_followups",[])]
                     refs=sorted({ref for t in saved_tasks if t["state"]=="COMPLETED" for ref in ((t.get("result") or {}).get("artifact_refs",[])+[r for f in (t.get("result") or {}).get("findings",[]) for r in f.get("evidence_refs",[])])})
+                    refs=sorted(set(refs)|{ref for item in owner_followups for ref in item.get("evidence_refs",[])})
                     for ref in refs: self._require_artifacts(db,[ref],run_id,input_digest=run_value["input_digest"])
                     if run_value.get("run_kind") == "POST_ACCEPTANCE_REGRESSION":
                         jobrow=db.execute("SELECT id,acceptance_id,job_json FROM regression_jobs WHERE acceptance_id=?",(run_value["owner_acceptance_id"],)).fetchone()
@@ -2367,10 +2506,10 @@ class WorkflowStore:
                         # Public result_digest = SHA-256(canonical_json of exactly this
                         # semantic object); result_id/event_id derives from that digest.
                         # IDs are deliberately excluded to avoid a circular digest.
-                        sem={"run_id":run_id,"evaluation_generation":generation,"input_digest":run_value["input_digest"],"result":terminal_result,"findings":findings,"artifact_refs":refs}
+                        sem={"run_id":run_id,"evaluation_generation":generation,"input_digest":run_value["input_digest"],"result":terminal_result,"findings":findings,"owner_followups":owner_followups,"artifact_refs":refs}
                         result_digest=digest(sem); result_id="event_result_"+hashlib.sha256(result_digest.encode()).hexdigest()[:24]
                         action={"PASS":"REVIEW_DIAGNOSTIC_RESULTS" if run_value.get("run_kind")=="DIAGNOSTIC" else "WAIT_FOR_OWNER_TEST","FAIL":"FIX_FINDINGS","ERROR":"PREPARE_FRESH_DIAGNOSTIC" if run_value.get("run_kind")=="DIAGNOSTIC" else "WAIT_FOR_RECOVERY"}[terminal_result]
-                        built={"contract_version":1,"event_id":result_id,"run_id":run_id,"evaluation_generation":generation,"input_digest":run_value["input_digest"],"result":terminal_result,"result_id":result_id,"result_digest":result_digest,"findings":findings,"artifact_refs":refs,"next_action":action}
+                        built={"contract_version":1,"event_id":result_id,"run_id":run_id,"evaluation_generation":generation,"input_digest":run_value["input_digest"],"result":terminal_result,"result_id":result_id,"result_digest":result_digest,"findings":findings,"owner_followups":owner_followups,"artifact_refs":refs,"next_action":action}
                         # Preserve the public FEATURE_GATE semantic digest exactly;
                         # run kind is saved run authority and transport metadata.
                         if run_value.get("run_kind")=="DIAGNOSTIC":
@@ -2485,6 +2624,8 @@ class WorkflowStore:
             if db.execute("SELECT 1 FROM tasks WHERE run_id=? AND generation=? AND json_extract(task_json,'$.state') NOT IN ('COMPLETED','CANCELLED') LIMIT 1",(run_id,oldgen)).fetchone(): raise StoreError("old attempt has unsettled child tasks")
             if db.execute("SELECT 1 FROM resources WHERE run_id=? AND state IN ('HELD','UNKNOWN')",(run_id,)).fetchone():
                 raise StoreError("uncertain resource ownership blocks recovery")
+            if db.execute("SELECT 1 FROM native_scopes s JOIN tasks t ON t.id=s.task_id WHERE t.run_id=? AND t.generation=? AND s.state!='CLEANED' LIMIT 1",(run_id,oldgen)).fetchone():
+                raise StoreError("uncleaned native process scope blocks recovery")
             oldtasks=[dict(json.loads(r[0]),logical_key=r[1]) for r in db.execute("SELECT task_json,logical_key FROM tasks WHERE run_id=? AND generation=?",(run_id,oldgen))]
             if any(t["state"] not in ("COMPLETED","CANCELLED") for t in oldtasks): raise StoreError("old attempt has unsettled child tasks")
             for task in oldtasks:
@@ -2552,8 +2693,6 @@ class WorkflowStore:
                     raise ProtocolError("reused CHECK receipt requires its saved PASS producer")
             db.execute("INSERT INTO recovery_metadata VALUES(?,?,?,?,?)",(run_id,gen,fresh_input_proof,boundary,canonical_json(refs)))
             db.execute("UPDATE runs SET current_generation=?,sequence=sequence+1 WHERE id=?",(gen,run_id))
-            if attempt["phase"]=="REVIEWING":
-                self._assert_global_submission_lane(db,run_id,gen)
             db.execute("INSERT INTO outbox(event_id) VALUES(?)",(recovery_event["event_id"],))
             db.execute("INSERT INTO history(run_id,generation,sequence,event_id) VALUES(?,?,?,?)",(run_id,gen,row[1]+1,recovery_event["event_id"]))
             response={"generation":gen,"recovery_from_generation":oldgen,"reused_artifacts":refs}
@@ -2950,14 +3089,17 @@ class WorkflowStore:
         finally: db.close()
 
     def _verify_settled_feature_head_tx(self, db, run_id, generation, expected_sequence, worktree, terminal_kind):
+        if terminal_kind not in ("ERROR", "FAIL", "CANCELLED"):
+            raise ProtocolError("unsupported settled terminal kind")
         row=db.execute("SELECT r.current_generation,r.sequence,r.run_json,r.worktree,r.sprint,a.attempt_json FROM runs r JOIN attempts a ON a.run_id=r.id AND a.generation=r.current_generation WHERE r.id=?",(run_id,)).fetchone()
         if row is None or row[0]!=generation or row[1]!=expected_sequence: raise StaleCommand("attempt generation/sequence is stale")
         run=json.loads(row[2]); attempt=json.loads(row[5])
         head=db.execute("SELECT run_id FROM feature_heads WHERE worktree=? AND sprint=?",(worktree,run["sprint_id"])).fetchone()
         if row[3]!=worktree or run.get("run_kind")!="FEATURE_GATE" or head is None or head[0]!=run_id:
             raise StaleCommand("run is not the exact current feature head in this owner worktree")
-        if terminal_kind=="ERROR":
+        if terminal_kind in ("ERROR", "FAIL"):
             valid=attempt.get("phase")=="DECIDED" and attempt.get("result")=="ERROR" and attempt.get("cleanup_state") in ("CONFIRMED","NOT_REQUIRED","UNRESOLVED")
+            if terminal_kind == "FAIL": valid=attempt.get("phase")=="DECIDED" and attempt.get("result")=="FAIL" and attempt.get("cleanup_state") in ("CONFIRMED","NOT_REQUIRED")
         else:
             valid=attempt.get("phase")=="CLOSED" and attempt.get("closure")=="CANCELLED" and attempt.get("result") is None and attempt.get("cleanup_state") in ("CONFIRMED","NOT_REQUIRED")
         if not valid: raise StaleCommand(f"only a settled terminal {terminal_kind} feature head can be retired")
@@ -3043,8 +3185,12 @@ class WorkflowStore:
                                 evidence.get('inactive_confirmed') is True and evidence.get('inbox_empty') is True and
                                 evidence.get('message_absent') is True and isinstance(evidence.get('history_guard'),dict) and
                                 evidence['history_guard'].get('current_identity_matches') is True and
-                                evidence['history_guard'].get('no_foreign_postbaseline_user') is True and
-                                evidence['history_guard'].get('session_id')==task['assigned_session_id'])
+                                evidence['history_guard'].get('session_id')==task['assigned_session_id'] and
+                                ((evidence['history_guard'].get('purpose')=='CANCELLATION_DISCARD' and
+                                  evidence['history_guard'].get('explicit_discard_authorized') is True and
+                                  isinstance(evidence['history_guard'].get('assignment_body_sha256'),str) and
+                                  len(evidence['history_guard']['assignment_body_sha256'])==64) or
+                                 evidence['history_guard'].get('no_foreign_postbaseline_user') is True))
                     except (ProtocolError, TypeError, KeyError, ValueError, OSError, UnicodeDecodeError):
                         adapter_ok=False
                 if not ready and not adapter_ok: raise StaleCommand("cancelled review readiness is unproven")
@@ -3054,6 +3200,9 @@ class WorkflowStore:
 
     def _verify_settled_error_head_tx(self, db, run_id, generation, expected_sequence, worktree):
         return self._verify_settled_feature_head_tx(db,run_id,generation,expected_sequence,worktree,"ERROR")
+
+    def _verify_settled_failed_head_tx(self, db, run_id, generation, expected_sequence, worktree):
+        return self._verify_settled_feature_head_tx(db,run_id,generation,expected_sequence,worktree,"FAIL")
 
     def _verify_settled_cancelled_head_tx(self, db, run_id, generation, expected_sequence, worktree):
         return self._verify_settled_feature_head_tx(db,run_id,generation,expected_sequence,worktree,"CANCELLED")
@@ -3076,6 +3225,10 @@ class WorkflowStore:
         return self._retire_settled_head(run_id=run_id,generation=generation,expected_sequence=expected_sequence,
             caller=caller,command_id=command_id,worktree=worktree,terminal_kind="ERROR")
 
+    def retire_settled_failed_head(self, *, run_id, generation, expected_sequence, caller, command_id, worktree):
+        return self._retire_settled_head(run_id=run_id,generation=generation,expected_sequence=expected_sequence,
+            caller=caller,command_id=command_id,worktree=worktree,terminal_kind="FAIL")
+
     def retire_settled_cancelled_head(self, *, run_id, generation, expected_sequence, caller, command_id, worktree):
         """Owner-only retirement of a historically closed, settled cancellation."""
         return self._retire_settled_head(run_id=run_id,generation=generation,expected_sequence=expected_sequence,
@@ -3084,7 +3237,7 @@ class WorkflowStore:
     def _retire_settled_head(self, *, run_id, generation, expected_sequence, caller, command_id, worktree, terminal_kind):
         request={"run_id":run_id,"generation":generation,"expected_sequence":expected_sequence,"worktree":worktree}
         request_digest=digest(request)
-        operation="retire_error_head" if terminal_kind=="ERROR" else "retire_cancelled_head"
+        operation={"ERROR":"retire_error_head","FAIL":"retire_failed_head","CANCELLED":"retire_cancelled_head"}[terminal_kind]
         db=self._connect()
         try:
             db.execute("BEGIN IMMEDIATE")
@@ -3092,18 +3245,18 @@ class WorkflowStore:
             if prior:
                 if prior[0]!=request_digest: raise IdempotencyConflict("retirement command key reused with changed request")
                 db.commit(); return json.loads(prior[1])
-            verify=self._verify_settled_error_head_tx if terminal_kind=="ERROR" else self._verify_settled_cancelled_head_tx
+            verify={"ERROR":self._verify_settled_error_head_tx,"FAIL":self._verify_settled_failed_head_tx,"CANCELLED":self._verify_settled_cancelled_head_tx}[terminal_kind]
             run=verify(db,run_id,generation,expected_sequence,worktree)
-            prefix="error" if terminal_kind=="ERROR" else "cancelled"
+            prefix={"ERROR":"error","FAIL":"failed","CANCELLED":"cancelled"}[terminal_kind]
             event_id='event_retire_'+prefix+'_'+hashlib.sha256((caller+'\0'+command_id).encode()).hexdigest()[:32]
             event={'contract_version':1,'event_id':event_id,'kind':'OWNER_'+terminal_kind+'_HEAD_RETIRED','run_id':run_id,'evaluation_generation':generation}
-            if terminal_kind=="ERROR": event.update(reason='CANCELLED',historical_result='ERROR')
+            if terminal_kind in ("ERROR","FAIL"): event.update(reason='CANCELLED',historical_result=terminal_kind)
             else: event['closure']='CANCELLED'
             self._event(db,event,run_id,generation)
             changed=db.execute("DELETE FROM feature_heads WHERE worktree=? AND sprint=? AND run_id=?",(worktree,run['sprint_id'],run_id)).rowcount
             if changed!=1: raise StaleCommand("feature head changed during retirement")
             receipt={'event_id':event_id,'state':'RETIRED_HEAD','run_id':run_id,'evaluation_generation':generation}
-            receipt.update({'historical_result':'ERROR'} if terminal_kind=="ERROR" else {'historical_closure':'CANCELLED','historical_result':None})
+            receipt.update({'historical_result':terminal_kind} if terminal_kind in ("ERROR","FAIL") else {'historical_closure':'CANCELLED','historical_result':None})
             db.execute("INSERT INTO command_receipts(operation,caller,command_key,request_digest,response_json) VALUES(?,?,?,?,?)",(operation,caller,command_id,request_digest,canonical_json(receipt)))
             db.commit(); return receipt
         except BaseException:

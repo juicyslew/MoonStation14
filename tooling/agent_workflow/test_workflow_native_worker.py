@@ -12,6 +12,8 @@ import workflow_submission
 import workflow_store
 import workflow_preflight
 import workflow_runtime
+import workflow_error_recovery
+import workflow_native_fixtures
 from preflight_test_support import make_preflight_case
 
 
@@ -44,6 +46,20 @@ class NativeInputLoaderTests(unittest.TestCase):
         (self.case.repo/'dirty.txt').write_text('changed after admission')
         with self.assertRaisesRegex(ValueError,'current source'):
             workflow_native_worker.load_native_inputs(self.store,self.run_id)
+
+    def test_readonly_frozen_load_skips_only_current_tree_capture(self):
+        (self.case.repo/'unrelated.txt').write_text('changed')
+        with patch.object(workflow_preflight,'capture_source',side_effect=AssertionError('live capture called')):
+            request,bundle=workflow_native_worker.load_native_inputs(
+                self.store,self.run_id,verify_current_source=False)
+        self.assertEqual(self.case.request['input_digest'],request['input_digest'])
+        self.assertEqual(request['input_digest'],workflow_store.digest(bundle['source_manifest']))
+        saved=self.store.get_run_submission(self.run_id)
+        bundle_artifact=workflow_native_worker.resolve_generated_bundle(saved)
+        path=Path(bundle_artifact['path'])
+        path.write_bytes(path.read_bytes()+b' ')
+        with self.assertRaisesRegex(ValueError,'integrity'):
+            workflow_native_worker.load_native_inputs(self.store,self.run_id,verify_current_source=False)
 
     def test_native_execution_commits_typed_pass_and_replay_does_not_rerun(self):
         self.store=workflow_store.WorkflowStore(self.root/'worker.sqlite')
@@ -152,7 +168,7 @@ class NativeInputLoaderTests(unittest.TestCase):
                             for child in proofs[0]['children']))
 
     def run_case(self, key, script, *, kind='command', artifact=None, changed=False, checks=None,
-                 ignored_config=False, mutate_config_after=False, extra_receipt_rows=()):
+                 checks_factory=None, after_digest=None, ignored_config=False, mutate_config_after=False, extra_receipt_rows=()):
         root=self.root/key; root.mkdir()
         case=make_preflight_case(root,repo_name='repo',caller='worker-'+key,key=key)
         (case.repo/'producer.py').write_text(script)
@@ -176,6 +192,10 @@ class NativeInputLoaderTests(unittest.TestCase):
             'references':{},'checks':checks}
         plan={'registry_version':1,'packs':[],'plan':inner,'program_checks':[]}
         case.request['input_digest']=workflow_store.digest(workflow_preflight.capture_source(case.repo))
+        if after_digest: after_digest(case,case.request['input_digest'])
+        if checks_factory:
+            checks=checks_factory(case,case.request['input_digest'])
+            inner['checks']=checks
         case.request['plan_digest']=workflow_store.digest(plan)
         with patch.object(workflow_preflight,'resolve_check_packs',return_value=plan):
             receipt=workflow_submission.submit_submission(store,caller=case.caller,idempotency_key=key,request=case.request,
@@ -240,6 +260,72 @@ class NativeInputLoaderTests(unittest.TestCase):
         self.assertTrue(Path(junit['path']).is_file())
         self.assertEqual(__import__('hashlib').sha256(Path(junit['path']).read_bytes()).hexdigest(),junit['sha256'])
         self.assertEqual(parsed['checks'][0]['evidence']['counts']['tests'],1)
+
+    def test_initial_gametest_fixture_worker_provenance_is_reusable_as_verified_prefix(self):
+        accepted_holder={}
+        def after_digest(case,digest):
+            old=case.repo/'build'/'workflow-fixtures'/digest[:12]/'lifecycle-profile.json'
+            old.parent.mkdir(parents=True,exist_ok=True); old.write_text('{"old":"keep"}',encoding='utf-8')
+            accepted_holder['path']=old; accepted_holder['contents']=old.read_bytes()
+        def make_checks(case,digest):
+            fixture='build/workflow-fixtures/'+digest[:12]
+            game_script=("import pathlib,sys\n" 
+                "arg=next(x.split('=',1)[1] for x in sys.argv if x.startswith('-Pms14GameTestDir='))\n"
+                "p=pathlib.Path(arg); assert not p.exists() or not any(p.iterdir())\n"
+                "p.mkdir(parents=True,exist_ok=True); (p/'logs').mkdir(exist_ok=True)\n"
+                "(p/'logs/latest.log').write_text('GameTest tag preflight: 1/1 fixtures selected\\nAll 1 required tests passed\\n')\n"
+                "print('GameTest tag preflight: 1/1 fixtures selected\\nAll 1 required tests passed')\n"
+                "pathlib.Path('build/actual-fixture.txt').write_text(arg)\n")
+            missing=case.repo/'build/missing.jar'
+            return [
+                {'argv':[sys.executable,'-c',"from pathlib import Path; p=Path('build/test-results/test/TEST-Fixture.xml'); p.parent.mkdir(parents=True,exist_ok=True); p.write_text('<testsuite name=\\\"FixtureTest\\\" tests=\\\"1\\\" failures=\\\"0\\\" errors=\\\"0\\\" skipped=\\\"0\\\"><testcase name=\\\"pass\\\"/></testsuite>')"],
+                 'rationale':'fresh unit producer','covers':['c1'],'kind':'junit','selectors':['FixtureTest']},
+                {'argv':[sys.executable,'-c',game_script,'runGameTestServer','-Pms14GameTestDir='+fixture],
+                 'rationale':'managed native GameTest producer','covers':['c1'],'kind':'gametest','log':fixture+'/logs/latest.log'},
+                {'argv':[sys.executable,'-c','pass'],'rationale':'missing package artifact creates terminal error',
+                 'covers':['c1'],'kind':'build','artifacts':['build/missing.jar']}]
+        store,result,root=self.run_case('initial-gametest-prefix','pass\n',checks_factory=make_checks,after_digest=after_digest)
+        self.assertEqual('ERROR',result['decision'])
+        self.assertEqual(b'{"old":"keep"}',accepted_holder['path'].read_bytes())
+        self.assertNotIn('lifecycle-profile.json', (root/'repo'/'build'/'actual-fixture.txt').read_text())
+        db=store._connect()
+        try: task_id=db.execute('select id from tasks order by rowid desc limit 1').fetchone()[0]
+        finally: db.close()
+        task=store.get_task(task_id)
+        self.assertEqual('ERROR',result['decision'],result)
+        self.assertGreaterEqual(len(store.list_native_check_records(task_id)),2,
+            [Path(store.get_artifact(ref)['artifact']['path']).read_text(errors='replace')[:700]
+             for ref in result.get('artifact_refs',[]) if store.get_artifact(ref)['artifact']['type']=='PROVENANCE'])
+        request,bundle=workflow_native_worker.load_native_inputs(store,task['run_id'])
+        # Confirm execution ownership fields can be independently re-derived from the SQL task.
+        saved_links=store.list_native_check_records(task_id)
+        game_art=store.get_artifact(saved_links[1]['artifact_ref'])['artifact']
+        game_prov=workflow_store.strict_loads(Path(game_art['path']).read_text(encoding='utf-8'))
+        self.assertEqual('FRESH_INITIAL',game_prov['runtime_fixture']['mode'])
+        self.assertEqual(task_id,game_prov['task_id'])
+        self.assertEqual('PASS',game_prov['record']['evidence']['status'])
+        prefix=workflow_error_recovery.verified_prefix(store,task_id,request,bundle)
+        self.assertEqual([0,1],[link['check_index'] for link in prefix['source_links']],
+            store.list_native_check_records(task_id))
+        self.assertEqual('PASS',prefix['records'][1]['evidence']['status'])
+        self.assertEqual('FRESH_INITIAL',next(
+            workflow_store.strict_loads(Path(store.get_artifact(link['artifact_ref'])['artifact']['path']).read_text())['runtime_fixture']['mode']
+            for link in store.list_native_check_records(task_id) if link['check_index']==1))
+        # Exercise the runner boundary used by retries: the verified initial argv
+        # must be present in the adapted plan so its completed record is reusable.
+        retry_task='task_retry_component'
+        suffix=workflow_native_fixtures.derive_retry_bindings(bundle['resolved_plan']['plan']['checks'],
+            input_digest=request['input_digest'],run_id=task['run_id'],generation=2,
+            task_id=retry_task,prefix_count=len(prefix['records']))
+        adapted=workflow_native_fixtures.adapt_plan(bundle['resolved_plan']['plan'],
+            prefix['runtime_fixtures']+suffix)
+        self.assertEqual(prefix['records'][1]['argv'],adapted['checks'][1]['argv'])
+        adapted['checks'][2]['argv']=[sys.executable,'-c',
+            "from pathlib import Path; p=Path('build/missing.jar'); p.parent.mkdir(parents=True,exist_ok=True); p.write_bytes(b'now available')"]
+        resumed=workflow_runtime.run_finite_checks(root/'repo',adapted,root/'retry-logs',
+            completed_prefix=prefix['records'])
+        self.assertEqual(3,len(resumed)); self.assertEqual(0,resumed[-1]['exit_code'])
+        self.assertEqual('FRESH_INITIAL',prefix['runtime_fixtures'][0]['mode'])
 
     def test_ignored_managed_config_change_is_execution_error(self):
         store,result,root=self.run_case('ignored-config','from pathlib import Path; Path("ran").write_text("yes")\n',

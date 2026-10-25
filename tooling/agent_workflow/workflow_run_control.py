@@ -26,8 +26,9 @@ class ServiceRunControl:
             raise workflow_store.StaleCommand("attempt generation is stale")
         if run.get("author", {}).get("worktree") != owner_binding.worktree:
             raise PermissionError("run is outside configured owner worktree")
-        if attempt.get("phase") == "DECIDED" and attempt.get("result") == "ERROR":
-            receipt = self.store.retire_settled_error_head(run_id=run_id,
+        if attempt.get("phase") == "DECIDED" and attempt.get("result") in ("ERROR", "FAIL"):
+            retire = self.store.retire_settled_failed_head if attempt.get("result") == "FAIL" else self.store.retire_settled_error_head
+            receipt = retire(run_id=run_id,
                 generation=attempt["generation"], expected_sequence=command["expected_sequence"],
                 caller=owner_binding.caller, command_id=command["command_id"], worktree=owner_binding.worktree)
             self.notify_committed()

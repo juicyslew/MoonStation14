@@ -7,13 +7,21 @@ except ModuleNotFoundError:
     from tooling.agent_workflow import workflow_store
 
 
-def continuation_body(task, assignment, command_id):
+def continuation_body(task, assignment, command_id, purpose='PROVIDER_RETRY'):
     task_id=task['task_id']
     message_id='msg_'+hashlib.sha256(
         f"{task_id}\0{task['evaluation_generation']}\0{task['assignment_generation']}\0{command_id}".encode()
     ).hexdigest()[:40]
-    text=(f'Continue existing bound review task {task_id} from this session checkpoint. Do not rerun checks or create sessions. '
-          'Claim/complete the existing assignment or report its precise blocker.')
+    if purpose=='REVIEW_COMPLETION':
+        text=(f'The existing bound review assignment {task_id} has no accepted result yet. Continue from this session checkpoint; '
+              'do not rerun checks or create sessions. Inspect assigned evidence if needed, then use the advertised reviewer SDK '
+              'complete_review with the canonical review_result or report_error with a canonical task_error, and wait for its '
+              'accepted receipt before stopping. Final chat prose is not a submitted review.')
+    elif purpose=='PROVIDER_RETRY':
+        text=(f'Continue existing bound review task {task_id} from this session checkpoint. Do not rerun checks or create sessions. '
+              'Claim/complete the existing assignment or report its precise blocker.')
+    else:
+        raise ValueError('unsupported review continuation purpose')
     metadata={'kind':'REVIEW_CONTINUATION','task_id':task_id,'run_id':task['run_id'],
         'evaluation_generation':task['evaluation_generation'],'assignment_generation':task['assignment_generation'],
         'input_digest':task['input_digest'],'original_prompt_id':'msg_'+hashlib.sha256(
@@ -41,7 +49,7 @@ def continuation_bodies(receipts, task, assignment, server):
         if not isinstance(receipt.get('command_id'),str) or not receipt['command_id']: raise ValueError('retry command missing')
         snapshots=receipt.get('controls_snapshot')
         if not isinstance(snapshots,list) or not snapshots: raise ValueError('retry control snapshot missing')
-        expected=continuation_body(task,assignment,receipt['command_id'])
+        expected=continuation_body(task,assignment,receipt['command_id'],receipt.get('purpose','PROVIDER_RETRY'))
         for saved in snapshots:
             if (not isinstance(saved,dict) or saved.get('id')!=expected['id'] or saved.get('session_id')!=sid or
                 saved.get('text')!=expected['text'] or saved.get('metadata')!=expected['metadata'] or saved.get('body')!=expected or

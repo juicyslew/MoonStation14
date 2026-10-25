@@ -10,7 +10,7 @@ import test_workflow_review as fixtures
 
 
 class ReviewGuideReceiptTests(unittest.TestCase):
-    def test_guide_preserves_large_late_receipt_records(self):
+    def test_guide_summarizes_receipt_and_keeps_full_original_accessible(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             helper = fixtures.ReviewPlanningTests()
@@ -53,13 +53,15 @@ class ReviewGuideReceiptTests(unittest.TestCase):
             view = json.loads(data)
             self.assertEqual(assignment, planner.build_assignment(task['task_id']))
             self.assertIn(ref, view['assignment_artifact_refs'])
-            evidence = next(item for item in view['evidence'] if item.get('checks') == receipt)
-            self.assertEqual(receipt, evidence['checks'])
+            evidence = next(item for item in view['evidence'] if item['metadata']['artifact_id'] == ref)
+            self.assertEqual([{'kind':'junit','status':'PASS'},
+                {'kind':'gametest','status':'PASS'}, {'kind':'build','status':'PASS'}], evidence['checks'])
+            self.assertEqual({'input_ref':ref,'input_offset':0}, evidence['read_example'])
+            self.assertFalse(evidence['content_embedded'])
             self.assertEqual(raw, Path(path).read_bytes())
             self.assertEqual(hashlib.sha256(data).hexdigest(), guide['sha256'])
             self.assertEqual(hashlib.sha256(raw).hexdigest(), evidence['metadata']['sha256'])
-            self.assertTrue(all(len(line) < 2000 for line in data.decode().splitlines()))
-            self.assertLess(len(data.decode().splitlines()), 2000)
+            self.assertLess(len(data), 32 * 1024)
 
 
 if __name__ == '__main__':

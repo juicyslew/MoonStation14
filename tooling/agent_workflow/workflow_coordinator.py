@@ -20,7 +20,7 @@ import anyio
 from contextlib import asynccontextmanager
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse, HTMLResponse, StreamingResponse
+from starlette.responses import JSONResponse, HTMLResponse, StreamingResponse, RedirectResponse
 from starlette.routing import Route
 
 import workflow_runtime
@@ -30,6 +30,7 @@ import workflow_scope
 import workflow_board
 import gate_progress
 import workflow_task_artifacts
+import workflow_review
 
 
 def _loopback_request(request):
@@ -176,7 +177,7 @@ def _sanitize_exception(exc, request=None, coordinator=None):
     return workflow_task_artifacts.sanitize_text(str(exc),secrets)
 
 
-_FAILED_RUN_REPLACEMENT_RECOVERY = "Keep the rejected receipt/key unchanged. Prepare fresh scope/submission keys and fresh artifact IDs, producer IDs, and refs; set replaces_run_id to your original owned, settled FAIL run ID. Never edit or reuse the rejected key."
+_FAILED_RUN_REPLACEMENT_RECOVERY = "Keep the rejected receipt/key unchanged. Prepare fresh scope/submission keys and fresh artifact IDs, producer IDs, and refs; set replaces_run_id to your original owned, settled PASS or FAIL feature run ID. Never edit or reuse the rejected key."
 
 _ERROR_ACTIONS = {
     "MALFORMED_REQUEST": "CORRECT_REQUEST", "INVALID_QUERY": "CORRECT_REQUEST",
@@ -237,7 +238,7 @@ def _submission_guidance(receipt):
         return None
     code=receipt.get("code")
     if code == "SUBMISSION_REPLACEMENT_UNAVAILABLE":
-        return _error(code,"This submission receipt is a final rejection. Prepare a fresh request and scope to replace your settled failed run.",
+        return _error(code,"This submission receipt is a final rejection. Prepare a fresh full request and scope to replace your settled PASS or FAIL feature head.",
             "PREPARE_FAILED_RUN_REPLACEMENT",field="replaces_run_id",recovery=_FAILED_RUN_REPLACEMENT_RECOVERY)["error"]
     if code == "FEATURE_HEAD_UNSETTLED":
         return _error(code,"The existing feature run is not settled for replacement.","WAIT_FOR_RECOVERY",field="replaces_run_id",
@@ -458,7 +459,7 @@ class ExplicitCoordinator:
                 'workflow_revision':workflow_revision},separators=(',',':'))+'\n\n').encode('utf-8')
 
     def _board_snapshot_payload(self, worktree):
-        raw=workflow_store.WorkflowStore.readonly_snapshot(self.store.path,worktree=worktree)
+        raw=workflow_store.WorkflowStore.readonly_board_snapshot(self.store.path,worktree=worktree)
         result=workflow_board.project(raw,worktree=worktree,author_activity=self._cached_author_activity())
         result['coordinator']=self.summary()
         if self.admission_root is not None:
@@ -930,6 +931,14 @@ class ExplicitCoordinator:
             elif result and result['attempt'].get('result')=='FAIL':
                 head=await anyio.to_thread.run_sync(lambda:self.store.is_current_feature_head(run_id))
                 response['continuation']={'retired_head':False,'next_action':'FIX_FINDINGS_AND_REPLACE' if head else 'HISTORY_ONLY'}
+            elif (result and same_author and result['run'].get('run_kind')=='FEATURE_GATE'
+                  and result['attempt'].get('phase')=='DECIDED' and result['attempt'].get('result')=='PASS'
+                  and result['attempt'].get('cleanup_state') in ('NOT_REQUIRED','CONFIRMED')):
+                head=await anyio.to_thread.run_sync(lambda:self.store.is_current_feature_head(run_id))
+                response['continuation']={'retired_head':False,'next_action':'PREPARE_REVISED_SUBMISSION' if head else 'HISTORY_ONLY',
+                    'replaces_run_id':run_id if head else None,
+                    'message':('After owner feedback or further scoped changes, prepare a fresh complete OWNER_READY request, scope, submission key, evidence and producer IDs; use this run ID as replaces_run_id. PASS remains ready for owner manual testing, not acceptance.' if head else
+                        'This PASS is historical, not the current feature head; do not replace it.')}
             if isinstance(binding.context,workflow_scope.AuthorWorktreeContext):
                 author=binding.context.authenticated_author
                 def project_successions():
@@ -1031,6 +1040,11 @@ class ExplicitCoordinator:
             response.headers['Content-Security-Policy']="frame-ancestors 'none'"
             return response
 
+        async def integration_status_root(request: Request):
+            if not _loopback_request(request):
+                return JSONResponse(_error('FORBIDDEN','Local loopback access required.'),403)
+            return RedirectResponse('/integration-status',status_code=307)
+
         async def board_events(request: Request):
             binding=owner_binding(request)
             if binding is None: return JSONResponse(_error('UNAUTHORIZED','Configured owner bearer token required.'),403)
@@ -1055,12 +1069,13 @@ class ExplicitCoordinator:
                 run=run.get('run',run)
                 if task.get('evaluation_generation')!=run.get('current_attempt'):
                     return JSONResponse(_error('FORBIDDEN','Review task is stale.','REFRESH_TASK_STATUS',recovery="Refresh status for this assigned task and use its current generation; do not claim another task."),403)
-                assignment=planner.build_assignment(task_id)
                 if transport is None: raise RuntimeError('review transport unavailable')
                 status,reply=await anyio.to_thread.run_sync(lambda:transport.request(transport.server,'GET','/api/session/'+urllib.parse.quote(sid)))
                 if status>=500:
                     return JSONResponse(_error('REVIEW_UNAVAILABLE','Reviewer session identity is unavailable.'),503)
-                if status!=200 or not transport.session_matches_assignment(task,assignment,reply):
+                # Identity matching uses only saved task/session metadata and the creation proof;
+                # rebuilding the assignment rereads and hashes every input artifact.
+                if status!=200 or not transport.session_matches_assignment(task,None,reply):
                     return JSONResponse(_error('FORBIDDEN','Session identity does not match this assignment.'),403)
             except Exception:
                 return JSONResponse(_error('REVIEW_UNAVAILABLE','Reviewer session identity is unavailable.'),503)
@@ -1074,7 +1089,10 @@ class ExplicitCoordinator:
             if self.review_results is None:
                 return JSONResponse(_error("REVIEW_UNAVAILABLE", "Review result service is not configured."), 503)
             try:
-                payload = workflow_store.strict_loads((await request.body()).decode("utf-8"))
+                # Parse finite JSON floats here so a wrongly typed supplied
+                # binding can receive a precise field error below; canonical
+                # payload validation still rejects floats in protocol fields.
+                payload = workflow_store.strict_loads((await request.body()).decode("utf-8"),allow_float=True)
             except Exception:
                 return JSONResponse(_error("MALFORMED_REQUEST", "Request body must be strict UTF-8 JSON."), 400)
             if not isinstance(payload, dict) or not isinstance(payload.get("task_id"), str):
@@ -1084,37 +1102,60 @@ class ExplicitCoordinator:
             authorized = await authorize_review(request,binding,payload["task_id"])
             if isinstance(authorized,JSONResponse): return authorized
             task,session_id=authorized
+            # Assignment identity is coordinator-owned. Accept semantic-only MCP
+            # payloads, while treating any supplied canonical binding as an
+            # assertion that must match this authorized task exactly.
+            bound_values={"contract_version":1,"run_id":task["run_id"],
+                          "evaluation_generation":task["evaluation_generation"],
+                          "assignment_generation":task["assignment_generation"],
+                          "input_digest":task["input_digest"]}
+            for field in workflow_review.REVIEWER_BOUND_FIELDS:
+                expected=bound_values[field]
+                if field in payload and (type(payload[field]) is not type(expected) or payload[field] != expected):
+                    return JSONResponse(_error("INVALID_REVIEW_RESULT",f"{field} does not match the authorized task.",field=field),400)
+                payload[field]=expected
+            if operation_name == "claim":
+                payload["session_id"]=session_id
+                if not payload.get("command_id"):
+                    identity={key:payload[key] for key in ("task_id","run_id","evaluation_generation",
+                        "assignment_generation","input_digest")}
+                    identity["session_id"]=session_id
+                    encoded=json.dumps(identity,sort_keys=True,separators=(",",":"))
+                    payload["command_id"]="review-claim-"+__import__('hashlib').sha256(encoded.encode()).hexdigest()
             operation = {"claim": self.review_results.claim, "complete": self.review_results.complete,
                          "error": self.review_results.error}[operation_name]
+            prepared_guide=None
             if operation_name == "claim":
+                # Materialize and verify the reviewer-visible inputs before the
+                # durable claim transition. A delivery failure is retryable API
+                # infrastructure, never a synthetic reviewer ERROR.
+                try:
+                    planner=self.review_results.planner
+                    prepared_guide=await anyio.to_thread.run_sync(
+                        planner.prepare_review_inputs,payload['task_id'])
+                except Exception:
+                    return JSONResponse(_error('REVIEW_INPUT_UNAVAILABLE',
+                        'Assigned review inputs could not be verified; no claim was accepted. Retry this claim after repair.',
+                        'RETRY_CLAIM'),409)
                 payload["session_id"] = session_id
+            elif operation_name == "complete":
+                try:
+                    try:
+                        import workflow_native_worker
+                    except ModuleNotFoundError:
+                        from tooling.agent_workflow import workflow_native_worker
+                    await anyio.to_thread.run_sync(
+                        lambda: workflow_native_worker.load_native_inputs(self.store, task["run_id"]))
+                except Exception:
+                    return JSONResponse(_error('SOURCE_STALE',
+                        'Current source differs from the admitted snapshot; review result was not accepted.'),409)
             try:
                 result = await anyio.to_thread.run_sync(lambda: operation(payload, session_id=session_id))
                 if result.get("accepted"):
                     self.notify_committed()
                     if operation_name == 'claim':
-                        try:
-                            guide = await anyio.to_thread.run_sync(self.review_results.planner.review_guide, payload['task_id'])
-                        except workflow_store.ProtocolError as exc:
-                            message=workflow_task_artifacts.sanitize_text(str(exc))[:300]
-                            template=await anyio.to_thread.run_sync(lambda: self.review_results.planner.error_report_template(
-                                payload['task_id'],error_code='FROZEN_INPUTS_UNAVAILABLE',message=message))
-                            guide_error=_error('FROZEN_INPUTS_UNAVAILABLE',message,'REPORT_ERROR',field='task_id',
-                                    recovery='The claim is accepted. Write this exact JSON to the assigned error path, then call report_error for this same task using the verified session_id tool argument; do not submit a review verdict.',
-                                    )['error']
-                            guide_error['error_report_template']=template
-                            return JSONResponse({'accepted':True,'claim_accepted':True,'task_id':payload['task_id'],'guide_error':guide_error})
-                        except Exception as exc:
-                            message=f'reviewer guide generation failed ({type(exc).__name__})'
-                            template=await anyio.to_thread.run_sync(lambda: self.review_results.planner.error_report_template(
-                                payload['task_id'],error_code='FROZEN_INPUTS_UNAVAILABLE',message=message))
-                            guide_error=_error('FROZEN_INPUTS_UNAVAILABLE',message,'REPORT_ERROR',field='task_id',
-                                    recovery='The claim is accepted. Write this exact JSON to the assigned error path, then call report_error for this same task using the verified session_id tool argument; do not submit a review verdict.',
-                                    )['error']
-                            guide_error['error_report_template']=template
-                            return JSONResponse({'accepted':True,'claim_accepted':True,'task_id':payload['task_id'],'guide_error':guide_error})
-                        result = {**result, 'review_guide': guide,
-                                  'review_instruction': 'Read the complete review guide artifact before submitting your canonical review_result.'}
+                        result = {**result, 'review_guide': prepared_guide,
+                                  'review_instruction': "Read guide and assigned artifacts with status(task_id, session_id, input_ref='review_guide', input_offset=0); page using next_offset."}
                 return JSONResponse(result)
             except Exception:
                 return JSONResponse(_error("REVIEW_UNAVAILABLE", "Review result service could not persist the request."), 503)
@@ -1128,19 +1169,54 @@ class ExplicitCoordinator:
             binding=self.review_bindings.get(header[7:]) if header.startswith("Bearer ") else None
             if binding is None:
                 return JSONResponse(_error("UNAUTHORIZED", "Configured reviewer bearer token required."), 403)
-            if set(request.query_params) != {"task_id"} or not request.query_params.get("task_id"):
-                return JSONResponse(_error("INVALID_QUERY", "Exactly task_id is required."), 400)
+            allowed={"task_id","source_query","source_path","source_line","input_ref","input_offset"}
+            if set(request.query_params)-allowed or not request.query_params.get("task_id"):
+                return JSONResponse(_error("INVALID_QUERY", "task_id and optional source query/page fields are required."), 400)
+            has_query='source_query' in request.query_params
+            has_path='source_path' in request.query_params
+            has_input='input_ref' in request.query_params
+            if (has_query and has_path or ('source_line' in request.query_params and not has_path)
+                    or (has_input and (has_query or has_path or 'source_line' in request.query_params))
+                    or ('input_offset' in request.query_params and not has_input)):
+                return JSONResponse(_error("INVALID_QUERY", "Use exactly one source query or source path; source_line requires source_path."),400)
+            line_raw=request.query_params.get('source_line','1')
+            if not line_raw.isascii() or not line_raw.isdigit() or len(line_raw)>9 or int(line_raw)<1:
+                return JSONResponse(_error('INVALID_QUERY','source_line must be a positive line number.'),400)
             task=self.store.get_task(request.query_params["task_id"])
             if task is None:
                 return JSONResponse(_error("NOT_FOUND", "Review task was not found."), 404)
             authorized=await authorize_review(request,binding,request.query_params["task_id"],task)
             if isinstance(authorized,JSONResponse): return authorized
+            if has_input:
+                offset_raw=request.query_params.get('input_offset','0')
+                if not offset_raw.isascii() or not offset_raw.isdigit() or len(offset_raw)>12:
+                    return JSONResponse(_error('INVALID_QUERY','input_offset must be a nonnegative byte offset.'),400)
+                try:
+                    access=await anyio.to_thread.run_sync(lambda:self.review_results.planner.input_access(
+                        task['task_id'],request.query_params['input_ref'],int(offset_raw)))
+                    return JSONResponse({'task':{k:task.get(k) for k in ('task_id','run_id','state','kind','logical_key','decision','deadline_ms','assigned_session_id')},'input_access':access})
+                except workflow_review.SourceAccessError as exc:
+                    return JSONResponse(_error(exc.code,str(exc)),exc.status)
+                except Exception:
+                    return JSONResponse(_error('SOURCE_UNAVAILABLE','Assigned review input could not be verified.'),409)
+            if has_query or has_path:
+                try:
+                    source=await anyio.to_thread.run_sync(lambda:self.review_results.planner.source_access(
+                        task['task_id'],source_query=request.query_params.get('source_query'),
+                        source_path=request.query_params.get('source_path'),source_line=int(line_raw)))
+                    return JSONResponse({'task':{k:task.get(k) for k in ('task_id','run_id','state','kind','logical_key','decision','deadline_ms','assigned_session_id')},'source_access':source})
+                except workflow_review.SourceAccessError as exc:
+                    return JSONResponse(_error(exc.code,str(exc)),exc.status)
+                except Exception:
+                    return JSONResponse(_error('SOURCE_STALE','Frozen source manifest or admitted source no longer verifies.'),409)
             try:
                 try:
                     import workflow_native_worker
                 except ModuleNotFoundError:
                     from tooling.agent_workflow import workflow_native_worker
-                frozen_request, frozen_bundle = workflow_native_worker.load_native_inputs(self.store, task["run_id"])
+                frozen_request, frozen_bundle = await anyio.to_thread.run_sync(
+                    lambda: workflow_native_worker.load_native_inputs(
+                        self.store, task["run_id"], verify_current_source=False))
                 if frozen_request.get("input_digest") != task.get("input_digest"):
                     raise ValueError("review task input digest differs from accepted submission")
                 submission = self.store.get_run_submission(task["run_id"])
@@ -1178,7 +1254,8 @@ class ExplicitCoordinator:
                     refs.append({"artifact_id":artifact.get("artifact_id"),"type":artifact.get("type"),
                                  "path":artifact.get("path"),"sha256":artifact.get("sha256"),"size_bytes":artifact.get("size_bytes")})
             task_view={k:task.get(k) for k in ("task_id","run_id","state","kind","logical_key","decision","deadline_ms","assigned_session_id")}
-            result={"task":task_view,"freshness":"not_checked","artifacts":refs,"inputs":inputs}
+            result={"task":task_view,"freshness":"not_checked","artifacts":refs,"inputs":inputs,
+                    "review_instruction":"Read review_guide and assigned artifacts using status(task_id, session_id, input_ref='review_guide', input_offset=0); continue with returned next_offset. Then use each exact assigned artifact_id as input_ref."}
             encoded=json.dumps(result,separators=(",",":"),ensure_ascii=False).encode("utf-8")
             if len(encoded)>4096:
                 # Never discard registered evidence locators. The immutable guide is
@@ -1192,7 +1269,7 @@ class ExplicitCoordinator:
                         "inputs":{"source_worktree":inputs["source_worktree"],
                                   "input_digest":inputs["input_digest"],"guide":guide},
                         "artifacts_externalized":True,
-                        "review_instruction":"Read the complete review guide artifact for all assigned artifact bindings and readable evidence."}
+                        "review_instruction":"Read review_guide and assigned artifacts using status(task_id, session_id, input_ref='review_guide', input_offset=0); continue with returned next_offset. Then use each exact assigned artifact_id as input_ref."}
                 encoded=json.dumps(result,separators=(",",":"),ensure_ascii=False).encode("utf-8")
                 if len(encoded)>4096:
                     return JSONResponse(_error("FROZEN_INPUTS_UNAVAILABLE", "Frozen review guide locator exceeds the safe status response size; report an ERROR for this task."), 409)
@@ -1267,7 +1344,7 @@ class ExplicitCoordinator:
                 result['history'].extend(snapshot.get('history',[])); result['faults'].extend(snapshot.get('faults',[]))
             result['system']=dict(snapshots[0].get('system',{}))
             queue_rows=[s.get('system',{}).get('queue',{}) for s in snapshots]
-            if all(type(q.get('queued_tasks')) is int for q in queue_rows):
+            if all(isinstance(q,dict) and type(q.get('queued_tasks')) is int for q in queue_rows):
                 result['system']['queue']={**queue_rows[0], 'queued_tasks':sum(q['queued_tasks'] for q in queue_rows),
                     'queued_native_tasks':sum(q.get('queued_native_tasks',0) for q in queue_rows),
                     'pending_native_tasks':sum(q.get('pending_native_tasks',0) for q in queue_rows),
@@ -1459,7 +1536,7 @@ class ExplicitCoordinator:
             except Exception:
                 return JSONResponse(_error('LOCAL_API_RECOVERY_UNAVAILABLE','Local API retry could not be persisted.','REPAIR_LOCAL_API'),503)
 
-        app = Starlette(routes=[Route("/integration-status",integration_status_page),Route("/v1/submit", submit, methods=["POST"]),Route('/v1/scope/register',scope_register,methods=['POST']),Route('/v1/scope/status',scope_status), Route("/v1/status", status), Route("/v1/acknowledge-result", acknowledge_result, methods=["POST"]), Route("/v1/health", health), Route("/v1/review/claim", review_claim, methods=["POST"]), Route("/v1/review/complete", review_complete, methods=["POST"]), Route("/v1/review/error", review_error, methods=["POST"]), Route("/v1/review/status",review_status),Route("/v1/owner/snapshot",owner_snapshot),Route("/v1/board/snapshot",board_snapshot),Route("/v1/board/events",board_events),Route("/v1/board/incidents/{incident_id}/seen",board_incident_seen,methods=["POST"]),Route("/v1/owner/decision",owner_decision,methods=["POST"]),Route('/v1/owner/authorize-successor',authorize_successor,methods=['POST']),Route("/v1/recovery/retry-review",owner_retry_review,methods=["POST"]),Route("/v1/recovery/retry-local-api",retry_local_api,methods=["POST"]),Route("/v1/cancel",owner_cancel,methods=["POST"])], lifespan=lifespan)
+        app = Starlette(routes=[Route("/",integration_status_root),Route("/integration-status",integration_status_page),Route("/v1/submit", submit, methods=["POST"]),Route('/v1/scope/register',scope_register,methods=['POST']),Route('/v1/scope/status',scope_status), Route("/v1/status", status), Route("/v1/acknowledge-result", acknowledge_result, methods=["POST"]), Route("/v1/health", health), Route("/v1/review/claim", review_claim, methods=["POST"]), Route("/v1/review/complete", review_complete, methods=["POST"]), Route("/v1/review/error", review_error, methods=["POST"]), Route("/v1/review/status",review_status),Route("/v1/owner/snapshot",owner_snapshot),Route("/v1/board/snapshot",board_snapshot),Route("/v1/board/events",board_events),Route("/v1/board/incidents/{incident_id}/seen",board_incident_seen,methods=["POST"]),Route("/v1/owner/decision",owner_decision,methods=["POST"]),Route('/v1/owner/authorize-successor',authorize_successor,methods=['POST']),Route("/v1/recovery/retry-review",owner_retry_review,methods=["POST"]),Route("/v1/recovery/retry-local-api",retry_local_api,methods=["POST"]),Route("/v1/cancel",owner_cancel,methods=["POST"])], lifespan=lifespan)
         http_mcp.rest_app = app
         for profile, path in workflow_coordinator_http_mcp.PROFILE_PATHS.items():
             async def mcp_endpoint(request, profile=profile): return await http_mcp.request(profile, request)
@@ -1671,9 +1748,11 @@ def configure_review_pipeline(coordinator, reviewers, agents, review_bindings, t
     planner=workflow_review.ReviewCoordinator(coordinator.store,reviewers=reviewers,artifact_dir=coordinator.artifact_dir)
     results=workflow_review_results.ReviewResults(coordinator.store,planner)
     transport=workflow_review_transport.ReviewDispatchBackend(planner,server=server,agents=agents,request=transport_request)
-    coordinator.review_retry=workflow_review_retry.ReviewRetryAdapter(planner,server=server,request=transport_request,agents=agents)
+    coordinator.review_retry=workflow_review_retry.ReviewRetryAdapter(planner,server=server,request=transport.request,
+        agents=agents,transport=transport)
     pipeline=workflow_review_pipeline.ReviewPipeline(coordinator.store,planner,results,transport,native,
         lambda event=None: coordinator.notify_committed())
+    pipeline.completion_owner=coordinator.review_retry
     retry=workflow_native_retry.NativeRetry(coordinator.store,coordinator.artifact_dir)
     coordinator.native_retry=retry
     pipeline.dependency_monitor=workflow_review_dependency.ReviewDependencyMonitor(planner,server=server,
@@ -1820,6 +1899,10 @@ def resolve_context_path(value, base):
     return (Path(base)/path).resolve() if not path.is_absolute() else path.resolve()
 
 
+def _uvicorn_loop_choice():
+    return 'asyncio:SelectorEventLoop' if os.name == 'nt' else 'auto'
+
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description='Explicit local workflow coordinator (inactive unless serve is invoked)')
     sub=parser.add_subparsers(dest='command',required=True)
@@ -1851,7 +1934,8 @@ def main(argv=None):
         else: raise RuntimeError('supervisor containment acknowledgement timed out')
     import uvicorn
     coordinator=load_coordinator(args.config)
-    uvicorn.run(coordinator.app(),host='127.0.0.1',port=args.port,workers=1,reload=False)
+    uvicorn.run(coordinator.app(),host='127.0.0.1',port=args.port,workers=1,reload=False,
+                loop=_uvicorn_loop_choice())
     return 0
 
 

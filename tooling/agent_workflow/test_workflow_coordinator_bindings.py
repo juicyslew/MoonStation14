@@ -1,5 +1,6 @@
 import hashlib
 import json
+import copy
 import tempfile
 import unittest
 import subprocess
@@ -11,6 +12,59 @@ import workflow_coordinator_bindings as bindings
 
 
 class BindingPlanTests(unittest.TestCase):
+    def test_shared_config_plan_refresh_flag_is_optional_and_strictly_boolean(self):
+        plan = {"version": 1, "mode": "shared-opencode-config", "template": {"path": "C:/template.jsonc", "sha256": "a" * 64},
+                "initialize": False, "untrack_generated": False,
+                "targets": [{"target": name, "expected_config_sha256": "b" * 64,
+                             "expected_local_sha256": "c" * 64, "expected_gitignore_sha256": "d" * 64,
+                             "expected_index_digest": "e" * 64}
+                            for name in ("main", *(f"MoonStation14-agent-0{i}" for i in range(1, 5)))]}
+        self.assertFalse(bindings.validate_shared_config_plan_shape(plan).get("refresh_reviewer_instructions", False))
+        enabled = {**plan, "refresh_reviewer_instructions": True}
+        self.assertTrue(bindings.validate_shared_config_plan_shape(enabled)["refresh_reviewer_instructions"])
+        for bad in (1, "true", None):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                bindings.validate_shared_config_plan_shape({**plan, "refresh_reviewer_instructions": bad})
+        with self.assertRaises(ValueError):
+            bindings.validate_shared_config_plan_shape({**plan, "refresh_everything": True})
+
+    def test_reviewer_instruction_refresh_changes_only_four_existing_system_fields(self):
+        agents = {f"workflow-reviewer-{role}": {"system": "old", "model": "private-model",
+                  "permissions": [{"action": "edit", "resource": "private", "effect": "deny"}],
+                  "request": {"reasoningEffort": "high"}} for role in bindings.REVIEW_ROLES}
+        agents["fidelity-reviewer"] = {"system": "unmanaged"}
+        original = {"version": 1, "variables": {"private": "value"}, "config": {"agents": agents,
+                    "mcp": {"servers": {"bound": {"token": "unchanged"}}}}}
+        refreshed = bindings._refresh_reviewer_instructions(original)
+        expected = copy.deepcopy(original)
+        for role in bindings.REVIEW_ROLES:
+            expected["config"]["agents"][f"workflow-reviewer-{role}"]["system"] = bindings._reviewer_system(role, "")
+        self.assertEqual(refreshed, expected)
+        self.assertNotEqual(refreshed, original)
+        for role in bindings.REVIEW_ROLES:
+            with self.subTest(role=role):
+                self.assertEqual(refreshed["config"]["agents"][f"workflow-reviewer-{role}"]["system"], bindings._reviewer_system(role, ""))
+        no_managed = {"version": 1, "variables": {}, "config": {"agents": {"implement": {"model": "unchanged"}}}}
+        self.assertEqual(bindings._refresh_reviewer_instructions(no_managed), no_managed)
+        missing = copy.deepcopy(original)
+        del missing["config"]["agents"]["workflow-reviewer-fidelity"]
+        with self.assertRaises(ValueError):
+            bindings._refresh_reviewer_instructions(missing)
+
+    def test_reviewer_system_uses_supported_paged_inputs_and_inline_submission(self):
+        for role in bindings.REVIEW_ROLES:
+            prompt = bindings._reviewer_system(role, "C:/private/reviewer")
+            self.assertIn("input_ref='review_guide', input_offset=0", prompt)
+            self.assertIn("next_offset until eof", prompt)
+            self.assertIn("input_ref=<assigned artifact ID>", prompt)
+            self.assertIn("complete_review(result=<semantic review result>", prompt)
+            self.assertIn("report_error(error=<semantic task error>", prompt)
+            self.assertIn("task_id is required", prompt)
+            self.assertIn("Omit contract_version, run_id, evaluation_generation, assignment_generation, and input_digest", prompt)
+            self.assertIn("Do not use result_path/error_path", prompt)
+            self.assertNotIn("must write", prompt)
+            self.assertIn("Every tool call must include your assigned session_id", prompt)
+
     def test_author_binding_refreshes_owned_shared_overlay_and_future_template_keeps_entry(self):
         with tempfile.TemporaryDirectory(dir=Path(__import__("os").environ["LOCALAPPDATA"])/"Temp/opencode") as temp:
             base=Path(temp); main=base/'MoonStation14';main.mkdir();root=base/'MoonStation14-agent-01';shared=base/'shared';shared.mkdir()
@@ -81,7 +135,10 @@ class BindingPlanTests(unittest.TestCase):
                 subprocess.run(['git','init','-q',str(root)],check=True)
                 import workflow_opencode_config as oc
                 fixture_variables={'shared_root':shared.as_posix(),'workspace_parent':main.parent.as_posix(),'ss14_root':(Path.home()/'Documents/SS14-dev/space-station-14').as_posix()}
-                (root/'opencode.jsonc').write_bytes(oc.serialize_config(oc.render_config(template,{'version':1,'variables':fixture_variables,'config':{'mcp':{'servers':{'local':{'url':'private'}}},'agents':{'implement':{'model':'private-model'}}}})).encode())
+                agents={'implement':{'model':'private-model'}}
+                if name == 'main':
+                    agents.update({f'workflow-reviewer-{role}': {'system':'old reviewer instruction', 'model':'private-model', 'request':{'reasoningEffort':'high'}, 'permissions':[{'action':'edit','resource':'private','effect':'deny'}]} for role in bindings.REVIEW_ROLES})
+                (root/'opencode.jsonc').write_bytes(oc.serialize_config(oc.render_config(template,{'version':1,'variables':fixture_variables,'config':{'mcp':{'servers':{'local':{'url':'private'}}},'agents':agents}})).encode())
                 subprocess.run(['git','-C',str(root),'add','opencode.jsonc','.gitignore'],check=True)
                 subprocess.run(['git','-C',str(root),'-c','user.name=test','-c','user.email=test@local','commit','-qm','fixture'],check=True)
                 cfg=(root/'opencode.jsonc').read_bytes(); rows.append({'target':name,'path':'opencode.jsonc','new_sha256':hashlib.sha256(cfg).hexdigest(),'config_scope':{'prior':'retained'}})
@@ -115,13 +172,36 @@ class BindingPlanTests(unittest.TestCase):
                 local=(stage/'bindings'/name/'.opencode/workflow/opencode-local.json').read_bytes(); overlays[name]=local
                 local_value=json.loads(local); self.assertEqual(local_value['variables']['shared_root'],shared.as_posix())
                 self.assertEqual(local_value['config']['mcp']['servers']['local']['url'],'private')
-            # Model a finalized publication: both staged files now have truthful receipt ownership.
             for name in names:
-                cfg=(roots[name]/'opencode.jsonc').read_bytes(); rows_by[name]['new_sha256']=hashlib.sha256(cfg).hexdigest()
+                cfg=(roots[name]/'opencode.jsonc').read_bytes()
+                rows_by[name]['new_sha256']=hashlib.sha256(cfg).hexdigest()
                 rows_by[name]['config_scope']=staged['files'][f'{name}/opencode.jsonc']['config_scope']
                 (roots[name]/'.opencode/workflow/opencode-local.json').write_bytes(overlays[name])
                 (roots[name]/'.gitignore').write_bytes((stage/'bindings'/name/'.gitignore').read_bytes())
                 rows.append({'target':name,'path':'.opencode/workflow/opencode-local.json','new_sha256':hashlib.sha256(overlays[name]).hexdigest()})
+            # Actual layout: MAIN has four managed reviewers; author overlays have none.
+            refresh_plan=plan_for(repo_template,{n:hashlib.sha256(overlays[n]).hexdigest() for n in names})
+            refresh_plan['initialize']=False; refresh_plan['refresh_reviewer_instructions']=True
+            refresh_path=base/'reviewer-refresh-plan.json'; refresh_path.write_text(json.dumps(refresh_plan))
+            refresh_stage=base/'reviewer-refresh-stage'
+            refresh=bindings.stage_shared_config_plan(refresh_path,refresh_stage,receipt,main_root=main,shared_root=shared)
+            self.assertEqual(set(refresh['files']), {'main/opencode.jsonc','main/.opencode/workflow/opencode-local.json'})
+            refreshed_overlay=json.loads((refresh_stage/'bindings/main/.opencode/workflow/opencode-local.json').read_bytes())
+            original_main_overlay=json.loads(overlays['main'])
+            for role in bindings.REVIEW_ROLES:
+                reviewer=f'workflow-reviewer-{role}'
+                self.assertEqual(refreshed_overlay['config']['agents'][reviewer]['system'],bindings._reviewer_system(role,''))
+                for key in ('model','request','permissions'):
+                    self.assertEqual(refreshed_overlay['config']['agents'][reviewer][key],original_main_overlay['config']['agents'][reviewer][key])
+            for name in names[1:]:
+                self.assertEqual((refresh_stage/'bindings'/name/'.opencode/workflow/opencode-local.json').exists(),False)
+            self.assertIsNone(refresh['files']['main/opencode.jsonc'].get('backup_path'))
+            self.assertFalse((refresh_stage/'bindings/backups/main/opencode.jsonc').exists())
+            # Model a finalized publication: both staged files now have truthful receipt ownership.
+            for name in names:
+                cfg=(roots[name]/'opencode.jsonc').read_bytes(); rows_by[name]['new_sha256']=hashlib.sha256(cfg).hexdigest()
+                rows_by[name]['config_scope']=staged['files'][f'{name}/opencode.jsonc']['config_scope']
+                (roots[name]/'.gitignore').write_bytes((stage/'bindings'/name/'.gitignore').read_bytes())
             changed=json.loads(repo_template); changed['config']['system']=(changed['config'].get('system','')+' policy-update')
             revised=json.dumps(changed,indent=2).encode(); template_path.write_bytes(revised)
             update_plan=plan_for(revised,{n:hashlib.sha256(overlays[n]).hexdigest() for n in names})
@@ -135,14 +215,25 @@ class BindingPlanTests(unittest.TestCase):
                 self.assertEqual(value['agents']['implement']['model'],'private-model')
                 self.assertEqual(second['files'][f'{name}/opencode.jsonc']['config_scope']['prior'],'retained')
                 self.assertEqual(bindings._index_digest(roots[name]),update_plan['targets'][names.index(name)]['expected_index_digest'])
+                self.assertIsNone(second['files'][f'{name}/opencode.jsonc'].get('backup_path'))
+                self.assertFalse((base/'stage2/bindings/backups'/name/'opencode.jsonc').exists())
             repeat=bindings.stage_shared_config_plan(planfile,base/'stage3',receipt,main_root=main,shared_root=shared)
             self.assertEqual({k:v['new_sha256'] for k,v in repeat['files'].items()}, {k:v['new_sha256'] for k,v in second['files'].items()})
+            # Init must never treat a drifted receipt-owned output as an extraction source.
+            import copy
+            drift_init=copy.deepcopy(update_plan); drift_init['initialize']=True
+            (roots['main']/'.opencode/workflow/opencode-local.json').unlink()
+            p=base/'init-drift.json';p.write_text(json.dumps(drift_init))
+            (roots['main']/'opencode.jsonc').write_text('{malformed generated output')
+            with self.assertRaises(ValueError): bindings.stage_shared_config_plan(p,base/'init-drift-stage',receipt,main_root=main,shared_root=shared)
+            # Restore the source preimage for subsequent focused rejection checks.
+            (roots['main']/'opencode.jsonc').write_bytes((stage/'bindings/main/opencode.jsonc').read_bytes())
+            (roots['main']/'.opencode/workflow/opencode-local.json').write_bytes(overlays['main'])
 
             def rejected(mutator):
                 bad=copy.deepcopy(update_plan); mutator(bad)
                 p=base/'bad-plan.json';p.write_text(json.dumps(bad))
                 with self.assertRaises(ValueError): bindings.stage_shared_config_plan(p,base/('bad-'+str(len(list(base.glob('bad-stage*'))))),receipt,main_root=main,shared_root=shared)
-            import copy
             rejected(lambda p:p['targets'][0].update(expected_config_sha256='0'*64))
             rejected(lambda p:p['targets'][0].update(target='MoonStation14-agent-05'))
             rejected(lambda p:p['template'].update(path=str(base/'outside.jsonc')))

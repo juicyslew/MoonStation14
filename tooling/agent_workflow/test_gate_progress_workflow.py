@@ -247,7 +247,7 @@ if(passed.children.length!==2)throw Error('both canonical passed cards must be v
 for(const card of passed.children){const details=card.querySelector('details');if(!details||details.open)throw Error('passed card details must be readonly and initially collapsed');}
 if(document.querySelectorAll('form').length)throw Error('owner-decision form is present');
 if(document.querySelectorAll('button').some(b=>/accept|request changes/i.test(b.textContent)))throw Error('owner-decision control is present');
-const manual=passed.children[0].children.find(x=>x.dataset.action==='manual');if(!manual)throw Error('manual steps control missing');manual.onclick();
+const testingCard=passed.children.find(x=>x.dataset.cardId==='run_testing');const manual=testingCard?.children.find(x=>x.dataset.action==='manual');if(!manual)throw Error('manual steps control missing');manual.onclick();
 if(requests.some(x=>x.opt.method==='POST'))throw Error('manual steps click performed POST');
 const reviewing=data.workflow.columns.Reviewing[0];workflowConnected=true;
 await ownerAction(new FixtureElement('div'),reviewing,'cancel_active');
@@ -259,6 +259,26 @@ console.log('readonly passed cards, local manual action, and active cancel paylo
         result = run_node(shutil.which('node') or shutil.which('node.exe'), harness + script + inspect, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('readonly passed cards, local manual action, and active cancel payload verified', result.stdout)
+
+    @unittest.skipUnless(shutil.which('node') or shutil.which('node.exe'), 'Node.js unavailable')
+    def test_passed_cards_render_by_terminal_recency_and_other_columns_stay_ordered(self):
+        value=sample()
+        value['columns']['Your testing'][0].update(id='z-new',result_created_ms=300)
+        value['columns']['Accepted'][0].update(id='a-mid',result_created_ms=200)
+        value['columns']['Accepted'].append({'id':'b-tie','label':'Tie','result_created_ms':200,'details':{},'capabilities':[]})
+        value['columns']['Your testing'].append({'id':'a-missing','label':'Missing','result_created_ms':None,'details':{},'capabilities':[]})
+        value['columns']['Checking'].append({'id':'second-check','label':'Second check','details':{}})
+        page=gp.workflow_page(value)
+        script=re.search(r'<script>\s*(.*?)\s*</script>',page,re.S).group(1).replace('connectWorkflow();','',1)
+        result=run_node(shutil.which('node') or shutil.which('node.exe'),NODE_DOM_HARNESS.replace('__NOW__','0')+script+r'''
+renderWorkflow(data.workflow);const cols=document.getElementById('columns');
+const ids=cols.children[5].children[1].children.map(x=>x.dataset.cardId);
+if(JSON.stringify(ids)!==JSON.stringify(['z-new','a-mid','b-tie','a-missing']))throw Error(JSON.stringify(ids));
+const checking=cols.children[3].children[1].children.map(x=>x.dataset.cardId);
+if(JSON.stringify(checking)!==JSON.stringify(['run_checking','second-check']))throw Error(JSON.stringify(checking));
+console.log('Passed recency, ties, missing timestamp, and untouched column order verified');
+''',timeout=15)
+        self.assertEqual(result.returncode,0,result.stderr)
 
     @unittest.skipUnless(shutil.which('node') or shutil.which('node.exe'), 'Node.js unavailable')
     def test_auto_connect_renews_cookie_after_coordinator_restart(self):
@@ -383,6 +403,21 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
         self.assertTrue(result['locked'])
         self.assertEqual(result['posts'],0)
         self.assertEqual(result['snapshots'],2)
+
+    @unittest.skipUnless(shutil.which('node') or shutil.which('node.exe'), 'Node.js unavailable')
+    def test_snapshot_loading_and_refresh_failure_are_independent_of_sse_transport(self):
+        value=sample();value['columns']['Reviewing'][0]['capabilities']=['cancel_active']
+        page=gp.workflow_page(value)
+        script=re.search(r'<script>\s*(.*?)\s*</script>',page,re.S).group(1)
+        harness=NODE_DOM_HARNESS.replace('__NOW__','0')+r'''
+let resolveInitial;const readers=[];let calls=0;global.fetch=async(url)=>{if(url==='/v1/board/snapshot'){calls++;if(calls===1)return new Promise(resolve=>resolveInitial=resolve);return{ok:false,status:503}}if(url==='/v1/board/events')return{ok:true,status:200,body:{getReader(){let wake;const reader={read(){return new Promise(resolve=>wake=resolve)},push(v){wake?.({value:v,done:false});wake=null}};readers.push(reader);return reader}}};throw Error('unexpected '+url)};
+'''
+        observed=run_node(shutil.which('node') or shutil.which('node.exe'),harness+script+r'''
+const tick=()=>new Promise(resolve=>setImmediate(resolve));
+(async()=>{for(let i=0;i<100&&!resolveInitial;i++)await tick();if(!resolveInitial)throw Error('initial snapshot request did not start');if(document.getElementById('owner-transport').textContent.includes('Disconnected'))throw Error('initial loading misreported disconnected');if(!document.getElementById('health-banner').textContent.includes('Loading initial workflow snapshot'))throw Error('initial loading state not shown');resolveInitial({ok:true,status:200,json:async()=>structuredClone(data.workflow)});for(let i=0;i<100&&!readers.length;i++)await tick();if(!readers.length)throw Error('SSE did not connect after snapshot');for(let i=0;i<100&&!workflowConnected;i++)await tick();const action=()=>document.getElementById('columns').children.find(x=>x.children[0].textContent==='Reviewing').children[1].children[0].children.find(x=>x.dataset.action==='cancel_active');if(!action()||action().disabled)throw Error('baseline action not enabled: '+JSON.stringify({label:document.getElementById('owner-transport').textContent,connected:workflowConnected,snapshot:boardTransport.snapshotConnected,live:boardTransport.streamLive,review:workflowNeedsReview}));readers[0].push(new TextEncoder().encode('event: board-revision\ndata: {"revision":1,"workflow_revision":2}\n\n'));for(let i=0;i<100&&calls<2;i++)await tick();for(let i=0;i<10;i++)await tick();const label=document.getElementById('owner-transport').textContent,banner=document.getElementById('health-banner').textContent;if(!boardTransport.streamLive||!label.includes('connected'))throw Error('snapshot failure disconnected healthy SSE: '+label);if(!banner.includes('HTTP 503')||!banner.includes('refresh failed'))throw Error('snapshot cause/staleness missing: '+banner);if(!action().disabled)throw Error('failed refresh left actions enabled');console.log('delayed snapshot, connected transport, stale refresh cause, and locked actions verified')})().catch(e=>{console.error(e.stack||String(e));process.exitCode=1});
+''',timeout=15)
+        self.assertEqual(observed.returncode,0,observed.stderr)
+        self.assertIn('delayed snapshot, connected transport, stale refresh cause, and locked actions verified',observed.stdout)
 
 
 if __name__ == '__main__':

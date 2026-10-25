@@ -621,7 +621,7 @@
                 "const": "FIX_FINDINGS"
               },
               "findings": {
-                "minItems": 1,
+                "maxItems": 0,
                 "items": {
                   "required": [
                     "required_change"
@@ -1240,6 +1240,10 @@
                 "$ref": "#/$defs/finding"
               }
             },
+            "owner_followups": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/owner_followup"}
+            },
             "artifact_refs": {
               "$ref": "#/$defs/refs"
             }
@@ -1508,7 +1512,8 @@
         "input_digest",
         "decision",
         "findings",
-        "inspected_refs"
+        "inspected_refs",
+        "owner_followups"
       ],
       "properties": {
         "contract_version": {
@@ -1540,7 +1545,7 @@
         "findings": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/finding"
+            "$ref": "#/$defs/review_finding"
           }
         },
         "inspected_refs": {
@@ -1549,6 +1554,10 @@
           "items": {
             "$ref": "#/$defs/ref"
           }
+        },
+        "owner_followups": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/owner_followup"}
         }
       },
       "allOf": [
@@ -1567,7 +1576,7 @@
                 "items": {
                   "allOf": [
                     {
-                      "$ref": "#/$defs/finding"
+                      "$ref": "#/$defs/review_finding"
                     },
                     {
                       "required": [
@@ -1591,14 +1600,7 @@
           "then": {
             "properties": {
               "findings": {
-                "minItems": 1,
-                "items": {
-                  "not": {
-                    "required": [
-                      "required_change"
-                    ]
-                  }
-                }
+                "maxItems": 0
               }
             }
           }
@@ -1796,6 +1798,10 @@
           "items": {
             "$ref": "#/$defs/finding"
           }
+        },
+        "owner_followups": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/owner_followup"}
         },
         "artifact_refs": {
           "$ref": "#/$defs/refs"
@@ -2617,6 +2623,29 @@
         "required_next_action": {
           "const": "TASK_ASSIGNMENT"
         }
+      }
+    },
+    "review_finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["criterion_id", "category", "message", "location", "evidence_refs", "validation_stage"],
+      "properties": {
+        "criterion_id": {"type":"string", "minLength":1},
+        "category": {"enum":["IMPLEMENTATION","PARITY_COMPOSITION","COVERAGE","FIDELITY"]},
+        "message": {"type":"string", "minLength":1},
+        "location": {"type":"string", "minLength":1},
+        "evidence_refs": {"type":"array", "minItems":1, "items":{"$ref":"#/$defs/ref"}},
+        "required_change": {"type":"string", "minLength":1},
+        "validation_stage": {"enum":["TECHNICAL","OWNER_TESTING"]}
+      }
+    },
+    "owner_followup": {
+      "type":"object", "additionalProperties":false,
+      "required":["criterion_id","message","manual_check"],
+      "properties": {
+        "criterion_id":{"type":"string","minLength":1},
+        "message":{"type":"string","minLength":1},
+        "evidence_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},
+        "manual_check":{"type":"string","minLength":1}
       }
     }
   }

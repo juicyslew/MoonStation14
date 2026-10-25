@@ -279,6 +279,22 @@ class ReviewCancellationTests(unittest.TestCase):
             self.assertEqual('UNKNOWN',h.adapter.cancel('cancel-x',h.payload()))
             self.assertFalse(any(m=='DELETE' or (m=='POST' and p.endswith('/interrupt?resume=false')) for m,p in h.calls))
             self.assertEqual('UNKNOWN',h.store.resource['state'])
+    def test_cancel_discards_noncanonical_history_but_completed_cleanup_preserves_fence(self):
+        for state, expected in [('CANCEL_REQUESTED','APPLIED'),('COMPLETED','UNKNOWN')]:
+            with self.subTest(state=state), tempfile.TemporaryDirectory() as root:
+                h=Harness(root,state=state); h.history=[{'id':'foreign-user','type':'user','time':{'created':10},'text':'parent notice'}]
+                result=h.adapter.cancel('cancel-x',h.payload()) if state=='CANCEL_REQUESTED' else h.adapter.cleanup_completed('task-x')
+                self.assertEqual(expected,result)
+                interrupted=any(m=='POST' and p.endswith('/interrupt?resume=false') for m,p in h.calls)
+                self.assertEqual(state=='CANCEL_REQUESTED',interrupted)
+    def test_cancel_discards_pending_noncanonical_notice_in_owned_session(self):
+        with tempfile.TemporaryDirectory() as root:
+            h=Harness(root); h.inbox.append({'id':'notice','sessionID':h.sid,'type':'user','time':{'created':2},
+                'workflow_service_delivery_repair':True,'text':'parent notice','metadata':{'workflow_service_delivery_repair':True,
+                'task_id':'task-x','run_id':'run-x','session_id':h.sid}})
+            self.assertEqual('APPLIED',h.adapter.cancel('cancel-x',h.payload()))
+            self.assertEqual('CANCELLED',h.store.task['state']); self.assertEqual('RELEASED',h.store.resource['state'])
+            self.assertFalse(h.inbox)
     def test_session_identity_change_prevents_deletion_and_interrupt(self):
         for field,value in [('agent','wrong-agent'),('directory','C:/foreign-worktree')]:
             with self.subTest(field=field),tempfile.TemporaryDirectory() as root:

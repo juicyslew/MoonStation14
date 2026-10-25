@@ -94,8 +94,17 @@ class ReviewCancellation:
             if not baseline: return self._unknown(resource,phase='baseline-missing')
             controls,command_context=self._retry_controls(task,assignment,session_id,proof,baseline)
             if controls is None: return self._unknown(resource,phase='retry-receipt-invalid')
-            guard=self._history_guard(task,assignment,body,session_id,message_id,baseline,controls)
-            if guard is None: return self._unknown(resource,phase='session-history-fence')
+            cancel_discard = task.get('state') == 'CANCEL_REQUESTED'
+            if cancel_discard:
+                code, session_reply = self._api('GET', self._session_path(session_id))
+                if code != 200 or not self.transport.session_matches_assignment(task, assignment, session_reply):
+                    return self._unknown(resource, phase='session-identity')
+                guard = {'purpose':'CANCELLATION_DISCARD','server':self.server,'session_id':session_id,
+                         'assignment_body_sha256':assignment['body_sha256'],'current_identity_matches':True,
+                         'explicit_discard_authorized':True}
+            else:
+                guard=self._history_guard(task,assignment,body,session_id,message_id,baseline,controls)
+                if guard is None: return self._unknown(resource,phase='session-history-fence')
             # A verified receipt is durable proof of admission. Without one, inspect exact inbox only.
             admitted = self.transport._receipt(task, assignment)
             inbox = None
@@ -106,7 +115,8 @@ class ReviewCancellation:
             if inbox is None:
                 code,inbox=self._api('GET',self._session_path(session_id)+'/inbox')
             items=inbox.get('data',inbox) if isinstance(inbox,dict) else None
-            owned=self._owned_items(items,session_id,message_id,body,task,assignment,baseline,controls) if code==200 else None
+            owned=(self._cancellation_items(items,session_id,message_id,body,task,assignment,baseline,controls) if cancel_discard and code==200 else
+                   self._owned_items(items,session_id,message_id,body,task,assignment,baseline,controls) if code==200 else None)
             if owned is None: return self._unknown(resource,phase='pre-interrupt-inbox',status=code)
             return self._drain(task, resource, proof, session_id, message_id, admitted, baseline, owned,command_context,guard)
         except Exception as exc:
@@ -243,6 +253,10 @@ class ReviewCancellation:
             if not delete_ids(pre_owned): return self._unknown(resource,phase='delete-before-interrupt')
             status,reply=self._api('POST',self._session_path(sid)+'/interrupt?resume=false')
             if status != 200 or not isinstance(reply,dict) or not isinstance(reply.get('interrupted'),bool): return self._unknown(resource,phase='interrupt',status=status)
+            if task.get('state')=='CANCEL_REQUESTED':
+                identity_status,identity_reply=self._api('GET',self._session_path(sid))
+                assignment=self.planner.build_assignment(task['task_id'])
+                if identity_status!=200 or not self.transport.session_matches_assignment(task,assignment,identity_reply): return self._unknown(resource,phase='post-interrupt-session-identity',status=identity_status)
             deadline=time.monotonic()+self.active_timeout
             while True:
                 status,active=self._api('GET','/api/session/active')
@@ -256,7 +270,8 @@ class ReviewCancellation:
             status,inbox=self._api('GET',self._session_path(sid)+'/inbox')
             items=inbox.get('data',inbox) if isinstance(inbox,dict) else None
             assignment=self.planner.build_assignment(task['task_id'])
-            post_owned=self._owned_items(items,sid,mid,assignment['body'],task,assignment,baseline,command_context['controls'])
+            post_owned=(self._cancellation_items(items,sid,mid,assignment['body'],task,assignment,baseline,command_context['controls']) if task.get('state')=='CANCEL_REQUESTED' else
+                        self._owned_items(items,sid,mid,assignment['body'],task,assignment,baseline,command_context['controls']))
             if post_owned is None: return self._unknown(resource,phase='post-interrupt-inbox',status=status)
             all_owned={x['id']:x for x in pre_owned+post_owned}
             if not delete_ids(post_owned): return self._unknown(resource,phase='delete-after-interrupt')
@@ -365,6 +380,11 @@ class ReviewCancellation:
             not isinstance(saved.get('baseline_ref'),str) or not isinstance(saved.get('owned_items'),list) or
             not saved.get('admission_proven') or not saved.get('inactive_confirmed') or not saved.get('message_absent') or not saved.get('inbox_empty')): return 'UNKNOWN'
         guard=saved.get('history_guard')
+        if isinstance(guard,dict) and guard.get('purpose')=='CANCELLATION_DISCARD':
+            if guard.get('server')!=self.server or guard.get('session_id')!=proof.get('session_id') or guard.get('assignment_body_sha256')!=assignment['body_sha256']: return 'UNKNOWN'
+            if task['state']=='CANCEL_REQUESTED':
+                self.store.confirm_task_cancelled(task_id=task['task_id'],run_id=task['run_id'],evaluation_generation=task['evaluation_generation'],assignment_generation=task['assignment_generation'],input_digest=task['input_digest'],cleanup_artifact_ref=ref)
+            return 'APPLIED'
         if (not isinstance(guard,dict) or guard.get('server')!=self.server or
             guard.get('session_id')!=proof.get('session_id') or guard.get('baseline_ref')!=saved.get('baseline_ref') or
             guard.get('baseline_observed_ms')!=saved.get('baseline_observed_ms') or
@@ -526,6 +546,38 @@ class ReviewCancellation:
             present.add(original_id)
         result.extend({'id':cid,'text_sha256':control_map[cid]['text_sha256']} for cid in control_map if cid not in present)
         return result
+
+    def _cancellation_items(self,items,sid,mid,body,task,assignment,baseline,controls):
+        """Allow exact service-repair notices while retaining normal inbox fences."""
+        if not isinstance(items,list): return None
+        ordinary=[]
+        for item in items:
+            if not isinstance(item,dict) or item.get('sessionID',item.get('session_id',item.get('sessionId'))) != sid: return None
+            metadata=(item.get('payload') or {}).get('metadata') if isinstance(item.get('payload'),dict) else item.get('metadata')
+            stamp=item.get('time'); created=stamp.get('created') if isinstance(stamp,dict) else None
+            marker=(item.get('workflow_service_delivery_repair') is True and isinstance(metadata,dict) and
+                metadata.get('workflow_service_delivery_repair') is True and metadata.get('task_id')==task['task_id'] and
+                metadata.get('run_id')==task['run_id'] and metadata.get('session_id')==sid and
+                isinstance(created,int) and not isinstance(created,bool) and created>=baseline['record']['observed_ms'])
+            if marker: ordinary.append(item); continue
+            ordinary.append(item)
+        # Remove only marked service notices; all other inbox entries pass the canonical parser.
+        canonical=[]; notices=[]
+        for item in ordinary:
+            metadata=(item.get('payload') or {}).get('metadata') if isinstance(item.get('payload'),dict) else item.get('metadata')
+            stamp=item.get('time'); created=stamp.get('created') if isinstance(stamp,dict) else None
+            marked=(item.get('workflow_service_delivery_repair') is True and isinstance(metadata,dict) and
+                metadata.get('workflow_service_delivery_repair') is True and metadata.get('task_id')==task['task_id'] and
+                metadata.get('run_id')==task['run_id'] and metadata.get('session_id')==sid and
+                isinstance(created,int) and not isinstance(created,bool) and created>=baseline['record']['observed_ms'])
+            (notices if marked else canonical).append(item)
+        owned=self._owned_items(canonical,sid,mid,body,task,assignment,baseline,controls)
+        if owned is None: return None
+        for item in notices:
+            text=(item.get('payload') or {}).get('text') if isinstance(item.get('payload'),dict) else item.get('text')
+            if not isinstance(item.get('id'),str) or not isinstance(text,str): return None
+            owned.append({'id':item['id'],'text_sha256':hashlib.sha256(text.encode()).hexdigest()})
+        return owned
 
     def _retry_controls(self, task, assignment, sid, proof, baseline):
         getter=getattr(self.store,'list_review_retry_receipts',None)

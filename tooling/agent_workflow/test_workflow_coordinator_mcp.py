@@ -39,6 +39,25 @@ def _stdio_coordinator_fixture(coordinator, root, repo, token, *, author_mode=Fa
 
 
 class CoordinatorMCPTests(unittest.TestCase):
+    def test_reviewer_catalog_input_refs_inline_outputs_and_budget(self):
+        from workflow_coordinator_mcp import REVIEW_SCHEMAS
+        self.assertEqual(set(REVIEW_SCHEMAS),{'claim_task','complete_review','report_error','status'})
+        self.assertIn('input_ref',REVIEW_SCHEMAS['status']['properties'])
+        self.assertEqual(len(CoordinatorClient.encode_response('status',{'task_id':'t','input_ref':'review_guide'}, {'content':'x'*8000})),8000+len('{"content":""}'))
+        client=CoordinatorClient('http://127.0.0.1:1','token','.',profile='reviewer')
+        with self.assertRaises(ValueError): client.prepare_call('status',{'task_id':'t','session_id':'s','input_offset':1})
+        with self.assertRaises(ValueError): client.prepare_call('status',{'task_id':'t','session_id':'s','input_ref':'review_guide','source_path':'x'})
+        result={'task_id':'t','verdict':'PASS','findings':[]}
+        try:
+            _,_,url,data,headers=client.prepare_call('complete_review',{'session_id':'s','result':result})
+        except ValueError:
+            # Canonical schema may require assignment-bound fields; it must still
+            # reject malformed payloads before any filesystem operation.
+            with self.assertRaises(ValueError): client.prepare_call('complete_review',{'session_id':'s','result':{'bad':True}})
+        else:
+            self.assertTrue(url.endswith('/v1/review/complete')); self.assertEqual(json.loads(data)['result'],result)
+            self.assertEqual(headers['X-MS14-Reviewer-Session'],'s')
+
     def test_response_budget_only_expands_for_author_diagnostics(self):
         from workflow_mcp import _response
         large = {'diagnostics': 'x' * 8000}
@@ -109,7 +128,11 @@ class CoordinatorMCPTests(unittest.TestCase):
             self.assertIn('implementation_complete=false',description)
             self.assertIn('at any development stage',description)
             self.assertIn('not feature readiness',description)
-        self.assertIn('FEATURE FAIL only',catalog['submit']['description'])
+        self.assertIn('settled current FEATURE PASS or FAIL',catalog['submit']['description'])
+        self.assertIn('does not require owner approval',catalog['submit']['description'])
+        import workflow_coordinator_mcp
+        request_help=workflow_coordinator_mcp.SCHEMAS['submit']['properties']['request_path']['description']
+        self.assertIn('settled current FEATURE PASS or FAIL',request_help)
         self.assertIn('DIAGNOSTIC submissions never replace a run',catalog['submit']['description'])
         reviewer=CoordinatorClient("http://127.0.0.1:9000","reviewer",self.repo,transport=self.client.transport,profile='reviewer')
         self.assertFalse({'register_scope','scope_status'} & {x['name'] for x in reviewer.tools()})
@@ -119,7 +142,7 @@ class CoordinatorMCPTests(unittest.TestCase):
         reviewer=CoordinatorClient('http://127.0.0.1:9000','configured',self.repo,transport=self.client.transport,profile='reviewer')
         result_file=self.repo/'result.json'; result_file.write_bytes(b'{"review":"unchanged"}')
         error_file=self.repo/'error.json'; error_file.write_bytes(b'{"error":"unchanged"}')
-        calls=[('claim_task',{'contract_version':1,'command_id':'c','task_id':'t','run_id':'r','evaluation_generation':1,'assignment_generation':1,'input_digest':'d','session_id':'sid'}),
+        calls=[('claim_task',{'task_id':'t','session_id':'sid'}),
           ('complete_review',{'result_path':str(result_file),'session_id':'sid'}),
           ('report_error',{'error_path':str(error_file),'session_id':'sid'}),('status',{'task_id':'t','session_id':'sid'})]
         original=(result_file.read_bytes(),error_file.read_bytes())
