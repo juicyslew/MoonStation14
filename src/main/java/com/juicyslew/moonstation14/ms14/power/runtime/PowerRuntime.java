@@ -1085,11 +1085,12 @@ public final class PowerRuntime {
         Map<BlockEntity, Double> mvDemands = new IdentityHashMap<>();
         Map<BlockEntity, Double> apcDemands = new IdentityHashMap<>();
         Set<BlockEntity> conflictingNodes = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<BlockEntity> validHvSuppliers = Collections.newSetFromMap(new IdentityHashMap<>());
         for (var entry : runtimeNodes) {
             BlockEntity entity = entry.getKey();
             RuntimePortState portState = runtimePortStates.get(entity);
             PowerRuntimeNode node = entry.getValue();
-            PowerRuntimeNode.SupplierOffer offer = node.powerSupplierOffer();
+            PowerRuntimeNode.SupplierOffer offer = node.powerSupplierOffer(elapsedTicks);
             Double demand = node.mvPowerDemandWatts();
             Double apcDemand = node.apcPowerDemandWatts();
             boolean conflictingRoles = (offer != null ? 1 : 0) + (demand != null ? 1 : 0) + (apcDemand != null ? 1 : 0) > 1;
@@ -1098,9 +1099,10 @@ public final class PowerRuntime {
                 LoadedPowerGraph.NodeState state = portState.states().get(CableTier.HV);
                 if (Double.isFinite(offer.currentWatts()) && offer.currentWatts() >= 0
                         && Double.isFinite(offer.ratedMaximumWatts()) && offer.ratedMaximumWatts() >= 0)
-                    sourceOffers.add(new PowerLiveLoop.Source(id(entity), state.componentId(),
+                    { sourceOffers.add(new PowerLiveLoop.Source(id(entity), state.componentId(),
                             state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN,
                             offer.currentWatts(), offer.ratedMaximumWatts()));
+                    validHvSuppliers.add(entity); }
             }
             if (demand != null) {
                 mvDemands.put(entity, demand);
@@ -1163,6 +1165,18 @@ public final class PowerRuntime {
                 }).toList(), elapsedTicks);
         long solveTopologyGeneration = PowerGraphService.topologyGeneration(level);
         PowerLiveLoop.Result result = PowerLiveLoop.solve(input);
+        for (var entry : runtimeNodes) {
+            BlockEntity entity = entry.getKey();
+            PowerRuntimeNode node = entry.getValue();
+            if (node.powerSupplierOffer(elapsedTicks) == null) continue;
+            RuntimePortState portState = runtimePortStates.get(entity);
+            LoadedPowerGraph.NodeState state = portState.states().get(CableTier.HV);
+            boolean graphKnown = validHvSuppliers.contains(entity) && !conflictingNodes.contains(entity)
+                    && PowerGraphService.topologyReady(level) && state != null
+                    && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN;
+            node.receivePowerSupplyAllocation(graphKnown ? result.hvSourceWatts().getOrDefault(id(entity), 0.0) : 0,
+                    graphKnown, elapsedTicks, sampleTick);
+        }
         Map<BlockPos, MvRuntimeMeterSample> runtimeMeters = MV_RUNTIME_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
         runtimeMeters.clear();
         long runtimeTopologyGeneration = PowerGraphService.topologyGeneration(level);

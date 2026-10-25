@@ -1,0 +1,1 @@
+{"parent":"moonstation14:base","startupThreshold":16,"startsInert":false,"failsafeEnabled":true,"failsafeDistance":16,"failsafeCooldownSeconds":10,"spawnProfile":"moonstation14:tesla_energy_ball","spawn_entity":"moonstation14:tesla_energy_ball"}

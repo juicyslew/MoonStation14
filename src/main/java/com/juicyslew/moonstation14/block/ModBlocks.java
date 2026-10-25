@@ -22,6 +22,8 @@ import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlock;
 import com.juicyslew.moonstation14.ms14.disposal.world.DisposalTubeBlock;
 import com.juicyslew.moonstation14.block.custom.FieldGeneratorBlock;
 import com.juicyslew.moonstation14.block.custom.SingularityGeneratorBlock;
+import com.juicyslew.moonstation14.ms14.tesla.TeslaMachineBlock;
+import com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles;
 import com.juicyslew.moonstation14.block.custom.SingularityBeaconBlock;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlock;
 import com.juicyslew.moonstation14.block.custom.EmitterBlock;
@@ -130,6 +132,12 @@ public class ModBlocks {
             () -> new FieldGeneratorBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion()));
     public static final DeferredBlock<SingularityGeneratorBlock> SINGULARITY_GENERATOR = registerBlock("singularity_generator",
             () -> new SingularityGeneratorBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion()));
+    public static final DeferredBlock<SingularityGeneratorBlock> TESLA_GENERATOR = registerBlock("tesla_generator",
+            () -> new SingularityGeneratorBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion(), com.juicyslew.moonstation14.ms14.singularity.ModSingularityGenerators.TESLA_ID));
+    public static final DeferredBlock<TeslaMachineBlock> TESLA_COIL = registerBlock("tesla_coil",
+            () -> new TeslaMachineBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion(), ModTeslaProfiles.COIL_ID));
+    public static final DeferredBlock<TeslaMachineBlock> TESLA_GROUNDING_ROD = registerBlock("tesla_grounding_rod",
+            () -> new TeslaMachineBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion(), ModTeslaProfiles.ROD_ID));
     public static final DeferredBlock<EmitterBlock> EMITTER = registerBlock("emitter",
             () -> new EmitterBlock(BlockBehaviour.Properties.of().strength(3f).sound(SoundType.METAL).noOcclusion()));
     public static final DeferredBlock<RadiationCollectorBlock> RADIATION_COLLECTOR = registerBlock("radiation_collector", RadiationCollectorBlock::new);

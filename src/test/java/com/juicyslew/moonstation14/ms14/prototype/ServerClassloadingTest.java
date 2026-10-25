@@ -68,7 +68,8 @@ class ServerClassloadingTest {
              "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java",
              "com/juicyslew/moonstation14/ms14/player_body_control/client/DevelopmentModeHotkeys.java",
              "com/juicyslew/moonstation14/ms14/player_body_control/client/DevelopmentModeHotkeyRegistration.java",
-            "com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCameraPolicy.java",
+             "com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCameraPolicy.java",
+            "com/juicyslew/moonstation14/validation/client/ClientStartupProbe.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCharacterClientView.java",
             "com/juicyslew/moonstation14/ms14/power/cable/client/CableVisualRenderer.java",
             "com/juicyslew/moonstation14/ms14/hands/client/BodyBlockOutlineRenderer.java",
@@ -125,12 +126,6 @@ class ServerClassloadingTest {
             "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.atmos\\.tank\\.client\\.[A-Za-z_$][\\w$]*");
     private static final Pattern CLIENT_MIXIN_REFERENCE = Pattern.compile(
             "\\bcom\\.juicyslew\\.moonstation14\\.mixin\\.client\\.[A-Za-z_$][\\w$]*");
-    private static final Pattern CLIENT_COMBAT_REFERENCE = Pattern.compile(
-            "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.combat\\.client\\.[A-Za-z_$][\\w$]*");
-    private static final Pattern CLIENT_ITEM_PROCESSING_REFERENCE = Pattern.compile(
-            "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.item_processing\\.client\\.[A-Za-z_$][\\w$]*");
-    private static final Pattern CLIENT_ANIMAL_DIAGNOSTIC_REFERENCE = Pattern.compile(
-            "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.animals\\.diagnostics\\.AnimalPopulationClientSampler\\b");
     private static final Pattern PACKAGE_DECLARATION = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)\\s*;");
     private static final Pattern COMMENTS = Pattern.compile("(?s)/\\*.*?\\*/|//[^\\r\\n]*");
 
@@ -144,9 +139,6 @@ class ServerClassloadingTest {
             for (Path source : files.filter(path -> path.toString().endsWith(".java")).toList()) {
                 String relativePath = sourceRoot.relativize(source).toString().replace('\\', '/');
                 if (CLIENT_ONLY_SOURCES.contains(relativePath) || relativePath.startsWith(CLIENT_UI_SOURCE_PREFIX)
-                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/combat/client/")
-                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/item_processing/client/")
-                        || relativePath.equals("com/juicyslew/moonstation14/ms14/animals/diagnostics/AnimalPopulationClientSampler.java")
                         || relativePath.startsWith(CLIENT_LOOSE_OBJECT_SOURCE_PREFIX)
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/medical_observer/client/")
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/examine/client/")
@@ -166,9 +158,14 @@ class ServerClassloadingTest {
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/ghost_roles/client/")
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/mouse/client/")
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mobs/client/")
-                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/animals/client/")
-                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")
-                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")) {
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/tesla/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/combat/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/item_processing/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/animals/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/validation/client/")
+                           || relativePath.equals("com/juicyslew/moonstation14/ms14/animals/diagnostics/AnimalPopulationClientSampler.java")) {
                     continue;
                 }
 
@@ -183,12 +180,6 @@ class ServerClassloadingTest {
                 findMatches(CLIENT_CANISTER_REFERENCE, code)
                         .forEach(match -> violations.add(relativePath + ": " + match));
                 findMatches(CLIENT_MIXIN_REFERENCE, code)
-                        .forEach(match -> violations.add(relativePath + ": " + match));
-                findMatches(CLIENT_COMBAT_REFERENCE, code)
-                        .forEach(match -> violations.add(relativePath + ": " + match));
-                findMatches(CLIENT_ITEM_PROCESSING_REFERENCE, code)
-                        .forEach(match -> violations.add(relativePath + ": " + match));
-                findMatches(CLIENT_ANIMAL_DIAGNOSTIC_REFERENCE, code)
                         .forEach(match -> violations.add(relativePath + ": " + match));
             }
         }
@@ -250,6 +241,16 @@ class ServerClassloadingTest {
                         () -> relativePath + " must declare its client UI package");
             }
         }
+    }
+
+    @Test
+    void clientStartupProbeIsExplicitlyClientOnly() throws IOException {
+        Path source = findProductionSourceRoot().resolve("com/juicyslew/moonstation14/validation/client/ClientStartupProbe.java");
+        String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+        Matcher declaration = PACKAGE_DECLARATION.matcher(code);
+        assertTrue(declaration.find());
+        assertEquals("com.juicyslew.moonstation14.validation.client", declaration.group(1));
+        assertTrue(code.contains("net.minecraft.client.Minecraft"));
     }
 
     @Test

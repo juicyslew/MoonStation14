@@ -1,5 +1,8 @@
 import groovy.xml.XmlSlurper
 import groovy.json.JsonSlurper
+import java.util.zip.ZipFile
+import java.security.MessageDigest
+import java.nio.file.Files
 
 plugins {
     id 'java-library'
@@ -55,6 +58,73 @@ sourceSets.main.resources {
     exclude("src/generated/**/.cache") // datagen cache files
 }
 
+// Keep the Tesla package gate tied to the accepted import manifest and source bytes.
+// Run after jar/assemble so it inspects the artifact that will actually be delivered.
+def verifyTeslaPackage = tasks.register('verifyTeslaPackage') {
+    group = 'verification'
+    description = 'Verifies Tesla runtime assets and accepted imports are present byte-for-byte in the mod jar.'
+    dependsOn tasks.named('jar')
+    def sourceRoot = file('src/main/resources')
+    def manifestPath = file('src/main/resources/assets/moonstation14/power-reactor-provenance/tesla/model-import-manifest.json')
+    def artifact = tasks.named('jar').flatMap { it.archiveFile }
+    def reportDirectory = layout.buildDirectory.dir('agent-workflow/tesla-sprint')
+    doLast {
+        def resourcesRoot = sourceRoot
+        def manifestFile = manifestPath
+        def manifest = new JsonSlurper().parse(manifestFile)
+        def expected = new LinkedHashSet<String>()
+        manifest.families.each { family -> family.imported_resources.each { item ->
+            expected.add(item.runtime_resource.substring('src/main/resources/'.length()))
+        } }
+        def visualDirs = [
+                'assets/moonstation14/textures/ss14/structures/power/generation/tesla/energy_ball.rsi',
+                'assets/moonstation14/textures/ss14/structures/power/generation/tesla/energy_miniball.rsi',
+                'assets/moonstation14/textures/ss14/effects/lightning.rsi',
+                'assets/moonstation14/textures/ss14/effects/emp.rsi'
+        ]
+        visualDirs.each { relativeDir ->
+            def dir = new File(resourcesRoot, relativeDir)
+            def contents = dir.isDirectory() ? Files.walk(dir.toPath()).withCloseable { stream -> stream.filter { Files.isRegularFile(it) }.map { it.toFile() }.toList() } : []
+            if (!dir.isDirectory() || contents.empty) throw new GradleException("Expected Tesla presentation asset directory missing/empty: ${relativeDir}")
+            contents.each { f -> expected.add(f.path.substring(resourcesRoot.path.length() + 1).replace('\\', '/')) }
+        }
+        def teslaSounds = new File(resourcesRoot, 'assets/moonstation14/sounds/tesla')
+        Files.list(teslaSounds.toPath()).withCloseable { stream -> stream.filter { Files.isRegularFile(it) }.forEach { p -> expected.add(p.toFile().path.substring(resourcesRoot.path.length() + 1).replace('\\', '/')) } }
+        ['assets/moonstation14/sounds/lightning/lightningshock.ogg',
+         'assets/moonstation14/sounds/lightning/lightningshock.ogg.provenance.json'].each { expected.add(it) }
+        expected.add('assets/moonstation14/sounds.json')
+
+        def jarFile = artifact.get().asFile
+        def failures = []
+        def details = []
+        def zip = new ZipFile(jarFile)
+        try {
+            expected.each { name ->
+                def matches = zip.entries().findAll { it.name == name }
+                def source = new File(resourcesRoot, name)
+                def sourceHash = source.isFile() ? MessageDigest.getInstance('SHA-256').digest(source.bytes).encodeHex().toString() : null
+                def status = matches.size() == 0 ? 'MISSING' : matches.size() > 1 ? 'DUPLICATE' : 'OK'
+                def packagedHash = null
+                if (matches.size() == 1) {
+                    packagedHash = MessageDigest.getInstance('SHA-256').digest(zip.getInputStream(matches[0]).bytes).encodeHex().toString()
+                    if (sourceHash == null || packagedHash != sourceHash) status = 'BYTE_MISMATCH'
+                }
+                if (status != 'OK') failures.add("${name}: ${status}")
+                details.add([entry: name, status: status, sourceSha256: sourceHash, jarSha256: packagedHash])
+            }
+        } finally { zip.close() }
+        def report = [jar: jarFile.name, jarSha256: MessageDigest.getInstance('SHA-256').digest(jarFile.bytes).encodeHex().toString(),
+                      jarSize: jarFile.length(), manifestSha256: MessageDigest.getInstance('SHA-256').digest(manifestFile.bytes).encodeHex().toString(),
+                      expectedCount: expected.size(), files: details, failures: failures]
+        def reportFile = new File(reportDirectory.get().asFile, "package-content-check-${System.currentTimeMillis()}.json")
+        reportFile.parentFile.mkdirs()
+        reportFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(report))
+        println "Tesla package content: ${details.count { it.status == 'OK' }}/${expected.size()} OK; jarSha256=${report.jarSha256}; manifestSha256=${report.manifestSha256}; report=${reportFile}"
+        if (!failures.empty) throw new GradleException("Tesla package content check failed: ${failures.join('; ')}")
+    }
+}
+tasks.named('assemble') { dependsOn verifyTeslaPackage }
+
 repositories {
     // Add here additional repositories if required by some of the dependencies below.
 }
@@ -94,6 +164,10 @@ neoForge {
             // Optional connected-smoke isolation. Defaults retain the normal ModDev run directory.
             if (project.hasProperty('ms14ClientRunDir')) {
                 gameDirectory = project.file(project.property('ms14ClientRunDir'))
+            }
+            // Diagnostic-only opt-in; explicitly forwarded to the client JVM (not Gradle).
+            if (project.hasProperty('ms14ClientStartupProbe')) {
+                systemProperty 'ms14.clientStartupProbe', project.property('ms14ClientStartupProbe').toString()
             }
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
@@ -224,7 +298,7 @@ test {
 // Opt-in bounded catalog; never falls back to the complete JUnit suite.
 def readinessCatalog = [
     ui: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaintPendingTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireScreenLayoutTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireLifecycleTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowChromeButtonsTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowGeometryControllerTest', 'com.juicyslew.moonstation14.ms14.ui.window.TitlePressRoutingTest', 'com.juicyslew.moonstation14.ms14.player_body_control.client.GameplayWindowMovementDispatchTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistryTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerWorkspaceRoutingTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerModePolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayersTest', 'com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest'],
-    interaction: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.chat.server.EmoteCommandTest', 'com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfileTest', 'com.juicyslew.moonstation14.ms14.singularity.beacon.SingularityBeaconProfileTest'],
+    interaction: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.chat.server.EmoteCommandTest', 'com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfileTest', 'com.juicyslew.moonstation14.ms14.singularity.beacon.SingularityBeaconProfileTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaProfilesTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaBatteryStateTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaLightningSelectionTest', 'com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticlePrototypeTest'],
     prediction: ['com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionPacketScheduleTest', 'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest'],
     preview: ['com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest']
 ]

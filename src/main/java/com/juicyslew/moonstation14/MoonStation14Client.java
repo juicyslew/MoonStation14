@@ -1044,6 +1044,7 @@ public class MoonStation14Client {
         event.registerEntityRenderer(ModEntities.EMITTER_BOLT.get(), com.juicyslew.moonstation14.entities.client.EmitterBoltRenderer::new);
         event.registerEntityRenderer(ModEntities.PA_PARTICLE.get(), com.juicyslew.moonstation14.entities.client.ParticleAcceleratorParticleRenderer::new);
         event.registerEntityRenderer(ModEntities.SINGULARITY.get(), com.juicyslew.moonstation14.entities.client.SingularityRenderer::new);
+        event.registerEntityRenderer(ModEntities.TESLA_ENERGY_BALL.get(), com.juicyslew.moonstation14.entities.client.TeslaEnergyBallRenderer::new);
         event.registerEntityRenderer(ModEntities.DISPOSAL_TRANSIT_HOLDER.get(), context -> new net.minecraft.client.renderer.entity.EntityRenderer<>(context) {
             @Override public net.minecraft.resources.ResourceLocation getTextureLocation(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder entity) {
                 return net.minecraft.resources.ResourceLocation.withDefaultNamespace("textures/misc/white.png");

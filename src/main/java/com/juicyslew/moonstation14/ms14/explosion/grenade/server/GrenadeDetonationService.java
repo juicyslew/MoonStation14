@@ -38,8 +38,5 @@ public final class GrenadeDetonationService {
         return source != null && explosions != null && explosions.get(source.explosionType()) != null;
     }
 
-    public static void spawnVisuals(ServerLevel level, BlockPos origin) { com.juicyslew.moonstation14.ms14.explosion.server.ExplosionFeedbackService.emitLegacyGrenadeCues(level, origin); }
-    static void sendBestEffort(Runnable emission) { try { emission.run(); } catch (RuntimeException ignored) { } }
     static BlockPos resolveOrigin(ServerLevel level, BlockPos pos) { return ExplosionSourceAdmission.resolveOrigin(level, pos); }
 }
-

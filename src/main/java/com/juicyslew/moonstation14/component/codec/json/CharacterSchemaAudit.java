@@ -313,6 +313,11 @@ public final class CharacterSchemaAudit {
             }
             return;
         }
+        if ("lightningTarget".equals(type)) {
+            checkFields(object, Set.of("type", "priority", "probability", "resistance", "structuralDamage",
+                    "explodes", "intensity", "dropoff", "maximumPerTile"), path);
+            return;
+        }
         if ("CanEscapeInventory".equals(type)) {
             checkFields(object, Set.of("type", "baseResistTime"), path);
             if (object.has("baseResistTime")) {

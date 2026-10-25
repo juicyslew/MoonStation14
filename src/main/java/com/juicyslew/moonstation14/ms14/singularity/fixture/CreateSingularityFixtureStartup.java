@@ -24,6 +24,7 @@ public final class CreateSingularityFixtureStartup {
     private final List<EmitterBlockEntity> emitters = new ArrayList<>();
     private final List<FieldGeneratorBlockEntity> fields = new ArrayList<>();
     private final List<RadiationCollectorBlockEntity> collectors = new ArrayList<>();
+    private final ParticleAcceleratorStrength startupStrength;
     private final ParticleAcceleratorPartBlockEntity control;
     private final com.juicyslew.moonstation14.block.block_entity.SingularityGeneratorBlockEntity generator;
     private final long deadline;
@@ -31,10 +32,20 @@ public final class CreateSingularityFixtureStartup {
     private String error;
 
     public CreateSingularityFixtureStartup(ServerLevel level, SingularityFixtureLayout.Placed placed) {
+        this(level, placed, true, ParticleAcceleratorStrength.LEVEL_0);
+    }
+    /** Shared hardware commissioning for fixtures that deliberately do not operate radiation collectors. */
+    public CreateSingularityFixtureStartup(ServerLevel level, SingularityFixtureLayout.Placed placed, boolean enableCollectors) {
+        this(level,placed,enableCollectors,ParticleAcceleratorStrength.LEVEL_0);
+    }
+    /** Uses the ordinary PA control API at an explicit commissioning strength; legacy singuloosing stays LEVEL_0. */
+    public CreateSingularityFixtureStartup(ServerLevel level,SingularityFixtureLayout.Placed placed,boolean enableCollectors,
+                                           ParticleAcceleratorStrength startupStrength) {
         this.level = level; this.placed = placed; this.deadline = level.getGameTime() + DEADLINE_TICKS;
+        this.startupStrength=java.util.Objects.requireNonNull(startupStrength);
         for (BlockPos p : placed.emitters()) { if (!(level.getBlockEntity(p) instanceof EmitterBlockEntity be)) { fail("missing emitter at " + p); break; } emitters.add(be); }
         for (BlockPos p : placed.fieldGenerators()) { if (!(level.getBlockEntity(p) instanceof FieldGeneratorBlockEntity be)) { fail("missing field generator at " + p); break; } fields.add(be); }
-        for (BlockPos p : placed.collectors()) { if (!(level.getBlockEntity(p) instanceof RadiationCollectorBlockEntity be)) { fail("missing collector at " + p); break; } collectors.add(be); }
+        if (enableCollectors) for (BlockPos p : placed.collectors()) { if (!(level.getBlockEntity(p) instanceof RadiationCollectorBlockEntity be)) { fail("missing collector at " + p); break; } collectors.add(be); }
         control = level.getBlockEntity(placed.acceleratorControl()) instanceof ParticleAcceleratorPartBlockEntity be ? be : null;
         generator = level.getBlockEntity(placed.startupGenerator()) instanceof com.juicyslew.moonstation14.block.block_entity.SingularityGeneratorBlockEntity be ? be : null;
         if (control == null || generator == null) fail("missing accelerator control or startup generator");
@@ -59,7 +70,7 @@ public final class CreateSingularityFixtureStartup {
         if (profile.failsafeEnabled() && FieldContainmentRuntime.closedVolumes(level).stream().noneMatch(b -> ClosedFieldVolume.containsWithinFaceDistance(b, center, profile.failsafeDistance()))) return;
         control.requestAssemblyRescan();
         if (!control.assemblyValid()) return;
-        control.setStrength(ParticleAcceleratorStrength.LEVEL_0);
+        control.setStrength(startupStrength);
         control.setEnabled(true);
         if (!control.enabled()) return;
         for (RadiationCollectorBlockEntity be : collectors) {
@@ -71,7 +82,7 @@ public final class CreateSingularityFixtureStartup {
     public Phase phase() { return phase; }
     public String error() { return error; }
     /** Original owned startup machine retained for one-shot proof if horizon consumption removes its block. */
-    com.juicyslew.moonstation14.block.block_entity.SingularityGeneratorBlockEntity startupGenerator() { return generator; }
+    public com.juicyslew.moonstation14.block.block_entity.SingularityGeneratorBlockEntity startupGenerator() { return generator; }
     private boolean owned(net.minecraft.world.level.block.entity.BlockEntity be) {
         if (!be.isRemoved() && be.getLevel() == level && level.getBlockEntity(be.getBlockPos()) == be) return true;
         fail("owned machine missing, replaced, or unloaded at " + be.getBlockPos()); return false;

@@ -65,11 +65,4 @@ class GrenadeDetonationServiceTest {
         assertEquals(GrenadeDetonationService.Outcome.QUEUED, GrenadeDetonationService.Outcome.values()[0]);
     }
 
-    @Test
-    void failedCosmeticEmissionDoesNotPreventLaterEmission() {
-        boolean[] emitted = {false};
-        GrenadeDetonationService.sendBestEffort(() -> { throw new IllegalStateException("packet failed"); });
-        GrenadeDetonationService.sendBestEffort(() -> emitted[0] = true);
-        assertTrue(emitted[0]);
-    }
 }

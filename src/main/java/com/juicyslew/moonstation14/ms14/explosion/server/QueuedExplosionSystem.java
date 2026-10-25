@@ -46,10 +46,8 @@ public final class QueuedExplosionSystem {
         BlockPos origin = new BlockPos(request.origin().x(), request.origin().y(), request.origin().z());
         var source = request.source();
         var result = ServerExplosionService.execute(level, origin, source.explosionType(), source.proposal());
-        if (result.status() == ServerExplosionService.Status.APPLIED || result.status() == ServerExplosionService.Status.PARTIAL) {
-            ExplosionData resolved = PrototypeRuntime.serverExplosions().get(source.explosionType());
-            if (resolved != null) ExplosionFeedbackService.emitQueuedCues(level, origin, result.plannedIntensityIterationCount(), resolved.smallSoundIterationThreshold());
-        }
+        // ServerExplosionService owns the single shared presentation for every accepted
+        // explosion, whether invoked directly (Tesla) or through this queue (grenades).
         if (queue.size() == 0) QUEUES.remove(level);
     }
     public static void onLevelUnload(LevelEvent.Unload event) {

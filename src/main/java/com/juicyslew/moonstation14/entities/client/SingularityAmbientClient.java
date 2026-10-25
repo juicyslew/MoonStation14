@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.entities.client;
 
 import com.juicyslew.moonstation14.entities.SingularityEntity;
+import com.juicyslew.moonstation14.entities.TeslaEnergyBallEntity;
 import com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfile;
 import com.juicyslew.moonstation14.ms14.singularity.SingularitySoundProfile;
 import net.minecraft.client.Minecraft;
@@ -27,6 +28,7 @@ import java.util.Map;
 @EventBusSubscriber(modid = "moonstation14", value = Dist.CLIENT)
 public final class SingularityAmbientClient {
     private static final Map<SingularityEntity, Pair> ACTIVE = new IdentityHashMap<>();
+    private static final Map<TeslaEnergyBallEntity, Loop> TESLA = new IdentityHashMap<>();
     private SingularityAmbientClient() { }
 
     @SubscribeEvent public static void tick(ClientTickEvent.Post event) {
@@ -44,6 +46,28 @@ public final class SingularityAmbientClient {
                 }
             }
         }
+        TESLA.entrySet().removeIf(entry -> { if(entry.getKey().isRemoved() || entry.getKey().level()!=mc.level) { entry.getValue().stop(mc); return true; } return false; });
+        for (var entity : mc.level.entitiesForRendering()) if(entity instanceof TeslaEnergyBallEntity ball && !ball.isRemoved()) {
+            var ambient=ball.ambientProfile();
+            if(ambient==null) {
+                Loop unavailable=TESLA.remove(ball);
+                if(unavailable!=null) unavailable.stop(mc);
+                continue;
+            }
+            Loop loop=TESLA.get(ball);
+            var action = SingularityAmbientPolicy.loopAction(true, loop != null, loop != null && loop.stopped,
+                    loop != null && loop.matches(ambient.event(), (float)ambient.volumeDb(), (float)ambient.range()));
+            if (action == SingularityAmbientPolicy.LoopAction.REPLACE) {
+                loop.stop(mc);
+                loop=null;
+            }
+            if (action == SingularityAmbientPolicy.LoopAction.CREATE || action == SingularityAmbientPolicy.LoopAction.REPLACE) {
+                loop=new Loop(ball, ambient.event(), (float)ambient.volumeDb(), (float)ambient.range());
+                TESLA.put(ball,loop);
+            }
+            loop.update(mc);
+        }
+        TESLA.values().forEach(loop -> loop.update(mc));
         for (var entity : mc.level.entitiesForRendering()) {
             if (!(entity instanceof SingularityEntity singularity) || !valid(mc, singularity) || ACTIVE.containsKey(singularity)) continue;
             SingularityGameplayProfile profile = singularity.gravityProfileIfReady();
@@ -66,7 +90,7 @@ public final class SingularityAmbientClient {
         if (p == null) return false;
         return true;
     }
-    private static void clear(Minecraft mc) { ACTIVE.values().forEach(p -> p.stop(mc)); ACTIVE.clear(); }
+    private static void clear(Minecraft mc) { ACTIVE.values().forEach(p -> p.stop(mc)); ACTIVE.clear(); TESLA.values().forEach(p->p.stop(mc)); TESLA.clear(); }
     public static void registerReloadListener(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener(new SimplePreparableReloadListener<Void>() {
             @Override protected Void prepare(ResourceManager manager, ProfilerFiller profiler) { return null; }
@@ -79,20 +103,35 @@ public final class SingularityAmbientClient {
         Loop root, component;
         Pair(SingularityEntity entity, SingularitySoundProfile profile) { this.entity=entity; this.profile=profile; }
         void update(Minecraft mc) {
-            if (root == null || root.stopped) root = new Loop(entity, profile.ambient(), profile.ambientDb(), profile.ambientRange());
-            if (component == null || component.stopped) component = new Loop(entity, profile.componentAmbient(), profile.componentAmbientDb(), profile.componentAmbientRange());
+            var rootAction=SingularityAmbientPolicy.loopAction(true, root!=null, root!=null && root.stopped, root!=null);
+            var componentAction=SingularityAmbientPolicy.loopAction(true, component!=null, component!=null && component.stopped, component!=null);
+            if (rootAction == SingularityAmbientPolicy.LoopAction.CREATE || rootAction == SingularityAmbientPolicy.LoopAction.REPLACE) root = new Loop(entity, profile.ambient(), profile.ambientDb(), profile.ambientRange());
+            if (componentAction == SingularityAmbientPolicy.LoopAction.CREATE || componentAction == SingularityAmbientPolicy.LoopAction.REPLACE) component = new Loop(entity, profile.componentAmbient(), profile.componentAmbientDb(), profile.componentAmbientRange());
             root.update(mc); component.update(mc);
         }
         void stop(Minecraft mc) { if(root!=null) root.stop(mc); if(component!=null) component.stop(mc); }
     }
     private static final class Loop extends AbstractTickableSoundInstance {
-        private final SingularityEntity entity;
+        private final net.minecraft.world.entity.Entity entity;
         private final float range;
+        private final net.minecraft.resources.ResourceLocation soundId;
+        private final float gain;
+        private final boolean tesla;
         private boolean playing;
         private boolean stopped;
         Loop(SingularityEntity entity, net.minecraft.resources.ResourceLocation sound, float db, float range) {
+            this((net.minecraft.world.entity.Entity)entity,sound,db,range,false);
+        }
+        Loop(net.minecraft.world.entity.Entity entity, net.minecraft.resources.ResourceLocation sound, float db, float range) {
+            this(entity,sound,db,range,true);
+        }
+        boolean matches(net.minecraft.resources.ResourceLocation sound, float db, float range) {
+            return soundId.equals(sound) && gain == SingularitySoundProfile.gain(db) && this.range == range;
+        }
+        private Loop(net.minecraft.world.entity.Entity entity, net.minecraft.resources.ResourceLocation sound, float db, float range, boolean tesla) {
             super(BuiltInRegistries.SOUND_EVENT.get(sound), SoundSource.AMBIENT, RandomSource.create());
-            this.entity = entity; this.looping = true; this.delay = 0; this.volume = SingularitySoundProfile.gain(db);
+            this.entity = entity; this.tesla=tesla; this.looping = true; this.delay = 0; this.volume = SingularitySoundProfile.gain(db);
+            this.soundId = sound; this.gain = this.volume;
             this.range = range;
             this.attenuation = Attenuation.LINEAR; this.x=entity.getX(); this.y=entity.getY(); this.z=entity.getZ();
         }
@@ -101,8 +140,8 @@ public final class SingularityAmbientClient {
             x=entity.getX(); y=entity.getY(); z=entity.getZ();
             var camera = mc.getCameraEntity();
             double dx=x-camera.getX(),dy=y-camera.getY(),dz=z-camera.getZ();
-            boolean near = SingularityAmbientPolicy.shouldPlay(!entity.isRemoved(), mc.level != null,
-                    entity.gravityProfileIfReady() != null, dx*dx+dy*dy+dz*dz, range);
+            boolean near = !entity.isRemoved() && mc.level != null && (tesla || entity instanceof SingularityEntity singularity && singularity.gravityProfileIfReady()!=null)
+                    && dx*dx+dy*dy+dz*dz<=range*range;
             if (near && !playing) { mc.getSoundManager().play(this); playing = true; }
             else if (!near && playing) stop(mc);
         }

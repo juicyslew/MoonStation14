@@ -103,6 +103,7 @@
     {"type": "MovementSpeedModifier", "mode": "grounded", "acceleration": 20.0, "walk_speed": 4.0, "sprint_speed": 4.0, "ground_friction_with_input": 20.0, "ground_friction_without_input": 20.0, "minimum_friction_speed": 0.005},
     {"type": "Flammable", "damage": {"types": {"heat": 1.5}}},
     {"type": "Blindable"},
-    {"type": "Metabolizer", "types": ["animal"]}
+    {"type": "Metabolizer", "types": ["animal"]},
+    {"type":"lightningTarget","priority":2,"probability":1.0,"resistance":1.0,"structuralDamage":1.0,"explodes":false}
   ]
 }

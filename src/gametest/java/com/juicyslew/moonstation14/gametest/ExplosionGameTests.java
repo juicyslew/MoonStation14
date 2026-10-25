@@ -13,6 +13,8 @@ import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Zombie;
@@ -30,6 +32,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 public final class ExplosionGameTests {
     private static final Logger LOGGER = LoggerFactory.getLogger(ExplosionGameTests.class);
     private static final BlastPlanner.Proposal PROPOSAL = new BlastPlanner.Proposal(120, 3, 10);
+    private static final TagKey<net.minecraft.world.level.block.Block> BLAST_DAMAGE_IMMUNE = TagKey.create(
+            Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "blast_damage_immune"));
 
     private ExplosionGameTests() { }
 
@@ -231,6 +235,54 @@ public final class ExplosionGameTests {
         require(ServerExplosionService.execute(level, invalidY, ModExplosions.DEFAULT_ID, PROPOSAL).status()
                         == ServerExplosionService.Status.INVALID_OR_STALE,
                 "out-of-height/unknown source fails closed");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"explosion", "tesla"})
+    public static void blastPreservesTaggedFieldGeneratorWithoutBlockingWave(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        // This is an eligibility/propagation fixture for the shared blast executor, not Tesla
+        // proposal tuning: use the existing generous shared-service proposal to reach beyond
+        // multiple immune cells and positively prove that the wave was not stopped.
+        BlastPlanner.Proposal proposal = PROPOSAL;
+        BlockPos source = pos(helper, 2, 2, 2);
+        BlockPos generator = source.east();
+        BlockPos teslaGenerator = source.north();
+        BlockPos singularityGenerator = source.above();
+        level.setBlock(generator, ModBlocks.FIELD_GENERATOR.get().defaultBlockState(), 3);
+        level.setBlock(teslaGenerator, ModBlocks.TESLA_GENERATOR.get().defaultBlockState(), 3);
+        level.setBlock(singularityGenerator, ModBlocks.SINGULARITY_GENERATOR.get().defaultBlockState(), 3);
+        BlockPos adjacentWall = source.west();
+        BlockPos beyondGenerators = source.east(2);
+        level.setBlock(adjacentWall, Blocks.STONE.defaultBlockState(), 3);
+        level.setBlock(beyondGenerators, Blocks.STONE.defaultBlockState(), 3);
+        var fieldEntity = level.getBlockEntity(generator);
+        var teslaEntity = level.getBlockEntity(teslaGenerator);
+        var singularityEntity = level.getBlockEntity(singularityGenerator);
+        require(level.getBlockState(generator).is(BLAST_DAMAGE_IMMUNE),
+                "field generator is recognized by loaded blast immunity tag");
+        require(level.getBlockState(teslaGenerator).is(BLAST_DAMAGE_IMMUNE),
+                "Tesla generator is recognized by loaded blast immunity tag");
+        require(level.getBlockState(singularityGenerator).is(BLAST_DAMAGE_IMMUNE),
+                "singularity generator is recognized by loaded blast immunity tag");
+        require(fieldEntity != null, "field generator block entity exists before blast");
+        require(teslaEntity != null && singularityEntity != null, "startup generator block entities exist before blast");
+
+        var result = ServerExplosionService.execute(level, source, ModExplosions.DEFAULT_ID, proposal);
+        require(result.status() == ServerExplosionService.Status.APPLIED, "tagged-block blast applied: " + result);
+        require(level.getBlockState(generator).is(ModBlocks.FIELD_GENERATOR.get()), "field generator block remains intact");
+        require(level.getBlockEntity(generator) == fieldEntity, "field generator block entity remains intact");
+        require(level.getBlockState(teslaGenerator).is(ModBlocks.TESLA_GENERATOR.get())
+                        && level.getBlockEntity(teslaGenerator) == teslaEntity,
+                "Tesla generator state and block entity remain intact");
+        require(level.getBlockState(singularityGenerator).is(ModBlocks.SINGULARITY_GENERATOR.get())
+                        && level.getBlockEntity(singularityGenerator) == singularityEntity,
+                "singularity generator state and block entity remain intact");
+        require(level.getBlockState(adjacentWall).isAir(), "ordinary stone wall beside generators is breached; result="
+                + result + " positions=" + generator + "," + teslaGenerator + "," + singularityGenerator + "," + adjacentWall);
+        require(level.getBlockState(beyondGenerators).isAir(), "blast propagates beyond immune field generator and breaches stone; result="
+                + result + " position=" + beyondGenerators);
         helper.succeed();
     }
 
