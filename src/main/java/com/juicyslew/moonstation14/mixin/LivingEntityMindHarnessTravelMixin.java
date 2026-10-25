@@ -49,6 +49,15 @@ public abstract class LivingEntityMindHarnessTravelMixin {
     @Inject(method = "travel", at = @At("HEAD"), cancellable = true, require = 1)
     private void moonstation14$skipVanillaTravelForHarnessOwnedMob(Vec3 input, CallbackInfo callback) {
         Object entity = this;
+        if (entity instanceof LivingEntity living && com.juicyslew.moonstation14.ms14.animals.flight.FlightSystem.isFlying(living)
+                && (!(entity instanceof Mob mob)
+                || mob instanceof MindControlledMob owner && owner.moonstation14$isMovementOwned()
+                || mob instanceof NpcMovementDriven driven && driven.moonstation14$isNpcMovementDriven()
+                || com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics.eligible(mob)
+                || com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep.isNaturalFlightBodyEligible(mob))) {
+            callback.cancel();
+            return;
+        }
         if (entity instanceof Mob mob && (com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics
                 .eligible(mob) || mob instanceof MindControlledMob controlled && controlled.moonstation14$isMovementOwned()
                 || (!(mob instanceof MindControlledMob controlled && controlled.moonstation14$isMovementOwned())

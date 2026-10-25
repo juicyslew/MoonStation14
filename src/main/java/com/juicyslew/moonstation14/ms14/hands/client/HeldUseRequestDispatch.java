@@ -11,6 +11,10 @@ import java.util.function.BooleanSupplier;
 public final class HeldUseRequestDispatch {
     private HeldUseRequestDispatch() { }
 
+    public static int predictionDuration(boolean instantUse, int ordinaryDuration) {
+        return instantUse ? 0 : ordinaryDuration;
+    }
+
     /** Shares the caller's established screen/text/modal admission with the ordinary key route. */
     public static boolean routePressed(boolean pressed, boolean controlDown, boolean altDown,
                                        BooleanSupplier inputAdmission, BooleanSupplier dispatch) {

@@ -1,0 +1,1 @@
+{"parent":"moonstation14:base_bullet","damage":{"piercing":0},"delete_on_collide":true,"sprite":{"texture":"moonstation14:ss14/weapons/objects/fun/capgun.rsi","state":"capbullet","frame_count":1,"frame_seconds":0,"unshaded":false,"no_rot":false}}

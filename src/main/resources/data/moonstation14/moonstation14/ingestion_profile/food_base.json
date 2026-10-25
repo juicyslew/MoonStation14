@@ -1,1 +1,1 @@
-{"id":"moonstation14:food_base","abstract":true,"parent":"moonstation14:edible_defaults","edible":{"dose_cents":500,"delay_ticks":20,"kind":"FOOD"}}
+{"id":"moonstation14:food_base","abstract":true,"parent":"moonstation14:edible_defaults","edible":{"dose_cents":500,"delay_ticks":20,"force_feed_delay_ticks":60,"kind":"FOOD"}}

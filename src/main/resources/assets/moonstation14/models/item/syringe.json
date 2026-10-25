@@ -1,13 +1,53 @@
 {
   "parent": "minecraft:item/generated",
-  "textures": { "layer0": "moonstation14:item/syringe/syringe_base0" },
+  "textures": {
+    "layer0": "moonstation14:item/syringe/syringe_base0"
+  },
   "overrides": [
-    { "predicate": { "moonstation14:fill": 0.16 }, "model": "moonstation14:item/syringe_fill_1" },
-    { "predicate": { "moonstation14:fill": 0.5 }, "model": "moonstation14:item/syringe_fill_2" },
-    { "predicate": { "moonstation14:fill": 0.84 }, "model": "moonstation14:item/syringe_fill_3" },
-    { "predicate": { "moonstation14:syringe_mode": 1.0 }, "model": "moonstation14:item/syringe_inject" },
-    { "predicate": { "moonstation14:fill": 0.16, "moonstation14:syringe_mode": 1.0 }, "model": "moonstation14:item/syringe_inject_fill_1" },
-    { "predicate": { "moonstation14:fill": 0.5, "moonstation14:syringe_mode": 1.0 }, "model": "moonstation14:item/syringe_inject_fill_2" },
-    { "predicate": { "moonstation14:fill": 0.84, "moonstation14:syringe_mode": 1.0 }, "model": "moonstation14:item/syringe_inject_fill_3" }
+    {
+      "predicate": {
+        "moonstation14:fill": 0.16
+      },
+      "model": "moonstation14:item/syringe_fill_1"
+    },
+    {
+      "predicate": {
+        "moonstation14:fill": 0.5
+      },
+      "model": "moonstation14:item/syringe_fill_2"
+    },
+    {
+      "predicate": {
+        "moonstation14:fill": 0.84
+      },
+      "model": "moonstation14:item/syringe_fill_3"
+    },
+    {
+      "predicate": {
+        "moonstation14:syringe_mode": 1.0
+      },
+      "model": "moonstation14:item/syringe_inject"
+    },
+    {
+      "predicate": {
+        "moonstation14:fill": 0.16,
+        "moonstation14:syringe_mode": 1.0
+      },
+      "model": "moonstation14:item/syringe_inject_fill_1"
+    },
+    {
+      "predicate": {
+        "moonstation14:fill": 0.5,
+        "moonstation14:syringe_mode": 1.0
+      },
+      "model": "moonstation14:item/syringe_inject_fill_2"
+    },
+    {
+      "predicate": {
+        "moonstation14:fill": 0.84,
+        "moonstation14:syringe_mode": 1.0
+      },
+      "model": "moonstation14:item/syringe_inject_fill_3"
+    }
   ]
 }

@@ -102,13 +102,13 @@ class BoardHTTPTests(unittest.TestCase):
             root=Path(tmp); store=workflow_store.WorkflowStore(root/'state.sqlite')
             coordinator=_owner_coordinator(store,root/'repo'); app=coordinator.app()
             entered=threading.Event(); release=threading.Event()
-            original=workflow_store.WorkflowStore.readonly_snapshot
+            original=workflow_store.WorkflowStore.readonly_board_snapshot
             def blocked_snapshot(*args,**kwargs):
                 entered.set()
                 if not release.wait(3): raise TimeoutError('test snapshot release timed out')
                 return original(*args,**kwargs)
             async def exercise():
-                with patch.object(workflow_store.WorkflowStore,'readonly_snapshot',side_effect=blocked_snapshot):
+                with patch.object(workflow_store.WorkflowStore,'readonly_board_snapshot',side_effect=blocked_snapshot):
                     board_task=asyncio.create_task(_asgi_get(app,'/v1/board/snapshot','Bearer board-secret'))
                     self.assertTrue(await asyncio.to_thread(entered.wait,1),'snapshot worker never entered')
                     health=await asyncio.wait_for(_asgi_get(app,'/v1/health','Bearer board-secret'),.5)

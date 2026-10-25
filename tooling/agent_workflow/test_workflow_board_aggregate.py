@@ -61,7 +61,7 @@ class BoardAggregateHTTPTests(unittest.TestCase):
             agent_record['worktree']=str(agent); agent_record['run']['run_id']='agent-test'
             def read_snapshot(_path, *, worktree):
                 return {'available':True,'records':[main_record] if worktree==str(main) else [agent_record],'history':[]}
-            with patch.object(workflow_store.WorkflowStore,'readonly_snapshot',side_effect=read_snapshot) as read:
+            with patch.object(workflow_store.WorkflowStore,'readonly_board_snapshot',side_effect=read_snapshot) as read:
                 read.reset_mock()
                 aggregate_response=client.get('/v1/board/snapshot')
                 self.assertEqual(200,aggregate_response.status_code)
@@ -144,6 +144,16 @@ class BoardAggregateHTTPTests(unittest.TestCase):
             self.assertTrue(any(card['run_id']==f'run_aggregate-agent' for cards in board['columns'].values() for card in cards))
             self.assertEqual(1,observer.call_count)
             self.assertEqual(before,logical_db_fingerprint(db))
+
+    def test_aggregate_preserves_unknown_queue_for_unavailable_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            coordinator,*_=self.setup_coordinator(Path(tmp))
+            client=TestClient(coordinator.app(),base_url='http://127.0.0.1:59182',client=('127.0.0.1',12345))
+            client.get('/integration-status')
+            response=client.get('/v1/board/snapshot')
+            self.assertEqual(200,response.status_code,response.text)
+            self.assertFalse(response.json()['available'])
+            self.assertEqual('unknown',response.json()['system']['queue'])
 
 
 if __name__=='__main__':

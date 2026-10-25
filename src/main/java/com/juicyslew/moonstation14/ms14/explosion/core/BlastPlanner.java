@@ -73,8 +73,13 @@ public final class BlastPlanner {
         if (source == null || proposal == null || sampler == null) throw new IllegalArgumentException("Arguments cannot be null");
         Sample initial = sampler.sample(source);
         if (initial == null || initial.cell() != Cell.OPEN) return new Plan(Status.INVALID_SOURCE, Map.of(), Set.of(), Set.of(), 1, 0, 0, 0);
-        double remaining = proposal.totalIntensity();
         double step = proposal.slope() / 2;
+        // SS14's single-tile path returns the complete budget before applying maxIntensity.
+        if (proposal.totalIntensity() < step) {
+            return new Plan(Status.COMPLETE, Map.of(source, proposal.totalIntensity()), Set.of(), Set.of(),
+                    1, 1, 0, proposal.totalIntensity());
+        }
+        double remaining = proposal.totalIntensity();
         LinkedHashMap<Pos, Double> values = new LinkedHashMap<>();
         LinkedHashSet<Pos> solids = new LinkedHashSet<>();
         LinkedHashSet<Pos> breached = new LinkedHashSet<>();

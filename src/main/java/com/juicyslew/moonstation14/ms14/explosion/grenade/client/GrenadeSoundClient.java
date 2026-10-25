@@ -19,20 +19,20 @@ public final class GrenadeSoundClient {
         var cameraEntity = minecraft.getCameraEntity();
         if (cameraEntity == null || cameraEntity.isRemoved() || cameraEntity.level() != minecraft.level) return;
         // Revalidate even though the record constructor validates decoded packets.
-        if (!Float.isFinite(payload.gain()) || payload.gain() <= 0 || payload.gain() > 0.5f) return;
+        if (!Float.isFinite(payload.gain()) || payload.gain() <= 0 || payload.gain() > (payload.soundSet() == GrenadeSoundPayload.SoundSet.SMALL ? 1.258925f : 0.5f)) return;
         if (payload.mode() == GrenadeSoundPayload.Mode.NEAR) {
             if (!Double.isFinite(payload.x()) || !Double.isFinite(payload.y()) || !Double.isFinite(payload.z())
-                    || payload.gain() != 0.5f) return;
-            minecraft.level.playLocalSound(payload.x(), payload.y(), payload.z(), ModSounds.GRENADE_EXPLODE.get(),
-                    SoundSource.BLOCKS, 0.5f, 1.0f, false);
+                    || payload.gain() != (payload.soundSet() == GrenadeSoundPayload.SoundSet.SMALL ? 1f : 0.5f)) return;
+            minecraft.level.playLocalSound(payload.x(), payload.y(), payload.z(), payload.soundSet() == GrenadeSoundPayload.SoundSet.SMALL ? ModSounds.EXPLOSION_SMALL.get() : ModSounds.GRENADE_EXPLODE.get(),
+                    SoundSource.BLOCKS, payload.gain(), 1.0f, false);
         } else if (payload.mode() == GrenadeSoundPayload.Mode.FAR) {
-            if (payload.gain() > GrenadeSoundPolicy.FAR_GAIN) return;
+            if (payload.soundSet() == GrenadeSoundPayload.SoundSet.GRENADE && payload.gain() > GrenadeSoundPolicy.FAR_GAIN) return;
             // Packet delivery can precede renderer camera synchronization after a camera switch.
             // The active camera entity is authoritative; its eye position keeps this nonpositional
             // far sound local to the current listener without dropping on a renderer mismatch.
             Vec3 pos = cameraEntity.getEyePosition();
             if (!Double.isFinite(pos.x) || !Double.isFinite(pos.y) || !Double.isFinite(pos.z)) return;
-            minecraft.level.playLocalSound(pos.x, pos.y, pos.z, ModSounds.GRENADE_EXPLODE_FAR.get(),
+            minecraft.level.playLocalSound(pos.x, pos.y, pos.z, payload.soundSet() == GrenadeSoundPayload.SoundSet.SMALL ? ModSounds.EXPLOSION_SMALL_FAR.get() : ModSounds.GRENADE_EXPLODE_FAR.get(),
                     SoundSource.BLOCKS, payload.gain(), 1.0f, false);
         }
     }

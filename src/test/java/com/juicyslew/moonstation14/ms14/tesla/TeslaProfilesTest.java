@@ -192,6 +192,7 @@ class TeslaProfilesTest {
         chars.register(com.juicyslew.moonstation14.ms14.character.ModCharacters.CHARACTER_TYPE);
         var rawChars = new java.util.LinkedHashMap<net.minecraft.resources.ResourceLocation, com.google.gson.JsonObject>();
         load(rawChars, "character/supported_simple_mob.json", "supported_simple_mob");
+        load(rawChars, "character/supported_animal_core.json", "supported_animal_core");
         load(rawChars, "character/supported_animal.json", "supported_animal");
         load(rawChars, "character/supported_npc.json", "supported_npc");
         load(rawChars, "character/pig.json", "pig"); load(rawChars, "character/mouse.json", "mouse");

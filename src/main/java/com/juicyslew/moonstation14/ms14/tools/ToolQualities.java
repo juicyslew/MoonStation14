@@ -50,6 +50,18 @@ public final class ToolQualities {
                 PrototypeRuntime.serverManager().snapshot(ModToolProfiles.TYPE));
     }
 
+    /** SS14 SharpComponent capability, intentionally independent of CUTTING quality. */
+    public static boolean isSharp(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return false;
+        var id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return id != null && isSharp(id, PrototypeRuntime.serverManager().snapshot(ModToolProfiles.TYPE));
+    }
+
+    public static boolean isSharp(ResourceLocation itemId, PrototypeCatalog<ToolProfile> catalog) {
+        ToolProfile profile = itemId == null || catalog == null ? null : catalog.get(itemId);
+        return profile != null && profile.sharp() != null;
+    }
+
     /** Hoe identity is resolved component metadata, never inferred from the held item ID. */
     public static boolean hasHoe(ItemStack stack) {
         ToolProfile profile = profile(stack);

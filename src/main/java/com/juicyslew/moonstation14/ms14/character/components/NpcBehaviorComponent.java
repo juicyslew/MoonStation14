@@ -44,5 +44,5 @@ public record NpcBehaviorComponent(List<Task> tasks, float visionRange, float me
     @Override public String type() { return TYPE; }
 
     /** Ordered branches mirror recursive SS14 compound precedence; IDLE is the fallback. */
-    public enum Task { FOOD, DRINK, IDLE }
+    public enum Task { FOOD, DRINK, CLEAN, IDLE, RETALIATE }
 }

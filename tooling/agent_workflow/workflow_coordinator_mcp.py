@@ -15,20 +15,20 @@ import workflow_store
 MAX_REQUEST = 1024 * 1024
 MAX_HTTP_RESPONSE = 1024 * 1024
 SCHEMAS = {
-    "submit": schema({"request_path": {"type": "string", "description":"Path to the prepared strict JSON request file. For a corrected retry of your settled FEATURE FAIL, put replaces_run_id in the request JSON; DIAGNOSTIC submissions never replace a run."}, "idempotency_key": {"type": "string", "description":"Registered submission key; exact retries reuse this key. Corrected FEATURE FAIL retry uses a fresh key."}}, ("request_path", "idempotency_key")),
+    "submit": schema({"request_path": {"type": "string", "description":"Path to the prepared strict JSON request file. To replace your settled current FEATURE PASS or FAIL after feedback/new source work, put replaces_run_id in the request JSON; DIAGNOSTIC submissions never replace a run."}, "idempotency_key": {"type": "string", "description":"Registered submission key; exact retries reuse this key. A new feature revision uses a fresh key."}}, ("request_path", "idempotency_key")),
     "register_scope": schema({"scope_path":{"type":"string","description":"Path to the prepared strict JSON scope file."},"idempotency_key":{"type":"string","description":"Fresh scope-registration key; recovery checks reuse this key."}},("scope_path","idempotency_key")),
     "scope_status": schema({"idempotency_key":{"type":"string"}},("idempotency_key",)),
     "status": schema({"run_id": {"type": "string"}, "idempotency_key": {"type": "string"}, "include_diagnostics":{"type":"boolean","default":False}, "log_artifact_id":{"type":"string","description":"An artifact ID returned by your diagnostics."}, "log_offset":{"type":"integer","minimum":0,"description":"Byte offset for paging the selected log; use its next_offset."}}),
     "acknowledge_result": schema({"contract_version":{"type":"integer","const":1},"command_id":{"type":"string"},"event_id":{"type":"string"},"run_id":{"type":"string"},"evaluation_generation":{"type":"integer"},"result_id":{"type":"string"},"result_digest":{"type":"string"}}, ("contract_version","command_id","event_id","run_id","evaluation_generation","result_id","result_digest")),
 }
 REVIEW_SCHEMAS = {
-    "claim_task": schema({"contract_version":{"type":"integer","const":1},"command_id":{"type":"string"},"task_id":{"type":"string"},"run_id":{"type":"string"},"evaluation_generation":{"type":"integer"},"assignment_generation":{"type":"integer"},"input_digest":{"type":"string"},"session_id":{"type":"string","minLength":1,"maxLength":2000,"description":"Current assigned reviewer chat session ID."}}, ("contract_version","command_id","task_id","run_id","evaluation_generation","assignment_generation","input_digest","session_id")),
-    "complete_review": schema({"result_path":{"type":"string","description":"Path to the prepared strict JSON review result. Finish writing it and confirm it is readable before calling; if absent, wait for the write to finish, then retry this exact call with the same file and session."},"session_id":{"type":"string","minLength":1,"maxLength":2000,"description":"Current assigned reviewer chat session ID."}}, ("result_path","session_id")),
-    "report_error": schema({"error_path":{"type":"string","description":"Path to the prepared strict JSON error report."},"session_id":{"type":"string","minLength":1,"maxLength":2000,"description":"Current assigned reviewer chat session ID."}}, ("error_path","session_id")),
-    "status": schema({"task_id":{"type":"string"},"session_id":{"type":"string","minLength":1,"maxLength":2000,"description":"Current assigned reviewer chat session ID."}}, ("task_id","session_id")),
+    "claim_task": schema({"task_id":{"type":"string"},"session_id":{"type":"string","minLength":1,"maxLength":2000,"description":"Current assigned reviewer chat session ID."}}, ("task_id","session_id")),
+    "complete_review": schema({"result_path":{"type":"string","description":"Prepared strict JSON review result file (alternative to inline result)."},"result":{"type":"object","description":"Semantic review result with task_id, decision, findings, inspected_refs; binding metadata is coordinator-filled."},"session_id":{"type":"string","minLength":1,"maxLength":2000,"description":"Current assigned reviewer chat session ID."}}, ("session_id",)),
+    "report_error": schema({"error_path":{"type":"string","description":"Prepared strict JSON task_error file (alternative to inline error)."},"error":{"type":"object","description":"Semantic task error with task_id, error_code, message, artifact_refs; binding metadata is coordinator-filled."},"session_id":{"type":"string","minLength":1,"maxLength":2000,"description":"Current assigned reviewer chat session ID."}}, ("session_id",)),
+    "status": schema({"task_id":{"type":"string"},"session_id":{"type":"string","minLength":1,"maxLength":2000,"description":"Current assigned reviewer chat session ID."}, "input_ref":{"type":"string","description":"review_guide or an exact assigned artifact_id; page authorized reviewer input."},"input_offset":{"type":"integer","minimum":0,"default":0,"description":"Byte offset for input_ref paging; use next_offset."}, "source_query":{"type":"string","minLength":1,"maxLength":500,"description":"Optional literal filename/path substring search in bound source."}, "source_path":{"type":"string","minLength":1,"maxLength":2000,"description":"Optional exact repository-relative source file path."}, "source_line":{"type":"integer","minimum":1,"default":1,"description":"Starting line for source_path (one-based)."}}, ("task_id","session_id")),
 }
-REVIEW_DESCRIPTIONS = {"claim_task":"Claim the bound review assignment.","complete_review":"Submit a prepared review result JSON file. Finish writing it and confirm it is readable before calling; if missing, wait until that same file is complete and retry the identical call with the same session.","report_error":"Report a prepared review infrastructure error JSON file.","status":"Inspect a bound review task."}
-DESCRIPTIONS = {"submit": "Submit a prepared request using the same submission key used to register its feature scope. For a corrected retry of your settled FEATURE FAIL only, include replaces_run_id in the request JSON (not as a tool argument); DIAGNOSTIC submissions never replace a run. Use fresh scope/submission keys and evidence. Check status after uncertain writes before using new keys. DIAGNOSTIC submissions may set purpose=DIAGNOSTIC and implementation_complete=false to record task-relevant typed checks at any development stage, without a prior failure or feature-complete claim. They use the same serialized lane, authorization, and evidence rules; DIAGNOSTIC PASS is not feature readiness or OWNER_READY.", "register_scope":"Register and freeze policy and evidence before submit; use the submission key inside the scope payload for the later submit call. For DIAGNOSTIC work, purpose=DIAGNOSTIC and implementation_complete=false allow task-relevant typed checks at any development stage, without prior failure or feature-complete requirement. The same serialized lane, authorization, and evidence rules apply; diagnostic PASS is not feature readiness or OWNER_READY. A corrected retry needs fresh scope/submission keys and evidence.", "scope_status":"Recover the receipt for a scope registration using its registration key; after an uncertain response, check status instead of reposting with a new key.", "status": "Inspect an existing submission or run. To retrieve your own bounded validation log excerpts, set include_diagnostics=true with run_id or idempotency_key.", "acknowledge_result":"Acknowledge receipt of a bound workflow result."}
+REVIEW_DESCRIPTIONS = {"claim_task":"Claim the bound review assignment with task_id and session_id; coordinator derives assignment bindings.","complete_review":"Submit semantic review_result fields inline as result or through prepared result_path; coordinator fills task/run/generation/digest bindings.","report_error":"Report semantic task_error fields inline as error or through prepared error_path; coordinator fills task/run/generation/digest bindings.","status":"Inspect a bound review task. Read the complete reviewer guide with input_ref=review_guide and page via input_offset/next_offset; read assigned evidence using its exact artifact_id. Frozen source is separately accessed using source_query/source_path. No arbitrary filesystem access is provided."}
+DESCRIPTIONS = {"submit": "Submit a prepared request using the same submission key used to register its feature scope. After manual feedback or new source work, the same author may replace their settled current FEATURE PASS or FAIL with a fresh complete OWNER_READY revision; include replaces_run_id in request JSON (not as a tool argument), with fresh scope/submission keys, evidence, and producer IDs. PASS means ready for owner manual testing, not accepted; it does not require owner approval to continue. DIAGNOSTIC submissions never replace a run. Check status after uncertain writes before using new keys. DIAGNOSTIC submissions may set purpose=DIAGNOSTIC and implementation_complete=false to record task-relevant typed checks at any development stage, without a prior failure or feature-complete claim. They use the same serialized lane, authorization, and evidence rules; DIAGNOSTIC PASS is not feature readiness or OWNER_READY.", "register_scope":"Register and freeze policy and evidence before submit; use the submission key inside the scope payload for the later submit call. For DIAGNOSTIC work, purpose=DIAGNOSTIC and implementation_complete=false allow task-relevant typed checks at any development stage, without prior failure or feature-complete requirement. The same serialized lane, authorization, and evidence rules apply; diagnostic PASS is not feature readiness or OWNER_READY. A new feature revision needs fresh scope/submission keys and evidence.", "scope_status":"Recover the receipt for a scope registration using its registration key; after an uncertain response, check status instead of reposting with a new key.", "status": "Inspect an existing submission or run. To retrieve your own bounded validation log excerpts, set include_diagnostics=true with run_id or idempotency_key.", "acknowledge_result":"Acknowledge receipt of a bound workflow result."}
 
 WORKTREE_SCHEMAS = {name: schema({**spec['properties'], 'session_id': {'type': 'string'}},
     tuple(spec['required']) + ('session_id',)) for name, spec in SCHEMAS.items()}
@@ -50,7 +50,9 @@ class CoordinatorClient:
         args=args if isinstance(args,dict) else {}
         diagnostic_status = (name == 'status' and args.get('include_diagnostics') is True
                              and (args.get('run_id') is not None or args.get('idempotency_key') is not None))
-        limit=65536 if diagnostic_status else 4096
+        reviewer_source_status = (name == 'status' and args.get('task_id') is not None
+                                   and any(args.get(key) is not None for key in ('source_query','source_path','input_ref')))
+        limit=65536 if diagnostic_status or reviewer_source_status else 4096
         encoded=_response(result,max_bytes=limit)
         try:
             initial=json.loads(encoded)
@@ -156,6 +158,17 @@ class CoordinatorClient:
                 and (not isinstance(identity,str) or not identity or len(identity)>2000)):
             raise ClientInputError('INVALID_TOOL_ARGUMENTS','session_id','Provide the current chat session ID as a nonempty string of at most 2000 characters.')
         for key,v in protocol_args.items():
+            if self.profile == 'reviewer' and name == 'claim_task' and key == 'command_id' and v == '':
+                continue
+            if self.profile == 'reviewer' and key in ('result','error'):
+                if not isinstance(v,dict): raise ClientInputError('INVALID_TOOL_ARGUMENTS',key,'Provide the canonical payload as an object.')
+                continue
+            if key == 'source_line':
+                if isinstance(v,bool) or not isinstance(v,int) or v<1: raise ClientInputError('INVALID_TOOL_ARGUMENTS',key,'Provide a positive one-based line number.')
+                continue
+            if key == 'input_offset':
+                if isinstance(v,bool) or not isinstance(v,int) or v<0: raise ClientInputError('INVALID_TOOL_ARGUMENTS',key,'Provide a nonnegative byte offset.')
+                continue
             if key == 'include_diagnostics':
                 if not isinstance(v,bool): raise ClientInputError('INVALID_TOOL_ARGUMENTS',key,'Set include_diagnostics to true or false.')
                 continue
@@ -168,17 +181,56 @@ class CoordinatorClient:
                 if key!='contract_version' and v<=0: raise ClientInputError('INVALID_TOOL_ARGUMENTS',key,'Provide a positive integer.')
             elif not isinstance(v,str) or not v or len(v)>2000: raise ClientInputError('INVALID_TOOL_ARGUMENTS',key,'Provide a nonempty string no longer than 2000 characters.')
         if self.profile == 'reviewer':
+            if name == 'status':
+                if args.get('input_ref') is not None and (args.get('source_query') is not None or args.get('source_path') is not None):
+                    raise ClientInputError('INVALID_TOOL_ARGUMENTS','input_ref','Use input_ref or source_query/source_path, not both.')
+                if args.get('input_offset') is not None and args.get('input_ref') is None:
+                    raise ClientInputError('INVALID_TOOL_ARGUMENTS','input_offset','input_offset is only valid with input_ref.')
+                if args.get('input_offset') is not None and (isinstance(args['input_offset'],bool) or not isinstance(args['input_offset'],int) or args['input_offset']<0):
+                    raise ClientInputError('INVALID_TOOL_ARGUMENTS','input_offset','Provide a nonnegative byte offset.')
+                if args.get('source_query') is not None and args.get('source_path') is not None:
+                    raise ClientInputError('INVALID_TOOL_ARGUMENTS','source_query','Use source_query or source_path, not both.')
+                if args.get('source_line') is not None and args.get('source_path') is None:
+                    raise ClientInputError('INVALID_TOOL_ARGUMENTS','source_line','source_line is only valid with source_path.')
+                query=args.get('source_query')
+                if query is not None and (not isinstance(query,str) or not query or len(query)>500):
+                    raise ClientInputError('INVALID_TOOL_ARGUMENTS','source_query','Provide a nonempty literal query of at most 500 characters.')
+                path=args.get('source_path')
+                if path is not None and (not isinstance(path,str) or not path or len(path)>2000):
+                    raise ClientInputError('INVALID_TOOL_ARGUMENTS','source_path','Provide a nonempty repository-relative file path.')
+                line=args.get('source_line',1)
+                if isinstance(line,bool) or not isinstance(line,int) or line<1:
+                    raise ClientInputError('INVALID_TOOL_ARGUMENTS','source_line','Provide a positive one-based line number.')
             if name in ('complete_review','report_error'):
+                inline='result' if name=='complete_review' else 'error'
                 key='result_path' if name=='complete_review' else 'error_path'
-                field=key
-                parsed,text=self._read_json_file(field,args[key], missing_recovery=(
-                    'Finish writing the review result and confirm this exact file is readable, then retry complete_review with the same result_path and session_id. Do not change the result or assignment.'
-                    if name=='complete_review' else None))
-                data=text.encode('utf-8')
+                if (inline in args)==(key in args):
+                    raise ClientInputError('INVALID_TOOL_ARGUMENTS',inline,'Provide exactly one of '+inline+' or '+key+'.')
+                if inline in args:
+                    parsed=args[inline]
+                    try:
+                        check=dict(parsed)
+                        # Binding metadata is coordinator-owned for public inline calls.
+                        for field,value in {'contract_version':1,'run_id':'run_placeholder','evaluation_generation':1,'assignment_generation':1,'input_digest':'0'*64}.items():
+                            check.setdefault(field,value)
+                        workflow_store.validate(check,'review_result' if name=='complete_review' else 'task_error')
+                        text=workflow_store.canonical_json(parsed)
+                    except (workflow_store.ProtocolError,ValueError,TypeError) as exc:
+                        raise ClientInputError('INVALID_TOOL_ARGUMENTS',inline,str(exc)) from exc
+                    if len(text.encode('utf-8'))>MAX_REQUEST:
+                        raise ClientInputError('PAYLOAD_TOO_LARGE',inline,'Use a canonical JSON payload no larger than 1 MiB.')
+                    # Inline and file modes send the same canonical protocol body;
+                    # reviewer identity is carried only by the session header.
+                    data=text.encode('utf-8')
+                else:
+                    parsed,text=self._read_json_file(key,args[key], missing_recovery=(
+                        'Finish writing the review result and confirm this exact file is readable, then retry complete_review with the same result_path and session_id. Do not change the result or assignment.'
+                        if name=='complete_review' else None))
+                    data=text.encode('utf-8')
                 route={'complete_review':'complete','report_error':'error'}[name]
                 url=self.endpoint+'/v1/review/'+route
             elif name=='claim_task':
-                data=json.dumps(protocol_args).encode('utf-8'); url=self.endpoint+'/v1/review/claim'
+                data=json.dumps({'task_id':protocol_args['task_id']}).encode('utf-8'); url=self.endpoint+'/v1/review/claim'
             else:
                 query=urllib.parse.urlencode(protocol_args); data=None; url=self.endpoint+'/v1/review/status?'+query
         elif name == "acknowledge_result":

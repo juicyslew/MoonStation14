@@ -168,11 +168,13 @@ public final class ExternalBodyFlightGameTests {
         List<Integer> movementPacketsPerTick = new ArrayList<>();
         ServerEntity tracker = new ServerEntity(level, body, body.getType().updateInterval(),
                 body.getType().trackDeltas(), packet -> emitted.add(packet.getClass().getSimpleName()));
+        long launchTick = level.getGameTime();
+        long endTick = launchTick + 15;
         ExternalBodyFlight.launch(body, new Vec3(.5, .35, 0), 15);
         List<String> samples = new ArrayList<>();
         double startY = body.getY();
         recordFlightSample(helper, body, tracker, emitted, movementPacketsPerTick, samples, startY,
-                new Vec3(.5, .35, 0), 0);
+                new Vec3(.5, .35, 0), body.position(), launchTick, endTick, 0);
     }
 
     @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear",
@@ -244,10 +246,12 @@ public final class ExternalBodyFlightGameTests {
             Mob body,
             ServerEntity tracker, List<String> emitted, List<Integer> movementPacketsPerTick,
             List<String> samples, double startY,
-            Vec3 previousVelocity, int index) {
+            Vec3 previousVelocity, Vec3 previousPosition, long launchTick, long endTick, int index) {
         helper.runAfterDelay(1, () -> {
             long tick = helper.getLevel().getGameTime();
             boolean active = ExternalBodyFlight.active(body);
+            long remaining = Math.max(0L, endTick - tick);
+            boolean expectedActive = remaining > 0;
             boolean advanced = ExternalBodyFlight.alreadyAdvancedThisTick(body);
             Vec3 position = body.position();
             Vec3 velocity = body.getDeltaMovement();
@@ -257,20 +261,36 @@ public final class ExternalBodyFlightGameTests {
             int movementPackets = (int) tickPackets.stream().filter(type -> type.equals("Pos") || type.equals("PosRot")
                     || type.equals(ClientboundTeleportEntityPacket.class.getSimpleName())).count();
             movementPacketsPerTick.add(movementPackets);
-            samples.add("t=" + tick + " active=" + active + " advanced=" + advanced
+            samples.add("t=" + tick + " phase=" + (active ? "lease-active" : "post-lease-expiry")
+                    + " active=" + active + " advanced=" + advanced
                     + " pos=" + position + " vel=" + velocity + " packets=" + tickPackets);
-            double expectedVerticalVelocity = (previousVelocity.y * 20d - 32d * .05d) * .98d / 20d;
+            double expectedVerticalVelocity = (previousVelocity.y * 20d
+                    - com.juicyslew.moonstation14.ms14.player_body_control.movement.GroundedHarnessPhysics.GRAVITY_PER_SECOND_SQUARED
+                            * com.juicyslew.moonstation14.ms14.player_body_control.movement.GroundedHarnessPhysics.TICK_SECONDS)
+                    * com.juicyslew.moonstation14.ms14.player_body_control.movement.GroundedHarnessPhysics.VERTICAL_DRAG / 20d;
             boolean verticalMatches = Math.abs(velocity.y - expectedVerticalVelocity) < 1e-8;
-            boolean horizontalMatches = Math.abs(velocity.x - .5d) < 1e-8;
+            double airDamping = com.juicyslew.moonstation14.ms14.player_body_control.movement.GroundedHarnessPhysics
+                    .gravityAirControl(false).orElseThrow().horizontalRetentionPerTick();
+            double expectedHorizontalVelocity = active ? .5d : previousVelocity.x * airDamping;
+            // External-body velocity is already expressed in blocks per native world tick.
+            double expectedDisplacement = previousVelocity.x;
+            boolean horizontalMatches = Math.abs(velocity.x - expectedHorizontalVelocity) < 1e-8;
+            boolean displacementMatches = Math.abs(position.x - previousPosition.x - expectedDisplacement) < 1e-8;
+            boolean leaseMatches = ExternalBodyFlight.remainingTicks(body) == remaining && active == expectedActive;
             if (!verticalMatches || !horizontalMatches)
                 com.juicyslew.moonstation14.MoonStation14.LOGGER.error("Flight trace invariant mismatch: {}", samples);
             require(verticalMatches, "flight sample " + index + " tick=" + tick + " expectedVy="
-                    + expectedVerticalVelocity + " actualVy=" + velocity.y);
-            require(horizontalMatches, "flight sample " + index + " tick=" + tick + " expectedVx=0.5 actualVx="
-                    + velocity.x);
+                    + expectedVerticalVelocity + " actualVy=" + velocity.y + " active=" + active);
+            String boundary = "sample=" + index + " tick=" + tick + " active=" + active + "/" + expectedActive
+                    + " remaining=" + ExternalBodyFlight.remainingTicks(body) + "/" + remaining
+                    + " vx=" + velocity.x + "/" + expectedHorizontalVelocity
+                    + " dx=" + (position.x - previousPosition.x) + "/" + expectedDisplacement;
+            require(leaseMatches, "flight lease boundary " + boundary);
+            require(horizontalMatches, "flight horizontal invariant " + boundary);
+            require(displacementMatches, "flight displacement invariant " + boundary);
             if (index < 17) {
                 recordFlightSample(helper, body, tracker, emitted, movementPacketsPerTick, samples,
-                        startY, velocity, index + 1);
+                        startY, velocity, position, launchTick, endTick, index + 1);
                 return;
             }
             com.juicyslew.moonstation14.MoonStation14.LOGGER.info("Bounded vanilla flight tracking trace: {}", samples);

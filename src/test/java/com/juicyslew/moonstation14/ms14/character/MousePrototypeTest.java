@@ -23,6 +23,7 @@ class MousePrototypeTest {
         assertEquals(original,codec.parse(JsonOps.INSTANCE,encoded).getOrThrow());
         var manager=new PrototypeManager();manager.register(ModCharacters.CHARACTER_TYPE);
          manager.reload(ModCharacters.CHARACTER_TYPE,java.util.Map.of(id("supported_simple_mob"),read("supported_simple_mob"),
+                 id("supported_animal_core"),read("supported_animal_core"),
                  id("supported_animal"),read("supported_animal"),id("supported_npc"),read("supported_npc"),id("mouse"),read("mouse")));
         var resolved=manager.snapshot(ModCharacters.CHARACTER_TYPE).get(id("mouse"));
         assertEquals(original,resolved.component(com.juicyslew.moonstation14.ms14.character.components.CollisionProfileComponent.class).orElseThrow());
@@ -50,6 +51,7 @@ class MousePrototypeTest {
         manager.register(ModCharacters.CHARACTER_TYPE);
         manager.reload(ModCharacters.CHARACTER_TYPE, java.util.Map.of(
                 id("supported_simple_mob"), read("supported_simple_mob"),
+                id("supported_animal_core"), read("supported_animal_core"),
                   id("supported_animal"), read("supported_animal"),
                   id("supported_npc"), read("supported_npc"),
                   id("mouse"), read("mouse"), id("human"), read("human")));

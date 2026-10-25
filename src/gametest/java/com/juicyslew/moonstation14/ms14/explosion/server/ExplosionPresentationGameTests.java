@@ -46,10 +46,18 @@ public final class ExplosionPresentationGameTests {
             h.assertTrue(unknown.status()==ServerExplosionService.Status.UNKNOWN_PROTOTYPE,"unknown prototype rejected");
             assertNoMatching(fixture,source,level.dimension().location());
             drain(fixture);
-            h.assertTrue(GrenadeDetonationService.detonate(level,source)==GrenadeDetonationService.Outcome.APPLIED,"fixed grenade wrapper applied");
-            verify(h,fixture,source);
-            h.succeed();
-        } finally { try { cleanup.close(); } catch(Exception ignored) { } }});
+            h.assertTrue(GrenadeDetonationService.detonate(level,source)==GrenadeDetonationService.Outcome.QUEUED,"fixed grenade wrapper admitted to queue");
+            h.runAfterDelay(2,()->{
+                try {
+                    verify(h,fixture,source);
+                    h.succeed();
+                } catch(Throwable failure) { h.fail("queued grenade presentation: "+failure); }
+                finally { try { cleanup.close(); } catch(Exception ignored) { } }
+            });
+        } catch(Throwable failure) {
+            h.fail("explosion presentation fixture: "+failure);
+            try { cleanup.close(); } catch(Exception ignored) { }
+        }});
     }
 
     private static void verify(GameTestHelper h,RegisteredServerPlayerFixture fixture,BlockPos origin) {

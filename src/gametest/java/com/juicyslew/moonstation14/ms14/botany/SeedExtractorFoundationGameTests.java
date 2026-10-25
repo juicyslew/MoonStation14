@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.botany;
 
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -21,10 +22,13 @@ public final class SeedExtractorFoundationGameTests {
         helper.runAfterDelay(2, () -> {
             var entity = (SeedExtractorBlockEntity) helper.getBlockEntity(pos);
                 var profile = entity.resolvedProfile();
-                helper.assertTrue(profile != null && profile.extractor() && profile.minimumPacketYield() == 1
+                helper.assertTrue(profile != null && profile.extractor() && profile.powerWatts() == 1000
+                                && profile.minimumPacketYield() == 1
                                 && profile.maximumPacketYield() == 3 && profile.chamberCapacity() == 0,
                         "resolved inherited extractor defaults are active");
-                helper.assertTrue(entity.isPowered(), "zero-load receiver is available without an APC");
+                helper.assertTrue(!entity.isPowered(), "1000 W receiver fails closed without an APC");
+                var allocation = PowerRuntime.processingMeter(helper.getLevel(), entity);
+                helper.assertTrue(!allocation.known(), "receiver allocation remains unknown without an APC");
                 var identity = entity.placementIdentity();
                 var tag = entity.saveWithFullMetadata(helper.getLevel().registryAccess());
                 var absolutePos = helper.absolutePos(pos);

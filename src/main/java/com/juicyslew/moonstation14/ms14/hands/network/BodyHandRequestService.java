@@ -141,12 +141,14 @@ public final class BodyHandRequestService {
                 return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
             if (!selectionAllowed(authority.body(), hands, next.orElseThrow(), request.expectedRevision()))
                 return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            LiveHands selectedCandidate = com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown
+                    .stageSelectedInsertion(authority.body(), hands, next.orElseThrow());
             BodyHandActionResult.Reason reason;
             try {
-                if (!com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.commit(actor, authority, next.orElseThrow()))
+                if (!com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.commit(actor, authority, selectedCandidate))
                     throw new IllegalStateException("hand commit rejected");
-                reason = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == next.orElseThrow()
-                        && next.orElseThrow().compatible(authority.body())
+                reason = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == selectedCandidate
+                        && selectedCandidate.compatible(authority.body())
                         ? BodyHandActionResult.Reason.OK : BodyHandActionResult.Reason.RECOVERY_REQUIRED;
             } catch (RuntimeException failure) {
                 reason = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands
@@ -597,6 +599,14 @@ public final class BodyHandRequestService {
                 return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
             if (ownedToken != null) {
                 var held = hands.stackCopy(request.handId()).orElse(null);
+                var targetEntity = request.pickupTarget() == null || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
+                        ? null : level.getEntity(request.pickupTarget());
+                if (targetEntity instanceof net.minecraft.world.entity.LivingEntity animal
+                        && com.juicyslew.moonstation14.ms14.animals.UdderSystem.capability(animal).isPresent()) {
+                    boolean started = com.juicyslew.moonstation14.ms14.animals.UdderSystem.startMilking(actor,
+                            authority.body(), animal, request.handId(), ownedToken, request.expectedRevision(), request.sequence());
+                    return result(request, started ? BodyHandActionResult.Reason.OK : BodyHandActionResult.Reason.DENIED, authority);
+                }
                 var heldId = held == null ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
                 try {
                     var medical = heldId == null ? null : com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
@@ -987,4 +997,3 @@ public final class BodyHandRequestService {
         }
     }
 }
-

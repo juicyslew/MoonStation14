@@ -161,7 +161,7 @@ class AirlockPrototypeTest {
         assertTrue(com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity.resolvesPanelVisible(true,AirlockState.DoorPhase.OPEN,resolved));
         assertEquals(15,com.juicyslew.moonstation14.ms14.doors.AirlockToolInteraction.panelDurationTicks(resolved.wiresPanel().toggleDelaySeconds()));
         var toolProfiles=new LinkedHashMap<ResourceLocation,JsonObject>();
-        for(String name:new String[]{"base_item","base_crowbar","crowbar","wirecutter","screwdriver","multitool"}){
+        for(String name:new String[]{"base_item","base_crowbar","crowbar","wirecutter","screwdriver","multitool","kitchen_knife"}){
             try(var in=new InputStreamReader(AirlockPrototypeTest.class.getResourceAsStream("/data/moonstation14/moonstation14/tool_profile/"+name+".json"),StandardCharsets.UTF_8)){
                 toolProfiles.put(ResourceLocation.fromNamespaceAndPath("moonstation14",name),JsonParser.parseReader(in).getAsJsonObject());
             }

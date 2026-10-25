@@ -1,0 +1,14 @@
+{
+  "id": "nonhostile-animals-r4r5-runtime",
+  "title": "Non-hostile animals R4/R5 runtime artwork dependency",
+  "brief": "Transport the complete owner-accepted R4+R5 artwork dependency package unchanged for the non-hostile animal runtime.",
+  "scope": "Complete saved artwork dependency transport for nonhostile runtime. Import the complete accepted native dependency package; only nonhostile entity types will be registered. Never register hostile mobs. Preserve the existing accepted mouse byte-identically; identical target rows are no-op and any different mouse bytes block delivery.",
+  "target_runtime": "Java 1.21.1, NeoForge 21.1.224",
+  "source_pin": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "asset_ids": ["animals-r4r5"],
+  "dependencies": [],
+  "context": [
+    "docs/nonhostile-animals-sprint/PLAN.md",
+    "docs/nonhostile-animals-sprint/PROTOTYPES.md"
+  ]
+}

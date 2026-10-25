@@ -1,0 +1,50 @@
+{
+  "sourceRepository": "C:/Users/William/Documents/SS14-dev/space-station-14",
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceYaml": "Resources/Prototypes/Hydroponics/seeds.yml",
+  "capturedFromPath": "SS14-dev/space-station-14/Resources/Prototypes/Hydroponics/seeds.yml",
+  "capturedBytesVerifiedAgainstPinnedCheckout": true,
+  "sourceYamlSha256": "d5a2d9997c6cd735960331b60ec239c61dd3a8f0b97eb0737657645ffc7e3da7",
+  "seedPrototypeCs": "Content.Server/Botany/SeedPrototype.cs",
+  "seedPrototypeCsSha256": "cf68bd81ab8b65c7819bd6cd2b2af416244cd894436ad5a910474dd101efb98d",
+  "pyYamlVersion": "6.0.2",
+  "rows": 71,
+  "defaults": {
+    "biology": {
+      "endurance": 100,
+      "nutrientConsumption": 0.75,
+      "waterConsumption": 0.5,
+      "idealHeat": 293,
+      "heatTolerance": 10,
+      "lowPressureTolerance": 81,
+      "highPressureTolerance": 121,
+      "weedTolerance": 5,
+      "weedHighLevelThreshold": 10,
+      "toxinsTolerance": 4,
+      "pestTolerance": 5
+    },
+    "lifecycle": {
+      "growthStages": 6,
+      "lifespan": 0,
+      "maturation": 0,
+      "production": 0,
+      "yield": 0,
+      "potency": 1,
+      "harvestRepeat": "NoRepeat",
+      "viable": true,
+      "seedless": false,
+      "ligneous": false
+    },
+    "chemicals": {},
+    "consumeGasses": {},
+    "exudeGasses": {},
+    "SeedChemQuantity": {
+      "Min": 0.01,
+      "Max": 0,
+      "PotencyDivisor": 0,
+      "Inherent": true
+    }
+  },
+  "defaultsSource": "SeedPrototype.cs fields/DataField declarations; SeedChemQuantity.Min = FixedPoint2.Epsilon (0.01).",
+  "limitations": "Captured raw source rows and defaults; BotanyCatalogSourceParityTest performs candidate-vs-source supported-field comparisons using the local runtime codec."
+}

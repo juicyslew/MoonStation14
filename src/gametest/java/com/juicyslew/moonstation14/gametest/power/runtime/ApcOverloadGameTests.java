@@ -32,6 +32,9 @@ import java.util.UUID;
 @GameTestTags({"power"})
 @PrefixGameTestTemplate(false)
 public final class ApcOverloadGameTests {
+    private static final int CONNECTED_OVERLOAD_TIMEOUT_TICKS = 1200;
+    private static final int CONNECTED_OVERLOAD_CLEANUP_TICKS = 136;
+
     private ApcOverloadGameTests() { }
 
     @GameTestTags({"suite-stabilization", "repair-debug-overload"})
@@ -471,8 +474,8 @@ public final class ApcOverloadGameTests {
     }
 
     /** Real connected HV/MV/APC graph with enough live lamps to trip the output meter. */
-    @GameTestTags({"suite-stabilization", "machine-model-regression"})
-    @GameTest(template = "power_overload_clear", timeoutTicks = 1200, templateNamespace = "moonstation14")
+    @GameTestTags({"suite-stabilization", "machine-model-regression", "apc-connected-overload"})
+    @GameTest(template = "power_overload_clear", timeoutTicks = CONNECTED_OVERLOAD_TIMEOUT_TICKS, templateNamespace = "moonstation14")
     public static void connectedCablePathLampLoadTripsApcAndManualRecloseRestoresIt(GameTestHelper helper) {
         FixtureChunkTickets.around(helper, heavyPos(helper, 2, 0, 2),
                 heavyPos(helper, 12, 3, 15), 0);
@@ -558,8 +561,12 @@ public final class ApcOverloadGameTests {
     private static void scheduleConnectedOverloadSequence(GameTestHelper helper, ServerLevel level,
             PowerDeviceBlockEntity apcEntity, BlockPos apcPos, CableFaceNode output, CableFaceNode spine,
             BlockPos sampleLamp, double fullFixtureDemandWatts) {
-        final int postTripTicks = 25 + 25 + 85;
-        final int maxTripObservationTick = 400 - postTripTicks;
+        int remainingTestTicks = CONNECTED_OVERLOAD_TIMEOUT_TICKS - Math.toIntExact(helper.getTick());
+        int maxTripObservationTick = remainingTestTicks - CONNECTED_OVERLOAD_CLEANUP_TICKS;
+        require(maxTripObservationTick >= 61,
+                "connected overload fixture exhausted its existing test budget before native protection could trip: "
+                        + "helperTick=" + helper.getTick() + ", remaining=" + remainingTestTicks
+                        + ", reserve=" + CONNECTED_OVERLOAD_CLEANUP_TICKS);
         var tripTick = new java.util.concurrent.atomic.AtomicInteger(-1);
         var cutTick = new java.util.concurrent.atomic.AtomicInteger(-1);
         var maxNativeTicks = new java.util.concurrent.atomic.AtomicLong();
@@ -567,7 +574,7 @@ public final class ApcOverloadGameTests {
         var recentSamples = new java.util.ArrayDeque<String>();
         var expectedEpoch = new java.util.concurrent.atomic.AtomicLong(Long.MIN_VALUE);
         var expectedDeadline = new java.util.concurrent.atomic.AtomicLong(Long.MAX_VALUE);
-        for (int tick = 1; tick <= 400; tick++) {
+        for (int tick = 1; tick <= maxTripObservationTick + CONNECTED_OVERLOAD_CLEANUP_TICKS; tick++) {
             final int checkTick = tick;
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, tick, () -> {
                 // A trip intentionally zeros output and resets native protection; detect it

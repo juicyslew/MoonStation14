@@ -1,0 +1,7 @@
+{"slots":[
+{"id":"mask","display_name":"Mask","icon":"moonstation14:textures/gui/equipment/mask.png","group":"Default","x":1,"y":1,"flags":["MASK"],"whitelist":["PetWearable","HamsterWearable"]},
+{"id":"neck","display_name":"Neck","icon":"moonstation14:textures/gui/equipment/neck.png","group":"Default","x":0,"y":1,"flags":["NECK"],"whitelist":["HamsterWearable"]},
+{"id":"eyes","display_name":"Eyes","icon":"moonstation14:textures/gui/equipment/glasses.png","group":"Default","x":0,"y":2,"flags":["EYES"],"whitelist":["HamsterWearable"],"strip_time":3.0},
+{"id":"suitstorage","display_name":"Suit Storage","icon":"moonstation14:textures/gui/equipment/suit_storage.png","group":"Default","x":1,"y":0,"flags":["SUITSTORAGE"],"whitelist_components":["GAS_TANK"],"allow_suit_storage":true,"strip_time":3.0},
+{"id":"head","display_name":"Head","icon":"moonstation14:textures/gui/equipment/head.png","group":"Default","x":1,"y":2,"flags":["HEAD"],"whitelist":["HamsterWearable"]}
+]}

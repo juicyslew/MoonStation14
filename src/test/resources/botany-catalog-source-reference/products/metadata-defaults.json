@@ -1,0 +1,116 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml": {
+      "sha256": "a28ed494a096cf63f7887f45e4967e89600b60022fd2b49af22e131f9bafb385"
+    },
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/food_base.yml": {
+      "sha256": "c7e97e9006afa2a28780afbb6b9c8ef251d77d09ed4c58181e315cea6e8f7010"
+    },
+    "Resources/Prototypes/Entities/Objects/base_item.yml": {
+      "sha256": "bd1367801f6bcfe6aefb4b4f6f224000013847c094db4ba45e97769a7da4fe6a"
+    }
+  },
+  "capturedEntityIds": [
+    "CottonBol",
+    "PyrottonBol",
+    "FoodLemon",
+    "FoodLemoon",
+    "FoodLime",
+    "FoodOrange",
+    "FoodApple",
+    "FoodGoldenApple",
+    "FoodCarrot",
+    "FoodCabbage",
+    "FoodGrape",
+    "FoodBerries",
+    "FoodGarlic",
+    "FoodPineapple",
+    "FoodLingzhi",
+    "FoodGalaxythistle",
+    "FoodPineappleSlice",
+    "FoodWatermelonSlice",
+    "FoodProduceBase",
+    "ProduceSliceBase",
+    "FoodInjectableBase",
+    "FoodBase",
+    "EdibleBase",
+    "BaseItem"
+  ],
+  "capturedConcreteProductCount": 18,
+  "capturedRawRecordCount": 24,
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "taggedRecordChecks": {
+    "BaseItem": true
+  },
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "defaults": {
+    "ProduceComponent": {
+      "sourcePath": "Content.Server/Botany/Components/ProduceComponent.cs",
+      "sourceSha256": "0f3033807dbbf53bc65fafa2901141336c46dac59ec51d940af4b0d057985ffc",
+      "sourceLines": {
+        "SolutionName": "11",
+        "SeedId": "23"
+      },
+      "targetSolutionDefault": "food",
+      "seedIdDefault": null
+    },
+    "EdibleComponent": {
+      "sourcePath": "Content.Shared/Nutrition/Components/EdibleComponent.cs",
+      "sourceSha256": "a02756ed6bd7d5e1aa7d1833dba4d95526ceccbf60d4d8528449ec0af1bcf537",
+      "sourceLines": { "Solution": "22", "TransferAmount": "40", "Delay": "67", "ForceFeedDelay": "74", "Trash": "34", "DestroyOnEmpty": "28", "RequiresSpecialDigestion": "61" },
+      "solutionDefault": "food",
+      "transferAmountDefaultUnits": 5,
+      "delayDefaultSeconds": 1,
+      "forceFeedDelayDefaultSeconds": 3,
+      "trashDefault": [],
+      "destroyOnEmptyDefault": true,
+      "requiresSpecialDigestionDefault": false
+    },
+    "ExtractableComponent": {
+      "sourcePath": "Content.Shared/Kitchen/Components/ExtractableComponent.cs",
+      "sourceSha256": "13c31aee64de65a9e3fd11ccce0aad9ef711b82b417bf4ccad923814a2f21f70",
+      "sourceLines": { "GrindableSolutionName": "24", "JuiceSolution": "18" },
+      "grindableSolutionNameDefault": null,
+      "juiceSolutionDefault": null
+    },
+    "PotencyVisualsComponent": {
+      "sourcePath": "Content.Client/Botany/Components/PotencyVisualsComponent.cs",
+      "sourceSha256": "58529a41759c9f7ef02b4cb8e20f3bb491a2e1f6503ab12e6a58635f76706214",
+      "sourceLines": { "MinimumScale": "7", "MaximumScale": "10" },
+      "minimumScaleDefault": 1,
+      "maximumScaleDefault": 2
+    },
+    "Solution": {
+      "sourcePath": "Content.Shared/Chemistry/Components/Solution.cs",
+      "sourceSha256": "f45c7fc539bd3458fce117283887c0c33078114e8cbe84e5fb3727c7890697b8",
+      "sourceLines": {
+        "MaxVolume": "40",
+        "initialVolumeMaxVolumeZeroFallback": "221-230"
+      },
+      "maxVolumeDefault": 0,
+      "whenMaxVolumeZero": "MaxVolume becomes initial Volume; nonzero explicit headroom remains"
+    },
+    "unsupportedBoundary": "Raw entity records preserve all source fields; this fixture itself does not resolve multiple-parent ancestry, runtime behaviors, unsupported component semantics, or local profile parity."
+  },
+  "verifiedCSharpDefaultsSources": {
+    "Content.Server/Botany/Components/ProduceComponent.cs": {
+      "sha256": "0f3033807dbbf53bc65fafa2901141336c46dac59ec51d940af4b0d057985ffc"
+    },
+    "Content.Shared/Nutrition/Components/EdibleComponent.cs": {
+      "sha256": "a02756ed6bd7d5e1aa7d1833dba4d95526ceccbf60d4d8528449ec0af1bcf537"
+    },
+    "Content.Shared/Kitchen/Components/ExtractableComponent.cs": {
+      "sha256": "13c31aee64de65a9e3fd11ccce0aad9ef711b82b417bf4ccad923814a2f21f70"
+    },
+    "Content.Shared/Chemistry/Components/Solution.cs": {
+      "sha256": "f45c7fc539bd3458fce117283887c0c33078114e8cbe84e5fb3727c7890697b8"
+    }
+  },
+  "fieldNotes": {
+    "produce": "Server ProduceComponent SolutionName defaults to food; SeedId nullable; captured null/missing distinctions retained.",
+    "food": "Edible ordinary food transfer defaults 5 units, delay 1 second, force-feed delay 3 seconds; source edible Trash is distinct from FoodBase SpaceGarbage.",
+    "solution": "Solution MaxVolume defaults zero; serialization hook sets it to Volume only when zero. Explicit nonzero capacity headroom is preserved.",
+    "extractable": "No authored grindable solution name defaults to null; absent/null/empty juice data must remain distinguishable in consumer comparison."
+  }
+}

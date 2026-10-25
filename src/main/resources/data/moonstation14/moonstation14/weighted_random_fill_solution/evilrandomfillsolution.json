@@ -1,0 +1,29 @@
+{
+  "fills": [
+    {
+      "quantity": 0.05,
+      "weight": 40.0,
+      "reagents": [
+        "moonstation14:nocturine",
+        "moonstation14:mutetoxin",
+        "moonstation14:lead"
+      ]
+    },
+    {
+      "quantity": 0.1,
+      "weight": 5.0,
+      "reagents": [
+        "moonstation14:vestine"
+      ]
+    },
+    {
+      "quantity": 1.0,
+      "weight": 1.0,
+      "reagents": [
+        "moonstation14:tazinide",
+        "moonstation14:stimulants",
+        "moonstation14:lexorin"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+prepared=2026-10-21T08:02:01.8779905-07:00
+command=./gradlew compileJava compileTestJava test --tests '*PrimaryWorldGestureTest' --tests '*MeleeAttackClientPolicyTest' --tests '*ClientMeleeWeaponResolverTest' --tests '*BodyHandInputPolicyTest' --tests '*BodyHandClientPolicyTest'
+finished=2026-10-21T08:02:04.4184839-07:00
+exit=1
+retry_prepared=2026-10-21T08:02:16.1466057-07:00
+retry=compileJava compileTestJava focused-five
+retry_finished=2026-10-21T08:02:42.3679012-07:00
+retry_exit=0

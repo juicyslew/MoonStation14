@@ -85,7 +85,8 @@ public final class BodyEquipmentTransfer {
                     || !CharacterControlSystem.canAct(body)
                     || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                     || !before.compatible(body)) return Result.DENIED;
-            return commitCandidate(body, before, removal.state(), removal.drops(), authorityValid);
+            return commitCandidate(body, before, com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown
+                    .stageSelectedInsertion(body, before, removal.state()), removal.drops(), authorityValid);
         });
     }
 
@@ -129,7 +130,8 @@ public final class BodyEquipmentTransfer {
                         snapshot.slots().stream().map(LiveHands.EquipmentSlot::id).toList(), template, hand, slot, expectedToken).orElse(null) : null;
                 LiveHands candidate = current.stack().isPresent() ? removal == null ? null : removal.state()
                         : before.equip(revision, body, hand, slot, expectedToken).orElse(null);
-                return commitCandidate(body, before, candidate,
+                return commitCandidate(body, before, com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown
+                                .stageSelectedInsertion(body, before, candidate),
                         removal == null ? java.util.List.of() : removal.drops(), authorityValid);
             }
             return Result.DENIED;
@@ -184,7 +186,8 @@ public final class BodyEquipmentTransfer {
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || !before.compatible(body) || equipping && !fitsForTransfer(level, template, snapshot.orElseThrow(), slot, stack, occupied))
             return Result.DENIED;
-        return commitCandidate(body, before, candidate, drops, authorityValid);
+        return commitCandidate(body, before, com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown
+                .stageSelectedInsertion(body, before, candidate), drops, authorityValid);
     }
 
     static Result commitCandidate(LivingEntity body, LiveHands before, LiveHands candidate,
@@ -299,6 +302,8 @@ public final class BodyEquipmentTransfer {
                 .flatMap(value -> value.stack().stream()).map(value -> catalog.get(
                         net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(value.getItem())))
                 .anyMatch(value -> value != null && value.allowSuitStorage().isPresent());
+        if ("suitstorage".equals(slot) && template.slot(slot).map(value -> !value.whitelistComponents().isEmpty()).orElse(false))
+            return com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(level, template, slot, candidate, occupied);
         if ("suitstorage".equals(slot)) return com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(
                 template, slot, candidateData, occupied, outerAllows);
         return com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.fits(level, template, slot, candidate, occupied);
@@ -309,4 +314,3 @@ public final class BodyEquipmentTransfer {
                 && level.getEntity(body.getUUID()) == body;
     }
 }
-

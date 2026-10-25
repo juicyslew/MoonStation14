@@ -6,6 +6,7 @@ from pathlib import Path
 
 import test_workflow_review_transport as transport_fixture
 import workflow_store
+from workflow_store_test_support import admission_records
 
 
 class ReviewSessionClaimTests(unittest.TestCase):
@@ -44,6 +45,9 @@ class ReviewSessionClaimTests(unittest.TestCase):
                     'evaluation_generation','assignment_generation','input_digest'},set(proof))
                 self.assertEqual(task['assigned_session_id'],proof['session_id'])
                 claims.append((key,claim,proof))
+            # A real review-session lease remains held while an unrelated
+            # queued native check is admitted; the next check still serializes.
+            self.assertEqual('REVIEWING',store.get_run(first['run_id'])['attempt']['phase'])
             self.assertFalse(any(r['state'] in ('HELD','UNKNOWN') for r in store.get_resource_history('native_validation')))
             self.assertIsNotNone(backend.get_session_baseline(second,planner.build_assignment(second['task_id'])))
             artifact='artifact_review_session_cleanup'
@@ -57,6 +61,21 @@ class ReviewSessionClaimTests(unittest.TestCase):
                 assignment_generation=first['assignment_generation'],identity_proof=proof,cleanup_proof=artifact)
             self.assertEqual('RELEASED',store.get_resource_history(key)[0]['state'])
             self.assertEqual('HELD',store.get_resource_history(claims[1][0])[0]['state'])
+
+            unknown_key,unknown_claim,unknown_proof=claims[1]
+            store.mark_resource_unknown(unknown_claim['claim_id'],identity_proof=unknown_proof)
+            self.assertEqual('UNKNOWN',store.get_resource_history(unknown_key)[0]['state'])
+            req,run,task,event=admission_records('native-during-review',idempotency_key='native-during-review',deadline_ms=100)
+            req['sprint_id']='sprint-native-during-review'; req['author']={'session_id':'session-native-during-review','worktree':'native-during-review','role':'author'}; req['source_worktree']='native-during-review'
+            run['sprint_id']=req['sprint_id']; run['author']=req['author']
+            store.submit(caller='native-during-review',request=req,run=run,first_task=task,outbox_event=event,logical_task_key='check')
+            store.transition_attempt(run['run_id'],1,expected_sequence=0,phase='CHECKING')
+            req2,run2,task2,event2=admission_records('native-during-review-2',idempotency_key='native-during-review-2',deadline_ms=100)
+            req2['sprint_id']='sprint-native-during-review-2'; req2['author']={'session_id':'session-native-during-review-2','worktree':'native-during-review-2','role':'author'}; req2['source_worktree']='native-during-review-2'
+            run2['sprint_id']=req2['sprint_id']; run2['author']=req2['author']
+            store.submit(caller='native-during-review-2',request=req2,run=run2,first_task=task2,outbox_event=event2,logical_task_key='check')
+            with self.assertRaises(workflow_store.SubmissionLaneBusy):
+                store.transition_attempt(run2['run_id'],1,expected_sequence=0,phase='CHECKING')
 
     def test_conflicting_same_task_claim_proof_is_denied(self):
         with tempfile.TemporaryDirectory() as tmp:

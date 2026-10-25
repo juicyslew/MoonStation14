@@ -1,1 +1,3 @@
-{"parent":"moonstation14:block/high_load_test_lamp"}
+{
+  "parent": "moonstation14:block/high_load_test_lamp"
+}

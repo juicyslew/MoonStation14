@@ -125,7 +125,28 @@ public final class ExamineWorldSelector {
         sorted.sort(Comparator.comparingDouble(Candidate::distance).thenComparing(c -> c.target().kind().ordinal())
                 .thenComparing(c -> c.target().kind() == ExamineTarget.Kind.BLOCK
                         ? c.target().blockPos().toShortString() : c.target().entityUuid().toString()));
-        return List.copyOf(sorted.subList(0, Math.min(MAX_CANDIDATES, sorted.size())));
+        return boundedCandidates(sorted);
+    }
+
+    /** Keeps the nearest admitted visible block reachable even in a dense entity pile. */
+    static List<Candidate> boundedCandidates(List<Candidate> sorted) {
+        if (sorted.size() <= MAX_CANDIDATES) return List.copyOf(sorted);
+        Candidate nearestBlock = sorted.stream().filter(c -> c.target().kind() == ExamineTarget.Kind.BLOCK)
+                .findFirst().orElse(null);
+        ArrayList<Candidate> bounded = new ArrayList<>(sorted.subList(0, MAX_CANDIDATES));
+        if (nearestBlock != null && !bounded.contains(nearestBlock)) {
+            for (int i = bounded.size() - 1; i >= 0; i--) {
+                if (bounded.get(i).target().kind() == ExamineTarget.Kind.ENTITY) {
+                    bounded.set(i, nearestBlock);
+                    bounded.sort(Comparator.comparingDouble(Candidate::distance)
+                            .thenComparing(c -> c.target().kind().ordinal())
+                            .thenComparing(c -> c.target().kind() == ExamineTarget.Kind.BLOCK
+                                    ? c.target().blockPos().toShortString() : c.target().entityUuid().toString()));
+                    break;
+                }
+            }
+        }
+        return List.copyOf(bounded);
     }
     private static Vec3 normalized(Vec3 d) {
         if (d == null || !Double.isFinite(d.x) || !Double.isFinite(d.y) || !Double.isFinite(d.z) || d.lengthSqr() < 1e-12) return Vec3.ZERO;

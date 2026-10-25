@@ -219,15 +219,15 @@ def submit_submission(store, *, caller, idempotency_key, request, context, artif
             verdict='FAIL'
         elif req.get('replaces_run_id') is None:
             code='SUBMISSION_REPLACEMENT_REQUIRED'
-            message='A current feature head exists; explicitly identify your own settled failed run to replace it.'
+            message='A current feature head exists; explicitly identify your own settled PASS or FAIL feature run to replace it with a fresh revision.'
             verdict='FAIL'
         else:
             code='FEATURE_HEAD_UNSETTLED'
             message='The existing feature head is active or cleanup remains unsettled.'
             verdict='ERROR'
         field='replaces_run_id' if code in ('SUBMISSION_REPLACEMENT_REQUIRED','REPLACEMENT_TARGET_INVALID') else 'feature_head'
-        required=('Choose the exact current failed run you authored; submit a corrected request with replaces_run_id, fresh scope, key, and evidence.' if code=='SUBMISSION_REPLACEMENT_REQUIRED' else
-            'Use the exact eligible current failed run only; do not change sprint or infer another run identifier.' if code=='REPLACEMENT_TARGET_INVALID' else
+        required=('Choose the exact current settled PASS or FAIL run you authored; submit a fresh full request with replaces_run_id, new scope, key, and evidence.' if code=='SUBMISSION_REPLACEMENT_REQUIRED' else
+            'Use the exact eligible current settled PASS or FAIL run only; do not change sprint or infer another run identifier.' if code=='REPLACEMENT_TARGET_INVALID' else
             'Wait for the original run and cleanup to settle, then retry with a fresh request key and current evidence.')
         fault={'code':code,'field':field,'message':message,
             'required_change':required,

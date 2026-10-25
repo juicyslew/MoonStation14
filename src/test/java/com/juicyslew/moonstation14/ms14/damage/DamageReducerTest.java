@@ -37,6 +37,25 @@ class DamageReducerTest {
     }
 
     @Test
+    void externalVanillaDamagePreservesOverkillAndSaturatesOnlyUnrepresentableLedgerTotals() {
+        assertEquals(Map.of("blunt", 10f), DamageReducer.externalDamageDelta("blunt", 2f, Map.of()));
+        assertEquals(Map.of("blunt", 150f), DamageReducer.externalDamageDelta("blunt", 30f, Map.of()));
+        var extreme = DamageReducer.externalDamageDelta("blunt", Float.MAX_VALUE, Map.of());
+        assertEquals(Float.MAX_VALUE, extreme.get("blunt"));
+        assertTrue(extreme.get("blunt") > 200f, "extreme external hit still crosses ordinary dead thresholds");
+        assertTrue(Float.isFinite(DamageReducer.total(extreme)));
+        var sameKey = DamageReducer.applyDelta(Map.of("blunt", 10f),
+                DamageReducer.externalDamageDelta("blunt", Float.MAX_VALUE, Map.of("blunt", 10f)));
+        assertTrue(Float.isFinite(DamageReducer.total(sameKey)));
+        var otherKey = DamageReducer.applyDelta(Map.of("heat", 10f),
+                DamageReducer.externalDamageDelta("blunt", Float.MAX_VALUE, Map.of("heat", 10f)));
+        assertTrue(Float.isFinite(DamageReducer.total(otherKey)));
+        assertThrows(IllegalArgumentException.class,
+                () -> DamageReducer.externalDamageDelta("blunt", Float.NaN, Map.of()));
+        assertEquals(Map.of("blunt", 150f), DamageReducer.mitigatedPositiveDelta(Map.of("blunt", 1000f), 30f));
+    }
+
+    @Test
     void proportionalAllocationIsCanonicalAndDeterministic() {
         assertEquals(Map.of("blunt", 2f, "slash", 1f),
                 DamageReducer.proportionalAllocation(Map.of("slash", 1f, "blunt", 2f), 3f));

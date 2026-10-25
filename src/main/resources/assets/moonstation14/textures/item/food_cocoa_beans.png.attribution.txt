@@ -1,0 +1,5 @@
+Source: SS14 Resources/Textures/Objects/Specific/Hydroponics/cocoa.rsi state produce-beans.png, c9df5ef5d675b0d1d226828bddf6b78c28502d91
+URL: https://github.com/space-wizards/space-station-14
+License: CC-BY-SA-3.0 (https://creativecommons.org/licenses/by-sa/3.0/)
+Copyright: Taken from https://github.com/vgstation-coders/vgstation13. produce-beans drawn by FillerVK, inhands by mubururu_ (github)
+Changes: No pixel changes.

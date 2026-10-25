@@ -11,12 +11,18 @@ import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.botany.BotanyHoeGameTestSupport;
 import com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity;
 import com.juicyslew.moonstation14.ms14.botany.PlantInstance;
+import com.juicyslew.moonstation14.ms14.botany.PlantSeedReference;
+import com.juicyslew.moonstation14.ms14.botany.GeneticValue;
+import com.juicyslew.moonstation14.ms14.botany.SeedItemProfile;
+import com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransfer;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.resources.ResourceLocation;
+import com.mojang.serialization.JsonOps;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -91,6 +97,98 @@ public final class BotanyPlantingAuthenticatedGameTests {
                     finally { fixture.close(); }
                 });
             } catch (Throwable failure) { fixture.close(); helper.fail("botany player readiness: " + failure); }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 200)
+    @GameTestTags({"botany-seed-item-composition"})
+    public static void cocoaBeansRequireExplicitSeedItemAdmission(GameTestHelper helper) {
+        var fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "botany-seed-item-composition-v1");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var owner = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                ServerLevel level = (ServerLevel) helper.getLevel();
+                BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
+                level.setBlock(pos, ModBlocks.EMPTY_HYDROPONICS_TRAY.get().defaultBlockState(), 3);
+                helper.runAtTickTime(2, () -> {
+                    try {
+                        var tray = (HydroponicsTrayBlockEntity) level.getBlockEntity(pos);
+                        require(tray != null && tray.plantState() != null, "tray tick initializes resolved empty profile");
+                        var body = owner.body(); body.setPos(pos.getX() + .5, pos.getY() + 1, pos.getZ() - 1.5);
+                        String handId = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()).handIds().getFirst();
+                        ItemStack beans = new ItemStack(ModItems.FOOD_COCOA_BEANS.get());
+                        var seed = new PlantSeedReference(new GeneticValue(com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat"),
+                                com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.serverLookup(com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat"))), true);
+                        com.juicyslew.moonstation14.ms14.botany.GeneticCarriers.attach(beans, seed);
+                        var replacement = LooseItemEntity.create(level, body.position().add(0, .1, .8), beans);
+                        replacement.setNoGravity(true); require(level.addFreshEntity(replacement), "genetic cocoa beans enter world");
+                        aimAtItem(body, replacement);
+                        var state = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                        require(BodyHandItemTransfer.Result.SUCCESS == BodyHandItemTransfer.pickupSelected(fixture.player(), replacement.getUUID(), handId, state.revision(), ignored -> {}), "pickup cocoa beans with valid wheat genetics");
+                        var manager = com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager();
+                        var type = ModSeedItemProfiles.TYPE;
+                        var previous = manager.snapshot(type);
+                        var priorPlant = tray.plantState();
+                        try {
+                            var snapshot = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 20));
+                             var hand = snapshot.hands().stream().filter(value -> value.id().equals(handId)).findFirst().orElseThrow();
+                             var liveHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                             ItemStack heldBeforeDenial = liveHands.stackCopy(handId).orElseThrow();
+                              var geneticsBeforeDenial = heldBeforeDenial.get(com.juicyslew.moonstation14.component.ModDataComponents.PLANT_SEED_REFERENCE.get());
+                             int countBeforeDenial = heldBeforeDenial.getCount();
+                             long revisionBeforeDenial = liveHands.revision();
+                              var tokenBeforeDenial = liveHands.token(handId).orElseThrow();
+                              var referenceBeforeDenial = tray.plantState();
+                              var genesBeforeDenial = referenceBeforeDenial.genetics();
+                              long plantRevisionBeforeDenial = referenceBeforeDenial.revision();
+                               var seedReferenceBeforeDenial = tray.plantState().seedReference();
+                             var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
+                            var denied = new BodyBlockUseRequest(owner.epoch(), 1, snapshot.revision(), handId, hand.token(), pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE);
+                            require(BodyHandActionNetworking.handleBlockUse(fixture.player(), denied) == BodyBlockUseResult.Outcome.DENIED, "unprofiled cocoa item denied on ordinary USE");
+                             var afterDenialHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                              require(tray.plantState() == priorPlant && tray.plantState() == referenceBeforeDenial
+                                      && tray.plantState().revision() == plantRevisionBeforeDenial
+                                      && java.util.Objects.equals(tray.plantState().genetics(), genesBeforeDenial)
+                                       && seedReferenceBeforeDenial == null && tray.plantState().seedReference() == null && tray.plantState().seed() == null,
+                                      "denial preserves tray instance/revision and nullable empty genetics/seed references");
+                             ItemStack heldAfterDenial = afterDenialHands.stackCopy(handId).orElseThrow();
+                             require(ItemStack.matches(heldBeforeDenial, heldAfterDenial) && heldBeforeDenial.getComponents().equals(heldAfterDenial.getComponents())
+                                      && heldAfterDenial.getCount() == countBeforeDenial && heldAfterDenial.get(com.juicyslew.moonstation14.component.ModDataComponents.PLANT_SEED_REFERENCE.get()).equals(geneticsBeforeDenial), "denial preserves actual held stack, components, count, and genetics");
+                             require(afterDenialHands.revision() == revisionBeforeDenial && afterDenialHands.token(handId).orElseThrow().equals(tokenBeforeDenial), "denial preserves live-hand revision and token");
+
+                            var encoded = new java.util.LinkedHashMap<ResourceLocation, com.google.gson.JsonObject>();
+                            previous.asMap().forEach((key, value) -> encoded.put(key, type.codec().encodeStart(JsonOps.INSTANCE, value).getOrThrow().getAsJsonObject()));
+                            encoded.put(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ModItems.FOOD_COCOA_BEANS.get()), type.codec().encodeStart(JsonOps.INSTANCE, new SeedItemProfile(com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat"))).getOrThrow().getAsJsonObject());
+                            manager.reload(type, encoded);
+                            var admitted = new BodyBlockUseRequest(owner.epoch(), 2, snapshot.revision(), handId, hand.token(), pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE);
+                             require(BodyHandActionNetworking.handleBlockUse(fixture.player(), admitted) == BodyBlockUseResult.Outcome.PLACED, "explicit cocoa seed profile admits ordinary USE");
+                              require(tray.plantState() == referenceBeforeDenial && tray.plantState().genetics().equals(seed.current())
+                                      && tray.plantState().genetics().species().equals(seed.current().species()), "explicit profile plants source carried seed genetics in-place");
+                               require(tray.plantState().revision() > plantRevisionBeforeDenial && tray.plantState().seedReference() == seed
+                                      && tray.plantState().age() == 1f && tray.plantState().health() == 100f,
+                                      "planted instance advances in-place with carried seed reference, age one, and source endurance health");
+                             var consumed = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 21));
+                             var consumedHand = consumed.hands().stream().filter(value -> value.id().equals(handId)).findFirst().orElseThrow();
+                             require(consumedHand.token() == null && body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()).stackCopy(handId).isEmpty(), "one cocoa bean consumed and hand ownership cleared");
+                              var replayPlant = tray.plantState(); var replayPlantRevision = replayPlant.revision();
+                               var replaySeedReference = tray.plantState().seedReference(); var replayGenes = replayPlant.genetics();
+                             var replayHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                             long replayRevision = replayHands.revision(); var replayToken = replayHands.token(handId);
+                             require(BodyHandActionNetworking.handleBlockUse(fixture.player(), admitted) == BodyBlockUseResult.Outcome.DENIED, "exact request replay denied by stale revision/token admission (no duplicate-sequence cache)");
+                             var afterReplayHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                              require(tray.plantState() == replayPlant && tray.plantState().revision() == replayPlantRevision
+                                       && tray.plantState().seedReference() == replaySeedReference && tray.plantState().genetics().equals(replayGenes), "stale replay leaves planted instance, revision, seed reference, and genes unchanged");
+                             require(afterReplayHands.revision() == replayRevision && afterReplayHands.token(handId).equals(replayToken) && afterReplayHands.stackCopy(handId).isEmpty(), "stale replay leaves hand revision and cleared ownership unchanged");
+                        } finally {
+                            var rawPrevious = new java.util.LinkedHashMap<ResourceLocation, com.google.gson.JsonObject>();
+                            previous.asMap().forEach((key, value) -> rawPrevious.put(key, type.codec().encodeStart(JsonOps.INSTANCE, value).getOrThrow().getAsJsonObject()));
+                            manager.reload(type, rawPrevious);
+                        }
+                        helper.succeed();
+                    } catch (Throwable failure) { helper.fail("botany seed item composition fixture: " + failure); }
+                    finally { fixture.close(); }
+                });
+            } catch (Throwable failure) { fixture.close(); helper.fail("botany seed item readiness: " + failure); }
         });
     }
 

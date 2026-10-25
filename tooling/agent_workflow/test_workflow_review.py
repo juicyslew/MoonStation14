@@ -6,6 +6,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 import workflow_native_execution
+import workflow_native_worker
 import workflow_review
 import workflow_store
 from test_workflow_native_execution import admit_native_fixture
@@ -30,10 +31,11 @@ class ReviewPlanningTests(unittest.TestCase):
             backend.close()
         return store.get_task(check_id)
 
-    def coordinator(self, store, run_id, roles=('implementation',), *, session='reviewer'):
+    def coordinator(self, store, run_id, roles=('implementation',), *, session='reviewer', artifact_dir=None):
         run = store.get_run(run_id)['run']
         bindings = {role:{'worktree':run['author']['worktree'],'role':'reviewer'} for role in roles}
-        return workflow_review.ReviewCoordinator(store, reviewers=bindings, artifact_dir='unused')
+        return workflow_review.ReviewCoordinator(store, reviewers=bindings,
+                                                artifact_dir=artifact_dir or Path(store.path).parent/'artifacts')
 
     def dispatched_review(self, root):
         store,run_id,check_id=self.fixture(root)
@@ -46,6 +48,60 @@ class ReviewPlanningTests(unittest.TestCase):
             db.commit()
         finally: db.close()
         return store,run_id,task
+
+    def test_source_access_is_manifest_bound_and_pages_utf8(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); store,run_id,task=self.dispatched_review(root)
+            request,bundle=workflow_native_worker.load_native_inputs(store,run_id)
+            repo=Path(request['source_worktree']); rel='source-review-test.txt'
+            data=('αβ\n'+('line\n'*100)).encode('utf-8'); (repo/rel).write_bytes(data)
+            row={'path':rel,'state':'FILE','sha256':hashlib.sha256(data).hexdigest(),'size_bytes':len(data)}
+            bundle['source_manifest']['files'].append(row)
+            # Tests the owner against the admitted manifest shape without altering a submission.
+            with patch.object(workflow_review.ReviewCoordinator,'_inputs',return_value=(request,bundle)):
+                owner=self.coordinator(store,run_id,artifact_dir=root/'artifacts')
+                matches=owner.source_access(task['task_id'],source_query='source-review-test')
+                self.assertEqual(rel,matches['matches'][0]['path'])
+                page=owner.source_access(task['task_id'],source_path=rel)
+                self.assertTrue(page['content'].startswith('αβ'))
+                self.assertEqual(81,page['next_line'])
+                second=owner.source_access(task['task_id'],source_path=rel,source_line=2)
+                self.assertEqual('line',second['content'].splitlines()[0])
+                bundle['source_manifest']['files'][-1]['size_bytes']=workflow_review.MAX_REVIEW_SOURCE_BYTES+1
+                with patch.object(workflow_review.workflow_runtime,'safe',side_effect=AssertionError('oversized manifest must reject before file access')) as safe:
+                    with self.assertRaises(workflow_review.SourceAccessError) as raised:
+                        owner.source_access(task['task_id'],source_path=rel)
+                    self.assertEqual(413,raised.exception.status)
+                    safe.assert_not_called()
+                with self.assertRaises(workflow_review.SourceAccessError): owner.source_access(task['task_id'],source_path='../outside')
+                with self.assertRaises(workflow_review.SourceAccessError) as unknown:
+                    owner.source_access(task['task_id'],source_path='missing')
+                self.assertEqual('INVALID_QUERY',unknown.exception.code)
+                self.assertIn('source_query',str(unknown.exception))
+                guide_info=owner.review_guide(task['task_id'])
+                self.assertTrue(Path(guide_info['path']).is_relative_to(root/'artifacts'))
+                import json
+                guide=json.loads(Path(guide_info['path']).read_text(encoding='utf-8'))
+                self.assertIn('<assigned task_id>',guide['source_access']['query_example']['task_id'])
+                self.assertEqual('<exact relative path returned by source_query>',guide['source_access']['page_example']['source_path'])
+                self.assertNotIn('workflow_review.py',json.dumps(guide['source_access']))
+
+    def test_changed_source_blocks_review_planning_before_task_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); store,run_id,check_id=self.fixture(root)
+            self.run_check(root,store,run_id,check_id)
+            request,bundle=workflow_native_worker.load_native_inputs(store,run_id)
+            row=next(item for item in bundle['source_manifest']['files'] if item.get('state')=='FILE')
+            source=Path(request['source_worktree'])/row['path']
+            source.write_bytes(source.read_bytes()+b'\nchanged\n')
+            with self.assertRaises((ValueError,workflow_store.ProtocolError)):
+                self.coordinator(store,run_id).plan_reviews(run_id)
+            self.assertEqual([], [task for task in store.list_tasks(run_id,1) if task['kind']=='REVIEW'])
+            db=store._connect()
+            try:
+                ready=[row[0] for row in db.execute("SELECT payload FROM events")]
+            finally: db.close()
+            self.assertFalse(any('task_review_' in payload for payload in ready))
 
     @staticmethod
     def claim(store, run_id, task, *, session=None, generation=None):

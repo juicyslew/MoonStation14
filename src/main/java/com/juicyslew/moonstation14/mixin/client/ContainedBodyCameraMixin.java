@@ -16,6 +16,12 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 @Mixin(Camera.class)
 public abstract class ContainedBodyCameraMixin {
     @Shadow private Entity entity;
+    @Inject(method = "setup", at = @At("RETURN"))
+    private void moonstation14$observeMovementTrace(net.minecraft.world.level.BlockGetter level, Entity cameraEntity,
+                                                    boolean detached, boolean thirdPerson, float partialTick,
+                                                    CallbackInfo ci) {
+        com.juicyslew.moonstation14.ms14.player_body_control.client.MovementTraceClient.cameraSetup((Camera)(Object)this, partialTick);
+    }
     @Inject(method = "getMaxZoom(F)F", at = @At("HEAD"), cancellable = true, require = 1)
     private void moonstation14$unclipContainedBody(float requested, CallbackInfoReturnable<Float> cir) {
         if (requested == 4.0F && ContainedCharacterClientView.shouldUnclip(entity)) cir.setReturnValue(4.0F);
@@ -32,4 +38,3 @@ public abstract class ContainedBodyCameraMixin {
         });
     }
 }
-

@@ -1,0 +1,8 @@
+{
+  "id": "moonstation14:galaxythistle",
+  "capacity_cents": 2500,
+  "contents_cents": {
+    "moonstation14:stellibinin": 2500
+  },
+  "refillable": true
+}

@@ -35,6 +35,7 @@ public final class BuiltinExamineContributors {
         ExamineContributorRegistry.register("jug-solution", BuiltinExamineContributors::jugSolution);
         ExamineContributorRegistry.register("beaker-solution", BuiltinExamineContributors::beakerSolution);
         ExamineContributorRegistry.register("botany-tray", BotanyExamineContributor::contribute);
+        ExamineContributorRegistry.register("botany-seed-packet", BotanySeedPacketExamineContributor::contribute);
     }
 
     /** SS14 ExaminableDamage WindowMessages, backed by resolved machine composition and persisted damage. */

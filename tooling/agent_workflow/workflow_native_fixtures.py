@@ -21,6 +21,7 @@ UNIT_POLICY_ID = 'managed-unit-fresh-evidence-v1'
 _LEGACY_PACKAGE_ARGV = ['./gradlew', 'clean', 'build', '--no-daemon']
 _MANAGED = re.compile(r'^build/workflow-fixtures/([0-9a-f]{12})$')
 _RETRY = re.compile(r'^build/workflow-fixtures/native-retry/[0-9a-f]{32}$')
+_INITIAL = re.compile(r'^build/workflow-fixtures/native-initial/[0-9a-f]{32}$')
 _ACCEPTANCE = re.compile(r'^accept_[A-Za-z0-9_-]{1,128}$')
 
 
@@ -91,6 +92,25 @@ def derive_retry_bindings(checks, *, input_digest, run_id, generation, task_id, 
     return bindings
 
 
+def derive_initial_binding(check, *, input_digest, run_id, generation, task_id, check_index):
+    original = accepted_binding(check, input_digest, check_index)
+    name = hashlib.sha256(f'{run_id}:{generation}:{task_id}:{check_index}:initial'.encode()).hexdigest()[:32]
+    fixture = 'build/workflow-fixtures/native-initial/' + name
+    argv = list(check['argv'])
+    at = next(i for i, arg in enumerate(argv) if arg.startswith('-Pms14GameTestDir='))
+    argv[at] = '-Pms14GameTestDir=' + fixture
+    return {'policy_id': POLICY_ID, 'mode': 'FRESH_INITIAL', 'check_index': check_index,
+        'check_digest': workflow_store.digest(check), 'task_id': task_id, 'generation': generation,
+        'accepted_fixture_dir': original['fixture_dir'], 'fixture_dir': fixture,
+        'log': fixture + '/logs/latest.log', 'argv': argv}
+
+
+def derive_initial_bindings(checks, *, input_digest, run_id, generation, task_id):
+    return [derive_initial_binding(check, input_digest=input_digest, run_id=run_id,
+        generation=generation, task_id=task_id, check_index=index)
+        for index, check in enumerate(checks) if check.get('kind') == 'gametest']
+
+
 def validate_retry_bindings(checks, bindings, *, input_digest, run_id, generation, task_id, prefix_count):
     expected = derive_retry_bindings(checks, input_digest=input_digest, run_id=run_id,
         generation=generation, task_id=task_id, prefix_count=prefix_count)
@@ -104,8 +124,8 @@ def reserve_retry_bindings(repo, bindings):
     repo = Path(repo).resolve()
     for binding in bindings:
         rel = binding.get('fixture_dir')
-        if not isinstance(rel, str) or not _RETRY.fullmatch(rel):
-            raise ValueError('retry GameTest fixture path is outside the managed runtime namespace')
+        if not isinstance(rel, str) or not (_RETRY.fullmatch(rel) or _INITIAL.fullmatch(rel)):
+            raise ValueError('GameTest fixture path is outside the managed runtime namespace')
         if workflow_runtime.git_status(repo, 'check-ignore', '-q', rel, quiet=True) != 0:
             raise ValueError('retry GameTest fixture parent is not ignored by the worktree')
         path = workflow_runtime.safe(repo, rel)
@@ -178,6 +198,15 @@ def managed_execution_bindings(checks):
             for binding in [accepted_binding(check,'',index)] if binding is not None]
 
 
+def _producer_artifact(record, repo, fixture_log):
+    expected = Path(workflow_runtime.safe(repo, fixture_log)).resolve()
+    for item in record.get('evidence', {}).get('artifacts', []):
+        source = item.get('source_path', item.get('path'))
+        if source is not None and Path(source).resolve() == expected:
+            return item
+    return None
+
+
 def execution_binding(check, input_digest, check_index, record, retry_binding=None, *, repo=None, regression_context=None):
     """Record accepted-original or fresh-retry fixture attribution for provenance."""
     if check.get('kind')=='junit' and check.get('selectors'):
@@ -203,12 +232,22 @@ def execution_binding(check, input_digest, check_index, record, retry_binding=No
         result = accepted_binding(check, input_digest, check_index, regression_context=regression_context)
     else:
         result = dict(retry_binding)
+    if result.get('mode') == 'FRESH_INITIAL':
+        planned = list(record.get('argv', []))
+        actual = list(record.get('executed_argv', planned))
+        expected_actual = workflow_runtime.execution_argv(repo, result['argv']) if repo is not None else None
+        producer_artifact = _producer_artifact(record, repo, result['log']) if repo is not None else None
+        if (result.get('check_index') != check_index or result.get('check_digest') != workflow_store.digest(check) or
+                planned != result.get('argv') or actual != expected_actual or repo is None or
+                producer_artifact is None):
+            raise ValueError('initial GameTest executed argv or log differs from authorized fixture binding')
+        result['actual_execution_argv'] = expected_actual
     result['execution_argv'] = list(record.get('executed_argv', record['argv']))
     return result
 
 
 def verify_original_execution(check, input_digest, check_index, record, provenance, repo,
-                              *, regression_context=None):
+                              *, regression_context=None, run_id=None, generation=None, task_id=None):
     """Keep a completed prefix bound to its original accepted shared fixture."""
     expected = accepted_binding(check, input_digest, check_index, regression_context=regression_context)
     if expected is None:return provenance is None
@@ -220,6 +259,16 @@ def verify_original_execution(check, input_digest, check_index, record, provenan
         return provenance==expected and planned==expected['execution_argv'] and actual==expected['actual_execution_argv']
     if expected is None:
         return provenance is None
+    if (expected.get('policy_id') == POLICY_ID and provenance and provenance.get('mode') == 'FRESH_INITIAL' and
+            run_id and task_id and generation is not None):
+        fresh = derive_initial_binding(check, input_digest=input_digest, run_id=run_id,
+            generation=generation, task_id=task_id, check_index=check_index)
+        expected_actual = workflow_runtime.execution_argv(repo, fresh['argv'])
+        fresh['actual_execution_argv'] = expected_actual
+        fresh['execution_argv'] = expected_actual
+        return (provenance == fresh and record.get('argv') == fresh['argv'] and
+                record.get('executed_argv', record.get('argv')) == expected_actual and
+                _producer_artifact(record, repo, fresh['log']) is not None)
     if expected.get('policy_id') == PACKAGE_POLICY_ID:
         planned=list(record.get('argv', []))
         actual=list(record.get('executed_argv', planned))

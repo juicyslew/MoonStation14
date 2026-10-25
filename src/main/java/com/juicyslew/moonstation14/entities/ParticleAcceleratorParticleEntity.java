@@ -160,7 +160,7 @@ public final class ParticleAcceleratorParticleEntity extends Projectile implemen
         if (spent) return;
         if (living.isRemoved()) return;
         DamageSystem.DamageApplication result = DamageSystem.applyHealthChangeWithAdmission(living, Map.of(DamageKeys.RADIATION, p.radiationDamage()),
-                1f, false, DamageSystem.Cause.RADIATION);
+                1f, false, DamageSystem.Cause.RADIATION, this);
         if (!living.isRemoved()) emitImpact(p, living.position(), ParticleAcceleratorImpactAudio.Contact.LIVING, false, false);
         if (result.status() != DamageSystem.Result.APPLIED) { spent = true; return; }
         if (!result.positiveDamageAdmitted()) { spent = true; return; }

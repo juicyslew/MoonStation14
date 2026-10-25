@@ -23,6 +23,10 @@ import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.item.custom.GasTankItem;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
+import com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity;
+import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
+import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.topology.PowerTopology;
 import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
@@ -357,20 +361,94 @@ public final class SingularityFixtureLayoutGameTests {
             var power=(ParticleAcceleratorPartBlockEntity)level.getBlockEntity(layout.acceleratorParts().stream()
                     .filter(p->level.getBlockEntity(p) instanceof ParticleAcceleratorPartBlockEntity be&&be.role().equals("power"))
                     .findFirst().orElseThrow());
-            PowerFixtureReadiness.await(h,level,600,
+             PowerFixtureReadiness.await(h,level,600,
                     ()->layout.emitters().stream().allMatch(p->level.getBlockEntity(p) instanceof EmitterBlockEntity e&&e.firingPowered())
                             && PowerRuntime.apcPowerMeter(level,control).known()
                             && PowerRuntime.mvPowerMeter(level,power).known()
                             && PowerRuntime.mvPowerMeter(level,power).deliveredWatts()>=500,
-                    ()->"control="+PowerRuntime.apcPowerMeter(level,control)+" power="+PowerRuntime.mvPowerMeter(level,power),
-                    ()->{
-                        for(BlockPos pos:layout.fieldGenerators()) {
+                    ()->bootstrapPowerDiagnostic(level,layout,circuit,control,power),
+                     ()->{
+                         bootstrapPowerDiagnostic(level,layout,circuit,control,power,"SUCCESS");
+                         for(BlockPos pos:layout.fieldGenerators()) {
                             var field=(FieldGeneratorBlockEntity)level.getBlockEntity(pos);
                             if(!field.snapshot().enabled()) field.toggleEnabled();
                         }
                         waitForFieldCharge(h,level,layout,control,power,500,()->waitForStableContainment(h,level,layout,control,power,0));
                     });
         },origin,origin.offset(26,11,18));
+    }
+
+    /** Read-only bounded failure context for the bootstrap delivery gate. */
+    private static String bootstrapPowerDiagnostic(ServerLevel level, SingularityFixtureLayout.Placed layout,
+                                                   SingularityFixturePower.Circuit circuit,
+                                                   ParticleAcceleratorPartBlockEntity control,
+                                                   ParticleAcceleratorPartBlockEntity power) {
+        return bootstrapPowerDiagnostic(level,layout,circuit,control,power,"FAILURE");
+    }
+
+    private static String bootstrapPowerDiagnostic(ServerLevel level, SingularityFixtureLayout.Placed layout,
+                                                   SingularityFixturePower.Circuit circuit,
+                                                   ParticleAcceleratorPartBlockEntity control,
+                                                   ParticleAcceleratorPartBlockEntity power, String outcome) {
+        var queried=level.getBlockEntity(power.getBlockPos());
+        String pa="pa{pos="+power.getBlockPos().toShortString()+",sameLive="+(queried==power)
+                +",facing="+level.getBlockState(power.getBlockPos()).getValue(com.juicyslew.moonstation14.block.custom.ParticleAcceleratorPartBlock.FACING)
+                +",enabled="+power.enabled()+",strength="+power.strength()+",demand="+power.mvPowerDemandWatts()
+                +",ports="+power.powerRuntimePorts()+",meter="+PowerRuntime.mvPowerMeter(level,power)
+                +",portNodes="+portDiagnostics(level,power)+"}";
+        String emitters=layout.emitters().stream().map(pos->{
+            var be=level.getBlockEntity(pos);
+            return pos.toShortString()+"="+(be instanceof EmitterBlockEntity emitter
+                    ?"live="+(level.getBlockEntity(pos)==emitter)+",facing="+level.getBlockState(pos).getValue(EmitterBlock.FACING)
+                    +",on="+emitter.requestedOn()+",powered="+emitter.firingPowered()+",demand="+emitter.mvPowerDemandWatts()
+                    +",meter="+PowerRuntime.mvPowerMeter(level,emitter)+",portNodes="+portDiagnostics(level,emitter):"missing:"+be);
+        }).toList().toString();
+        String circuitPorts=circuit.devices().stream().map(pos->{
+            var be=level.getBlockEntity(pos);
+            if(be instanceof com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntimeNode node)
+                return pos.toShortString()+"="+portDiagnostics(level,node);
+            if(be instanceof PowerDeviceBlockEntity && level.getBlockState(pos).getBlock() instanceof PowerDeviceBlock block) {
+                var facing=level.getBlockState(pos).getValue(PowerDeviceBlock.FACING);
+                return pos.toShortString()+"="+block.kind()+"/sameLive="+(level.getBlockEntity(pos)==be)+"/facing="+facing
+                        +"/ports="+devicePortDiagnostics(level,block.kind(),pos,facing);
+            }
+            return pos.toShortString()+"=missing-or-unrecognized:"+be;
+        }).toList().toString();
+        String solve=PowerRuntime.lastSolveDiagnostic(level);
+        String details="outcome="+outcome+"; LAST_SOLVE_ACTUAL="+solve+"; APC-control-meter="+PowerRuntime.apcPowerMeter(level,control)+" (control demand/measurement only); "
+                +pa+" emitters="+emitters+" topology="+PowerGraphService.topologyGeneration(level)
+                +"/ready="+PowerGraphService.topologyReady(level)+" circuitPorts="+circuitPorts;
+        String truncated="...TRUNCATED(originalLength="+details.length()+")";
+        if(details.length()>8000) details=details.substring(0,8000-truncated.length())+truncated;
+        if ("SUCCESS".equals(outcome))
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.info("singularity fixture bootstrap power diagnostics [{}]: {}",outcome,details);
+        else
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.error("singularity fixture bootstrap power diagnostics [{}]: {}",outcome,details);
+        String summary="PA@"+power.getBlockPos().toShortString()+" sameLive="+(queried==power)+" demand="
+                +power.mvPowerDemandWatts()+" meter="+PowerRuntime.mvPowerMeter(level,power)+" topologyReady="
+                +PowerGraphService.topologyReady(level)+" generation="+PowerGraphService.topologyGeneration(level)
+                +" controlMeter="+PowerRuntime.apcPowerMeter(level,control)+" portNodes="+portDiagnostics(level,power)+"";
+        return summary.length()>650?summary.substring(0,650):summary;
+    }
+
+    private static String devicePortDiagnostics(ServerLevel level, PowerDeviceKind kind, BlockPos pos, Direction facing) {
+        return kind.ports(pos,facing).stream().map(port->{
+            var node=new com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode(
+                    port.device().relative(port.face()),port.face().getOpposite(),port.tier());
+            var d=PowerGraphService.diagnostics(level,node);
+            return node+"="+d.state()+"/indexed="+d.nodeIndexed()+"/rebuilding="+d.rebuilding()
+                    +"/missingChunks="+d.unloadedPotentialNeighborChunks();
+        }).toList().toString();
+    }
+
+    private static String portDiagnostics(ServerLevel level, com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntimeNode device) {
+        return device.powerRuntimePorts().stream().map(port->{
+            var node=new com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode(
+                    port.device().relative(port.face()),port.face().getOpposite(),port.tier());
+            var d=PowerGraphService.diagnostics(level,node);
+            return node+"="+d.state()+"/indexed="+d.nodeIndexed()+"/rebuilding="+d.rebuilding()
+                    +"/missingChunks="+d.unloadedPotentialNeighborChunks();
+        }).toList().toString();
     }
 
     @GameTestTags({"reactor-generation", "singularity-fixture", "singularity_fixture", "emitter-targeting", "reactor-containment"})
@@ -555,18 +633,28 @@ public final class SingularityFixtureLayoutGameTests {
                                 "READY fixture does not overwrite an operator's later PA strength choice");
                         h.succeed();return;}
                 }
-                if(elapsed>=13990) {
-                    var signals=SingularityFixtureService.readinessSnapshot(level,origin);
-                    var fieldCharge=layout.fieldGenerators().stream().map(pos->level.getBlockEntity(pos) instanceof FieldGeneratorBlockEntity field
-                            ?field.snapshot().charge():-1).toList();
+                 if(elapsed>=13990) {
+                    String startup=SingularityFixtureService.status(level,origin);
+                    if(startup.length()>500)startup=startup.substring(0,500);
+                    var lampEntity=level.getBlockEntity(lamp);
+                    String exportTopology="generation="+PowerGraphService.topologyGeneration(level)
+                            +" ready="+PowerGraphService.topologyReady(level)
+                            +" graph="+PowerGraphService.diagnosticSnapshot(level)
+                            +" apcFootprint="+PowerGraphService.diagnosticSnapshot(level,apcPos,8,com.juicyslew.moonstation14.ms14.power.cable.CableTier.APC)
+                            +" collectorFootprints="+layout.collectors().stream().map(p->p+":"+PowerGraphService.diagnosticSnapshot(level,p,8,com.juicyslew.moonstation14.ms14.power.cable.CableTier.APC)).toList()
+                            +" lamp="+lamp+"/"+lampEntity+"/lit="+lit;
+                    String solve=PowerRuntime.lastSolveDiagnostic(level);
+                    if(solve.length()>4000)solve=solve.substring(0,4000);
+                    LOGGER.severe("reactor generation timeout job="+readiness+" startup="+startup
+                            +" capturedSingularity="+singularities.stream().map(s->"energy="+s.energy()+",level="+s.singularityLevel()
+                            +",position="+s.position()+",removed="+s.isRemoved()+",alive="+s.isAlive()).toList()
+                            +" genCharge="+fieldDiagnostic(level,layout)+" exportTopology="+exportTopology+" solve="+solve);
                     var gen=level.getBlockEntity(layout.startupGenerator());
                     String failure="reactor generation timeout state="+(readiness==null?"UNKNOWN":readiness.jobState())
-                            +" measuring="+measuring+" measured="+measurementTicks+" signal="+signals
-                            +" singularities="+singularities.stream().map(s->s.getUUID()+":"+s.energy()+"/L"+s.singularityLevel()).toList()
+                            +" measuring="+measuring+" measured="+measurementTicks+" signal="+readiness
                             +" generatorInert="+(gen instanceof SingularityGeneratorBlockEntity g&&g.startupInert())
-                            +" fieldCharge="+fieldCharge+" APC="+observation+" offers="+offers;
-                    // GameTest failures are serialized into a writable book; keep this one line within
-                    // vanilla's page limit so the useful readiness conjuncts survive the failure path.
+                            +" APC="+observation+" offers="+offers+" consumed="+consumed;
+                    // GameTest failures are serialized into a writable book; keep readiness evidence within its page limit.
                     if(failure.length()>900)failure=failure.substring(0,900);
                     throw new GameTestAssertException(failure);
                 }

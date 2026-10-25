@@ -13,16 +13,6 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
-    @Test void handHudUsesPresentedNameForAnyNamedItemAndFallsBackWithoutPresentation() {
-        var fallback = net.minecraft.network.chat.Component.translatable("item.minecraft.paper");
-        assertSame(fallback, BodyHandClient.handDisplayName(null, fallback));
-        var stack = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.PAPER);
-        var custom = net.minecraft.network.chat.Component.literal("Scout");
-        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, custom);
-        var presentation = com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation.fromStack(stack);
-        assertEquals(custom, BodyHandClient.handDisplayName(presentation, fallback));
-    }
-
     @Test void noCharacterReconciliationPreservesOnlyExactCommittedGhostPointerOwner() {
         var ghost = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(BODY, 12);
         var otherEpoch = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(BODY, 13);
@@ -123,23 +113,6 @@ class BodyHandClientPolicyTest {
         assertFalse(source.contains(".resolveForActor(entity)"));
     }
 
-    @Test void portablePickupNominationUsesClientProjectionAndTypedCapabilityConsumer() throws Exception {
-        Path relative = Path.of("src/main/java/com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java");
-        Path root = Path.of("").toAbsolutePath();
-        while (root != null && !Files.isRegularFile(root.resolve(relative))) root = root.getParent();
-        assertNotNull(root, "BodyHandClient source must be available for projection audit");
-        String source = Files.readString(root.resolve(relative));
-        int start = source.indexOf("private static boolean resolvedPortableProfile(");
-        assertTrue(start >= 0, "portable nomination has a named client projection consumer");
-        int end = source.indexOf("\n    }", start);
-        assertTrue(end > start, "portable projection consumer body is present");
-        String consumer = source.substring(start, end);
-        assertTrue(consumer.contains("CharacterIdentitySystem") && consumer.contains("projectForActor(candidate)"));
-        assertTrue(consumer.contains("PortableLivingClientTargetPolicy.portableCapability(projectedCharacter)"));
-        assertFalse(consumer.contains("PortableBodyCarrying.resolvedPortableBodyCapability"),
-                "client nominations must not call the server-only actor resolver");
-    }
-
     @Test void mappedGesturesSelectDistinctRoutes() {
         assertEquals(BodyInputGesturePolicy.Route.SMART_BELT, BodyInputGesturePolicy.resolve(false, true, false, false));
         assertEquals(BodyInputGesturePolicy.Route.ALTERNATE_WORLD_USE, BodyInputGesturePolicy.resolve(false, false, true, false));
@@ -181,6 +154,49 @@ class BodyHandClientPolicyTest {
         assertTrue(BodyInputGesturePolicy.suppressNativeInventory(true, true));
         assertFalse(BodyInputGesturePolicy.suppressNativeInventory(true, false));
         assertFalse(BodyInputGesturePolicy.suppressNativeInventory(false, true));
+    }
+
+    @Test void heldPillCanisterUsesTheExistingStorageGridObservation() {
+        var policy = new BodyHandClientPolicy();
+        UUID account = UUID.randomUUID(), body = UUID.randomUUID();
+        policy.bind(account, body, 3);
+        long query = policy.query(1);
+        var snapshot = new BodyHandStateSnapshot(0, query, BodyHandStateSnapshot.Reason.OK, account, body, 3, 1,
+                "left", List.of(
+                new BodyHandStateSnapshot.Hand("left", "canister-token", "moonstation14:pill_canister", 1),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0)), List.of(),
+                List.of(new BodyHandStateSnapshot.GridHost("canister-token", "pill", 5, 2, List.of())));
+        assertTrue(policy.accept(snapshot));
+        var view = policy.heldGrid("canister-token", false);
+        assertNotNull(view, "canister is observed by the existing held-grid popup path");
+        assertEquals("pill", view.host().kind());
+        assertEquals(5, view.host().width());
+        assertEquals(2, view.host().height());
+        assertNull(policy.heldGrid(null, false), "missing token cannot identify a storage host");
+        assertNull(policy.heldGrid("not-held", false), "stale token cannot identify a storage host");
+        assertNull(policy.heldGrid("pill-token", false), "ordinary pill has no resolved storage-host observation");
+    }
+
+    @Test void heldStorageActivationUsesResolvedGridCompositionForEverySupportedHost() {
+        assertObservedHeldHost("moonstation14:bag", "bag", 7, 4);
+        assertObservedHeldHost("moonstation14:belt", "belt", 8, 2);
+        assertObservedHeldHost("moonstation14:pill_canister", "pill", 5, 2);
+    }
+
+    private static void assertObservedHeldHost(String itemId, String kind, int width, int height) {
+        var policy = new BodyHandClientPolicy();
+        UUID account = UUID.randomUUID(), body = UUID.randomUUID();
+        policy.bind(account, body, 3);
+        long query = policy.query(1);
+        var snapshot = new BodyHandStateSnapshot(0, query, BodyHandStateSnapshot.Reason.OK, account, body, 3, 1,
+                "left", List.of(new BodyHandStateSnapshot.Hand("left", "host-token", itemId, 1),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0)), List.of(),
+                List.of(new BodyHandStateSnapshot.GridHost("host-token", kind, width, height, List.of())));
+        assertTrue(policy.accept(snapshot));
+        var grid = policy.heldGrid("host-token", true);
+        assertNotNull(grid, "supported host activation uses resolved grid observation: " + itemId);
+        assertEquals(width, grid.host().width());
+        assertEquals(height, grid.host().height());
     }
 
     private static BodyHandStateSnapshot snapshot(long requested, long sequence, UUID account, UUID body, long epoch) {
@@ -586,6 +602,119 @@ class BodyHandClientPolicyTest {
         assertNull(policy.confirmedSnapshot());
     }
 
+    @Test void explicitTrayEUsesOrdinaryBlockUseRegardlessOfLooseItemPresence() {
+        for (boolean looseItemPresent : List.of(false, true)) {
+            assertEquals(com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.USE,
+                    BodyInputGesturePolicy.aimedActivationIntent(true, false));
+            assertEquals(looseItemPresent ? BodyInputGesturePolicy.NormalWorldRoute.ACTIVATE_TARGET
+                            : BodyInputGesturePolicy.NormalWorldRoute.BLOCK_ACTIVATE,
+                    BodyInputGesturePolicy.normalWorldRoute(false, looseItemPresent, false));
+        }
+        assertEquals(com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.ACTIVATE_WORLD,
+                BodyInputGesturePolicy.aimedActivationIntent(false, true));
+        assertNull(BodyInputGesturePolicy.aimedActivationIntent(false, false));
+    }
+
+    @Test void confirmedSnapshotClockAnchorsReceiptAndIgnoresRejectedOrDuplicateTicks() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var dimension = "minecraft:overworld";
+        long query = policy.query(1);
+        var first = clockSnapshot(query, ACCOUNT, BODY, 7, 1, 1000, false);
+        assertTrue(policy.accept(first, 100, dimension));
+        assertEquals(1000, policy.estimatedServerTick(100).orElseThrow());
+        assertEquals(1005, policy.estimatedServerTick(105).orElseThrow());
+        var duplicate = clockSnapshot(0, ACCOUNT, BODY, 7, 1, 1000, true);
+        assertTrue(policy.accept(duplicate, 104, dimension));
+        assertEquals(1005, policy.estimatedServerTick(105).orElseThrow());
+        var newer = clockSnapshot(0, ACCOUNT, BODY, 7, 2, 1006, true);
+        assertTrue(policy.accept(newer, 106, dimension));
+        assertEquals(1006, policy.estimatedServerTick(106).orElseThrow());
+
+        var wrongContext = clockSnapshot(0, UUID.randomUUID(), BODY, 7, 3, 3000, true);
+        assertFalse(policy.accept(wrongContext, 200, dimension));
+        assertEquals(1006, policy.estimatedServerTick(106).orElseThrow());
+        var stale = clockSnapshot(0, ACCOUNT, BODY, 7, 1, 4000, true);
+        assertFalse(policy.accept(stale, 300, dimension));
+        assertEquals(1006, policy.estimatedServerTick(106).orElseThrow());
+
+        policy.bind(ACCOUNT, BODY, 8);
+        assertTrue(policy.estimatedServerTick(400).isEmpty());
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(clockSnapshot(policy.query(1), ACCOUNT, BODY, 7, 4, 5000, false), 400, "minecraft:the_nether"));
+        assertEquals(5000, policy.estimatedServerTick(400).orElseThrow());
+        policy.reset();
+        assertTrue(policy.estimatedServerTick(500).isEmpty());
+    }
+
+    private static BodyHandStateSnapshot clockSnapshot(long sequence, UUID account, UUID body, long epoch,
+            long revision, long serverTick, boolean push) {
+        return new BodyHandStateSnapshot(0, sequence, BodyHandStateSnapshot.Reason.OK, account, body, epoch,
+                revision, "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)),
+                List.of(), List.of(), push, null, serverTick);
+    }
+
+    @Test void lastConfirmedHandsRemainNominationOnlyAcrossRefreshAndClearOnContextReset() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var confirmed = snapshot(0, policy.query(1), ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(confirmed));
+        policy.externalTimedCompletion();
+        assertNull(policy.snapshot());
+        assertSame(confirmed, policy.lastConfirmedSnapshot());
+        policy.bind(ACCOUNT, BODY, 8);
+        assertNull(policy.lastConfirmedSnapshot());
+    }
+
+    @Test void emptyHandNominationSurvivesRefreshBarrierUntilMatchingQueryReply() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        var confirmed = snapshot(0, policy.query(1), ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(confirmed));
+        policy.externalTimedCompletion();
+        long refresh = policy.query(2);
+        assertTrue(policy.blockUseBarrier(), "refreshRequired is an existing block-use barrier");
+        assertTrue(policy.handQueryPending());
+        assertTrue(DeferredEmptyHandWorldUse.emptyHandIntentMayWait(policy.handQueryPending()));
+        assertTrue(DeferredEmptyHandWorldUse.emptyHandIntentMayWait(policy.handQueryPending()), "ordinary tick retains same nomination");
+        assertTrue(policy.accept(snapshot(0, refresh, ACCOUNT, BODY, 7)));
+        assertFalse(policy.handQueryPending());
+        assertFalse(DeferredEmptyHandWorldUse.emptyHandIntentMayWait(policy.handQueryPending()));
+    }
+
+    @Test void productionPrimaryRouteNominationRequiresPendingQueryEmptyHandAndWorldAdmission() {
+        var block = PrimaryWorldGesture.route(true, true, false, false);
+        assertTrue(DeferredEmptyHandWorldUse.mayNominate(true, block, true, true));
+        assertFalse(DeferredEmptyHandWorldUse.mayNominate(false, block, true, true));
+        assertFalse(DeferredEmptyHandWorldUse.mayNominate(true, block, false, true));
+        assertFalse(DeferredEmptyHandWorldUse.mayNominate(true, block, true, false));
+        assertEquals(PrimaryWorldGesture.Route.PICKUP, PrimaryWorldGesture.route(true, true, false, true));
+        assertFalse(DeferredEmptyHandWorldUse.mayNominate(true,
+                PrimaryWorldGesture.route(true, true, false, true), true, true));
+        assertFalse(DeferredEmptyHandWorldUse.mayNominate(true,
+                PrimaryWorldGesture.route(true, true, true, false), false, true));
+    }
+
+    @Test void deferredEmptyHandNominationRequiresExactFreshContextAndConsumesOnce() {
+        var queue = new DeferredEmptyHandWorldUse();
+        var body = UUID.randomUUID();
+        var dimension = net.minecraft.resources.ResourceLocation.withDefaultNamespace("overworld");
+        var pos = new net.minecraft.core.BlockPos(1, 2, 3);
+        var intent = new DeferredEmptyHandWorldUse.Intent(body, 4, dimension, pos,
+                net.minecraft.core.Direction.UP, "left", false, 20);
+        queue.nominate(intent);
+        assertTrue(DeferredEmptyHandWorldUse.contextMatches(intent, body, 4, dimension, pos,
+                net.minecraft.core.Direction.UP, "left", true, 19, true));
+        assertFalse(DeferredEmptyHandWorldUse.contextMatches(intent, body, 5, dimension, pos,
+                net.minecraft.core.Direction.UP, "left", true, 19, true));
+        assertFalse(DeferredEmptyHandWorldUse.contextMatches(intent, body, 4, dimension, pos,
+                net.minecraft.core.Direction.UP, "left", false, 19, true));
+        assertFalse(DeferredEmptyHandWorldUse.contextMatches(intent, body, 4, dimension, pos,
+                net.minecraft.core.Direction.UP, "left", true, 20, true));
+        assertSame(intent, queue.take());
+        assertNull(queue.take());
+    }
+
     @Test void lostBlockUseAckAndQueryTimeoutFailClosedAndRetryOnce() {
         var policy = new BodyHandClientPolicy();
         policy.bind(ACCOUNT, BODY, 7);
@@ -863,5 +992,50 @@ class BodyHandClientPolicyTest {
         assertNotEquals(nextEpoch, newConnection);
         assertFalse(policy.accept(snapshot(0, nextEpoch, ACCOUNT, BODY, 8)));
         assertTrue(policy.accept(snapshot(0, newConnection, ACCOUNT, BODY, 8)));
+    }
+
+@Test void handHudUsesPresentedNameForAnyNamedItemAndFallsBackWithoutPresentation() {
+        var fallback = net.minecraft.network.chat.Component.translatable("item.minecraft.paper");
+        assertSame(fallback, BodyHandClient.handDisplayName(null, fallback));
+        var stack = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.PAPER);
+        var custom = net.minecraft.network.chat.Component.literal("Scout");
+        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, custom);
+        var presentation = com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation.fromStack(stack);
+        assertEquals(custom, BodyHandClient.handDisplayName(presentation, fallback));
+    }
+
+@Test void portablePickupNominationUsesClientProjectionAndTypedCapabilityConsumer() throws Exception {
+        Path relative = Path.of("src/main/java/com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java");
+        Path root = Path.of("").toAbsolutePath();
+        while (root != null && !Files.isRegularFile(root.resolve(relative))) root = root.getParent();
+        assertNotNull(root, "BodyHandClient source must be available for projection audit");
+        String source = Files.readString(root.resolve(relative));
+        int start = source.indexOf("private static boolean resolvedPortableProfile(");
+        assertTrue(start >= 0, "portable nomination has a named client projection consumer");
+        int end = source.indexOf("\n    }", start);
+        assertTrue(end > start, "portable projection consumer body is present");
+        String consumer = source.substring(start, end);
+        assertTrue(consumer.contains("CharacterIdentitySystem") && consumer.contains("projectForActor(candidate)"));
+        assertTrue(consumer.contains("PortableLivingClientTargetPolicy.portableCapability(projectedCharacter)"));
+        assertFalse(consumer.contains("PortableBodyCarrying.resolvedPortableBodyCapability"),
+                "client nominations must not call the server-only actor resolver");
+    }
+
+@Test void oneHandSnapshotProducesUsableSingleSlotInventoryViewsWithoutInventingASecondHand() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 7);
+        assertTrue(policy.accept(snapshot(0, policy.query(1), ACCOUNT, BODY, 7)));
+        var controls = policy.inventoryView();
+        var presentation = policy.presentationView();
+        assertNotNull(controls);
+        assertNotNull(presentation);
+        assertEquals(1, controls.handCount());
+        assertEquals("left", controls.active().id());
+        assertNull(controls.second());
+        assertNull(controls.hand("right"));
+        assertNull(presentation.second());
+        assertNull(BodyHandClientPolicy.otherHandForSelection(policy.snapshot()),
+                "one-handed X selection is a no-op, not a fabricated right-hand request");
+        assertNotEquals(0, policy.action(2), "one-hand active item route still obtains action authority");
     }
 }

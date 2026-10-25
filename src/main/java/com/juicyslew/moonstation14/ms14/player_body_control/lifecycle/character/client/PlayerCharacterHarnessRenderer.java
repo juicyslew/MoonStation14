@@ -48,7 +48,7 @@ public final class PlayerCharacterHarnessRenderer
         wideModel = model;
         slimModel = new PlayerModel<>(context.bakeLayer(ModelLayers.PLAYER_SLIM), true);
         addLayer(new BodyAppearanceItemLayer(this, context.getItemInHandRenderer(),
-                context.bakeLayer(com.juicyslew.moonstation14.ms14.mob.mouse.client.MouseModel.LAYER_LOCATION)));
+                context.bakeLayer(com.juicyslew.moonstation14.ms14.mob.mouse.client.MouseModel.LAYER_LOCATION), context));
         addLayer(new BodyAppearanceClothingLayer(this, context.getItemInHandRenderer()));
     }
 
@@ -151,4 +151,3 @@ public final class PlayerCharacterHarnessRenderer
                 PlayerCharacterHarnessRenderer::new);
     }
 }
-

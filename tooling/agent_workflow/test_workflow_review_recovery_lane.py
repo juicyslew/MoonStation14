@@ -1,17 +1,18 @@
-"""A busy submission lane rejects review recovery without partial writes."""
+"""Review-only ERROR recovery does not contend for native CHECK admission."""
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
-import deploy_workflow
 import workflow_native_worker
+import workflow_native_execution
 import workflow_store
 from test_workflow_native_execution import admit_native_fixture
 from test_workflow_review import ReviewPlanningTests
 
 
 class ReviewRecoveryLaneTests(unittest.TestCase):
-    def test_busy_lane_recovery_rolls_back_then_retries_after_other_run_closes(self):
+    def test_review_only_recovery_coexists_with_other_native_check_owner(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             helper = ReviewPlanningTests()
@@ -48,53 +49,70 @@ class ReviewRecoveryLaneTests(unittest.TestCase):
             check_refs = [ref for ref in check_tasks[0]['result']['artifact_refs']
                           if store.get_artifact(ref)['artifact'].get('type') == 'CHECK_RECEIPT']
 
+            ready = root / 'other-ready'
+            release = root / 'other-release'
+            producer_code = (
+                "from pathlib import Path\nimport time\n"
+                f"ready=Path({str(ready)!r}); release=Path({str(release)!r})\n"
+                "ready.write_text('ready',encoding='utf-8')\n"
+                "deadline=time.monotonic()+30\n"
+                "while not release.exists() and time.monotonic()<deadline: time.sleep(.01)\n"
+                "if not release.exists(): raise SystemExit('test release gate timed out')\n"
+                "p=Path('build/output.zip'); p.parent.mkdir(parents=True,exist_ok=True); p.write_bytes(b'pass')\n"
+                "c=Path('counter.txt'); c.write_text(str(int(c.read_text())+1) if c.exists() else '1')\n"
+            )
             _case, _same_store, _receipt, other_task = admit_native_fixture(
                 root / 'other', caller='other-author', key='lane-other',
-                shared_store=store)
+                shared_store=store,producer_code=producer_code)
             other = store.get_task(other_task)
             other_run = other['run_id']
-            store.transition_attempt(other_run, 1, expected_sequence=0, phase='CHECKING')
-
-            kwargs = dict(expected_sequence=store.get_run(run_id)['run']['sequence'],
-                authorization={'kind': 'POLICY', 'id': 'test'},
-                fresh_input_proof='artifact_generated_manifest',
-                boundary='review:implementation',
-                recovery_event={'event_id': 'event_lane_recovery'},
-                reusable_artifact_refs=check_refs)
-            before = deploy_workflow.logical_db_fingerprint(store.path)
-            old_run = store.get_run(run_id)
-            with self.assertRaises(workflow_store.SubmissionLaneBusy):
-                store.recover_error(run_id, **kwargs)
-            self.assertEqual(deploy_workflow.logical_db_fingerprint(store.path), before)
-            unchanged = store.get_run(run_id)
-            self.assertEqual(unchanged['run']['current_attempt'], old_run['run']['current_attempt'])
-            self.assertEqual(unchanged['run']['sequence'], old_run['run']['sequence'])
-
-            other_attempt = store.get_run(other_run)['attempt']
-            store.transition_attempt(other_run, 1,
-                expected_sequence=store.get_run(other_run)['run']['sequence'], phase='STOPPING',
-                closure='CANCELLED')
-            other_attempt = store.get_run(other_run)['attempt']
-            store.transition_attempt(other_run, 1,
-                expected_sequence=store.get_run(other_run)['run']['sequence'], phase='CLOSED',
-                cleanup_state='CONFIRMED')
-
-            kwargs['expected_sequence'] = store.get_run(run_id)['run']['sequence']
-            recovered = store.recover_error(run_id, **kwargs)
-            self.assertEqual(recovered['generation'], 2)
-            self.assertEqual(store.recover_error(run_id, **kwargs), recovered)
-            self.assertEqual(store.get_run(run_id)['attempt']['phase'], 'REVIEWING')
-            old_checks = [t for t in store.list_tasks(run_id, 1) if t['kind'] == 'CHECK']
-            self.assertEqual(old_checks[0]['result']['decision'], 'PASS')
-            self.assertEqual((root / 'first' / 'repo' / 'counter.txt').read_text(), '1')
-            db = store._connect()
+            backend=workflow_native_execution.NativeExecutionBackend(
+                store,root/'other-runtime-artifacts',root/'other-lock')
             try:
-                self.assertEqual(db.execute(
-                    "SELECT COUNT(*) FROM tasks WHERE run_id=? AND generation=2 AND json_extract(task_json,'$.kind')='CHECK'",
-                    (run_id,)).fetchone()[0], 0)
+                backend.dispatch('event_recovery_native_worker',{'task_id':other_task})
+                deadline=time.monotonic()+15
+                while time.monotonic()<deadline:
+                    if ready.exists() and any(r['state']=='HELD' for r in store.get_task_resources(other_task)):
+                        break
+                    time.sleep(.01)
+                self.assertTrue(ready.exists(),'native CHECK producer did not enter its deterministic gate')
+                self.assertTrue(any(r['state']=='HELD' for r in store.get_task_resources(other_task)))
+                self.assertIn(store.get_task(other_task)['state'],('CLAIMED','RUNNING'))
+
+                kwargs = dict(expected_sequence=store.get_run(run_id)['run']['sequence'],
+                    authorization={'kind': 'POLICY', 'id': 'test'},
+                    fresh_input_proof='artifact_generated_manifest',
+                    boundary='review:implementation',
+                    recovery_event={'event_id': 'event_lane_recovery'},
+                    reusable_artifact_refs=check_refs)
+                recovered = store.recover_error(run_id, **kwargs)
+                self.assertEqual(recovered['generation'], 2)
+                self.assertEqual(store.recover_error(run_id, **kwargs), recovered)
+                self.assertEqual(store.get_run(run_id)['attempt']['phase'], 'REVIEWING')
+                store.assert_submission_lane(other_run,1)
+                self.assertTrue(any(resource['state']=='HELD' for resource in store.get_task_resources(other_task)))
+                _third_case,_same_store,_third_receipt,third_task=admit_native_fixture(
+                    root/'third',caller='third-author',key='lane-third',shared_store=store)
+                third_run=store.get_task(third_task)['run_id']
+                with self.assertRaises(workflow_store.SubmissionLaneBusy):
+                    store.transition_attempt(third_run,1,expected_sequence=0,phase='CHECKING')
+                old_checks = [t for t in store.list_tasks(run_id, 1) if t['kind'] == 'CHECK']
+                self.assertEqual(old_checks[0]['result']['decision'], 'PASS')
+                self.assertEqual((root / 'first' / 'repo' / 'counter.txt').read_text(), '1')
+                db = store._connect()
+                try:
+                    self.assertEqual(db.execute(
+                        "SELECT COUNT(*) FROM tasks WHERE run_id=? AND generation=2 AND json_extract(task_json,'$.kind')='CHECK'",
+                        (run_id,)).fetchone()[0], 0)
+                finally:
+                    db.close()
             finally:
-                db.close()
-            store.close()
+                release.touch()
+                deadline=time.monotonic()+15
+                while time.monotonic()<deadline and store.get_task(other_task)['state'] not in ('COMPLETED','ERROR','CANCELLED'):
+                    time.sleep(.025)
+                backend.close()
+                store.close()
 
 
 if __name__ == '__main__':

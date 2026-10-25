@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:lemoon",
+  "capacity_cents": 2000,
+  "contents_cents": {
+    "moonstation14:vitamin": 400,
+    "moonstation14:milk": 1600
+  },
+  "refillable": true
+}

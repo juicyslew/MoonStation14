@@ -8,6 +8,14 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GhostRoleClientTransportTest {
+    @Test void ghostRoleEntryRequiresAtLeastOneSupportedAction() {
+        var validTeleportOnly = new GhostRolePayloads.Entry(new UUID(0, 1), "a-filler-0", "Filler", true, false, false);
+        assertTrue(validTeleportOnly.teleport());
+        assertFalse(validTeleportOnly.takeover());
+        assertThrows(IllegalArgumentException.class,
+                () -> new GhostRolePayloads.Entry(new UUID(0, 1), "a-filler-0", "Filler", false, false, false));
+    }
+
     @Test void registeredClientReceiveDispatchesSnapshotAndResultToInstalledClientHandler() {
         var state=new GhostRoleMenuState();var context=new GhostRolePayloads.Context(UUID.randomUUID(),3);
         state.open(context);var correlation=state.beginRequest();
@@ -19,5 +27,14 @@ class GhostRoleClientTransportTest {
         GhostRoleNetworking.receiveRegisteredClientPayload(new GhostRolePayloads.Snapshot(context,List.of(entry)),null);
         GhostRoleNetworking.receiveRegisteredClientPayload(new GhostRolePayloads.Result(context,correlation,true,"accepted"),null);
         assertEquals(List.of(entry),state.entries());assertEquals("accepted",state.status());
+    }
+
+    @Test void snapshotRetainsServerDevelopmentLabelWithoutChangingOrdinaryEntries() {
+        var context = new GhostRolePayloads.Context(UUID.randomUUID(), 4);
+        var dev = new GhostRolePayloads.Entry(UUID.randomUUID(), "moonstation14:bat", "Bat", false, true, true);
+        var ordinary = new GhostRolePayloads.Entry(UUID.randomUUID(), "mouse", "Mouse", true, true);
+        var snapshot = new GhostRolePayloads.Snapshot(context, List.of(dev, ordinary));
+        assertTrue(snapshot.entries().get(0).development());
+        assertFalse(snapshot.entries().get(1).development());
     }
 }

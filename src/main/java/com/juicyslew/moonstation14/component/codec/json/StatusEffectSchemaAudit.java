@@ -12,7 +12,7 @@ import java.util.Set;
 public final class StatusEffectSchemaAudit {
     private static final Set<String> TOP_LEVEL = Set.of(
             "translation_key", "beneficial", "color", "behaviors", "eligibility",
-            "movement_speed_multiplier");
+            "movement_speed_multiplier", "friction");
 
     private StatusEffectSchemaAudit() {
     }
@@ -54,6 +54,13 @@ public final class StatusEffectSchemaAudit {
                 fail("$.movement_speed_multiplier", "expected a finite nonnegative number");
             }
         }
+        boolean frictionBehavior = statusEffect.getAsJsonArray("behaviors").contains(new com.google.gson.JsonPrimitive("friction"));
+        if (frictionBehavior != statusEffect.has("friction")) fail("$.friction", frictionBehavior ? "required when behaviors contains friction" : "forbidden unless behaviors contains friction");
+        if (statusEffect.has("friction")) {
+            JsonElement value = statusEffect.get("friction");
+            if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()
+                    || !Double.isFinite(value.getAsDouble()) || value.getAsDouble() < 0d) fail("$.friction", "expected a finite nonnegative number");
+        }
     }
 
     public static void audit(ResourceLocation id, JsonObject statusEffect) {
@@ -87,7 +94,7 @@ public final class StatusEffectSchemaAudit {
                 if (!known) {
                     fail(itemPath, "unknown status effect behavior '" + name + "'");
                 }
-            } else if (!name.equals("living_entity")) {
+            } else if (!name.equals("living_entity") && !name.equals("prototype_admitted")) {
                 fail(itemPath, "unknown status effect eligibility '" + name + "'");
             }
         }

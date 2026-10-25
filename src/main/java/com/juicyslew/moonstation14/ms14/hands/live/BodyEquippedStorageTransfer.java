@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.hands.live;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
+import com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
@@ -378,6 +379,7 @@ public final class BodyEquippedStorageTransfer {
         Optional<LiveHands> next = storing
                 ? before.insertEquippedGrid(revision, declared, slot, containerToken, hand, token, anchor, rotation)
                 : before.extractEquippedGrid(revision, declared, slot, containerToken, hand, token, anchor);
+        if (!storing && next.isPresent()) next = Optional.of(MeleeSelectionCooldown.stageSelectedInsertion(body, before, next.orElseThrow()));
         if (next.isEmpty() || !authorityValid.getAsBoolean() || !live(body, level) || !CharacterControlSystem.canAct(body)
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before || !before.compatible(body)
                 || !LiveHands.equipmentSnapshot(body).map(snapshot -> snapshot.slots().stream()
@@ -411,6 +413,7 @@ public final class BodyEquippedStorageTransfer {
         Optional<LiveHands> next = storing
                 ? before.insertEquippedStorage(revision, declared, slot, containerToken, hand, token)
                 : before.extractEquippedStorage(revision, declared, slot, containerToken, hand, token);
+        if (!storing && next.isPresent()) next = Optional.of(MeleeSelectionCooldown.stageSelectedInsertion(body, before, next.orElseThrow()));
         if (next.isEmpty() || !authorityValid.getAsBoolean() || !live(body, level)
                 || !CharacterControlSystem.canAct(body)
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before

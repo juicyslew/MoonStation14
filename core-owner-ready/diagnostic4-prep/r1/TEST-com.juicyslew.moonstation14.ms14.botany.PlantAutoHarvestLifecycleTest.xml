@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-22T09:39:17.323Z" hostname="DESKTOP-4F0ER3K" time="0.485">
+  <properties/>
+  <testcase name="singleAutomaticSelfHarvestOutputMarksRetainedSourceShared()" classname="com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest" time="0.065"/>
+  <testcase name="automaticZeroYieldIsOneButManualZeroYieldRemainsZeroAndManualSelfHarvestRetains()" classname="com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest" time="0.06"/>
+  <testcase name="failureKeepsReadyAndNewlyReadyWaitsUntilNextCycle()" classname="com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest" time="0.075"/>
+  <testcase name="harvestsOnlyPreviouslyReadySelfHarvestPlantAndCommitsAtCurrentPostGrowthAge()" classname="com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest" time="0.071"/>
+  <testcase name="absentDeadAndNotDuePlantsNeverCallAutoOutputOwner()" classname="com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest" time="0.081"/>
+  <testcase name="manualRepeatRetainsButNoRepeatClears()" classname="com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest" time="0.128"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

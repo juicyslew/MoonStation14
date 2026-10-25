@@ -23,6 +23,27 @@ def _sections(record, name):
     return value if isinstance(value, list) else []
 
 
+def _terminal_result_created_ms(record):
+    terminal = record.get("terminal_result") or {}
+    result_id = terminal.get("result_id") if isinstance(terminal, dict) else None
+    generation = (record.get("run") or {}).get("current_attempt")
+    if not result_id:
+        return None
+    compact_event=record.get("terminal_result_event")
+    if isinstance(compact_event,dict) and compact_event.get("event_id")==result_id and compact_event.get("generation")==generation:
+        payload=compact_event.get("payload") or {}
+        value=compact_event.get("created_ms")
+        if isinstance(payload,dict) and payload.get("result_id")==result_id:
+            return value if isinstance(value,int) and not isinstance(value,bool) and value>=0 else None
+    for event in _sections(record, "events"):
+        if (isinstance(event, dict) and event.get("event_id") == result_id
+                and event.get("generation") == generation
+                and (event.get("payload") or {}).get("result_id") == result_id):
+            value = event.get("created_ms")
+            return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+    return None
+
+
 def _result(task):
     result = task.get("result") or {}
     return result if isinstance(result, dict) else {}
@@ -509,6 +530,7 @@ def project(raw, *, worktree, connection=None, author_activity=None):
                                and a.get("evaluation_generation",a.get("generation"))==run.get("current_attempt")
                                and a.get("input_digest")==run.get("input_digest")),None)
             terminal = record.get("terminal_result") or {}
+            result_created_ms = _terminal_result_created_ms(record)
             current_pending=any(t.get("state") in ("QUEUED","RUNNING","CLAIMED","DISPATCHING","CANCEL_REQUESTED") for t in current_tasks)
             dismissible=(phase=="Accepted" and acceptance is not None and focused=="PASS" and not fault_records
                          and not current_pending and regression_state in ("NOT_STARTED","PASS"))
@@ -545,7 +567,9 @@ def project(raw, *, worktree, connection=None, author_activity=None):
                     "acceptances":_items(_sections(record,"acceptances"),("acceptance_id","decision_id","evaluation_generation","input_digest")),
                      "regression_jobs":_regression_items(regressions),
                       "events":_items(_sections(record,"events"),("kind","state","created_ms","summary")),"faults":fault_records,"boundary":boundary,
-                     **({"current_error":error_cause} if error_cause else {})}}
+                      **({"current_error":error_cause} if error_cause else {})}}
+            if phase in ("Your testing", "Accepted"):
+                card["result_created_ms"] = result_created_ms
             columns[phase].append(card)
         for old in raw.get("history",[]):
             old_run = old.get("run",{})

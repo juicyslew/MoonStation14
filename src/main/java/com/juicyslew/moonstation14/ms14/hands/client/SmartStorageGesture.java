@@ -12,11 +12,11 @@ public final class SmartStorageGesture {
 
     public static Plan plan(boolean belt, BodyHandClientPolicy.InventoryView view, BodyHandStateSnapshot proof) {
         if (view == null || proof == null || proof.reason() != BodyHandStateSnapshot.Reason.OK
-                || proof.epoch() <= 0 || proof.revision() < 0 || proof.hands().size() != 2
+                || proof.epoch() <= 0 || proof.revision() < 0 || proof.hands().size() != view.handCount()
                 || !proof.activeHand().equals(view.activeHand())
-                || !proof.hands().get(0).equals(view.first()) || !proof.hands().get(1).equals(view.second())) return null;
-        var active = view.activeHand().equals(view.first().id()) ? view.first()
-                : view.activeHand().equals(view.second().id()) ? view.second() : null;
+                || !proof.hands().get(0).equals(view.first())
+                || view.second() != null && !proof.hands().get(1).equals(view.second())) return null;
+        var active = view.active();
         var equipment = belt ? view.belt() : view.back();
         if (active == null || equipment == null) return null;
         String slotId = belt ? "belt" : "back";
@@ -45,4 +45,3 @@ public final class SmartStorageGesture {
                 active.id(), slot.token(), entries.getLast().token());
     }
 }
-

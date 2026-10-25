@@ -55,6 +55,12 @@ public class ModItems {
     public static final DeferredItem<Item> CLOTH = ITEMS.register("cloth",
             () -> new Item(new Item.Properties().stacksTo(30))
     );
+    public static final DeferredItem<PrototypeEdibleItem> COTTON_MATERIAL = ITEMS.register("cotton_material",
+            () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(30)
+                    .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "cotton_material"))));
+    public static final DeferredItem<PrototypeEdibleItem> PYROTTON_MATERIAL = ITEMS.register("pyrotton_material",
+            () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(30)
+                    .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "pyrotton_material"))));
     public static final DeferredItem<Item> BAG = ITEMS.register("bag",
             () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "bag"))));
     public static final DeferredItem<Item> BELT = ITEMS.register("belt",
@@ -71,6 +77,13 @@ public class ModItems {
     public static final DeferredItem<Item> WELDER = ITEMS.register("welder", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> BOTANY_HOE = ITEMS.register("botany_hoe", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> BOTANY_SPADE = ITEMS.register("botany_spade", () -> new Item(new Item.Properties().stacksTo(1)));
+    // Source-equivalent item identities only; firearm behavior is intentionally not activated here.
+    public static final DeferredItem<Item> WEAPON_REVOLVER_PYTHON = ITEMS.register("weapon_revolver_python", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> REVOLVER_CAP_GUN = ITEMS.register("revolver_cap_gun", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> REVOLVER_CAP_GUN_FAKE = ITEMS.register("revolver_cap_gun_fake", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> CARTRIDGE_MAGNUM = ITEMS.register("cartridge_magnum", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> CARTRIDGE_MAGNUM_AP = ITEMS.register("cartridge_magnum_ap", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> CARTRIDGE_CAP = ITEMS.register("cartridge_cap", () -> new Item(new Item.Properties().stacksTo(1)));
 
     // Food
     public static final DeferredItem<Item> WAFFLE = ITEMS.register("waffle",
@@ -80,14 +93,23 @@ public class ModItems {
             () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<PrototypeEdibleItem> PUMPKIN_PIE_SLICE = ITEMS.register("pumpkin_pie_slice",
             () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<PrototypeEdibleItem> FOOD_MEAT_WHEAT = ITEMS.register("food_meat_wheat",
+            () -> new PrototypeEdibleItem(new Item.Properties().stacksTo(1)
+                    .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "food_meat_wheat"))));
+    public static final DeferredItem<ProduceEdibleItem> FOOD_COCOA_BEANS = ITEMS.register("food_cocoa_beans",
+            () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)
+                    .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "food_cocoa_beans"))));
 
     public static final DeferredItem<Item> WHEAT_SEEDS = ITEMS.register("wheat_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> TOMATO_SEEDS = ITEMS.register("tomato_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> POTATO_SEEDS = ITEMS.register("potato_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> POPPY_SEEDS = ITEMS.register("poppy_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> ALOE_SEEDS = ITEMS.register("aloe_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<Item> MEATWHEAT_SEEDS = ITEMS.register("meatwheat_seeds", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<ProduceEdibleItem> WHEAT_BUSHEL = ITEMS.register("wheat_bushel", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
-    public static final DeferredItem<ProduceEdibleItem> TOMATO = ITEMS.register("tomato", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<ProduceEdibleItem> MEATWHEAT_BUSHEL = ITEMS.register("meatwheat_bushel", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "meatwheat_bushel"))));
+    public static final DeferredItem<ProduceEdibleItem> TOMATO = ITEMS.register("tomato", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)
+            .component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "tomato"))));
     public static final DeferredItem<ProduceEdibleItem> POTATO = ITEMS.register("potato", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<ProduceEdibleItem> POPPY = ITEMS.register("poppy", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<ProduceEdibleItem> ALOE = ITEMS.register("aloe", () -> new ProduceEdibleItem(new Item.Properties().stacksTo(1)));
@@ -118,6 +140,8 @@ public class ModItems {
             () -> new CableSpoolItem(new Item.Properties().stacksTo(16), CableTier.APC));
     public static final DeferredItem<WirecutterItem> WIRECUTTER = ITEMS.register("wirecutter",
             () -> new WirecutterItem(new Item.Properties().durability(128)));
+    public static final DeferredItem<Item> KITCHEN_KNIFE = ITEMS.register("kitchen_knife",
+            () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> AIRLOCK_MULTITOOL = ITEMS.register("multitool",
             () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath("moonstation14", "airlock_multitool"))));
     public static final DeferredItem<BottleItem> BOTTLE = ITEMS.register("bottle",

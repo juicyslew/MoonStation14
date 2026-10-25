@@ -7,7 +7,8 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 public record MachineProfile(double powerWatts, double activePowerWatts, int chamberCapacity,
                              int startDelayTicks, boolean powered, boolean extractor,
                               int minimumPacketYield, int maximumPacketYield, SoundCue processingSound,
-                              SoundCue beakerInsertSound, SoundCue beakerEjectSound, SoundCue chamberEjectSound) {
+                               SoundCue beakerInsertSound, SoundCue beakerEjectSound, SoundCue chamberEjectSound,
+                               SoundCue juiceSound) {
     public record SoundCue(net.minecraft.resources.ResourceLocation sound, float volume, float pitch) {
         public static final Codec<SoundCue> CODEC = RecordCodecBuilder.create(i -> i.group(
                 net.minecraft.resources.ResourceLocation.CODEC.fieldOf("sound").forGetter(SoundCue::sound),
@@ -17,7 +18,13 @@ public record MachineProfile(double powerWatts, double activePowerWatts, int cha
     }
     public MachineProfile(double powerWatts, double activePowerWatts, int chamberCapacity, int startDelayTicks,
                           boolean powered, boolean extractor, int minimumPacketYield, int maximumPacketYield) {
-        this(powerWatts, activePowerWatts, chamberCapacity, startDelayTicks, powered, extractor, minimumPacketYield, maximumPacketYield, null, null, null, null);
+        this(powerWatts, activePowerWatts, chamberCapacity, startDelayTicks, powered, extractor, minimumPacketYield, maximumPacketYield, null, null, null, null, null);
+    }
+    public MachineProfile(double powerWatts, double activePowerWatts, int chamberCapacity, int startDelayTicks,
+                          boolean powered, boolean extractor, int minimumPacketYield, int maximumPacketYield,
+                          SoundCue processingSound, SoundCue beakerInsertSound, SoundCue beakerEjectSound, SoundCue chamberEjectSound) {
+        this(powerWatts, activePowerWatts, chamberCapacity, startDelayTicks, powered, extractor, minimumPacketYield, maximumPacketYield,
+                processingSound, beakerInsertSound, beakerEjectSound, chamberEjectSound, null);
     }
     public static final Codec<MachineProfile> CODEC = RecordCodecBuilder.create(i -> i.group(
             Codec.DOUBLE.optionalFieldOf("power_watts", 0d).forGetter(MachineProfile::powerWatts),
@@ -31,9 +38,10 @@ public record MachineProfile(double powerWatts, double activePowerWatts, int cha
             SoundCue.CODEC.optionalFieldOf("processing_sound").forGetter(p -> java.util.Optional.ofNullable(p.processingSound())),
              SoundCue.CODEC.optionalFieldOf("beaker_insert_sound").forGetter(p -> java.util.Optional.ofNullable(p.beakerInsertSound())),
              SoundCue.CODEC.optionalFieldOf("beaker_eject_sound").forGetter(p -> java.util.Optional.ofNullable(p.beakerEjectSound())),
-             SoundCue.CODEC.optionalFieldOf("chamber_eject_sound").forGetter(p -> java.util.Optional.ofNullable(p.chamberEjectSound()))
-     ).apply(i, (power, active, capacity, delay, powered, extractor, min, max, processing, insert, beakerEject, chamberEject) ->
-             new MachineProfile(power, active, capacity, delay, powered, extractor, min, max, processing.orElse(null), insert.orElse(null), beakerEject.orElse(null), chamberEject.orElse(null))));
+              SoundCue.CODEC.optionalFieldOf("chamber_eject_sound").forGetter(p -> java.util.Optional.ofNullable(p.chamberEjectSound())),
+              SoundCue.CODEC.optionalFieldOf("juice_sound").forGetter(p -> java.util.Optional.ofNullable(p.juiceSound()))
+      ).apply(i, (power, active, capacity, delay, powered, extractor, min, max, processing, insert, beakerEject, chamberEject, juice) ->
+              new MachineProfile(power, active, capacity, delay, powered, extractor, min, max, processing.orElse(null), insert.orElse(null), beakerEject.orElse(null), chamberEject.orElse(null), juice.orElse(null))));
     public MachineProfile {
         if (!Double.isFinite(powerWatts) || !Double.isFinite(activePowerWatts) || powerWatts < 0 || activePowerWatts < 0
                 || chamberCapacity < 0 || startDelayTicks < 0 || minimumPacketYield < 0 || maximumPacketYield < minimumPacketYield

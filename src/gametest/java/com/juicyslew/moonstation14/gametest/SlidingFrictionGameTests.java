@@ -12,6 +12,13 @@ import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingFrictionSystem;
 import com.juicyslew.moonstation14.ms14.slip.MinecraftSlidingPhysics;
 import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
+import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectAttachment;
+import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectOperation;
+import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectPayload;
+import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
+import com.juicyslew.moonstation14.ms14.status_effect.StatusEffectSystem;
+import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
+import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.mixin.LivingEntityImmobileInvoker;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -79,6 +86,88 @@ public final class SlidingFrictionGameTests {
         actor.setPos(absoluteSecond.getX(), absoluteSecond.getY(), absoluteSecond.getZ() + .5d);
         require(Math.abs(SlidingFrictionSystem.frictionFactor(actor) - .525d) < 1e-6,
                 "contacted puddles must contribute an arithmetic mean, not a pooled mixture");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void liveTimedFrictionQueryIsReadOnlyAndComposesWithoutSliding(GameTestHelper helper) {
+        Villager actor = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
+        actor.setNoAi(true);
+        require(!actor.hasData(ModDataAttachments.STATUS_EFFECT.get()), "fixture starts without status attachment");
+        require(SlidingFrictionSystem.frictionFactor(actor) == 1d, "absent status is neutral");
+        require(!actor.hasData(ModDataAttachments.STATUS_EFFECT.get()), "query must not materialize status data");
+
+        StatusEffectAttachment statuses = new StatusEffectAttachment();
+        statuses.apply(ModStatusEffects.createKey("slip_friction"), StatusEffectOperation.ADD,
+                java.util.OptionalInt.of(10), 0, new StatusEffectPayload.FrictionModifier(.4));
+        MS14Provider.update(actor, MS14Bridges.STATUS_EFFECT, statuses);
+        require(!SlipSystem.isSliding(actor), "timed status fixture is not sliding");
+        require(Math.abs(SlidingFrictionSystem.frictionFactor(actor) - .4d) < 1e-6,
+                "timed friction applies independently of sliding/contact");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void liveTimedFrictionMultipliesQualifyingPuddleFactor(GameTestHelper helper) {
+        BlockPos puddlePos = new BlockPos(2, 1, 2);
+        helper.setBlock(puddlePos, ModBlocks.PUDDLE.get().defaultBlockState());
+        PuddleBlockEntity puddle = (PuddleBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(puddlePos));
+        ReagentAttachment lube = new ReagentAttachment();
+        lube.specificAdd(ModReagents.createKey("spacelube"), 20f, puddle.getCapacity());
+        MS14Provider.update(puddle, MS14Bridges.REAGENT, lube);
+        Villager actor = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
+        actor.setNoAi(true);
+        SlidingAttachment sliding = new SlidingAttachment();
+        sliding.setSliding(true);
+        MS14Provider.update(actor, MS14Bridges.SLIDING, sliding);
+        StatusEffectAttachment statuses = new StatusEffectAttachment();
+        statuses.apply(ModStatusEffects.createKey("slip_friction"), StatusEffectOperation.ADD,
+                java.util.OptionalInt.of(10), 0, new StatusEffectPayload.FrictionModifier(.4));
+        MS14Provider.update(actor, MS14Bridges.STATUS_EFFECT, statuses);
+        require(Math.abs(SlidingFrictionSystem.frictionFactor(actor) - .02d) < 1e-6,
+                "timed factor must multiply qualifying puddle factor");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void liveTimedFrictionQueryTracksExpiryRemovalAndInvalidDefinition(GameTestHelper helper) {
+        Villager actor = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
+        actor.setNoAi(true);
+        var key = ModStatusEffects.createKey("slip_friction");
+        StatusEffectAttachment status = new StatusEffectAttachment();
+        status.apply(key, StatusEffectOperation.ADD, java.util.OptionalInt.of(1), 0,
+                new StatusEffectPayload.FrictionModifier(.3));
+        MS14Provider.update(actor, MS14Bridges.STATUS_EFFECT, status);
+        require(Math.abs(SlidingFrictionSystem.frictionFactor(actor) - .3d) < 1e-6,
+                "live status query sees attached friction payload");
+        StatusEffectSystem.advanceOneTick(actor);
+        require(Math.abs(SlidingFrictionSystem.frictionFactor(actor) - 1d) < 1e-9,
+                "live query is neutral after normal duration expiry");
+
+        status = MS14Provider.get(actor, StatusEffectSystem.bridge);
+        status.apply(key, StatusEffectOperation.ADD, java.util.OptionalInt.of(10), 0,
+                new StatusEffectPayload.FrictionModifier(.2));
+        MS14Provider.update(actor, MS14Bridges.STATUS_EFFECT, status);
+        status.remove(key);
+        MS14Provider.update(actor, MS14Bridges.STATUS_EFFECT, status);
+        require(SlidingFrictionSystem.frictionFactor(actor) == 1d, "live query is neutral after explicit removal");
+
+        var manager = PrototypeRuntime.serverManager();
+        var prior = manager.snapshot(com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.STATUS_EFFECT_TYPE);
+        status.apply(key, StatusEffectOperation.ADD, java.util.OptionalInt.of(10), 0,
+                new StatusEffectPayload.FrictionModifier(.2));
+        MS14Provider.update(actor, MS14Bridges.STATUS_EFFECT, status);
+        try {
+            manager.publishDecoded(com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.STATUS_EFFECT_TYPE,
+                    java.util.Map.of());
+            require(SlidingFrictionSystem.frictionFactor(actor) == 1d,
+                    "live query treats invalidated prototype as neutral");
+        } finally {
+            manager.publishDecoded(com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects.STATUS_EFFECT_TYPE,
+                    prior.asMap());
+        }
+        require(Math.abs(SlidingFrictionSystem.frictionFactor(actor) - .2d) < 1e-6,
+                "exact prior resolved catalog restored after invalidation probe");
         helper.succeed();
     }
 

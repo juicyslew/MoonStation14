@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.prototype.EggplantProductCatalogCandidateTest" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-10-16T11:14:35.538Z" hostname="DESKTOP-4F0ER3K" time="0.058">
+  <properties/>
+  <testcase name="eggplantProductResolvesAgainstSeedAndInheritedFoodDefaultsWithoutPublication()" classname="com.juicyslew.moonstation14.ms14.prototype.EggplantProductCatalogCandidateTest" time="0.058">
+    <failure message="org.opentest4j.AssertionFailedError: botany-catalog-candidate/ingestion_profile/edible_defaults.json ==&gt; expected: not &lt;null&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: botany-catalog-candidate/ingestion_profile/edible_defaults.json ==&gt; expected: not &lt;null&gt;
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at app//org.junit.jupiter.api.AssertNotNull.failNull(AssertNotNull.java:49)
+	at app//org.junit.jupiter.api.AssertNotNull.assertNotNull(AssertNotNull.java:35)
+	at app//org.junit.jupiter.api.Assertions.assertNotNull(Assertions.java:312)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.resourcesFrom(BotanyCatalogCandidateTest.java:333)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.resources(BotanyCatalogCandidateTest.java:321)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.EggplantProductCatalogCandidateTest.eggplantProductResolvesAgainstSeedAndInheritedFoodDefaultsWithoutPublication(EggplantProductCatalogCandidateTest.java:33)
+	at java.base@21.0.10/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

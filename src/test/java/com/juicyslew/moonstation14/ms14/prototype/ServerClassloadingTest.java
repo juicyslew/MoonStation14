@@ -159,8 +159,13 @@ class ServerClassloadingTest {
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/mouse/client/")
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mobs/client/")
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")
-                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")
-                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/tesla/client/")) {
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/tesla/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/combat/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/item_processing/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/animals/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/validation/client/")
+                           || relativePath.equals("com/juicyslew/moonstation14/ms14/animals/diagnostics/AnimalPopulationClientSampler.java")) {
                     continue;
                 }
 

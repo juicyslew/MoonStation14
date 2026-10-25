@@ -1,1 +1,6 @@
-{"parent":"minecraft:item/generated","textures":{"layer0":"moonstation14:block/disposal/pipe-s_frame0"}}
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "moonstation14:block/disposal/pipe-s_frame0"
+  }
+}

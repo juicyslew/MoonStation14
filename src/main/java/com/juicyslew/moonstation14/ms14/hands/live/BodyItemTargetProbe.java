@@ -252,13 +252,19 @@ public final class BodyItemTargetProbe {
      */
     @Nullable
     public static Vec3 loadedAimPoint(ServerLevel level, LivingEntity body, double reach) {
+        return loadedAimPoint(level, body, reach, body == null ? null : body.getLookAngle());
+    }
+
+    /** Loaded-only aim ray with an explicit normalized direction for server-authorized forced throws. */
+    public static Vec3 loadedAimPoint(ServerLevel level, LivingEntity body, double reach, Vec3 direction) {
         if (level == null || body == null || !level.getServer().isSameThread()
                 || body.level() != level || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
                 || level.getEntity(body.getUUID()) != body || !Double.isFinite(reach)
-                || reach <= 0 || reach > MAX_THROW_REACH) return null;
-        Vec3 from = body.getEyePosition(), look = body.getLookAngle();
-        if (!finite(from) || !finite(look) || look.lengthSqr() < .99 || look.lengthSqr() > 1.01) return null;
-        Vec3 to = from.add(look.scale(reach));
+                || reach <= 0 || reach > MAX_THROW_REACH || !finite(direction)
+                || direction.lengthSqr() < .99 || direction.lengthSqr() > 1.01) return null;
+        Vec3 from = body.getEyePosition();
+        if (!finite(from)) return null;
+        Vec3 to = from.add(direction.scale(reach));
         if (!finite(to) || !inside(level, from) || !inside(level, to)) return null;
         try {
             BlockHitResult hit = loadedAlong(level, from, to).clip(

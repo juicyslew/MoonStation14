@@ -15,6 +15,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Entity;
+import com.juicyslew.moonstation14.entities.LooseItemEntity;
+import com.juicyslew.moonstation14.ms14.damage.ItemDamageKernel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
@@ -40,7 +43,9 @@ public final class ServerExplosionService {
     private ServerExplosionService() { }
 
     public enum Status { APPLIED, PARTIAL, UNKNOWN_PROTOTYPE, CLIENT_LEVEL, INVALID_OR_STALE, PLAN_FAILED }
-    public record Result(Status status, int visited, int breached, int mutated, int damaged) { }
+    public record Result(Status status, int visited, int breached, int mutated, int damaged, int plannedIntensityIterationCount) {
+        public Result(Status status, int visited, int breached, int mutated, int damaged) { this(status, visited, breached, mutated, damaged, 0); }
+    }
 
     /** Executes only when explicitly invoked by trusted server code. */
     public static Result execute(ServerLevel level, BlockPos source, ResourceLocation prototypeId,
@@ -60,7 +65,7 @@ public final class ServerExplosionService {
         } catch (RuntimeException exception) {
             return result(Status.PLAN_FAILED, 0);
         }
-        if (!plan.successful()) return new Result(Status.PLAN_FAILED, plan.visited(), 0, 0, 0);
+        if (!plan.successful()) return new Result(Status.PLAN_FAILED, plan.visited(), 0, 0, 0, plan.expansionIterations());
 
         for (var entry : observed.entrySet()) if (!Objects.equals(entry.getValue(), stateIfLoaded(level, entry.getKey())))
             return new Result(Status.INVALID_OR_STALE, plan.visited(), 0, 0, 0);
@@ -74,14 +79,17 @@ public final class ServerExplosionService {
                 if (!Objects.equals(observed.get(pos), stateIfLoaded(level, pos)))
                     return new Result(Status.INVALID_OR_STALE, plan.visited(), 0, 0, 0);
                 int remaining = MAX_ENTITIES_INSPECTED - inspected;
-                ArrayList<LivingEntity> cellEntities = new ArrayList<>(Math.min(remaining + 1, 16));
-                level.getEntities(EntityTypeTest.forClass(LivingEntity.class), new AABB(pos).inflate(0.001),
-                        ServerExplosionService::eligibleForPhysicalHit, cellEntities, remaining + 1);
+                ArrayList<Entity> cellEntities = new ArrayList<>(Math.min(remaining + 1, 16));
+                level.getEntities(EntityTypeTest.forClass(Entity.class), new AABB(pos).inflate(0.001),
+                        entity -> entity instanceof LooseItemEntity
+                                || entity instanceof LivingEntity living && eligibleForPhysicalHit(living),
+                        cellEntities, remaining + 1);
                 inspected += cellEntities.size();
                 if (inspected > MAX_ENTITIES_INSPECTED)
                     return new Result(Status.INVALID_OR_STALE, plan.visited(), 0, 0, 0);
-                for (LivingEntity entity : cellEntities) {
-                    if (!intersects(entity.getBoundingBox(), pos)) continue;
+                for (Entity entity : cellEntities) {
+                    if (!(entity instanceof LivingEntity) && !(entity instanceof LooseItemEntity)) continue;
+                    if (entity.isRemoved() || !entity.position().toVector3f().isFinite() || !intersects(entity.getBoundingBox(), pos)) continue;
                     EntityHit old = hits.get(entity.getUUID());
                     if (old == null) {
                         if (hits.size() >= MAX_ENTITY_HITS)
@@ -105,6 +113,10 @@ public final class ServerExplosionService {
                         return new Result(Status.INVALID_OR_STALE, plan.visited(), 0, 0, 0);
                     damage.put(amount.getKey(), value);
                 }
+                if (entry.getValue().entity instanceof LooseItemEntity loose) {
+                    var profile = loose.profile().itemDamage();
+                    damage = profile == null ? Map.of() : ItemDamageKernel.filterAllowed(damage, profile.allowedGroups(), profile.allowedTypes());
+                }
                 damageByEntity.put(entry.getKey(), damage);
             }
         } catch (RuntimeException exception) { return new Result(Status.INVALID_OR_STALE, plan.visited(), 0, 0, 0); }
@@ -125,7 +137,7 @@ public final class ServerExplosionService {
         boolean failed = false;
         // Apply one outward impulse per frozen entity hit, before damage can alter entity state.
         for (var entry : orderedHits) {
-            LivingEntity entity = entry.getValue().entity;
+            Entity entity = entry.getValue().entity;
             if (!eligibleForKnockback(entity)) continue;
             try {
                 var impulse = BlastKnockbackPolicy.calculate(entry.getValue().intensity,
@@ -152,8 +164,13 @@ public final class ServerExplosionService {
         for (var entry : orderedHits) {
             try {
                 // APPLIED means the ledger accepted the request; vanilla hurt cancellation may still reject projected health damage.
-                DamageSystem.Result applied = DamageSystem.applyHealthChange(entry.getValue().entity, damageByEntity.get(entry.getKey()), 1f, false, DamageSystem.Cause.EXPLOSION);
-                if (applied == DamageSystem.Result.APPLIED) damaged++; else failed = true;
+                Entity entity = entry.getValue().entity;
+                if (entity instanceof LivingEntity living) {
+                    DamageSystem.Result applied = DamageSystem.applyHealthChange(living, damageByEntity.get(entry.getKey()), 1f, false, DamageSystem.Cause.EXPLOSION);
+                    if (applied == DamageSystem.Result.APPLIED) damaged++; else failed = true;
+                } else if (entity instanceof LooseItemEntity loose && !damageByEntity.get(entry.getKey()).isEmpty()) {
+                    if (loose.applyTypedItemDamage(level, damageByEntity.get(entry.getKey()), false)) damaged++;
+                }
             } catch (RuntimeException ignored) { failed = true; }
         }
 
@@ -228,14 +245,15 @@ public final class ServerExplosionService {
         return chunk == null ? null : chunk.getBlockState(pos);
     }
     private static boolean intersects(AABB box, BlockPos pos) { return box.intersects(new AABB(pos)); }
-    private static boolean eligibleForKnockback(LivingEntity entity) {
-        return eligibleForPhysicalHit(entity) && !entity.noPhysics
-                && (!(entity instanceof Player player) || !player.isSpectator());
+    private static boolean eligibleForKnockback(Entity entity) {
+        if (entity instanceof LooseItemEntity) return !entity.isRemoved() && entity.isAddedToLevel();
+        return entity instanceof LivingEntity living && eligibleForPhysicalHit(living) && !living.noPhysics
+                && (!(living instanceof Player player) || !player.isSpectator());
     }
+    private static Result result(Status status, int visited) { return new Result(status, visited, 0, 0, 0, 0); }
     private static boolean eligibleForPhysicalHit(LivingEntity entity) {
         return entity != null && !entity.isRemoved() && (entity.isAlive()
                 || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isRetainedNonAliveBody(entity));
     }
-    private static Result result(Status status, int visited) { return new Result(status, visited, 0, 0, 0); }
-    private record EntityHit(LivingEntity entity, double intensity) { }
+    private record EntityHit(Entity entity, double intensity) { }
 }

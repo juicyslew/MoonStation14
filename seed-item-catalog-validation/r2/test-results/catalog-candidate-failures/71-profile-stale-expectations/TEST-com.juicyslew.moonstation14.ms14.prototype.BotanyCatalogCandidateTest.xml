@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest" tests="5" skipped="0" failures="2" errors="0" timestamp="2026-10-16T07:44:15.448Z" hostname="DESKTOP-4F0ER3K" time="0.514">
+  <properties/>
+  <testcase name="allAuthoredProfilesAndMutationEdgesMatchReferenceInventory()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest" time="0.118"/>
+  <testcase name="specialIdentityAndBiologyAnchorsRemainDistinctAndCanonical()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest" time="0.249"/>
+  <testcase name="fiveAuthoredProfilesResolveThroughStageWithoutPublishingAndRejectBadTarget()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest" time="0.06">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;seeds-onion-red-name&gt; but was: &lt;seeds-onionred-name&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;seeds-onion-red-name&gt; but was: &lt;seeds-onionred-name&gt;
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at app//org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:182)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:177)
+	at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.lambda$assertVegetableCatalog$16(BotanyCatalogCandidateTest.java:189)
+	at java.base@21.0.10/java.util.Map.forEach(Map.java:733)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.assertVegetableCatalog(BotanyCatalogCandidateTest.java:187)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.fiveAuthoredProfilesResolveThroughStageWithoutPublishingAndRejectBadTarget(BotanyCatalogCandidateTest.java:157)
+	at java.base@21.0.10/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="elevenVegetableProfilesResolveThroughExistingStageAndCodec()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest" time="0.015">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;seeds-onion-red-name&gt; but was: &lt;seeds-onionred-name&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;seeds-onion-red-name&gt; but was: &lt;seeds-onionred-name&gt;
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at app//org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:182)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:177)
+	at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.lambda$assertVegetableCatalog$16(BotanyCatalogCandidateTest.java:189)
+	at java.base@21.0.10/java.util.Map.forEach(Map.java:733)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.assertVegetableCatalog(BotanyCatalogCandidateTest.java:187)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.elevenVegetableProfilesResolveThroughExistingStageAndCodec(BotanyCatalogCandidateTest.java:173)
+	at java.base@21.0.10/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="allSeventyOneProfilesDecodeViaStageWithoutPublicationAndRejectInvalidTarget()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest" time="0.069"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

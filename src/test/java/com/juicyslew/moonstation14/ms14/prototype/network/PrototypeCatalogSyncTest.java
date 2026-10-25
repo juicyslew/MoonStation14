@@ -5,6 +5,9 @@ import com.google.gson.JsonParser;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeType;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.character.components.MeleeAttackComponent;
+import com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy;
 import com.mojang.serialization.Codec;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.RegistryAccess;
@@ -36,6 +39,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -236,6 +240,103 @@ class PrototypeCatalogSyncTest {
         assertEquals(1, publications.get());
         assertFalse(assembler.hasStagedSync());
         assertEquals(server.encodePublishedCatalogs(), client.encodePublishedCatalogs());
+    }
+
+    @Test
+    void shippedCharacterCatalogSurvivesProductionSyncAndClientPublication() throws IOException {
+        Map<ResourceLocation, JsonObject> characters = loadResources(
+                "data/moonstation14/moonstation14/character");
+        assertTrue(characters.containsKey(id("human")));
+        assertTrue(characters.containsKey(id("cockroach")));
+
+        PrototypeManager server = new PrototypeManager();
+        server.register(ModReagents.REAGENT_TYPE);
+        server.register(ModCharacters.CHARACTER_TYPE);
+        server.reload(Map.of(ModReagents.REAGENT_TYPE, loadResources(),
+                ModCharacters.CHARACTER_TYPE, characters));
+        Map<ResourceLocation, Map<ResourceLocation, JsonObject>> shippedResolved = server.encodePublishedCatalogs();
+        List<PrototypeCatalogSyncPayload> chunks = PrototypeCatalogChunker.chunk(UUID.randomUUID(), 41, shippedResolved);
+        List<PrototypeCatalogSyncPayload> received = chunks.stream().map(chunk -> decode(encode(chunk))).toList();
+
+        PrototypeManager client = new PrototypeManager();
+        client.register(ModReagents.REAGENT_TYPE);
+        client.register(ModCharacters.CHARACTER_TYPE);
+        AtomicInteger published = new AtomicInteger();
+        PrototypeCatalogSyncAssembler assembler = new PrototypeCatalogSyncAssembler(snapshot -> {
+            client.publishEncodedCatalogs(snapshot);
+            published.incrementAndGet();
+        });
+        List<PrototypeCatalogSyncPayload> reversed = new ArrayList<>(received);
+        reversed.sort(Comparator.comparingInt(PrototypeCatalogSyncPayload::chunkIndex).reversed());
+        for (PrototypeCatalogSyncPayload chunk : reversed) assembler.accept(chunk);
+
+        assertEquals(1, published.get());
+        assertEquals(shippedResolved, client.encodePublishedCatalogs());
+        var clientCharacters = client.snapshot(ModCharacters.CHARACTER_TYPE);
+        var cockroach = ModCharacters.require(clientCharacters, id("cockroach"));
+        var melee = cockroach.component(MeleeAttackComponent.class).orElseThrow();
+        assertTrue(melee.damage().types().isEmpty(), "cockroach's resolved zero damage survives client publication");
+        assertEquals(CharacterMovementPolicy.fromCharacterData(
+                ModCharacters.require(clientCharacters, id("human"))),
+                CharacterMovementPolicy.fromCharacterData(ModCharacters.require(
+                        server.snapshot(ModCharacters.CHARACTER_TYPE), id("human"))));
+        assertEquals(CharacterMovementPolicy.fromCharacterData(cockroach),
+                CharacterMovementPolicy.fromCharacterData(ModCharacters.require(
+                        server.snapshot(ModCharacters.CHARACTER_TYPE), id("cockroach"))));
+        var serverCharacters = server.snapshot(ModCharacters.CHARACTER_TYPE);
+        var flyingEntry = serverCharacters.asMap().entrySet().stream()
+                .filter(entry -> entry.getValue().component(com.juicyslew.moonstation14.ms14.character.components.FlightComponent.class).isPresent())
+                .findFirst().orElseThrow();
+        var flyingHost = flyingEntry.getValue();
+        var serverFlight = flyingHost.component(com.juicyslew.moonstation14.ms14.character.components.FlightComponent.class).orElseThrow();
+        assertEquals(com.juicyslew.moonstation14.ms14.character.components.FlightComponent.DEFAULT_NPC_CRUISE_HEIGHT,
+                serverFlight.npcCruiseHeight());
+        var encodedCharacters = shippedResolved.get(ModCharacters.CHARACTER_TYPE.typeId());
+        assertNotNull(encodedCharacters, "production catalog keys=" + shippedResolved.keySet());
+        var encodedFlyingHost = encodedCharacters.get(flyingEntry.getKey());
+        assertNotNull(encodedFlyingHost, "production character keys include resolved Flight host " + flyingEntry.getKey());
+        var encodedFlight = encodedFlyingHost
+                .getAsJsonArray("components").asList().stream().map(com.google.gson.JsonElement::getAsJsonObject)
+                .filter(component -> component.get("type").getAsString().equals("Flight")).findFirst().orElseThrow();
+        if (encodedFlight.has("npc_cruise_height"))
+            assertEquals(1.5, encodedFlight.get("npc_cruise_height").getAsDouble());
+        else assertEquals(1.5, serverFlight.npcCruiseHeight(),
+                "canonical codec elides the default-valued optional field; resolved server value remains default");
+        var publishedFlightHost = clientCharacters.get(flyingEntry.getKey());
+        assertEquals(serverFlight, publishedFlightHost.component(
+                com.juicyslew.moonstation14.ms14.character.components.FlightComponent.class).orElseThrow(),
+                "resolved Flight default survives production catalog encode, wire roundtrip, and client publication");
+    }
+
+    @Test
+    void customInheritedFlightHeightSurvivesProductionCatalogWirePublication() throws IOException {
+        Map<ResourceLocation, JsonObject> characters = loadResources(
+                "data/moonstation14/moonstation14/character");
+        characters.put(id("flight_height_wire_child"), com.google.gson.JsonParser.parseString("""
+                {"parent":"moonstation14:bat","host_entity_types":["minecraft:bat"],"components":[{"type":"Flight","npc_cruise_height":2.0}]}
+                """).getAsJsonObject());
+        PrototypeManager server = new PrototypeManager();
+        server.register(ModReagents.REAGENT_TYPE);
+        server.register(ModCharacters.CHARACTER_TYPE);
+        server.reload(Map.of(ModReagents.REAGENT_TYPE, loadResources(), ModCharacters.CHARACTER_TYPE, characters));
+        var childId = id("flight_height_wire_child");
+        var resolvedFlight = server.snapshot(ModCharacters.CHARACTER_TYPE).get(childId)
+                .component(com.juicyslew.moonstation14.ms14.character.components.FlightComponent.class).orElseThrow();
+        assertEquals(2.0, resolvedFlight.npcCruiseHeight());
+
+        var chunks = PrototypeCatalogChunker.chunk(UUID.randomUUID(), 42, server.encodePublishedCatalogs());
+        var client = new PrototypeManager();
+        client.register(ModReagents.REAGENT_TYPE);
+        client.register(ModCharacters.CHARACTER_TYPE);
+        int[] publications = {0};
+        var assembler = new PrototypeCatalogSyncAssembler(snapshot -> {
+            client.publishEncodedCatalogs(snapshot);
+            publications[0]++;
+        });
+        for (var chunk : chunks) assembler.accept(decode(encode(chunk)));
+        assertEquals(1, publications[0]);
+        assertEquals(resolvedFlight, client.snapshot(ModCharacters.CHARACTER_TYPE).get(childId)
+                .component(com.juicyslew.moonstation14.ms14.character.components.FlightComponent.class).orElseThrow());
     }
 
     @Test
@@ -466,7 +567,10 @@ class PrototypeCatalogSyncTest {
     }
 
     private static Map<ResourceLocation, JsonObject> loadResources() throws IOException {
-        String resourceRoot = "data/moonstation14/moonstation14/reagent";
+        return loadResources("data/moonstation14/moonstation14/reagent");
+    }
+
+    private static Map<ResourceLocation, JsonObject> loadResources(String resourceRoot) throws IOException {
         URL root = PrototypeCatalogSyncTest.class.getClassLoader().getResource(resourceRoot);
         if (root == null) {
             throw new IOException("Classpath resource directory not found: " + resourceRoot);

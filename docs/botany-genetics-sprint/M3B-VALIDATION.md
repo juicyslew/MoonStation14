@@ -1,0 +1,25 @@
+# M3B gas mutation and exchange validation plan
+
+This records the bounded M3B gate result, not full-sprint completion or owner acceptance. Reuse the existing resolved profile, `PlantMutationSystem`, `PlantMetabolismEvaluator`, `AtmosphereService`, tray, packet and fixture owners. The detailed parity and adaptation contract is in [M3B composition](M3B-COMPOSITION.md) and [live composition](M3B-LIVE-COMPOSITION.md).
+
+## Current evidence and remaining gate
+
+Parent-verified candidate `botany-gas-mutation-20261014-r3` reached **ready_for_owner**. Its gate report is `build/agent-workflow/botany-genetics-sprint/reports/botany-gas-mutation-20261014-r3-gate-validation.json`: build and jar **PASS**, focused JVM **81/81 across 13 classes**, filtered interaction/prediction readiness **101/101**, and native **34/34 selected of 857 PASS**. M3B implements inherited gas genetics and typed two-mutation source-ordered dispatch (amount draw before gas selection), ordinary 15-second full-or-none named-gas exchange, post-consumption pressure, midpoint-to-even exudation rounding with minimum one mole, and observable strict finite-owned-cell write failures. Normal authenticated profile transmission and the visibly arranged gas-tray status were exercised. This result is bound to the exact r3 snapshot; later edits do not inherit its whole-tree gate freshness.
+
+Historical r1 and r2 failed artifacts remain preserved; r3 corrects a synthetic completed-status sample that omitted production report evidence, not the production parser. Do not infer that parser behavior was weakened. The earlier chamber's original numeric pressure/temperature values were not logged, so the precise old cause remains unverified; do not claim an ambient race was proved. Earlier issues included:
+
+1. Shortage chamber setup misses wheat pressure/temperature bounds (fixture line 82–83).
+2. The single-command fixture acquired-IDs parser captures setup/status prose.
+3. A registered M2 chemical extract/packet assertion at line 9661 requires both nonempty gas maps; this is a suspected shared-assertion issue, not yet confirmed.
+
+The fixture arrangement uses the existing trusted finite initializer and `AtmosphereService.INSTANCE`, with a two-cell proof and numeric diagnostics. Shared packet/replant gas-map equality permits legitimate M2 empty profiles while requiring nonempty maps only for the arranged case. R2's status-sample mismatch was corrected in r3 without changing the production parser. Preserve historical failed artifacts and owner configuration. No full-suite, connected-client, GPU/visual review, or owner acceptance is claimed; full-suite validation is reserved for the final broad gate.
+
+## Required focused validation
+
+Use [the machine-readable gate plan](gas-mutation-gate-plan.json). Its acceptance criteria and each check's `covers` entries are exact-membership contracts: validate programmatically that every check coverage string is an exact acceptance-criteria member, and that all criteria are covered. The focused JVM check is the exact existing 13-class selection in the author run, including `GasMixtureTest`. Gas-domain coverage is `SeedProfileTest.gasGenesUseCanonicalIdsCopyOnWriteAndSurviveOtherGeneticMutations`, `PlantMutationCycleTest.resolvedSourceGasMutationsApplyInSourceOrderAndAreNotDiagnosedUnsupported`, and `PlantMutationCycleTest.gasMutationUniformlyAddressesEveryCanonicalSpeciesAndKeepsDirectionIndependent`; chemical-copy regression is in `PlantChemicalMutationTest`. No nonexistent standalone `PlantGasMutationTest` is selected.
+
+The plan requires fresh compile/build/jar evidence; focused JVM profile-copy, gas mutation, gas lifecycle, mutation, metabolism and consumer tests; only `interaction,prediction` readiness regressions; and native tags `botany,botany-genetics,botany-chemical-mutation,botany-stat-mutation,botany-gas-mutation` in fresh `build/gametest-botany-gas-mutation-r2`. The registered live fixture is `PlantGasMetabolismGameTests`; its sealed finite chamber checks aggregate gas amounts for successful exchange and shortage, while the normal registered path covers arranged gas-gene harvest/extract/replant and the visible gas report. Do not select all atmosphere tests by default. Parent/integration lead owns the final broader gate and serialized review.
+
+## Explicit boundaries
+
+Finite owned writable cells and strict write policy are in scope; unclaimed or unloaded `NEW` cell cases are not directly tested (the existing ownership guard is reused). No genetics/world-write atomic transaction, private boundary-ledger proof, or new rollback framework is claimed. The native chamber assertions compare aggregate moles to avoid diffusion artifacts. The visible gas report is scoped operator/fixture status, not ordinary analyzer UI. Full species coverage, SelfHarvest, pollen, special effects/capabilities, catalog/models/machine visuals, full suite, connected-client/GPU review, and owner acceptance remain open and unverified. M3B readiness applies only to the exact r3 snapshot and does not establish full sprint completion.

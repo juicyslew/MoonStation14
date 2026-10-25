@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-23T04:59:58.872Z" hostname="DESKTOP-4F0ER3K" time="0.012">
+  <properties/>
+  <testcase name="emptyPlantPreservesActualZeroResources()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.002"/>
+  <testcase name="plantConcernUsesHalfEnduranceAndStrictlyGreaterThanLifespan()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.001"/>
+  <testcase name="reportsLiveResourcesAndHealthAgainstResolvedEndurance()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.001"/>
+  <testcase name="viabilityNoticeIsQualitativeLivingOnlyAndAbsentForEmptyOrDeadSource()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.0"/>
+  <testcase name="presentationUsesTheCurrentInstanceProfileEnduranceWithoutMutatingPlant()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.0"/>
+  <testcase name="projectionDoesNotMutatePlantState()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.001"/>
+  <testcase name="warningProjectionHonorsVisibilityAndThresholdsAndOnlyReportsKnownAttemptedGas()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.002"/>
+  <testcase name="emptyPlantReportsCurrentResourcesWithoutPlantIdentityOrHealthDetail()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.0"/>
+  <testcase name="roundsResourcesAtHalfUsingNearestInteger()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.0"/>
+  <testcase name="zeroPlantHealthDoesNotAddPointlessHealthDetail()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.001"/>
+  <testcase name="reportsEveryStatusAndUsesActualResolvedSeedItemName()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.001"/>
+  <testcase name="ligneousExaminationIsQualitativeAndLivingOnly()" classname="com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -47,12 +47,16 @@ def _index_digest(root: Path) -> str:
 
 def validate_shared_config_plan_shape(plan):
     """Validate exact public plan contract, reusable by package/deploy validators."""
-    if not isinstance(plan, dict) or set(plan) != {"version", "mode", "template", "initialize", "untrack_generated", "targets"}:
+    required_fields = {"version", "mode", "template", "initialize", "untrack_generated", "targets"}
+    if (not isinstance(plan, dict) or set(plan) - (required_fields | {"refresh_reviewer_instructions"}) or
+            not required_fields.issubset(plan)):
         raise ValueError("shared config plan has unknown or missing fields")
     if type(plan["version"]) is not int or plan["version"] != 1 or plan["mode"] != "shared-opencode-config":
         raise ValueError("shared config plan mode/version is invalid")
     if type(plan["initialize"]) is not bool or type(plan["untrack_generated"]) is not bool:
         raise ValueError("shared config flags must be booleans")
+    if "refresh_reviewer_instructions" in plan and type(plan["refresh_reviewer_instructions"]) is not bool:
+        raise ValueError("shared config reviewer-instruction flag must be boolean")
     template = plan["template"]
     if (not isinstance(template, dict) or set(template) != {"path", "sha256"} or
             not isinstance(template["path"], str) or not Path(template["path"]).is_absolute() or
@@ -68,6 +72,32 @@ def validate_shared_config_plan_shape(plan):
                 for k in required - {"target"}) for row in rows) or {r["target"] for r in rows if isinstance(r, dict)} != names:
         raise ValueError("shared config plan must bind MAIN and agents 01..04 exactly once")
     return plan
+
+
+def _refresh_reviewer_instructions(overlay: dict) -> dict:
+    """Refresh existing managed reviewer instructions without provisioning agents."""
+    result = deepcopy(overlay)
+    config = result.get("config")
+    if not isinstance(config, dict):
+        return result
+    if "agents" not in config:
+        return result
+    agents = config["agents"]
+    roles = ("implementation", "parity", "coverage", "fidelity")
+    if not isinstance(agents, dict):
+        raise ValueError("reviewer instruction refresh requires agents to be an object")
+    expected = {f"workflow-reviewer-{role}" for role in roles}
+    present = expected.intersection(agents)
+    if not present:
+        return result
+    if present != expected:
+        raise ValueError("inconsistent partial managed reviewer profile; expected zero or all four managed reviewer agents")
+    for role in roles:
+        agent = agents[f"workflow-reviewer-{role}"]
+        if not isinstance(agent, dict) or not isinstance(agent.get("system"), str):
+            raise ValueError(f"managed reviewer system instruction is malformed: {role}")
+        agent["system"] = _reviewer_system(role, "")
+    return result
 
 
 def stage_shared_config_plan(binding_plan: Path, stage: Path, receipt: dict, *, main_root: Path, shared_root: Path) -> dict:
@@ -98,12 +128,15 @@ def stage_shared_config_plan(binding_plan: Path, stage: Path, receipt: dict, *, 
         _assert_no_reparse(Path(root.anchor), root)
         cfg = root / "opencode.jsonc"; overlay_path = root / ".opencode/workflow/opencode-local.json"; ignore_path = root / ".gitignore"
         for path in (cfg, overlay_path, ignore_path): _assert_no_reparse(root, path)
-        cfg_bytes = cfg.read_bytes(); cfg_sha = hashlib.sha256(cfg_bytes).hexdigest()
+        cfg_bytes = cfg.read_bytes() if cfg.is_file() else b""; cfg_sha = hashlib.sha256(cfg_bytes).hexdigest()
         owners = [r for r in receipt.get("files", []) if r.get("target") == name and r.get("path") == "opencode.jsonc" and not r.get("deleted")]
-        if len(owners) != 1 or owners[0].get("new_sha256") != cfg_sha or row["expected_config_sha256"] != cfg_sha:
+        if (len(owners) != 1 or row["expected_config_sha256"] != (cfg_sha if cfg.is_file() else None) or
+                (owners[0].get("new_sha256") != cfg_sha and
+                 (plan["initialize"] or not owners[0].get("config_scope", {}).get("shared_template")))):
             raise ValueError(f"config is stale or not receipt-owned: {name}")
         local_exists = overlay_path.is_file()
         local_bytes = overlay_path.read_bytes() if local_exists else None
+        overlay_output = local_bytes
         local_sha = hashlib.sha256(local_bytes).hexdigest() if local_exists else None
         if local_sha != row["expected_local_sha256"]: raise ValueError(f"local overlay hash mismatch: {name}")
         if plan["initialize"] and local_exists:
@@ -117,11 +150,20 @@ def stage_shared_config_plan(binding_plan: Path, stage: Path, receipt: dict, *, 
             import workflow_opencode_config as oc
             overlay = oc._overlay(local_bytes)
             if overlay["variables"] != variables: raise ValueError(f"local overlay variables differ: {name}")
+            if plan.get("refresh_reviewer_instructions"):
+                prior_overlay = overlay
+                overlay = _refresh_reviewer_instructions(overlay)
+                if overlay != prior_overlay:
+                    overlay_output = serialize_config(overlay).encode()
         else:
             if row["expected_local_sha256"] is not None: raise ValueError("planned local overlay is absent")
             overlay = extract_local_overlay(template, cfg_bytes, variables)
         desired = render_config(template, overlay)
-        after = cfg_bytes if configs_equivalent(__import__("workflow_opencode_config")._loads(cfg_bytes), desired) else serialize_config(desired).encode()
+        try:
+            equivalent = cfg.is_file() and configs_equivalent(__import__("workflow_opencode_config")._loads(cfg_bytes), desired)
+        except (ValueError, UnicodeError):
+            equivalent = False
+        after = cfg_bytes if equivalent and cfg_sha == owners[0].get("new_sha256") else serialize_config(desired).encode()
         ignore_bytes = ignore_path.read_bytes() if ignore_path.exists() else b""
         ignore_sha = hashlib.sha256(ignore_bytes).hexdigest()
         if ignore_sha != row["expected_gitignore_sha256"]: raise ValueError(f"gitignore hash mismatch: {name}")
@@ -132,18 +174,20 @@ def stage_shared_config_plan(binding_plan: Path, stage: Path, receipt: dict, *, 
                 ignore_after += (pattern + "\n").encode()
         index = _index_digest(root)
         if index != row["expected_index_digest"]: raise ValueError(f"git index drift: {name}")
-        config_scope = {**owners[0].get("config_scope", {}), "shared_template": {"path": str(template_path), "sha256": plan["template"]["sha256"]}, "local_overlay": {"path": ".opencode/workflow/opencode-local.json", "sha256": hashlib.sha256(serialize_config(overlay).encode()).hexdigest()}}
+        effective_overlay_bytes = overlay_output if local_exists else serialize_config(overlay).encode()
+        config_scope = {**owners[0].get("config_scope", {}), "shared_template": {"path": str(template_path), "sha256": plan["template"]["sha256"]}, "local_overlay": {"path": ".opencode/workflow/opencode-local.json", "sha256": hashlib.sha256(effective_overlay_bytes).hexdigest()}}
         for rel, before, output, receipt_sha, scope in (
             ("opencode.jsonc", cfg_bytes, after, owners[0]["new_sha256"], config_scope),
-            (".opencode/workflow/opencode-local.json", local_bytes, (serialize_config(overlay).encode() if not local_exists else local_bytes), local_sha, None),
+            (".opencode/workflow/opencode-local.json", local_bytes, effective_overlay_bytes, local_sha, None),
             (".gitignore", ignore_bytes, ignore_after, None, None)):
             if before == output and not (scope is not None and owners[0].get("config_scope") != scope): continue
             br = Path("bindings/backups") / name / rel; sr = Path("bindings") / name / rel
             for p in (stage / br, stage / sr): _assert_no_reparse(stage, p); p.parent.mkdir(parents=True, exist_ok=True)
-            if before is not None: (stage / br).write_bytes(before)
+            no_backup = rel == "opencode.jsonc" and not plan["initialize"]
+            if before is not None and not no_backup: (stage / br).write_bytes(before)
             (stage / sr).write_bytes(output)
             new_hash=hashlib.sha256(output).hexdigest(); item={"target":name,"path":rel,"old_sha256":hashlib.sha256(before).hexdigest() if before is not None else None,"new_sha256":new_hash,"receipt_sha256":receipt_sha,"staged_path":sr.as_posix(),"staged_sha256":new_hash,"source":str(root/rel),"source_sha256":hashlib.sha256(before).hexdigest() if before is not None else None}
-            if before is not None: item.update({"backup_path":br.as_posix(),"backup_sha256":item["old_sha256"]})
+            if before is not None and not no_backup: item.update({"backup_path":br.as_posix(),"backup_sha256":item["old_sha256"]})
             if scope is not None: item["config_scope"]=scope
             staged_files[f"{name}/{rel}"]=item
     plan_rel="bindings/binding-plan.json"; (stage/plan_rel).parent.mkdir(parents=True,exist_ok=True); (stage/plan_rel).write_bytes(raw)
@@ -461,15 +505,23 @@ def _validate_reviewer_declarations(declarations, target_rows, main_root: Path) 
 
 
 def _reviewer_system(role: str, output_dir: str) -> str:
-    shared = ("Review only the assigned frozen task and supplied source/evidence. Claim it, inspect your scope, submit "
+    shared = ("Review only the assigned frozen task and supplied source/evidence. OWNER_READY means technical-ready for owner testing, not owner acceptance; owner acceptance is a separate later decision. Classify each blocking finding as TECHNICAL. Outstanding subjective/physical owner observations belong in owner_followups, never blocking findings. Concrete UI/render/input/audio defects and required machine-check coverage remain technical blockers even in those domains. Claim it, inspect your scope, submit "
               "evidence-backed PASS/FAIL through its role tool; report missing/bad inputs as ERROR. Source is read-only. "
-              "Write only the assigned result/error JSON in the permitted private output directory. Do not edit, rerun "
+              "Do not assume filesystem write tools, shell, or any generic read/edit tool exists. Do not edit, rerun "
               "checks, orchestrate, or spawn agents.")
-    protocol = (f"{REVIEWER_ROLE_GUIDANCE[role]} Every tool call must include your assigned session_id. Claim with claim_task using contract_version=1 and the exact command_id, "
-                "task_id, run_id, evaluation_generation, assignment_generation, and input_digest from the assignment. "
-                "Use status(task_id) for bound frozen input paths. "
-                f"Write only {output_dir}/<task_id>.<assignment_generation>.result.json or .error.json. "
-                 "Submit with complete_review(result_path=...) or report_error(error_path=...), always using that same session_id.")
+    protocol = (f"{REVIEWER_ROLE_GUIDANCE[role]} Every tool call must include your assigned session_id. Claim with claim_task(task_id=<assigned task>, session_id=<assigned session>); task_id is required. "
+                "Use status(task_id, input_ref='review_guide', input_offset=0) to read the complete canonical review guide; "
+                "continue with each returned next_offset until eof. Use status(task_id, input_ref=<assigned artifact ID>, "
+                "input_offset=0) to page each assigned artifact by its distinct ID, likewise continuing until eof. "
+                "Use only artifact IDs and source references supplied by the assignment/status response; never invent paths or IDs. "
+                 "Follow the guide's semantic result/error schemas and include task_id, decision/evidence or error fields. Omit contract_version, run_id, evaluation_generation, assignment_generation, and input_digest; the coordinator binds them after authorization. Submit the complete result inline with "
+                 "complete_review(result=<semantic review result>, session_id=<assigned session>) or the complete typed "
+                 "error inline with report_error(error=<semantic task error>, session_id=<assigned session>). "
+                "Every finding requires validation_stage=TECHNICAL. Put pending owner observations in owner_followups entries {criterion_id,message,manual_check,evidence_refs?}; these are retained for the owner log and do not block PASS. Never classify OWNER_TESTING as a blocking finding: the API rejects it and instructs correction. PASS requires no technical findings; FAIL requires actionable technical findings. Do not use result_path/error_path or rely on writing a file: inline submission is the required mode. "
+                "If a legitimate assigned input is unsupported, report its actual typed read error only after attempting "
+                "the SDK read; do not treat an invalid selector as infrastructure failure. "
+                f"{output_dir} is an optional private output location only when an external client can write there; "
+                "it is not required for review submission. Keep the assigned session_id on every SDK call.")
     return shared + " " + protocol
 
 

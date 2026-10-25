@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:garlic",
+  "capacity_cents": 1800,
+  "contents_cents": {
+    "moonstation14:nutriment": 1000,
+    "moonstation14:vitamin": 400,
+    "moonstation14:allicin": 400
+  },
+  "refillable": true
+}

@@ -1,0 +1,4 @@
+﻿Source: Space Station 14 Resources/Audio/Effects/slip.ogg
+Revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+SHA-256: 780f8a16ffc94dd8a75cc3be491ad642755b6ee458179e6d30de52c77ec19bbb
+Author and file-specific license: UNKNOWN / UNRESOLVED. No license is inferred. See docs/audio-unknown-provenance.md.

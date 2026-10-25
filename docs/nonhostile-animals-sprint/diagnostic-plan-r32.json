@@ -1,0 +1,42 @@
+{
+  "title": "Animal population measurements with self-owned JFR capture",
+  "kind": "diagnostic",
+  "acceptance_criteria": [
+    "Can each isolated JVM export its own recording with valid ownership, population, phase and render-call evidence, without external attach?",
+    "What server tick, client frame, GC and primary-thread sampled-stack evidence accompanies 100 parrots, 100 kobolds and 40 mixed animals?"
+  ],
+  "fixture": "docs/nonhostile-animals-sprint/OWNER-FEEDBACK.md",
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Parrots"],
+      "rationale": "Real isolated join and 100-parrot measurement. Each JVM dumps its own named recording, followed by offline analysis. R31 completed the population phase but failed external JFR export; it supplies no accepted performance metrics. Existing process ownership and native limits remain unchanged.",
+      "covers": [
+        "Can each isolated JVM export its own recording with valid ownership, population, phase and render-call evidence, without external attach?",
+        "What server tick, client frame, GC and primary-thread sampled-stack evidence accompanies 100 parrots, 100 kobolds and 40 mixed animals?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-parrots-r32.log"
+    },
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Kobolds"],
+      "rationale": "Same baseline/population measurement with 100 kobolds, preserving separate server/client artifacts and actual renderer-call evidence. This case did not run in R31.",
+      "covers": [
+        "Can each isolated JVM export its own recording with valid ownership, population, phase and render-call evidence, without external attach?",
+        "What server tick, client frame, GC and primary-thread sampled-stack evidence accompanies 100 parrots, 100 kobolds and 40 mixed animals?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-kobolds-r32.log"
+    },
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Mixed"],
+      "rationale": "Same measurement with 40 mixed animals. Capture coverage is not acceptable performance, readiness or owner acceptance. Stationary short windows do not prove prolonged-running or physical movement/jumping behavior. Retain actual failure evidence.",
+      "covers": [
+        "Can each isolated JVM export its own recording with valid ownership, population, phase and render-call evidence, without external attach?",
+        "What server tick, client frame, GC and primary-thread sampled-stack evidence accompanies 100 parrots, 100 kobolds and 40 mixed animals?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-mixed-r32.log"
+    }
+  ]
+}

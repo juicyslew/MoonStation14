@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from workflow_store import WorkflowStore, StaleCommand, ProtocolError, IdempotencyConflict, SubmissionLaneBusy
@@ -17,15 +18,55 @@ class AttemptLifecycleTests(unittest.TestCase):
         self.identity={"pid":123,"created_ms":42}; self.token="native-secret"
     def tearDown(self): self.tmp.cleanup()
 
+    def test_native_checking_admission_is_transactional_and_review_stopping_is_not_a_lane_owner(self):
+        def add_run(prefix):
+            req,run,task,event=admission_records(prefix,idempotency_key=prefix,deadline_ms=100)
+            req['sprint_id']='sprint-'+prefix
+            req['author']={'session_id':'session-'+prefix,'worktree':prefix,'role':'author'}
+            req['source_worktree']=prefix
+            run['sprint_id']=req['sprint_id']; run['author']=req['author']
+            self.store.submit(caller=prefix,request=req,run=run,first_task=task,outbox_event=event,logical_task_key='check')
+            return run['run_id']
+        contenders=[add_run('race-a'),add_run('race-b')]
+        def admit(run_id):
+            try:
+                self.store.transition_attempt(run_id,1,expected_sequence=0,phase='CHECKING')
+                return True
+            except SubmissionLaneBusy:
+                return False
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            admitted=list(pool.map(admit,contenders))
+        self.assertEqual(1,sum(admitted))
+
+        # A review-only STOPPING attempt has no native CHECK task ownership.
+        review_store=WorkflowStore(Path(self.tmp.name)/'review-stop.sqlite')
+        def add_review_run(prefix):
+            req,run,task,event=admission_records(prefix,idempotency_key=prefix,deadline_ms=100)
+            req['sprint_id']='sprint-'+prefix
+            req['author']={'session_id':'session-'+prefix,'worktree':prefix,'role':'author'}
+            req['source_worktree']=prefix
+            run['sprint_id']=req['sprint_id']; run['author']=req['author']
+            review_store.submit(caller=prefix,request=req,run=run,first_task=task,outbox_event=event,logical_task_key='check')
+            return run['run_id']
+        review_stop=add_review_run('review-stop')
+        incident={'contract_version':1,'incident_id':'incident_review_stop','run_id':review_stop,
+            'evaluation_generation':1,'code':'STOP','message':'review-only fixture','recovery_owner':'SYSTEM',
+            'state':'OPEN','owner_action_required':False,'artifact_refs':[]}
+        review_store.transition_attempt(review_stop,1,expected_sequence=0,phase='STOPPING',
+            proposed_result='ERROR',incident=incident)
+        queued=add_review_run('after-review-stop')
+        review_store.transition_attempt(queued,1,expected_sequence=0,phase='CHECKING')
+        self.assertEqual('CHECKING',review_store.get_run(queued)['attempt']['phase'])
+
     def dispatch_claim(self, task_id="task_attempt"):
         args=dict(task_id=task_id,run_id="run_attempt",evaluation_generation=1,assignment_generation=1,input_digest=self.input,process_identity=self.identity,claim_token=self.token)
         self.store.dispatch_task(task_id=task_id,event_id="event_dispatch_"+task_id,process_identity=self.identity,claim_token=self.token)
         self.store.claim_native_task(**args)
         return args
 
-    def receipt(self, aid, taskid):
-        art={"contract_version":1,"artifact_id":aid,"run_id":"run_attempt","producer_task_id":taskid,"type":"CHECK_RECEIPT","path":aid+".json","sha256":"c"*64,"size_bytes":1,"immutable":True,"producer_kind":"TASK","producer_id":taskid}
-        self.store.register_artifact(art,input_digest=self.input)
+    def receipt(self, aid, taskid, run_id="run_attempt", input_digest=None):
+        art={"contract_version":1,"artifact_id":aid,"run_id":run_id,"producer_task_id":taskid,"type":"CHECK_RECEIPT","path":aid+".json","sha256":"c"*64,"size_bytes":1,"immutable":True,"producer_kind":"TASK","producer_id":taskid}
+        self.store.register_artifact(art,input_digest=input_digest or self.input)
         return aid
 
     def test_global_submission_lane_is_transactional_and_releases_only_terminal_attempts(self):
@@ -51,52 +92,64 @@ class AttemptLifecycleTests(unittest.TestCase):
         ref=self.receipt('artifact_lane_pass','task_attempt')
         self.store.complete_native_task(**claim,outcome={'decision':'PASS','findings':[],'artifact_refs':[ref]})
         self.store.transition_attempt('run_attempt',1,expected_sequence=1,phase='REVIEWING')
-        with self.assertRaises(SubmissionLaneBusy): self.store.transition_attempt(other,1,expected_sequence=0,phase='CHECKING')
-        self.store.transition_attempt('run_attempt',1,expected_sequence=2,phase='STOPPING',closure='CANCELLED')
-        with self.assertRaises(SubmissionLaneBusy): self.store.transition_attempt(other,1,expected_sequence=0,phase='CHECKING')
-        self.store.transition_attempt('run_attempt',1,expected_sequence=3,phase='CLOSED',cleanup_state='NOT_REQUIRED')
         self.store.transition_attempt(other,1,expected_sequence=0,phase='CHECKING')
+        third=add_run('decided-lane','agent-03')
+        with self.assertRaises(SubmissionLaneBusy): self.store.transition_attempt(third,1,expected_sequence=0,phase='CHECKING')
+        self.store.transition_attempt('run_attempt',1,expected_sequence=2,phase='STOPPING',closure='CANCELLED')
+        self.store.transition_attempt('run_attempt',1,expected_sequence=3,phase='CLOSED',cleanup_state='NOT_REQUIRED')
         self.assertEqual(self.store.get_run(other)['attempt']['phase'],'CHECKING')
 
-        third=add_run('decided-lane','agent-03')
-        incident={'contract_version':1,'incident_id':'incident_lane_error','run_id':other,'evaluation_generation':1,
+        # Finish the second native attempt before testing terminal ERROR retention.
+        db=self.store._connect()
+        try: other_task=db.execute('SELECT id FROM tasks WHERE run_id=?',(other,)).fetchone()[0]
+        finally: db.close()
+        other_claim=dict(task_id=other_task,run_id=other,evaluation_generation=1,assignment_generation=1,input_digest=self.input,process_identity=self.identity,claim_token=self.token)
+        self.store.dispatch_task(task_id=other_task,event_id='event_dispatch_'+other_task,process_identity=self.identity,claim_token=self.token)
+        self.store.claim_native_task(**other_claim)
+        other_receipt=self.receipt('artifact_lane_other_pass',other_task,other)
+        self.store.complete_native_task(**other_claim,outcome={'decision':'PASS','findings':[],'artifact_refs':[other_receipt]})
+        self.store.transition_attempt(other,1,expected_sequence=1,phase='REVIEWING')
+        self.store.transition_attempt(other,1,expected_sequence=2,phase='STOPPING',closure='CANCELLED')
+        self.store.transition_attempt(other,1,expected_sequence=3,phase='CLOSED',cleanup_state='NOT_REQUIRED')
+        incident={'contract_version':1,'incident_id':'incident_lane_error','run_id':third,'evaluation_generation':1,
             'code':'PROVIDER_PAUSED','message':'offline fixture','recovery_owner':'SYSTEM','state':'OPEN',
             'owner_action_required':False,'artifact_refs':[]}
-        self.store.transition_attempt(other,1,expected_sequence=1,phase='STOPPING',proposed_result='ERROR',incident=incident)
-        with self.assertRaises(SubmissionLaneBusy): self.store.transition_attempt(third,1,expected_sequence=0,phase='CHECKING')
-        self.store.transition_attempt(other,1,expected_sequence=2,phase='DECIDED',terminal_result='ERROR',incident=incident,cleanup_state='NOT_REQUIRED')
-        self.store.transition_attempt(third,1,expected_sequence=0,phase='CHECKING')
-        self.assertEqual(self.store.get_run(third)['attempt']['phase'],'CHECKING')
+        # A review-only terminal ERROR with no native ownership doesn't claim admission.
+        self.store.transition_attempt(third,1,expected_sequence=0,phase='STOPPING',proposed_result='ERROR',incident=incident)
+        self.store.transition_attempt(third,1,expected_sequence=1,phase='DECIDED',terminal_result='ERROR',incident=incident,cleanup_state='NOT_REQUIRED')
 
         unresolved=add_run('unresolved-lane','agent-04')
+        candidate=add_run('post-cleanup-lane','agent-05')
+        self.store.transition_attempt(unresolved,1,expected_sequence=0,phase='CHECKING')
         db=self.store._connect()
-        try: task_id=db.execute('SELECT id FROM tasks WHERE run_id=?',(third,)).fetchone()[0]
+        try: task_id=db.execute('SELECT id FROM tasks WHERE run_id=?',(unresolved,)).fetchone()[0]
         finally: db.close()
         self.store.dispatch_task(task_id=task_id,event_id='event_dispatch_'+task_id,process_identity=self.identity,claim_token=self.token)
-        claim_args=dict(task_id=task_id,run_id=third,evaluation_generation=1,assignment_generation=1,input_digest=self.input,process_identity=self.identity,claim_token=self.token)
+        claim_args=dict(task_id=task_id,run_id=unresolved,evaluation_generation=1,assignment_generation=1,input_digest=self.input,process_identity=self.identity,claim_token=self.token)
         self.store.claim_native_task(**claim_args)
-        unresolved_incident={'contract_version':1,'incident_id':'incident_unresolved_lane','run_id':third,'evaluation_generation':1,
+        unresolved_incident={'contract_version':1,'incident_id':'incident_unresolved_lane','run_id':unresolved,'evaluation_generation':1,
             'code':'CLEANUP_UNKNOWN','message':'unresolved contained fixture','recovery_owner':'SYSTEM','state':'OPEN',
             'owner_action_required':False,'artifact_refs':[]}
-        self.store.transition_attempt(third,1,expected_sequence=1,phase='STOPPING',proposed_result='ERROR',incident=unresolved_incident)
-        self.store.transition_attempt(third,1,expected_sequence=2,phase='DECIDED',terminal_result='ERROR',incident=unresolved_incident,cleanup_state='UNRESOLVED')
-        with self.assertRaises(SubmissionLaneBusy): self.store.transition_attempt(unresolved,1,expected_sequence=0,phase='CHECKING')
+        self.store.transition_attempt(unresolved,1,expected_sequence=1,phase='STOPPING',proposed_result='ERROR',incident=unresolved_incident)
+        self.store.transition_attempt(unresolved,1,expected_sequence=2,phase='DECIDED',terminal_result='ERROR',incident=unresolved_incident,cleanup_state='UNRESOLVED')
+        with self.assertRaises(SubmissionLaneBusy): self.store.transition_attempt(candidate,1,expected_sequence=0,phase='CHECKING')
         pending=self.store.get_task(task_id)
-        cleanup_art={'contract_version':1,'artifact_id':'artifact_unresolved_lane_cleanup','run_id':third,
+        cleanup_art={'contract_version':1,'artifact_id':'artifact_unresolved_lane_cleanup','run_id':unresolved,
             'producer_task_id':task_id,'type':'LOG','path':'unresolved-cleanup.log','sha256':'e'*64,
             'size_bytes':1,'immutable':True,'producer_kind':'TASK','producer_id':task_id}
         self.store.register_artifact(cleanup_art,input_digest=pending['input_digest'])
-        self.store.confirm_task_cancelled(task_id=task_id,run_id=third,evaluation_generation=1,
+        self.store.confirm_task_cancelled(task_id=task_id,run_id=unresolved,evaluation_generation=1,
             assignment_generation=pending['assignment_generation'],input_digest=pending['input_digest'],
             cleanup_artifact_ref='artifact_unresolved_lane_cleanup')
-        self.store.transition_attempt(unresolved,1,expected_sequence=0,phase='CHECKING')
-        self.assertEqual(self.store.get_run(unresolved)['attempt']['phase'],'CHECKING')
+        self.store.transition_attempt(candidate,1,expected_sequence=0,phase='CHECKING')
+        self.assertEqual(self.store.get_run(candidate)['attempt']['phase'],'CHECKING')
 
     def test_held_or_unknown_resources_block_other_run_until_existing_release_proof(self):
         other_req,other_run,other_task,other_event=admission_records('resource-lane-other',idempotency_key='resource-lane-other',deadline_ms=100)
         other_req['sprint_id']='other-sprint';other_req['author']={'session_id':'other-session','worktree':'other-worktree','role':'author'};other_req['source_worktree']='other-worktree'
         other_run['sprint_id']=other_req['sprint_id'];other_run['author']=other_req['author']
         self.store.submit(caller='other-author',request=other_req,run=other_run,first_task=other_task,outbox_event=other_event,logical_task_key='check')
+        self.store.transition_attempt('run_attempt',1,expected_sequence=0,phase='CHECKING')
         self.dispatch_claim()
         resource=self.store.acquire_resource(resource_key='lane-held-resource',run_id='run_attempt',generation=1,
             task_id='task_attempt',assignment_generation=1,identity_proof=self.identity)
@@ -108,8 +161,37 @@ class AttemptLifecycleTests(unittest.TestCase):
             'size_bytes':1,'immutable':True,'producer_kind':'TASK','producer_id':'task_attempt'},input_digest=self.input)
         self.store.release_resource('lane-held-resource',claim_id=resource['claim_id'],run_id='run_attempt',generation=1,
             task_id='task_attempt',assignment_generation=1,identity_proof=self.identity,cleanup_proof=cleanup)
+        ref=self.receipt('artifact_resource_pass','task_attempt')
+        self.store.complete_native_task(task_id='task_attempt',run_id='run_attempt',evaluation_generation=1,
+            assignment_generation=1,input_digest=self.input,process_identity=self.identity,claim_token=self.token,
+            outcome={'decision':'PASS','findings':[],'artifact_refs':[ref]})
+        self.store.transition_attempt('run_attempt',1,expected_sequence=1,phase='REVIEWING')
         self.store.transition_attempt(other_run['run_id'],1,expected_sequence=0,phase='CHECKING')
         self.assertEqual(self.store.get_run(other_run['run_id'])['attempt']['phase'],'CHECKING')
+
+    def test_unsettled_native_scope_in_stopping_blocks_other_checking(self):
+        def add_candidate(prefix):
+            req,run,task,event=admission_records(prefix,idempotency_key=prefix,deadline_ms=100)
+            req['sprint_id']='sprint-'+prefix; req['author']={'session_id':'session-'+prefix,'worktree':prefix,'role':'author'}; req['source_worktree']=prefix
+            run['sprint_id']=req['sprint_id']; run['author']=req['author']
+            self.store.submit(caller=prefix,request=req,run=run,first_task=task,outbox_event=event,logical_task_key='check')
+            return run['run_id']
+        waiting=add_candidate('scope-lane-waiting')
+        self.store.transition_attempt('run_attempt',1,expected_sequence=0,phase='CHECKING')
+        scope_art={'contract_version':1,'artifact_id':'artifact_scope_creation','run_id':'run_attempt',
+            'producer_task_id':'task_attempt','type':'PROVENANCE','path':'scope.json','sha256':'a'*64,
+            'size_bytes':1,'immutable':True,'producer_kind':'TASK','producer_id':'task_attempt'}
+        self.store.register_artifact(scope_art,input_digest=self.input)
+        self.store.dispatch_task(task_id='task_attempt',event_id='event_dispatch_scoped',process_identity=self.identity,
+            claim_token=self.token,native_scope={'scope_name':'fixture-scope','worker_identity':{'pid':123,'created':42},
+            'creation_artifact_ref':'artifact_scope_creation'})
+        incident={'contract_version':1,'incident_id':'incident_scope_stop','run_id':'run_attempt',
+            'evaluation_generation':1,'code':'STOP','message':'scope fixture','recovery_owner':'SYSTEM',
+            'state':'OPEN','owner_action_required':False,'artifact_refs':[]}
+        self.store.transition_attempt('run_attempt',1,expected_sequence=1,phase='STOPPING',
+            proposed_result='ERROR',incident=incident)
+        with self.assertRaises(SubmissionLaneBusy):
+            self.store.transition_attempt(waiting,1,expected_sequence=0,phase='CHECKING')
 
     def test_checking_while_initial_check_queued_and_reviewing_requires_pass_receipt(self):
         self.store.transition_attempt("run_attempt",1,expected_sequence=0,phase="CHECKING")

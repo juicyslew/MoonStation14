@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:lingzhi",
+  "capacity_cents": 4000,
+  "contents_cents": {
+    "moonstation14:ultravasculine": 2000,
+    "moonstation14:epinephrine": 2000
+  },
+  "refillable": true
+}

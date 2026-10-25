@@ -1,0 +1,48 @@
+{
+  "title": "Botany genetics M2: chemical mutation through tray metabolism",
+  "kind": "feature",
+  "acceptance_criteria": [
+    "Source-backed weighted tables preserve 111 actual canonical routes, source grouping/duplicates, and inclusive source boundaries.",
+    "Effective per-instance inherited Inherent/default chemistry is persisted and transmitted, and the actual resolved Vestine descriptor is consumed through the normal tray poll.",
+    "Unknown mutation tables or table reagent references fail closed before any effects or source drain.",
+    "Chemical source fixedpoint matches signed-epsilon Min/Max/contribution cent arithmetic without an arbitrary 10000 codec cap.",
+    "Absent and dead-plant guards hold; generated produce receives acquired chemistry through real registered harvest, extraction, and replant paths.",
+    "Fixture labels pending/mutated real source chemistry, and examine presents the read-only effective profile.",
+    "Baseline botany regressions pass. This M2 gate does not claim complete 27-mutation runtime, full 71-entry catalog, pollen, or owner acceptance."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/BotanyHarvestAuthenticatedGameTests.java",
+  "manual_steps": [
+    "Run `/ms14 botany_fixture`; wait about 3 seconds; run `/ms14 botany_fixture status` and find the chemical-mutation label and acquired IDs. Harvest, extract, and replant through ordinary play."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Freshly compile main, unit and native fixture sources and force jar production; inspect task execution and bind the resulting artifact.",
+      "covers": ["Baseline botany regressions pass. This M2 gate does not claim complete 27-mutation runtime, full 71-entry catalog, pollen, or owner acceptance."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.botany.WeightedRandomFillSolutionTest --tests com.juicyslew.moonstation14.ms14.botany.PlantChemicalMutationTest --tests com.juicyslew.moonstation14.ms14.reagent.PlantReagentMetabolismTest --tests com.juicyslew.moonstation14.ms14.prototype.SeedProfileTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest --tests com.juicyslew.moonstation14.ms14.botany.TrayRulesTest --tests com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayLifecycleTest --tests com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Focused M2 algorithm, fail-closed metabolism, resolved/inherited profile, produce propagation, tray poll, examine and baseline regression coverage; rerun fresh.",
+      "covers": ["Source-backed weighted tables preserve 111 actual canonical routes, source grouping/duplicates, and inclusive source boundaries.", "Effective per-instance inherited Inherent/default chemistry is persisted and transmitted, and the actual resolved Vestine descriptor is consumed through the normal tray poll.", "Unknown mutation tables or table reagent references fail closed before any effects or source drain.", "Chemical source fixedpoint matches signed-epsilon Min/Max/contribution cent arithmetic without an arbitrary 10000 codec cap.", "Absent and dead-plant guards hold; generated produce receives acquired chemistry through real registered harvest, extraction, and replant paths.", "Fixture labels pending/mutated real source chemistry, and examine presents the read-only effective profile.", "Baseline botany regressions pass. This M2 gate does not claim complete 27-mutation runtime, full 71-entry catalog, pollen, or owner acceptance."],
+      "source_files": ["src/test/java/com/juicyslew/moonstation14/ms14/botany/WeightedRandomFillSolutionTest.java", "src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantChemicalMutationTest.java", "src/test/java/com/juicyslew/moonstation14/ms14/reagent/PlantReagentMetabolismTest.java", "src/test/java/com/juicyslew/moonstation14/ms14/prototype/SeedProfileTest.java", "src/test/java/com/juicyslew/moonstation14/ms14/botany/ProduceFactoryTest.java", "src/test/java/com/juicyslew/moonstation14/ms14/botany/TrayRulesTest.java", "src/test/java/com/juicyslew/moonstation14/ms14/botany/HydroponicsTrayLifecycleTest.java", "src/test/java/com/juicyslew/moonstation14/ms14/examine/BotanyExaminePresentationTest.java"]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=interaction,prediction' --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Run generic dispatch/reconciliation regression selectors only; these are not proof of live tray growth or native admission. Changed live behavior is covered by the registered native tests.",
+      "covers": ["Absent and dead-plant guards hold; generated produce receives acquired chemistry through real registered harvest, extraction, and replant paths."],
+      "selectors": ["interaction", "prediction"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,botany-genetics,botany-chemical-mutation' '-Pms14GameTestDir=build/gametest-botany-chemical-mutation-r3' --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "Focused native registered runtime coverage for existing botany baseline, genetics transmission and live chemical mutation. Each attempt requires a fresh disposable owned world: registered fixtures using an ACTIVE lifecycle world can enter RECOVERY_REQUIRED before gameplay. The r3-specific directory is required test isolation, not owner-configuration overwrite. Preserve failed artifacts; after evidence capture the integration lead removes successful disposable runs. This is narrow M2 coverage, not a full suite.",
+      "covers": ["Effective per-instance inherited Inherent/default chemistry is persisted and transmitted, and the actual resolved Vestine descriptor is consumed through the normal tray poll.", "Absent and dead-plant guards hold; generated produce receives acquired chemistry through real registered harvest, extraction, and replant paths.", "Fixture labels pending/mutated real source chemistry, and examine presents the read-only effective profile.", "Baseline botany regressions pass. This M2 gate does not claim complete 27-mutation runtime, full 71-entry catalog, pollen, or owner acceptance."],
+      "selectors": ["botany", "botany-genetics", "botany-chemical-mutation"],
+      "log": "build/reports/botany-genetics/chemical-mutation-gate-native.log"
+    }
+  ]
+}

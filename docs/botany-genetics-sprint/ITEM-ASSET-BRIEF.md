@@ -1,0 +1,53 @@
+# Botany item-asset request: produce and medical swab
+
+## Scope
+
+Commission art-only native Java item-model/texture assets for exactly these ten identities: `DiseaseSwab`, `MeatwheatSeeds`, `MeatwheatBushel`, `FoodMeatWheat`, `BlueTomatoSeeds`, `FoodBlueTomato`, `BloodTomatoSeeds`, `FoodBloodTomato`, `LilySeeds`, and `FoodLily`. This supplements the existing grown-plant request; it does not expand or duplicate its 65 grown families. It is separate from the canonical BasicBotany five-family/tray package. Preserve that package and its corrected tray unchanged.
+
+Seed packets, harvest bushels, and food produce remain distinct source identities and require distinct item render bindings even if their source imagery is related. In particular, do not collapse raw MeatwheatBushel into secondary FoodMeatWheat. Do not invent a produce/packet/tool system, mechanics, or runtime registration. This request is asset-only; no mod code, root asset registry, game resources, or import is authorized.
+
+## Verified source mapping (pinned checkout)
+
+Verified checkout: `C:/Users/William/Documents/SS14-dev/space-station-14`, revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`. Prototype paths below are relative to `Resources/Prototypes/Entities/Objects/`; texture paths are relative to `Resources/Textures/`. IDs retain upstream capitalization. All listed selected texture states are single-frame static states with no `delays` entry in their source RSI metadata; do not infer animation.
+
+| Item ID | Prototype source and parent chain | Resolved selected sprite and source RSI/state | License/attribution source |
+|---|---|---|---|
+| `DiseaseSwab` | `Specific/Medical/disease.yml`; `BaseItem` → `DiseaseSwab`; Item size overridden to `Tiny`; sprite is explicitly set | `Objects/Specific/Medical/mouth_swab.rsi`, `icon` (32×32, one direction, one static frame) | `.../mouth_swab.rsi/meta.json`: CC0-1.0; “Created by @moonheart08 on github” |
+| `MeatwheatSeeds` | `Specific/Hydroponics/seeds.yml`; `[BaseItem, BasePaperLabelable]` → `SeedBase` → `MeatwheatSeeds`; inherited layers `seed` and hidden label `paper`; prototype changes layer sprite to meatwheat RSI | `Objects/Specific/Hydroponics/meatwheat.rsi`, `seed` (32×32, one static frame); label layer remains `Objects/Specific/Hydroponics/seeds.rsi`, `paper` when label visual enables it | Both RSI `meta.json` files; meatwheat CC-BY-SA-3.0, seeds CC-BY-SA-3.0. Preserve their verbatim copyright strings in package provenance. |
+| `MeatwheatBushel` | `Consumable/Food/produce.yml`; `BaseItem` → `ProduceBase` → `ProduceBaseRuminant` → `MeatwheatBushel` | `Objects/Specific/Hydroponics/meatwheat.rsi`, inherited state `produce` (32×32, one static frame) | `.../meatwheat.rsi/meta.json`: CC-BY-SA-3.0; preserve verbatim copyright |
+| `FoodMeatWheat` | `Consumable/Food/meat.yml`; `EdibleBase` → `FoodBase` → `FoodInjectableBase` → `FoodMeatBase` → `FoodMeatWheat`; explicit sprite state override `clump` | `Objects/Consumable/Food/meat.rsi`, `clump` (32×32, one static frame) | `.../meat.rsi/meta.json`: CC-BY-SA-3.0; preserve verbatim copyright |
+| `BlueTomatoSeeds` | `Specific/Hydroponics/seeds.yml`; `[BaseItem, BasePaperLabelable]` → `SeedBase` → `BlueTomatoSeeds`; inherited `seed` and hidden `paper` label layers | `Objects/Specific/Hydroponics/blue_tomato.rsi`, `seed`; label layer `Objects/Specific/Hydroponics/seeds.rsi`, `paper` when enabled (both 32×32, static) | blue_tomato and seeds RSI metadata; both CC-BY-SA-3.0; preserve verbatim copyright |
+| `FoodBlueTomato` | `Consumable/Food/produce.yml`; `[FoodProduceBase, ItemHeftyBase]` → `FoodTomato` → `FoodBlueTomato`; state inherited from produce base | `Objects/Specific/Hydroponics/blue_tomato.rsi`, `produce` (32×32, one static frame) | `.../blue_tomato.rsi/meta.json`: CC-BY-SA-3.0; preserve verbatim copyright |
+| `BloodTomatoSeeds` | `Specific/Hydroponics/seeds.yml`; `[BaseItem, BasePaperLabelable]` → `SeedBase` → `BloodTomatoSeeds`; inherited `seed` and hidden `paper` label layers | `Objects/Specific/Hydroponics/blood_tomato.rsi`, `seed`; label layer `Objects/Specific/Hydroponics/seeds.rsi`, `paper` when enabled (both 32×32, static) | blood_tomato and seeds RSI metadata; both CC-BY-SA-3.0; preserve verbatim copyright |
+| `FoodBloodTomato` | `Consumable/Food/produce.yml`; `[FoodProduceBase, ItemHeftyBase]` → `FoodTomato` → `FoodBloodTomato`; state inherited from produce base | `Objects/Specific/Hydroponics/blood_tomato.rsi`, `produce` (32×32, one static frame) | `.../blood_tomato.rsi/meta.json`: CC-BY-SA-3.0; preserve verbatim copyright |
+| `LilySeeds` | `Specific/Hydroponics/seeds.yml`; `[BaseItem, BasePaperLabelable]` → `SeedBase` → `LilySeeds`; inherited `seed` and hidden `paper` label layers | `Objects/Specific/Hydroponics/lily.rsi`, `seed`; label layer `Objects/Specific/Hydroponics/seeds.rsi`, `paper` when enabled (both 32×32, static) | lily and seeds RSI metadata; both CC-BY-SA-3.0; preserve verbatim copyright |
+| `FoodLily` | `Consumable/Food/produce.yml`; `[FoodProduceBase, ItemHeftyBase]` → `FoodPoppy` → `FoodLily`; sprite state inherited from `FoodProduceBase` | `Objects/Specific/Hydroponics/lily.rsi`, `produce` (32×32, one static frame) | `.../lily.rsi/meta.json`: CC-BY-SA-3.0; preserve verbatim copyright |
+
+Relevant defaults: `BaseItem` supplies Item size Small (overridden to Tiny for the swab and via SeedBase for packets); Food produce state `produce` comes from `ProduceBase`/`FoodProduceBase`; meat clump state explicitly overrides the inherited sprite state. `SeedBase`'s second paper layer is a real conditional label visual, not a second seed design. Preserve that distinct layer/binding when implementing packet labels. `DiseaseSwab` uses only `icon`; its `BotanySwab` component does not render a changed pollen or blood state. These are visual mappings, not a request to reproduce food mechanics/components.
+
+Attribution text verified in those source metadata (retain verbatim):
+
+- `mouth_swab.rsi`: “Created by @moonheart08 on github” (CC0-1.0).
+- `seeds.rsi`: “Taken from https://github.com/vgstation-coders/vgstation13 at 1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, paper layer by Ian321” (CC-BY-SA-3.0).
+- `meatwheat.rsi`: “Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068 and https://github.com/tgstation/tgstation/commit/ead6d8d59753ef033efdfad17f337df268038ff3 and modified by slarticodefast, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce sprites created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub)” (CC-BY-SA-3.0).
+- `blue_tomato.rsi` and `blood_tomato.rsi`: “Taken from https://github.com/vgstation-coders/vgstation13 at 1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce sprites created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub)” (CC-BY-SA-3.0).
+- `lily.rsi`: “Taken from https://github.com/tgstation/tgstation/commit/40d89d11ea4a5cb81d61dc1018b46f4e7d32c62a seed modified by potato1234_X (github) for ss14, equipped-HELMET taken from tgstation at commit https://github.com/tgstation/tgstation/commit/4f6190e2895e09116663ef282d3ce1d8b35c032e and changed hue, Harvest, and produce modified by Chaoticaa (github)” (CC-BY-SA-3.0).
+- `meat.rsi`: “Taken from tgstation and modified by Swept, potato1234x and deltanedas at https://github.com/tgstation/tgstation/commit/40d75cc340c63582fb66ce15bf75a36115f6bdaa, snail by IproduceWidgets (github) and Kezu (discord), anomalymeat/cooked by august-sun, dragoncutlet, dragoncutlet_veins, dragoncutlet-cooked and dragon-cooked by JuneSzalkowska (discord), raw and cooked patty taken from tgstation at https://github.com/tgstation/tgstation/commit/b83c7deee4c91df4de130db242facce20308aa8a. A lot of inhands by Orsoniks.” (CC-BY-SA-3.0).
+
+For every listed RSI, include the exact source `meta.json` and source PNG/state used in provenance; metadata is the authoritative license/copyright record. Do not relicense derived art through tool licenses.
+
+## Source-first gate
+
+Before batch work, submit original-first, gameplay-scale source/candidate contacts for the swab, seed packet, bushel, meatwheat clump and the three produce identities, with layered packet-label behavior shown separately. Keep a readable visual distinction between all ten identities. Exact source-faithful sprite extraction is acceptable only if the existing project item-rendering contract supports it; do not manufacture full 3D plant models or pseudo-art as a substitute.
+
+Before batch work, submit original-first, gameplay-scale source/candidate contacts for the swab, packet, bushel, and produce identity groups, and resolve any source-layer/default ambiguity. Keep a readable visual distinction between all ten identities. Exact source-faithful sprite extraction is acceptable only if the existing project item-rendering contract supports it; do not manufacture full 3D plant models or pseudo-art as a substitute.
+
+## Deliverables and binding contract
+
+Deliver editable/source artwork, native item-model JSON and PNG exports, stable lowercase Minecraft resource bindings (preserve SS14 prototype IDs/case in metadata), explicit item-ID→source prototype→selected RSI/state→runtime resource mapping, complete flat non-overwriting destination manifest, source snapshots/hashes, attribution/licenses, original-first practical-scale previews, and a read-only validator. Preserve source-authentic frame metadata honestly. If the current item renderer only supports a selected static frame, bind that frame and record other source frames as unported; do not add a new animation framework or claim animation support.
+
+Target runtime is the project's existing Minecraft Java 1.21.1 / NeoForge 21.1.224 native item-model/PNG pipeline (`gradle.properties`). Reuse the current source-first generated-item workflow and representative flat item rendering profiles where applicable. Do not replace/modify existing wheat bushel, tomato, or poppy seed item models; these are baseline references only. The 65-family grown-plant request is coordination context, not an art dependency or coverage for these item identities.
+
+## Acceptance boundary
+
+Validate JSON parsing, all ten identity-to-source/state/license mappings, unique safe destinations, complete declared files, and provenance references. The validator is read-only. Delivery and automated checks are not visual acceptance, owner acceptance, import, or installed runtime behavior. Independent visual review and explicit owner authorization are required before any import. No audio or non-visual assets are requested.

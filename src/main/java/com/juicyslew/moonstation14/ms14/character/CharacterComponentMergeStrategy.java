@@ -74,6 +74,20 @@ public final class CharacterComponentMergeStrategy implements PrototypeMergeStra
                 JsonObject merged = patch.deepCopy();
                 if (inherited.containsKey(type)) {
                     for (Map.Entry<String, JsonElement> field : inherited.get(type).entrySet()) {
+                        if ("MeleeWeapon".equals(type) && "weapon".equals(field.getKey())
+                                && merged.has("weapon") && merged.get("weapon").isJsonObject()
+                                && field.getValue().isJsonObject()) {
+                            JsonObject childWeapon = merged.getAsJsonObject("weapon");
+                            for (Map.Entry<String, JsonElement> stat : field.getValue().getAsJsonObject().entrySet())
+                                if ("audio".equals(stat.getKey()) && childWeapon.has("audio")
+                                        && childWeapon.get("audio").isJsonObject() && stat.getValue().isJsonObject())
+                                    overlayMissing(childWeapon.getAsJsonObject("audio"), stat.getValue().getAsJsonObject());
+                                else if (!childWeapon.has(stat.getKey())) childWeapon.add(stat.getKey(), stat.getValue().deepCopy());
+                        } else
+                        if ("DamageOnInteractProtection".equals(type) && "profile".equals(field.getKey())
+                                && merged.has("profile") && merged.get("profile").isJsonObject() && field.getValue().isJsonObject()) {
+                            overlayMissing(merged.getAsJsonObject("profile"), field.getValue().getAsJsonObject());
+                        } else
                         // Nested JSON is atomic: an explicit damage object replaces
                         // the prior damage object, including its entire types map.
                         if ("Puller".equals(type) && "tether".equals(field.getKey())
@@ -93,6 +107,14 @@ public final class CharacterComponentMergeStrategy implements PrototypeMergeStra
         JsonArray result = new JsonArray();
         resultEntries.values().forEach(component -> result.add(component.deepCopy()));
         return result;
+    }
+
+    private static void overlayMissing(JsonObject target, JsonObject inherited) {
+        for (var entry : inherited.entrySet()) {
+            if (!target.has(entry.getKey())) target.add(entry.getKey(), entry.getValue().deepCopy());
+            else if (target.get(entry.getKey()).isJsonObject() && entry.getValue().isJsonObject())
+                overlayMissing(target.getAsJsonObject(entry.getKey()), entry.getValue().getAsJsonObject());
+        }
     }
 
     private Map<String, JsonObject> entries(ResourceLocation id, JsonObject source) {

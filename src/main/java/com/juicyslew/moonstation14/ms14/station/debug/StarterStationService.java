@@ -30,6 +30,7 @@ import java.util.Set;
 
 /** New-world-only trigger and loaded-chunk-only bounded placement retries. */
 public final class StarterStationService {
+    private static final String ENABLED_PROPERTY = "ms14.starterStation.enabled";
     private static final int MAX_CANDIDATES = 8;
     private static final int RETRY_INTERVAL_TICKS = 40;
     private static final int MAX_TERRAIN_VARIATION = 3;
@@ -38,6 +39,12 @@ public final class StarterStationService {
     private StarterStationService() { }
 
     public static void register(IEventBus bus) {
+        // Explicit run-local opt-out for isolated fixture worlds; default gameplay is unchanged.
+        if ("false".equalsIgnoreCase(System.getProperty(ENABLED_PROPERTY, "true"))) {
+            org.slf4j.LoggerFactory.getLogger(StarterStationService.class)
+                    .info("MS14_STARTER_STATION_DISABLED reason=run-local property {}=false", ENABLED_PROPERTY);
+            return;
+        }
         // CreateSpawnPosition is cancellable, but this listener observes only: never cancel it.
         bus.addListener(StarterStationService::onCreateSpawnPosition);
         bus.addListener(StarterStationService::onPostServerTick);
@@ -361,4 +368,3 @@ public final class StarterStationService {
         return exactIntendedState || (!hasFluid && replaceable);
     }
 }
-

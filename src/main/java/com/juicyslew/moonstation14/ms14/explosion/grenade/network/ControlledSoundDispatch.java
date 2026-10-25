@@ -9,12 +9,14 @@ import net.neoforged.neoforge.common.util.FakePlayer;
 /** Shared bounded positional sound routing using each connected player's active camera. */
 public final class ControlledSoundDispatch {
     public static final double RADIUS = 32;
+    public static final float DEFAULT_VOLUME = 1f;
+    public static final float DEFAULT_PITCH = 1f;
     private ControlledSoundDispatch() { }
     public static void emit(ServerLevel level, ResourceLocation sound, double x, double y, double z) {
-        emit(level, sound, x, y, z, 1f);
+        emit(level, sound, x, y, z, DEFAULT_VOLUME);
     }
     public static void emit(ServerLevel level, ResourceLocation sound, double x, double y, double z, float volume) {
-        emit(level, sound, x, y, z, volume, 1f);
+        emit(level, sound, x, y, z, volume, DEFAULT_PITCH);
     }
     public static void emit(ServerLevel level, ResourceLocation sound, double x, double y, double z, float volume, float pitch) {
         if (level == null || sound == null || level.getServer() == null) return;

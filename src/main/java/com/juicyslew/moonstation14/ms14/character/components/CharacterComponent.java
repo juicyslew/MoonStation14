@@ -12,6 +12,10 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         ExaminerComponent, DamageableComponent, HumanoidProfileComponent, StrippingPrototypeComponent,
         StrippablePrototypeComponent, GhostRoleComponent, MouseAppearanceComponent, CollisionProfileComponent,
         NpcBehaviorComponent, AmbientVocalizationComponent, NpcIdleAttentionComponent, PortableBodyComponent,
-        CanEscapeInventoryComponent, SpeciesComponent, LightningTargetComponent {
+        CanEscapeInventoryComponent, SpeciesComponent, LightningTargetComponent, ProtectedFromStepTriggersComponent,
+        DamageOnInteractProtectionComponent, StaminaPrototypeComponent, StatusEffectsPrototypeComponent,
+        CombatModeComponent, MeleeWeaponComponent, DisarmProneComponent, UdderComponent, AnimalAppearanceComponent,
+        FlightComponent, NpcRetaliationComponent, MeleeAttackComponent, ParrotListenerComponent, ParrotMemoryComponent,
+        EggLayerComponent, AbsorbentCleaningComponent {
     String type();
 }

@@ -64,6 +64,103 @@ public final class FreshWorldOutputBatchGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    @GameTestTags({"botany-harvest", "harvest-placement"})
+    public static void systemHarvestPublishesAtTrayAndRejectsStaleSource(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos tray = helper.absolutePos(new BlockPos(3, 1, 3));
+        try {
+            level.setBlock(tray, com.juicyslew.moonstation14.block.ModBlocks.HYDROPONICS_TRAY.get().defaultBlockState(), 3);
+            var before = allLooseItems(level).stream().map(LooseItemEntity::getUUID).collect(java.util.stream.Collectors.toSet());
+            var commits = new java.util.concurrent.atomic.AtomicInteger();
+            var result = FreshWorldOutputBatch.publishSystemHarvest(level, tray, stacks(), () -> true,
+                    commits::incrementAndGet);
+            var outputs = allLooseItems(level).stream().filter(e -> !before.contains(e.getUUID())).toList();
+            require(result == BodyHandItemTransfer.Result.SUCCESS && commits.get() == 1,
+                    "system harvest commits exactly once");
+            require(outputs.size() == 1 && outputs.getFirst().position().y >= tray.getY() + 1
+                            && Math.abs(outputs.getFirst().position().x - (tray.getX() + .5)) <= .25
+                            && Math.abs(outputs.getFirst().position().z - (tray.getZ() + .5)) <= .25,
+                    "system output is world-owned within holder-coordinate footprint");
+
+            var beforeStaleAttempts = allLooseItems(level).stream().map(LooseItemEntity::getUUID).collect(java.util.stream.Collectors.toSet());
+            commits.set(0);
+            var staleBefore = FreshWorldOutputBatch.publishSystemHarvest(level, tray, stacks(), () -> false,
+                    commits::incrementAndGet);
+            require(staleBefore == BodyHandItemTransfer.Result.DENIED && commits.get() == 0,
+                    "initially stale source is rejected before staging and commit");
+            require(allLooseItems(level).stream().map(LooseItemEntity::getUUID).collect(java.util.stream.Collectors.toSet()).equals(beforeStaleAttempts),
+                    "pre-staging stale source publishes no output");
+
+            var checks = new java.util.concurrent.atomic.AtomicInteger();
+            var staleBeforeCommit = FreshWorldOutputBatch.publishSystemHarvest(level, tray, stacks(),
+                    () -> checks.incrementAndGet() == 1, commits::incrementAndGet);
+            require(staleBeforeCommit == BodyHandItemTransfer.Result.DENIED && commits.get() == 0,
+                    "source becoming stale after staging denies commit");
+            require(allLooseItems(level).stream().map(LooseItemEntity::getUUID).collect(java.util.stream.Collectors.toSet()).equals(beforeStaleAttempts),
+                    "stale publication compensates staged outputs");
+
+            var profile = com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile.resolveForStack(
+                    new ItemStack(ModItems.WHEAT_BUSHEL.get()), false);
+            double candidateY = tray.getY() + 1 + Math.max(.01, profile.physicalHeight() * .5);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++)
+                level.setBlock(BlockPos.containing(tray.getX() + .5, candidateY, tray.getZ() + .5)
+                        .offset(x, 0, z), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+            commits.set(0);
+            var blocked = FreshWorldOutputBatch.publishSystemHarvest(level, tray, stacks(), () -> true,
+                    commits::incrementAndGet);
+            require(blocked == BodyHandItemTransfer.Result.DENIED && commits.get() == 0,
+                    "fully obstructed system harvest footprint denies without commit");
+            require(allLooseItems(level).stream().map(LooseItemEntity::getUUID).collect(java.util.stream.Collectors.toSet()).equals(beforeStaleAttempts),
+                    "blocked footprint publishes no output");
+            helper.succeed();
+        } catch (Throwable failure) { helper.fail("system harvest publication: " + failure); }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    @GameTestTags({"botany-harvest", "harvest-placement"})
+    public static void systemHarvestPublishesCompleteMultiOutputBatchAtHolder(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos tray = helper.absolutePos(new BlockPos(3, 1, 3));
+        try {
+            level.setBlock(tray, com.juicyslew.moonstation14.block.ModBlocks.HYDROPONICS_TRAY.get().defaultBlockState(), 3);
+            var items = java.util.List.of(ModItems.WHEAT_BUSHEL.get(), ModItems.TOMATO.get(),
+                    ModItems.POTATO.get(), ModItems.POPPY.get(), ModItems.ALOE.get(), ModItems.TOMATO.get());
+            var inputs = java.util.stream.IntStream.range(0, items.size()).mapToObj(index -> {
+                    ItemStack stack = new ItemStack(items.get(index));
+                    stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME,
+                            net.minecraft.network.chat.Component.literal("harvest-output-" + index));
+                    return stack;
+                })
+                    .toList();
+            var before = allLooseItems(level).stream().map(LooseItemEntity::getUUID)
+                    .collect(java.util.stream.Collectors.toSet());
+            var commits = new java.util.concurrent.atomic.AtomicInteger();
+            var result = FreshWorldOutputBatch.publishSystemHarvest(level, tray, inputs, () -> true,
+                    commits::incrementAndGet);
+            var outputs = allLooseItems(level).stream().filter(e -> !before.contains(e.getUUID())).toList();
+            require(result == BodyHandItemTransfer.Result.SUCCESS && commits.get() == 1,
+                    "multi-output system harvest commits once");
+            require(outputs.size() == inputs.size(), "every batch output has a world entity");
+            for (ItemStack input : inputs) {
+                long matching = outputs.stream().filter(entity -> entity.getItem().getCount() == input.getCount()
+                        && ItemStack.isSameItemSameComponents(input, entity.getItem())).count();
+                require(matching == 1, "exact output item/components/count published once: " + input);
+            }
+            require(outputs.stream().allMatch(entity -> {
+                var position = entity.position();
+                var profile = com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile
+                        .resolveForStack(entity.getItem(), false);
+                return Math.abs(position.x - (tray.getX() + .5)) <= .25
+                        && Math.abs(position.z - (tray.getZ() + .5)) <= .25
+                        && position.y >= tray.getY() + 1
+                        && BodyItemTargetProbe.loadedItemBoxClear(level, position,
+                        profile.physicalWidth(), profile.physicalHeight());
+            }), "all collocated-permitted outputs remain within holder footprint and clear of blocks");
+            helper.succeed();
+        } catch (Throwable failure) { helper.fail("system multi-output harvest publication: " + failure); }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
     @GameTestTags({"harvest-placement"})
     public static void harvestPlacementFallsBackToClearCenterWhenPreferredIsBlocked(GameTestHelper helper) {
         LivingEntity actor = null;
@@ -155,6 +252,56 @@ public final class FreshWorldOutputBatchGameTests {
             var rejected = FreshWorldOutputBatch.publish(level, actor, stacks(), () -> false, () -> { });
             require(rejected == BodyHandItemTransfer.Result.DENIED, "invalid source is rejected before publication");
             require(entitiesNear(level, actor).size() == before, "invalid source publishes no outputs");
+
+            var logSource = LooseItemEntity.create(level, actor.position().add(0, .1, 1.0),
+                    new ItemStack(net.minecraft.world.item.Items.OAK_LOG));
+            logSource.setNoGravity(true); require(level.addFreshEntity(logSource), "source-origin Log fixture published");
+            var sourceSnapshot = logSource.getItem().copy();
+            var sourceOrigin = logSource.position();
+            var beforeSourceBatch = entitiesNear(level, actor).stream().map(LooseItemEntity::getUUID)
+                    .collect(java.util.stream.Collectors.toSet());
+            var sourceResult = FreshWorldOutputBatch.publishAtLooseSource(level, sourceOrigin, stacks(),
+                    () -> !logSource.isRemoved() && logSource.level() == level
+                            && level.getEntity(logSource.getUUID()) == logSource
+                            && ItemStack.isSameItemSameComponents(sourceSnapshot, logSource.getItem())
+                            && sourceSnapshot.getCount() == logSource.getItem().getCount(),
+                    () -> { throw new IllegalStateException("injected source-origin commit failure"); });
+            require(sourceResult == BodyHandItemTransfer.Result.RECOVERY_REQUIRED,
+                    "source-origin batch uses the existing commit-failure result");
+            require(!logSource.isRemoved() && level.getEntity(logSource.getUUID()) == logSource
+                            && ItemStack.isSameItemSameComponents(sourceSnapshot, logSource.getItem())
+                            && sourceSnapshot.getCount() == logSource.getItem().getCount(),
+                    "failed source-origin publication preserves exact source entity and stack");
+            require(entitiesNear(level, actor).stream().map(LooseItemEntity::getUUID)
+                            .filter(id -> !beforeSourceBatch.contains(id)).allMatch(id -> level.getEntity(id) == null),
+                    "failed source-origin batch compensates all newly published outputs");
+
+            AtomicBoolean compensatedSourceCurrent = new AtomicBoolean(true);
+            var beforeDenied = entitiesNear(level, actor).stream().map(LooseItemEntity::getUUID)
+                    .collect(java.util.stream.Collectors.toSet());
+            var deniedCommit = FreshWorldOutputBatch.publishAtSourcePosition(level, sourceOrigin, stacks(),
+                    compensatedSourceCurrent::get, () -> {
+                        compensatedSourceCurrent.set(false); // compensation advanced/replaced source ownership proof
+                        return BodyHandItemTransfer.Result.DENIED;
+                    }, null);
+            require(deniedCommit == BodyHandItemTransfer.Result.DENIED,
+                    "explicit denied source transaction propagates DENIED");
+            require(entitiesNear(level, actor).stream().map(LooseItemEntity::getUUID)
+                            .filter(id -> !beforeDenied.contains(id)).allMatch(id -> level.getEntity(id) == null),
+                    "denial cleans exact staged outputs even after old source proof becomes stale");
+
+            var beforeRecovery = entitiesNear(level, actor).stream().map(LooseItemEntity::getUUID)
+                    .collect(java.util.stream.Collectors.toSet());
+            var uncertain = FreshWorldOutputBatch.publishAtSourcePosition(level, sourceOrigin, stacks(),
+                    () -> !logSource.isRemoved() && level.getEntity(logSource.getUUID()) == logSource,
+                    () -> BodyHandItemTransfer.Result.RECOVERY_REQUIRED, null);
+            require(uncertain == BodyHandItemTransfer.Result.RECOVERY_REQUIRED,
+                    "uncertain source transaction propagates recovery-required");
+            require(entitiesNear(level, actor).stream().filter(entity -> !beforeRecovery.contains(entity.getUUID()))
+                            .anyMatch(entity -> !entity.isRemoved() && level.getEntity(entity.getUUID()) == entity),
+                    "uncertain source transaction conserves potentially committed output entity");
+            require(!logSource.isRemoved() && level.getEntity(logSource.getUUID()) == logSource,
+                    "uncertain commit does not destroy the source entity");
             helper.succeed();
         } catch (Throwable failure) {
             helper.fail("fresh world output compensation: " + failure);

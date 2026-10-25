@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:carrot",
+  "capacity_cents": 1200,
+  "contents_cents": {
+    "moonstation14:juicecarrot": 500,
+    "moonstation14:vitamin": 400,
+    "moonstation14:oculine": 300
+  },
+  "refillable": true
+}

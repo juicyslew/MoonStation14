@@ -136,6 +136,10 @@ base {
 // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+tasks.withType(Test).configureEach {
+    systemProperty 'moonstation14.mappedMinecraftJar', layout.buildDirectory.file("moddev/artifacts/neoforge-${project.neo_version}-merged.jar").get().asFile.absolutePath
+}
+
 neoForge {
     // Specify the version of NeoForge to use.
     version = project.neo_version
@@ -253,6 +257,7 @@ configurations {
 dependencies {
     gametestImplementation sourceSets.main.output
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.12.0'
     testImplementation sourceSets.gametest.output
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
 
@@ -297,6 +302,118 @@ def readinessCatalog = [
     prediction: ['com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionPacketScheduleTest', 'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest'],
     preview: ['com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest']
 ]
+readinessCatalog.interaction.add('com.juicyslew.moonstation14.ms14.botany.BotanyInspectCommandTest')
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.prototype.NettleProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageRuntimeTest',
+    'com.juicyslew.moonstation14.ms14.equipment.ContactDamageProtectionTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.NettleDestructionSoundTest',
+    'com.juicyslew.moonstation14.ms14.audio.MeleeAudioResourceTest',
+    'com.juicyslew.moonstation14.ms14.prototype.EggyProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.MutationTargetProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicyDependencyTest',
+    'com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintResourceTest',
+    'com.juicyslew.moonstation14.ms14.effect.StatusDerivedEffectHandlerTest',
+    'com.juicyslew.moonstation14.ms14.chat.server.LocalSpeechPolicyTest',
+    'com.juicyslew.moonstation14.ms14.character.StaminaReducerTest',
+    'com.juicyslew.moonstation14.ms14.character.StaminaRuntimeTest',
+    'com.juicyslew.moonstation14.ms14.character.CharacterPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.status_effect.StatusEffectFrictionQueryTest',
+    'com.juicyslew.moonstation14.ms14.status_effect.StatusEffectPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.status_effect.StatusEffectCoreTest',
+    'com.juicyslew.moonstation14.ms14.status_effect.StatusEffectStorageTest',
+    'com.juicyslew.moonstation14.ms14.slip.ItemStepTriggerDataTest',
+    'com.juicyslew.moonstation14.ms14.slip.SlipResponseProfileTest',
+    'com.juicyslew.moonstation14.ms14.slip.ItemSlipContactGeometryTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfileTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectSlipperyStackTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.LooseSlipPrototypeManagerTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantMutationRecordTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantPollenCrossTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantSeedReferenceTest',
+    'com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest',
+    'com.juicyslew.moonstation14.ms14.damage.DamageModifierDataTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentStepTriggerProtectionPolicyTest',
+    'com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.explosion.core.PendingExplosionQueueTest',
+    'com.juicyslew.moonstation14.ms14.explosion.grenade.network.SmallExplosionAudioResourceTest',
+    'com.juicyslew.moonstation14.ms14.explosion.grenade.network.GrenadeSoundPayloadTest',
+    'com.juicyslew.moonstation14.ms14.explosion.grenade.network.GrenadeSoundPolicyTest',
+    'com.juicyslew.moonstation14.ms14.prototype.DestructionExplosionCompositionTest',
+    'com.juicyslew.moonstation14.ms14.slip.GlassAudioResourceTest'
+])
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.combat.MeleeWideAttackPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeWideNominationTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeAttackRequestTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeSecondaryGestureTest',
+    'com.juicyslew.moonstation14.ms14.combat.DisarmPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeDisarmPolicyTest',
+    'com.juicyslew.moonstation14.ms14.hands.live.ForcedThrowPolicyTest',
+    'com.juicyslew.moonstation14.ms14.character.CombatModeComponentTest',
+    'com.juicyslew.moonstation14.ms14.character.StatusEffectsPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeSelectionInsertionTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldownTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeMultiInjectionTest',
+    'com.juicyslew.moonstation14.ms14.damage.CommittedDamageResultTest',
+    'com.juicyslew.moonstation14.ms14.damage.DamageOriginTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeTargetEligibilityTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponResolverTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponProfileTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponDataTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeTargetAttackedEventTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeStaminaPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeCooldownTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeAttackPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.CombatMeleeTargetProbeTest'
+])
+readinessCatalog.prediction.addAll([
+    'com.juicyslew.moonstation14.ms14.combat.MeleePredictionAdmissionTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyHandSnapshotClockTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeAttackClientPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.ClientDisarmAdmissionTest',
+    'com.juicyslew.moonstation14.ms14.combat.client.MeleeArcClientPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcPayloadTest'
+])
+readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcTimelineTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcProfileTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcResourceTest',
+    'com.juicyslew.moonstation14.ms14.combat.CombatModeHudPolicyTest'
+])
+readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRendererAlphaTest')
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest',
+    'com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest',
+    'com.juicyslew.moonstation14.ms14.botany.SeedItemProfileTest',
+    'com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest',
+    'com.juicyslew.moonstation14.ms14.botany.processing.GrindingPlanTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.ExtractableProfileTest',
+    'com.juicyslew.moonstation14.ms14.machine.itemslots.MachineItemSlotTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.ExtractableMaterialSourceTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.FixedCropOutputCompositionTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.HeldItemConversionTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BotanyProductIdentityTest',
+    'com.juicyslew.moonstation14.ms14.prototype.CocoaConversionCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.EggplantProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.AmbrosiaProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.SeedItemSourceParityTest',
+    'com.juicyslew.moonstation14.ms14.prototype.SeedItemCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfileTest',
+    'com.juicyslew.moonstation14.ms14.prototype.FruitPitProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BluePumpkinProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.ExtradimensionalOrangeProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentArmorSystemTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.prototype.MelonProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.MelonHeadwearCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.MelonProcessingCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.PumpkinProductCatalogCandidateTest'
+])
 if (project.hasProperty('ms14Readiness')) {
     def rawSelection = project.property('ms14Readiness').toString()
     def selected = rawSelection.split(',', -1).collect { it.trim() }

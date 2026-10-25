@@ -197,7 +197,7 @@ public final class HandlessIngestionGameTests {
             var portion=LooseItemEntity.create(level,at,stack);
             require(level.addFreshEntity(portion),"one of sixteen cheese portions spawned");
             portions.add(portion);
-            com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem.initializeSource(portion.getItem(), level);
+            com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(portion.getItem(), level);
             require(ReagentUnits.fromFloat(portion.getItem().get(ModDataComponents.REAGENT.get()).contents().get(NUTRIMENT))==375,
                     "each fresh item stack receives its own 3.75-unit prototype source");
         }

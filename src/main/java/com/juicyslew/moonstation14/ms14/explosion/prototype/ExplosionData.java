@@ -20,15 +20,17 @@ import java.math.BigDecimal;
 /** Immutable explosion behavior tuning, separate from explosive source intensity. Values are based on SS14's Default explosion prototype. */
 public record ExplosionData(Map<String, Float> damagePerIntensity, List<Float> breakIntensities,
                             List<Float> breakChances, float rerollReduction, Optional<Float> temperatureKelvin,
-                            Optional<Integer> fireStacks) {
-    private static final Set<String> FIELDS = Set.of("damage_per_intensity", "break_intensities", "break_chances", "reroll_reduction", "temperature_kelvin", "fire_stacks");
+                            Optional<Integer> fireStacks, float maxCombineDistance, int smallSoundIterationThreshold) {
+    private static final Set<String> FIELDS = Set.of("damage_per_intensity", "break_intensities", "break_chances", "reroll_reduction", "temperature_kelvin", "fire_stacks", "max_combine_distance", "small_sound_iteration_threshold");
     private static final Codec<ExplosionData> STRUCTURAL = RecordCodecBuilder.create(i -> i.group(
             Codec.unboundedMap(Codec.STRING, Codec.FLOAT).fieldOf("damage_per_intensity").forGetter(ExplosionData::damagePerIntensity),
             Codec.FLOAT.listOf().fieldOf("break_intensities").forGetter(ExplosionData::breakIntensities),
             Codec.FLOAT.listOf().fieldOf("break_chances").forGetter(ExplosionData::breakChances),
             Codec.FLOAT.fieldOf("reroll_reduction").forGetter(ExplosionData::rerollReduction),
             Codec.FLOAT.optionalFieldOf("temperature_kelvin").forGetter(ExplosionData::temperatureKelvin),
-            Codec.INT.optionalFieldOf("fire_stacks").forGetter(ExplosionData::fireStacks)
+            Codec.INT.optionalFieldOf("fire_stacks").forGetter(ExplosionData::fireStacks),
+            Codec.FLOAT.optionalFieldOf("max_combine_distance", 1f).forGetter(ExplosionData::maxCombineDistance),
+            Codec.INT.optionalFieldOf("small_sound_iteration_threshold", 6).forGetter(ExplosionData::smallSoundIterationThreshold)
     ).apply(i, ExplosionData::new));
 
     public static final Codec<ExplosionData> CODEC = Codec.of(STRUCTURAL, new Decoder<>() {
@@ -39,6 +41,12 @@ public record ExplosionData(Map<String, Float> damagePerIntensity, List<Float> b
                 JsonObject object = element.getAsJsonObject();
                 for (String key : object.keySet()) if (!FIELDS.contains(key))
                     return DataResult.error(() -> "unknown explosion field '" + key + "'");
+                if (object.has("max_combine_distance")) {
+                    JsonElement distance = object.get("max_combine_distance");
+                    if (!distance.isJsonPrimitive() || !distance.getAsJsonPrimitive().isNumber()
+                            || !Float.isFinite(distance.getAsFloat()) || distance.getAsFloat() < 0f)
+                        return DataResult.error(() -> "max_combine_distance must be finite and nonnegative");
+                }
                 for (String key : Set.of("damage_per_intensity", "break_intensities", "break_chances", "reroll_reduction")) if (!object.has(key) || object.get(key).isJsonNull())
                     return DataResult.error(() -> "missing or null explosion field '" + key + "'");
                 if (object.has("temperature_kelvin")) {
@@ -80,7 +88,15 @@ public record ExplosionData(Map<String, Float> damagePerIntensity, List<Float> b
 
     public ExplosionData(Map<String, Float> damagePerIntensity, List<Float> breakIntensities,
                          List<Float> breakChances, float rerollReduction) {
-        this(damagePerIntensity, breakIntensities, breakChances, rerollReduction, Optional.empty(), Optional.empty());
+        this(damagePerIntensity, breakIntensities, breakChances, rerollReduction, Optional.empty(), Optional.empty(), 1f, 6);
+    }
+    public ExplosionData(Map<String, Float> damagePerIntensity, List<Float> breakIntensities, List<Float> breakChances,
+                         float rerollReduction, Optional<Float> temperatureKelvin, Optional<Integer> fireStacks) {
+        this(damagePerIntensity, breakIntensities, breakChances, rerollReduction, temperatureKelvin, fireStacks, 1f, 6);
+    }
+    public ExplosionData(Map<String, Float> damagePerIntensity, List<Float> breakIntensities, List<Float> breakChances,
+                         float rerollReduction, Optional<Float> temperatureKelvin, Optional<Integer> fireStacks, float maxCombineDistance) {
+        this(damagePerIntensity, breakIntensities, breakChances, rerollReduction, temperatureKelvin, fireStacks, maxCombineDistance, 6);
     }
 
     public ExplosionData {
@@ -108,6 +124,9 @@ public record ExplosionData(Map<String, Float> damagePerIntensity, List<Float> b
             throw new IllegalArgumentException("reroll_reduction must be finite and positive");
         temperatureKelvin = temperatureKelvin == null ? Optional.empty() : temperatureKelvin;
         fireStacks = fireStacks == null ? Optional.empty() : fireStacks;
+        if (!Float.isFinite(maxCombineDistance) || maxCombineDistance < 0f)
+            throw new IllegalArgumentException("max_combine_distance must be finite and nonnegative");
+        if (smallSoundIterationThreshold < 1 || smallSoundIterationThreshold > 32) throw new IllegalArgumentException("small_sound_iteration_threshold out of range");
         if (temperatureKelvin.isPresent() && (!Float.isFinite(temperatureKelvin.get()) || temperatureKelvin.get() < 0f))
             throw new IllegalArgumentException("temperature_kelvin must be finite and nonnegative");
         if (fireStacks.isPresent() && fireStacks.get() < 0)

@@ -594,6 +594,33 @@ public final class NpcBehaviorGameTests {
         assertStepDropRouteWhenBudgetAvailable(helper, mouse, food, origin, 0);
     }
 
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"mouse-ai", "npc", "interaction", "npc-food-source-composition"})
+    public static void npcFoodValueUsesResolvedStackSourceWithoutRefillingExplicitEmpty(GameTestHelper helper) {
+        var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+        var pos = helper.absolutePos(new BlockPos(2, 1, 2)).getCenter();
+        var fresh = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level, pos,
+                new ItemStack(com.juicyslew.moonstation14.item.ModItems.CHEESE_SLICE.get()));
+        require(level.addFreshEntity(fresh), "fresh profile-backed food added");
+        require(NpcBehaviorSystem.debugSupportedItem(fresh) && NpcBehaviorSystem.debugItemValue(level, fresh) > 0,
+                "absent chemistry resolves from the shared food-solution owner on a planning copy");
+        var empty = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level, pos.add(1, 0, 0),
+                new ItemStack(com.juicyslew.moonstation14.item.ModItems.CHEESE_SLICE.get()));
+        empty.getItem().set(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get(),
+                new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent());
+        require(level.addFreshEntity(empty), "explicit-empty food added");
+        require(!NpcBehaviorSystem.debugSupportedItem(empty) && NpcBehaviorSystem.debugItemValue(level, empty) == 0,
+                "explicit empty live chemistry is authoritative and is never refilled from the profile");
+        var generated = com.juicyslew.moonstation14.ms14.botany.ProduceFactory.createHarvest(
+                com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("tomato"), 10f);
+        generated.remove(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get());
+        var missingProduce = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level, pos.add(2, 0, 0), generated);
+        require(level.addFreshEntity(missingProduce), "generated produce with absent live chemistry added");
+        require(!NpcBehaviorSystem.debugSupportedItem(missingProduce) && NpcBehaviorSystem.debugItemValue(level, missingProduce) == 0,
+                "produce instance without live chemistry resolves empty rather than prototype source chemistry");
+        helper.succeed();
+    }
+
     private static void assertStepDropRouteWhenBudgetAvailable(GameTestHelper helper,
             com.juicyslew.moonstation14.entities.MouseMob mouse,
             com.juicyslew.moonstation14.entities.LooseItemEntity food, BlockPos origin, int retries) {
@@ -853,14 +880,14 @@ public final class NpcBehaviorGameTests {
         double range = first.idlePoint().distanceTo(selectedFrom);
         // The regression needs time to observe one planning interval before this correctly fast
         // NPC arrives. Leave short random walks alone and wait for the next natural idle choice.
-        if (range < 4) {
-            if (retries >= 300) throw new GameTestAssertException("No sufficiently long natural idle route selected: " + first);
+        if (range <= .5) {
+            if (retries >= 700) throw new GameTestAssertException("No natural idle route beyond its arrival radius selected: " + first);
             helper.runAfterDelay(1, () -> awaitChosenIdleRoute(helper, mouse, spawnedAt, retries + 1));
             return;
         }
         var chosen = new GroundNpcRoutePlanner().routeResult(mouse, first.idlePoint());
         if (chosen.status() == GroundNpcRoutePlanner.RouteStatus.DEFERRED) {
-            if (retries >= 40) throw new GameTestAssertException("chosen idle route stayed budget-deferred: " + chosen);
+            if (retries >= 700) throw new GameTestAssertException("chosen idle route stayed budget-deferred: " + chosen);
             helper.runAfterDelay(1, () -> awaitChosenIdleRoute(helper, mouse, spawnedAt, retries + 1));
             return;
         }

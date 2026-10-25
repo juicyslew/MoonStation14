@@ -16,7 +16,7 @@ from test_workflow_native_execution import admit_native_fixture
 
 
 class TerminalReviewCleanupTests(unittest.TestCase):
-    def test_terminal_error_cleanup_releases_global_lane_for_fresh_later_assignment(self):
+    def test_terminal_error_cleanup_releases_its_review_claim_without_blocking_native_lane(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             api_root = root / 'review-api'
@@ -65,16 +65,18 @@ class TerminalReviewCleanupTests(unittest.TestCase):
             self.assertEqual('UNKNOWN', resource['state'])
             sequence, result_digest = terminal['run']['sequence'], store.get_terminal_result(run_id,1)
 
-            # An unresolved terminal review claim must continue to block a
-            # different caller/worktree before any native subprocess launches.
+            # An unresolved terminal review claim must not block an unrelated
+            # native lane. Stop at the launch boundary after proving admission.
             root2 = root / 'healthy'
             case2, _, accepted2, check2 = admit_native_fixture(root2, caller='healthy', key='healthy',
                 shared_store=store, review_roles=(role,), delay=.01)
             native2=workflow_native_execution.NativeExecutionBackend(store,root2/'artifacts',root2/'native-lock')
             try:
-                with patch.object(workflow_native_execution.subprocess,'Popen') as popen:
-                    self.assertEqual('PENDING',native2.dispatch('second-run-blocked',{'task_id':check2}))
-                popen.assert_not_called()
+                class LaunchReached(RuntimeError): pass
+                with patch.object(workflow_native_execution.subprocess,'Popen',side_effect=LaunchReached):
+                    with self.assertRaises(LaunchReached):
+                        native2.dispatch('second-run-admitted',{'task_id':check2})
+                self.assertEqual('CHECKING',store.get_run(accepted2['run_id'])['attempt']['phase'])
             finally:
                 native2.close()
 

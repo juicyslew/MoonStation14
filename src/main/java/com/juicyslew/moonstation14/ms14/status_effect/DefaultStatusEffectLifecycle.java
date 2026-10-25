@@ -38,9 +38,17 @@ public class DefaultStatusEffectLifecycle implements StatusEffectLifecycle {
         Objects.requireNonNull(key, "status effect key");
         Objects.requireNonNull(definition, "status effect definition");
         Objects.requireNonNull(instance, "status effect instance");
-        return definition.eligibility().contains(StatusEffectEligibility.LIVING_ENTITY)
+        return canApplyEligibility(definition, key, com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy.resolveActor(entity)
+                        .flatMap(actor -> actor.component(com.juicyslew.moonstation14.ms14.character.components.StatusEffectsPrototypeComponent.class)).orElse(null))
                 && (!definition.behaviors().contains(StatusEffectBehavior.MOVEMENT_SPEED)
                 || entity.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED) != null);
+    }
+
+    public static boolean canApplyEligibility(StatusEffectData definition, ResourceKey<StatusEffectData> key,
+            com.juicyslew.moonstation14.ms14.character.components.StatusEffectsPrototypeComponent admission) {
+        return definition.eligibility().contains(StatusEffectEligibility.LIVING_ENTITY)
+                && (!definition.eligibility().contains(StatusEffectEligibility.PROTOTYPE_ADMITTED)
+                || admission != null && admission.allowed().contains(key));
     }
 
     @Override
@@ -97,11 +105,20 @@ public class DefaultStatusEffectLifecycle implements StatusEffectLifecycle {
                 case MOVEMENT_SPEED -> {
                     // Reconciled above from the authoritative attachment.
                 }
+                case FRICTION -> {
+                    // Read from active authoritative status state by the shared movement query.
+                }
                 case STUN_ACTION_BLOCK -> {
                     // Read directly from active authoritative status state.
                 }
                 case KNOCKDOWN_POSTURE -> {
                     // Projected above through the shared posture authority.
+                }
+                case SPEECH_BLOCK -> {
+                    // Read directly from active authoritative status state by speech admission.
+                }
+                case PACIFIED -> {
+                    // Attack admission reads this active behavior through StatusEffectSystem.
                 }
             }
         }

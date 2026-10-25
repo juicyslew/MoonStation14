@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.hands.live;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
+import com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
 import com.juicyslew.moonstation14.ms14.hands.transfer.ItemLocation;
@@ -250,20 +251,21 @@ public final class BodyMachineItemSlotTransfer {
             restoreSlot(slot, ledger, ejected.orElseThrow(), handLocation);
             return Result.DENIED;
         }
+        LiveHands candidate = MeleeSelectionCooldown.stageSelectedInsertion(body, before, put.state());
         try {
-            if (!commit.test(put.state())) {
-                if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == put.state())
+            if (!commit.test(candidate)) {
+                if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == candidate)
                     return Result.RECOVERY_REQUIRED;
                 restoreSlot(slot, ledger, ejected.orElseThrow(), handLocation);
                 return Result.RECOVERY_REQUIRED;
             }
         } catch (RuntimeException failure) {
-            if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == put.state())
+            if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == candidate)
                 return Result.RECOVERY_REQUIRED;
             restoreSlot(slot, ledger, ejected.orElseThrow(), handLocation);
             return Result.RECOVERY_REQUIRED;
         }
-        if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != put.state()) return Result.RECOVERY_REQUIRED;
+        if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != candidate) return Result.RECOVERY_REQUIRED;
         return ledger.consume(ledger.snapshot().revision(), token, handLocation).accepted()
                 ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
     }

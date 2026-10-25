@@ -21,6 +21,10 @@ public class ModSounds {
     public static final Supplier<SoundEvent> WIRECUTTER_USE = registerSoundEvent("tools/wirecutter");
     public static final Supplier<SoundEvent> APC_SWITCH = registerSoundEvent("apc/switch");
     public static final Supplier<SoundEvent> BOTANY_GRINDER = registerSoundEvent("botany/grinder/blender");
+    public static final Supplier<SoundEvent> BOTANY_GRINDER_JUICE = registerSoundEvent("botany/grinder/juicer");
+    public static final Supplier<SoundEvent> BOTANY_PRODUCE_DESECRATION = registerSoundEvent("botany/produce/desecration");
+    public static final Supplier<SoundEvent> BOTANY_PRODUCE_SLIME_SQUISH = registerSoundEvent("botany/produce/slime_squish");
+    public static final Supplier<SoundEvent> BOTANY_PRODUCE_PACKETRIP = registerSoundEvent("botany/produce/packetrip");
     public static final Supplier<SoundEvent> CHEMMASTER_CLICK = registerSoundEvent("chemistry/chemmaster/click");
     public static final Supplier<SoundEvent> CHEMMASTER_INSERT = registerSoundEvent("chemistry/chemmaster/insert");
     public static final Supplier<SoundEvent> CHEMMASTER_EJECT = registerSoundEvent("chemistry/chemmaster/eject");
@@ -41,6 +45,15 @@ public class ModSounds {
     public static final Supplier<SoundEvent> DRINK = registerSoundEvent("ss14/items/drink");
     public static final Supplier<SoundEvent> PILL = registerSoundEvent("ss14/items/pill");
     public static final Supplier<SoundEvent> EAT = registerSoundEvent("ss14/items/eat");
+    public static final Supplier<SoundEvent> FOOD_CHOP = registerSoundEvent("ss14/items/chop");
+    public static final Supplier<SoundEvent> GUNSHOT_REVOLVER = registerSoundEvent("ss14/weapons/guns/gunshots/revolver");
+    public static final Supplier<SoundEvent> GUN_EMPTY = registerSoundEvent("ss14/weapons/guns/empty");
+    public static final Supplier<SoundEvent> GUN_REVOLVER_MAGOUT = registerSoundEvent("ss14/weapons/guns/magout/revolver_magout");
+    public static final Supplier<SoundEvent> GUN_REVOLVER_MAGIN = registerSoundEvent("ss14/weapons/guns/magin/revolver_magin");
+    public static final Supplier<SoundEvent> GUN_REVOLVER_SPIN = registerSoundEvent("ss14/weapons/guns/misc/revolver_spin");
+    public static final Supplier<SoundEvent> GUN_BULLET_HIT = registerSoundEvent("ss14/weapons/guns/hits/bullet_hit");
+    public static final Supplier<SoundEvent> GUN_BULLET_MISS = registerSoundEvent("ss14/weapons/guns/miss/bullet_miss");
+    public static final Supplier<SoundEvent> SLIP = registerSoundEvent("ss14/effects/slip");
     public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
     // Event registry IDs must exist independently of their sounds.json sample mappings.
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_BEGIN = registerSoundEvent("medical/ointment_begin");
@@ -53,6 +66,48 @@ public class ModSounds {
     public static final Supplier<SoundEvent> MALE_GASP = registerSoundEvent("gasp/male");
     public static final Supplier<SoundEvent> FEMALE_GASP = registerSoundEvent("gasp/female");
     public static final Supplier<SoundEvent> MOUSE_SQUEAK = registerSoundEvent("mouse_squeak");
+    private record SpeechSounds(Supplier<SoundEvent> say, Supplier<SoundEvent> ask, Supplier<SoundEvent> exclaim) {
+        SpeechSounds(Supplier<SoundEvent> all) { this(all, all, all); }
+    }
+    private static SpeechSounds speechCollection(String id) {
+        return new SpeechSounds(registerSoundEvent("speech/" + id),
+                registerSoundEvent("speech/" + id + "_ask"), registerSoundEvent("speech/" + id + "_exclaim"));
+    }
+    private static final java.util.Map<String, SpeechSounds> SPEECH_SOUNDS = java.util.Map.ofEntries(
+            java.util.Map.entry("Squeak", new SpeechSounds(MOUSE_SQUEAK)),
+            java.util.Map.entry("mouse_squeak", new SpeechSounds(MOUSE_SQUEAK)),
+            java.util.Map.entry("Cluck", new SpeechSounds(registerSoundEvent("speech/cluck"))),
+            java.util.Map.entry("Goat", new SpeechSounds(registerSoundEvent("speech/goat"))),
+            java.util.Map.entry("Monkey", new SpeechSounds(registerSoundEvent("speech/monkey"))),
+            java.util.Map.entry("Parrot", new SpeechSounds(registerSoundEvent("speech/parrot"))),
+            java.util.Map.entry("Cat", new SpeechSounds(registerSoundEvent("speech/cat"))),
+            java.util.Map.entry("Dog", new SpeechSounds(registerSoundEvent("speech/dog"))),
+            java.util.Map.entry("Lizard", speechCollection("lizard")),
+            java.util.Map.entry("Arachnid", speechCollection("arachnid")),
+            java.util.Map.entry("Alto", speechCollection("alto")),
+            java.util.Map.entry("Wawa", speechCollection("wawa")));
+
+    public static boolean hasSpeechSound(String id) { return SPEECH_SOUNDS.containsKey(id); }
+    /** Resolves an explicit ambient cue from registered animal voice collections. */
+    public static Supplier<SoundEvent> ambientSound(String id) {
+        SpeechSounds voice = SPEECH_SOUNDS.get(id);
+        if (voice != null) return voice.say();
+        return null;
+    }
+    public static Supplier<SoundEvent> speechSound(String id) {
+        return speechSounds(id).say();
+    }
+    public static Supplier<SoundEvent> speechSound(String id, String text) {
+        SpeechSounds sounds = speechSounds(id);
+        if (text != null && text.stripTrailing().endsWith("?")) return sounds.ask();
+        if (text != null && text.stripTrailing().endsWith("!")) return sounds.exclaim();
+        return sounds.say();
+    }
+    private static SpeechSounds speechSounds(String id) {
+        SpeechSounds sounds = SPEECH_SOUNDS.get(id);
+        if (sounds == null) throw new IllegalArgumentException("Unknown registered speech sound: " + id);
+        return sounds;
+    }
     // Match the per-sample attenuation_distance in sounds.json: server delivery and client fade
     public static final Supplier<SoundEvent> DISPOSAL_FLUSH = registerSoundEvent("disposal/flush");
     public static final Supplier<SoundEvent> DISPOSAL_PIPE_CLANG = registerSoundEvent("disposal/pipe_clang");
@@ -61,6 +116,10 @@ public class ModSounds {
     public static final Supplier<SoundEvent> GRENADE_BEEP = registerFixedRangeSoundEvent("grenade/beep", 32.0F);
     public static final Supplier<SoundEvent> GRENADE_EXPLODE = registerFixedRangeSoundEvent("grenade/explode", 32.0F);
     public static final Supplier<SoundEvent> GRENADE_EXPLODE_FAR = registerSoundEvent("grenade/explode_far");
+    public static final Supplier<SoundEvent> EXPLOSION_SMALL = registerFixedRangeSoundEvent("ss14/effects/explosion_small", 30.0F);
+    public static final Supplier<SoundEvent> EXPLOSION_SMALL_FAR = registerSoundEvent("ss14/effects/explosion_small_far");
+    public static final Supplier<SoundEvent> GLASS_BREAK = registerSoundEvent("ss14/effects/glass_break");
+    public static final Supplier<SoundEvent> GLASS_STEP = registerSoundEvent("ss14/effects/glass_step");
     public static final Supplier<SoundEvent> PA_PARTICLE_HIT = registerSoundEvent("pa_particle_hit");
     public static final Supplier<SoundEvent> SINGULARITY_AMBIENT = registerFixedRangeSoundEvent("singularity/ambient", 14.0F);
     public static final Supplier<SoundEvent> SINGULARITY_COMPONENT_AMBIENT = registerFixedRangeSoundEvent("singularity/component_ambient", 20.0F);
@@ -92,6 +151,8 @@ public class ModSounds {
         if (sound == null) throw new IllegalArgumentException("Unknown registered emote sound: " + id);
         return sound;
     }
+
+    public static boolean hasEmote(String id) { return EMOTES.containsKey(id); }
 
     private static Supplier<SoundEvent> registerSoundEvent(String name){
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, name);

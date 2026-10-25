@@ -48,6 +48,9 @@ class ReviewResults:
             return self._invalid(payload,field,'Result does not match the required callback contract.',recovery)
         if schema == "review_result":
             for finding in payload["findings"]:
+                if finding.get("validation_stage") == "OWNER_TESTING":
+                    return self._invalid(payload,"findings.validation_stage",
+                        "OWNER_TESTING findings are pending owner observations, not technical blockers; move this item to owner_followups and report PASS when no technical blocker remains.")
                 if finding.get("category") not in _CATEGORIES:
                     return self._invalid(payload,"findings.category","Use one allowed category: IMPLEMENTATION, PARITY_COMPOSITION, COVERAGE, or FIDELITY.")
                 if payload["decision"] == "FAIL" and not all(finding.get(k) for k in ("required_change","location","evidence_refs")):
@@ -114,4 +117,5 @@ class ReviewResults:
                 return {"decision":"ERROR","waiting_task_ids":waiting,"findings":[],"error":{"code":"MISSING_REVIEW_RESULT","message":"review assignment deadline elapsed without an accepted result","task_id":task['task_id'],"session_id":task['assigned_session_id'],"artifact_refs":[]}}
             return {"decision":None,"waiting_task_ids":waiting,"findings":[]}
         failures=[f for t in reviews if (t.get("result") or {}).get("decision")=="FAIL" for f in t["result"].get("findings",[])]
-        return {"decision":"FAIL" if failures else "PASS","waiting_task_ids":[],"findings":failures}
+        followups=[item for task in reviews for item in (task.get("result") or {}).get("owner_followups",[])]
+        return {"decision":"FAIL" if failures else "PASS","waiting_task_ids":[],"findings":failures,"owner_followups":followups}

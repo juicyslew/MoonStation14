@@ -26,6 +26,30 @@ def project(item):
 
 
 class WorkflowBoardProjectionTests(unittest.TestCase):
+    def test_result_recency_uses_only_exact_current_generation_terminal_event(self):
+        result_id="result-current"
+        events=[
+            {"event_id":result_id,"generation":1,"payload":{"result_id":result_id},"created_ms":999},
+            {"event_id":"unrelated","generation":2,"payload":{"result_id":"unrelated"},"created_ms":9000,"kind":"ACCEPTANCE"},
+            {"event_id":result_id,"generation":2,"payload":{"result_id":"other"},"created_ms":8000},
+            {"event_id":result_id,"generation":2,"payload":{"result_id":result_id},"created_ms":321},
+        ]
+        item=record("DECIDED","PASS",extra={"terminal_result":{"result_id":result_id},"events":events})
+        card=project(item)["columns"]["Your testing"][0]
+        self.assertEqual(card["result_created_ms"],321)
+
+    def test_result_recency_is_none_when_terminal_event_or_timestamp_is_invalid(self):
+        for timestamp in (None,True,"321",-1):
+            with self.subTest(timestamp=timestamp):
+                result_id="result-current"
+                item=record("DECIDED","PASS",extra={"terminal_result":{"result_id":result_id},"events":[
+                    {"event_id":result_id,"generation":1,"payload":{"result_id":result_id},"created_ms":500},
+                    {"event_id":result_id,"generation":2,"payload":{"result_id":result_id},"created_ms":timestamp},
+                ]})
+                self.assertIsNone(project(item)["columns"]["Your testing"][0]["result_created_ms"])
+        item=record("DECIDED","PASS",extra={"terminal_result":{},"events":[]})
+        self.assertIsNone(project(item)["columns"]["Your testing"][0]["result_created_ms"])
+
     def test_terminal_error_is_not_presented_as_active_check_or_review(self):
         check=record("DECIDED","ERROR",extra={"tasks":[{"kind":"CHECK","state":"COMPLETED","result":{"decision":"ERROR","findings":[{"summary":"Service unavailable"}]}}]})
         card=project(check)["columns"]["Checking"][0]

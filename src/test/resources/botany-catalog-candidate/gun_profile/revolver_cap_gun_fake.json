@@ -1,0 +1,1 @@
+{"id":"revolver_cap_gun_fake","parent":"moonstation14:revolver_cap_gun","revolver_ammo_provider":{"fill_cartridge_prototype":"moonstation14:cartridge_magnum_ap","accepted_cartridge_tags":["moonstation14:cap","moonstation14:magnum"],"accepted_speedloader_tags":["moonstation14:toy","moonstation14:magnum"]}}

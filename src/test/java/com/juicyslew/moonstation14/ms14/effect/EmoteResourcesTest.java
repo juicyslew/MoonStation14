@@ -16,9 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class EmoteResourcesTest {
     @Test void soundCollectionsResolveEverySelectedResourceAndManifestCoversAllAssets() throws Exception {
-        Path project = Path.of(System.getProperty("user.dir"));
-        while (!Files.exists(project.resolve("src/main/resources/assets/moonstation14/sounds.json"))
-                && project.getParent() != null) project = project.getParent();
+        Path project = projectRoot();
         Path root = project.resolve("src/main/resources/assets/moonstation14");
         JsonObject sounds = JsonParser.parseString(Files.readString(root.resolve("sounds.json"))).getAsJsonObject();
         int references = 0;
@@ -59,5 +57,13 @@ class EmoteResourcesTest {
             assertTrue(lang.has("sounds.moonstation14.emote." + id));
             assertTrue(lang.has("moonstation14.emote." + id));
         }
+    }
+
+    private static Path projectRoot() {
+        Path project = Path.of(System.getProperty("moonstation14.projectDir", System.getProperty("user.dir")))
+                .toAbsolutePath().normalize();
+        while (!Files.exists(project.resolve("src/main/resources/assets/moonstation14/sounds.json"))
+                && project.getParent() != null) project = project.getParent();
+        return project;
     }
 }

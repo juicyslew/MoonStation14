@@ -1,56 +1,48 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.server;
 
-import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import org.junit.jupiter.api.Test;
-
+import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GhostIntentGateTest {
-    private static final long EPOCH = 7;
-
     @Test
-    void acceptsMonotonicSequenceAndAtMostOneFramePerTick() {
-        GhostIntentGate<String> gate = new GhostIntentGate<>();
-        assertTrue(gate.offer(1, 10, "first"));
-        assertFalse(gate.offer(2, 10, "same tick"));
-        assertEquals("first", gate.take());
-        assertFalse(gate.offer(1, 11, "replay"));
-        assertTrue(gate.offer(3, 11, "next"));
-        assertFalse(gate.offer(4, 12, "pending frame cannot be overwritten"));
-        assertEquals("next", gate.take());
-        assertNull(gate.take());
+    void drainsAllIncreasingBurstUpdatesInOrderAsOneTickBatch() {
+        GhostIntentGate<Long> gate = new GhostIntentGate<>();
+        for (long sequence = 1; sequence <= 10; sequence++) assertTrue(gate.offer(sequence, sequence));
+        assertFalse(gate.offer(10, 10L));
+        assertFalse(gate.offer(9, 9L));
+        assertEquals(java.util.stream.LongStream.rangeClosed(1, 10).boxed().toList(), gate.takeBatch(20));
+        assertEquals(List.of(), gate.takeBatch(20));
+        assertEquals(List.of(), gate.takeBatch(19));
     }
 
     @Test
-    void permanentlySkipsSameTickSequencesAndRejectsThemAfterHigherSequenceIsAccepted() {
-        GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
-        GhostControlPayloads.Intent first = intent(1);
-        GhostControlPayloads.Intent skippedTwo = intent(2);
-        GhostControlPayloads.Intent skippedThree = intent(3);
-        GhostControlPayloads.Intent fourth = intent(4);
-
-        assertTrue(gate.offer(first.sequence(), 1, first));
-        assertFalse(gate.offer(skippedTwo.sequence(), 1, skippedTwo));
-        assertFalse(gate.offer(skippedThree.sequence(), 1, skippedThree));
-        assertEquals(first, gate.take());
-
-        assertTrue(gate.offer(fourth.sequence(), 2, fourth));
-        assertEquals(fourth, gate.take());
-        assertFalse(gate.offer(skippedTwo.sequence(), 3, skippedTwo));
-        assertFalse(gate.offer(skippedThree.sequence(), 3, skippedThree));
+    void emptyBatchConsumesTickAndLaterOfferWaitsForNextTick() {
+        GhostIntentGate<String> gate = new GhostIntentGate<>();
+        assertEquals(List.of(), gate.takeBatch(50));
+        assertTrue(gate.offer(1, "late"));
+        assertEquals(List.of(), gate.takeBatch(50));
+        assertEquals(List.of("late"), gate.takeBatch(51));
+        assertEquals(List.of(), gate.takeBatch(51));
     }
 
     @Test
-    void sequenceExhaustionIsExplicitAndDoesNotWrap() {
-        GhostIntentGate<String> gate = new GhostIntentGate<>();
-        assertFalse(gate.offer(Long.MAX_VALUE, 10, "exhausted"));
+    void overflowDoesNotAdvanceSequenceAndResetClearsQueueTickGuardAndExhaustion() {
+        GhostIntentGate<Integer> gate = new GhostIntentGate<>();
+        for (int i = 1; i <= GhostIntentGate.CAPACITY; i++) assertTrue(gate.offer(i, i));
+        assertFalse(gate.offer(GhostIntentGate.CAPACITY + 1L, 100));
+        List<Integer> firstBatch = gate.takeBatch(1);
+        assertEquals(GhostIntentGate.CAPACITY, firstBatch.size());
+        assertEquals(1, firstBatch.getFirst());
+        assertEquals(GhostIntentGate.CAPACITY, firstBatch.getLast());
+        assertTrue(gate.offer(GhostIntentGate.CAPACITY + 1L, 65));
+        assertFalse(gate.offer(Long.MAX_VALUE, 0));
         assertTrue(gate.exhausted());
-        assertFalse(gate.offer(1, 11, "wrapped"));
-        assertNull(gate.take());
-    }
-
-    private static GhostControlPayloads.Intent intent(long sequence) {
-        return new GhostControlPayloads.Intent(EPOCH, sequence, (short) 0, (short) 0,
-                (byte) 0, 0, 0, 0);
+        assertTrue(gate.takeBatch(2).contains(65));
+        gate.reset();
+        assertFalse(gate.exhausted());
+        assertEquals(List.of(), gate.takeBatch(2));
+        assertTrue(gate.offer(1, 1));
+        assertEquals(List.of(1), gate.takeBatch(3));
     }
 }

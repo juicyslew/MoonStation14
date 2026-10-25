@@ -177,7 +177,7 @@ public final class WorldGridClientPolicy {
             for (var entry : snapshot.entries()) {
                 var id = ResourceLocation.tryParse(entry.itemId());
                 if (id == null) return false;
-                var mutation = geometry.place(entry.token(), ItemFootprints.clientForId(id), new GridGeometry.Cell(entry.x(), entry.y()), GridGeometry.Rotation.values()[entry.rotation() / 90]);
+                var mutation = geometry.place(entry.token(), ItemFootprints.clientForPresentation(id, entry.presentation()), new GridGeometry.Cell(entry.x(), entry.y()), GridGeometry.Rotation.values()[entry.rotation() / 90]);
                 if (!mutation.accepted()) return false;
                 geometry = mutation.snapshot(); entries.put(entry.token(), entry);
             }
@@ -485,4 +485,3 @@ public final class WorldGridClientPolicy {
         public boolean actionsEnabled() { return confirmed && fresh; }
     }
 }
-

@@ -41,36 +41,28 @@ class FailedRunReplacementTests(unittest.TestCase):
             self.assertEqual("ACCEPTED", first_receipt["status"])
             old_run = first_receipt["run_id"]
 
-            # Settle only the isolated fixture's first attempt as a valid terminal FAIL.
+            # A settled PASS is still pending manual owner testing, not acceptance.
             db = store._connect()
             try:
-                attempt = {"contract_version":1,"run_id":old_run,"generation":1,"phase":"DECIDED","result":"FAIL",
+                attempt = {"contract_version":1,"run_id":old_run,"generation":1,"phase":"DECIDED","result":"PASS",
                     "closure":None,"proposed_result":None,"cleanup_state":"NOT_REQUIRED","pause_reason":None,"proposed_closure":None}
                 db.execute("UPDATE attempts SET attempt_json=? WHERE run_id=? AND generation=1", (workflow_store.canonical_json(attempt),old_run))
                 task_row = db.execute("SELECT id,task_json FROM tasks WHERE run_id=?", (old_run,)).fetchone()
                 old_task = workflow_store.strict_loads(task_row[1])
                 old_task["state"] = "COMPLETED"
-                old_task["result"] = {"decision":"FAIL","findings":[],"artifact_refs":[]}
+                old_task["result"] = {"decision":"PASS","findings":[],"artifact_refs":[]}
                 db.execute("UPDATE tasks SET task_json=? WHERE id=?", (workflow_store.canonical_json(old_task),task_row[0]))
                 db.commit()
             finally:
                 db.close()
             run_snapshot=store.get_run(old_run)
-            grant=store.authorize_author_successor(run_id=old_run,generation=1,
-                expected_sequence=run_snapshot['run']['sequence'],caller='owner',command_id='successor-grant',
-                worktree=str(case.repo),predecessor_session_id=case.context.authenticated_author['session_id'],
-                successor_session_id='successor-session')
-            self.assertEqual(1,grant['evaluation_generation'])
-            self.assertEqual(grant,store.get_author_successor_grant(run_id=old_run,successor_session_id='successor-session'))
-            stale_db=store._connect()
-            try:
-                stale_db.execute('UPDATE runs SET current_generation=2 WHERE id=?',(old_run,)); stale_db.commit()
-            finally: stale_db.close()
-            self.assertIsNone(store.get_author_successor_grant(run_id=old_run,successor_session_id='successor-session'))
-            stale_db=store._connect()
-            try:
-                stale_db.execute('UPDATE runs SET current_generation=1 WHERE id=?',(old_run,)); stale_db.commit()
-            finally: stale_db.close()
+            pass_status=client.get("/v1/status",headers=headers,params={"run_id":old_run})
+            self.assertEqual(200,pass_status.status_code,pass_status.text)
+            continuation=pass_status.json()["continuation"]
+            self.assertEqual("PREPARE_REVISED_SUBMISSION",continuation["next_action"])
+            self.assertEqual(old_run,continuation["replaces_run_id"])
+            self.assertIn("After owner feedback",continuation["message"])
+            self.assertIn("not acceptance",continuation["message"])
             original_frozen = self._all_submission_artifacts(store, "initial")
             original_bytes = {a["artifact"]["artifact_id"]:Path(a["artifact"]["path"]).read_bytes() for a in original_frozen}
             with self.subTest("old rows remain immutable"):
@@ -142,6 +134,9 @@ class FailedRunReplacementTests(unittest.TestCase):
                     self.assertTrue(before <= after, f"preexisting rows changed in {table}")
             finally:
                 submissions.close()
+            old_status=client.get("/v1/status",headers=headers,params={"run_id":old_run})
+            self.assertEqual("HISTORY_ONLY",old_status.json()["continuation"]["next_action"])
+            self.assertIsNone(old_status.json()["continuation"]["replaces_run_id"])
             self.assertEqual(original_bytes, {a["artifact"]["artifact_id"]:Path(a["artifact"]["path"]).read_bytes() for a in original_frozen})
 
             # Exact replay is answered before source/evidence revalidation and adds no event/run.
@@ -202,7 +197,7 @@ class FailedRunReplacementTests(unittest.TestCase):
                 self._submit(store, dict(request, idempotency_key="three", replaces_run_id="run_foreign"), "three")
             self.assertEqual(workflow_store.SubmissionHeadConflict.INVALID_TARGET, stale.exception.reason)
 
-    def test_eligible_fail_is_replaced_and_exact_intent_replays(self):
+    def test_eligible_pass_is_replaced_and_exact_intent_replays(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = workflow_store.WorkflowStore(Path(tmp) / "workflow.sqlite")
             first = self._request()
@@ -211,9 +206,9 @@ class FailedRunReplacementTests(unittest.TestCase):
             try:
                 db.execute("UPDATE attempts SET attempt_json=? WHERE run_id='run_one' AND generation=1", (
                     workflow_store.canonical_json({"contract_version":1,"run_id":"run_one","generation":1,
-                        "phase":"DECIDED","result":"FAIL","closure":None,"proposed_result":None,
+                        "phase":"DECIDED","result":"PASS","closure":None,"proposed_result":None,
                         "cleanup_state":"NOT_REQUIRED","pause_reason":None,"proposed_closure":None}),))
-                db.execute("UPDATE tasks SET task_json=json_set(task_json,'$.state','COMPLETED','$.result',json('{\"decision\":\"FAIL\",\"findings\":[],\"artifact_refs\":[]}')) WHERE id='task_one'")
+                db.execute("UPDATE tasks SET task_json=json_set(task_json,'$.state','COMPLETED','$.result',json('{\"decision\":\"PASS\",\"findings\":[],\"artifact_refs\":[]}')) WHERE id='task_one'")
                 db.execute("INSERT INTO deliveries(id,event_id,recipient_json,target_kind,state,payload_digest,protocol_ack) VALUES(?,?,?,?,?,?,?)",
                     ("delivery_fixture", "event_one", '{"session_id":"session"}', "AUTHOR", "ACKNOWLEDGED", "d"*64,
                      workflow_store.canonical_json({"event_id":"event_one","command_id":"ack-fixture","run_id":"run_one","evaluation_generation":1})))
@@ -290,7 +285,7 @@ class FailedRunReplacementTests(unittest.TestCase):
             fixture.tearDown()
 
     def test_authority_and_outcome_matrix_rejects_ineligible_targets(self):
-        cases = ("pass", "closed", "foreign_session", "foreign_worktree", "foreign_sprint", "nonhead",
+        cases = ("closed", "foreign_session", "foreign_worktree", "foreign_sprint", "nonhead",
                  "non_feature", "queued", "pending_task", "held", "unknown", "owned_scope")
         for case in cases:
             with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:

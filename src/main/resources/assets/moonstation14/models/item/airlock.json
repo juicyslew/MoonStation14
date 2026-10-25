@@ -1,1 +1,3 @@
-{ "parent": "moonstation14:item/airlock_vertical_standard_basic" }
+{
+  "parent": "moonstation14:item/airlock_vertical_standard_basic"
+}

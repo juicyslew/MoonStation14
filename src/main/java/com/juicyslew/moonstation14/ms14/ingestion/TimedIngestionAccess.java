@@ -75,6 +75,7 @@ public final class TimedIngestionAccess {
         if (!reagent(stack) || !positive(stack, level) || !stomachRoom(body, level)) return Optional.empty();
         try { new ItemToken(token); } catch (RuntimeException ex) { return Optional.empty(); }
         ResourceLocation type=BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (!specialDigestionAllowed(type)) return Optional.empty();
         if (blockedByHydration(body, type)) return Optional.empty();
         return Optional.of(new Admission("held:"+token,type,Kind.HELD,body,level,token,hand,revision,type,null,null,null));
     }
@@ -105,6 +106,7 @@ public final class TimedIngestionAccess {
         if(!positive(item.getItem(),level))return worldFailure(WorldAdmissionFailure.EMPTY_SOURCE, probe.diagnostic());
         if(!stomachRoom(body,level))return worldFailure(WorldAdmissionFailure.NO_STOMACH_ROOM, probe.diagnostic());
         ResourceLocation type=BuiltInRegistries.ITEM.getKey(item.getItem().getItem());
+        if (!specialDigestionAllowed(type)) return worldFailure(WorldAdmissionFailure.AUTHORITY_REJECTED, probe.diagnostic());
         if (blockedByHydration(body, type))return worldFailure(WorldAdmissionFailure.HYDRATION_BLOCKED, probe.diagnostic());
         return new WorldAdmissionResult(Optional.of(new Admission("world:"+target,type,Kind.WORLD,body,level,null,
                 hand,revision,type,item,null,null)),WorldAdmissionFailure.NONE,probe.diagnostic());
@@ -144,6 +146,7 @@ public final class TimedIngestionAccess {
         }
         if(admission.body!=body||server(body,authority)!=admission.level
                 ||!body.getUUID().equals(admission.bodyId)||!stomachRoom(body,admission.level)
+                ||!specialDigestionAllowed(admission.profileId)
                 ||blockedByHydration(body, admission.profileId)) return false;
         LiveHands hands=liveHands(body);
         if(hands==null&&(admission.kind==Kind.HELD||!OralAccess.handless(body))) return false;
@@ -299,15 +302,28 @@ public final class TimedIngestionAccess {
     private static boolean sameType(ItemStack s,ResourceLocation id){return id.equals(BuiltInRegistries.ITEM.getKey(s.getItem()));}
     private static boolean positive(Object holder,ServerLevel l){
         try {
-            if (holder instanceof ItemStack stack) com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem.initializeSource(stack, l);
-            else if (holder instanceof ItemEntity item) com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem.initializeSource(item.getItem(), l);
-            var bridge=ReagentSystem.bridgeForHolder(holder);
+            Object resolvedHolder=holder;
+            if (holder instanceof ItemStack stack) {
+                ItemStack planningCopy=stack.copy();
+                com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(planningCopy,l);
+                resolvedHolder=planningCopy;
+            } else if (holder instanceof ItemEntity item) {
+                ItemStack planningCopy=item.getItem().copy();
+                com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(planningCopy,l);
+                resolvedHolder=planningCopy;
+            }
+            var bridge=ReagentSystem.bridgeForHolder(resolvedHolder);
             if(bridge==null)return false;
-            var map=MS14Provider.getDetached(holder,bridge).getMap();
+            var map=MS14Provider.getDetached(resolvedHolder,bridge).getMap();
             if(!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(map,l,"timed ingestion source"))return false;
             return ReagentUnits.fromMap(map).values().stream().mapToLong(Long::longValue).sum()>0;
         }
         catch(RuntimeException ex){return false;}
+    }
+    /** Local ingestion has no native special-diet capability; enforce the resolved profile at admission and commit. */
+    public static boolean specialDigestionAllowed(ResourceLocation profileId) {
+        IngestionProfile profile=ModIngestionProfiles.serverLookup(profileId);
+        return profile==null || !profile.edible().requiresSpecialDigestion();
     }
     private static boolean stomachRoom(LivingEntity body,ServerLevel l){
         try { var m=MS14Provider.getDetached(body,MS14Bridges.STOMACH).getMap();

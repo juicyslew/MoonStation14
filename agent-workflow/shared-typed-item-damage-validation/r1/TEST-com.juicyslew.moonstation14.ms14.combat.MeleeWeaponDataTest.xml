@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.combat.MeleeWeaponDataTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-10-21T14:26:20.404Z" hostname="DESKTOP-4F0ER3K" time="0.02">
+  <properties/>
+  <testcase name="defaultsAndExplicitValuesDecode()" classname="com.juicyslew.moonstation14.ms14.combat.MeleeWeaponDataTest" time="0.018"/>
+  <testcase name="mapIsImmutableAndInputsAreValidated()" classname="com.juicyslew.moonstation14.ms14.combat.MeleeWeaponDataTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

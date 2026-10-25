@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /** Routing for the left-button world gesture; GUI clicks never enter this policy. */
 public final class PrimaryWorldGesture {
-    public enum Route { TARGET_USE, BLOCK_USE, HELD_USE, PICKUP, MEDICAL_USE, CONTROLLED_NONE, VANILLA }
+    public enum Route { MELEE, TARGET_USE, BLOCK_USE, HELD_USE, PICKUP, MEDICAL_USE, CONTROLLED_NONE, VANILLA }
     public record ClickDecision(Route route, BodyHandActionRequest.Action action, UUID target) { }
 
     private PrimaryWorldGesture() { }
@@ -17,7 +17,13 @@ public final class PrimaryWorldGesture {
 
     public static Route route(boolean ownedWorldInput, boolean aimedBlock, boolean handOccupied, boolean aimedItem,
                               boolean aimedMedicalBody) {
+        return route(ownedWorldInput, false, aimedBlock, handOccupied, aimedItem, aimedMedicalBody);
+    }
+
+    public static Route route(boolean ownedWorldInput, boolean combatMode, boolean aimedBlock, boolean handOccupied,
+                              boolean aimedItem, boolean aimedMedicalBody) {
         if (!ownedWorldInput) return Route.VANILLA;
+        if (combatMode) return Route.MELEE;
         if (aimedMedicalBody && handOccupied) return Route.MEDICAL_USE;
         // The item target has already passed reach and occlusion admission. It is
         // the primary target even when the ray also reports a background block.
@@ -65,4 +71,3 @@ public final class PrimaryWorldGesture {
         return click(aimedBlock, handOccupied, looseItem, portableLiving, medicalTarget, medicalBody);
     }
 }
-

@@ -63,9 +63,11 @@
     "client.MobMindHarnessWalkAnimationMixin",
     "client.GameRendererDamageFeedbackMixin",
     "client.LivingEntityRendererDamageFeedbackMixin",
+    "client.LivingEntityMeleeLungePoseMixin",
     "client.LevelRendererCriticalCloudsMixin",
     "client.LivingEntityDisposalContainmentRenderMixin",
     "client.ContainedBodyCameraMixin",
+    "client.GunCameraRecoilMixin",
     "client.ContainedPerspectiveLockMixin",
     "client.ContainedOwnerPickMixin"
     ,"client.VertexBufferSingularityDiagnosticMixin"

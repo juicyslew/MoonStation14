@@ -23,6 +23,7 @@ public final class MouseAppearanceTextures {
             case WHITE -> MouseAppearanceComponent.Variant.WHITE;
             case BROWN -> MouseAppearanceComponent.Variant.BROWN;
             case GRAY -> MouseAppearanceComponent.Variant.GRAY;
+            case NONE -> throw new IllegalArgumentException("mouse held presentation cannot consume a non-mouse descriptor");
         };
         boolean dead = view.state() == com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.State.DEAD;
         boolean nonAlive = view.state() != com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearance.State.ALIVE;

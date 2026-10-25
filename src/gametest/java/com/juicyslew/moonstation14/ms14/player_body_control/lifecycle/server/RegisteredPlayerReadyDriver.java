@@ -26,6 +26,14 @@ public final class RegisteredPlayerReadyDriver {
         LifecycleCharacterSessionControl.playerTick(new net.neoforged.neoforge.event.tick.PlayerTickEvent.Post(fixture.player()));
     }
 
+    public static void admitIntent(RegisteredServerPlayerFixture fixture, GhostControlPayloads.Intent intent) {
+        LifecycleCharacterSessionControl.onPayload(intent, fixture.player());
+    }
+
+    public static void authoritativeTick(RegisteredServerPlayerFixture fixture) {
+        LifecycleCharacterSessionControl.playerTick(new net.neoforged.neoforge.event.tick.PlayerTickEvent.Post(fixture.player()));
+    }
+
     /** Re-enters the public post-tick owner without another payload, to verify a consumed fixture input is not replayed. */
     public static void tickWithoutNewIntent(RegisteredServerPlayerFixture fixture) {
         LifecycleCharacterSessionControl.playerTick(new net.neoforged.neoforge.event.tick.PlayerTickEvent.Post(fixture.player()));
@@ -33,8 +41,9 @@ public final class RegisteredPlayerReadyDriver {
     public record Active(LivingEntity body, long epoch, BodyHandStateSnapshot initialHands) { }
 
     public static Active readyAndQuery(RegisteredServerPlayerFixture fixture) {
-        GhostControlPayloads.Begin begin = takeBegin(fixture, MobHarnessKind.CHARACTER);
-        if (begin == null) throw new IllegalStateException("normal lifecycle login emitted no CHARACTER Begin");
+        java.util.List<String> outboundKinds = new java.util.ArrayList<>();
+        GhostControlPayloads.Begin begin = takeBegin(fixture, MobHarnessKind.CHARACTER, outboundKinds);
+        if (begin == null) throw new IllegalStateException(noCharacterBeginDiagnostic(fixture, outboundKinds));
         return readyAndQuery(fixture, begin);
     }
 
@@ -50,6 +59,31 @@ public final class RegisteredPlayerReadyDriver {
         return new Active(active.body(), active.epoch(), snapshot);
     }
 
+    private static String noCharacterBeginDiagnostic(RegisteredServerPlayerFixture fixture, java.util.List<String> outboundKinds) {
+        var player = fixture.player();
+        var server = player.getServer();
+        var startup = server == null ? null : LifecycleStartupRuntime.snapshot(server).orElse(null);
+        var context = server == null ? null : LifecycleStartupRuntime.contextFor(server).orElse(null);
+        boolean reserved = context != null && context.hasReservedClaim(player.getUUID());
+        boolean createdHere = context != null && context.wasCreatedOnThisServer(player.getUUID());
+        String profile;
+        try {
+            profile = context == null ? "no-context" : context.currentAccountProfile(player.getUUID())
+                    .map(saved -> saved.state() + "/revision=" + saved.revision()).orElse("no-current-profile");
+        } catch (Exception failure) {
+            profile = "profile-read-failed:" + failure.getClass().getSimpleName();
+        }
+        boolean active = LifecycleCharacterSessionControl.activeCharacterBody(player).isPresent();
+        // GameTest failures are serialized into a WritableBook page (1024 chars max).
+        // Keep the actionable lifecycle state, but never append the unbounded outbound packet list.
+        return "no CHARACTER Begin; account=" + player.getUUID()
+                + " listed=" + (server != null && server.getPlayerList().getPlayer(player.getUUID()) == player)
+                + " removed=" + player.isRemoved() + " connectionAccepting=" + (player.connection != null
+                    && player.connection.isAcceptingMessages())
+                + " startup=" + (startup == null ? "none" : startup.state()) + " reserved=" + reserved + " createdHere=" + createdHere
+                 + " profile=" + profile + " activeCharacter=" + active + " outboundKinds=" + outboundKinds.size();
+    }
+
     public static void readyGhost(RegisteredServerPlayerFixture fixture, GhostControlPayloads.Begin begin) {
         if (begin.harnessKind() != MobHarnessKind.GHOST) throw new IllegalArgumentException("expected GHOST Begin");
         var listener = (net.minecraft.server.network.ServerGamePacketListenerImpl) fixture.connection().getPacketListener();
@@ -60,9 +94,15 @@ public final class RegisteredPlayerReadyDriver {
     }
 
     private static GhostControlPayloads.Begin takeBegin(RegisteredServerPlayerFixture fixture, MobHarnessKind kind) {
+        return takeBegin(fixture, kind, null);
+    }
+
+    private static GhostControlPayloads.Begin takeBegin(RegisteredServerPlayerFixture fixture, MobHarnessKind kind,
+                                                         java.util.List<String> outboundKinds) {
         GhostControlPayloads.Begin begin = null;
         Object outbound;
         while ((outbound = fixture.pollOutbound()) != null) {
+            if (outboundKinds != null) outboundKinds.add(outbound.getClass().getSimpleName());
             if (outbound instanceof ClientboundCustomPayloadPacket packet
                     && packet.payload() instanceof GhostControlPayloads.Begin captured
                     && captured.harnessKind() == kind) {

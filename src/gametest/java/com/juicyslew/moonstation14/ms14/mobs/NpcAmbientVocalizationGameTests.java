@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.function.Consumer;
 
 @PrefixGameTestTemplate(false)
-@GameTestTags({"mouse-ai", "audio", "npc"})
+@GameTestTags({"mouse-ai", "audio", "npc", "npc-ambient-vocalization"})
 public final class NpcAmbientVocalizationGameTests {
     private NpcAmbientVocalizationGameTests() { }
 
@@ -101,6 +101,41 @@ public final class NpcAmbientVocalizationGameTests {
             throw failure;
         }
         }, spawn);
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 430, batch = "npc_ambient_animal")
+    public static void ordinaryResolvedChickenBroadcastsItsExplicitCluckCue(GameTestHelper helper) {
+        var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+        var type = com.juicyslew.moonstation14.entities.AnimalMobRegistration.types().get("chicken_0");
+        require(type != null, "catalog registers chicken host");
+        var chicken = type.get().create(level);
+        require(chicken != null, "chicken host factory creates entity");
+        var spawn = helper.absolutePos(new net.minecraft.core.BlockPos(8, 1, 8));
+        level.setBlock(spawn.below(), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+        chicken.setPos(spawn.getCenter());
+        chicken.setNoAi(true);
+        chicken.setNoGravity(true);
+        require(level.addFreshEntity(chicken), "chicken joins through ordinary entity lifecycle");
+        var resolved = CharacterIdentitySystem.resolveForActor(chicken).orElseThrow();
+        var policy = resolved.component(AmbientVocalizationComponent.class).orElseThrow();
+        require("Cluck".equals(policy.sound()), "resolved chicken explicitly selects its cluck cue");
+        var expected = ModSounds.speechSound("Cluck").get();
+        var sounds = new ArrayList<PlayLevelSoundEvent>();
+        Consumer<PlayLevelSoundEvent.AtEntity> listener = event -> {
+            if (event.getLevel() == level && event.getEntity() == chicken && event.getSound() != null
+                    && event.getSound().value() == expected) sounds.add(event);
+        };
+        NeoForge.EVENT_BUS.addListener(listener);
+        helper.runAfterDelay(policy.maximumIntervalTicks() + 5, () -> {
+            try {
+                require(!sounds.isEmpty(), "resolved autonomous chicken emits its selected spatial cue");
+                require(sounds.getFirst().getSource() == SoundSource.NEUTRAL, "chicken ambient uses neutral source");
+                require(sounds.getFirst().getOriginalVolume() == policy.volume(), "chicken uses resolved policy volume");
+                helper.succeed();
+            } finally {
+                NeoForge.EVENT_BUS.unregister(listener);
+            }
+        });
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 35, batch = "npc_ambient_vanilla")

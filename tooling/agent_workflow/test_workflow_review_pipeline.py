@@ -9,6 +9,41 @@ import test_workflow_review as review_fixtures
 
 
 class ReviewPipelineTests(unittest.TestCase):
+    def test_cancel_closure_retries_completed_review_cleanup_before_resource_gate(self):
+        class Store:
+            def __init__(self):
+                self.resources=[{'resource_key':'review-session:x','state':'HELD'}]
+                self.saved={'attempt':{'phase':'STOPPING','generation':1,'proposed_closure':'CANCELLED'},
+                    'run':{'sequence':3}}
+                self.tasks=[{'task_id':'review','kind':'REVIEW','state':'COMPLETED'},
+                            {'task_id':'check','kind':'CHECK','state':'COMPLETED'}]
+            def get_run(self, run_id): return self.saved
+            def list_tasks(self, run_id, generation): return self.tasks
+            def get_task_resources(self, task_id):
+                return self.resources if task_id=='review' else [{'resource_key':'native','state':'RELEASED'}]
+            def transition_attempt(self, *args, **kwargs):
+                self.saved['attempt'].update(phase='CLOSED',cleanup_state='CONFIRMED')
+                return {}
+        store=Store()
+        class Owner:
+            calls=0
+            def cleanup_completed(self, task_id):
+                self.calls+=1
+                if self.calls==1: return 'PENDING'
+                store.resources[0]['state']='RELEASED'
+                return 'APPLIED'
+        owner=Owner()
+        pipeline=workflow_review_pipeline.ReviewPipeline(store,None,None,None,None)
+        pipeline.review_cancellation=owner
+        first=pipeline._evaluate('run')
+        self.assertEqual(['review-session:x'],first['unresolved_resources'])
+        self.assertEqual('HELD',store.resources[0]['state'])
+        second=pipeline._evaluate('run')
+        self.assertTrue(second['closed'])
+        self.assertEqual('RELEASED',store.resources[0]['state'])
+        self.assertEqual('CLOSED',store.saved['attempt']['phase'])
+        self.assertEqual(2,owner.calls)
+
     def test_known_busy_review_dispatch_propagates_pending(self):
         helper=review_fixtures.ReviewPlanningTests()
         with tempfile.TemporaryDirectory() as tmp:
@@ -201,10 +236,10 @@ class ReviewPipelineTests(unittest.TestCase):
 
     @staticmethod
     def result(task, receipt, decision='PASS'):
-        finding={'criterion_id':'criterion-1','category':'IMPLEMENTATION','message':'reviewed evidence','location':'source','evidence_refs':[receipt]}
+        finding={'criterion_id':'criterion-1','category':'IMPLEMENTATION','message':'reviewed evidence','location':'source','evidence_refs':[receipt],'validation_stage':'TECHNICAL'}
         if decision == 'FAIL': finding.update(required_change='Correct defect', location='source file')
         return {'contract_version':1,**{k:task[k] for k in ('task_id','run_id','evaluation_generation','assignment_generation','input_digest')},
-                'decision':decision,'findings':[finding],'inspected_refs':[receipt]}
+                'decision':decision,'findings':[finding] if decision=='FAIL' else [],'owner_followups':[],'inspected_refs':[receipt]}
 
     def test_actual_native_check_failure_finalizes_without_review_admission(self):
         helper=review_fixtures.ReviewPlanningTests()

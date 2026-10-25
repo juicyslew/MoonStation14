@@ -9,6 +9,20 @@ public final class DamageReducer {
     private DamageReducer() {
     }
 
+    /** Maps external vanilla damage while retaining finite overkill and bounding only unrepresentable totals. */
+    public static Map<String, Float> externalDamageDelta(String key, float finalVanillaDamage, Map<String, Float> current) {
+        if (!Float.isFinite(finalVanillaDamage) || finalVanillaDamage < 0f)
+            throw new IllegalArgumentException("external damage must be finite and nonnegative");
+        Map<String, Float> state = DamageKeys.validateState(current);
+        double existingTotal = 0d;
+        for (float value : state.values()) existingTotal += value;
+        double budget = Math.max(0d, (double) Float.MAX_VALUE - existingTotal);
+        double requested = (double) finalVanillaDamage * DamageSystem.TYPED_PER_HEALTH;
+        float typed = (float) Math.min(requested, budget);
+        if ((double) typed > budget) typed = Math.nextDown(typed);
+        return typed == 0f ? Map.of() : DamageKeys.validateDelta(Map.of(key, typed));
+    }
+
     public static Map<String, Float> applyDelta(Map<String, Float> current,
                                                  Map<String, Float> delta) {
         Map<String, Float> state = DamageKeys.validateState(current);
@@ -200,4 +214,3 @@ public final class DamageReducer {
         return total;
     }
 }
-

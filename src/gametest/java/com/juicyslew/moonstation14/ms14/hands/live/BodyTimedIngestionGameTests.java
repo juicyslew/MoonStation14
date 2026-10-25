@@ -44,6 +44,54 @@ public final class BodyTimedIngestionGameTests {
 
     private BodyTimedIngestionGameTests() { }
 
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    public static void humanCannotStartTimedWheatIngestion(GameTestHelper helper) {
+        var level = helper.getLevel();
+        Villager body = makeBody(helper, new BlockPos(2, 1, 2));
+        BlockPos pos = helper.absolutePos(new BlockPos(4, 1, 2));
+        level.setBlock(pos.below(), Blocks.STONE.defaultBlockState(), 3);
+        var wheat = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level,
+                new Vec3(pos.getX() + .5, pos.getY(), pos.getZ() + .5),
+                new net.minecraft.world.item.ItemStack(com.juicyslew.moonstation14.item.ModItems.WHEAT_BUSHEL.get()));
+        require(level.addFreshEntity(wheat), "wheat source spawned");
+        com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(wheat.getItem(), level);
+        aimAtItem(body, wheat.position());
+        var profile = com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles.serverLookup(
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(wheat.getItem().getItem()));
+        require(profile != null && profile.edible().requiresSpecialDigestion(), "resolved wheat profile requires special digestion");
+        var before = MS14Provider.getDetached(body, MS14Bridges.STOMACH).getMap();
+        require(BodyTimedIngestionService.startWorldOwned(body, wheat.getUUID(), null, 0, 991, () -> true)
+                == BodyHandActionResult.Reason.DENIED, "ordinary human is denied wheat admission");
+        require(body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream().noneMatch(o -> o.phase() == TimedOperation.Phase.ACTIVE),
+                "denial creates no active timed operation");
+        require(before.equals(MS14Provider.getDetached(body, MS14Bridges.STOMACH).getMap()), "denial does not drain source into stomach");
+        // Exercise the public completion transaction directly: food=false must not bypass
+        // the source's current special-digestion profile. The source is valid and reachable.
+        var wheatBefore = wheat.getItem().copy();
+        LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        var direct = BodyLiquidInteraction.sipTimedOwned(body, wheat.getUUID(), hands.activeHand(), null,
+                hands.revision(), 500, false, false, () -> true);
+        require(direct == BodyLiquidInteraction.Result.DENIED, "final transaction guard denies wheat even when caller says drink");
+        require(wheatBefore.equals(wheat.getItem()), "final guard leaves actual world source unchanged");
+        require(before.equals(MS14Provider.getDetached(body, MS14Bridges.STOMACH).getMap()), "final guard leaves stomach unchanged");
+
+        // Positive control through the same transaction path: ordinary resolved food is allowed.
+        BlockPos tomatoPos = pos.east(); level.setBlock(tomatoPos.below(), Blocks.STONE.defaultBlockState(), 3);
+        var tomato = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level,
+                new Vec3(tomatoPos.getX() + .5, tomatoPos.getY(), tomatoPos.getZ() + .5),
+                new net.minecraft.world.item.ItemStack(com.juicyslew.moonstation14.item.ModItems.TOMATO.get()));
+        require(level.addFreshEntity(tomato), "tomato control source spawned");
+        com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(tomato.getItem(), level);
+        aimAtItem(body, tomato.position());
+        var tomatoProfile = com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles.serverLookup(
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(tomato.getItem().getItem()));
+        require(tomatoProfile != null && !tomatoProfile.edible().requiresSpecialDigestion(), "control uses ordinary resolved tomato profile");
+        var allowed = BodyLiquidInteraction.sipTimedOwned(body, tomato.getUUID(), hands.activeHand(), null,
+                hands.revision(), 500, false, false, () -> true);
+        require(allowed == BodyLiquidInteraction.Result.SUCCESS, "ordinary food succeeds through guarded transaction");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 160)
     public static void puddleConsumerWaitsForResolvedProfileDeadlineAndRepeats(GameTestHelper helper) {
         var level = helper.getLevel();
@@ -287,7 +335,7 @@ public final class BodyTimedIngestionGameTests {
                 new Vec3(foodPos.getX() + .5, foodPos.getY(), foodPos.getZ() + .5),
                 new net.minecraft.world.item.ItemStack(com.juicyslew.moonstation14.item.ModItems.CHEESE_SLICE.get()));
         require(level.addFreshEntity(cheese), "resolved cheese food source spawned");
-        com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem.initializeSource(cheese.getItem(), level);
+        com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(cheese.getItem(), level);
         Vec3 foodDelta = cheese.position().subtract(mouse.getEyePosition());
         mouse.setYRot((float) (Math.toDegrees(Math.atan2(foodDelta.z, foodDelta.x)) - 90));
         mouse.setXRot((float) -Math.toDegrees(Math.atan2(foodDelta.y, Math.hypot(foodDelta.x, foodDelta.z))));
@@ -341,7 +389,7 @@ public final class BodyTimedIngestionGameTests {
                 new Vec3(puddlePos.getX() + .5, puddlePos.getY() + .25, puddlePos.getZ() + .5),
                 new net.minecraft.world.item.ItemStack(com.juicyslew.moonstation14.item.ModItems.CHEESE_SLICE.get()));
         require(level.addFreshEntity(cheese), "food item placed over puddle");
-        com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem.initializeSource(cheese.getItem(), level);
+        com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(cheese.getItem(), level);
         Vec3 delta = cheese.position().subtract(mouse.getEyePosition());
         mouse.setYRot((float) (Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90));
         mouse.setXRot((float) -Math.toDegrees(Math.atan2(delta.y, Math.hypot(delta.x, delta.z))));
@@ -399,6 +447,13 @@ public final class BodyTimedIngestionGameTests {
         Vec3 delta=target.subtract(body.getEyePosition());
         body.setYRot((float)(Math.toDegrees(Math.atan2(delta.z,delta.x))-90));
         body.setXRot((float)-Math.toDegrees(Math.atan2(delta.y,Math.hypot(delta.x,delta.z))));
+        body.setYHeadRot(body.getYRot()); body.setYBodyRot(body.getYRot());
+    }
+
+    private static void aimAtItem(net.minecraft.world.entity.LivingEntity body, Vec3 target) {
+        Vec3 delta = target.subtract(body.getEyePosition());
+        body.setYRot((float)(Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90));
+        body.setXRot((float)-Math.toDegrees(Math.atan2(delta.y, Math.hypot(delta.x, delta.z))));
         body.setYHeadRot(body.getYRot()); body.setYBodyRot(body.getYRot());
     }
 

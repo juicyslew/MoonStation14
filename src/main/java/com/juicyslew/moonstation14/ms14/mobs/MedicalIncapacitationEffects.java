@@ -21,6 +21,13 @@ public final class MedicalIncapacitationEffects {
         var body = event.body();
         if (body.level().isClientSide()) return;
         BodyPullService.stopForIncapacitation(body);
+        dropTypedHands(body);
+        // Native hands are a separate owner from typed body hands; never project/copy them into LiveHands.
+        NativeHeldItemTransfer.forceDrop(body);
+    }
+
+    /** Upstream DropHandItemsEvent's typed-hand equivalent, directed at the event receiver. */
+    public static void dropTypedHands(net.minecraft.world.entity.LivingEntity body) {
         while (true) {
             LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
             if (hands == null || !hands.compatible(body)) break;
@@ -34,7 +41,11 @@ public final class MedicalIncapacitationEffects {
             }
             if (!dropped) break;
         }
-        // Native hands are a separate owner from typed body hands; never project/copy them into LiveHands.
+    }
+
+    /** Full source-directed DropHandItemsEvent projection; native hands stay with their owner. */
+    public static void dropSlipSourceHands(net.minecraft.world.entity.LivingEntity body) {
+        dropTypedHands(body);
         NativeHeldItemTransfer.forceDrop(body);
     }
 }

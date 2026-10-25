@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-16T12:15:26.209Z" hostname="DESKTOP-4F0ER3K" time="0.516">
+  <properties/>
+  <testcase name="packetHealthOverrideCodecAndConstructionPreserveReferenceAndPresence()" classname="com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest" time="0.489"/>
+  <testcase name="seedPacketEligibilityRequiresActualPacketItemAndUsesCurrentReference()" classname="com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest" time="0.006"/>
+  <testcase name="snapshotThenLazyFallbackUsedWhenReferenceAbsent()" classname="com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest" time="0.002"/>
+  <testcase name="referencePrecedesStaleSnapshotAndFallbackIsLazy()" classname="com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest" time="0.002"/>
+  <testcase name="composedSeedItemDefaultIsExplicitAndCarriedSpeciesOverridesIt()" classname="com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest" time="0.014"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

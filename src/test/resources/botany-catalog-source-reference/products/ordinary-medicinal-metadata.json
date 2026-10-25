@@ -1,0 +1,23 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml": {
+      "sha256": "a28ed494a096cf63f7887f45e4967e89600b60022fd2b49af22e131f9bafb385"
+    }
+  },
+  "requestedLeafIds": ["FoodEggplant", "FoodAmbrosiaVulgaris", "FoodAmbrosiaDeus"],
+  "capturedConcreteProductCount": 3,
+  "capturedAdditionalAncestorCount": 0,
+  "capturedRawRecordCount": 3,
+  "capturedEntityIds": ["FoodEggplant", "FoodAmbrosiaVulgaris", "FoodAmbrosiaDeus"],
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "parentClosureVerifiedAgainstExisting53AndOrdinaryMedicinalRows": true,
+  "fullUnionParentClosureRecordCount": 56,
+  "parentResolution": {
+    "FoodEggplant": "FoodProduceBase",
+    "FoodAmbrosiaVulgaris": "FoodProduceBase",
+    "FoodAmbrosiaDeus": "FoodProduceBase"
+  },
+  "overlapWithExisting53ReferenceIds": []
+}

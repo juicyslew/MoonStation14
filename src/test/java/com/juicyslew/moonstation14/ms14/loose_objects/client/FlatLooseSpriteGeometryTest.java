@@ -22,6 +22,61 @@ class FlatLooseSpriteGeometryTest {
     private static final String DATA="/data/moonstation14/moonstation14/loose_object_profile/";
     private record Sprite(String id,int minX,int minY,int maxX,int maxY) { }
 
+    @Test void productionFlatPoseAppliesAppearanceScaleOnceOnBothWorldAxes() throws Exception {
+        var json=JsonParser.parseString(data("generic.json")).getAsJsonObject();
+        json.add("visual",JsonParser.parseString("{\"sprite_scale_x\":0.5,\"sprite_scale_y\":0.5,\"sprite_offset_x\":0,\"sprite_offset_y\":0,\"model_scale\":1,\"model_floor_offset\":0}"));
+        var profile=LooseObjectProfile.CODEC.parse(JsonOps.INSTANCE,json).getOrThrow(IllegalStateException::new);
+        var base=new PoseStack(); LooseItemRenderer.applyFlatPose(base,profile);
+        var scaled=new PoseStack(); LooseItemRenderer.applyFlatPose(scaled,profile,1.5f);
+        var p0=base.last().pose().transformPosition(new Vector3f(.25f,.25f,0));
+        var p1=base.last().pose().transformPosition(new Vector3f(-.25f,-.25f,0));
+        var q0=scaled.last().pose().transformPosition(new Vector3f(.25f,.25f,0));
+        var q1=scaled.last().pose().transformPosition(new Vector3f(-.25f,-.25f,0));
+        assertEquals((p0.x-p1.x)*1.5,q0.x-q1.x,1e-5);
+        assertEquals((p0.z-p1.z)*1.5,q0.z-q1.z,1e-5);
+        assertEquals(.03125f*.25f,poseFloor(scaled)-poseFloor(base),1e-5,
+                "existing authored-size lift follows the enlarged sprite; entity/layer position is unchanged");
+    }
+    @Test void productionPoseBoundsTrackBakedQuadCornersAcrossScaleRotationLayerAndInterpolation() throws Exception {
+        var json=JsonParser.parseString(data("generic.json")).getAsJsonObject();
+        json.add("visual",JsonParser.parseString("{\"sprite_scale_x\":0.5,\"sprite_scale_y\":0.5,\"sprite_offset_x\":0.125,\"sprite_offset_y\":-0.0625,\"model_scale\":1,\"model_floor_offset\":0}"));
+        var profile=LooseObjectProfile.CODEC.parse(JsonOps.INSTANCE,json).getOrThrow(IllegalStateException::new);
+        var bakedQuad=org.mockito.Mockito.mock(net.minecraft.client.renderer.block.model.BakedQuad.class);
+        int[] vertices=new int[32];
+        int at=0;
+        for(float[] corner : new float[][]{{0,0,0},{1,0,0},{1,1,0},{0,1,0}}) {
+            vertices[at]=Float.floatToRawIntBits(corner[0]); vertices[at+1]=Float.floatToRawIntBits(corner[1]); vertices[at+2]=Float.floatToRawIntBits(corner[2]); at+=8;
+        }
+        org.mockito.Mockito.when(bakedQuad.getVertices()).thenReturn(vertices);
+        var model=org.mockito.Mockito.mock(net.minecraft.client.resources.model.BakedModel.class);
+        org.mockito.Mockito.when(model.getQuads(org.mockito.ArgumentMatchers.isNull(),org.mockito.ArgumentMatchers.nullable(net.minecraft.core.Direction.class),org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.List.of(bakedQuad));
+        org.mockito.Mockito.when(model.applyTransform(org.mockito.ArgumentMatchers.eq(net.minecraft.world.item.ItemDisplayContext.NONE),
+                org.mockito.ArgumentMatchers.any(PoseStack.class),org.mockito.ArgumentMatchers.eq(false))).thenAnswer(call -> {
+            ((PoseStack)call.getArgument(1)).translate(.25,0,0); // synthetic NONE transform variation, mirrored by returned model pose
+            return model;
+        });
+        for(float appearance : new float[]{.5f,4.5f}) {
+            var position=new net.minecraft.world.phys.Vec3(2.25,3.5,-1.75);
+            var actual=LoosePresentationBounds.flatProduce(model,profile,appearance,(float)Math.toRadians(37),position,.125);
+            assertNotNull(actual);
+            PoseStack expectedPose=new PoseStack(); expectedPose.translate(0,.125,0);
+            expectedPose.mulPose(com.mojang.math.Axis.YP.rotation((float)Math.toRadians(37)));
+            LooseItemRenderer.applyFlatPose(expectedPose,profile,appearance);
+            expectedPose.translate(.25,0,0); expectedPose.translate(-.5,-.5,-.5);
+            var matrix=expectedPose.last().pose();
+            double minX=Double.POSITIVE_INFINITY,minY=minX,minZ=minX,maxX=Double.NEGATIVE_INFINITY,maxY=maxX,maxZ=maxX;
+            for(float[] corner : new float[][]{{0,0,0},{1,0,0},{1,1,0},{0,1,0}}) {
+                Vector3f p=matrix.transformPosition(new Vector3f(corner[0],corner[1],corner[2]));
+                minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z);
+            }
+            assertEquals(minX+position.x,actual.minX,1e-5); assertEquals(maxX+position.x,actual.maxX,1e-5);
+            assertEquals(minY+position.y,actual.minY,1e-5); assertEquals(maxY+position.y,actual.maxY,1e-5);
+            assertEquals(minZ+position.z,actual.minZ,1e-5); assertEquals(maxZ+position.z,actual.maxZ,1e-5);
+        }
+    }
+    private static float poseFloor(PoseStack pose) { return pose.last().pose().transformPosition(new Vector3f(0,0,0)).y; }
+
     @Test void shippedFlatSpritesFitTheirProfilesAndProduceDiagnosticSheet() throws Exception {
         Sprite[] sprites={new Sprite("bag",5,8,25,26),new Sprite("steel",7,4,22,23),new Sprite("glass",9,6,24,25)};
         BufferedImage sheet=new BufferedImage(900,390,BufferedImage.TYPE_INT_ARGB);Graphics2D g=sheet.createGraphics();

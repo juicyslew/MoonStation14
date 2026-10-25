@@ -1,15 +1,8 @@
 {
   "abstract": true,
-  "parent": "moonstation14:supported_simple_mob",
+  "parent": "moonstation14:supported_animal_core",
   "components": [
-    {"type": "Mouth"},
-    {"type": "Bloodstream", "reference_solution": {"moonstation14:blood": 150.0}, "metabolism_exclusions": ["moonstation14:blood"], "max_volume_modifier": 2.0, "update_interval_seconds": 3.0, "bleed_decay_per_update": 0.33, "max_bleed_rate": 10.0, "damage_bleed_multipliers": {"blunt": 0.08, "piercing": 0.2, "slash": 0.25, "heat": -0.5}, "blood_refresh_per_update": 1.0, "bloodloss_threshold_fraction": 0.9, "bloodloss_damage_per_update": {"bloodloss": 0.5}, "bloodloss_heal_per_update": {"bloodloss": 1.0}, "bloodloss_ignore_resistances": false, "bleed_puddle_threshold": 1.0},
-    {"type": "Body"},
-    {"type": "InitialBody", "organs": {"Lungs": "moonstation14:organ_lungs_pig"}},
-    {"type": "Temperature", "mass_kg": 96.2112750161874, "specific_heat_joules_per_kg_kelvin": 42.0, "atmosphere_transfer_efficiency": 0.1, "current_kelvin": 310.15, "space_heat_capacity_joules_per_kelvin": 7000.0, "space_heat_scale": 8.0, "space_temperature_kelvin": 2.7},
-    {"type": "TemperatureDamage", "heat_damage_threshold_kelvin": 325.0, "cold_damage_threshold_kelvin": 260.0, "heat_damage_per_second": 1.5, "cold_damage_per_second": 1.0, "damage_cap": 8.0},
-    {"type": "ThermalRegulator", "normal_body_temperature_kelvin": 310.15, "metabolism_heat_joules_per_second": 800.0, "radiated_heat_joules_per_second": 100.0, "implicit_heat_regulation_joules_per_second": 250.0, "sweat_heat_regulation_joules_per_second": 500.0, "shivering_heat_regulation_joules_per_second": 500.0, "thermal_regulation_threshold_kelvin": 2.0},
-    {"type": "Stomach"},
-    {"type": "Metabolizer", "types": ["animal"]}
+    {"type":"Barotrauma","damage":{"types":{"blunt":0.15}},"maxDamage":200.0},
+    {"type":"Respirator","breath_interval_seconds":2.0,"breath_volume_liters":0.5,"max_saturation":5.0,"initial_saturation":5.0,"min_saturation":-2.0,"saturation_loss_per_update":2.0,"suffocation_threshold":0.0,"suffocation_damage_per_update":2.0,"suffocation_recovery_per_update":1.0,"suffocation_ignore_resistances":true}
   ]
 }

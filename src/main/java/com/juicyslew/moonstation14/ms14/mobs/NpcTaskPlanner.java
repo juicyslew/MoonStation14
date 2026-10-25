@@ -11,7 +11,7 @@ import java.util.ArrayList;
 public final class NpcTaskPlanner {
     private NpcTaskPlanner() { }
 
-    public enum Need { FOOD, DRINK, NONE }
+    public enum Need { FOOD, DRINK, CLEAN, NONE }
 
     public record Candidate(Need kind, double distance, double value, boolean livingMob,
                             boolean accessible, boolean supported) {
@@ -30,13 +30,15 @@ public final class NpcTaskPlanner {
             Need need = switch (task) {
                 case FOOD -> hunger <= peckish ? Need.FOOD : null;
                 case DRINK -> thirst <= parched ? Need.DRINK : null;
+                case CLEAN -> Need.CLEAN;
                 case IDLE -> Need.NONE;
+                case RETALIATE -> null;
             };
             if (need == null) continue;
             if (need == Need.NONE) return Optional.of(new Selection(task, null));
             Optional<Candidate> target = candidates.stream().filter(candidate -> candidate.kind() == need
                             && candidate.supported() && candidate.accessible() && !candidate.livingMob()
-                            && validValue(candidate) && candidate.distance() < policy.visionRange())
+                            && (need == Need.CLEAN || validValue(candidate)) && candidate.distance() < policy.visionRange())
                     .max(Comparator.comparingDouble(candidate -> utility(candidate, policy.visionRange())));
             if (target.isPresent()) return Optional.of(new Selection(task, target.get()));
         }

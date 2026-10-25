@@ -1,0 +1,4 @@
+{"slots":[
+{"id":"mask","display_name":"Mask","icon":"moonstation14:textures/gui/equipment/mask.png","group":"Default","x":0,"y":2,"flags":["MASK"],"whitelist":["PetWearable"]},
+{"id":"suitstorage","display_name":"Suit Storage","icon":"moonstation14:textures/gui/equipment/suit_storage.png","group":"Default","x":0,"y":1,"flags":["SUITSTORAGE"],"whitelist_components":["GAS_TANK"],"allow_suit_storage":true,"strip_time":3.0}
+]}
