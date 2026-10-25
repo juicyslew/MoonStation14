@@ -1531,9 +1531,17 @@ class WorkflowStore:
                 raise ProtocolError("review run has no frozen submission criteria")
             criteria={item['criterion_id'] for item in json.loads(submission[0]).get('criteria',[])}
             if any(item['criterion_id'] not in criteria for item in result.get('owner_followups',[])):
-                raise ProtocolError("owner_followups criterion_id must name an assigned criterion")
-            self._require_artifacts(db, refs, result["run_id"], input_digest=result["input_digest"])
-            stored_findings=[{key:value for key,value in finding.items() if key!="validation_stage"} for finding in result["findings"]]
+                raise ProtocolError("owner_followups criterion_id must name an assigned criterion", field="owner_followups.criterion_id", recovery="Use a criterion_id from the assigned review criteria.")
+            ref_fields = ([(ref, f"inspected_refs[{i}]") for i, ref in enumerate(result["inspected_refs"])] +
+                          [(ref, f"findings[{i}].evidence_refs[{j}]") for i, item in enumerate(result["findings"]) for j, ref in enumerate(item["evidence_refs"])] +
+                          [(ref, f"owner_followups[{i}].evidence_refs[{j}]") for i, item in enumerate(result.get("owner_followups",[])) for j, ref in enumerate(item.get("evidence_refs",[]))])
+            for ref, field in ref_fields:
+                try:
+                    self._require_artifacts(db, [ref], result["run_id"], input_digest=result["input_digest"])
+                except ProtocolError as exc:
+                    raise ProtocolError(f"{field}: {ref!r} is not an accepted artifact reference ({exc}).", field=field, recovery="Reference an artifact ID listed in this task's assignment (artifact_refs), not a source path.") from exc
+            review_only_fields={"validation_stage", "coverage_basis", "check_kind"}
+            stored_findings=[{key:value for key,value in finding.items() if key not in review_only_fields} for finding in result["findings"]]
             self._commit_task_result(db, task, {"decision":result["decision"],"findings":stored_findings,"owner_followups":result.get("owner_followups",[]),"artifact_refs":result["inspected_refs"]}, body, result_hash)
             db.commit()
             return {"disposition":"ACCEPTED","result_digest":result_hash,"result_id":self._task_result_event_id(result["task_id"],result_hash)}

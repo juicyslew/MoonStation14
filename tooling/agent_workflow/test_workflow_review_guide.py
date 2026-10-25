@@ -12,6 +12,49 @@ import test_workflow_review as fixtures
 
 
 class ReviewGuideTests(unittest.TestCase):
+    def test_canonical_review_result_coverage_basis_and_check_kind(self):
+        finding = {'criterion_id':'criterion-1','category':'COVERAGE','evidence_refs':['evidence-1'],
+            'location':'checks','message':'Review coverage','validation_stage':'TECHNICAL','required_change':'Add coverage'}
+        result = {'task_id':'task_1','run_id':'run_1','evaluation_generation':1,
+            'assignment_generation':1,'input_digest':'a'*64,'contract_version':1,
+            'decision':'FAIL','inspected_refs':['evidence-1'],'findings':[finding],'owner_followups':[]}
+
+        def valid(candidate):
+            workflow_store.validate(candidate, 'review_result')
+
+        missing_basis = json.loads(json.dumps(result))
+        missing_basis['findings'][0]['check_kind'] = 'gametest'
+        with self.assertRaises(workflow_store.ProtocolError):
+            valid(missing_basis)
+
+        missing_kind = json.loads(json.dumps(result))
+        missing_kind['findings'][0]['coverage_basis'] = 'MISSING_EXECUTION_EVIDENCE'
+        with self.assertRaises(workflow_store.ProtocolError):
+            valid(missing_kind)
+
+        structured = json.loads(json.dumps(result))
+        structured['findings'][0].update(coverage_basis='MISSING_EXECUTION_EVIDENCE', check_kind='gametest')
+        valid(structured)
+        insufficient = json.loads(json.dumps(result))
+        insufficient['findings'][0]['coverage_basis'] = 'INSUFFICIENT_CHECK_COVERAGE'
+        valid(insufficient)
+
+        noncoverage = json.loads(json.dumps(result))
+        noncoverage['findings'][0]['category'] = 'IMPLEMENTATION'
+        valid(noncoverage)
+        native = json.loads(json.dumps(result))
+        native['findings'][0].update(category='IMPLEMENTATION', coverage_basis='MISSING_EXECUTION_EVIDENCE', check_kind='gametest')
+        valid(native)
+
+        # The generic protocol finding schema has no review-only conditional fields.
+        generic = workflow_store._SCHEMA['$defs']['finding']
+        self.assertNotIn('coverage_basis', generic['properties'])
+        self.assertNotIn('check_kind', generic['properties'])
+        generic_finding = {'criterion_id':'criterion-1','category':'COVERAGE','message':'Generic coverage',
+            'location':'checks','evidence_refs':['evidence-1']}
+        from jsonschema import Draft202012Validator
+        Draft202012Validator({'$ref':'#/$defs/finding','$defs':workflow_store._SCHEMA['$defs']}).validate(generic_finding)
+
     def test_input_pages_reassemble_exact_guide_and_reject_unbound_refs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); helper=fixtures.ReviewPlanningTests(); store,run,check=helper.fixture(root)
@@ -90,6 +133,8 @@ class ReviewGuideTests(unittest.TestCase):
             self.assertIn('inspected_refs', schema['required'])
             self.assertTrue({'category', 'evidence_refs', 'location', 'message'} <= set(finding['required']))
             self.assertIn('required_change', finding['properties'])
+            self.assertNotIn('coverage_basis', finding['required'])
+            self.assertEqual(len(finding['allOf']),2)
             for decision, required_change in [('PASS', False), ('FAIL', True)]:
                 sample = {'task_id': task['task_id'], 'decision': decision, 'inspected_refs': [receipt_ref],
                     'findings': ([{'criterion_id':'criterion-1','category':'IMPLEMENTATION','evidence_refs':[receipt_ref],

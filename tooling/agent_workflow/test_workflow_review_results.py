@@ -48,12 +48,37 @@ class ReviewResultTests(unittest.TestCase):
             reply=api.complete(bad,session_id=task['assigned_session_id']); self.assertEqual(('INVALID_REVIEW_RESULT','CORRECT_RESULT'),(reply['code'],reply['next_action']))
             self.assertEqual('CLAIMED',store.get_task(task['task_id'])['state']); self.assertTrue(api.complete(self.result(task,ref),session_id=task['assigned_session_id'])['accepted'])
 
+    def test_bad_evidence_reference_is_correctable_without_completing_task(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store,run,task,api,ref=self.admitted(Path(tmp)); result=self.result(task,ref)
+            result['inspected_refs']=['src/main/java/example/BodyActionService.java']
+            rejected=api.complete(result,session_id=task['assigned_session_id'])
+            self.assertEqual(('INVALID_REVIEW_RESULT','CORRECT_RESULT','inspected_refs[0]'),(rejected['code'],rejected['next_action'],rejected['field']))
+            self.assertIn('src/main/java/example/BodyActionService.java',rejected['message'])
+            self.assertEqual('CLAIMED',store.get_task(task['task_id'])['state'])
+            result['inspected_refs']=[ref]
+            accepted=api.complete(result,session_id=task['assigned_session_id'])
+            self.assertTrue(accepted['accepted'],accepted)
+            self.assertEqual('REPLAYED',api.complete(result,session_id=task['assigned_session_id'])['disposition'])
+
+    def test_evidence_fields_identify_bad_finding_and_followup_references(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store,run,task,api,ref=self.admitted(Path(tmp)); result=self.result(task,ref,'FAIL')
+            result['findings'][0]['evidence_refs']=['unknown-reference']
+            rejected=api.complete(result,session_id=task['assigned_session_id'])
+            self.assertEqual('findings[0].evidence_refs[0]',rejected['field'])
+            result=self.result(task,ref)
+            result['owner_followups']=[{'criterion_id':'c1','message':'Owner check','manual_check':'Observe','evidence_refs':['unknown-reference']}]
+            rejected=api.complete(result,session_id=task['assigned_session_id'])
+            self.assertEqual('owner_followups[0].evidence_refs[0]',rejected['field'])
+            self.assertEqual('CLAIMED',store.get_task(task['task_id'])['state'])
+
     def test_owner_followup_is_nonblocking_and_owner_stage_cannot_be_blocking(self):
         with tempfile.TemporaryDirectory() as tmp:
             store,run,task,api,ref=self.admitted(Path(tmp)); result=self.result(task,ref)
             result['owner_followups']=[{'criterion_id':'c1','message':'Physical key and audio remain for owner observation.','manual_check':'Owner verifies K/click and audio quality.','evidence_refs':[ref]}]
             invalid=dict(result,decision='FAIL',findings=[{'criterion_id':'c1','category':'COVERAGE','message':'Owner observation pending.',
-                'location':'manual test','evidence_refs':[ref],'required_change':'Owner must observe this.', 'validation_stage':'OWNER_TESTING'}])
+                'location':'manual test','evidence_refs':[ref],'required_change':'Owner must observe this.', 'coverage_basis':'INSUFFICIENT_CHECK_COVERAGE','validation_stage':'OWNER_TESTING'}])
             rejected=api.complete(invalid,session_id=task['assigned_session_id'])
             self.assertEqual('CORRECT_RESULT',rejected['next_action']); self.assertIn('owner_followups',rejected['message'])
             missing=dict(result,decision='FAIL',findings=[{'criterion_id':'c1','category':'COVERAGE','message':'Defect found.',
@@ -69,6 +94,33 @@ class ReviewResultTests(unittest.TestCase):
             store,run,task,api,ref=self.admitted(Path(tmp)); result=self.result(task,ref)
             self.assertFalse(api.complete(result,session_id='wrong')['accepted']); self.assertTrue(api.complete(result,session_id=task['assigned_session_id'])['accepted'])
             changed=self.result(task,ref,'FAIL'); self.assertFalse(api.complete(changed,session_id=task['assigned_session_id'])['accepted'])
+
+    def test_coverage_receipt_contradiction_guard(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store,run,task,api,ref=self.admitted(Path(tmp))
+            criterion=api.planner.build_assignment(task['task_id'])['body']['review']['criteria'][0]['criterion_id']
+            finding={'criterion_id':criterion,'category':'COVERAGE','message':'Missing execution evidence.','validation_stage':'TECHNICAL',
+                'location':'checks','evidence_refs':[ref],'required_change':'Run gametest.',
+                'coverage_basis':'MISSING_EXECUTION_EVIDENCE','check_kind':'gametest'}
+            api.planner.verified_current_checks=lambda _task:[{'receipt_ref':ref,'kind':'gametest','covers':[criterion],'exit_code':0,'evidence':{'status':'PASS'}}]
+            result=dict(self.result(task,ref,'FAIL'),findings=[finding])
+            rejected=api.complete(result,session_id=task['assigned_session_id'])
+            self.assertEqual('CORRECT_RESULT',rejected['next_action']); self.assertIn(ref,rejected['message'])
+            self.assertEqual('CLAIMED',store.get_task(task['task_id'])['state'])
+            finding['coverage_basis']='INSUFFICIENT_CHECK_COVERAGE'; finding['required_change']='Expand gametest coverage.'
+            accepted=api.complete(result,session_id=task['assigned_session_id'])
+            self.assertTrue(accepted['accepted'],accepted); self.assertEqual('FAIL',store.get_task(task['task_id'])['result']['decision'])
+
+    def test_coverage_guard_requires_kind_and_passed_inner_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _store,_run,task,api,ref=self.admitted(Path(tmp))
+            criterion=api.planner.build_assignment(task['task_id'])['body']['review']['criteria'][0]['criterion_id']
+            finding={'criterion_id':criterion,'category':'COVERAGE','message':'Missing execution evidence.','validation_stage':'TECHNICAL',
+                'location':'checks','evidence_refs':[ref],'required_change':'Run check.',
+                'coverage_basis':'MISSING_EXECUTION_EVIDENCE','check_kind':'gametest'}
+            api.planner.verified_current_checks=lambda _task:[{'receipt_ref':ref,'kind':'gametest','covers':['criterion-1'],'exit_code':1,'evidence':{'status':'FAIL'}}]
+            result=dict(self.result(task,ref,'FAIL'),findings=[finding])
+            self.assertTrue(api.complete(result,session_id=task['assigned_session_id'])['accepted'])
 
     def test_error_commits_incident_and_replays(self):
         with tempfile.TemporaryDirectory() as tmp:

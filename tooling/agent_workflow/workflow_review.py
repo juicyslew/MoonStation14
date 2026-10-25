@@ -237,6 +237,47 @@ class ReviewCoordinator:
             result.append(task)
         return result
 
+    def verified_current_checks(self, review_task_id):
+        """Return inner checks only from receipts bound to this current review input."""
+        review=self.store.get_task(review_task_id)
+        if not review or review.get('kind')!='REVIEW':
+            raise workflow_store.ProtocolError('unknown review task')
+        request,bundle=self._inputs(review['run_id'])
+        saved=self.store.get_run(review['run_id'])
+        if (not saved or request.get('input_digest')!=review.get('input_digest') or
+            saved['attempt'].get('generation')!=review.get('evaluation_generation')):
+            raise workflow_store.ProtocolError('review task is not bound to current admitted input generation')
+        out=[]
+        for check in self.store.list_tasks(review['run_id'],review['evaluation_generation']):
+            if check.get('kind')!='CHECK' or check.get('state')!='COMPLETED' or (check.get('result') or {}).get('decision')!='PASS': continue
+            for ref in (check.get('result') or {}).get('artifact_refs',[]):
+                item=self.store.get_artifact(ref)
+                if not item: continue
+                art=item['artifact']
+                if art.get('type')!='CHECK_RECEIPT': continue
+                if (art.get('producer_kind')!='TASK' or art.get('producer_id')!=check['task_id'] or
+                    art.get('producer_task_id')!=check['task_id'] or art.get('run_id')!=review['run_id']):
+                    raise workflow_store.ProtocolError(f'CHECK_RECEIPT producer binding failed: {ref}')
+                if (check.get('run_id') != review.get('run_id') or
+                    check.get('evaluation_generation') != review.get('evaluation_generation')):
+                    raise workflow_store.ProtocolError(f'CHECK task generation binding failed: {check["task_id"]}')
+                try:
+                    raw=Path(art['path']).read_bytes()
+                    if len(raw)!=art['size_bytes'] or hashlib.sha256(raw).hexdigest()!=art['sha256']:
+                        raise ValueError('artifact digest mismatch')
+                    receipt=json.loads(raw)
+                except (OSError,ValueError,KeyError,TypeError) as exc:
+                    raise workflow_store.ProtocolError(f'CHECK_RECEIPT failed verification: {ref}') from exc
+                if any(receipt.get(k)!=v for k,v in {'task_id':check['task_id'],'run_id':review['run_id'],
+                    'input_digest':check.get('input_digest'),'plan_digest':request.get('plan_digest'),
+                    'policy_digest':request.get('policy_digest')}.items()):
+                    raise workflow_store.ProtocolError(f'CHECK_RECEIPT inner binding failed: {ref}')
+                if receipt.get('input_digest') != review.get('input_digest'):
+                    raise workflow_store.ProtocolError(f'CHECK_RECEIPT input differs from review input: {ref}')
+                for row in receipt.get('checks',[]):
+                    if isinstance(row,dict): out.append({'receipt_ref':ref,'task_id':check['task_id'],**row})
+        return out
+
     @staticmethod
     def _reserved_session(task_id, evaluation_generation, assignment_generation):
         digest = hashlib.sha256(f'{task_id}:{evaluation_generation}:{assignment_generation}'.encode()).hexdigest()[:32]
@@ -302,11 +343,8 @@ class ReviewCoordinator:
         # Only CHECK_RECEIPTs bound to an accepted CHECK task result are native
         # receipts. Submission attachments with the same label remain sources.
         checks = self.store.list_tasks(task['run_id'], task['evaluation_generation'])
-        native_receipt_refs = {}
-        for check in checks:
-            if check.get('kind') == 'CHECK' and check.get('state') == 'COMPLETED' and check.get('result', {}).get('decision') == 'PASS':
-                for ref in check.get('result', {}).get('artifact_refs', []):
-                    native_receipt_refs[ref] = check['task_id']
+        current_checks = self.verified_current_checks(task['task_id'])
+        native_receipt_refs = {row['receipt_ref']: row['task_id'] for row in current_checks}
         sources = []
         receipts = []
         for ref in refs:
@@ -330,13 +368,9 @@ class ReviewCoordinator:
                         art.get('producer_task_id') != expected_producer or art.get('run_id') != task['run_id']):
                     raise workflow_store.ProtocolError(f'CHECK_RECEIPT producer binding failed: {ref}')
                 try:
-                    receipt=json.loads(raw)
-                    check_summaries=[]
-                    for check in receipt.get('checks',[]) if isinstance(receipt,dict) else []:
-                        if not isinstance(check,dict): continue
-                        evidence=check.get('evidence',{})
-                        check_summaries.append({key:check[key] for key in ('kind','covers','exit_code') if key in check} |
-                            ({'status':evidence['status']} if isinstance(evidence,dict) and 'status' in evidence else {}))
+                    check_summaries=[{key:row[key] for key in ('kind','covers','exit_code') if key in row} |
+                        ({'status':row['evidence']['status']} if isinstance(row.get('evidence'),dict) and 'status' in row['evidence'] else {})
+                        for row in current_checks if row['receipt_ref']==ref]
                     receipts.append({'metadata': meta, 'content_embedded':False,
                         'read_example': {'input_ref':ref,'input_offset':0}, 'checks': check_summaries})
                 except (ValueError, UnicodeDecodeError) as exc:
@@ -371,12 +405,19 @@ class ReviewCoordinator:
             defs[name]=json.loads(json.dumps(defs[name]))
             defs[name]['required']=[field for field in defs[name]['required'] if field not in REVIEWER_BOUND_FIELDS]
             for field in REVIEWER_BOUND_FIELDS: defs[name]['properties'].pop(field,None)
-        guide = {'task_id': task_id, 'run_id': task['run_id'], 'evaluation_generation': task['evaluation_generation'],
+        # Put the trusted, generation-bound check summary before frozen author prose
+        # and the potentially large artifact inventory.  Reviewers should not need
+        # to page through receipt XML/JSON merely to learn current execution facts.
+        current_validation = {'run_id':task['run_id'], 'evaluation_generation':task['evaluation_generation'],
+            'input_digest':task['input_digest'], 'checks':current_checks,
+            'meaning':'These summaries come from verified receipts produced by completed PASS checks in this run/generation/input. They describe execution facts, not whether the checks adequately cover a criterion. Author objective text and pre-submit notes are historical plans, not current runtime facts.'}
+        guide = {'current_validation':current_validation,
+            'task_id': task_id, 'run_id': task['run_id'], 'evaluation_generation': task['evaluation_generation'],
             'assignment_generation': task['assignment_generation'], 'input_digest': task['input_digest'],
             'source_worktree': request['source_worktree'], 'assignment_body_sha256': assignment['body_sha256'],
             'review_scope': assignment['body']['review'],
             'assignment_artifact_refs': refs,
-            'instruction': 'Claim with claim_task(task_id, session_id); task_id is required. OWNER_READY means technically ready for owner testing, not owner acceptance; owner acceptance is a separate later decision. Every blocking finding must declare validation_stage=TECHNICAL. Pending subjective/physical owner observations belong in owner_followups with criterion_id, message, manual_check, and optional evidence_refs. Never classify pending owner observation as a technical finding; concrete UI/render/input/audio defects and required machine-check coverage remain technical blockers. PASS has no blocking findings; FAIL requires actionable technical findings. Followups are retained for the owner testing log. A review is complete only when the SDK accepts complete_review(result=<semantic review result>, session_id=<assigned session>) or report_error(error=<semantic task error>, session_id=<assigned session>). Include task_id and semantic evidence/decision fields, but omit contract_version, run_id, evaluation_generation, assignment_generation, and input_digest; the coordinator binds those after authorization. final chat prose or stopping without an accepted receipt does not submit a result. For an actual infrastructure error call report_error. inspected_refs must cite original assignment refs; guide/source pages are not refs. FAIL findings require required_change. Read this guide and each required assigned artifact through status(task_id, session_id, input_ref="review_guide", input_offset=0), then use the exact artifact_id in assignment_artifact_refs as input_ref and returned next_offset for paging. Pages are integrity-verified and bound to this assignment. For source code use status(task_id, session_id, source_query="literal substring"), then source_path exactly as returned and source_line for paging. Never read relative MAIN-checkout files as substitutes for source_worktree. If access is unavailable or stale, report factual task_error. session_id is a separate tool argument, not a field in either JSON object.',
+            'instruction': 'Claim with claim_task(task_id, session_id); task_id is required. Review current_validation first: it is authoritative for what checks ran and their results; author objective/pre-submit prose is historical, not updated execution state. A PASS machine check does not by itself prove appropriate coverage. Distinguish missing execution from an inadequate check: identify the concrete missing branch/fixture and required change when coverage is insufficient despite a PASS. OWNER_READY means technically ready for owner testing, not owner acceptance; owner acceptance is a separate later decision. Every blocking finding must declare validation_stage=TECHNICAL. Pending subjective/physical owner observations belong in owner_followups. PASS has no blocking findings; FAIL requires actionable technical findings. Followups are retained for the owner testing log. A review is complete only when the SDK accepts complete_review(result=<semantic review result>, session_id=<assigned session>) or report_error(error=<semantic task error>, session_id=<assigned session>). Include task_id and semantic evidence/decision fields, but omit contract_version, run_id, evaluation_generation, assignment_generation, and input_digest; the coordinator binds those after authorization. final chat prose or stopping without an accepted receipt does not submit a result. For an actual infrastructure error call report_error. inspected_refs must cite original assignment refs; guide/source pages are not refs. FAIL findings require required_change. Read this guide and each required assigned artifact through status(task_id, session_id, input_ref="review_guide", input_offset=0), then use the exact artifact_id in assignment_artifact_refs as input_ref and returned next_offset for paging. Pages are integrity-verified and bound to this assignment. For source code use status(task_id, session_id, source_query="literal substring"), then source_path exactly as returned and source_line for paging. Never read relative MAIN-checkout files as substitutes for source_worktree. If access is unavailable or stale, report factual task_error. session_id is a separate tool argument, not a field in either JSON object.',
             'source_access': {'limits': {'maximum_file_bytes':MAX_REVIEW_SOURCE_BYTES,'maximum_lines_per_page':80,'maximum_utf8_bytes_per_page':12*1024},
                 'input_example': {'tool':'status','task_id':'<assigned task_id>','session_id':'<assigned session_id>','input_ref':'review_guide','input_offset':0},
                 'query_example': {'tool':'status','task_id':'<assigned task_id>','session_id':'<assigned session_id>','source_query':'<filename from your scoped criterion>'},
