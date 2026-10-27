@@ -1,7 +1,5 @@
 package com.juicyslew.moonstation14.ms14.actions;
 
-import com.juicyslew.moonstation14.component.ModDataAttachments;
-import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent;
 import net.minecraft.world.entity.LivingEntity;
 
@@ -14,26 +12,20 @@ public final class CombatModeSystem {
     public record ToggleResult(boolean success, boolean enabled) { }
 
     public static Optional<CombatModeComponent> capability(LivingEntity entity) {
-        if (entity == null || entity.isRemoved()) return Optional.empty();
-        var resolved = entity.level().isClientSide()
-                ? CharacterIdentitySystem.projectForActor(entity)
-                : CharacterIdentitySystem.resolveForActor(entity);
-        return resolved.flatMap(data -> data.component(CombatModeComponent.class));
+        return com.juicyslew.moonstation14.ms14.combat.CombatModeSystem.capability(entity);
     }
 
     public static boolean isInCombatMode(LivingEntity entity) {
-        if (capability(entity).isEmpty()) return false;
-        var state = entity.getExistingDataOrNull(ModDataAttachments.COMBAT_MODE.get());
-        return state != null && state.enabled();
+        return com.juicyslew.moonstation14.ms14.combat.CombatModeSystem.isInCombatMode(entity);
     }
 
     public static ToggleResult toggle(LivingEntity entity) {
+        boolean enabled = isInCombatMode(entity);
         if (!hasServerAuthority(entity) || capability(entity).isEmpty())
-            return new ToggleResult(false, isInCombatMode(entity));
-        var state = entity.getData(ModDataAttachments.COMBAT_MODE.get());
-        boolean enabled = state.toggle();
-        entity.setData(ModDataAttachments.COMBAT_MODE.get(), state);
-        return new ToggleResult(true, enabled);
+            return new ToggleResult(false, enabled);
+        boolean next = !enabled;
+        boolean success = com.juicyslew.moonstation14.ms14.combat.CombatModeSystem.setMode(entity, next);
+        return new ToggleResult(success, success ? next : enabled);
     }
 
     private static boolean hasServerAuthority(LivingEntity entity) {

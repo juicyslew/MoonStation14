@@ -28,6 +28,31 @@ class GrinderProgramTest {
         assertFalse(program.due(69)); assertTrue(program.finishIfDue(70));
     }
 
+    @Test void selectedOperationPersistsAndSurvivesPowerLossUntilSameDeadline() {
+        for (var operation : GrinderProgram.Operation.values()) {
+            var program = idleProgram();
+            assertTrue(program.start(3, GRINDER, true, 1, true, true, operation));
+            var saved = GrinderProgram.codec().encodeStart(JsonOps.INSTANCE, program).getOrThrow();
+            var restored = GrinderProgram.codec().parse(JsonOps.INSTANCE, saved).getOrThrow();
+            assertEquals(operation, restored.operation());
+            assertEquals(73, restored.endTick());
+            assertTrue(restored.finishIfDue(73));
+        }
+    }
+
+    @Test void oldStartOverloadRemainsGrindingOperation() {
+        var program = idleProgram();
+        assertTrue(program.start(0, GRINDER, true, 1, true, true));
+        assertEquals(GrinderProgram.Operation.GRIND, program.operation());
+    }
+
+    @Test void modeAdmissionRequiresEveryInputToBeEligible() {
+        var program = idleProgram();
+        assertFalse(program.start(0, GRINDER, true, 2, true, false, GrinderProgram.Operation.JUICE));
+        assertFalse(program.active());
+        assertTrue(program.start(0, GRINDER, true, 2, true, true, GrinderProgram.Operation.JUICE));
+    }
+
     private static GrinderProgram idleProgram() {
         GrinderProgram program = GrinderProgram.codec().parse(JsonOps.INSTANCE,
                 JsonParser.parseString("{\"start_tick\":0,\"end_tick\":1}")).getOrThrow();

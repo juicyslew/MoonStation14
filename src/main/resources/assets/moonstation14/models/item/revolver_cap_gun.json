@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "moonstation14:ss14/weapons/objects/fun/capgun.rsi/icon"
+  }
+}

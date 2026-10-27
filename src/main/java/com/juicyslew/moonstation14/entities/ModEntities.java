@@ -37,6 +37,10 @@ public class ModEntities {
                     .updateInterval(10)
                     .build("thrown_grenade"));
 
+    public static final DeferredHolder<EntityType<?>, EntityType<TypedProjectileEntity>> TYPED_PROJECTILE =
+            ENTITIES.register("typed_projectile", () -> EntityType.Builder.<TypedProjectileEntity>of(TypedProjectileEntity::new, MobCategory.MISC)
+                    .sized(0.1f, 0.1f).clientTrackingRange(8).updateInterval(1).build("typed_projectile"));
+
     public static final DeferredHolder<EntityType<?>, EntityType<com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder>> DISPOSAL_TRANSIT_HOLDER =
             ENTITIES.register("disposal_transit_holder", () -> EntityType.Builder.<com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder>of(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder::new, MobCategory.MISC)
                     .sized(0.25f, 0.25f).clientTrackingRange(8).updateInterval(1).build("disposal_transit_holder"));
@@ -52,6 +56,9 @@ public class ModEntities {
     public static final DeferredHolder<EntityType<?>, EntityType<SingularityEntity>> SINGULARITY =
             ENTITIES.register("singularity", () -> EntityType.Builder.<SingularityEntity>of(SingularityEntity::new, MobCategory.MISC)
                     .sized(1.5f, 1.5f).clientTrackingRange(16).updateInterval(1).build("singularity"));
+    public static final DeferredHolder<EntityType<?>, EntityType<TeslaEnergyBallEntity>> TESLA_ENERGY_BALL =
+            ENTITIES.register("tesla_energy_ball", () -> EntityType.Builder.<TeslaEnergyBallEntity>of(TeslaEnergyBallEntity::new, MobCategory.MISC)
+                    .sized(1.5f, 1.5f).clientTrackingRange(16).updateInterval(1).build("tesla_energy_ball"));
     public static final DeferredHolder<EntityType<?>, EntityType<ParticleAcceleratorParticleEntity>> PA_PARTICLE =
             ENTITIES.register("particle_accelerator_particle", () -> EntityType.Builder.<ParticleAcceleratorParticleEntity>of(ParticleAcceleratorParticleEntity::new, MobCategory.MISC)
                     .sized(.96f, .96f).clientTrackingRange(8).updateInterval(1).build("particle_accelerator_particle"));
@@ -60,10 +67,16 @@ public class ModEntities {
                     // SS14 collision radius is 0.2; Minecraft's sized() takes width, so diameter is 0.4.
                     // Height 0.3 is a compact Minecraft geometry adaptation, not upstream fixture data.
                     .sized(0.4f, 0.3f).clientTrackingRange(8).updateInterval(1).build("mouse"));
+    public static final DeferredHolder<EntityType<?>, EntityType<TypedMobEntity>> MOB_TOMATO_KILLER =
+            ENTITIES.register("mob_tomato_killer", () -> EntityType.Builder.<TypedMobEntity>of(TypedMobEntity::new, MobCategory.MONSTER)
+                    // Upstream radius is 0.30; Minecraft sized() takes diameter. Height is a geometry adaptation.
+                    .sized(0.6f, 0.6f).clientTrackingRange(8).build("mob_tomato_killer"));
     public static void register(IEventBus eventBus) {
         ENTITIES.register(eventBus);
         AnimalMobRegistration.register(eventBus);
         eventBus.addListener((net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent event) ->
-                { event.put(MOUSE.get(), MouseMob.createAttributes().build()); AnimalMobRegistration.registerAttributes(event); });
+                { event.put(MOUSE.get(), MouseMob.createAttributes().build());
+                  event.put(MOB_TOMATO_KILLER.get(), TypedMobEntity.createAttributes().build());
+                  AnimalMobRegistration.registerAttributes(event); });
     }
 }

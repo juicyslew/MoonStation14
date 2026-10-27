@@ -154,7 +154,8 @@ public final class BodyWorldGridTransfer {
                 } else {
                     LiveHands.WholeResult filled = before.putWhole(revision, hand, new ItemToken(token), child.stack());
                     if (!filled.succeeded()) return Result.DENIED;
-                    finalBody = filled.state();
+                    finalBody = com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown
+                            .stageSelectedInsertion(body, before, filled.state());
                     stagedWorld = prepareGridRemoval(copy, child);
                     finalWorld = stagedWorld;
                 }
@@ -379,4 +380,3 @@ public final class BodyWorldGridTransfer {
 
     private static boolean same(ItemStack a, ItemStack b) { return ItemStack.matches(a, b); }
 }
-

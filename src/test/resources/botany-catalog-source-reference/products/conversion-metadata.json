@@ -1,0 +1,35 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/ingredients.yml": {
+      "sha256": "9990749b40110047da2408474f4930ab621885c9665fa5777ffac3c1b6aee539"
+    },
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/meat.yml": {
+      "sha256": "d6227aecc502e74044964c9f108471bcb0232dc688e23cc987084b0f993333c3"
+    },
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml": {
+      "sha256": "a28ed494a096cf63f7887f45e4967e89600b60022fd2b49af22e131f9bafb385"
+    }
+  },
+  "requestedLeafIds": [
+    "FoodCocoaBeans",
+    "FoodCocoaPod",
+    "FoodMeatWheat"
+  ],
+  "capturedConcreteProductCount": 3,
+  "capturedAdditionalAncestorCount": 1,
+  "capturedRawRecordCount": 4,
+  "capturedEntityIds": [
+    "FoodCocoaBeans",
+    "FoodCocoaPod",
+    "FoodMeatBase",
+    "FoodMeatWheat"
+  ],
+  "additionalAncestorIds": [
+    "FoodMeatBase"
+  ],
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "taggedRecordChecks": {},
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "parentClosureVerifiedAgainstExisting49AndConversionRows": true
+}

@@ -50,6 +50,7 @@ public final class ReagentGrinderSuppliedPowerGameTests {
             var beakerSlot = grinder.beakerSlot();
             var wheatSlot = grinder.chamberSlots().get(0);
             require(beakerSlot.insert(0, ledger.snapshot().revision(), beakerToken, beakerOrigin, beaker), "insert beaker through owned slot");
+            grinder.slotTransferCommitted(true, true);
             require(wheatSlot.insert(0, ledger.snapshot().revision(), wheatToken, wheatOrigin, wheat), "insert wheat through owned slot");
             PowerFixtureReadiness.await(helper, level, 55,
                     () -> PowerFixtureReadiness.topologyReadyWithKnownPorts(level,
@@ -57,7 +58,9 @@ public final class ReagentGrinderSuppliedPowerGameTests {
                                     com.juicyslew.moonstation14.ms14.power.cable.CableTier.APC)),
                     () -> "APC topology ready before timed program", () -> {
                         require(grinder.isPowered(), "idle zero-demand grinder is available");
-                        require(grinder.startTrusted(grinder.startProof(), level.getGameTime(), true), "start registered grinder program");
+                         require(grinder.startTrusted(grinder.startProof(), level.getGameTime(), true), "start registered grinder program");
+                         require(level.getBlockState(pos).getValue(ReagentGrinderBlock.WORKING), "successful powered start projects working appearance");
+                         require(level.getBlockState(pos).getValue(ReagentGrinderBlock.BEAKER_ATTACHED), "working projection preserves attached beaker appearance");
                         long started = level.getGameTime();
                         PowerFixtureReadiness.await(helper, level, 35,
                                 () -> PowerRuntime.processingMeter(level, grinder).known()
@@ -66,12 +69,14 @@ public final class ReagentGrinderSuppliedPowerGameTests {
                                     require(grinder.isPowered(), "fresh allocated 750 W makes grinder available");
                                     var apc = (com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity) level.getBlockEntity(power.apc());
                                     require(apc != null && apc.toggleBreakerAuthorized(true, 0), "open APC breaker through power API");
-                                    require(!grinder.isPowered(), "breaker loss makes active grinder unavailable");
+                                     require(!grinder.isPowered(), "breaker loss makes active grinder unavailable");
+                                     require(level.getBlockState(pos).getValue(ReagentGrinderBlock.WORKING), "power loss does not interrupt working projection or program");
                                     long remaining = Math.max(1, started + 70 - level.getGameTime());
                                     helper.runAfterDelay((int) remaining, () -> {
                                         long cents = beakerSlot.snapshot().stack().get(ModDataComponents.REAGENT.get()).centContents().values().stream().mapToLong(Long::longValue).sum();
-                                        require(level.getGameTime() - started == 70 && cents == 650 && wheatSlot.snapshot().stack().isEmpty(),
-                                                "clock completes at 70 ticks despite power loss, transferring 650 cents and consuming wheat");
+                                         require(level.getGameTime() - started == 70 && cents == 650 && wheatSlot.snapshot().stack().isEmpty(),
+                                                 "clock completes at 70 ticks despite power loss, transferring 650 cents and consuming wheat");
+                                         require(!level.getBlockState(pos).getValue(ReagentGrinderBlock.WORKING), "normal completion after power loss clears working projection");
                                         require(ledger.snapshot().locationOf(wheatToken).isEmpty(), "source token retired exactly once");
                                         helper.runAfterDelay(3, () -> {
                                             require(beakerSlot.snapshot().stack().get(ModDataComponents.REAGENT.get()).centContents().values().stream().mapToLong(Long::longValue).sum() == 650,

@@ -9,9 +9,14 @@ import java.util.Map;
 
 /** Field-wise parent defaults with child chemical entries replacing same reagent IDs. */
 public final class SeedProfileMergeStrategy implements PrototypeMergeStrategy {
-    @Override public boolean handles(String field) { return List.of("biology", "lifecycle", "chemicals").contains(field); }
+    @Override public boolean handles(String field) { return List.of("biology", "lifecycle", "chemicals", "mutation_targets", "scream").contains(field); }
     @Override public JsonElement merge(String field, ResourceLocation childId, JsonObject child, List<JsonObject> parents) {
         if (!handles(field)) return null;
+        if (field.equals("mutation_targets")) {
+            if (child.has(field)) return child.get(field).deepCopy();
+            for (JsonObject parent : parents) if (parent.has(field)) return parent.get(field).deepCopy();
+            return null;
+        }
         JsonObject result = new JsonObject();
         for (JsonObject parent : parents) mergeObject(parent.get(field), result, false);
         mergeObject(child.get(field), result, true);

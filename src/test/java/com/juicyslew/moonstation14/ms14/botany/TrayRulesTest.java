@@ -25,10 +25,45 @@ class TrayRulesTest {
     private static SeedProfile seed(float nutrient,float water,float production,float maturation,int yield) {
         return new SeedProfile(id("packet"),id("produce"),"plant",
                 new SeedProfile.Biology(30,nutrient,water,293,10,81,121,5,10,4),
-                new SeedProfile.Lifecycle(5,25,maturation,production,yield,1,SeedProfile.Harvest.REPEAT),Map.of());
+                new SeedProfile.Lifecycle(5,25,maturation,production,yield,1,SeedProfile.Harvest.REPEAT),Map.of(), "test-plant-name");
     }
     private static PlantInstance planted(SeedProfile s,float water,float nutrition) {
         PlantInstance p=new PlantInstance(water,nutrition,0); p.plant(id("test"),s,0); return p;
+    }
+    @Test void geneticsPersistAsIndependentInstanceSnapshots() {
+        var base = seed(1, 2, 50, 10, 2);
+        var first = planted(base, 50, 50);
+        var second = planted(base, 50, 50);
+        var changed = new SeedProfile(base.packet(), base.product(), base.visualKey(), base.biology(),
+                new SeedProfile.Lifecycle(5,25,10,50,2,77,SeedProfile.Harvest.REPEAT), Map.of(), base.sourceName());
+        first.genetics(new GeneticValue(id("test"), changed));
+        var restored = PlantInstance.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                PlantInstance.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, first).getOrThrow()).getOrThrow();
+        assertEquals(77, restored.effectiveProfile().lifecycle().potency());
+        assertEquals(1, second.effectiveProfile().lifecycle().potency());
+    }
+    @Test void geneticValueCodecPersistsCompleteNonbaselineProfile() {
+        var profile = new SeedProfile(id("genetic_packet"), id("genetic_product"), "genetic_visual",
+                new SeedProfile.Biology(37, 1.25f, 2.5f, 294, 11, 82, 122, 6, 12, 5),
+                new SeedProfile.Lifecycle(7, 31, 12, 54, 3, 83, SeedProfile.Harvest.NO_REPEAT),
+                Map.of(id("genetic_reagent"), new SeedProfile.Chemical(2, 9, 4)), "test-genetic_visual-name");
+        var original = new GeneticValue(id("genetic_species"), profile);
+        var encoded = GeneticValue.CODEC.encodeStart(JsonOps.INSTANCE, original).getOrThrow();
+        assertEquals(original, GeneticValue.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
+    }
+    @Test void trayProjectionSelectsGeneticsForVisualStageAndEnvironmentWarnings() {
+        var base = seed(1, 2, 50, 10, 2);
+        var plant = planted(base, 50, 50);
+        plant.state(5, 30, 0, 0, false, false);
+        var genetic = new SeedProfile(base.packet(), base.product(), "genetic_visual",
+                new SeedProfile.Biology(30,1,2,293,2,81,121,5,10,4),
+                new SeedProfile.Lifecycle(9,25,1,50,2,77,SeedProfile.Harvest.REPEAT), Map.of(), base.sourceName());
+        plant.genetics(new GeneticValue(id("test"), genetic));
+        SeedProfile projected = HydroponicsTrayBlockEntity.resolvedPlantProfile(plant);
+        assertEquals("genetic_visual", projected.visualKey());
+        assertEquals(9, PlantMetabolismEvaluator.appearance(plant, projected).stage());
+        assertEquals(4, PlantMetabolismEvaluator.warningBits(plant, projected, true,
+                Optional.of(new PlantMetabolismEvaluator.Environment(100, 297))));
     }
     private static final class Script implements RandomGenerator {
         private final float[] floats; private int cursor; private final int integer;
@@ -108,7 +143,11 @@ class TrayRulesTest {
     @Test void readinessTimestampIsStableAndHarvestRepeatNoRepeatAreDomainTransactions() {
         SeedProfile repeat=seed(0,0,2,10,0); PlantInstance p=planted(repeat,50,50); p.state(5,20,2,0,true,false);
         PlantMetabolismEvaluator.cycle(p,tray(),repeat,300,new Script(1,1f),goodEnv()); assertEquals(2,p.lastProduceAge());
-        var harvest=PlantMetabolismEvaluator.harvest(p,repeat,1); assertEquals(1,harvest.plannedYield()); assertEquals(PlantInstance.Status.GROWING,p.status());
+        assertEquals(0, PlantMetabolismEvaluator.previewHarvestYield(p, repeat, 1));
+        var harvest=PlantMetabolismEvaluator.harvest(p,repeat,1);
+        assertEquals(0,harvest.plannedYield()); // zero yield previews no products; the holder harvest still commits
+        assertTrue(harvest.changed()); assertFalse(p.ready()); assertEquals(p.age(), p.lastProduceAge());
+        assertEquals(PlantInstance.Status.GROWING,p.status());
         long publishedRevision = p.revision();
         p.touch(); // same revision bump performed by the tray commit before publishing its update tag
         var appearance = PlantMetabolismEvaluator.appearance(p, repeat);
@@ -116,14 +155,14 @@ class TrayRulesTest {
         assertEquals(PlantInstance.Status.GROWING, appearance.status());
         assertEquals(2, appearance.stage());
         SeedProfile noRepeat=new SeedProfile(repeat.packet(),repeat.product(),repeat.visualKey(),repeat.biology(),
-                new SeedProfile.Lifecycle(5,25,10,2,1,1,SeedProfile.Harvest.NO_REPEAT),Map.of());
+                new SeedProfile.Lifecycle(5,25,10,2,1,1,SeedProfile.Harvest.NO_REPEAT),Map.of(), repeat.sourceName());
         PlantInstance q=planted(noRepeat,50,50); q.state(5,20,2,0,true,false);
         assertEquals(1,PlantMetabolismEvaluator.harvest(q,noRepeat,1).plannedYield()); assertNull(q.seed()); assertEquals(50,q.water());
     }
 
     @Test void invalidMaturationIsRejectedWithoutMutationAndInstanceCodecRoundTrips() {
         SeedProfile invalid=new SeedProfile(id("p"),id("x"),"x",seed(0,0,0,1,1).biology(),
-                new SeedProfile.Lifecycle(1,1,0,0,1,1,SeedProfile.Harvest.REPEAT),Map.of());
+                new SeedProfile.Lifecycle(1,1,0,0,1,1,SeedProfile.Harvest.REPEAT),Map.of(), "test-x-name");
         PlantInstance p=planted(invalid,50,50); var result=PlantMetabolismEvaluator.cycle(p,tray(),invalid,300,new Script(1),goodEnv());
         assertFalse(result.changed()); assertEquals(0,p.lastCycle());
         PlantInstance okay=planted(seed(0,0,5,10,1),22,33);

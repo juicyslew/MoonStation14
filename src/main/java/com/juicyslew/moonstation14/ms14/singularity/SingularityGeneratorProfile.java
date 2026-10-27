@@ -9,8 +9,8 @@ import net.minecraft.resources.ResourceLocation;
  * Verified at pinned SS14 Content.Server/Singularity/EntitySystems/SingularityGeneratorSystem.cs:112-159.
  */
 public record SingularityGeneratorProfile(double startupThreshold, boolean startsInert,
-                                          boolean failsafeEnabled, double failsafeDistance, double failsafeCooldownSeconds,
-                                          ResourceLocation spawnProfile) {
+                                           boolean failsafeEnabled, double failsafeDistance, double failsafeCooldownSeconds,
+                                           ResourceLocation spawnProfile, ResourceLocation spawnEntity) {
     public static final double DEFAULT_THRESHOLD = 16;
     public static final double DEFAULT_FAILSAFE_DISTANCE = 16;
     public static final double DEFAULT_FAILSAFE_COOLDOWN_SECONDS = 10;
@@ -20,19 +20,24 @@ public record SingularityGeneratorProfile(double startupThreshold, boolean start
             Codec.BOOL.optionalFieldOf("failsafeEnabled", true).forGetter(SingularityGeneratorProfile::failsafeEnabled),
             Codec.DOUBLE.optionalFieldOf("failsafeDistance", DEFAULT_FAILSAFE_DISTANCE).forGetter(SingularityGeneratorProfile::failsafeDistance),
             Codec.DOUBLE.optionalFieldOf("failsafeCooldownSeconds", DEFAULT_FAILSAFE_COOLDOWN_SECONDS).forGetter(SingularityGeneratorProfile::failsafeCooldownSeconds),
-            ResourceLocation.CODEC.optionalFieldOf("spawnProfile", ResourceLocation.fromNamespaceAndPath("moonstation14", "singularity")).forGetter(SingularityGeneratorProfile::spawnProfile)
+            ResourceLocation.CODEC.optionalFieldOf("spawnProfile", ResourceLocation.fromNamespaceAndPath("moonstation14", "singularity")).forGetter(SingularityGeneratorProfile::spawnProfile),
+            ResourceLocation.CODEC.optionalFieldOf("spawn_entity", ResourceLocation.fromNamespaceAndPath("moonstation14", "singularity")).forGetter(SingularityGeneratorProfile::spawnEntity)
     ).apply(i, SingularityGeneratorProfile::new));
     public static final PrototypeType<SingularityGeneratorProfile> TYPE = new PrototypeType<>(
             ResourceLocation.fromNamespaceAndPath("moonstation14", "singularity_generator"),
             "moonstation14/singularity_generator", CODEC);
 
     public SingularityGeneratorProfile(double threshold, boolean inert, double distance, double cooldown) {
-        this(threshold, inert, true, distance, cooldown, ResourceLocation.fromNamespaceAndPath("moonstation14", "singularity"));
+        this(threshold, inert, true, distance, cooldown, ResourceLocation.fromNamespaceAndPath("moonstation14", "singularity"), ResourceLocation.fromNamespaceAndPath("moonstation14", "singularity"));
+    }
+
+    public SingularityGeneratorProfile(double threshold, boolean inert, boolean failsafe, double distance, double cooldown, ResourceLocation profile) {
+        this(threshold, inert, failsafe, distance, cooldown, profile, ResourceLocation.fromNamespaceAndPath("moonstation14", "singularity"));
     }
 
     public void validate() {
         if (!Double.isFinite(startupThreshold) || startupThreshold < 0 || !Double.isFinite(failsafeDistance) || failsafeDistance < 0
-                || !Double.isFinite(failsafeCooldownSeconds) || failsafeCooldownSeconds < 0 || spawnProfile == null)
+                || !Double.isFinite(failsafeCooldownSeconds) || failsafeCooldownSeconds < 0 || spawnProfile == null || spawnEntity == null)
             throw new IllegalArgumentException("invalid singularity generator profile");
     }
 }

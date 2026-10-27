@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest" tests="6" skipped="0" failures="2" errors="0" timestamp="2026-10-23T04:59:58.073Z" hostname="DESKTOP-4F0ER3K" time="0.11">
+  <properties/>
+  <testcase name="carePhysicalSignsStayShortWhileFullInstructionsAndLimitsRemainInSummary()" classname="com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest" time="0.008"/>
+  <testcase name="stationGuideAndPhysicalSignUseTheSameDemonstrationActionsAndResults()" classname="com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest" time="0.007">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;See health lamp&gt; but was: &lt;Health warning&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;See health lamp&gt; but was: &lt;Health warning&gt;
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at app//org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:182)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:177)
+	at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest.stationGuideAndPhysicalSignUseTheSameDemonstrationActionsAndResults(BotanyFixtureSignsTest.java:56)
+	at java.base@21.0.10/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="careShowcaseHasElevenDistinctAdjacentOrdinaryTriggerStations()" classname="com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest" time="0.003"/>
+  <testcase name="careWingAndMainFootprintsHaveBoundedConnectedAirwayAndNoStationOverlap()" classname="com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest" time="0.059">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;true&gt; but was: &lt;false&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;true&gt; but was: &lt;false&gt;
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at app//org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
+	at app//org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
+	at app//org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:31)
+	at app//org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:183)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest.careWingAndMainFootprintsHaveBoundedConnectedAirwayAndNoStationOverlap(BotanyFixtureSignsTest.java:158)
+	at java.base@21.0.10/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="mutationStationUsesEmptySoilOperatorDoseAndProbabilisticCopy()" classname="com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest" time="0.005"/>
+  <testcase name="preflightPlanCoversEverySignSupportAndConnectorWriteBeforeBuild()" classname="com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest" time="0.021"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

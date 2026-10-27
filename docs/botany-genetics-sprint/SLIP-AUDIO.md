@@ -1,0 +1,3 @@
+# Slip cue runtime boundary
+
+Slip cues use the cue captured in `SlipResponseData`, including when that response is copied into genetic mutation records or item stacks. The server routes positional packets through the same `PositionalSoundRouter` and `BodyViewAudioAudience` owner as grinder cues; it does not use a direct server-level `playSound` call. This is the deliberate Minecraft adaptation: predicted-at-victim client playback parity is **unverified** because no client slip cue owner exists. Connected body-view delivery still needs native packet-capture coverage (carrier far/body near and carrier near/body far), including source, position, gain, and suppression for already-down targets.

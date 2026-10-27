@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-22T08:26:42.119Z" hostname="DESKTOP-4F0ER3K" time="0.062">
+  <properties/>
+  <testcase name="unloadedBoundaryIsUnknownAndCandidateSaturationNeverClassifiesFinite()" classname="com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest" time="0.019"/>
+  <testcase name="finiteClaimsAreBarriersAndClaimedSeedRemainsFinite()" classname="com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest" time="0.001"/>
+  <testcase name="underOverhangIsExteriorThroughLoadedSkyPathAndRoofDoesNotSealSideOpening()" classname="com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest" time="0.0"/>
+  <testcase name="finiteRoomStepCallsFitPerCellBudgetIncludingFinalCompletionCall()" classname="com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest" time="0.004"/>
+  <testcase name="ownershipSearchHandlesMoreThanEqualizationLimitOverManySteps()" classname="com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest" time="0.015"/>
+  <testcase name="closingFinalOpeningProvesFinite()" classname="com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest" time="0.001"/>
+  <testcase name="stepHonorsStrictWorkBudgetAndTopologyChangeCancels()" classname="com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest" time="0.001"/>
+  <testcase name="connectedBotanySizedRoomsExceedOldCandidateCapButFitPerCellBound()" classname="com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest" time="0.017"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

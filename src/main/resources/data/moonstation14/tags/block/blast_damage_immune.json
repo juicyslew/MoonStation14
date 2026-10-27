@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "moonstation14:field_generator",
+    "moonstation14:tesla_generator",
+    "moonstation14:singularity_generator",
+    "moonstation14:pa_control_box",
+    "moonstation14:pa_power_box",
+    "moonstation14:pa_fuel_chamber",
+    "moonstation14:pa_end_cap",
+    "moonstation14:pa_emitter_port",
+    "moonstation14:pa_emitter_fore",
+    "moonstation14:pa_emitter_starboard"
+  ]
+}

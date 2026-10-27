@@ -18,11 +18,25 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class KoboldLoadFixtureGameTests {
     private KoboldLoadFixtureGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "disposal_power_clear", timeoutTicks = 80)
     @GameTestTags({"animals", "kobold-load-fixture"})
     public static void koboldCommandRequiresCommittedOperatorAndClearsOnlyOwnedResources(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         var server = level.getServer();
+        var staging = helper.absolutePos(new BlockPos(24, 2, 24));
+        var spec = new AnimalPopulationSpec(6, AnimalPopulationSpec.HEIGHT, java.util.List.of("kobold"), 4);
+        var candidates = FixtureSettling.candidates(new net.minecraft.world.phys.Vec3(staging.getX() + .5,
+                staging.getY(), staging.getZ() + .5), 0, spec.width());
+        BlockPos arenaMin = staging, arenaMax = staging;
+        for (var candidate : candidates) {
+            var max = candidate.origin().offset(spec.width() - 1, AnimalPopulationSpec.HEIGHT - 1, spec.width() - 1);
+            arenaMin = new BlockPos(Math.min(arenaMin.getX(), candidate.origin().getX()),
+                    Math.min(arenaMin.getY(), candidate.origin().getY()), Math.min(arenaMin.getZ(), candidate.origin().getZ()));
+            arenaMax = new BlockPos(Math.max(arenaMax.getX(), max.getX()), Math.max(arenaMax.getY(), max.getY()),
+                    Math.max(arenaMax.getZ(), max.getZ()));
+        }
+        var tickets = FixtureChunkTickets.around(helper, arenaMin, arenaMax, 0);
+        FixtureChunkTickets.awaitEntityTicking(helper, tickets, 20, () -> {
         var playerFixture = RegisteredServerPlayerFixture.register(level, "koboldfixture");
         try {
             helper.runAtTickTime(2, () -> {
@@ -39,10 +53,15 @@ public final class KoboldLoadFixtureGameTests {
                                     && KoboldFixtureCommands.activeFixture(server) == null,
                             "uncommitted operator source cannot create fixture");
 
-                    RegisteredPlayerReadyDriver.readyAndQuery(playerFixture);
+                    var active = RegisteredPlayerReadyDriver.readyAndQuery(playerFixture);
+                    active.body().teleportTo(staging.getX() + .5, staging.getY(), staging.getZ() + .5);
+                    active.body().setYRot(0);
+                    active.body().setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
                     source = player.createCommandSourceStack().withPermission(2);
-                    require(execute(server, source, "ms14 kobold_fixture setup 4 6") == 1,
-                            "committed operator sets up the requested fixture");
+                    var setupFeedback = capture(source);
+                    int setupResult = execute(server, setupFeedback.stack(), "ms14 kobold_fixture setup 4 6");
+                    require(setupResult == 1, "committed operator sets up requested fixture: result=" + setupResult
+                            + ", feedback=" + setupFeedback.feedback());
                     var handle = KoboldFixtureCommands.activeFixture(server);
                     ownedHandle = handle;
                     require(handle != null && handle.spawnedCount() == 4 && handle.spec().count() == 4
@@ -100,6 +119,8 @@ public final class KoboldLoadFixtureGameTests {
             playerFixture.close();
             throw failure;
         }
+        }, candidates.stream().flatMap(candidate -> java.util.stream.Stream.of(candidate.origin(),
+                candidate.origin().offset(spec.width() - 1, AnimalPopulationSpec.HEIGHT - 1, spec.width() - 1))).toArray(BlockPos[]::new));
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80, batch = "animal_showcase_command")

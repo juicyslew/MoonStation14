@@ -10,14 +10,20 @@ public final class AppliedDamageEvent extends Event {
     private final LivingEntity entity;
     private final double typedDamage;
     private final DamageFeedbackProfile feedback;
+    private final net.minecraft.world.entity.Entity origin;
 
     public AppliedDamageEvent(LivingEntity entity, double typedDamage, DamageFeedbackProfile feedback) {
+        this(entity, typedDamage, feedback, null);
+    }
+    public AppliedDamageEvent(LivingEntity entity, double typedDamage, DamageFeedbackProfile feedback,
+                              net.minecraft.world.entity.Entity origin) {
         this.entity = Objects.requireNonNull(entity, "entity");
         if (!Double.isFinite(typedDamage) || typedDamage < 0d) {
             throw new IllegalArgumentException("typedDamage must be finite and non-negative");
         }
         this.typedDamage = typedDamage;
         this.feedback = Objects.requireNonNull(feedback, "feedback");
+        this.origin = origin;
     }
 
     public LivingEntity entity() {
@@ -28,5 +34,6 @@ public final class AppliedDamageEvent extends Event {
         return typedDamage;
     }
     public DamageFeedbackProfile feedback() { return feedback; }
+    public net.minecraft.world.entity.Entity origin() { return origin; }
 }
 

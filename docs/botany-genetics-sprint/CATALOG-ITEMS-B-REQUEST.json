@@ -1,0 +1,40 @@
+{
+  "id": "botany-genetics-catalog-items-b-20261015-r1",
+  "title": "Botany catalog items B source-faithful item art",
+  "brief": "Art-only request for exactly the 20 upstream item identities in asset_ids. Follow docs/botany-genetics-sprint/CATALOG-ITEMS-B-ASSET-BRIEF.md for pinned source, selected RSI states, inherited packet label and slice states, licenses, attribution, and boundaries. Separate from the 65-family grown-plant request, the existing ten-target swab/item request, and canonical BasicBotany package; no grown-art dependency. Keep packet, whole produce, ruminant output and slice identities distinct. No runtime code/registration/import, gameplay or mechanics implementation, audio, or Blockbench 3D plant models. Request is not asset delivery, visual review or owner acceptance.",
+  "scope": "art-only",
+  "target_runtime": "Minecraft Java 1.21.1 / NeoForge 21.1.224 native item-model and PNG pipeline",
+  "source_pin": "SS14 space-station-14 revision c9df5ef5d675b0d1d226828bddf6b78c28502d91; verified at C:/Users/William/Documents/SS14-dev/space-station-14",
+  "asset_ids": [
+    "EggplantSeeds",
+    "FoodEggplant",
+    "OnionSeeds",
+    "FoodOnion",
+    "OnionRedSeeds",
+    "FoodOnionRed",
+    "ChanterelleSeeds",
+    "FoodMushroom",
+    "RiceSeeds",
+    "RiceBushel",
+    "SoybeanSeeds",
+    "FoodSoybeans",
+    "KoibeanSeeds",
+    "FoodKoibean",
+    "ChiliSeeds",
+    "FoodChiliPepper",
+    "ChillySeeds",
+    "FoodChillyPepper",
+    "FoodOnionSlice",
+    "FoodOnionRedSlice"
+  ],
+  "dependencies": [],
+  "context": [
+    "docs/botany-genetics-sprint/CATALOG-ITEMS-B-ASSET-BRIEF.md",
+    "docs/botany-genetics-sprint/CATALOG-REFERENCES.md",
+    "docs/botany-genetics-sprint/CATALOG-ITEMS-A-ASSET-BRIEF.md",
+    "docs/botany-genetics-sprint/CATALOG-ITEMS-A-REQUEST.json",
+    "docs/botany-genetics-sprint/ITEM-ASSET-BRIEF.md",
+    "docs/botany-genetics-sprint/item-asset-request.json",
+    "docs/botany-genetics-sprint/plant-model-request.json"
+  ]
+}

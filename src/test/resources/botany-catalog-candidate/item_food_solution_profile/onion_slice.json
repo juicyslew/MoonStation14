@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:onion_slice",
+  "capacity_cents": 500,
+  "contents_cents": {
+    "moonstation14:nutriment": 200,
+    "moonstation14:allicin": 100,
+    "moonstation14:vitamin": 100
+  },
+  "refillable": true
+}

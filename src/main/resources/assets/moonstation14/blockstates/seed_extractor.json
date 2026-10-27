@@ -1,5 +1,6 @@
 {
   "variants": {
-    "": { "model": "moonstation14:block/seed_extractor" }
+    "powered=false": { "model": "moonstation14:block/machines/seed_extractor/seedextractor_off" },
+    "powered=true": { "model": "moonstation14:block/machines/seed_extractor/seedextractor_unlit" }
   }
 }

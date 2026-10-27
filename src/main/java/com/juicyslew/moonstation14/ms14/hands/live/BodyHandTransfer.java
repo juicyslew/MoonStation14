@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
 import com.juicyslew.moonstation14.ms14.hands.PortableBodyKeys;
+import com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -38,6 +39,7 @@ public final class BodyHandTransfer {
         if (!transition.succeeded() || !authorized.getAsBoolean() || !before.compatible(body)
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || before.revision() != revision || !CharacterControlSystem.canAct(body)) return Result.DENIED;
+        next = MeleeSelectionCooldown.stageSelectedInsertion(body, before, next);
         var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
         var sourceStack = before.stackCopy(source).orElse(null);
         var sourceReference = PortableBodyKeys.reference(sourceStack);
@@ -62,4 +64,3 @@ public final class BodyHandTransfer {
         return Result.SUCCESS;
     }
 }
-

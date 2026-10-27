@@ -23,18 +23,24 @@ import java.util.function.Consumer;
 public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
                                      UUID bodyId, long epoch, long revision, String activeHand,
                                        List<Hand> hands, List<EquipmentSlot> equipment, List<GridHost> grids, boolean push,
-                                       ResourceLocation templateId) implements CustomPacketPayload {
+                                        ResourceLocation templateId, long serverTick) implements CustomPacketPayload {
     public enum Reason { OK, NO_AUTHORITY, RATE_LIMITED, REPLAY, NOT_READY }
 
     public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
                                  UUID bodyId, long epoch, long revision, String activeHand, List<Hand> hands) {
-         this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, List.of(), List.of(), false, null);
+          this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, List.of(), List.of(), false, null, 0);
+    }
+
+    public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId, UUID bodyId,
+            long epoch, long revision, String activeHand, List<Hand> hands, List<EquipmentSlot> equipment,
+            List<GridHost> grids, boolean push, ResourceLocation templateId) {
+        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, grids, push, templateId, 0);
     }
 
     public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId, UUID bodyId,
             long epoch, long revision, String activeHand, List<Hand> hands, List<EquipmentSlot> equipment,
             List<GridHost> grids, boolean push) {
-        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, grids, push, null);
+        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, grids, push, null, 0);
     }
 
     public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
@@ -177,6 +183,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                     buf.writeUUID(snapshot.bodyId);
                     buf.writeVarLong(snapshot.epoch);
                     buf.writeVarLong(snapshot.revision);
+                    buf.writeVarLong(snapshot.serverTick);
                     buf.writeUtf(snapshot.activeHand, HandState.MAX_ID_LENGTH);
                     buf.writeBoolean(snapshot.templateId != null);
                     if (snapshot.templateId != null) buf.writeResourceLocation(snapshot.templateId);
@@ -246,6 +253,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                 UUID body = buf.readUUID();
                 long epoch = buf.readVarLong();
                 long revision = buf.readVarLong();
+                long serverTick = buf.readVarLong();
                 String active = buf.readUtf(HandState.MAX_ID_LENGTH);
                 ResourceLocation templateId = buf.readBoolean() ? buf.readResourceLocation() : null;
                 int size = buf.readVarInt();
@@ -307,7 +315,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                 }
                 if (buf.isReadable()) throw new IllegalArgumentException("Unexpected snapshot payload");
                 return new BodyHandStateSnapshot(requestedEpoch, sequence, reason, account, body,
-                        epoch, revision, active, slots, equipment, grids, push, templateId);
+                        epoch, revision, active, slots, equipment, grids, push, templateId, serverTick);
             }));
 
     private static BodyHandStateSnapshot decodeGuarded(RegistryFriendlyByteBuf buf,
@@ -319,7 +327,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
     }
 
     public BodyHandStateSnapshot {
-        if (requestedEpoch < 0 || (push ? sequence != 0 : sequence <= 0) || reason == null || hands == null || equipment == null || grids == null)
+        if (requestedEpoch < 0 || serverTick < 0 || (push ? sequence != 0 : sequence <= 0) || reason == null || hands == null || equipment == null || grids == null)
             throw new IllegalArgumentException("Invalid hand state snapshot");
         hands = List.copyOf(hands);
         equipment = List.copyOf(equipment);

@@ -5,6 +5,7 @@
   "radiation_damage": 25.0,
   "lifetime_ticks": 60,
   "half_extent": 0.48,
+  "energy_receiver_vertical_padding": 1.0,
   "delete_on_collide": false,
   "impact_sound": "moonstation14:pa_particle_hit",
   "sprite": "moonstation14:textures/entity/pa_particle/particle"

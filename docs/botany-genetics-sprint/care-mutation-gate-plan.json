@@ -1,0 +1,62 @@
+{
+  "title": "M5 resolved plant care and reagent mutation",
+  "kind": "feature",
+  "acceptance_criteria": [
+    "Resolved inherited care defaults drive live ordinary tray polling in upstream order with exact thresholds and one-unit drain; initial mutation level below 25 blocks all effects/drain, while a batch crossing 25 completes.",
+    "Effect scale precedes probability and guards; min-scale uses exact dose and does not bypass earlier threshold/eligibility checks.",
+    "Buffered levels apply on ordinary poll; health/death effects are immediate and later effects respect dead-plant guards.",
+    "Potency and robustness mutations preserve unrelated resolved fields and never change harvest yield/output or consume mutation RNG.",
+    "Five typed effects (Cryoxadone, AffectGrowth, Diethylamine, Phalanximine, RestoreSeeds) and forced evaluator cycle follow resolved upstream algorithms.",
+    "Genetic copies retain species, packet/product, all chemistry/gas maps, mutation targets, unrelated fields, and holder state.",
+    "Eight native cases exercise ordinary poll and resolved effects, including mutation-level admission, exact 399/400-cent boundary, and ordered effects; existing mutation and authenticated batch regressions remain selected.",
+    "Main, JVM-test, and native sources compile and runtime jar is produced.",
+    "Report unsupported Kudzu and popup presentation, five targetless production species profiles, open 65-family assets, and incomplete catalog/special-trait coverage.",
+    "Report bounded M5 coverage, not full showcase/catalog, full suite, visual/client review, or owner acceptance."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantCareGameTests.java",
+  "manual_steps": [
+    "Existing `/ms14 botany_fixture` care station remains partial; this revision has no complete every-effect showcase. No repeated gas test is requested; full catalog/mutation showcase and owner acceptance remain outstanding."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Compile all source sets and produce the runtime jar.",
+      "covers": ["Main, JVM-test, and native sources compile and runtime jar is produced."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.atmos.core.GasMixtureTest --tests com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest --tests com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantChemicalMutationTest --tests com.juicyslew.moonstation14.ms14.botany.PlantGasMetabolismTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest --tests com.juicyslew.moonstation14.ms14.botany.SeedExtractorEligibilityTest --tests com.juicyslew.moonstation14.ms14.botany.TrayRulesTest --tests com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest --tests com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest --tests com.juicyslew.moonstation14.ms14.prototype.SeedProfileTest --tests com.juicyslew.moonstation14.ms14.reagent.PlantReagentMetabolismTest --tests com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest --tests com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest --tests com.juicyslew.moonstation14.ms14.botany.PlantSpeciesMutationTest --tests com.juicyslew.moonstation14.ms14.botany.PlantSpeciesMutationCycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantCareMetabolismTest --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Exact 19-class species-gate baseline plus PlantCareMetabolismTest; count from fresh XML.",
+      "covers": [
+        "Resolved inherited care defaults drive live ordinary tray polling in upstream order with exact thresholds and one-unit drain; initial mutation level below 25 blocks all effects/drain, while a batch crossing 25 completes.",
+        "Effect scale precedes probability and guards; min-scale uses exact dose and does not bypass earlier threshold/eligibility checks.",
+        "Buffered levels apply on ordinary poll; health/death effects are immediate and later effects respect dead-plant guards.",
+        "Potency and robustness mutations preserve unrelated resolved fields and never change harvest yield/output or consume mutation RNG.",
+        "Five typed effects (Cryoxadone, AffectGrowth, Diethylamine, Phalanximine, RestoreSeeds) and forced evaluator cycle follow resolved upstream algorithms.",
+        "Genetic copies retain species, packet/product, all chemistry/gas maps, mutation targets, unrelated fields, and holder state.",
+        "Report unsupported Kudzu and popup presentation, five targetless production species profiles, open 65-family assets, and incomplete catalog/special-trait coverage."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=interaction,prediction' --info --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Relevant interaction/prediction regressions only; UI is unaffected and these selectors do not prove care behavior.",
+      "selectors": ["interaction", "prediction"],
+      "covers": [
+        "Report bounded M5 coverage, not full showcase/catalog, full suite, visual/client review, or owner acceptance."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,botany-genetics,botany-chemical-mutation,botany-stat-mutation,botany-gas-mutation,botany-auto-harvest,harvest-placement,botany-species-mutation,botany-care' '-Pms14GameTestDir=build/gametest-botany-care-r5' --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "Fresh R5 M5 world; retain prior eight tags and add focused care fixtures. Preserve all R1-R4 worlds/logs and prior artifacts/configuration; compare against pinned original base and require all-required-passed marker.",
+      "selectors": ["botany", "botany-genetics", "botany-chemical-mutation", "botany-stat-mutation", "botany-gas-mutation", "botany-auto-harvest", "harvest-placement", "botany-species-mutation", "botany-care"],
+      "log": "build/reports/botany-genetics/care-mutation-gate-native-r5.log",
+      "covers": [
+        "Eight native cases exercise ordinary poll and resolved effects, including mutation-level admission, exact 399/400-cent boundary, and ordered effects; existing mutation and authenticated batch regressions remain selected."
+      ]
+    }
+  ]
+}

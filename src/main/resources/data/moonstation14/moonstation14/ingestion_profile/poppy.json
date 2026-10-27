@@ -1,1 +1,1 @@
-{"id":"moonstation14:poppy","parent":"moonstation14:food_base","edible":{"dose_cents":500,"delay_ticks":20,"force_feed_delay_ticks":60,"source_solution":{"capacity_cents":2200,"contents_cents":{"moonstation14:nutriment":200,"moonstation14:bicaridine":2000}}}}
+{"id":"moonstation14:poppy","parent":"moonstation14:food_base","edible":{"dose_cents":500,"delay_ticks":20,"force_feed_delay_ticks":60}}

@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.hands.live;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
+import com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown;
 import com.juicyslew.moonstation14.ms14.hands.ItemToken;
 import com.juicyslew.moonstation14.ms14.stripping.StripCapability;
 import com.juicyslew.moonstation14.ms14.stripping.StripSlotRef;
@@ -106,9 +107,10 @@ public final class BodyStripTransfer {
             token = sourceToken;
             if (moving == null || moving.isEmpty()) return Result.DENIED;
             if (ref.kind() == StripSlotRef.Kind.HAND) {
+                LiveHands beforeReceiver = t;
                 var result = t.putWhole(t.revision(), ref.id(), new ItemToken(token), moving);
                 if (!result.succeeded()) return Result.DENIED;
-                nt = result.state();
+                nt = MeleeSelectionCooldown.stageSelectedInsertion(target, beforeReceiver, result.state());
                 na = a.takeWhole(a.revision(), sourceHand, new ItemToken(token)).state();
             } else {
                 var template = BodyEquipmentTransfer.templateForTransfer(target);
@@ -135,7 +137,11 @@ public final class BodyStripTransfer {
                 if (removed == null) return Result.DENIED;
                 nt = removed.state();
                 var receiver = firstFreeHand(a);
-                if (receiver != null) na = a.putWhole(a.revision(), receiver, new ItemToken(token), moving).state();
+                if (receiver != null) {
+                    LiveHands beforeReceiver = a;
+                    na = a.putWhole(a.revision(), receiver, new ItemToken(token), moving).state();
+                    na = MeleeSelectionCooldown.stageSelectedInsertion(actor, beforeReceiver, na);
+                }
                 var staged = BodyEquipmentTransfer.stageDependentDrops(target, removed.drops());
                 if (staged.result() != BodyEquipmentTransfer.Result.SUCCESS) return map(staged.result());
                 com.juicyslew.moonstation14.entities.LooseItemEntity mainDrop = null;
@@ -148,7 +154,11 @@ public final class BodyStripTransfer {
                 return result;
             }
             String hand = firstFreeHand(a);
-            if (hand != null) na = a.putWhole(a.revision(), hand, new ItemToken(token), moving).state();
+            if (hand != null) {
+                LiveHands beforeReceiver = a;
+                na = a.putWhole(a.revision(), hand, new ItemToken(token), moving).state();
+                na = MeleeSelectionCooldown.stageSelectedInsertion(actor, beforeReceiver, na);
+            }
             else return worldDrop(actor, target, a, na, t, nt, moving, token, valid, committer);
         }
         return commit(actor, target, a, na, t, nt, moving, token, valid, null, committer);

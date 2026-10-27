@@ -1,0 +1,76 @@
+{
+    "render_type":  "minecraft:cutout",
+    "ambientocclusion":  false,
+    "elements":  [
+                     {
+                         "shade":  false,
+                         "from":  [
+                                      0,
+                                      0,
+                                      7.9
+                                  ],
+                         "to":  [
+                                    16,
+                                    16,
+                                    8.1
+                                ],
+                         "faces":  {
+                                       "south":  {
+                                                     "uv":  [
+                                                                0,
+                                                                0,
+                                                                16,
+                                                                16
+                                                            ],
+                                                     "texture":  "#all"
+                                                 },
+                                       "north":  {
+                                                     "uv":  [
+                                                                0,
+                                                                0,
+                                                                16,
+                                                                16
+                                                            ],
+                                                     "texture":  "#all"
+                                                 }
+                                   }
+                     },
+                     {
+                         "shade":  false,
+                         "from":  [
+                                      7.9,
+                                      0,
+                                      0
+                                  ],
+                         "to":  [
+                                    8.1,
+                                    16,
+                                    16
+                                ],
+                         "faces":  {
+                                       "east":  {
+                                                    "uv":  [
+                                                               0,
+                                                               0,
+                                                               16,
+                                                               16
+                                                           ],
+                                                    "texture":  "#all"
+                                                },
+                                       "west":  {
+                                                    "uv":  [
+                                                               0,
+                                                               0,
+                                                               16,
+                                                               16
+                                                           ],
+                                                    "texture":  "#all"
+                                                }
+                                   }
+                     }
+                 ],
+    "textures":  {
+                     "particle":  "moonstation14:block/botany/plants/meatwheat/stage-5",
+                     "all":  "moonstation14:block/botany/plants/meatwheat/stage-5"
+                 }
+}

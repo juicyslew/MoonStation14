@@ -22,6 +22,7 @@ final class CpuOrderedPaint implements OrderedPaint {
     private final Map<ResourceLocation,BufferedImage> sprites=new HashMap<>();
     private final List<String> paintedText=new ArrayList<>();
     private final List<ResourceLocation> paintedSprites=new ArrayList<>();
+    private final List<SpriteDraw> spriteDraws=new ArrayList<>();
     private final int guiScale;
     private float tx,ty,sx=1,sy=1;
     CpuOrderedPaint(int width,int height,MinecraftBitmapFont font){this(width,height,font,1);}
@@ -29,6 +30,8 @@ final class CpuOrderedPaint implements OrderedPaint {
     BufferedImage image(){return image;}
     List<String> paintedText(){return List.copyOf(paintedText);}
     List<ResourceLocation> paintedSprites(){return List.copyOf(paintedSprites);}
+    List<SpriteDraw> spriteDraws(){return List.copyOf(spriteDraws);}
+    record SpriteDraw(ResourceLocation id,int x,int y,int width,int height,int u,int v,int sourceWidth,int sourceHeight,int textureWidth,int textureHeight,int tint){}
     public void fill(int l,int t,int r,int b,int color){int x0=px(l),y0=py(t),x1=px(r),y1=py(b);for(int y=Math.max(y0,clips.peek().t);y<Math.min(y1,clips.peek().b);y++)for(int x=Math.max(x0,clips.peek().l);x<Math.min(x1,clips.peek().r);x++)blend(x,y,color);}
     /**
      * Mirrors Font.StringRenderOutput (1.21.1): supplied y is the font render origin;
@@ -45,8 +48,9 @@ final class CpuOrderedPaint implements OrderedPaint {
     public void translate(float x,float y,float z){tx+=x*sx;ty+=y*sy;} public void scale(float x,float y,float z){sx*=x;sy*=y;}
     /** Mirrors GuiGraphics.applyScissor: absolute GUI bounds are converted by Window.guiScale, never the pose. */
     public void clip(int l,int t,int r,int b){clips.push(intersect(clips.peek(),new Rect(l*guiScale,t*guiScale,r*guiScale,b*guiScale)));} public void unclip(){if(clips.size()<=1)throw new IllegalStateException("clip underflow");clips.pop();}
-     public void sprite(ResourceLocation id,int x,int y,int w,int h,int u,int v,int sw,int sh,int tw,int th,int tint){
-         paintedSprites.add(id);
+      public void sprite(ResourceLocation id,int x,int y,int w,int h,int u,int v,int sw,int sh,int tw,int th,int tint){
+          paintedSprites.add(id);
+          spriteDraws.add(new SpriteDraw(id,x,y,w,h,u,v,sw,sh,tw,th,tint));
         try {var source=sprites.computeIfAbsent(id,k->{String path="assets/"+k.getNamespace()+"/"+k.getPath();try(var in=CpuOrderedPaint.class.getClassLoader().getResourceAsStream(path)){if(in!=null)return ImageIO.read(in);}catch(Exception e){throw new IllegalStateException("cannot load classpath sprite "+path,e);}Path root=Path.of(System.getProperty("ms14.preview.projectDir",System.getProperty("user.dir")));Path file=root.resolve("src/main/resources").resolve(path);try{return ImageIO.read(file.toFile());}catch(Exception e){throw new IllegalStateException("missing sprite "+file,e);}});if(source==null)throw new IllegalStateException("invalid sprite "+id);if(tw<=0||th<=0||sw<0||sh<0)throw new IllegalArgumentException("invalid sprite UV geometry");
             int dw=Math.abs(Math.round(w*sx)),dh=Math.abs(Math.round(h*sy));for(int dy=0;dy<dh;dy++)for(int dx=0;dx<dw;dx++){int ox=Math.round(tx+x*sx)+(sx<0?-dx:dx),oy=Math.round(ty+y*sy)+(sy<0?-dy:dy);if(!inside(ox,oy))continue;double uu=u+(dx+.5)*sw/Math.max(1,dw),vv=v+(dy+.5)*sh/Math.max(1,dh);if(uu<0||vv<0||uu>=tw||vv>=th)continue;int ix=Math.min(source.getWidth()-1,(int)(uu*source.getWidth()/tw)),iy=Math.min(source.getHeight()-1,(int)(vv*source.getHeight()/th));int p=source.getRGB(ix,iy),a=(p>>>24)*(tint>>>24)/255;int red=((p>>16)&255)*((tint>>16)&255)/255,green=((p>>8)&255)*((tint>>8)&255)/255,blue=(p&255)*(tint&255)/255;if(a!=0)blend(ox,oy,(a<<24)|(red<<16)|(green<<8)|blue);}
         }catch(RuntimeException e){throw e;}

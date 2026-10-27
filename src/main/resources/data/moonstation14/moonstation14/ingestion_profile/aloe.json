@@ -1,1 +1,1 @@
-{"id":"moonstation14:aloe","parent":"moonstation14:food_base","edible":{"dose_cents":500,"delay_ticks":20,"force_feed_delay_ticks":60,"source_solution":{"capacity_cents":2000,"contents_cents":{"moonstation14:aloe":1000,"moonstation14:dermaline":1000}}}}
+{"id":"moonstation14:aloe","parent":"moonstation14:food_base","edible":{"dose_cents":500,"delay_ticks":20,"force_feed_delay_ticks":60}}

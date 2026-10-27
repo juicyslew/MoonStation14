@@ -1,0 +1,5 @@
+{
+    "task":  "shared-melee-resolution-validation/r3",
+    "created":  "2026-10-21T06:49:45.9520684-07:00",
+    "command":  ".\\gradlew.bat compileJava compileTestJava compileGametestJava test --tests \u0027*MeleeWeaponResolverTest\u0027 --tests \u0027*MeleeWeaponDataTest\u0027 --tests \u0027*MeleeWeaponProfileTest\u0027 --tests \u0027*CharacterPrototypeTest\u0027"
+}

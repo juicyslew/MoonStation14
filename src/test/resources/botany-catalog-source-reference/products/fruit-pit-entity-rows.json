@@ -1,0 +1,417 @@
+[
+  {
+    "id": "FoodBungo",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "bungo fruit",
+      "parent": "FoodProduceBase",
+      "id": "FoodBungo",
+      "description": "The humble bungo fruit.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "bungo"
+          ]
+        },
+        {
+          "type": "Edible",
+          "trash": [
+            "FoodBungoPit"
+          ]
+        },
+        {
+          "type": "Butcherable",
+          "butcheringType": "Knife",
+          "spawned": [
+            {
+              "id": "FoodBungoPit"
+            }
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 20,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 10
+                },
+                {
+                  "ReagentId": "Enzyme",
+                  "Quantity": 10
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/bungo.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "bungo"
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "JuiceBungo",
+                "Quantity": 10
+              }
+            ]
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "Bungo",
+            "Burger": "Bungo"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodBungoPit",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "bungo pit",
+      "parent": "FoodInjectableBase",
+      "id": "FoodBungoPit",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/bungo.rsi",
+          "state": "pit"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Recyclable",
+            "Trash"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 7,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 2
+                },
+                {
+                  "ReagentId": "Bungotoxin",
+                  "Quantity": 5
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food"
+        },
+        {
+          "type": "Seed",
+          "seedId": "bungo"
+        },
+        {
+          "type": "SpaceGarbage"
+        },
+        {
+          "type": "BadFood"
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodCherry",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "cherry",
+      "parent": "FoodProduceBase",
+      "id": "FoodCherry",
+      "description": "Juicy red cherry with a pit inside.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "cherry"
+          ]
+        },
+        {
+          "type": "Edible",
+          "trash": [
+            "TrashCherryPit"
+          ]
+        },
+        {
+          "type": "Butcherable",
+          "butcheringType": "Knife",
+          "spawned": [
+            {
+              "id": "TrashCherryPit"
+            }
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 8,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 3
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 3
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/cherry.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "cherry"
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "JuiceCherry",
+                "Quantity": 5
+              }
+            ]
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "Cherry",
+            "Burger": "Cherry"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodCorn",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "ear of corn",
+      "parent": "FoodProduceBase",
+      "id": "FoodCorn",
+      "description": "Needs some butter! And some cooking...",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "corn"
+          ]
+        },
+        {
+          "type": "Edible",
+          "trash": [
+            "FoodCornTrash"
+          ]
+        },
+        {
+          "type": "Butcherable",
+          "butcheringType": "Knife",
+          "spawned": [
+            {
+              "id": "FoodCornTrash"
+            }
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 20,
+              "reagents": [
+                {
+                  "ReagentId": "Cornmeal",
+                  "Quantity": 15
+                },
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 5
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Corn",
+            "Vegetable"
+          ]
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/corn.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "corn"
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "Cornoil",
+                "Quantity": 3
+              },
+              {
+                "ReagentId": "Enzyme",
+                "Quantity": 2
+              }
+            ]
+          }
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Burger": "Corn",
+            "Taco": "Corn",
+            "Skewer": "CornSkewer"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodCornTrash",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "corn cob",
+      "parent": "BaseItem",
+      "id": "FoodCornTrash",
+      "description": "Not a dang kernel left.",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/corn.rsi",
+          "state": "cob"
+        },
+        {
+          "type": "Item",
+          "size": "Tiny"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Trash"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 20,
+              "reagents": [
+                {
+                  "ReagentId": "Cornmeal",
+                  "Quantity": 10
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "TrashCherryPit",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "cherry pit",
+      "parent": "FoodInjectableBase",
+      "id": "TrashCherryPit",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/cherry.rsi",
+          "state": "pit"
+        },
+        {
+          "type": "Item",
+          "sprite": "Objects/Specific/Hydroponics/cherry.rsi",
+          "heldPrefix": "pit",
+          "size": "Tiny"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Recyclable",
+            "Trash"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 1,
+              "reagents": [
+                {
+                  "ReagentId": "Toxin",
+                  "Quantity": 1
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food"
+        },
+        {
+          "type": "Seed",
+          "seedId": "cherry"
+        },
+        {
+          "type": "SpaceGarbage"
+        },
+        {
+          "type": "BadFood"
+        }
+      ]
+    }
+  }
+]

@@ -94,6 +94,7 @@ public final class HandlessIngestionGameTests {
     }
 
     @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining", "merge-main-root-causes"})
     public static void mouseEatsPrototypeInitializedCheeseSlice(GameTestHelper h) {
         var level=h.getLevel(); var pos=h.absolutePos(new BlockPos(3,1,3));
         require(ModItems.CHEESE_SLICE.get().getDefaultMaxStackSize() == 1,
@@ -113,6 +114,11 @@ public final class HandlessIngestionGameTests {
         var item=LooseItemEntity.create(level,at,new ItemStack(ModItems.CHEESE_SLICE.get()));
         require(level.addFreshEntity(item),"prototype cheese spawned"); face(mouse,item);
         require(item.getItem().get(ModDataComponents.REAGENT.get())==null,"fresh cheese begins without hardcoded reagent data");
+        var originalStack=item.getItem().copy();
+        var resolvedCopy=originalStack.copy();
+        com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(resolvedCopy, level);
+        require(ReagentUnits.fromFloat(resolvedCopy.get(ModDataComponents.REAGENT.get()).contents().get(NUTRIMENT))==375,
+                "resolved cheese prototype initializes 3.75 units on a staged copy");
         var acceptedCents = new java.util.concurrent.atomic.AtomicLong(-1);
         AutoCloseable receiptSubscription = IngestionReceiptObserver.observe(receipt -> {
             if (receipt.bodyId().equals(mouse.getUUID()) && receipt.sourceKey().equals("world:" + item.getUUID()))
@@ -121,8 +127,9 @@ public final class HandlessIngestionGameTests {
         waitForNonMetabolismCompletionTick(h, mouse, () -> {
             require(BodyTimedIngestionService.startWorldOwned(mouse,item.getUUID(),null,0,101,()->true).name().equals("OK"),
                     "resolved FOOD remains edible at maximum hydration");
-            require(ReagentUnits.fromFloat(item.getItem().get(ModDataComponents.REAGENT.get()).contents().get(NUTRIMENT))==375,
-                    "resolved cheese prototype initializes 3.75 units exactly once");
+            require(ItemStack.matches(item.getItem(), originalStack)
+                            && item.getItem().get(ModDataComponents.REAGENT.get())==null,
+                    "accepted start leaves live cheese stack and source unpublished and unchanged");
             h.runAfterDelay(21,()->{
                 require(item.isRemoved(),"fully consumed cheese is destroyed");
                 require(acceptedCents.get()==375,
@@ -139,6 +146,7 @@ public final class HandlessIngestionGameTests {
     }
 
     @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining", "merge-main-root-causes"})
     public static void mouseEatsPumpkinPieAtMaximumHydrationAndLeavesWorldRemainder(GameTestHelper h) {
         var level=h.getLevel(); var pos=h.absolutePos(new BlockPos(3,1,3));
         require(ModItems.PUMPKIN_PIE_SLICE.get().getDefaultMaxStackSize()==1,"each pie slice is an independent portion");
@@ -154,22 +162,29 @@ public final class HandlessIngestionGameTests {
         level.setBlock(BlockPos.containing(at).below(),Blocks.STONE.defaultBlockState(),3);
         var item=LooseItemEntity.create(level,at,new ItemStack(ModItems.PUMPKIN_PIE_SLICE.get()));
         require(level.addFreshEntity(item),"pie slice spawned"); face(mouse,item);
+        var originalStack=item.getItem().copy();
+        var resolvedCopy=originalStack.copy();
+        com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(resolvedCopy, level);
+        var stagedSource=resolvedCopy.get(ModDataComponents.REAGENT.get());
+        require(ReagentUnits.fromFloat(stagedSource.contents().get(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
+                ResourceLocation.fromNamespaceAndPath("moonstation14","nutriment"))))==750
+                &&ReagentUnits.fromFloat(stagedSource.contents().get(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
+                ResourceLocation.fromNamespaceAndPath("moonstation14","vitamin"))))==350
+                &&ReagentUnits.fromFloat(stagedSource.contents().get(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
+                ResourceLocation.fromNamespaceAndPath("moonstation14","sugar"))))==125,
+                "resolved pie prototype stages 7.5u Nutriment, 3.5u Vitamin, 1.25u Sugar on a copy");
         require(BodyTimedIngestionService.startWorldOwned(mouse,item.getUUID(),null,0,109,()->true).name().equals("OK"),
                 "resolved FOOD is admitted at maximum hydration without synthetic hands");
         require(com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(mouse),
                 "food admission succeeds while the Mouse is at hydration cap");
         require(item.getItem().getCount()==1,"world source is a separate nonstackable serving");
-        var initial=item.getItem().get(ModDataComponents.REAGENT.get());
-        require(initial!=null,"bundled resolved profile initializes source on admission");
-        require(ReagentUnits.fromFloat(initial.contents().get(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
-                ResourceLocation.fromNamespaceAndPath("moonstation14","nutriment"))))==750
-                &&ReagentUnits.fromFloat(initial.contents().get(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
-                ResourceLocation.fromNamespaceAndPath("moonstation14","vitamin"))))==350
-                &&ReagentUnits.fromFloat(initial.contents().get(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
-                ResourceLocation.fromNamespaceAndPath("moonstation14","sugar"))))==125,"initial source is 7.5u Nutriment, 3.5u Vitamin, 1.25u Sugar");
+        require(ItemStack.matches(item.getItem(), originalStack)
+                        && item.getItem().get(ModDataComponents.REAGENT.get())==null,
+                "accepted start leaves live pie stack and source unpublished and unchanged");
         h.runAfterDelay(21,()->{
             require(item.isAlive()&&item.getItem().getCount()==1,"portion remains as the original world item after partial dose");
             var remaining=item.getItem().get(ModDataComponents.REAGENT.get());
+            require(remaining!=null,"successful timed commit publishes initialized remainder");
             require(remaining.contents().values().stream().mapToLong(ReagentUnits::fromFloat).sum()==725
                     &&remaining.contents().size()==3,
                     "one 5u bite removes 500 cents proportionally from mixed food; remaining source=" + remaining.contents());
@@ -197,7 +212,7 @@ public final class HandlessIngestionGameTests {
             var portion=LooseItemEntity.create(level,at,stack);
             require(level.addFreshEntity(portion),"one of sixteen cheese portions spawned");
             portions.add(portion);
-            com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem.initializeSource(portion.getItem(), level);
+            com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(portion.getItem(), level);
             require(ReagentUnits.fromFloat(portion.getItem().get(ModDataComponents.REAGENT.get()).contents().get(NUTRIMENT))==375,
                     "each fresh item stack receives its own 3.75-unit prototype source");
         }
@@ -377,12 +392,7 @@ public final class HandlessIngestionGameTests {
                 Math.sqrt(Math.pow(body.getX()-item.getX(),2)+Math.pow(body.getZ()-item.getZ(),2)))));
     }
     private static void waitForNonMetabolismCompletionTick(GameTestHelper helper, LivingEntity body, Runnable action) {
-        long start = helper.getLevel().getGameTime();
-        var metabolism = com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM;
-        if (!metabolism.isDue(start + 20, body.getId())
-                && !metabolism.isDue(start + 21, body.getId()))
-            action.run();
-        else helper.runAfterDelay(1, () -> waitForNonMetabolismCompletionTick(helper, body, action));
+        com.juicyslew.moonstation14.gametest.support.MetabolismObservationWindow.runWhenQuiet(helper, body, 20, 21, action);
     }
     private static void facePuddle(LivingEntity body,BlockPos pos) {
         var bounds=body.level().getBlockState(pos).getShape(body.level(),pos,net.minecraft.world.phys.shapes.CollisionContext.of(body)).bounds();

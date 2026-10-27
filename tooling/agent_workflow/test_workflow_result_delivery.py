@@ -109,6 +109,17 @@ class AuthorResultDeliveryTests(DeliveryEnqueueTests):
         self.assertNotIn("Result " + payload["result_id"] + " · digest", text)
         self.assertEqual(json.dumps(payload, sort_keys=True), original)
 
+    def test_feature_feedback_retains_owner_followups_and_distinguishes_acceptance(self):
+        from workflow_result_delivery import _feature_feedback_text
+        followup={"criterion_id":"ui-input","message":"Physical clicks await owner observation.",
+                  "manual_check":"Owner verifies click slots at native scale."}
+        text=_feature_feedback_text(dict(self.event,result="PASS",next_action="WAIT_FOR_OWNER_TEST",
+            findings=[],owner_followups=[followup]))
+        self.assertIn("Owner testing follow-up",text)
+        self.assertIn("Physical clicks await owner observation.",text)
+        self.assertIn("ready for owner testing; it is not owner acceptance",text)
+        self.assertIn("WAIT_FOR_OWNER_TEST",text)
+
     def test_regression_feedback_omits_artifacts_and_owner_control_remains(self):
         from workflow_result_delivery import _feedback_text
         payload = dict(self.event, control_kind="POST_ACCEPTANCE_REGRESSION", result="FAIL",

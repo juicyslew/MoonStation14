@@ -1,0 +1,42 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml": {
+      "sha256": "a28ed494a096cf63f7887f45e4967e89600b60022fd2b49af22e131f9bafb385"
+    }
+  },
+  "requestedLeafIds": [
+    "FoodBanana",
+    "FoodMimana",
+    "FoodExtradimensionalOrange",
+    "TrashBananaPeel",
+    "TrashMimanaPeel"
+  ],
+  "capturedConcreteProductCount": 5,
+  "capturedAdditionalAncestorCount": 0,
+  "capturedRawRecordCount": 5,
+  "capturedEntityIds": [
+    "FoodBanana",
+    "FoodExtradimensionalOrange",
+    "FoodMimana",
+    "TrashBananaPeel",
+    "TrashMimanaPeel"
+  ],
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Boolean-tagged scalar mapping keys are preserved as their original lexical scalar strings (for example True and False); boolean scalar values remain booleans. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "parentClosureVerifiedAgainstExisting63ReferenceIdsAndBananaOrangeRows": true,
+  "fullUnionParentClosureRecordCount": 68,
+  "parentResolution": {
+    "FoodBanana": "FoodProduceBase",
+    "FoodMimana": "FoodProduceBase",
+    "TrashBananaPeel": "BaseItem",
+    "TrashMimanaPeel": "TrashBananaPeel",
+    "FoodExtradimensionalOrange": "FoodProduceBase"
+  },
+  "overlapWithExisting63ReferenceIds": [],
+  "parsedMappingEqualityVerified": true,
+  "opaqueYamlTagStringsVerified": [
+    "!type:PhysShapeAabb"
+  ],
+  "rawRowsSha256": "fea26f72c4d2e4eddb80780e07925482908439d4ae23cb0211645043f544d503"
+}

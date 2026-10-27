@@ -26,14 +26,21 @@ final class GrinderWireCodec {
         b.writeResourceLocation(s.dimension()); BlockPos.STREAM_CODEC.encode(b,s.position()); b.writeVarLong(s.stateRevision()); b.writeVarLong(s.beakerRevision());
         if(s.chamber().size()>MAX_SLOTS) throw new IllegalArgumentException("too many grinder slots"); b.writeVarInt(s.chamber().size());
         for(var slot:s.chamber()) { b.writeVarInt(slot.index()); b.writeVarLong(slot.revision()); b.writeBoolean(slot.proof()!=null); if(slot.proof()!=null)b.writeUUID(slot.proof()); ItemStack.OPTIONAL_STREAM_CODEC.encode(b,slot.item()); }
-        b.writeBoolean(s.powered()); b.writeBoolean(s.active()); b.writeVarLong(s.startTick()); b.writeVarLong(s.endTick()); b.writeBoolean(s.open());
+        b.writeBoolean(s.powered()); b.writeBoolean(s.active()); b.writeVarLong(s.startTick()); b.writeVarLong(s.endTick());
+        b.writeBoolean(s.canGrind()); b.writeBoolean(s.canJuice());
+        b.writeBoolean(s.activeOperation()!=null); if(s.activeOperation()!=null)b.writeVarInt(s.activeOperation().ordinal());
+        b.writeBoolean(s.open());
         b.writeBoolean(s.rejection()!=null); if(s.rejection()!=null)b.writeUtf(s.rejection(),MAX_ERROR);
     }
     static GrinderSnapshot readSnapshot(RegistryFriendlyByteBuf b) {
         UUID id=b.readUUID(), placement=b.readUUID(), body=b.readUUID(); long epoch=b.readVarLong(); ResourceLocation dim=b.readResourceLocation(); BlockPos pos=BlockPos.STREAM_CODEC.decode(b);
         long revision=b.readVarLong(), beaker=b.readVarLong(); int count=b.readVarInt(); if(count<0||count>MAX_SLOTS)throw new IllegalArgumentException("invalid grinder slot count");
         List<GrinderSnapshot.Slot> slots=new ArrayList<>(count); for(int i=0;i<count;i++) slots.add(new GrinderSnapshot.Slot(b.readVarInt(),b.readVarLong(),b.readBoolean()?b.readUUID():null,ItemStack.OPTIONAL_STREAM_CODEC.decode(b)));
-        boolean powered=b.readBoolean(), active=b.readBoolean(); long start=b.readVarLong(), end=b.readVarLong(); boolean open=b.readBoolean(); Optional<String> error=b.readBoolean()?Optional.of(b.readUtf(MAX_ERROR)):Optional.empty();
-        return new GrinderSnapshot(id,placement,body,epoch,dim,pos,revision,beaker,slots,powered,active,start,end,open,error.orElse(null));
+        boolean powered=b.readBoolean(), active=b.readBoolean(); long start=b.readVarLong(), end=b.readVarLong();
+        boolean canGrind=b.readBoolean(),canJuice=b.readBoolean();
+        com.juicyslew.moonstation14.ms14.botany.processing.GrinderProgram.Operation activeOperation=null;
+        if(b.readBoolean()){int operation=b.readVarInt();var values=com.juicyslew.moonstation14.ms14.botany.processing.GrinderProgram.Operation.values();if(operation<0||operation>=values.length)throw new IllegalArgumentException("invalid active grinder operation");activeOperation=values[operation];}
+        boolean open=b.readBoolean(); Optional<String> error=b.readBoolean()?Optional.of(b.readUtf(MAX_ERROR)):Optional.empty();
+        return new GrinderSnapshot(id,placement,body,epoch,dim,pos,revision,beaker,slots,powered,active,start,end,canGrind,canJuice,activeOperation,open,error.orElse(null));
     }
 }

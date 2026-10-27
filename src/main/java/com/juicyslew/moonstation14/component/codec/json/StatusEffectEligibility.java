@@ -5,12 +5,14 @@ import com.mojang.serialization.DataResult;
 
 /** Closed set of status-effect target eligibility predicates available now. */
 public enum StatusEffectEligibility {
-    LIVING_ENTITY("living_entity");
+    LIVING_ENTITY("living_entity"),
+    PROTOTYPE_ADMITTED("prototype_admitted");
 
     public static final Codec<StatusEffectEligibility> CODEC = Codec.STRING.comapFlatMap(
-            value -> "living_entity".equals(value)
-                    ? DataResult.success(LIVING_ENTITY)
-                    : DataResult.error(() -> "unknown status effect eligibility '" + value + "'"),
+            value -> {
+                for (var eligibility : values()) if (eligibility.serializedName.equals(value)) return DataResult.success(eligibility);
+                return DataResult.error(() -> "unknown status effect eligibility '" + value + "'");
+            },
             value -> value.serializedName);
 
     private final String serializedName;

@@ -88,6 +88,42 @@ public final class BodyActionGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)
+    @GameTestTags({"active_capabilities", "combat", "melee"})
+    public static void canonicalCombatModeAndActionSnapshotShareOneBodyState(GameTestHelper helper) {
+        var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
+        RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(level, "combatinterop");
+        helper.runAtTickTime(2, () -> {
+            try {
+                var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                var body = active.body();
+                var action = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "combat_mode_toggle");
+                require(com.juicyslew.moonstation14.ms14.combat.CombatModeSystem.setMode(body, true),
+                        "canonical combat owner enables mode");
+                var enabled = BodyActionService.query(fixture.player()).orElseThrow();
+                var enabledEntry = enabled.actions().stream().filter(e -> e.actionId().equals(action)).findFirst().orElseThrow();
+                require(enabledEntry.active(), "canonical mode is reflected in body-action snapshot active flag");
+                var req = new BodyActionRequest(enabled.bodyId(), enabled.bodyEpoch(), enabled.revision(), action,
+                        enabledEntry.providerId(), 101);
+                var toggled = BodyActionService.activate(fixture.player(), req);
+                require(toggled.status() == BodyActionResult.Status.ACCEPTED,
+                        "action toggles state after canonical setter: " + describe(toggled));
+                require(!com.juicyslew.moonstation14.ms14.combat.CombatModeSystem.isInCombatMode(body),
+                        "incoming melee combat owner observes action toggle disabled");
+                var disabled = BodyActionService.query(fixture.player()).orElseThrow();
+                var disabledEntry = disabled.actions().stream().filter(e -> e.actionId().equals(action)).findFirst().orElseThrow();
+                require(!disabledEntry.active() && disabled.revision() != enabled.revision(),
+                        "action snapshot fingerprint revises when canonical state changes");
+                require(com.juicyslew.moonstation14.ms14.combat.CombatModeSystem.setMode(body, true),
+                        "canonical owner can enable again after action toggle");
+                var enabledAgain = BodyActionService.query(fixture.player()).orElseThrow();
+                require(enabledAgain.actions().stream().filter(e -> e.actionId().equals(action)).findFirst().orElseThrow().active(),
+                        "subsequent canonical state change is visible without action-local cache");
+                helper.succeed();
+            } finally { fixture.close(); }
+        });
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)
     public static void screamSetsResolvedCooldownAndImmediateRepeatDoesNotExtendIt(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         RegisteredServerPlayerFixture fixture = RegisteredServerPlayerFixture.register(level, "screambody");

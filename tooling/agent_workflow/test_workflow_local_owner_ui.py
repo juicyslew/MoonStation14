@@ -17,6 +17,20 @@ class LocalOwnerUITests(unittest.TestCase):
         coordinator=workflow_coordinator.ExplicitCoordinator(store,bindings={'unused':object()},artifact_dir=root/'artifacts',identity_verifier=lambda *_:True,owner_bindings=bindings)
         return coordinator,store
 
+    def test_root_redirects_to_existing_owner_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            coordinator,_=self.app(Path(tmp))
+            client=TestClient(coordinator.app(),base_url='http://127.0.0.1:59230',client=('127.0.0.1',12345))
+            response=client.get('/',follow_redirects=False)
+            self.assertEqual(307,response.status_code)
+            self.assertEqual('/integration-status',response.headers['location'])
+            followed=client.get('/')
+            self.assertEqual(200,followed.status_code)
+            self.assertIn('ms14_owner_ui',followed.cookies)
+            self.assertEqual(403,client.get('/',headers={'Host':'evil.example'},follow_redirects=False).status_code)
+            foreign=TestClient(coordinator.app(),base_url='http://127.0.0.1:59230',client=('192.0.2.1',12345))
+            self.assertEqual(403,foreign.get('/',follow_redirects=False).status_code)
+
     def test_page_mints_private_cookie_and_owner_routes_accept_cookie_not_bearer(self):
         with tempfile.TemporaryDirectory() as tmp:
             coordinator,_=self.app(Path(tmp)); client=TestClient(coordinator.app(),base_url='http://127.0.0.1:59231',client=('127.0.0.1',12345))

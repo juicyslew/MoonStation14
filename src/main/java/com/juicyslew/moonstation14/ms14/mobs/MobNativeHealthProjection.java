@@ -16,6 +16,13 @@ public final class MobNativeHealthProjection {
         return new Result(max, health, lockedDead);
     }
 
+    /** Selects the native-hurt bypass only for a retained, typed-dead server corpse. */
+    public static boolean shouldCommitRetainedDead(boolean serverSide, boolean removed,
+                                                    boolean currentIdentity, boolean typedDead,
+                                                    boolean nativeHealthZero) {
+        return serverSide && !removed && currentIdentity && typedDead && nativeHealthZero;
+    }
+
     public record Result(double maxHealth, double health, boolean lockedDead) { }
 }
 

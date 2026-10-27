@@ -34,14 +34,24 @@ public final class HandCapability {
 
     /** Resolve the body's equipment layout from its immutable character/template prototype bindings. */
     public static Optional<List<String>> resolveEquipmentSlots(Entity body) {
-        return resolveCharacter(body).flatMap(character -> character.component(EquipmentSlotsPrototypeComponent.class)).flatMap(component -> {
-            if (component.template().isEmpty()) return Optional.of(component.slots());
-            var catalog = body.level().isClientSide() ? PrototypeRuntime.clientInventoryTemplates()
-                    : PrototypeRuntime.serverInventoryTemplates();
-            InventoryTemplateData template = catalog.get(component.template().orElseThrow());
-            if (template == null) return Optional.empty();
-            return Optional.of(template.slots().stream().map(InventoryTemplateData.Slot::id).toList());
-        });
+        return resolveCharacter(body).flatMap(character -> character.component(EquipmentSlotsPrototypeComponent.class))
+                .flatMap(component -> resolveEquipmentTemplate(body, component)
+                        .map(template -> template.slots().stream().map(InventoryTemplateData.Slot::id).toList())
+                        .or(() -> component.template().isEmpty() ? Optional.of(component.slots()) : Optional.empty()));
+    }
+
+    /** Resolves the body's bound inventory template; explicit-slot layouts intentionally have no template. */
+    public static Optional<InventoryTemplateData> resolveEquipmentTemplate(Entity body) {
+        Objects.requireNonNull(body, "body");
+        return resolveCharacter(body).flatMap(character -> character.component(EquipmentSlotsPrototypeComponent.class))
+                .flatMap(component -> resolveEquipmentTemplate(body, component));
+    }
+
+    private static Optional<InventoryTemplateData> resolveEquipmentTemplate(Entity body, EquipmentSlotsPrototypeComponent component) {
+        if (component.template().isEmpty()) return Optional.empty();
+        var catalog = body.level().isClientSide() ? PrototypeRuntime.clientInventoryTemplates()
+                : PrototypeRuntime.serverInventoryTemplates();
+        return Optional.ofNullable(catalog.get(component.template().orElseThrow()));
     }
 
     /**

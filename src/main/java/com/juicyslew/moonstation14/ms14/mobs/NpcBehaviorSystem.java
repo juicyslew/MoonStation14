@@ -1016,10 +1016,7 @@ public final class NpcBehaviorSystem {
     }
 
     private static boolean hasPositiveContents(ItemEntity item, IngestionProfile profile) {
-        var contents = item.getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get());
-        if (contents != null) return contents.centContents().values().stream().anyMatch(value -> value > 0);
-        var source = profile.edible().sourceSolution();
-        return source != null && source.contentsCents().values().stream().anyMatch(value -> value > 0);
+        return npcFoodContents(item, profile).values().stream().anyMatch(value -> value > 0);
     }
 
     static boolean debugSupportedItem(ItemEntity item) { return supported(item); }
@@ -1032,10 +1029,7 @@ public final class NpcBehaviorSystem {
     private static double nutritionValue(ServerLevel level, ItemEntity item, IngestionProfile profile,
                                          NpcTaskPlanner.Need kind) {
         Map<ResourceLocation, Long> contents = new HashMap<>();
-        var live = item == null ? null : item.getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get());
-        if (live != null) live.centContents().forEach((key, amount) -> contents.put(key.location(), amount));
-        if (live == null && profile.edible().sourceSolution() != null)
-            contents.putAll(profile.edible().sourceSolution().contentsCents());
+        contents.putAll(npcFoodContents(item, profile));
         double total = 0;
         var catalog = ModReagents.catalog(level);
         for (var entry : contents.entrySet()) {
@@ -1054,6 +1048,23 @@ public final class NpcBehaviorSystem {
         }
         // SS14 food utility is nonzero nutrition; drink utility requires hydration greater than 1.
         return kind == NpcTaskPlanner.Need.DRINK ? total : (total > 0 ? 1d : 0d);
+    }
+
+    /** Uses explicit stack chemistry verbatim, including explicit empty; only absent chemistry resolves on a copy. */
+    private static Map<ResourceLocation, Long> npcFoodContents(ItemEntity item, IngestionProfile profile) {
+        if (item == null || profile == null || item.getItem().isEmpty()) return Map.of();
+        var stack = item.getItem();
+        var explicit = stack.get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get());
+        var contents = new HashMap<ResourceLocation, Long>();
+        if (explicit != null) {
+            explicit.centContents().forEach((key, amount) -> contents.put(key.location(), amount));
+            return Map.copyOf(contents);
+        }
+        var planningCopy = stack.copy();
+        com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(planningCopy, item.level());
+        var resolved = planningCopy.get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get());
+        if (resolved != null) resolved.centContents().forEach((key, amount) -> contents.put(key.location(), amount));
+        return Map.copyOf(contents);
     }
 
     private enum MoveCheck { CLEAR, BLOCKED, PIT }

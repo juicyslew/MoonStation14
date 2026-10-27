@@ -326,6 +326,37 @@ class LiveHandsTest {
     }
 
     @Test
+    void clearHeldWholeRemovesEntireCountAndPreservesOtherOwners() {
+        LiveHands state = parse("{\"hands\":[{\"id\":\"left\",\"occupant\":{\"token\":\"owned\",\"stack\":{\"id\":\"minecraft:diamond\",\"count\":5}}},{\"id\":\"right\",\"occupant\":{\"token\":\"other\",\"stack\":{\"id\":\"minecraft:iron_ingot\",\"count\":2}}}],\"active\":\"right\",\"revision\":4,\"equipment\":[{\"id\":\"gloves\",\"occupant\":{\"token\":\"gear\",\"stack\":{\"id\":\"minecraft:leather_chestplate\",\"count\":1}}}]}");
+        LiveHands cleared = state.clearHeldWhole(4, "left", new ItemToken("owned")).orElseThrow();
+        assertTrue(cleared.stackCopy("left").isEmpty());
+        assertEquals(2, cleared.stackCopy("right").orElseThrow().getCount());
+        assertEquals(1, cleared.equipmentStack("gloves").orElseThrow().getCount());
+        assertEquals(5, state.stackCopy("left").orElseThrow().getCount());
+        assertTrue(state.clearHeldWhole(4, "left", new ItemToken("wrong")).isEmpty());
+        assertTrue(state.clearHeldWhole(5, "left", new ItemToken("owned")).isEmpty());
+    }
+
+    @Test
+    void equipmentComponentReplacementPreservesIdentityAndRejectsStaleOrChangedOwner() {
+        LiveHands state = parse("{\"hands\":[{\"id\":\"left\",\"occupant\":{\"token\":\"hand-token\",\"stack\":{\"id\":\"minecraft:diamond\",\"count\":2}}},{\"id\":\"right\"}],\"active\":\"right\",\"revision\":7,\"equipment\":[{\"id\":\"gloves\",\"occupant\":{\"token\":\"glove-token\",\"stack\":{\"id\":\"minecraft:leather_chestplate\",\"count\":1}}}]}");
+        ItemStack glove = state.equipmentStack("gloves").orElseThrow();
+        ItemStack changed = glove.copy();
+        changed.set(com.juicyslew.moonstation14.component.ModDataComponents.MELEE_COOLDOWN.get(), new com.juicyslew.moonstation14.ms14.combat.MeleeCooldownData(42));
+        LiveHands updated = state.replaceEquipmentOwnedComponents(7, "gloves", new ItemToken("glove-token"), changed).orElseThrow();
+        assertEquals(8, updated.revision());
+        assertEquals("minecraft:leather_chestplate", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(updated.equipmentStack("gloves").orElseThrow().getItem()).toString());
+        assertEquals(42, updated.equipmentStack("gloves").orElseThrow().get(com.juicyslew.moonstation14.component.ModDataComponents.MELEE_COOLDOWN.get()).nextAttackTick());
+        assertTrue(net.minecraft.world.item.ItemStack.matches(state.stackCopy("left").orElseThrow(), updated.stackCopy("left").orElseThrow()));
+        assertEquals(state.equipmentStack("gloves").orElseThrow().getCount(), updated.equipmentStack("gloves").orElseThrow().getCount());
+        assertTrue(state.replaceEquipmentOwnedComponents(6, "gloves", new ItemToken("glove-token"), changed).isEmpty());
+        assertTrue(state.replaceEquipmentOwnedComponents(7, "gloves", new ItemToken("wrong-token"), changed).isEmpty());
+        assertTrue(state.replaceEquipmentOwnedComponents(7, "gloves", new ItemToken("glove-token"), new ItemStack(Items.DIAMOND, 1)).isEmpty());
+        assertTrue(state.replaceEquipmentOwnedComponents(7, "gloves", new ItemToken("glove-token"), new ItemStack(Items.LEATHER_CHESTPLATE, 2)).isEmpty());
+        assertEquals(7, state.revision());
+    }
+
+    @Test
     void consumeOneConsumesOnlyExactActiveHandItemAndKeepsRemainingOwnershipToken() {
         LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
         ItemStack one = new ItemStack(Items.DIAMOND);

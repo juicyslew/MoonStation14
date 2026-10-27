@@ -6,11 +6,13 @@ import com.juicyslew.moonstation14.ms14.botany.processing.GrindingPlan;
 import com.juicyslew.moonstation14.ms14.hands.transfer.LevelItemLocationLedgers;
 import com.juicyslew.moonstation14.ms14.machine.itemslots.MachineItemSlot;
 import com.juicyslew.moonstation14.ms14.chemistry.DispenserCompatibleItem;
+import com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
+import com.juicyslew.moonstation14.item.custom.PrototypeEdibleItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -35,9 +37,12 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
     private final List<CompoundTag> pendingChamber = new ArrayList<>();
     private CompoundTag pendingBeaker, pendingProgram;
     private GrinderProgram program = new GrinderProgram();
+    private long clientVisualEpoch;
 
     public ReagentGrinderBlockEntity(BlockPos pos, BlockState state) { super(ModBlockEntities.REAGENT_GRINDER.get(), pos, state); }
     public UUID placementIdentity() { return identity; }
+    public long clientVisualEpoch() { return clientVisualEpoch; }
+    public void noteClientWorkingTransition() { if (level != null && level.isClientSide) clientVisualEpoch++; }
     public MachineProfile resolvedProfile() {
         var catalog = ModBotanyMachineProfiles.serverCatalog();
         return catalog == null ? null : catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "grinder"));
@@ -72,6 +77,8 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
         }
         if (!initialized) setChanged();
         initialized = true;
+        projectBeakerState();
+        projectWorkingState();
         return true;
     }
     private boolean acceptsBeaker(ItemStack stack) {
@@ -80,9 +87,9 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
     }
     private boolean acceptsChamber(ItemStack stack) {
         if (stack.isEmpty() || !(level instanceof ServerLevel)) return false;
-        var catalog = ModProduceProfiles.serverCatalog();
-        var produce = catalog == null ? null : catalog.get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()));
-        return produce != null && produce.grindable()
+        var catalog = ModExtractableProfiles.serverCatalog();
+        var extractable = catalog == null ? null : catalog.get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()));
+        return extractable != null
                 || stack.getItem() instanceof DispenserCompatibleItem compatible && compatible.fitsInDispenser(level);
     }
     public boolean isLoadedValid() { return level instanceof ServerLevel server && !isRemoved() && server.getChunkSource().getChunkNow(worldPosition.getX() >> 4, worldPosition.getZ() >> 4) != null && ensureState(); }
@@ -97,6 +104,39 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
         if (!ensureState()) return null;
         return new StartProof(identity, stateRevision, beaker.snapshot().revision(),
                 chamber.stream().map(slot -> slot.snapshot().revision()).toList());
+    }
+    private ReagentComponent resolvedGrindSource(ItemStack stack) {
+        ReagentComponent existing = stack.get(ModDataComponents.REAGENT.get());
+        if (existing != null) return existing;
+        ItemStack probe = stack.copy();
+        com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(probe, level);
+        return probe.get(ModDataComponents.REAGENT.get());
+    }
+    private boolean hasConfiguredSource(ItemStack stack, com.juicyslew.moonstation14.ms14.item_processing.ExtractableProfile profile, GrinderProgram.Operation operation) {
+        if (operation == GrinderProgram.Operation.JUICE)
+            return profile.juiceSolution() != null;
+        var foodProfile = com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.resolve(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()), level);
+        String actualName = stack.getItem() instanceof IReagentTrait trait ? trait.solutionName(stack, level) : null;
+        return profile.grindableSolutionName() != null && foodProfile != null
+                && profile.grindableSolutionName().equals(foodProfile.solutionName())
+                && (actualName == null || profile.grindableSolutionName().equals(actualName))
+                && resolvedGrindSource(stack) != null;
+    }
+    /** Authoritative common eligibility for the selected source mode, used only to project button state. */
+    public synchronized boolean canStart(GrinderProgram.Operation operation) {
+        if (operation == null || !ensureState() || program.active() || !isPowered()
+                || beaker.snapshot().stack().isEmpty() || !acceptsBeaker(beaker.snapshot().stack())) return false;
+        int inputs = 0;
+        var catalog = ModExtractableProfiles.serverCatalog();
+        if (catalog == null) return false;
+        for (var slot : chamber) {
+            var stack = slot.snapshot().stack();
+            if (stack.isEmpty()) continue;
+            var extractable = catalog.get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()));
+            if (extractable == null || !hasConfiguredSource(stack, extractable, operation)) return false;
+            inputs++;
+        }
+        return inputs > 0;
     }
     /** Demand for the machine's present state; active demand is not a startup prerequisite. */
     public double requiredPowerWatts() {
@@ -114,6 +154,9 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
     }
     /** Domain-level trusted start. Player/UI admission remains the responsibility of its caller. */
     public synchronized boolean startTrusted(StartProof proof, long now, boolean callerValid) {
+        return startTrusted(proof, now, callerValid, GrinderProgram.Operation.GRIND);
+    }
+    public synchronized boolean startTrusted(StartProof proof, long now, boolean callerValid, GrinderProgram.Operation operation) {
         if (!callerValid || proof == null || !ensureState() || !identity.equals(proof.placement())
                 || proof.stateRevision() != stateRevision || program.active()
                 || proof.beakerRevision() != beaker.snapshot().revision()
@@ -123,16 +166,17 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
             var state = chamber.get(i).snapshot();
             if (state.revision() != proof.chamberRevisions().get(i)) return false;
             if (state.stack().isEmpty()) continue;
-            var profiles = ModProduceProfiles.serverCatalog();
-            var profile = profiles == null ? null : profiles.get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(state.stack().getItem()));
-            if (profile == null || !profile.grindable()) return false;
+            var profiles = ModExtractableProfiles.serverCatalog();
+             var profile = profiles == null ? null : profiles.get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(state.stack().getItem()));
+            if (profile == null || !hasConfiguredSource(state.stack(), profile, operation)) return false;
             count++;
         }
         if (count == 0 || beaker.snapshot().stack().isEmpty()) return false;
         var profile = resolvedProfile();
-        if (profile == null || !isPowered()) return false;
-        if (!program.start(now, profile, true, count, true, true)) return false;
-        playProcessingSound(profile.processingSound(), GrinderProcessingSoundPayload.Operation.START);
+        if (profile == null || !isPowered() || operation == GrinderProgram.Operation.JUICE && profile.juiceSound() == null) return false;
+        if (!program.start(now, profile, true, count, true, true, operation)) return false;
+        playProcessingSound(processingCue(profile, operation), GrinderProcessingSoundPayload.Operation.START);
+        projectWorkingState();
         stateRevision++;
         setChanged();
         com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.processingMachineChanged((ServerLevel) level, worldPosition);
@@ -145,34 +189,43 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
                 ? (inserting ? profile.beakerInsertSound() : profile.beakerEjectSound())
                 : (inserting ? null : profile.chamberEjectSound()));
         slotChanged();
+        if (beakerSlot) projectBeakerState();
+    }
+    private void projectBeakerState() {
+        if (level == null || level.isClientSide || beaker == null || isRemoved()) return;
+        BlockState current = getBlockState();
+        if (current.hasProperty(ReagentGrinderBlock.BEAKER_ATTACHED)) {
+            boolean attached = !beaker.snapshot().stack().isEmpty();
+            if (current.getValue(ReagentGrinderBlock.BEAKER_ATTACHED) != attached)
+                level.setBlock(worldPosition, current.setValue(ReagentGrinderBlock.BEAKER_ATTACHED, attached), 3);
+        }
+    }
+    private void projectWorkingState() {
+        if (level == null || level.isClientSide || isRemoved()) return;
+        BlockState current = getBlockState();
+        if (current.hasProperty(ReagentGrinderBlock.WORKING)
+                && current.getValue(ReagentGrinderBlock.WORKING) != program.active())
+            level.setBlock(worldPosition, current.setValue(ReagentGrinderBlock.WORKING, program.active()), 3);
     }
     private void playProfileSound(MachineProfile.SoundCue cue) {
         if (cue == null || !(level instanceof ServerLevel server)) return;
-        var event = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(cue.sound()).orElse(null);
-        if (event != null) {
-            double x = worldPosition.getX() + .5, y = worldPosition.getY() + .5, z = worldPosition.getZ() + .5;
-            var packet = new net.minecraft.network.protocol.game.ClientboundSoundPacket(
-                    net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.wrapAsHolder(event),
-                    net.minecraft.sounds.SoundSource.BLOCKS, x, y, z, cue.volume(), cue.pitch(), server.getRandom().nextLong());
-            for (var player : server.getServer().getPlayerList().getPlayers()) {
-                double range = event.getRange(cue.volume());
-                if (com.juicyslew.moonstation14.ms14.audio.BodyViewAudioAudience.canHear(server, player, x, y, z, range))
-                    player.connection.send(packet);
-            }
-        }
+        com.juicyslew.moonstation14.ms14.audio.PositionalSoundRouter.play(server, cue.sound(), net.minecraft.sounds.SoundSource.BLOCKS,
+                worldPosition.getX() + .5, worldPosition.getY() + .5, worldPosition.getZ() + .5, cue.volume(), cue.pitch());
     }
     public synchronized void slotChanged() { stateRevision++; setChanged(); if (level instanceof ServerLevel server) com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.processingMachineChanged(server, worldPosition); }
     public static void tick(Level level, BlockPos pos, ReagentGrinderBlockEntity entity) {
         if (!(level instanceof ServerLevel) || !entity.isLoadedValid()) return;
         if (entity.program.due(level.getGameTime())) {
-            entity.playProcessingSound(entity.resolvedProfile() == null ? null : entity.resolvedProfile().processingSound(), GrinderProcessingSoundPayload.Operation.STOP);
+            entity.playProcessingSound(entity.processingCue(entity.resolvedProfile(), entity.program.operation()), GrinderProcessingSoundPayload.Operation.STOP);
         }
+        GrinderProgram.Operation completedOperation = entity.program.operation();
         if (entity.program.finishIfDue(level.getGameTime())) {
             com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.processingMachineChanged((ServerLevel) level, pos);
-            entity.completeGrinding((ServerLevel) level);
+            entity.completeGrinding((ServerLevel) level, completedOperation);
         }
+        entity.projectWorkingState();
     }
-    private synchronized void completeGrinding(ServerLevel server) {
+    private synchronized void completeGrinding(ServerLevel server, GrinderProgram.Operation operation) {
         var target = beaker.snapshot();
         if (target.stack().isEmpty() || target.token() == null
                 || !(target.stack().getItem() instanceof IReagentTrait trait)) { stateRevision++; setChanged(); return; }
@@ -183,17 +236,23 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
         List<GrindingPlan.Source> sources = new ArrayList<>();
         for (MachineItemSlot.Snapshot snapshot : snapshots) {
             var stack = snapshot.stack();
-            ReagentComponent data = stack.isEmpty() ? new ReagentComponent() : stack.get(ModDataComponents.REAGENT.get());
-            if (data == null && !stack.isEmpty() && stack.get(ModDataComponents.PRODUCE_INSTANCE.get()) == null) {
-                var profile = ModProduceProfiles.serverCatalog().get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()));
-                var source = profile == null ? null : profile.sourceSolution();
-                if (source != null) {
-                    var contents = new java.util.LinkedHashMap<net.minecraft.resources.ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData>, Long>();
-                    source.contentsCents().forEach((id, amount) -> contents.put(net.minecraft.resources.ResourceKey.create(com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY, id), amount));
-                    data = ReagentComponent.fromCents(contents);
-                }
+            ReagentComponent data = stack.isEmpty() ? new ReagentComponent()
+                    : operation == GrinderProgram.Operation.GRIND ? resolvedGrindSource(stack) : stack.get(ModDataComponents.REAGENT.get());
+            if (!stack.isEmpty() && operation == GrinderProgram.Operation.JUICE) {
+                var extractables = ModExtractableProfiles.serverCatalog();
+                var extractable = extractables == null ? null : extractables.get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()));
+                var juice = extractable == null ? null : extractable.juiceSolution();
+                if (juice != null) {
+                    data = juice;
+                } else data = new ReagentComponent();
             }
-            sources.add(new GrindingPlan.Source(new ReagentAttachment(data == null ? new ReagentComponent() : data), !stack.isEmpty()));
+             var catalog = ModExtractableProfiles.serverCatalog();
+             var profile = stack.isEmpty() || catalog == null ? null : catalog.get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()));
+            boolean eligible = !stack.isEmpty() && (operation == GrinderProgram.Operation.JUICE
+                      ? profile != null && profile.juiceSolution() != null
+                      : profile != null && hasConfiguredSource(stack, profile, operation) && data != null);
+             sources.add(new GrindingPlan.Source(new ReagentAttachment(data == null ? new ReagentComponent() : data), eligible,
+                     stack.isEmpty() ? 1 : stack.getCount(), !stack.isEmpty() && stack.getMaxStackSize() > 1));
         }
         var plan = GrindingPlan.prepare(sources, initial, capacity, staged -> staged.recursiveReaction(server, ReagentUnits.toFloat(capacity)));
         if (plan.consumedSourceIndexes().isEmpty()) { stateRevision++; setChanged(); return; }
@@ -201,10 +260,14 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
         targetReplacement.set(ModDataComponents.REAGENT.get(), plan.beaker().toComponent());
         List<MachineItemSlot.SlotChange> changes = new ArrayList<>();
         changes.add(new MachineItemSlot.SlotChange(beaker, target.revision(), target.token(), target.stack(), targetReplacement));
-        for (int index : plan.consumedSourceIndexes()) {
+         for (int index : plan.consumedSourceIndexes()) {
             var source = snapshots.get(index);
             if (source.token() == null) { stateRevision++; setChanged(); return; }
-            changes.add(new MachineItemSlot.SlotChange(chamber.get(index), source.revision(), source.token(), source.stack(), ItemStack.EMPTY));
+            ItemStack remainder = source.stack();
+            int remainingCount = remainder.getCount() - plan.consumedCount(index);
+            if (remainingCount <= 0) remainder = ItemStack.EMPTY;
+            else remainder.setCount(remainingCount);
+            changes.add(new MachineItemSlot.SlotChange(chamber.get(index), source.revision(), source.token(), source.stack(), remainder));
         }
         var ledger = LevelItemLocationLedgers.forLevel(server);
         MachineItemSlot.commitBatch(ledger.snapshot().revision(), changes);
@@ -212,7 +275,7 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
     }
     @Override public void onLoad() { super.onLoad(); ensureState(); if (level instanceof ServerLevel server) com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.processingMachineChanged(server, worldPosition); }
     @Override public void setRemoved() {
-        if (program.active() && level instanceof ServerLevel) playProcessingSound(resolvedProfile() == null ? null : resolvedProfile().processingSound(), GrinderProcessingSoundPayload.Operation.STOP);
+        if (program.active() && level instanceof ServerLevel) playProcessingSound(processingCue(resolvedProfile(), program.operation()), GrinderProcessingSoundPayload.Operation.STOP);
         if (level instanceof ServerLevel server) com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.processingMachineRemoved(server, worldPosition);
         if (beaker != null && !beaker.suspend()) invalid = true;
         for (MachineItemSlot slot : chamber) if (!slot.suspend()) invalid = true;
@@ -222,6 +285,10 @@ public final class ReagentGrinderBlockEntity extends BlockEntity {
         if(cue==null || !(level instanceof ServerLevel server) || !program.active()) return;
         var payload=new GrinderProcessingSoundPayload(server.dimension().location(),worldPosition,identity,program.startTick(),program.endTick(),cue.sound(),cue.volume(),cue.pitch(),operation);
         GrinderProcessingAudioNetworking.broadcast(server,worldPosition,payload);
+    }
+    private MachineProfile.SoundCue processingCue(MachineProfile profile, GrinderProgram.Operation operation) {
+        if (profile == null) return null;
+        return operation == GrinderProgram.Operation.JUICE ? profile.juiceSound() : profile.processingSound();
     }
     @Override public void clearRemoved() {
         super.clearRemoved();

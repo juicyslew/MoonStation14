@@ -101,6 +101,11 @@ class ReviewDependencyMonitor:
                 continue
             if not isinstance(error.get('message'), str):
                 continue
+            # OpenCode owns automatic retries for transport resets. Treating one
+            # as a durable dependency pause fences the task while that retry is
+            # already in flight; only actionable provider failures are paused.
+            if error['type'] == 'provider.transport':
+                continue
             status_code=error.get('status')
             if status_code is not None and (not isinstance(status_code,int) or not 100 <= status_code <= 599): continue
             failure_id = message['id']

@@ -5,16 +5,18 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
-/** Publishes newly-created biological outputs as world owners before committing their source. */
+/** Publishes fresh item outputs as world owners before committing their source. */
 public final class FreshWorldOutputBatch {
     private FreshWorldOutputBatch() { }
 
@@ -24,10 +26,63 @@ public final class FreshWorldOutputBatch {
         return publish(level, body, stacks, sourceCurrent, sourceCommit, null, null, false);
     }
 
+    /** Publishes separate source-processing products around the exact loose-source position. */
+    public static BodyHandItemTransfer.Result publishAtLooseSource(ServerLevel level, Vec3 origin,
+            List<ItemStack> stacks, BooleanSupplier sourceCurrent, Runnable sourceCommit) {
+        if (sourceCommit == null) return BodyHandItemTransfer.Result.DENIED;
+        return publishAtSourcePosition(level, origin, stacks, sourceCurrent, () -> {
+            sourceCommit.run(); return BodyHandItemTransfer.Result.SUCCESS;
+        }, null);
+    }
+
+    /** Source-position output publication with an explicit transactional source-commit result. */
+    public static BodyHandItemTransfer.Result publishAtSourcePosition(ServerLevel level, Vec3 origin,
+            List<ItemStack> stacks, BooleanSupplier sourceCurrent,
+            Supplier<BodyHandItemTransfer.Result> sourceCommit,
+            BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterCommit) {
+        if (level == null || origin == null || !Double.isFinite(origin.x) || !Double.isFinite(origin.y)
+                || !Double.isFinite(origin.z) || !level.getServer().isSameThread()
+                || !level.hasChunkAt(BlockPos.containing(origin))) return BodyHandItemTransfer.Result.DENIED;
+        return publishStaged(level, stacks, sourceCurrent, sourceCommit, afterCommit,
+                stack -> stageHarvestAt(level, origin, stack), () -> true);
+    }
+
+    /** Publishes outputs for a source already irreversibly committed; never attempts rollback. */
+    public static BodyHandItemTransfer.Result publishAfterSourceCommitAtPosition(ServerLevel level, Vec3 origin,
+            List<ItemStack> stacks, BooleanSupplier committedSourceCurrent) {
+        if (stacks == null || stacks.isEmpty()) return BodyHandItemTransfer.Result.DENIED;
+        return publishAtSourcePosition(level, origin, stacks, committedSourceCurrent,
+                () -> BodyHandItemTransfer.Result.SUCCESS, null);
+    }
+
     /** Body-harvest outputs use SS14's per-output horizontal manual-harvest scatter (Minecraft map units). */
     public static BodyHandItemTransfer.Result publishBodyHarvest(ServerLevel level, LivingEntity body,
             List<ItemStack> stacks, BooleanSupplier sourceCurrent, Runnable sourceCommit) {
-        return publish(level, body, stacks, sourceCurrent, sourceCommit, null, null, true);
+        return publishBodyHarvest(level, body, stacks, sourceCurrent, sourceCommit, null);
+    }
+
+    /** Body-origin biological outputs with a trusted post-source-commit pickup callback. */
+    public static BodyHandItemTransfer.Result publishBodyHarvest(ServerLevel level, LivingEntity body,
+            List<ItemStack> stacks, BooleanSupplier sourceCurrent, Runnable sourceCommit,
+            BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterCommit) {
+        return publish(level, body, stacks, sourceCurrent, sourceCommit, null, afterCommit, true);
+    }
+
+    /**
+     * Publishes server-system harvest outputs around the tray's world position (rather than a
+     * body); the bounded +/- .25 horizontal footprint preserves SS14's holder-coordinate output.
+     */
+    public static BodyHandItemTransfer.Result publishSystemHarvest(ServerLevel level, BlockPos tray,
+            List<ItemStack> stacks, BooleanSupplier sourceCurrent, Runnable sourceCommit) {
+        if (level == null || tray == null || !level.getServer().isSameThread()
+                || !level.hasChunkAt(tray)) return BodyHandItemTransfer.Result.DENIED;
+        // The 2D holder maps to the tray block in Minecraft, whose partial-solid top occupies
+        // the block below this position; mirror machine output's above-block feet-plane adaptation.
+        Vec3 origin = new Vec3(tray.getX() + .5, tray.getY() + 1.0, tray.getZ() + .5);
+        return publishStaged(level, stacks, sourceCurrent, () -> {
+                    sourceCommit.run(); return BodyHandItemTransfer.Result.SUCCESS;
+                }, null,
+                stack -> stageHarvestAt(level, origin, stack), () -> true);
     }
 
     /** Machine outputs stage just above the block (Minecraft's small-offset adaptation of SS14 machine coordinates). */
@@ -47,16 +102,30 @@ public final class FreshWorldOutputBatch {
                 || sourceCurrent == null || sourceCommit == null || !level.getServer().isSameThread()
                 || body.level() != level || !sourceCurrent.getAsBoolean())
             return BodyHandItemTransfer.Result.DENIED;
+        Function<ItemStack, LooseItemEntity> stager = stack -> machine == null ? scatter
+                ? BodyHandItemTransfer.createStagedHarvestDropWithFallback(body, stack,
+                    level.random.nextDouble() * .5 - .25, level.random.nextDouble() * .5 - .25)
+                : BodyHandItemTransfer.createStagedDrop(body, stack)
+                : stageAtMachine(level, machine, stack);
+        return publishStaged(level, stacks, sourceCurrent, () -> {
+                    sourceCommit.run(); return BodyHandItemTransfer.Result.SUCCESS;
+                }, afterCommit, stager,
+                () -> body.level() == level);
+    }
+
+    private static BodyHandItemTransfer.Result publishStaged(ServerLevel level, List<ItemStack> stacks,
+            BooleanSupplier sourceCurrent, Supplier<BodyHandItemTransfer.Result> sourceCommit,
+            BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterCommit,
+            Function<ItemStack, LooseItemEntity> stager, BooleanSupplier contextCurrent) {
+        if (level == null || stacks == null || stacks.isEmpty() || sourceCurrent == null || sourceCommit == null
+                || !level.getServer().isSameThread() || !contextCurrent.getAsBoolean()
+                || !sourceCurrent.getAsBoolean()) return BodyHandItemTransfer.Result.DENIED;
         var staged = new ArrayList<LooseItemEntity>(stacks.size());
         var expected = new ArrayList<ItemStack>(stacks.size());
         try {
             for (ItemStack stack : stacks) {
                 if (stack == null || stack.isEmpty()) return BodyHandItemTransfer.Result.DENIED;
-                var entity = machine == null ? scatter
-                        ? BodyHandItemTransfer.createStagedHarvestDropWithFallback(body, stack,
-                            level.random.nextDouble() * .5 - .25, level.random.nextDouble() * .5 - .25)
-                        : BodyHandItemTransfer.createStagedDrop(body, stack)
-                        : stageAtMachine(level, machine, stack);
+                var entity = stager.apply(stack);
                 if (entity == null) return BodyHandItemTransfer.Result.DENIED;
                 if (!ItemStack.isSameItemSameComponents(stack, entity.getItem()) || stack.getCount() != entity.getItem().getCount())
                     return BodyHandItemTransfer.Result.DENIED;
@@ -70,11 +139,19 @@ public final class FreshWorldOutputBatch {
                     return BodyHandItemTransfer.Result.DENIED;
                 }
             }
-            if (!sourceCurrent.getAsBoolean()) {
+            if (!contextCurrent.getAsBoolean() || !sourceCurrent.getAsBoolean()) {
                 cleanup(level, staged, expected);
                 return BodyHandItemTransfer.Result.DENIED;
             }
-            sourceCommit.run();
+            BodyHandItemTransfer.Result committed = sourceCommit.get();
+            if (committed == null) committed = BodyHandItemTransfer.Result.RECOVERY_REQUIRED;
+            if (committed != BodyHandItemTransfer.Result.SUCCESS) {
+                // DENIED is an explicit compensated result; old source-current proof may
+                // be stale after that compensation advanced a hand revision. Uncertain
+                // commits retain staged owners so potentially committed outputs are conserved.
+                if (committed == BodyHandItemTransfer.Result.DENIED) cleanup(level, staged, expected);
+                return committed;
+            }
             if (afterCommit != null) {
                 for (int i = 0; i < staged.size(); i++)
                     if (afterCommit.apply(staged.get(i), expected.get(i).copy()) == BodyHandItemTransfer.Result.RECOVERY_REQUIRED)
@@ -101,6 +178,16 @@ public final class FreshWorldOutputBatch {
             LooseItemEntity entity = LooseItemEntity.create(level, position, stack.copy());
             return level.noCollision(entity, entity.getBoundingBox()) ? entity : null;
         } catch (RuntimeException unavailable) { return null; }
+    }
+
+    private static LooseItemEntity stageHarvestAt(ServerLevel level, Vec3 origin, ItemStack stack) {
+        // Source/system output uses a stable collision-safe horizontal search without RNG draws.
+        double[] offsets = {0, -.25, .25};
+        for (double x : offsets) for (double z : offsets) {
+            LooseItemEntity candidate = BodyHandItemTransfer.createStagedHarvestDrop(level, origin, stack, x, z);
+            if (candidate != null) return candidate;
+        }
+        return null;
     }
 
     private static void cleanup(ServerLevel level, List<LooseItemEntity> entities, List<ItemStack> expected) {

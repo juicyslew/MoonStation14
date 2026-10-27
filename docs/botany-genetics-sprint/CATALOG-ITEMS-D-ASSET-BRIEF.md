@@ -1,0 +1,56 @@
+# Botany catalog items D — art-only asset request
+
+## Scope and boundaries
+
+Commission exactly these 16 identities: `SugarcaneSeeds`, `Sugarcane`, `PapercaneSeeds`, `Papercane`, `TeaPlantSeeds`, `LeavesTea`, `TobaccoSeeds`, `LeavesTobacco`, `CannabisSeeds`, `LeavesCannabis`, `RainbowCannabisSeeds`, `LeavesCannabisRainbow`, `CottonSeeds`, `CottonBol`, `PyrottonSeeds`, `PyrottonBol`. Art-only: no runtime registration/code/import, mechanics, audio, UI, 3D plant/native import, or claim of a complete processing chain. This is separate from existing target-item request and the 65 grown families; no grown-state dependency. Preserve existing five-family/tray baseline unchanged. This set does not overlap catalog A (23), B (20), target-items (10), or grown families (65). C34 is independently in progress and is not accepted or a dependency; these exact IDs are distinct.
+
+Local audit found no existing item-art registration for these exact identities. Before commissioning, the asset author must still search the canonical asset index and resource tree for each exact ID/binding and record the result; prior local research is not a substitute for that mandatory final search.
+
+## Pinned source and exact selection
+
+SS14 source `C:/Users/William/Documents/SS14-dev/space-station-14`, verified revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`. Entity definitions are in `Resources/Prototypes/Entities/Objects/Specific/Hydroponics/seeds.yml`, `.../leaves.yml`, and `.../Consumable/Food/produce.yml`; RSI paths below are relative to `Resources/Textures/`.
+
+| Exact ID | Source entity composition | Selected source visual |
+|---|---|---|
+| SugarcaneSeeds | `seeds.yml`, `SeedBase` | `Objects/Specific/Hydroponics/sugarcane.rsi:seed` + conditional `seeds.rsi:paper` |
+| Sugarcane | `produce.yml`, `ProduceBaseRuminant` → `ProduceBase` → `BaseItem` | `Objects/Specific/Hydroponics/sugarcane.rsi:produce` (inherited state) |
+| PapercaneSeeds | `seeds.yml`, `SeedBase` | `Objects/Specific/Hydroponics/papercane.rsi:seed` + conditional `seeds.rsi:paper` |
+| Papercane | `produce.yml`, `ProduceBase` → `BaseItem` | `Objects/Specific/Hydroponics/papercane.rsi:produce` (inherited state) |
+| TeaPlantSeeds | `seeds.yml`, `SeedBase` | `Objects/Specific/Hydroponics/tea_plant.rsi:seed` + conditional `seeds.rsi:paper` |
+| LeavesTea | `leaves.yml`, `ProduceBaseRuminant` → `ProduceBase` → `BaseItem`; explicit RSI, inherited state | `Objects/Specific/Hydroponics/tea_plant.rsi:produce` |
+| TobaccoSeeds | `seeds.yml`, `SeedBase` | `Objects/Specific/Hydroponics/tobacco.rsi:seed` + conditional `seeds.rsi:paper` |
+| LeavesTobacco | `leaves.yml`, `ProduceBaseRuminant` → `ProduceBase` → `BaseItem`; explicit RSI, inherited state | `Objects/Specific/Hydroponics/tobacco.rsi:produce` |
+| CannabisSeeds | `seeds.yml`, `SeedBase` | `Objects/Specific/Hydroponics/cannabis.rsi:seed` + conditional `seeds.rsi:paper` |
+| LeavesCannabis | `leaves.yml`, `ProduceBaseRuminant` → `ProduceBase` → `BaseItem`; explicit RSI, inherited state | `Objects/Specific/Hydroponics/cannabis.rsi:produce` |
+| RainbowCannabisSeeds | `seeds.yml`, `SeedBase` | `Objects/Specific/Hydroponics/rainbow_cannabis.rsi:seed` + conditional `seeds.rsi:paper` |
+| LeavesCannabisRainbow | `leaves.yml`, inherits `LeavesCannabis` ancestry; explicit `rainbow_cannabis.rsi` layer, state and shader | `Objects/Specific/Hydroponics/rainbow_cannabis.rsi:produce` (22-frame animated; `unshaded`) |
+| CottonSeeds | `seeds.yml`, `SeedBase` | `Objects/Specific/Hydroponics/cotton.rsi:seed` + conditional `seeds.rsi:paper` |
+| CottonBol | `produce.yml`, `FoodProduceBase` → `FoodInjectableBase` (direct; does not inherit `ProduceBase`) | `Objects/Specific/Hydroponics/cotton.rsi:produce` (inherited state) |
+| PyrottonSeeds | `seeds.yml`, `SeedBase` | `Objects/Specific/Hydroponics/pyrotton.rsi:seed` + conditional `seeds.rsi:paper` |
+| PyrottonBol | `produce.yml`, `FoodProduceBase` → `FoodInjectableBase` (direct; does not inherit `ProduceBase`) | `Objects/Specific/Hydroponics/pyrotton.rsi:produce` (inherited state) |
+
+Resolved visual inheritance: `SeedBase` parents `[BaseItem, BasePaperLabelable]` and defines Sprite default `seeds.rsi` with first layer `state: seed` (no per-layer RSI override) and second layer `seeds.rsi:paper`, initially hidden and mapped to `enum.PaperLabelVisuals.Layer`. Every packet sets Sprite default RSI to its family RSI, so inherited seed layer resolves to that family RSI's `seed`; explicit paper layer remains shared RSI. `GenericVisualizer` on `SeedBase` shows/hides paper on `HasLabel` True/False. `ProduceBase` → `BaseItem` defines Sprite state `produce`; `ProduceBaseRuminant` inherits it and adds special-digestion Edible/Ruminant; `FoodProduceBase` instead parents `FoodInjectableBase` and independently defines `produce`. Tea/tobacco/cannabis leaf entities specify their RSI but omit state, so inherit `produce` from `ProduceBase`; rainbow leaves inherit cannabis ancestry but replace Sprite layers with explicit rainbow RSI `produce`, shader `unshaded`. CottonBol/PyrottonBol directly use FoodProduceBase and explicitly set RSI, inheriting its `produce` state.
+
+Verified selected-state RSI metadata and PNG evidence at the pinned revision: all nine files (`sugarcane.rsi`, `papercane.rsi`, `tea_plant.rsi`, `tobacco.rsi`, `cannabis.rsi`, `rainbow_cannabis.rsi`, `cotton.rsi`, `pyrotton.rsi`, `seeds.rsi`) declare `size: 32x32`, license CC-BY-SA-3.0. Absent `directions` means RSI default 1; absent `delays` means one static frame. For each of the eight crop RSIs, `seed` and `produce` are 1 direction, 1 frame, no delays, corresponding PNG exists and is 32x32, except `rainbow_cannabis.rsi:produce` described below. `seeds.rsi:paper` is 1 direction, 1 static frame, no delays; `paper.png` is 32x32. `rainbow_cannabis.rsi:produce` declares 22 delays, each exactly 0.08 seconds; `produce.png` is 160x160 (5×5 cells at 32×32, sufficient for 22 frames), one direction. It is animated, not static.
+
+Native animation delivery contract (established by existing generated-item pipeline and the `C` corrected brief): emit the 22-frame sequence as a normal generated item PNG strip with adjacent `.png.mcmeta`; this is supported by existing examples `existinghandheld_health_analyzer.json` / `analyzer-animation.png.mcmeta` and `network_configurator-strip.png.mcmeta`. Preserve source frame order 0…21 and repeat the complete ordered sequence five times (110 metadata entries). For absolute output-frame index `i=1…110`, retain frame `(i-1) mod 22` and set integer duration to `round(1.6*i) - round(1.6*(i-1))` ticks (rounded cumulative boundaries, not a reset schedule at each cycle). This yields 1/2-tick durations, 176 ticks (8.8 seconds) total, and maximum boundary error 0.4 tick. This is the explicit Minecraft integer-tick adaptation: average source cadence is exact over five cycles, but individual frame cadence is not exactly 0.08 seconds. Do not freeze the state or reduce/reorder frames. The actual animated representative contact for rainbow cannabis produce is a required source-first visual/timing review before modeler batch production; no such review is claimed by this request. Other selected states do not inherit RSI growth animations. These facts were checked directly against all entity YAML blocks, `SeedBase`, `ProduceBase`/`ProduceBaseRuminant`/`FoodProduceBase`, all nine complete `meta.json` files, and selected PNG headers. Provenance must carry complete metadata files, source hashes, frame order, and timing adaptation evidence.
+
+The material consumers and special digestion/drying/crafting are not commissioned. `Sugarcane` has ruminant composition. `Papercane` has `Log` producing `SheetPaper1`; upstream `LogSystem` consumes `SharpComponent` and spawns materials, while `ProduceMaterialExtractorSystem` handles biomass and is not the Log consumer. No paper sheets, cotton/pyrotton material outputs, dried/ground leaves, smokeables, or other secondary-material assets are in scope. CottonBol and PyrottonBol require special digestion; do not depict them as ordinary human food. Cannabis/tea/tobacco processing and effects remain unimplemented; art does not complete any chain.
+
+## Complete source attribution
+
+All eight crop RSIs and shared `seeds.rsi` use CC-BY-SA-3.0. Preserve full source meta.json and source PNGs, hashes, selected-state/frame/direction/delay evidence, and these exact verbatim copyright values (do not abbreviate):
+
+* `sugarcane.rsi`: “Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce sprites created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub)”
+* `papercane.rsi`: “Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github)”
+* `tea_plant.rsi`: “Taken from tgstation at https://github.com/tgstation/tgstation/commit/da3da71e29400c8c2879037ae8d74e690a6fe604, produce modified by potato1234x (github) for ss14”
+* `tobacco.rsi`: “Taken from tgstation at https://github.com/tgstation/tgstation/commit/da3da71e29400c8c2879037ae8d74e690a6fe604”
+* `cannabis.rsi`: “Taken from https://github.com/vgstation-coders/vgstation13 at 1dbcf389b0ec6b2c51b002df5fef8dd1519f8068”
+* `rainbow_cannabis.rsi`: “Taken from https://github.com/vgstation-coders/vgstation13 at 1dbcf389b0ec6b2c51b002df5fef8dd1519f8068 and modified by potato1234_x”
+* `cotton.rsi`: “Taken from tgstation at https://github.com/tgstation/tgstation/commit/e245d374b2976c73d0aff37cf4a443d2e75c2f57, inhands by mubururu_ (github)”
+* `pyrotton.rsi`: “Drawn by Ubaser, using the cotton sprites as a base. inhands by mubururu_ (github)”
+* `seeds.rsi`: “Taken from https://github.com/vgstation-coders/vgstation13 at 1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, paper layer by Ian321”
+
+## Commission and delivery
+
+Use the existing generated-item native Minecraft Java 1.21.1 / NeoForge 21.1.224 item-model/PNG pipeline, flat profiles, adjacent `.png.mcmeta` animation support, and lowercase resource bindings while retaining exact upstream IDs in metadata. Source-first representative packet (including conditional label), cane stick, tea/tobacco/cannabis leaves, cotton fiber, and the actual 22-frame rainbow cannabis produce animation contacts must receive visual review before batch production; no contact review has yet occurred. Deliver editable art, native PNG/JSON and animation metadata, source snapshots/hashes, provenance, complete attribution, exact ID→resolved source ancestry→state/layers→resource mapping, safe non-overwriting destination manifest, practical previews and read-only validator. Validate exact 16 unique identities, all nine provenance/license records, states/metadata, 110-entry frame schedule and 176-tick total, unique bindings and destinations. Parent's independent bounded audit found no exact-case or snake-case reuse match among the 84 identities in Java/resource/canonical indexes; no precommission reuse blocker remains. Art delivery is not gameplay/runtime implementation, processing-chain completion, import, independent review, or owner acceptance. No dependency on grown states (`dependencies: []`).

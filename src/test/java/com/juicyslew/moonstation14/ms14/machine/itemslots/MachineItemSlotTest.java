@@ -88,6 +88,56 @@ class MachineItemSlotTest {
         assertEquals(Component.literal("changed"), beaker.snapshot().stack().get(DataComponents.CUSTOM_NAME));
     }
 
+    @Test void batchPartiallyConsumesOwnedStackWithComponentUpdateAndRetiresTokenOnlyOnFinalConsumption() {
+        var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
+        var source = slot(owner, "source", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        var beaker = slot(owner, "beaker", s -> s.is(Items.GLASS_BOTTLE), ledger);
+        var hand = new ItemLocation.BodyHand(UUID.randomUUID(), "left");
+        var sourceToken = new ItemToken("source"); var beakerToken = new ItemToken("beaker");
+        assertTrue(ledger.register(sourceToken, hand).accepted());
+        var namedSource = new ItemStack(Items.GLASS_BOTTLE, 30);
+        namedSource.set(DataComponents.CUSTOM_NAME, Component.literal("source metadata"));
+        assertTrue(source.insert(0, ledger.snapshot().revision(), sourceToken, hand, namedSource));
+        assertTrue(ledger.register(beakerToken, hand).accepted());
+        assertTrue(beaker.insert(0, ledger.snapshot().revision(), beakerToken, hand, new ItemStack(Items.GLASS_BOTTLE)));
+
+        var src = source.snapshot(); var dst = beaker.snapshot(); long ledgerRevision = ledger.snapshot().revision();
+        var remaining = src.stack(); remaining.shrink(1);
+        var updatedBeaker = dst.stack(); updatedBeaker.set(DataComponents.CUSTOM_NAME, Component.literal("updated"));
+        var batch = java.util.List.of(
+                new MachineItemSlot.SlotChange(source, src.revision(), src.token(), src.stack(), remaining),
+                new MachineItemSlot.SlotChange(beaker, dst.revision(), dst.token(), dst.stack(), updatedBeaker));
+
+        assertFalse(MachineItemSlot.commitBatch(ledgerRevision - 1, batch).accepted());
+        assertFalse(MachineItemSlot.commitBatch(ledgerRevision, java.util.List.of(
+                new MachineItemSlot.SlotChange(source, src.revision() - 1, src.token(), src.stack(), remaining))).accepted());
+        assertEquals(30, source.snapshot().stack().getCount());
+        assertNull(beaker.snapshot().stack().get(DataComponents.CUSTOM_NAME));
+
+        assertTrue(MachineItemSlot.commitBatch(ledgerRevision, batch).accepted());
+        var partial = source.snapshot();
+        assertEquals(29, partial.stack().getCount());
+        assertEquals(src.token(), partial.token());
+        assertEquals(Component.literal("source metadata"), partial.stack().get(DataComponents.CUSTOM_NAME));
+        assertEquals(new ItemLocation.MachineSlot(owner, "source"), ledger.snapshot().locations().get(sourceToken));
+        assertEquals(Component.literal("updated"), beaker.snapshot().stack().get(DataComponents.CUSTOM_NAME));
+        assertEquals(ledgerRevision, ledger.snapshot().revision());
+
+        var increased = partial.stack(); increased.setCount(30);
+        assertFalse(MachineItemSlot.commitBatch(ledger.snapshot().revision(), java.util.List.of(
+                new MachineItemSlot.SlotChange(source, partial.revision(), partial.token(), partial.stack(), increased))).accepted());
+        var wrongItem = new ItemStack(Items.STONE);
+        assertFalse(MachineItemSlot.commitBatch(ledger.snapshot().revision(), java.util.List.of(
+                new MachineItemSlot.SlotChange(source, partial.revision(), partial.token(), partial.stack(), wrongItem))).accepted());
+        assertEquals(29, source.snapshot().stack().getCount());
+
+        assertTrue(MachineItemSlot.commitBatch(ledger.snapshot().revision(), java.util.List.of(
+                new MachineItemSlot.SlotChange(source, partial.revision(), partial.token(), partial.stack(), ItemStack.EMPTY))).accepted());
+        assertTrue(source.snapshot().stack().isEmpty());
+        assertFalse(ledger.snapshot().locations().containsKey(sourceToken));
+        assertEquals(new ItemLocation.MachineSlot(owner, "beaker"), ledger.snapshot().locations().get(beakerToken));
+    }
+
     @Test void batchRejectsStaleProofsAndInvalidReplacementWithoutPartialChanges() {
         var ledger = new ItemLocationLedger(); var owner = UUID.randomUUID();
         var a = slot(owner, "a", s -> s.is(Items.GLASS_BOTTLE), ledger);

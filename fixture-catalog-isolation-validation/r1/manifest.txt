@@ -1,0 +1,5 @@
+PREMANIFEST
+Scope: catalog-mutating GameTest batch annotations only
+Files: DestructionExplosionGameTests, QueuedExplosionGameTests, LooseItemBlastGameTests, FoodSolutionReactionPolicyGameTests, EquipmentStepTriggerProtectionGameTests, GrinderJuicingGameTests
+Validation command: .\gradlew.bat compileJava compileTestJava compileGametestJava test --tests '*LooseObjectProfileTest' --tests '*ItemFoodSolutionProfileTest' --tests '*EquipmentStepTriggerProtectionPolicyTest'
+No GameTest server/native/full/build/check/readiness tasks

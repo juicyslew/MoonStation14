@@ -1,0 +1,1 @@
+{"id":"base_toy_gun","pacifism_allowed":true,"ammo_counter":true,"gun":{"fire_rate":1.5,"projectile_speed":40,"use_key":true,"firing_mode":"SEMI_AUTO"}}

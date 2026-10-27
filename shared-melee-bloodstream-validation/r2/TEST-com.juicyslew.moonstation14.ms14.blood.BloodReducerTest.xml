@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.blood.BloodReducerTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-21T16:05:33.194Z" hostname="DESKTOP-4F0ER3K" time="0.116">
+  <properties/>
+  <testcase name="usableFractionIsLimitedByMinimumReferenceConstituent()" classname="com.juicyslew.moonstation14.ms14.blood.BloodReducerTest" time="0.002"/>
+  <testcase name="negativeBloodLevelEffectRemovesActualCompositionProportionally()" classname="com.juicyslew.moonstation14.ms14.blood.BloodReducerTest" time="0.002"/>
+  <testcase name="temporaryBleedStagesExactMixedCentsWithoutBackpressure()" classname="com.juicyslew.moonstation14.ms14.blood.BloodReducerTest" time="0.001"/>
+  <testcase name="bleedRemovalAccountsForExactDiscardedCompositionWithoutCreatingOrRetainingMaterial()" classname="com.juicyslew.moonstation14.ms14.blood.BloodReducerTest" time="0.001"/>
+  <testcase name="savedLargeTemporaryBatchIsNotAFlowLimit()" classname="com.juicyslew.moonstation14.ms14.blood.BloodReducerTest" time="0.0"/>
+  <testcase name="typedDamageBleedRateClampsHeatOnlyAndMixedSignedCoefficients()" classname="com.juicyslew.moonstation14.ms14.blood.BloodReducerTest" time="0.002"/>
+  <testcase name="bothPrototypeBloodlossBranchesUseUpstreamFractionScalingWithoutFabricatedCap()" classname="com.juicyslew.moonstation14.ms14.blood.BloodReducerTest" time="0.106"/>
+  <testcase name="effectScaleIsAppliedOnceAndRestorationIsProportionalCappedAndBoundedByReference()" classname="com.juicyslew.moonstation14.ms14.blood.BloodReducerTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

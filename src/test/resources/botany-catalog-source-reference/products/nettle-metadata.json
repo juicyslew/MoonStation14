@@ -1,0 +1,51 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceRepository": "https://github.com/space-wizards/space-station-14",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml": {
+      "sha256": "a28ed494a096cf63f7887f45e4967e89600b60022fd2b49af22e131f9bafb385"
+    },
+    "Resources/Prototypes/Entities/Objects/base_contraband.yml": {
+      "sha256": "d7795fda8cac9d629100015b97efaed4ba4eb186e38bea95d42c2d232c8e2670"
+    }
+  },
+  "requestedLeafIds": [
+    "Nettle",
+    "DeathNettle"
+  ],
+  "capturedConcreteProductCount": 2,
+  "capturedAdditionalAncestorCount": 1,
+  "capturedRawRecordCount": 3,
+  "capturedEntityIds": [
+    "BaseMajorContraband",
+    "DeathNettle",
+    "Nettle"
+  ],
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "parentClosureVerifiedAgainstExistingRawRowsAndNettleRows": true,
+  "existingRawEntityIdCount": 87,
+  "overlapWithExistingRawEntityIds": [],
+  "fullUnionParentClosureRecordCount": 90,
+  "parentResolution": {
+    "Nettle": "ProduceBaseRuminant",
+    "DeathNettle": [
+      "ProduceBase",
+      "BaseMajorContraband"
+    ],
+    "BaseMajorContraband": null
+  },
+  "referencedExistingRowFiles": [
+    "additions-entity-rows.json",
+    "banana-orange-entity-rows.json",
+    "bloonion-entity-rows.json",
+    "blue-pumpkin-entity-rows.json",
+    "conversion-entity-rows.json",
+    "egg-entity-rows.json",
+    "entity-rows.json",
+    "fruit-pit-entity-rows.json",
+    "glasstle-entity-rows.json",
+    "melon-pumpkin-entity-rows.json",
+    "ordinary-medicinal-entity-rows.json"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:golden_apple",
+  "capacity_cents": 3000,
+  "contents_cents": {
+    "moonstation14:nutriment": 1000,
+    "moonstation14:vitamin": 400,
+    "moonstation14:doctorsdelight": 1300
+  },
+  "refillable": true
+}

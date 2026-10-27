@@ -118,9 +118,13 @@ public final class ElectrocutionSystem {
         if (plan.result() != EffectResult.APPLIED) return plan.result();
         int damage = plan.damage();
         OptionalInt stunTicks = plan.stunTicks();
-        boolean paralyze = stunTicks.isPresent();
-        if (paralyze && !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem
-                .applyParalyze(living, stunTicks.orElse(0))) return EffectResult.SKIPPED_UNSUPPORTED;
+        // Status admission is optional for source shocks: some supported
+        // lightning targets (notably animals) cannot be paralyzed. That must
+        // not veto the independently admitted typed damage request.
+        if (stunTicks.isPresent()) {
+            com.juicyslew.moonstation14.ms14.character.CharacterControlSystem
+                    .applyParalyze(living, stunTicks.orElse(0));
+        }
         if (damage == 0) return EffectResult.APPLIED;
         return switch (DamageSystem.applyHealthChange(living, Map.of(DamageKeys.SHOCK, (float) damage), 1f, false)) {
             case APPLIED -> EffectResult.APPLIED;

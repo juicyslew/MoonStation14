@@ -81,9 +81,11 @@ class DamageFeedbackProfileTest {
     void damageTransactionFeedbackRemainsAvailableUntilItsOuterIdentityIsRemoved() {
         var stack = new DamageTransactionStack<Object, Object>();
         Object source = new Object();
+        Object nestedSource = new Object();
         Object transaction = new Object();
         stack.push(source, transaction);
         assertEquals(transaction, stack.peekMatching(source));
+        assertEquals(null, stack.peekMatching(nestedSource), "an unmatched nested native source must not inherit the outer transaction");
         assertEquals(transaction, stack.peekMatching(source), "native hurt-packet lookup must not consume transaction context");
         assertEquals(transaction, stack.removeMatching(source), "outer hurt finally removes the exact source transaction");
         assertEquals(null, stack.peekMatching(source), "no semantic feedback survives the outer hurt scope");

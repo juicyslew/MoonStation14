@@ -138,6 +138,16 @@ class DrainBarrier:
         inbox=[]
         for sid in leads:
             try:
+                session_status, session = self.request(None,'GET','/api/session/'+sid,
+                                                       accepted_http_statuses=(404,))
+                if session_status == 404:
+                    inbox.append({'session_id':sid,'status':'absent'})
+                    continue
+                if session_status != 200 or not isinstance(session,dict):
+                    raise ValueError('lead session header request failed')
+                session = session.get('data', session)
+                if not isinstance(session,dict) or session.get('id') != sid:
+                    raise ValueError('lead session header identity mismatch')
                 response=self.request(None,'GET','/api/session/'+sid+'/inbox')
                 if not isinstance(response,tuple) or len(response)!=2 or response[0] != 200:
                     raise ValueError('lead inbox request failed')

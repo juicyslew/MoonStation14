@@ -40,7 +40,7 @@ public final class SingularityGeneratorBlockEntity extends BlockEntity {
     public boolean receiveParticle(ParticleAcceleratorStrengthProfile strength) {
         if (!(level instanceof ServerLevel server) || strength==null || strength.generatorCharge()<=0) return false;
         SingularityGeneratorProfile profile=ModSingularityGenerators.catalog(server).get(profileId);
-        if (profile==null || ModSingularityGameplay.catalog(server).get(profile.spawnProfile())==null) return false;
+        if (profile==null) return false;
         ensureStartup(profile);
         FieldContainmentRuntime.refresh(server);
         boolean contained=!profile.failsafeEnabled() || FieldContainmentRuntime.closedVolumes(server).stream().anyMatch(bounds ->
@@ -61,12 +61,14 @@ public final class SingularityGeneratorBlockEntity extends BlockEntity {
         savedFailsafeTick=snapshot.nextFailsafeTick(); savedStatePresent=true; setChanged();
     }
     private void spawnSingularity(ServerLevel server,SingularityGeneratorProfile profile) {
-        SingularityEntity singularity=ModEntities.SINGULARITY.get().create(server);
-        if(singularity==null) return;
-        singularity.moveTo(worldPosition.getX()+.5,worldPosition.getY()+.5,worldPosition.getZ()+.5,0,0);
-        singularity.initializeFromGenerator(profile.spawnProfile());
-        if(server.addFreshEntity(singularity)) {
-            spawnedSingularityIdentity=singularity.getUUID();
+        var type=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getOptional(profile.spawnEntity()).orElse(null);
+        if(type==null) return;
+        var source=type.create(server);
+        if(!(source instanceof com.juicyslew.moonstation14.ms14.singularity.GeneratorSpawnTarget target)) return;
+        source.moveTo(worldPosition.getX()+.5,worldPosition.getY()+.5,worldPosition.getZ()+.5,0,0);
+        if(!target.initializeSourceProfile(profile.spawnProfile())) return;
+        if(server.addFreshEntity(source)) {
+            spawnedSingularityIdentity=source.getUUID();
             setChanged();
         }
     }
@@ -76,8 +78,10 @@ public final class SingularityGeneratorBlockEntity extends BlockEntity {
     public boolean startupInert() { return startup==null?savedInert:startup.inert(); }
     public long startupNextFailsafeTick() { return startup==null?savedFailsafeTick:startup.nextFailsafeTick(); }
     public ResourceLocation profileId() { return profileId; }
+    public void setProfileId(ResourceLocation id) { if (id != null) profileId=id; }
     /** Exact entity accepted by the level from this generator's one-shot spawn. */
     public UUID spawnedSingularityIdentity() { return spawnedSingularityIdentity; }
+    public UUID spawnedSourceIdentity() { return spawnedSingularityIdentity; }
 
     @Override protected void saveAdditional(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
         super.saveAdditional(tag,registries);

@@ -166,6 +166,33 @@ class NativeFixturePolicyTests(unittest.TestCase):
             self.assertEqual(adapted['checks'][0]['argv'], first[0]['argv'])
             self.assertEqual(adapted['checks'][0]['log'], first[0]['log'])
 
+    def test_initial_native_fixture_is_per_execution_and_prefix_proof_checks_exact_index(self):
+        digest='a'*64
+        fixture='build/workflow-fixtures/'+digest[:12]
+        unit={'kind':'command','argv':['python','-m','unittest']}
+        check={'kind':'gametest','argv':['./gradlew','runGameTestServer','-Pms14GameTestDir='+fixture],
+               'log':fixture+'/logs/latest.log'}
+        checks=[unit,check]
+        a=workflow_native_fixtures.derive_initial_bindings(checks,input_digest=digest,run_id='r1',generation=1,task_id='t1')
+        b=workflow_native_fixtures.derive_initial_bindings(checks,input_digest=digest,run_id='r2',generation=1,task_id='t2')
+        self.assertEqual(1,a[0]['check_index']); self.assertNotEqual(a[0]['fixture_dir'],b[0]['fixture_dir'])
+        adapted=workflow_native_fixtures.adapt_plan({'checks':checks},a)
+        workflow_native_worker._preflight_fixture_bindings({'checks':checks},adapted,digest,retry_bindings={1:a[0]})
+        actual=workflow_runtime.execution_argv('.',a[0]['argv'])
+        producer=Path(a[0]['log']).resolve()
+        record={'argv':a[0]['argv'],'executed_argv':actual,'source_log':str((Path.cwd()/'capture.log').resolve()),
+            'evidence':{'artifacts':[{'source_path':str(producer),'path':str(producer),
+                'sha256':'a'*64,'size':1,'artifact_ref':'artifact_fixture'}]}}
+        provenance=workflow_native_fixtures.execution_binding(check,digest,1,record,a[0],repo='.')
+        self.assertTrue(workflow_native_fixtures.verify_original_execution(check,digest,1,record,provenance,'.',run_id='r1',generation=1,task_id='t1'))
+        self.assertFalse(workflow_native_fixtures.verify_original_execution(check,digest,1,record,provenance,'.',run_id='r2',generation=1,task_id='t1'))
+        altered=dict(record,executed_argv=['evil.exe'])
+        self.assertFalse(workflow_native_fixtures.verify_original_execution(check,digest,1,altered,provenance,'.',run_id='r1',generation=1,task_id='t1'))
+        with self.assertRaisesRegex(ValueError,'executed argv or log'):
+            workflow_native_fixtures.execution_binding(check,digest,1,dict(record,argv=['evil']),a[0],repo='.')
+        accepted=workflow_native_fixtures.accepted_binding(check,digest,1)
+        self.assertEqual('ACCEPTED_ORIGINAL',accepted['mode'])
+
     def test_dirty_derived_fixture_is_blocked_without_deleting_user_data(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)

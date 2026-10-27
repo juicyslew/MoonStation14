@@ -10,6 +10,7 @@ import java.util.UUID;
 public record GrinderSnapshot(UUID sessionId, UUID placement, UUID body, long bodyEpoch,
         ResourceLocation dimension, BlockPos position, long stateRevision, long beakerRevision,
         List<Slot> chamber, boolean powered, boolean active, long startTick, long endTick,
+        boolean canGrind, boolean canJuice, com.juicyslew.moonstation14.ms14.botany.processing.GrinderProgram.Operation activeOperation,
         boolean open, String rejection) {
     public GrinderSnapshot {
         position = position.immutable();

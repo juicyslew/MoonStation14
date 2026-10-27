@@ -20,6 +20,9 @@ import com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent;
 import com.juicyslew.moonstation14.ms14.character.components.SpeciesComponent;
 import com.juicyslew.moonstation14.ms14.character.components.MobStateComponent;
 import com.juicyslew.moonstation14.ms14.character.components.MobThresholdsComponent;
+import com.juicyslew.moonstation14.ms14.character.components.StatusEffectsPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.StaminaPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.LightningTargetComponent;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 import com.mojang.serialization.JsonOps;
@@ -95,6 +98,22 @@ class CharacterPrototypeTest {
             }
         }
         return definitions;
+    }
+
+    @Test
+    void combatModeDefaultsAndNullableDisarmArePreserved() {
+        var absent = com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"CombatMode\"}")).getOrThrow();
+        assertFalse(absent.initiallyInCombat());
+        assertTrue(absent.canDisarm().isEmpty());
+        for (String value : List.of("true", "false")) {
+            var explicit = com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.CODEC.parse(JsonOps.INSTANCE,
+                    JsonParser.parseString("{\"type\":\"CombatMode\",\"can_disarm\":" + value + "}")).getOrThrow();
+            assertEquals(Optional.of(Boolean.valueOf(value)), explicit.canDisarm());
+        }
+        var explicitNull = com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("{\"type\":\"CombatMode\",\"can_disarm\":null}")).getOrThrow();
+        assertTrue(explicitNull.canDisarm().isEmpty());
     }
 
     @Test
@@ -407,7 +426,15 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-        assertEquals(39, data.components().size(), "merged Human composition retains species alongside existing component families");
+        assertEquals(42, data.components().size(), "merged Human composition retains botany, main, and Tesla component families");
+        assertTrue(data.component(StatusEffectsPrototypeComponent.class).isPresent(), "main Human status-effect configuration survives the merge");
+        assertTrue(data.component(StaminaPrototypeComponent.class).isPresent(), "main Human stamina configuration survives the merge");
+        var lightningTarget = data.component(LightningTargetComponent.class).orElseThrow();
+        assertEquals(2, lightningTarget.priority());
+        assertEquals(1.0, lightningTarget.probability());
+        assertEquals(1.0, lightningTarget.resistance());
+        assertEquals(1.0, lightningTarget.structuralDamage());
+        assertFalse(lightningTarget.explodes(), "Human Tesla targeting must not explode the base mob");
         assertTrue(data.component(ExaminerComponent.class).isPresent());
         assertTrue(data.component(StunnableComponent.class).isPresent());
         assertEquals(Optional.of("Biological"), data.component(DamageableComponent.class).orElseThrow().damageContainer());
@@ -487,6 +514,9 @@ class CharacterPrototypeTest {
         JsonObject encoded = manager.encodePublishedCatalogs()
                 .get(ModCharacters.CHARACTER_TYPE.typeId()).get(ModCharacters.HUMAN_ID);
         assertEquals(data, CharacterData.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
+        var resolvedHuman = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(ModCharacters.HUMAN_ID);
+        assertEquals(lightningTarget, resolvedHuman.component(LightningTargetComponent.class).orElseThrow(),
+                "resolved prototype consumed by Tesla retains its typed target policy");
     }
 
     @Test

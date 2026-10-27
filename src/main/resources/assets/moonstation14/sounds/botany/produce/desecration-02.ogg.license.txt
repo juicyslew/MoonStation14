@@ -1,0 +1,11 @@
+Source: Space Station 14, Resources/Audio/Effects/desecration-02.ogg
+Collection: Resources/Prototypes/SoundCollections/desceration.yml (desecration)
+Pinned revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Source: https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Effects/desecration-02.ogg
+SHA-256: D06BB337D6AEF4F932210012802789D11A68F83A4F742B29F8656A79A4E4F73B
+
+No file-specific entry was found in the pinned Effects/attributions.yml.
+Author, original source, and file-specific license are unresolved. This notice
+does not infer coverage from root MIT, repository-level CC, or another blanket
+license. Resolve rights before redistribution; replace/remove if terms cannot
+be established.

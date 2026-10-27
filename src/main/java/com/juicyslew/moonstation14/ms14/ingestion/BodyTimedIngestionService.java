@@ -120,10 +120,11 @@ public final class BodyTimedIngestionService {
         var result = TimedInteractionSystem.start(body, owner, sequence, KIND, admitted.sourceKey(),
                 profile.delayTicks(), true, false,
                 () -> TimedIngestionAccess.valid(body, admitted, authority),
-                 () -> switch (TimedIngestionAccess.complete(body, admitted, profile.doseCents(), profile.destroyOnEmpty(),
-                          profile.edible().kind() == IngestionProfile.Kind.FOOD, authority,
-                          cents -> IngestionReceiptObserver.publish(new IngestionReceiptObserver.Receipt(
-                                  owner == null ? null : owner.getUUID(), body.getUUID(), admitted.sourceKey(), cents)))) {
+                  () -> switch (TimedIngestionAccess.complete(body, admitted, profile.doseCents(), profile.destroyOnEmpty(),
+                           profile.edible().kind() == IngestionProfile.Kind.FOOD, authority,
+                           cents -> IngestionReceiptObserver.publish(new IngestionReceiptObserver.Receipt(
+                                   owner == null ? null : owner.getUUID(), body.getUUID(), admitted.sourceKey(), cents)),
+                           trashPickup(body, owner, admitted, authority))) {
                     case COMMITTED_REPEAT -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.REPEAT; }
                     case COMMITTED_STOP -> { committed(owner, snapshot(body, owner), body, authority); yield TimedInteractionSystem.Completion.STOP; }
                     case CANNOT_INGEST -> {
@@ -188,6 +189,17 @@ public final class BodyTimedIngestionService {
 
     private static HandActorAuthority.Snapshot snapshot(LivingEntity body, ServerPlayer owner) {
         return owner == null ? null : HandActorAuthority.resolve(owner).filter(s -> s.body() == body).orElse(null);
+    }
+
+    private static java.util.function.BiFunction<com.juicyslew.moonstation14.entities.LooseItemEntity,
+            net.minecraft.world.item.ItemStack, com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransfer.Result>
+            trashPickup(LivingEntity body, ServerPlayer owner, TimedIngestionAccess.Admission admission,
+                       BooleanSupplier authority) {
+        if (owner == null || !admission.heldSource()) return null;
+        HandActorAuthority.Snapshot initial = snapshot(body, owner);
+        if (initial == null) return null;
+        return (entity, expected) -> com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransfer.pickupTrustedCreated(
+                initial, entity, expected, () -> HandActorAuthority.revalidate(owner, initial) && authority.getAsBoolean());
     }
 
     private static void committed(ServerPlayer owner, HandActorAuthority.Snapshot current, LivingEntity body, BooleanSupplier authority) {

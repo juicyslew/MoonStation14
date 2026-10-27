@@ -61,6 +61,7 @@ public class TickHooks {
         com.juicyslew.moonstation14.ms14.mobs.NpcAmbientVocalizationSystem.tick(livingEntity, serverLevel);
         if (livingEntity instanceof net.minecraft.world.entity.Mob mob)
             com.juicyslew.moonstation14.ms14.chat.server.ParrotMemorySystem.tickReplay(mob, serverLevel);
+        com.juicyslew.moonstation14.ms14.character.stamina.StaminaSystem.tick(livingEntity, serverLevel);
         com.juicyslew.moonstation14.ms14.slip.SlipSystem.reconcileTarget(entity);
         // Resolve policy lazily on entity ticks so entities that joined before
         // prototype publication retry without eager state on ineligible hosts.

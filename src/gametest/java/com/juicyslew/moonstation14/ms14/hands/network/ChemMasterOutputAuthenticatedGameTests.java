@@ -13,12 +13,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestListener;
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Authenticated player, admitted block-use route, normal ChemMaster control handler and output ownership. */
 @PrefixGameTestTemplate(false)
@@ -30,8 +32,18 @@ public final class ChemMasterOutputAuthenticatedGameTests {
     @GameTestTags({"chemmaster-output-auth"})
     public static void registeredPlayerInsertsAndPackagesThroughNormalOwners(GameTestHelper helper) {
         var fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "chem-output-auth");
+        var fixtureClosed = new AtomicBoolean();
+        Runnable closeFixture = () -> { if (fixtureClosed.compareAndSet(false, true)) fixture.close(); };
+        helper.testInfo.addListener(new GameTestListener() {
+            @Override public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo info) { }
+            @Override public void testPassed(net.minecraft.gametest.framework.GameTestInfo info, net.minecraft.gametest.framework.GameTestRunner runner) { closeFixture.run(); }
+            @Override public void testFailed(net.minecraft.gametest.framework.GameTestInfo info, net.minecraft.gametest.framework.GameTestRunner runner) { closeFixture.run(); }
+            @Override public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo oldTest,
+                    net.minecraft.gametest.framework.GameTestInfo newTest, net.minecraft.gametest.framework.GameTestRunner runner) { closeFixture.run(); }
+        });
         helper.runAtTickTime(2, () -> {
             try {
+                if (fixtureClosed.get()) return;
                 var owner = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
                 ServerLevel level = (ServerLevel) helper.getLevel();
                 BlockPos origin = helper.absolutePos(new BlockPos(3, 1, 2));
@@ -40,7 +52,8 @@ public final class ChemMasterOutputAuthenticatedGameTests {
                 PowerFixtureReadiness.await(helper, level, 400,
                         () -> level.getBlockEntity(machinePos) instanceof ChemMasterBlockEntity machine
                                 && PowerRuntime.hasFullFreshChemMasterPower(level, machine, machine.placementIdentity()),
-                        () -> "fixture ChemMaster waits for fresh normal power", () -> {
+                     () -> "fixture ChemMaster waits for fresh normal power", () -> {
+                    if (fixtureClosed.get()) return;
                     try {
                         var machine = (ChemMasterBlockEntity) level.getBlockEntity(machinePos);
                         var water = com.juicyslew.moonstation14.ms14.reagent.ModReagents.createKey("water");
@@ -237,8 +250,9 @@ public final class ChemMasterOutputAuthenticatedGameTests {
 
                         // BodyHandStateService rate-limits four owner snapshots per tick. Continue
                         // the bottle route next tick, using the normal active-hand selection owner.
-                        helper.runAfterDelay(1, () -> {
-                            try {
+                         helper.runAfterDelay(1, () -> {
+                             try {
+                                 if (fixtureClosed.get()) return;
                                 var beforeSelect = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
                                 String bottleHandId = beforeSelect.handIds().stream().filter(id -> !id.equals(beforeSelect.activeHand())
                                         && beforeSelect.token(id).isEmpty()).findFirst().orElseGet(() -> beforeSelect.handIds().stream()
@@ -265,14 +279,24 @@ public final class ChemMasterOutputAuthenticatedGameTests {
                                         bottleHeldState.revision(), heldBottle.id(), heldBottle.token(), machinePos, bottleHit.getDirection(),
                                         false, BodyBlockUseRequest.Intent.USE)) == BodyBlockUseResult.Outcome.PLACED,
                                         "normal admitted held USE inserts bottle into output slot");
-                                var bottleInserted = takeLatestUpdate(fixture);
-                                require(bottleInserted.outputSlot().kind() == ChemMasterWindowState.OutputKind.BOTTLE,
-                                        "authoritative output snapshot describes inserted bottle");
-                                var fillBottle = request(bottleInserted, 7, ChemMasterControlRequest.Operation.OUTPUT_TO_BOTTLE,
+                                // QUERY ignores snapshot revisions by contract, but receives a correlated
+                                // authoritative response instead of trusting a drained unsolicited update.
+                                var bottleQuery = request(inputPackaged, 7, ChemMasterControlRequest.Operation.QUERY,
+                                        null, -1, -1, null);
+                                ChemMasterSessionService.handle(fixture.player(), bottleQuery);
+                                var bottleInserted = takeAcknowledged(fixture, 7);
+                                require(bottleInserted.acknowledgedRequestId() == 7 && bottleInserted.rejectionReason().isEmpty()
+                                                 && bottleInserted.outputSlot().kind() == ChemMasterWindowState.OutputKind.BOTTLE
+                                                 && bottleInserted.outputSlot().revision() > inputPackaged.outputSlot().revision(),
+                                         "correlated QUERY snapshot describes inserted bottle; kind=" + bottleInserted.outputSlot().kind()
+                                                 + " outputRevision=" + bottleInserted.outputSlot().revision() + " priorRevision="
+                                                 + inputPackaged.outputSlot().revision() + " stateRevision=" + bottleInserted.stateRevision()
+                                                 + " ack=" + bottleInserted.acknowledgedRequestId() + " rejection=" + bottleInserted.rejectionReason());
+                                var fillBottle = request(bottleInserted, 8, ChemMasterControlRequest.Operation.OUTPUT_TO_BOTTLE,
                                         null, bottleInserted.bufferRevision(), -1,
                                         new ChemMasterControlRequest.OutputRequest(0, 1, "Bottle from input"));
                                 ChemMasterSessionService.handle(fixture.player(), fillBottle);
-                                var bottleFilled = takeAcknowledged(fixture, 7);
+                                var bottleFilled = takeAcknowledged(fixture, 8);
                                 require(bottleFilled.rejectionReason().isEmpty()
                                                 && bottleFilled.outputSlot().kind() == ChemMasterWindowState.OutputKind.BOTTLE
                                                 && bottleFilled.outputSlot().volumeCents() == 100
@@ -281,10 +305,10 @@ public final class ChemMasterOutputAuthenticatedGameTests {
                                 require(bottleFilled.inputVolumeCents() == 200
                                                 && bottleFilled.bufferReagents().stream().mapToLong(ChemMasterWindowState.ReagentRow::amountCents).sum() == 200,
                                         "bottle operation conserves INPUT mixture and leaves BUFFER unchanged");
-                                var ejectBottle = request(bottleFilled, 8, ChemMasterControlRequest.Operation.EJECT_OUTPUT,
+                                var ejectBottle = request(bottleFilled, 9, ChemMasterControlRequest.Operation.EJECT_OUTPUT,
                                         null, -1, -1, null);
                                 ChemMasterSessionService.handle(fixture.player(), ejectBottle);
-                                var bottleEjected = takeAcknowledged(fixture, 8);
+                                var bottleEjected = takeAcknowledged(fixture, 9);
                                 require(bottleEjected.rejectionReason().isEmpty()
                                                 && bottleEjected.outputSlot().kind() == ChemMasterWindowState.OutputKind.EMPTY,
                                         "authenticated output ejection also succeeds after bottle filling");
@@ -295,12 +319,12 @@ public final class ChemMasterOutputAuthenticatedGameTests {
                                 var bottleContents = ejectedBottle.get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get());
                                 require(bottleContents != null && bottleContents.centContents().values().stream().mapToLong(Long::longValue).sum() == 100,
                                         "ejected bottle retains its exact reagent contents");
-                                fixture.close(); helper.succeed();
-                            } catch (RuntimeException | Error failure) { failure.printStackTrace(); throw failure; }
+                                closeFixture.run(); helper.succeed();
+                            } catch (RuntimeException | Error failure) { closeFixture.run(); throw failure; }
                         });
-                    } catch (RuntimeException | Error failure) { throw failure; }
+                    } catch (RuntimeException | Error failure) { closeFixture.run(); throw failure; }
                 });
-            } catch (RuntimeException | Error failure) { throw failure; }
+            } catch (RuntimeException | Error failure) { closeFixture.run(); throw failure; }
         });
     }
 

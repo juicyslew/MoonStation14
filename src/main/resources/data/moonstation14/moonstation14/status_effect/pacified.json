@@ -1,0 +1,7 @@
+{
+  "translation_key": "status-effect-pacified",
+  "beneficial": true,
+  "color": "0x00FF00",
+  "behaviors": ["marker", "pacified"],
+  "eligibility": ["living_entity", "prototype_admitted"]
+}

@@ -1,0 +1,10 @@
+{
+  "capacity_cents": 500,
+  "id": "moonstation14:holymelon_slice",
+  "contents_cents": {
+    "moonstation14:nutriment": 200,
+    "moonstation14:holywater": 200,
+    "moonstation14:vitamin": 100
+  },
+  "refillable": true
+}

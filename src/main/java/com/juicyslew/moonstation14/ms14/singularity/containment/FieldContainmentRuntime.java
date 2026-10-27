@@ -21,6 +21,7 @@ public final class FieldContainmentRuntime {
     private static final Map<ServerLevel, Map<ClosedFieldVolume.Edge, LinkIdentity>> EDGE_IDENTITIES = new WeakHashMap<>();
     private static final Map<ServerLevel, List<ClosedFieldVolume.Bounds>> VOLUMES = new WeakHashMap<>();
     private static final Map<ServerLevel, List<Face>> FACES = new WeakHashMap<>();
+    private static final Set<ServerLevel> DIRTY = Collections.newSetFromMap(new WeakHashMap<>());
     private record LinkIdentity(UUID first, UUID second) { }
     /** Axis-aligned rectangle proven by four live edges and four current generator placements. */
     public record Face(String key, Direction.Axis axis, int plane, int minU, int maxU, int minV, int maxV,
@@ -30,17 +31,19 @@ public final class FieldContainmentRuntime {
     public record FaceHit(Face face, Direction normal, double segmentFraction) { }
     private FieldContainmentRuntime() { }
     public static void register(IEventBus bus) { bus.register(FieldContainmentRuntime.class); }
-    public static void changed(ServerLevel level, BlockPos pos) { GENERATORS.computeIfAbsent(level, ignored -> new HashSet<>()).add(pos.immutable()); }
+    public static void changed(ServerLevel level, BlockPos pos) {
+        if (GENERATORS.computeIfAbsent(level, ignored -> new HashSet<>()).add(pos.immutable())) DIRTY.add(level);
+    }
     public static void removed(ServerLevel level, BlockPos pos) {
-        Set<BlockPos> entries=GENERATORS.get(level); if(entries!=null) entries.remove(pos);
-        EDGES.remove(level); EDGE_IDENTITIES.remove(level); VOLUMES.remove(level); FACES.remove(level);
+        Set<BlockPos> entries=GENERATORS.get(level); if(entries!=null && entries.remove(pos)) DIRTY.add(level);
     }
     public static boolean hasConnection(ServerLevel level, FieldGeneratorBlockEntity entity) {
+        ensureFresh(level);
         return EDGES.getOrDefault(level, Set.of()).stream().anyMatch(edge -> edge.first().equals(entity.getBlockPos()) || edge.second().equals(entity.getBlockPos()));
     }
-    public static List<ClosedFieldVolume.Bounds> closedVolumes(ServerLevel level) { return List.copyOf(VOLUMES.getOrDefault(level,List.of())); }
-    public static List<Face> currentFaces(ServerLevel level) { return List.copyOf(FACES.getOrDefault(level,List.of())); }
-    public static Set<ClosedFieldVolume.Edge> currentEdges(ServerLevel level) { return Set.copyOf(EDGES.getOrDefault(level,Set.of())); }
+    public static List<ClosedFieldVolume.Bounds> closedVolumes(ServerLevel level) { ensureFresh(level); return List.copyOf(VOLUMES.getOrDefault(level,List.of())); }
+    public static List<Face> currentFaces(ServerLevel level) { ensureFresh(level); return List.copyOf(FACES.getOrDefault(level,List.of())); }
+    public static Set<ClosedFieldVolume.Edge> currentEdges(ServerLevel level) { ensureFresh(level); return Set.copyOf(EDGES.getOrDefault(level,Set.of())); }
     public static void refresh(ServerLevel level) { rebuild(level); }
     /** First conservative swept-sphere contact with any currently valid rectangular field face. */
     public static Optional<FaceHit> firstFaceHit(ServerLevel level, Vec3 from, Vec3 to, double radius) {
@@ -88,14 +91,14 @@ public final class FieldContainmentRuntime {
         if(e.getLevel() instanceof ServerLevel l) unloadChunk(l,e.getChunk().getPos());
     }
     public static void unloadChunk(ServerLevel level,ChunkPos chunkPos) {
-        Set<BlockPos> s=GENERATORS.get(level); if(s!=null)s.removeIf(p->new ChunkPos(p).equals(chunkPos));
-        EDGES.remove(level);EDGE_IDENTITIES.remove(level);VOLUMES.remove(level);FACES.remove(level);
+        Set<BlockPos> s=GENERATORS.get(level); if(s!=null && s.removeIf(p->new ChunkPos(p).equals(chunkPos))) DIRTY.add(level);
     }
-    @net.neoforged.bus.api.SubscribeEvent public static void levelUnloaded(LevelEvent.Unload e) { if(e.getLevel() instanceof ServerLevel l){GENERATORS.remove(l);EDGES.remove(l);EDGE_IDENTITIES.remove(l);VOLUMES.remove(l);FACES.remove(l);} }
-    @net.neoforged.bus.api.SubscribeEvent public static void stopped(ServerStoppedEvent e){GENERATORS.clear();EDGES.clear();EDGE_IDENTITIES.clear();VOLUMES.clear();FACES.clear();}
+    @net.neoforged.bus.api.SubscribeEvent public static void levelUnloaded(LevelEvent.Unload e) { if(e.getLevel() instanceof ServerLevel l){GENERATORS.remove(l);EDGES.remove(l);EDGE_IDENTITIES.remove(l);VOLUMES.remove(l);FACES.remove(l);DIRTY.remove(l);} }
+    @net.neoforged.bus.api.SubscribeEvent public static void stopped(ServerStoppedEvent e){GENERATORS.clear();EDGES.clear();EDGE_IDENTITIES.clear();VOLUMES.clear();FACES.clear();DIRTY.clear();}
     @net.neoforged.bus.api.SubscribeEvent public static void tick(ServerTickEvent.Post e) { for(ServerLevel l:e.getServer().getAllLevels()) rebuild(l); }
 
     private static void rebuild(ServerLevel level) {
+        DIRTY.remove(level);
         Set<BlockPos> indexed=GENERATORS.get(level); if(indexed==null){EDGES.remove(level);EDGE_IDENTITIES.remove(level);VOLUMES.remove(level);FACES.remove(level);return;}
         Map<BlockPos,FieldGeneratorBlockEntity> nodes=new HashMap<>();
         for(Iterator<BlockPos> it=indexed.iterator();it.hasNext();) { BlockPos p=it.next(); if(!level.hasChunkAt(p)){it.remove();continue;} if(level.getBlockEntity(p) instanceof FieldGeneratorBlockEntity be&&!be.isRemoved())nodes.put(p,be);else it.remove(); }
@@ -135,6 +138,7 @@ public final class FieldContainmentRuntime {
         VOLUMES.put(level,List.copyOf(boxes));
         FACES.put(level,deriveFaces(level,nodes,edges));
     }
+    private static void ensureFresh(ServerLevel level) { if (DIRTY.contains(level)) rebuild(level); }
     private static List<Face> deriveFaces(ServerLevel level,Map<BlockPos,FieldGeneratorBlockEntity> nodes,Set<ClosedFieldVolume.Edge> edges) {
         Set<String> seen=new HashSet<>(); List<Face> result=new ArrayList<>(); List<BlockPos> positions=List.copyOf(nodes.keySet());
         for(BlockPos a:positions)for(BlockPos b:positions) {

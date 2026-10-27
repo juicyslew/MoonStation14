@@ -21,6 +21,7 @@ class GameTestStructureTemplateEncodingTest {
         assertSize("power_overload_clear.nbt", 16, 13, 18);
         assertSize("apc_debug_fixture.nbt", 12, 4, 12);
         assertSize("power_receiver_tall_clear.nbt", 16, 13, 16);
+        assertBotanyExtractorTemplate();
         assertSize("disposal_clear.nbt", 32, 8, 32);
         assertSize("disposal_power_clear.nbt", 48, 8, 48);
         assertSize("singularity_fixture_clear.nbt", 32, 16, 24);
@@ -31,6 +32,35 @@ class GameTestStructureTemplateEncodingTest {
                 new int[][]{{3, 12, 2}, {4, 12, 10}, {4, 12, 11}, {2, 12, 10}, {6, 12, 10}});
         assertCoordinatesFit(9, 4, 10, new int[][]{{3, 1, 2}, {4, 1, 9}});
         assertCoordinatesFit(12, 4, 12, new int[][]{{3, 1, 2}, {5, 1, 7}});
+        assertCoordinatesFit(16, 20, 16,
+                new int[][]{{2, 12, 10}, {5, 12, 8}, {7, 12, 8}, {5, 13, 8}, {5, 14, 8}, {6, 14, 9}, {6, 14, 10}});
+    }
+
+    private static void assertBotanyExtractorTemplate() throws Exception {
+        String resource = "/data/moonstation14/structure/botany_extractor_power_clear.nbt";
+        CompoundTag root;
+        try (InputStream input = GameTestStructureTemplateEncodingTest.class.getResourceAsStream(resource)) {
+            if (input == null) throw new AssertionError("Missing structure fixture " + resource);
+            root = NbtIo.readCompressed(input, NbtAccounter.unlimitedHeap());
+        }
+        ListTag blocks = root.getList("blocks", Tag.TAG_COMPOUND);
+        assertEquals(16 * 20 * 16, blocks.size(), "every owned cell is explicit air");
+        assertEquals(3465, root.getInt("DataVersion"), "copied template DataVersion");
+        java.util.Set<String> coordinates = new java.util.HashSet<>();
+        for (int i = 0; i < blocks.size(); i++) {
+            CompoundTag block = blocks.getCompound(i);
+            assertEquals(0, block.getInt("state"), "air palette state at block " + i);
+            ListTag pos = block.getList("pos", Tag.TAG_INT);
+            assertEquals(3, pos.size(), "position dimensions at block " + i);
+            assertTrue(pos.getInt(0) >= 0 && pos.getInt(0) < 16 && pos.getInt(1) >= 0 && pos.getInt(1) < 20
+                    && pos.getInt(2) >= 0 && pos.getInt(2) < 16, "owned bounds at block " + i);
+            assertTrue(coordinates.add(pos.getInt(0) + "," + pos.getInt(1) + "," + pos.getInt(2)), "unique owned coordinate at block " + i);
+        }
+        assertEquals(16 * 20 * 16, coordinates.size(), "complete owned air volume");
+        ByteArrayOutputStream encoded = new ByteArrayOutputStream();
+        NbtIo.writeCompressed(root, encoded);
+        CompoundTag roundTripped = NbtIo.readCompressed(new java.io.ByteArrayInputStream(encoded.toByteArray()), NbtAccounter.unlimitedHeap());
+        assertEquals(root, roundTripped, "botany fixture complete NBT round-trip");
     }
 
     private static void assertSize(String file, int x, int y, int z) throws Exception {

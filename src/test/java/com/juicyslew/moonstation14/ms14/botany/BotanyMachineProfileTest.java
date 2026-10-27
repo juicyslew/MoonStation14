@@ -36,7 +36,7 @@ class BotanyMachineProfileTest {
         assertNotNull(extractor);
         assertTrue(extractor.extractor());
         assertTrue(extractor.powered());
-        assertEquals(0, extractor.powerWatts());
+        assertEquals(1000, extractor.powerWatts());
         assertEquals(0, extractor.chamberCapacity());
         assertEquals(1, extractor.minimumPacketYield());
         assertEquals(3, extractor.maximumPacketYield());
@@ -49,6 +49,7 @@ class BotanyMachineProfileTest {
         assertEquals(6, grinder.chamberCapacity());
         assertEquals(70, grinder.startDelayTicks());
         assertEquals(new MachineProfile.SoundCue(id("botany/grinder/blender"), 1f, 1f), grinder.processingSound());
+        assertEquals(new MachineProfile.SoundCue(id("botany/grinder/juicer"), 1f, 1f), grinder.juiceSound());
         assertEquals(new MachineProfile.SoundCue(id("chemistry/chemmaster/insert"), 1f, 1f), grinder.beakerInsertSound());
         assertEquals(new MachineProfile.SoundCue(id("chemistry/chemmaster/eject"), 1f, 1f), grinder.beakerEjectSound());
         assertEquals(new MachineProfile.SoundCue(id("apc/switch"), 0.7943282f, 1f), grinder.chamberEjectSound());
@@ -74,7 +75,7 @@ class BotanyMachineProfileTest {
             assertNotNull(stream, "sounds.json event definitions");
             eventDefinitions = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
         } catch (java.io.IOException exception) { throw new AssertionError(exception); }
-        for (var cue : new MachineProfile.SoundCue[]{profile.processingSound(), profile.beakerInsertSound(), profile.beakerEjectSound(), profile.chamberEjectSound()}) {
+        for (var cue : new MachineProfile.SoundCue[]{profile.processingSound(), profile.juiceSound(), profile.beakerInsertSound(), profile.beakerEjectSound(), profile.chamberEjectSound()}) {
             assertNotNull(cue);
             assertEquals("moonstation14", cue.sound().getNamespace());
             assertTrue(eventDefinitions.has(cue.sound().getPath()), "missing registered sound event " + cue.sound());

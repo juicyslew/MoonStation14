@@ -22,7 +22,7 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.UUID;
 
 /** Registered singularity energy state, resolved-profile movement and field-face response. */
-public final class SingularityEntity extends Entity {
+public final class SingularityEntity extends Entity implements com.juicyslew.moonstation14.ms14.singularity.GeneratorSpawnTarget, com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorEnergyReceiver {
     private static final EntityDataAccessor<Integer> LEVEL = SynchedEntityData.defineId(SingularityEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> ENERGY = SynchedEntityData.defineId(SingularityEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<String> SYNC_PROFILE = SynchedEntityData.defineId(SingularityEntity.class, EntityDataSerializers.STRING);
@@ -83,6 +83,11 @@ public final class SingularityEntity extends Entity {
         if (level().isClientSide || !Double.isFinite(amount) || amount <= 0) return;
         if (!initialized) initializeFromProfile();
         setEnergy(energy() + amount);
+    }
+    @Override public double particleContactRadius() { return gravityProfile().eventHorizonRadiusAtLevel(singularityLevel()); }
+    @Override public double particleEnergy() { return energy(); }
+    @Override public void receiveParticleEnergy(com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorStrengthProfile strength) {
+        if (strength != null) feed(strength.singularityFood());
     }
     public void drain(double amount) {
         if (level().isClientSide || !Double.isFinite(amount) || amount <= 0) return;
@@ -162,21 +167,15 @@ public final class SingularityEntity extends Entity {
         var center = position();
         var box = getBoundingBox().inflate(radius);
         for (var body : server.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, box,
-                candidate -> candidate.isAlive() && !candidate.isSpectator() && !candidate.noPhysics
-                        && candidate.isAddedToLevel()
-                        && !(candidate instanceof net.minecraft.server.level.ServerPlayer player
-                            && com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy.isCarrier(player)))) {
+                com.juicyslew.moonstation14.ms14.singularity.ReactorContactConsumption::eligible)) {
             boolean playerCore = com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy
                     .isPlayerCharacterBody(body, server);
             double lethalRadius = playerCore ? profile().playerLethalRadiusAtLevel(singularityLevel()) : radius;
-            if (!com.juicyslew.moonstation14.ms14.singularity.SingularityHorizonGeometry
-                    .touches(center, lethalRadius, body.getBoundingBox())) continue;
+            if (!com.juicyslew.moonstation14.ms14.singularity.ReactorContactConsumption
+                    .touches(center, lethalRadius, body)) continue;
             // Set zero health then use the native death event without a MAX_FLOAT damage delta, which
             // overflows the typed-damage projection. Native MobStateSystem still owns death admission.
-            body.setHealth(0);
-            body.die(body.damageSources().genericKill());
-            if (body instanceof com.juicyslew.moonstation14.mixin.LivingEntityDeathStateAccessor deathState
-                    && deathState.ms14$isDead())
+            if (com.juicyslew.moonstation14.ms14.singularity.ReactorContactConsumption.kill(server, body))
                 feed(horizon.entityEnergy());
         }
     }
@@ -205,14 +204,10 @@ public final class SingularityEntity extends Entity {
         int extent = (int) Math.ceil(radius);
         net.minecraft.core.BlockPos.betweenClosedStream(blockPosition().offset(-extent, -extent, -extent), blockPosition().offset(extent, extent, extent)).forEach(pos -> {
             if (isRemoved()) return;
-            if (!server.hasChunkAt(pos)) return;
             var state = server.getBlockState(pos);
-            if (state.isAir() || state.getDestroySpeed(server, pos) < 0) return;
             var blockEntity = server.getBlockEntity(pos);
-            if (blockEntity instanceof com.juicyslew.moonstation14.block.block_entity.FieldGeneratorBlockEntity generator
-                    && !profile().canBreachAtLevel(singularityLevel()) && FieldContainmentRuntime.hasConnection(server, generator)) return;
-            if (blockEntity != null && !(blockEntity instanceof com.juicyslew.moonstation14.ms14.singularity.SingularityConsumable)
-                    && !(state.getBlock() instanceof com.juicyslew.moonstation14.ms14.singularity.SingularityConsumable)) return;
+            if (!com.juicyslew.moonstation14.ms14.singularity.ReactorBlockConsumption.eligible(
+                    server,pos,profile().canBreachAtLevel(singularityLevel()))) return;
             if (!blockIntersectsSphere(pos, center, radius)) return;
             var lowYieldTag = net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK,
                     net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "singularity_low_yield_terrain"));
@@ -224,8 +219,8 @@ public final class SingularityEntity extends Entity {
             }
             double replacement = energy() + credit;
             if (!supportedEnergy(replacement)) return;
-            if (server.removeBlock(pos, false)) {
-                com.juicyslew.moonstation14.ms14.power.cable.CableStorage.removeHost(server, pos);
+            if (com.juicyslew.moonstation14.ms14.singularity.ReactorBlockConsumption.remove(
+                    server,pos,profile().canBreachAtLevel(singularityLevel()))) {
                 setEnergy(replacement);
             }
         });
@@ -287,6 +282,11 @@ public final class SingularityEntity extends Entity {
         profileId = configuredProfile;
         entityData.set(SYNC_PROFILE, profileId.toString());
         initializeFromProfile();
+    }
+    @Override public boolean initializeSourceProfile(ResourceLocation configuredProfile) {
+        if (configuredProfile == null || level().isClientSide) return false;
+        try { ModSingularityGameplay.catalog(level()).get(configuredProfile); initializeFromGenerator(configuredProfile); return true; }
+        catch (RuntimeException missing) { return false; }
     }
     /** Explicit operator-fixture initialization; subsequent ticks retain ordinary drain and movement. */
     public void initializeForGravityFixture(ResourceLocation configuredProfile,double fixtureEnergy) {

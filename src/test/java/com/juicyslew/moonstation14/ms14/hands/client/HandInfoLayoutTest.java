@@ -43,6 +43,29 @@ class HandInfoLayoutTest {
     }
 
     @Test
+    void ammoRowExpandsOnlyItsPanelAndDefaultsStayCompact() {
+        var bar = HandBarLayout.calculate(320, 240);
+        var compact = HandInfoLayout.calculate(320, 240, bar);
+        assertEquals(12, compact.left().height());
+        assertEquals(12, compact.right().height());
+
+        var row = HandInfoLayout.calculate(320, 240, bar, false, true);
+        assertEquals(12, row.left().height());
+        assertEquals(27, row.right().height());
+        assertEquals(bar.leftHand().y() - 29, row.right().y());
+        assertEquals(row.right().y() + 15, row.left().y());
+        assertTrue(row.right().y() + row.right().height() < bar.rightHand().y());
+
+        var offhandOnly = HandInfoLayout.calculate(320, 240, bar, true, false);
+        assertEquals(27, offhandOnly.left().height());
+        assertEquals(12, offhandOnly.right().height());
+        var narrow = HandInfoLayout.calculate(120, 240, HandBarLayout.calculate(120, 240), false, true);
+        assertNotNull(narrow);
+        assertTrue(narrow.right().x() + narrow.right().width() <= 120);
+        assertTrue(narrow.right().y() >= 0);
+    }
+
+    @Test
     void centeredGeometryRemainsInsideBoundsAtSupportedWidths() {
         for (int width : new int[]{90, 180, 320, 640}) {
             var bar = HandBarLayout.calculate(width, 180);

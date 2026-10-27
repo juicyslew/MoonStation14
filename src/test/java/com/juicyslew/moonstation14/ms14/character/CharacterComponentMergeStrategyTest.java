@@ -16,6 +16,57 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CharacterComponentMergeStrategyTest {
+    @Test
+    void meleeWeaponUsesSharedDataCodecAndMergesPartialNestedStats() {
+        var resolved = resolve(entry("base", "{\"abstract\":true,\"components\":[{\"type\":\"MeleeWeapon\",\"weapon\":{\"damage\":{\"blunt\":4},\"attack_rate\":2,\"range\":2.5,\"angle_degrees\":30,\"wide_arc\":\"moonstation14:weapon_arc_slash\",\"alt_disarm\":false}}]}"),
+                entry("child", "{\"parent\":\"base\",\"components\":[{\"type\":\"MeleeWeapon\",\"weapon\":{\"damage\":{\"slash\":3},\"attack_rate\":3}}]}"));
+        JsonObject melee = component(resolved.get(id("child")));
+        assertEquals(3, melee.getAsJsonObject("weapon").get("attack_rate").getAsInt());
+        assertEquals(2.5, melee.getAsJsonObject("weapon").get("range").getAsDouble());
+        assertEquals(30, melee.getAsJsonObject("weapon").get("angle_degrees").getAsInt());
+        assertEquals("moonstation14:weapon_arc_slash", melee.getAsJsonObject("weapon").get("wide_arc").getAsString());
+        assertFalse(melee.getAsJsonObject("weapon").get("alt_disarm").getAsBoolean());
+        assertEquals(json("{\"slash\":3}"), melee.getAsJsonObject("weapon").getAsJsonObject("damage"));
+        assertInstanceOf(com.juicyslew.moonstation14.ms14.character.components.MeleeWeaponComponent.class,
+                CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE, melee).getOrThrow());
+        for (String bad : List.of("{\"unknown\":1}", "{\"blunt\":null}", "{\"blunt\":-1}")) {
+            assertTrue(CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE,
+                    json("{\"type\":\"MeleeWeapon\",\"weapon\":{\"damage\":" + bad + "}}" )).error().isPresent());
+        }
+        assertTrue(CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE,
+                json("{\"type\":\"MeleeWeapon\",\"weapon\":{\"damage\":{\"blunt\":1},\"attack_rate\":0}}" )).error().isPresent());
+    }
+
+    @Test
+    void meleeAudioPartialOverrideRetainsParentCuesAndCueSettings() {
+        var resolved = resolve(entry("base", "{\"abstract\":true,\"components\":[{\"type\":\"MeleeWeapon\",\"weapon\":{\"damage\":{\"slash\":15},\"attack_rate\":2,\"arc\":\"moonstation14:weapon_arc_fist\",\"animation_offset\":2,\"wide_animation_rotation\":30,\"audio\":{\"hit\":{\"event\":\"moonstation14:ss14/weapons/blade_slice\"},\"swing\":{\"event\":\"moonstation14:custom/swing\",\"volume_db\":-8,\"pitch_variation\":0.2}}}}]}"),
+                entry("child", "{\"parent\":\"base\",\"components\":[{\"type\":\"MeleeWeapon\",\"weapon\":{\"damage\":{\"blunt\":10},\"animation_offset\":3,\"audio\":{\"swing\":{\"volume_db\":-12}}}}]}"));
+        JsonObject melee = component(resolved.get(id("child")));
+        JsonObject weapon = melee.getAsJsonObject("weapon");
+        JsonObject audio = weapon.getAsJsonObject("audio");
+        assertEquals(json("{\"event\":\"moonstation14:custom/swing\",\"volume_db\":-12,\"pitch_variation\":0.2}"), audio.getAsJsonObject("swing"));
+        assertEquals("moonstation14:ss14/weapons/blade_slice", audio.getAsJsonObject("hit").get("event").getAsString());
+        var parsed = com.juicyslew.moonstation14.ms14.character.components.CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE, melee).getOrThrow();
+        var data = ((com.juicyslew.moonstation14.ms14.character.components.MeleeWeaponComponent) parsed).weapon();
+        assertEquals(Map.of("blunt", 10f), data.damage());
+        assertEquals(2f, data.attackRate());
+        assertEquals("moonstation14:ss14/weapons/blade_slice", data.audio().hit().event().toString());
+        assertEquals("moonstation14:weapon_arc_fist", data.arc().toString()); assertEquals(3f, data.animationOffset()); assertEquals(30f, data.wideAnimationRotation());
+        assertEquals(0.2f, data.audio().swing().pitchVariation());
+        assertEquals(60f, data.angleDegrees()); assertEquals("moonstation14:weapon_arc_slash", data.wideArc().toString()); assertTrue(data.altDisarm());
+        assertNull(data.audio().noDamage());
+    }
+
+    @Test void contactProtectionComponentUsesSharedDataAndNestedMerge() {
+        var resolved = resolve(entry("base", "{\"abstract\":true,\"components\":[{\"type\":\"DamageOnInteractProtection\",\"profile\":{\"protection\":{\"coefficients\":{},\"flat_reductions\":{\"heat\":5}},\"slots\":[\"GLOVES\"]}}]}"),
+                entry("child", "{\"parent\":\"base\",\"components\":[{\"type\":\"DamageOnInteractProtection\",\"profile\":{\"protection\":{\"flat_reductions\":{\"caustic\":5}}}}]}"));
+        var component = component(resolved.get(id("child")));
+        var data = CharacterComponentRegistry.CODEC.parse(JsonOps.INSTANCE, component).getOrThrow();
+        assertInstanceOf(com.juicyslew.moonstation14.ms14.character.components.DamageOnInteractProtectionComponent.class, data);
+        var profile = ((com.juicyslew.moonstation14.ms14.character.components.DamageOnInteractProtectionComponent)data).profile();
+        assertEquals(Map.of("heat",5f,"caustic",5f), profile.protection().flatReductions());
+        assertEquals(List.of(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.GLOVES), profile.slots());
+    }
     private static final String FIRST = "[{\"type\":\"Barotrauma\",\"damage\":{\"types\":{\"blunt\":0.5,\"heat\":0.1}},\"maxDamage\":200}]";
     private static final String SECOND = "[{\"type\":\"Barotrauma\",\"damage\":{\"types\":{\"slash\":0.2}},\"maxDamage\":300}]";
     private static final String BLOODSTREAM = "{\"type\":\"Bloodstream\",\"reference_solution\":{\"moonstation14:blood\":300},"

@@ -157,8 +157,7 @@ class ReviewServiceTests(unittest.TestCase):
                         'command_id':'claim-'+task['task_id'],**identity})
                     self.assertTrue(claim.json()['accepted'],claim.json())
                     body={'contract_version':1,**identity,
-                        'decision':'PASS','findings':[{'criterion_id':'criterion-1','category':'IMPLEMENTATION',
-                            'message':'Reviewed verified check receipt','location':'source tree','evidence_refs':refs}],
+                        'decision':'PASS','findings':[],'owner_followups':[],
                         'inspected_refs':refs}
                     submitted.append((headers,body))
                     result=client.post('/v1/review/complete',headers=headers,json=body)

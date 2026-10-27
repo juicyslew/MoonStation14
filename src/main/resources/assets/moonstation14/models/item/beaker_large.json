@@ -1,1 +1,44 @@
-{"textures":{"layer0":"moonstation14:item/beaker_large/beakerlarge"},"overrides":[{"predicate":{"moonstation14:fill":1},"model":"moonstation14:item/beaker_large_1"},{"predicate":{"moonstation14:fill":2},"model":"moonstation14:item/beaker_large_2"},{"predicate":{"moonstation14:fill":3},"model":"moonstation14:item/beaker_large_3"},{"predicate":{"moonstation14:fill":4},"model":"moonstation14:item/beaker_large_4"},{"predicate":{"moonstation14:fill":5},"model":"moonstation14:item/beaker_large_5"},{"predicate":{"moonstation14:fill":6},"model":"moonstation14:item/beaker_large_6"}],"parent":"minecraft:item/generated"}
+{
+  "textures": {
+    "layer0": "moonstation14:item/beaker_large/beakerlarge"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "moonstation14:fill": 1
+      },
+      "model": "moonstation14:item/beaker_large_1"
+    },
+    {
+      "predicate": {
+        "moonstation14:fill": 2
+      },
+      "model": "moonstation14:item/beaker_large_2"
+    },
+    {
+      "predicate": {
+        "moonstation14:fill": 3
+      },
+      "model": "moonstation14:item/beaker_large_3"
+    },
+    {
+      "predicate": {
+        "moonstation14:fill": 4
+      },
+      "model": "moonstation14:item/beaker_large_4"
+    },
+    {
+      "predicate": {
+        "moonstation14:fill": 5
+      },
+      "model": "moonstation14:item/beaker_large_5"
+    },
+    {
+      "predicate": {
+        "moonstation14:fill": 6
+      },
+      "model": "moonstation14:item/beaker_large_6"
+    }
+  ],
+  "parent": "minecraft:item/generated"
+}

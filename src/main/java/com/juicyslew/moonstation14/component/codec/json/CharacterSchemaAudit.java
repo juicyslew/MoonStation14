@@ -299,8 +299,16 @@ public final class CharacterSchemaAudit {
             return;
         }
         if (CombatModeComponent.TYPE.equals(type)) {
-            checkFields(object, Set.of("type", "combatToggleAction"), path);
+            checkFields(object, Set.of("type", "combatToggleAction", "initially_in_combat", "can_disarm", "base_disarm_fail_chance", "disarm_success_sound"), path);
             if (object.has("combatToggleAction")) auditCapabilityString(object, "combatToggleAction", path);
+            if (object.has("base_disarm_fail_chance") && (!finiteNumber(object.get("base_disarm_fail_chance"))
+                    || object.get("base_disarm_fail_chance").getAsDouble() < 0 || object.get("base_disarm_fail_chance").getAsDouble() > 1))
+                fail(path + ".base_disarm_fail_chance", "expected finite number in [0, 1]");
+            if (object.has("disarm_success_sound")) auditResourceLocation(object.get("disarm_success_sound"), path + ".disarm_success_sound");
+            if (object.has("can_disarm") && (!object.get("can_disarm").isJsonPrimitive() || !object.getAsJsonPrimitive("can_disarm").isBoolean()))
+                fail(path + ".can_disarm", "expected boolean");
+            if (object.has("initially_in_combat") && (!object.get("initially_in_combat").isJsonPrimitive() || !object.getAsJsonPrimitive("initially_in_combat").isBoolean()))
+                fail(path + ".initially_in_combat", "expected boolean");
             return;
         }
         if (VocalComponent.TYPE.equals(type)) {
@@ -330,6 +338,11 @@ public final class CharacterSchemaAudit {
                 if (parsed == null || !profile.getAsString().contains(":") || !profile.getAsString().equals(parsed.toString()))
                     fail(path + ".profile", "expected canonical namespaced loose-object profile ID");
             }
+            return;
+        }
+        if ("lightningTarget".equals(type)) {
+            checkFields(object, Set.of("type", "priority", "probability", "resistance", "structuralDamage",
+                    "explodes", "intensity", "dropoff", "maximumPerTile"), path);
             return;
         }
         if ("CanEscapeInventory".equals(type)) {
@@ -446,6 +459,16 @@ public final class CharacterSchemaAudit {
         }
         if ("Respirator".equals(type)) {
             auditRespirator(object, path, complete);
+            return;
+        }
+        if ("Stamina".equals(type)) {
+            checkFields(object, Set.of("type", "base_crit_threshold", "decay", "cooldown_seconds", "stun_seconds", "after_crit_decay_multiplier", "slowdown_thresholds"), path);
+            validateNutrition(object, path, com.juicyslew.moonstation14.ms14.character.components.StaminaPrototypeComponent.CODEC);
+            return;
+        }
+        if ("StatusEffects".equals(type)) {
+            checkFields(object, Set.of("type", "allowed_effects"), path);
+            validateNutrition(object, path, com.juicyslew.moonstation14.ms14.character.components.StatusEffectsPrototypeComponent.CODEC);
             return;
         }
           if ("Hunger".equals(type)) {
@@ -594,6 +617,25 @@ public final class CharacterSchemaAudit {
                 if (object.has(field)) auditBoolean(object.get(field), path + "." + field);
             return;
         }
+        if ("CombatMode".equals(type)) {
+            checkFields(object, Set.of("type", "initially_in_combat", "can_disarm", "base_disarm_fail_chance", "disarm_success_sound"), path);
+            for (String field : Set.of("initially_in_combat", "can_disarm"))
+                if (object.has(field) && !object.get(field).isJsonNull()) auditBoolean(object.get(field), path + "." + field);
+            if (object.has("base_disarm_fail_chance")) { auditNonNegativeNumber(object.get("base_disarm_fail_chance"), path + ".base_disarm_fail_chance"); if (object.get("base_disarm_fail_chance").getAsFloat() > 1) fail(path + ".base_disarm_fail_chance", "expected probability"); }
+            if (object.has("disarm_success_sound") && (!object.get("disarm_success_sound").isJsonPrimitive() || !object.getAsJsonPrimitive("disarm_success_sound").isString())) fail(path + ".disarm_success_sound", "expected string");
+            return;
+        }
+        if ("DisarmProne".equals(type)) { checkFields(object, Set.of("type"), path); return; }
+        if ("MeleeWeapon".equals(type)) {
+            checkFields(object, Set.of("type", "weapon"), path);
+            if (object.has("weapon")) {
+                JsonElement weaponValue = object.get("weapon");
+                if (!weaponValue.isJsonObject()) fail(path + ".weapon", "expected object");
+                JsonObject weapon = weaponValue.getAsJsonObject();
+                checkFields(weapon, Set.of("damage", "attack_rate", "range", "resistance_bypass", "auto_attack", "click_damage_modifier", "must_be_equipped_to_use", "audio", "arc", "animation_offset", "wide_animation_rotation", "blunt_stamina_damage_factor", "reset_on_hand_selected", "angle_degrees", "wide_arc", "alt_disarm"), path + ".weapon");
+            }
+            return;
+        }
         if ("MobThresholds".equals(type)) {
             checkFields(object, Set.of("type", "thresholds", "allow_revives"), path);
             JsonElement map = object.get("thresholds");
@@ -698,6 +740,37 @@ public final class CharacterSchemaAudit {
         }
         if (THERMAL_COMPONENT_FIELDS.containsKey(type)) {
             auditThermalComponent(object, path, type, complete);
+            return;
+        }
+        if ("DamageOnInteractProtection".equals(type)) {
+            checkFields(object, Set.of("type", "profile"), path);
+            if (object.has("profile")) {
+                JsonElement profileValue = object.get("profile");
+                if (!profileValue.isJsonObject()) fail(path + ".profile", "expected object");
+                JsonObject profile = profileValue.getAsJsonObject();
+                checkFields(profile, Set.of("protection", "slots"), path + ".profile");
+                if (profile.has("protection")) {
+                    JsonElement protectionValue = profile.get("protection");
+                    if (!protectionValue.isJsonObject()) fail(path + ".profile.protection", "expected object");
+                    JsonObject protection = protectionValue.getAsJsonObject();
+                    checkFields(protection, Set.of("coefficients", "flat_reductions"), path + ".profile.protection");
+                    for (String field : Set.of("coefficients", "flat_reductions"))
+                        if (protection.has(field)) auditDamageMap(protection, field, path + ".profile.protection", false);
+                }
+                if (profile.has("slots")) auditStringArray(profile, "slots", java.util.Arrays.stream(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.values()).map(Enum::name).collect(java.util.stream.Collectors.toSet()), path + ".profile");
+            }
+            return;
+        }
+        if ("ProtectedFromStepTriggers".equals(type)) {
+            checkFields(object, Set.of("type", "profile"), path);
+            if (object.has("profile")) {
+                JsonElement profileValue = object.get("profile");
+                if (!profileValue.isJsonObject()) fail(path + ".profile", "expected object");
+                JsonObject profile = profileValue.getAsJsonObject();
+                checkFields(profile, Set.of("slot_flags"), path + ".profile");
+                if (profile.has("slot_flags"))
+                    auditStringArray(profile, "slot_flags", java.util.Arrays.stream(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.values()).map(Enum::name).collect(java.util.stream.Collectors.toSet()), path + ".profile");
+            }
             return;
         }
         checkFields(object, BAROTRAUMA_FIELDS, path);

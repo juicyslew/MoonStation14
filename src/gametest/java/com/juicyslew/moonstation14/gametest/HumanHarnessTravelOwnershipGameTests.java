@@ -9,6 +9,8 @@ import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessLease;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.NpcMovementDriven;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -188,6 +190,7 @@ public final class HumanHarnessTravelOwnershipGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTestTags({"native-travel-merge-regression", "movement"})
     public static void onlyMarkedVillagerLosesVanillaTravelOwnership(GameTestHelper helper) {
         for (int x = 1; x <= 7; x++) {
             for (int z = 1; z <= 7; z++) {
@@ -263,6 +266,10 @@ public final class HumanHarnessTravelOwnershipGameTests {
         MindControlledMob controlFlag = (MindControlledMob) vanilla;
         require(!controlFlag.moonstation14$isMovementOwned(),
                 "unmarked control Villager must remain unowned " + phase);
+        require(!(vanilla instanceof NpcMovementDriven driven && driven.moonstation14$isNpcMovementDriven()),
+                "ordinary Villager must not have NPC movement ownership " + phase);
+        require(!OwnedCorpsePhysics.eligible(vanilla),
+                "ordinary Villager must not qualify for corpse physics " + phase);
         // AI ticks need not retain the velocity assigned at spawn; prove vanilla travel directly.
         vanilla.setDeltaMovement(.25d, 0d, 0d);
         Vec3 before = vanilla.position();
@@ -276,6 +283,8 @@ public final class HumanHarnessTravelOwnershipGameTests {
                         + ", noAi=" + vanilla.isNoAi() + ", onGroundBefore=" + onGround
                         + ", clearAheadBefore=" + clearAhead + ", boxAfter=" + vanilla.getBoundingBox()
                         + ", marker=" + controlFlag.moonstation14$isMovementOwned());
+        require(vanilla.getDeltaMovement().lengthSqr() > 0,
+                "ordinary Villager native travel must retain nonzero velocity " + phase);
     }
 
     private static void require(boolean condition, String message) {

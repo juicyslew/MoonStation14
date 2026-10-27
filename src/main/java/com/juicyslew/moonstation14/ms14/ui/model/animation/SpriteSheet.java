@@ -34,9 +34,11 @@ public final class SpriteSheet {
         cycles = new long[directions];
         offsets = new int[directions];
         int count = 0;
+        int capacity = (width / frameWidth) * (height / frameHeight);
         for (int d = 0; d < directions; d++) {
             int[] times = Objects.requireNonNull(durations[d], "direction durations");
-            if (times.length < 1 || times.length > MAX_FRAMES || count + times.length > MAX_FRAMES)
+            if (times.length < 1 || times.length > MAX_FRAMES || count + times.length > MAX_FRAMES
+                    || count + times.length > capacity)
                 throw new IllegalArgumentException("Too many frames");
             offsets[d] = count;
             count += times.length;
@@ -47,8 +49,6 @@ public final class SpriteSheet {
                 cycles[d] += time;
             }
         }
-        if ((long) columns * (height / frameHeight) != count)
-            throw new IllegalArgumentException("Sheet cells must match frame count");
     }
 
     public String state() { return state; }

@@ -112,10 +112,13 @@ class PrototypeRuntimeTest {
                 ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE));
         expectedTypes.add(ModIngestionProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles.TYPE);
         expectedTypes.add(ModDamageFeedback.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModWeightedRandomFillSolutions.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModPlantMutations.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE);
         expectedTypes.add(ModAirlocks.TYPE);
@@ -131,6 +134,14 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.FREQUENCY_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.NETWORK_TYPE);
@@ -139,6 +150,8 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.containment.ModFieldGenerators.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.emitter.ModEmitters.TYPE);
@@ -255,7 +268,8 @@ class PrototypeRuntimeTest {
         server.reload(ModToolProfiles.TYPE, Map.of(id("crowbar"), fixture("tool_profile", "crowbar"),
                 id("wirecutter"), fixture("tool_profile", "wirecutter"), id("screwdriver"), fixture("tool_profile", "screwdriver"),
                 id("multitool"), fixture("tool_profile", "multitool"), id("base_item"), fixture("tool_profile", "base_item"),
-                id("base_crowbar"), fixture("tool_profile", "base_crowbar")));
+                id("base_crowbar"), fixture("tool_profile", "base_crowbar"),
+                id("kitchen_knife"), fixture("tool_profile", "kitchen_knife")));
         ExplosionData explosion = explosion(2f);
         server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));
         LooseObjectProfile profile = new LooseObjectProfile(1, .5f, .1f, .55f, 0, "sphere", "generic",
@@ -325,8 +339,19 @@ class PrototypeRuntimeTest {
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModWeightedRandomFillSolutions.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModPlantMutations.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.FREQUENCY_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.NETWORK_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.PORT_TYPE.typeId(),
@@ -345,7 +370,9 @@ class PrototypeRuntimeTest {
                  com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE.typeId(),
-                 ModActionPrototypes.TYPE.typeId()), exported.keySet());
+                  com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId(),
+                  ModActionPrototypes.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);

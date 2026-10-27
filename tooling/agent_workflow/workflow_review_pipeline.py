@@ -18,6 +18,7 @@ class ReviewPipeline:
         self.transport, self.native_backend = transport, native_backend
         self.review_cancellation = None
         self.dependency_monitor = None
+        self.completion_owner = None
         self.notify_committed = notify_committed or (lambda event: None)
 
     def close(self):
@@ -67,6 +68,13 @@ class ReviewPipeline:
                 for task in self.store.list_tasks(run_id,saved['attempt']['generation']):
                     if task.get('kind')=='REVIEW' and task.get('state') in ('DISPATCHING','CLAIMED','RUNNING'):
                         self.dependency_monitor.poll(task['task_id'])
+        if self.completion_owner is not None:
+            for run_id in self.store.list_runs_by_phase(('REVIEWING',)):
+                saved=self.store.get_run(run_id)
+                if not saved: continue
+                for task in self.store.list_tasks(run_id,saved['attempt']['generation']):
+                    if task.get('kind')=='REVIEW' and task.get('state') in ('CLAIMED','RUNNING'):
+                        self.completion_owner.continue_unsubmitted(task['task_id'])
         for run_id in self.store.list_runs_by_phase(('CHECKING','REVIEWING','STOPPING')):
             saved=self.store.get_run(run_id)
             if saved and saved['attempt']['phase'] in ('REVIEWING','STOPPING'):
@@ -101,6 +109,7 @@ class ReviewPipeline:
         if attempt['phase'] == 'STOPPING':
             if attempt.get('proposed_closure') in ('CANCELLED', 'SUPERSEDED'):
                 tasks = self.store.list_tasks(run_id, attempt['generation'])
+                self._cleanup_completed_reviews(tasks)
                 waiting = [t['task_id'] for t in tasks if t['state'] not in ('COMPLETED', 'CANCELLED')]
                 held = [r for t in tasks for r in self.store.get_task_resources(t['task_id'])
                         if r['state'] in ('HELD', 'UNKNOWN')]
@@ -141,17 +150,7 @@ class ReviewPipeline:
                 phase='STOPPING', proposed_result=proposal, incident=incident)
             saved = self.store.get_run(run_id); sequence = saved['run']['sequence']
         tasks = self.store.list_tasks(run_id, attempt['generation'])
-        unresolved_review_resources=[]
-        for task in tasks:
-            if task.get('kind')!='REVIEW' or task.get('state')!='COMPLETED': continue
-            resources=[r for r in self.store.get_task_resources(task['task_id'])
-                       if r['resource_key'].startswith('review-session:')]
-            if resources and any(r['state']!='RELEASED' for r in resources):
-                cleanup=self.review_cancellation.cleanup_completed(task['task_id']) if self.review_cancellation else 'UNKNOWN'
-                resources=[r for r in self.store.get_task_resources(task['task_id'])
-                           if r['resource_key'].startswith('review-session:')]
-                if cleanup!='APPLIED' or any(r['state']!='RELEASED' for r in resources):
-                    unresolved_review_resources.append(task['task_id'])
+        unresolved_review_resources=self._cleanup_completed_reviews(tasks)
         if unresolved_review_resources and proposal!='ERROR':
             return {'decision':None,'waiting_task_ids':unresolved_review_resources,
                     'unresolved_resources':unresolved_review_resources}
@@ -168,3 +167,18 @@ class ReviewPipeline:
             aggregate['run_kind'] = 'DIAGNOSTIC'
         self.notify_committed(terminal)
         return aggregate
+
+    def _cleanup_completed_reviews(self, tasks):
+        """Ask the review owner to prove cleanup for completed reviews with held resources."""
+        unresolved=[]
+        for task in tasks:
+            if task.get('kind')!='REVIEW' or task.get('state')!='COMPLETED': continue
+            resources=[r for r in self.store.get_task_resources(task['task_id'])
+                       if r['resource_key'].startswith('review-session:')]
+            if resources and any(r['state']!='RELEASED' for r in resources):
+                cleanup=self.review_cancellation.cleanup_completed(task['task_id']) if self.review_cancellation else 'UNKNOWN'
+                resources=[r for r in self.store.get_task_resources(task['task_id'])
+                           if r['resource_key'].startswith('review-session:')]
+                if cleanup!='APPLIED' or any(r['state']!='RELEASED' for r in resources):
+                    unresolved.append(task['task_id'])
+        return unresolved

@@ -202,14 +202,15 @@ class ReviewInputLocatorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);coordinator,store,case,accepted,token,task=self.make_service(root)
             try:
-                with patch("workflow_preflight.capture_source",side_effect=ValueError("current source differs from admitted snapshot\nunsafe")):
+                with patch.object(workflow_native_worker,"load_native_inputs",
+                    side_effect=ValueError("frozen bundle integrity mismatch\nunsafe")):
                     with TestClient(coordinator.app()) as client:
                         response=client.get("/v1/review/status",headers={"Authorization":"Bearer "+token,
                             "X-MS14-Reviewer-Session":task["assigned_session_id"]},params={"task_id":task["task_id"]})
                 self.assertEqual(409,response.status_code)
                 error=response.json()["error"]
                 self.assertEqual("FROZEN_INPUTS_UNAVAILABLE",error["code"])
-                self.assertIn("current source differs from admitted snapshot",error["message"])
+                self.assertIn("frozen bundle integrity mismatch",error["message"])
                 self.assertNotIn("\n",error["message"])
                 self.assertIn("Report an ERROR",error["message"])
             finally: coordinator.stop()
@@ -289,6 +290,5 @@ class ReviewInputLocatorTests(unittest.TestCase):
         result=__import__("json").loads(encoded)
         self.assertEqual("response_too_large",result["code"])
         self.assertNotIn("inputs",result)
-
 
 if __name__=="__main__": unittest.main()

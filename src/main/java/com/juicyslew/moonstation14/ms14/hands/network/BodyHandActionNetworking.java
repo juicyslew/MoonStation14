@@ -92,6 +92,17 @@ public final class BodyHandActionNetworking {
                         (snapshot, context) -> {
                             if (FMLEnvironment.dist == Dist.CLIENT) BodyHandStateSnapshot.deliverClient(snapshot);
                         })
+                .playToServer(BodyTargetActionQuery.TYPE, BodyTargetActionQuery.STREAM_CODEC, (query, context) -> {
+                    if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null
+                            || actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor) return;
+                    var snapshot = BodyTargetActionService.query(actor, query);
+                    if (snapshot != null && actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
+                        PacketDistributor.sendToPlayer(actor, snapshot);
+                })
+                .playToClient(BodyTargetActionSnapshot.TYPE, BodyTargetActionSnapshot.STREAM_CODEC, (snapshot, context) -> {
+                    if (FMLEnvironment.dist == Dist.CLIENT)
+                        BodyTargetActionSnapshot.deliverClient(snapshot);
+                })
                  .playToServer(BodyWorldGridQuery.TYPE, BodyWorldGridQuery.STREAM_CODEC, (query, context) -> {
                     if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
                     if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor) return;
@@ -272,9 +283,15 @@ public final class BodyHandActionNetworking {
                            } else if (held != null && held.is(ModItems.SCREWDRIVER.get())) {
                                outcome = BodyDisposalTubeJunctionUse.begin(actor, request, admission)
                                        ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
-                           } else if (held != null && held.is(ModItems.WELDER.get())) {
-                               outcome = BodyDisposalTubeWelderUse.begin(actor, request, admission)
-                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
+                            } else if (held != null && held.is(ModItems.WELDER.get())) {
+                                var target = body.level().getBlockEntity(admission.hit().pos());
+                                outcome = target instanceof com.juicyslew.moonstation14.ms14.tesla.TeslaMachineBlockEntity
+                                        && com.juicyslew.moonstation14.ms14.tesla.TeslaMachineRepairUse.begin(actor, request, admission)
+                                        ? BodyBlockUseResult.Outcome.NO_CHANGE
+                                        : target instanceof com.juicyslew.moonstation14.ms14.tesla.TeslaMachineBlockEntity
+                                                ? BodyBlockUseResult.Outcome.DENIED
+                                                : BodyDisposalTubeWelderUse.begin(actor, request, admission)
+                                        ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
                           } else if (held != null && held.is(ModItems.DISPOSAL_UNIT.get())) {
                              var result = FunctionalDisposalUnitPlacement.place(actor, request, admission);
                              outcome = result == FunctionalDisposalUnitPlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
@@ -376,4 +393,3 @@ public final class BodyHandActionNetworking {
     }
 
 }
-

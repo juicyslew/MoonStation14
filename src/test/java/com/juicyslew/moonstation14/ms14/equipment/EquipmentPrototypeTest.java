@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EquipmentPrototypeTest {
@@ -102,6 +103,69 @@ class EquipmentPrototypeTest {
         assertTrue(composed.get(ModInventoryTemplates.id("preferred_cleared")).clothing().orElseThrow().quickEquipPreferredSlotFlags().isEmpty());
     }
 
+    @Test void armorCodecAndInheritancePreserveOverridesAndAbsentDefaults() throws Exception {
+        var manager = new PrototypeManager(); manager.register(ModEquipmentItems.TYPE);
+        var items = new LinkedHashMap<ResourceLocation, JsonObject>();
+        items.put(ModInventoryTemplates.id("base_item"), resource("equipment_item", "base_item"));
+        items.put(ModInventoryTemplates.id("base_clothing"), resource("equipment_item", "base_clothing"));
+        var parent = resource("equipment_item", "grey_cap");
+        parent.add("armor", JsonParser.parseString("{\"coefficients\":{\"blunt\":0.95}}"));
+        items.put(ModInventoryTemplates.id("armor_parent"), parent);
+        items.put(ModInventoryTemplates.id("armor_child"), JsonParser.parseString("{\"parent\":\"armor_parent\",\"armor\":{\"coefficients\":{\"caustic\":0.95}}}" ).getAsJsonObject());
+        items.put(ModInventoryTemplates.id("armor_override"), JsonParser.parseString("{\"parent\":\"armor_parent\",\"armor\":{\"coefficients\":{\"blunt\":0}}}" ).getAsJsonObject());
+        items.put(ModInventoryTemplates.id("grey_cap"), resource("equipment_item", "grey_cap"));
+        manager.reload(ModEquipmentItems.TYPE, items);
+        var resolved = manager.snapshot(ModEquipmentItems.TYPE);
+        assertEquals(Map.of("blunt", .95f, "caustic", .95f), resolved.get(ModInventoryTemplates.id("armor_child")).armor().orElseThrow().coefficients());
+        assertEquals(Map.of("blunt", 0f), resolved.get(ModInventoryTemplates.id("armor_override")).armor().orElseThrow().coefficients());
+        assertTrue(resolved.get(ModInventoryTemplates.id("grey_cap")).armor().isEmpty());
+        var profile = EquipmentItemData.Armor.fromCoefficients(Map.of("blunt", .95f, "caustic", .95f));
+        var encoded = EquipmentItemData.ARMOR_CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, profile).getOrThrow();
+        assertEquals(profile, EquipmentItemData.ARMOR_CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, encoded).getOrThrow());
+        assertTrue(EquipmentItemData.ARMOR_CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                JsonParser.parseString("{\"coefficients\":{\"Blunt\":1}}" )).error().isPresent());
+        assertTrue(EquipmentItemData.ARMOR_CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                JsonParser.parseString("{\"coefficients\":{\"blunt\":-1}}" )).error().isPresent());
+        assertTrue(EquipmentItemData.ARMOR_CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                JsonParser.parseString("{\"coefficients\":{\"blunt\":\"NaN\"}}" )).error().isPresent());
+    }
+
+    @Test void noSlipMarkerCodecAndPrototypeInheritanceArePresenceOnly() throws Exception {
+        var manager = new PrototypeManager(); manager.register(ModEquipmentItems.TYPE);
+        var items = new LinkedHashMap<ResourceLocation, JsonObject>();
+        items.put(ModInventoryTemplates.id("base_item"), resource("equipment_item", "base_item"));
+        items.put(ModInventoryTemplates.id("base_clothing"), resource("equipment_item", "base_clothing"));
+        items.put(ModInventoryTemplates.id("no_slip_parent"), JsonParser.parseString("{\"item\":{\"size\":\"Small\"},\"no_slip\":true}").getAsJsonObject());
+        items.put(ModInventoryTemplates.id("no_slip_child"), JsonParser.parseString("{\"parent\":\"no_slip_parent\"}").getAsJsonObject());
+        items.put(ModInventoryTemplates.id("ordinary_child"), JsonParser.parseString("{\"parent\":\"base_item\"}").getAsJsonObject());
+        manager.reload(ModEquipmentItems.TYPE, items);
+        var resolved = manager.snapshot(ModEquipmentItems.TYPE);
+        assertTrue(resolved.get(ModInventoryTemplates.id("no_slip_child")).noSlip().isPresent());
+        assertTrue(resolved.get(ModInventoryTemplates.id("ordinary_child")).noSlip().isEmpty());
+        assertTrue(EquipmentItemData.NO_SLIP_CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                JsonParser.parseString("true")).result().isPresent());
+        assertTrue(EquipmentItemData.NO_SLIP_CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                JsonParser.parseString("false")).error().isPresent());
+    }
+
+    @Test void equipmentCompositionRoundTripsActionGrantAlongsideArmorAndNoSlip() {
+        var grant = new EquipmentItemData.SupportedActionGrant(
+                java.util.List.of(ResourceLocation.fromNamespaceAndPath("moonstation14", "debug_pulse")),
+                new EquipmentItemData.ItemActionGrant(true));
+        var equipment = new EquipmentItemData(new EquipmentItemData.Item("Small"), java.util.Optional.empty(),
+                java.util.Optional.empty(), java.util.List.of(), java.util.Optional.of(
+                EquipmentItemData.Armor.fromCoefficients(Map.of("blunt", 0.5f))), java.util.Optional.of(grant),
+                java.util.Optional.of(new EquipmentItemData.NoSlip()), java.util.Optional.empty(), java.util.Optional.empty());
+        var ops = com.mojang.serialization.JsonOps.INSTANCE;
+        var encoded = EquipmentItemData.CODEC.encodeStart(ops, equipment).getOrThrow();
+        var decoded = EquipmentItemData.CODEC.parse(ops, encoded).getOrThrow();
+        assertEquals(equipment, decoded);
+        assertTrue(EquipmentItemData.CODEC.parse(ops, JsonParser.parseString("{\"item\":{\"size\":\"Small\"}}"))
+                .getOrThrow().supportedActionGrant().isEmpty());
+    }
+
+
+
     @Test void radiationSuitAndSeparateHoodResolveAsWearableArmor() throws Exception {
         var manager=new PrototypeManager();manager.register(ModInventoryTemplates.TYPE);manager.register(ModEquipmentItems.TYPE);
         var templates=new LinkedHashMap<ResourceLocation,JsonObject>();templates.put(ModInventoryTemplates.HUMAN_ID,resource("inventory_template","human"));
@@ -121,6 +185,7 @@ class EquipmentPrototypeTest {
         assertFalse(EquipmentFitPolicy.fits(template,"head",suit,java.util.Set.of(),false));
         assertFalse(EquipmentFitPolicy.fits(template,"outerClothing",hood,java.util.Set.of(),false));
     }
+
 
     @Test void optionalArmorComposesThroughActualEquipmentCatalogWithDefaults() {
         var manager = new PrototypeManager();
@@ -145,6 +210,7 @@ class EquipmentPrototypeTest {
                         new EquipmentItemData.ArmorModifier(0f, 1f)).coefficient()).orElse(1f));
     }
 
+
     @Test void templatesPermitSubsetAndApplyOnlyOmittedSlotFlagDefaults() {
         var decoded=InventoryTemplateData.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
                 JsonParser.parseString("{\"slots\":[{\"id\":\"belt\",\"display_name\":\"Belt\",\"icon\":\"moonstation14:textures/gui/equipment/belt.png\",\"x\":0,\"y\":0}]}").getAsJsonObject()).getOrThrow();
@@ -159,6 +225,59 @@ class EquipmentPrototypeTest {
         assertTrue(cycleError.getMessage().contains("cyclic equipment slot dependency"),cycleError.getMessage());
         assertTrue(InventoryTemplateData.SLOT_FLAG_CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
                 JsonParser.parseString("\"NOT_A_SLOT_FLAG\"")).error().isPresent());
+    }
+
+    @Test void protectedStepTriggerMaskCodecDefaultsToFeetAndAllowsEmptyMask() {
+        var ops = com.mojang.serialization.JsonOps.INSTANCE;
+        var feet = ProtectedFromStepTriggers.CODEC.parse(ops, JsonParser.parseString("{}")).getOrThrow();
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.FEET), feet.slotFlags());
+        var empty = ProtectedFromStepTriggers.CODEC.parse(ops, JsonParser.parseString("{\"slot_flags\":[]}")).getOrThrow();
+        assertTrue(empty.slotFlags().isEmpty());
+        var item = EquipmentItemData.CODEC.parse(ops, JsonParser.parseString("{\"item\":{\"size\":\"Small\"},\"protected_from_step_triggers\":{\"slot_flags\":[]}}")).getOrThrow();
+        assertTrue(item.protectedFromStepTriggers().isPresent());
+        assertTrue(item.protectedFromStepTriggers().orElseThrow().slotFlags().isEmpty());
+    }
+
+    @Test void protectedStepTriggerCharacterComponentSchemaAuditsProfileStrictly() {
+        var ops = com.mojang.serialization.JsonOps.INSTANCE;
+        var componentCodec = com.juicyslew.moonstation14.ms14.character.components.ProtectedFromStepTriggersComponent.CODEC;
+        var defaultComponent = componentCodec.parse(ops, JsonParser.parseString("{\"type\":\"ProtectedFromStepTriggers\"}" )).getOrThrow();
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.FEET), defaultComponent.profile().slotFlags());
+        var explicit = JsonParser.parseString("{\"type\":\"ProtectedFromStepTriggers\",\"profile\":{\"slot_flags\":[\"GLOVES\"]}}").getAsJsonObject();
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.GLOVES), componentCodec.parse(ops, explicit).getOrThrow().profile().slotFlags());
+        com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit.auditComponentFragment(explicit, "$.components[0]");
+        for (String bad : java.util.List.of("{\"type\":\"ProtectedFromStepTriggers\",\"unknown\":1}",
+                "{\"type\":\"ProtectedFromStepTriggers\",\"profile\":{\"unknown\":1}}",
+                "{\"type\":\"ProtectedFromStepTriggers\",\"profile\":{\"slot_flags\":[\"UNKNOWN\"]}}")) {
+            var json = JsonParser.parseString(bad).getAsJsonObject();
+            assertThrows(IllegalArgumentException.class, () -> com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit.auditComponentFragment(json, "$.components[0]"));
+        }
+        assertTrue(componentCodec.parse(ops, JsonParser.parseString("{\"type\":\"ProtectedFromStepTriggers\",\"profile\":{\"slot_flags\":[\"UNKNOWN\"]}}")).error().isPresent());
+    }
+
+    @Test void protectedStepTriggerEquipmentMaskInherits() {
+        var manager = new PrototypeManager(); manager.register(ModEquipmentItems.TYPE);
+        var items = new LinkedHashMap<ResourceLocation, JsonObject>();
+        items.put(ModInventoryTemplates.id("step_mask_parent"), JsonParser.parseString("{\"item\":{\"size\":\"Small\"},\"protected_from_step_triggers\":{}}").getAsJsonObject());
+        items.put(ModInventoryTemplates.id("step_mask_child"), JsonParser.parseString("{\"parent\":\"step_mask_parent\"}").getAsJsonObject());
+        manager.reload(ModEquipmentItems.TYPE, items);
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.FEET), manager.snapshot(ModEquipmentItems.TYPE).get(ModInventoryTemplates.id("step_mask_child")).protectedFromStepTriggers().orElseThrow().slotFlags());
+    }
+
+    @Test void contactProtectionCodecDefaultsAndNestedInheritance() {
+        var ops = com.mojang.serialization.JsonOps.INSTANCE;
+        var defaults = ContactDamageProtectionData.CODEC.parse(ops, JsonParser.parseString("{}")).getOrThrow();
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.GLOVES), defaults.slots());
+        var explicit = ContactDamageProtectionData.CODEC.parse(ops, JsonParser.parseString("{\"slots\":[\"GLOVES\",\"FEET\"]}")).getOrThrow();
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.GLOVES, InventoryTemplateData.SlotFlag.FEET), explicit.slots());
+        var manager = new PrototypeManager(); manager.register(ModEquipmentItems.TYPE);
+        var items = new LinkedHashMap<ResourceLocation, JsonObject>();
+        items.put(ModInventoryTemplates.id("contact_parent"), JsonParser.parseString("{\"item\":{\"size\":\"Small\"},\"damage_on_interact_protection\":{\"protection\":{\"flat_reductions\":{\"heat\":5}},\"slots\":[\"GLOVES\"]}}").getAsJsonObject());
+        items.put(ModInventoryTemplates.id("contact_child"), JsonParser.parseString("{\"parent\":\"contact_parent\",\"damage_on_interact_protection\":{\"protection\":{\"flat_reductions\":{\"caustic\":5}}}}").getAsJsonObject());
+        manager.reload(ModEquipmentItems.TYPE, items);
+        var resolved = manager.snapshot(ModEquipmentItems.TYPE).get(ModInventoryTemplates.id("contact_child")).contactDamageProtection().orElseThrow();
+        assertEquals(Map.of("heat", 5f, "caustic", 5f), resolved.protection().flatReductions());
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.GLOVES), resolved.slots());
     }
 
     @Test void resolvedCompositionControlsFitAndDependencies() throws Exception {
@@ -185,7 +304,7 @@ class EquipmentPrototypeTest {
         var neckTemplate = new InventoryTemplateData(neckHead);
         var neckClothing = new EquipmentItemData(cap.item(), java.util.Optional.of(new EquipmentItemData.Clothing(
                 java.util.List.of(InventoryTemplateData.SlotFlag.NECK), EquipmentItemData.AppearanceRegion.HEAD,
-                0xffffffff, 0, java.util.Optional.empty(), java.util.Optional.empty())), cap.allowSuitStorage(), cap.tags());
+                 0xffffffff, 0, java.util.Optional.empty(), java.util.Optional.empty())), cap.allowSuitStorage(), cap.tags(), cap.armor());
         assertFalse(EquipmentFitPolicy.fits(neckTemplate,"head",cap,java.util.Set.of(),false));
         assertTrue(EquipmentFitPolicy.fits(neckTemplate,"head",neckClothing,java.util.Set.of(),false));
         assertFalse(EquipmentFitPolicy.fits(template,"shoes",cap,java.util.Set.of(),false));
@@ -208,10 +327,10 @@ class EquipmentPrototypeTest {
         assertFalse(EquipmentFitPolicy.fits(template,"suitstorage",suitStorage,java.util.Set.of("outerClothing"),coat.allowSuitStorage().isPresent()));
         // Suit-storage support remains compositional for future qualifying outer garments.
         var qualifyingOuter = new EquipmentItemData(coat.item(), coat.clothing(),
-                java.util.Optional.of(new EquipmentItemData.AllowSuitStorage(true)), coat.tags());
+                java.util.Optional.of(new EquipmentItemData.AllowSuitStorage(true)), coat.tags(), coat.armor());
         assertTrue(EquipmentFitPolicy.fits(template,"suitstorage",suitStorage,java.util.Set.of("outerClothing"),qualifyingOuter.allowSuitStorage().isPresent()));
         var backItem=catalog.get(ModInventoryTemplates.id("bag"));
-        var petOnly=new EquipmentItemData(backItem.item(),backItem.clothing(),backItem.allowSuitStorage(),java.util.List.of(EquipmentTag.PET_ONLY));
+        var petOnly=new EquipmentItemData(backItem.item(),backItem.clothing(),backItem.allowSuitStorage(),java.util.List.of(EquipmentTag.PET_ONLY),backItem.armor());
         assertFalse(EquipmentFitPolicy.fits(template,"back",petOnly,java.util.Set.of(),false));
     }
 }

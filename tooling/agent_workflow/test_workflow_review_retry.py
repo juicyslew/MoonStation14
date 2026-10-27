@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 import workflow_review_retry
@@ -52,13 +53,17 @@ class ConsumedPromptAPI:
 
 class EmptyCheckpointAPI(ConsumedPromptAPI):
     def __init__(self,sid,session,history):
-        super().__init__(sid,session,history,None); self.inbox=[]; self.control_posts=0; self.lose_reply=False
+        super().__init__(sid,session,history,None); self.inbox=[]; self.control_posts=0; self.lose_reply=False; self.active=False; self.fail_history=False; self.raise_path=None
     def __call__(self,server,method,path,body=None):
         self.calls.append((method,path,body)); prefix='/api/session/'+self.sid
+        if path==self.raise_path:
+            import gate_dispatch
+            raise gate_dispatch.DispatchError('fixture transport uncertain')
         if method=='GET' and path==prefix+'/message?limit=50&order=desc':
+            if self.fail_history: return 503,{'error':'unavailable'}
             return 200,{'data':sorted(self.history,key=lambda r:r.get('time',{}).get('created',-1),reverse=True),'cursor':{}}
         if method=='GET' and path==prefix: return 200,{'data':self.session}
-        if method=='GET' and path=='/api/session/active': return 200,{'data':{}}
+        if method=='GET' and path=='/api/session/active': return 200,{'data':{self.sid:{'type':'running'}} if self.active else {}}
         if method=='GET' and path==prefix+'/inbox': return 200,{'data':list(self.inbox)}
         if method=='GET' and path==prefix+'/message?limit=50&order=desc': return 200,{'data':self.history,'cursor':{}}
         if method=='POST' and path==prefix+'/prompt':
@@ -70,10 +75,37 @@ class EmptyCheckpointAPI(ConsumedPromptAPI):
                 self.inbox.clear()
             if self.lose_reply: raise OSError('admitted but response lost')
             return 200,{'data':{'id':body['id'],'sessionID':self.sid,'type':'user','delivery':'steer','payload':{'text':body['text'],'metadata':body['metadata']}}}
+        if method=='DELETE' and path.startswith(prefix+'/inbox/'):
+            ident=path.rsplit('/',1)[-1]; self.inbox=[item for item in self.inbox if item.get('id')!=ident]
+            return 204,{}
+        if method=='POST' and path==prefix+'/interrupt?resume=false':
+            self.active=False; return 200,{'interrupted':True}
         raise AssertionError(f'unexpected call {method} {path}')
 
 
 class ReviewRetryTests(unittest.TestCase):
+    def test_finished_turn_requires_new_successful_idle_after_stop_finished_assistant(self):
+        stopped={'id':'assistant','type':'assistant','finish':'stop','time':{'created':20,'completed':21}}
+        idle={'id':'idle','type':'idle','outcome':'succeeded','time':{'created':22}}
+        self.assertIsNotNone(workflow_review_retry._ended_idle_after([idle,stopped],10))
+        self.assertIsNone(workflow_review_retry._ended_idle_after([stopped],10))
+        tool={'id':'tool-step','type':'assistant','finish':'tool-calls','time':{'created':30,'completed':31}}
+        self.assertIsNone(workflow_review_retry._ended_idle_after([idle,tool],10))
+        late_idle={'id':'old-idle','type':'idle','outcome':'succeeded','time':{'created':25}}
+        self.assertIsNone(workflow_review_retry._ended_idle_after([late_idle,tool],10))
+
+    def test_completion_control_is_explicit_and_provider_control_bytes_remain_legacy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _store,planner,task,_server,_prompt,_session=self.prepared(Path(tmp))
+            assignment=planner.build_assignment(task['task_id'])
+            import workflow_review_control
+            provider=workflow_review_control.continuation_body(task,assignment,'same-command')
+            self.assertEqual('Claim/complete the existing assignment or report its precise blocker.',provider['text'].split('sessions. ')[1])
+            completion=workflow_review_control.continuation_body(task,assignment,'same-command',purpose='REVIEW_COMPLETION')
+            self.assertIn('complete_review',completion['text'])
+            self.assertIn('accepted receipt',completion['text'])
+            self.assertNotEqual(provider['text'],completion['text'])
+
     def prepared(self, root):
         fixture=ReviewDependencyTests(); store,planner,task,server,envelope=fixture.prepared(root)
         assignment=planner.build_assignment(task['task_id']); event=store.get_event(envelope['event_id'])
@@ -89,6 +121,125 @@ class ReviewRetryTests(unittest.TestCase):
                 'ms14_review_evaluation_generation':task['evaluation_generation'],
                 'ms14_review_assignment_generation':task['assignment_generation']}}
         return store,planner,task,server,prompt,session
+
+    def completion_fixture(self, root):
+        store,planner,task,server,prompt,session=self.prepared(root)
+        binding={k:task.get(k) for k in ('run_id','evaluation_generation','assignment_generation','input_digest','assigned_session_id')}
+        pause=store.get_task_dependency_pause(task['task_id'])
+        store.resume_dependency_task(task_id=task['task_id'],dependency_key=pause['dependency_key'],binding=binding,now_ms=100000)
+        store.claim_task(task_id=task['task_id'],run_id=task['run_id'],evaluation_generation=task['evaluation_generation'],
+            assignment_generation=task['assignment_generation'],input_digest=task['input_digest'],session_id=task['assigned_session_id'])
+        assignment=planner.build_assignment(task['task_id']); event=store.get_event(assignment['body']['envelope']['event_id'])
+        original={'id':prompt['id'],'type':'user','time':{'created':event['created_ms']+1},'text':prompt['payload']['text'],'metadata':prompt['payload']['metadata']}
+        assistant={'id':'assistant-first','type':'assistant','finish':'stop','time':{'created':event['created_ms']+2,'completed':event['created_ms']+3}}
+        idle={'id':'idle-first','type':'idle','outcome':'succeeded','time':{'created':event['created_ms']+4}}
+        api=EmptyCheckpointAPI(task['assigned_session_id'],session,[original,assistant,idle])
+        service=workflow_review_retry.ReviewRetryAdapter(planner,server=server,request=api,now_ms=lambda:100000,
+            agents={'implementation':'workflow-reviewer-implementation'})
+        return store,planner,task,server,api,service
+
+    def test_finished_turn_gets_one_canonical_repair_then_second_stop_commits_bound_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store,planner,task,server,api,service=self.completion_fixture(Path(tmp))
+            first=service.continue_unsubmitted(task['task_id'])
+            self.assertEqual('RESUMED',first['status'],first)
+            self.assertEqual(1,api.control_posts)
+            receipt=store.get_review_retry(task_id=task['task_id'],caller='SYSTEM',
+                command_id='review-completion:'+task['task_id']+':'+str(task['assignment_generation']))
+            self.assertEqual('REVIEW_COMPLETION',receipt['purpose'])
+            # A second completed turn after the owned continuation, still without
+            # an SDK result, is an honest task ERROR rather than a 20-minute wait.
+            api.inbox.clear()
+            api.history.extend([
+                {'id':'assistant-second','type':'assistant','finish':'stop',
+                 'time':{'created':10000000000000,'completed':10000000000001}},
+                {'id':'idle-second','type':'idle','outcome':'succeeded','time':{'created':10000000000002}},
+            ])
+            ended=service.continue_unsubmitted(task['task_id'])
+            self.assertEqual('ERROR',ended['status'],ended)
+            saved=store.get_task(task['task_id'])
+            self.assertEqual('COMPLETED',saved['state'])
+            self.assertEqual('ERROR',saved['result']['decision'])
+            self.assertEqual('REVIEW_ENDED_WITHOUT_RESULT',store.get_task_incident(task['task_id'])['code'])
+            self.assertEqual(1,api.control_posts)
+            ref=saved['result']['artifact_refs'][0]
+            self.assertEqual('PROVENANCE',store.get_artifact(ref)['artifact']['type'])
+            self.assertNotEqual('ERROR',service.continue_unsubmitted(task['task_id'])['status'])
+            self.assertEqual(1,api.control_posts)
+
+    def test_second_stop_error_uses_normal_cleanup_and_releases_review_resource(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store,planner,task,server,api,service=self.completion_fixture(Path(tmp))
+            self.assertEqual('RESUMED',service.continue_unsubmitted(task['task_id'])['status'])
+            api.inbox.clear()
+            api.history.extend([
+                {'id':'assistant-second','type':'assistant','finish':'stop','time':{'created':10000000000000,'completed':10000000000001}},
+                {'id':'idle-second','type':'idle','outcome':'succeeded','time':{'created':10000000000002}},
+            ])
+            self.assertEqual('ERROR',service.continue_unsubmitted(task['task_id'])['status'])
+            import workflow_review_transport,workflow_review_cancellation
+            transport=workflow_review_transport.ReviewDispatchBackend(planner,server=server,
+                agents={'implementation':'workflow-reviewer-implementation'},request=api)
+            cancellation=workflow_review_cancellation.ReviewCancellation(store,planner,transport,server=server,request=api,sleep=lambda _:None)
+            self.assertEqual('APPLIED',cancellation.cleanup_completed(task['task_id']))
+            resources=store.get_task_resources(task['task_id'])
+            self.assertEqual(['RELEASED'],[r['state'] for r in resources])
+            cleanup=store.get_artifact(resources[0]['cleanup_proof'])
+            self.assertEqual('REVIEW_CLEANUP',json.loads(Path(cleanup['artifact']['path']).read_text())['purpose'])
+
+    def test_provider_pause_blocks_code_owned_completion_wake(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store,planner,task,server,api,service=self.completion_fixture(Path(tmp))
+            binding={k:task.get(k) for k in ('run_id','evaluation_generation','assignment_generation','input_digest','assigned_session_id')}
+            store.pause_dependency_task(task_id=task['task_id'],dependency_key=server+':provider.auth',failure_id='402',binding=binding,now_ms=100001)
+            self.assertEqual('PENDING',service.continue_unsubmitted(task['task_id'])['status'])
+            self.assertEqual(0,api.control_posts)
+
+    def test_expired_active_time_deadline_does_not_extend_for_completion_repair(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store,planner,task,server,api,service=self.completion_fixture(Path(tmp))
+            service.now_ms=lambda:task['deadline_ms']+1
+            self.assertEqual('PENDING',service.continue_unsubmitted(task['task_id'])['status'])
+            self.assertEqual(0,api.control_posts)
+
+    def test_finished_turn_requires_inactive_session_empty_inbox_and_finished_history(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store,planner,task,server,api,service=self.completion_fixture(Path(tmp))
+            # Still-running means pending and cannot spend the one repair receipt.
+            api.active=True
+            self.assertNotEqual('ERROR',service.continue_unsubmitted(task['task_id'])['status'])
+            self.assertEqual(0,api.control_posts)
+            api.active=False
+            api.inbox=[{'id':'pending','type':'synthetic'}]
+            self.assertNotEqual('ERROR',service.continue_unsubmitted(task['task_id'])['status'])
+            self.assertEqual(0,api.control_posts)
+
+    def test_unknown_history_never_wakes_or_errors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store,planner,task,server,api,service=self.completion_fixture(Path(tmp))
+            api.fail_history=True
+            self.assertEqual('PENDING',service.continue_unsubmitted(task['task_id'])['status'])
+            self.assertEqual(0,api.control_posts)
+
+    def test_dispatch_errors_on_history_or_completion_proofs_remain_pending(self):
+        for endpoint in ('/message?limit=50&order=desc','', '/active', '/inbox'):
+            with self.subTest(endpoint=endpoint),tempfile.TemporaryDirectory() as tmp:
+                store,planner,task,server,api,service=self.completion_fixture(Path(tmp))
+                if endpoint=='/message?limit=50&order=desc':
+                    api.raise_path='/api/session/'+task['assigned_session_id']+endpoint
+                    self.assertEqual('PENDING',service.continue_unsubmitted(task['task_id'])['status'])
+                else:
+                    self.assertEqual('RESUMED',service.continue_unsubmitted(task['task_id'])['status'])
+                    api.inbox.clear()
+                    api.history.extend([
+                        {'id':'assistant-second','type':'assistant','finish':'stop','time':{'created':10000000000000,'completed':10000000000001}},
+                        {'id':'idle-second','type':'idle','outcome':'succeeded','time':{'created':10000000000002}},
+                    ])
+                    api.raise_path={'':'/api/session/'+task['assigned_session_id'],'/active':'/api/session/active',
+                        '/inbox':'/api/session/'+task['assigned_session_id']+'/inbox'}[endpoint]
+                    self.assertEqual('PENDING',service.continue_unsubmitted(task['task_id'])['status'])
+                self.assertEqual(0 if endpoint=='/message?limit=50&order=desc' else 1,api.control_posts)
+                self.assertIsNone(store.get_task(task['task_id'])['result'])
 
     def test_queue_patch_once_resume_and_command_replay_without_api(self):
         with tempfile.TemporaryDirectory() as tmp:
