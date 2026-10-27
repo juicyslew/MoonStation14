@@ -320,11 +320,85 @@ def execute_native_task(store, *, task_id, process_identity, claim_token,
         proven_failure=any(r['evidence']['status']=='FAIL' and
             (r['evidence']['counts'].get('failed',0) or r['evidence']['counts'].get('errors',0)) for r in records)
         if any(r['exit_code']==127 for r in records): decision='ERROR'; code='SPAWN_FAILED'
-        elif any(r['exit_code']==124 for r in records): decision='ERROR'; code='TIMEOUT'
+        elif any(r['exit_code']==124 for r in records):
+            decision='ERROR'; code='GAMETEST_TEARDOWN_TIMEOUT' if any(r['exit_code']==124 and r.get('timeout_phase')=='gametest_teardown' for r in records) else 'TIMEOUT'
         elif verified_nonzero or proven_failure: decision='FAIL'; code='CHECK_FAILED'
         elif len(records)!=len(plan['checks']) or any(r['evidence']['status']=='UNVERIFIED' for r in records): decision='ERROR'; code='EVIDENCE_UNVERIFIED'
         elif not passed: decision='FAIL'; code='CHECK_FAILED'
         else: decision='PASS'; code=None
+        program_rows=[]
+        if decision=='PASS':
+            # Program checks are frozen plan obligations, not command records. Verify
+            # once more after the final command so the receipt proves the final state.
+            try:
+                _verify_execution_inputs(request,bundle)
+                declared=bundle['resolved_plan']['program_checks']
+                if 'managed_config_provenance' in declared:
+                    covers=[]
+                    for pack in bundle['resolved_plan'].get('packs',[]):
+                        if pack.get('pack_id')=='provenance' or pack.get('kind')=='provenance':
+                            covers.extend(pack.get('covers',[]))
+                    package_artifacts=[]
+                    # Bind only artifacts emitted by (or already validated in a
+                    # recovery prefix for) the frozen package build check.
+                    package_packs=[p for p in bundle['resolved_plan'].get('packs',[]) if p.get('pack_id')=='package' or p.get('kind')=='package']
+                    trusted_prefix_refs={}
+                    for prefix_record in completed_prefix:
+                        for prefix_artifact in prefix_record.get('evidence',{}).get('artifacts',[]):
+                            if prefix_artifact.get('artifact_ref'):
+                                trusted_prefix_refs[prefix_artifact['artifact_ref']]=prefix_record
+                    expected_build_sources=[]
+                    for index, accepted_check in enumerate(plan['checks']):
+                        if accepted_check.get('kind')!='build' or not accepted_check.get('artifacts'):
+                            continue
+                        expected_build_sources.extend(str(Path(repo, p).resolve()) for p in accepted_check['artifacts'])
+                        record=records[index]
+                        by_source={str(Path(x.get('source_path',x.get('path',''))).resolve()):x for x in record.get('evidence',{}).get('artifacts',[])}
+                        expected_sources=[str(Path(repo, p).resolve()) for p in accepted_check['artifacts']]
+                        if package_packs and any(p not in by_source for p in expected_sources):
+                            raise RuntimeError('declared package artifact is missing from verified build evidence')
+                        for artifact in record.get('evidence',{}).get('artifacts',[]):
+                            source=artifact.get('source_path',artifact.get('path'))
+                            if package_packs and str(Path(source).resolve()) not in expected_sources:
+                                raise RuntimeError('build emitted an undeclared package artifact')
+                            if not source or not Path(source).is_file():
+                                raise RuntimeError('package artifact source is unavailable')
+                            raw=Path(source).read_bytes(); digest=hashlib.sha256(raw).hexdigest()
+                            if len(raw)!=artifact.get('size') or digest!=artifact.get('sha256'):
+                                raise RuntimeError('package artifact changed after build verification')
+                            ref=artifact.get('artifact_ref')
+                            if not ref: raise RuntimeError('package artifact has no typed archived binding')
+                            stored=store.get_artifact(ref)
+                            typed=stored.get('artifact',{}) if stored else {}
+                            archived=Path(typed.get('path','')).read_bytes() if typed and typed.get('path') else b''
+                            trusted_producer=typed.get('producer_id')==task_id or ref in trusted_prefix_refs
+                            if (not typed or typed.get('sha256')!=digest or typed.get('size_bytes')!=len(raw) or
+                                typed.get('type')!='BUILD' or typed.get('producer_kind')!='TASK' or
+                                not trusted_producer or len(archived)!=typed.get('size_bytes') or hashlib.sha256(archived).hexdigest()!=typed.get('sha256')):
+                                raise RuntimeError('package artifact archive binding mismatch')
+                            package_artifacts.append({'artifact_ref':ref,'sha256':digest,'size_bytes':len(raw),
+                                'source_input_digest':request['input_digest'],'source_path':str(source)})
+                    if package_packs and not package_artifacts:
+                        raise RuntimeError('declared package build produced no verified package artifacts')
+                    program_rows.append({'kind':'managed_config_provenance','covers':list(dict.fromkeys(covers)),'evidence':{
+                        'task_id':task_id,'run_id':task['run_id'],'evaluation_generation':task['evaluation_generation'],
+                        'status':'PASS','covers':list(dict.fromkeys(covers)),
+                        'input_digest':request['input_digest'],'plan_digest':request['plan_digest'],
+                        'policy_digest':request['policy_digest'],
+                        'source_manifest_digest':workflow_store.digest(bundle['source_manifest']),
+                        'publication_receipt_path':bundle['config_provenance']['receipt_path'],
+                        'publication_receipt_sha256':bundle['config_provenance']['receipt_sha256'],
+                        'config_path':'opencode.jsonc','config_sha256':bundle['config_provenance']['actual_sha256'],
+                        'target':bundle['config_provenance']['target']}})
+                    program_rows[-1]['evidence']['package_artifacts']=package_artifacts
+                if 'accepted_snapshot_provenance' in declared:
+                    program_rows.append({'kind':'accepted_snapshot_provenance','covers':[],'evidence':{
+                        'status':'PASS','task_id':task_id,'run_id':task['run_id'],
+                        'evaluation_generation':task['evaluation_generation'],'input_digest':request['input_digest'],
+                        'plan_digest':request['plan_digest'],'policy_digest':request['policy_digest'],
+                        'source_manifest_digest':workflow_store.digest(bundle['source_manifest'])}})
+            except Exception as exc:
+                decision='ERROR'; code='PROGRAM_PROVENANCE_INVALID'; message=str(exc)[:500]
         if decision == 'PASS' and store.get_run(task['run_id'])['run'].get('run_kind') == 'POST_ACCEPTANCE_REGRESSION':
             full = all(r.get('evidence', {}).get('selection') == 'full' and
                 isinstance(r.get('evidence', {}).get('counts', {}).get('selected'), int) and
@@ -420,6 +494,7 @@ def execute_native_task(store, *, task_id, process_identity, claim_token,
         summary_records.append({k:v for k,v in record.items() if k not in ('started','finished','startup_seconds')})
     summary={'task_id':task_id,'run_id':task['run_id'],'input_digest':task['input_digest'],
          'plan_digest':request['plan_digest'],'policy_digest':request['policy_digest'],'checks':summary_records}
+    if program_rows: summary['program_checks']=program_rows
     if recovery_links: summary['reused_check_sources']=recovery_links
     data=workflow_store.canonical_json(summary).encode('utf-8')
     path=workflow_submission._write_immutable(Path(artifact_dir)/'immutable'/task_id/(hashlib.sha256(data).hexdigest()+'-check-receipt.json'),data)

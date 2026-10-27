@@ -102,6 +102,108 @@ class FiniteChecksTests(unittest.TestCase):
             record=wf.run_finite_checks(self.repo,{'checks':[item]},self.logs/f'case{index}')[0]
             self.assertNotEqual(record['evidence']['status'],'PASS')
 
+    def test_gametest_completed_hanging_process_is_stopped_after_teardown_grace(self):
+        import time
+        output = "print('GameTest tag preflight: 2/5 fixtures selected',flush=True); print('2 GAME TESTS COMPLETE IN 0.2 s',flush=True); print('All 2 required tests passed',flush=True); import time; time.sleep(30)"
+        item=check(self.script(output),'gametest'); item['log']='producer.log'
+        started=time.monotonic()
+        record=wf.run_finite_checks(self.repo,{'checks':[item]},self.logs,timeout=8,gametest_teardown_timeout=.25)[0]
+        self.assertLess(time.monotonic()-started,5)
+        self.assertEqual(record['exit_code'],124)
+        self.assertEqual(record['timeout_phase'],'gametest_teardown')
+        self.assertEqual(record['tree_cleanup'],'terminated')
+        self.assertNotEqual(record['evidence']['status'],'PASS')
+        self.assertIn('GAME_TEST_TEARDOWN_TIMEOUT',(Path(record['log']).read_text()))
+
+    def test_native_gametest_banner_after_large_flushed_output_starts_bounded_teardown(self):
+        import time
+        banner='[16:53:59] [Server thread/INFO] [minecraft/GameTestServer]: ========= 19 GAME TESTS COMPLETE IN 12.23 s ======================'
+        source=("import sys,time; "
+                "print('GameTest tag preflight: 19/19 fixtures selected',flush=True); "
+                "sys.stdout.write('x'*140000+'\\n'); sys.stdout.flush(); time.sleep(.12); "
+                f"sys.stdout.write({banner[:43]!r}); sys.stdout.flush(); time.sleep(.04); "
+                f"sys.stdout.write({banner[43:]!r}+'\\n'); sys.stdout.flush(); time.sleep(30)")
+        item=check(self.script(source),'gametest'); item['log']='producer.log'
+        started=time.monotonic()
+        record=wf.run_finite_checks(self.repo,{'checks':[item]},self.logs,timeout=8,gametest_teardown_timeout=.2)[0]
+        elapsed=time.monotonic()-started
+        log=Path(record['log']).read_text()
+        self.assertLess(elapsed,4)
+        self.assertEqual(record['exit_code'],124)
+        self.assertEqual(record['timeout_phase'],'gametest_teardown')
+        self.assertEqual(record['tree_cleanup'],'terminated')
+        self.assertNotEqual(record['evidence']['status'],'PASS')
+        self.assertIn(banner,log)
+        self.assertIn('GAME_TEST_TEARDOWN_TIMEOUT',log)
+
+    def test_teardown_timeout_with_blocked_tree_cleanup_is_unverified_and_notified(self):
+        import time
+        child=[]; notifications=[]; completions=[]
+        source=("import time; print('GameTest tag preflight: 1/1 fixtures selected',flush=True); "
+                "print('1 GAME TESTS COMPLETE IN 0.1 s',flush=True); time.sleep(30)")
+        item=check(self.script(source),'gametest'); item['log']='producer.log'
+        original_stop=wf.stop_owned_tree
+        def blocked_once(proc,timeout=5):
+            if not child:
+                child.append(proc)
+                raise wf.GateTreeBlocked(proc.pid,'injected stop failure')
+            return original_stop(proc,timeout=timeout)
+        try:
+            with mock.patch.object(wf,'stop_owned_tree',side_effect=blocked_once):
+                records=wf.run_finite_checks(self.repo,{'checks':[item]},self.logs,timeout=8,
+                    gametest_teardown_timeout=.2,
+                    cleanup_blocked=lambda *args: notifications.append(args),
+                    record_completed=lambda record: completions.append(record))
+        finally:
+            if child and child[0].poll() is None:
+                original_stop(child[0])
+        self.assertEqual(1,len(records))
+        record=records[0]
+        self.assertEqual(124,record['exit_code'])
+        self.assertEqual('gametest_teardown',record['timeout_phase'])
+        self.assertEqual('unverified',record['tree_cleanup'])
+        self.assertNotEqual('PASS',record['evidence']['status'])
+        self.assertIn('OWNED PROCESS TREE TERMINATION UNVERIFIED',Path(record['log']).read_text())
+        self.assertEqual([record],completions)
+        self.assertEqual(1,len(notifications))
+        self.assertIsInstance(notifications[0][0],wf.GateTreeBlocked)
+        self.assertEqual(record,notifications[0][2])
+        self.assertIsNotNone(child[0].poll(), 'fixture child was not reaped after original owner stop')
+
+    def test_global_deadline_wins_before_gametest_teardown_deadline(self):
+        source=("import sys,time; print('GameTest tag preflight: 1/1 fixtures selected',flush=True); "
+                "sys.stdout.write('[16:53:59] [Server thread/INFO] [minecraft/GameTestServer]: ========= 1 GAME TESTS COMPLETE IN 1.00 s ======================\\n'); "
+                "sys.stdout.flush(); time.sleep(30)")
+        item=check(self.script(source),'gametest'); item['log']='producer.log'
+        record=wf.run_finite_checks(self.repo,{'checks':[item]},self.logs,timeout=.3,gametest_teardown_timeout=3)[0]
+        self.assertEqual(record['exit_code'],124)
+        self.assertEqual(record['timeout_phase'],'command')
+        self.assertEqual(record['tree_cleanup'],'terminated')
+        self.assertIn('TIMEOUT:',Path(record['log']).read_text())
+
+    def test_gametest_failed_completion_hang_retains_failure_evidence(self):
+        output = "print('GameTest tag preflight: 2/5 fixtures selected',flush=True); print('2 GAME TESTS COMPLETE IN 0.2 s',flush=True); print('1 tests failed',flush=True); import time; time.sleep(30)"
+        item=check(self.script(output),'gametest'); item['log']='producer.log'
+        record=wf.run_finite_checks(self.repo,{'checks':[item]},self.logs,timeout=8,gametest_teardown_timeout=.25)[0]
+        self.assertEqual(record['timeout_phase'],'gametest_teardown')
+        self.assertEqual(record['exit_code'],124)
+        self.assertNotEqual(record['evidence']['status'],'PASS')
+        self.assertEqual(record['evidence']['counts']['failed'],1)
+        self.assertIn('native GameTest failure summary present',record['evidence']['findings'])
+
+    def test_gametest_incomplete_or_invalid_completion_does_not_start_teardown(self):
+        import time
+        cases=("print('All 2 required tests passed'); print('2 GAME TESTS COMPLETE IN 0.2 s')",
+               "print('GameTest tag preflight: 2/5 fixtures selected'); print('3 GAME TESTS COMPLETE IN 0.2 s')",
+               "print('GameTest tag preflight: 0/0 fixtures selected'); print('2 GAME TESTS COMPLETE IN 0.2 s')")
+        for output in cases:
+            item=check(self.script(output+"; import time; time.sleep(.35)"),'gametest'); item['log']='producer.log'
+            started=time.monotonic()
+            record=wf.run_finite_checks(self.repo,{'checks':[item]},self.logs/str(len(list(self.logs.glob('*.log')))),timeout=5,gametest_teardown_timeout=.1)[0]
+            self.assertEqual(record['exit_code'],0)
+            self.assertIsNone(record['timeout_phase'])
+            self.assertLess(time.monotonic()-started,4)
+
     def test_launch_smoke_monitors_and_preserves_independent_producer_log(self):
         producer=self.repo/'server.log'; producer.write_text('')
         source=f"from pathlib import Path; import time; Path({str(producer)!r}).write_text('SERVER READY'); time.sleep(30)"

@@ -62,6 +62,12 @@ class ReviewGuideTests(unittest.TestCase):
             planner.artifact_dir=root/'guide-artifacts'; planner.artifact_dir.mkdir()
             task=planner.plan_reviews(run)[0]; planner.build_assignment(task['task_id'])
             first=planner.input_access(task['task_id'],'review_guide',0)
+            self.assertEqual('review_guide', first.get('content_kind'))
+            self.assertLessEqual(len(first['content'].encode()),12*1024)
+            overview=json.loads(first['content'])
+            self.assertEqual('review_guide',overview['document_type'])
+            self.assertEqual(task['task_id'],overview['task_id'])
+            self.assertIn('checks',overview['current_validation'])
             self.assertGreater(first['size_bytes'],4096)
             self.assertEqual('utf-8',first['encoding'])
             pages=[first['content'].encode()]; page=first

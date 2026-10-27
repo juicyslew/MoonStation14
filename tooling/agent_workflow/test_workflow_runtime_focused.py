@@ -8,6 +8,17 @@ import workflow_runtime
 
 
 class ExecutionArgvTests(unittest.TestCase):
+    def test_game_test_logging_only_applies_to_gradle_launcher(self):
+        game_test=['python','runGameTestServer']
+        self.assertEqual(game_test,workflow_runtime.execution_argv('.',game_test))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo=Path(tmp)
+            (repo/'tooling'/'agent_workflow').mkdir(parents=True)
+            (repo/'tooling'/'agent_workflow'/'validation-logging.gradle').write_text('// managed')
+            actual=workflow_runtime.execution_argv(repo,['gradle','runGameTestServer'])
+            self.assertIn('-Pms14ValidationDebug=false',actual)
+            self.assertIn('--init-script',actual)
+
     def test_windows_launcher_resolution_is_exact_and_posix_preserves_argv(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo=Path(tmp)

@@ -704,15 +704,27 @@ def cmd_gate_validate(a,root):
     print(json.dumps({k:job.get(k) for k in ('state','job_id','candidate_id','snapshot_key','reason')},indent=2))
 
 def execution_argv(repo, argv, *, os_name=None):
-    """Resolve only the supported Windows Gradle wrapper spelling to its actual launcher."""
+    """Resolve launcher and apply managed logging for GameTest executions."""
     result=list(argv)
     if (os_name or os.name)=='nt' and result and result[0] in ('./gradlew','gradlew'):
         wrapper=Path(repo)/'gradlew.bat'
         if wrapper.is_file(): result[0]=str(wrapper.resolve())
+    launcher = Path(result[0]).name.lower() if result else ''
+    is_gradle_launcher = launcher in ('gradle', 'gradle.bat', 'gradlew', 'gradlew.bat')
+    if is_gradle_launcher and 'runGameTestServer' in result:
+        script=Path(__file__).resolve().with_name('validation-logging.gradle')
+        if not script.is_file():
+            raise ValueError('canonical managed validation logging init script is missing')
+        debug_values=[arg.split('=',1)[1] for arg in result if arg.startswith('-Pms14ValidationDebug=')]
+        if any(value not in ('true','false') for value in debug_values) or len(debug_values)>1:
+            raise ValueError('ms14ValidationDebug must be specified once as true or false')
+        if not any(arg.startswith('-Pms14ValidationDebug=') for arg in result):
+            result.append('-Pms14ValidationDebug=false')
+        result.extend(['--init-script',str(script)])
     return result
 
 
-def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, verify_inputs=None, child_started=None, progress=None, record_completed=None, cleanup_blocked=None, completed_prefix=()):
+def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, gametest_teardown_timeout=60, verify_inputs=None, child_started=None, progress=None, record_completed=None, cleanup_blocked=None, completed_prefix=()):
     """Run a finite, sequential check plan and return its typed evidence records."""
     checks=plan['checks']
     prefix=list(completed_prefix)
@@ -749,7 +761,7 @@ def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, ve
                 except OSError: pass
             if aliases: raise ValueError('coordinator capture log aliases typed-check producer log')
         log.parent.mkdir(parents=True,exist_ok=True)
-        code=127; cleanup='not_needed'; blocker=None; smoke=None; smoke_started=time.monotonic(); proc=None; callback_error=None; monotonic_started=time.monotonic()
+        code=127; cleanup='not_needed'; blocker=None; smoke=None; timeout_phase=None; smoke_started=time.monotonic(); proc=None; callback_error=None; monotonic_started=time.monotonic()
         with log.open('w',encoding='utf-8',errors='replace') as stream:
             stream.write(f'GATE COMMAND STARTED: {started:.9f}\n'); stream.flush()
             def invoke_owned(callback,*args):
@@ -779,18 +791,42 @@ def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, ve
                         if smoke['controlled_stop']: stream.write('\nGATE CONTROLLED OWNED PROCESS TREE STOP: confirmed\n')
                 else:
                     deadline=time.monotonic()+timeout
+                    completion_deadline=None; capture_offset=0; carry=b''; completion_info=None
+                    completion_tracker=validation_evidence.GameTestCompletionTracker() if check_kind=='gametest' else None
                     while True:
-                        remaining=deadline-time.monotonic()
+                        now=time.monotonic()
+                        if check_kind=='gametest':
+                            try:
+                                with log.open('rb') as capture:
+                                    capture.seek(capture_offset)
+                                    while True:
+                                        chunk=capture.read(65536)
+                                        if not chunk: break
+                                        capture_offset=capture.tell()
+                                        data=carry+chunk
+                                        lines=data.split(b'\n')
+                                        carry=lines.pop()
+                                        if len(carry)>32768: carry=carry[-32768:]
+                                        state=completion_tracker.feed(b'\n'.join(lines).decode('utf-8',errors='replace'))
+                                        if state and completion_deadline is None:
+                                            completion_info=state
+                                            completion_deadline=now+gametest_teardown_timeout
+                                            stream.write(f'\nGAME_TEST_COMPLETION_DETECTED: selected={state["selected"]} total={state["total"]} elapsed={state["elapsed"]}\n'); stream.flush()
+                            except OSError: pass
+                        active_deadline=min(deadline,completion_deadline) if completion_deadline is not None else deadline
+                        remaining=active_deadline-now
                         if remaining<=0:
                             code=124
+                            timeout_phase='gametest_teardown' if completion_deadline is not None and completion_deadline<=deadline else 'command'
                             try:
                                 stop_owned_tree(proc); cleanup='terminated'
-                                stream.write('\nTIMEOUT: owned process tree termination command and root exit confirmed\n')
+                                stream.write(f'\n{"GAME_TEST_TEARDOWN_TIMEOUT" if timeout_phase=="gametest_teardown" else "TIMEOUT"}: owned process tree termination command and root exit confirmed\n')
                             except GateTreeBlocked as exc:
                                 cleanup='unverified'; blocker=exc
                                 stream.write(f'\nTIMEOUT: OWNED PROCESS TREE TERMINATION UNVERIFIED; PID {exc.pid}; {exc.detail}\n')
+                            if timeout_phase=='gametest_teardown': stream.write(f'GAME_TEST_TEARDOWN_DIAGNOSTIC: {completion_info}\n')
                             break
-                        try: code=proc.wait(timeout=min(10,remaining)); break
+                        try: code=proc.wait(timeout=min(1 if check_kind=='gametest' else 10,remaining)); break
                         except subprocess.TimeoutExpired:
                             if progress: invoke_owned(progress,check,i+1,time.monotonic()-monotonic_started)
             except OSError as e: stream.write(f'COMMAND START FAILED: {e}\n')
@@ -801,7 +837,7 @@ def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, ve
             finished=time.time(); stream.write(f'GATE COMMAND EXIT: {code}; finished={finished:.9f}\n')
         evidence_check=dict(check,exit_code=code)
         evidence=validation_evidence.collect_evidence(evidence_check,repo,started,finished,log,before,hash_file=sha,safe_path=safe)
-        record={'argv':check['argv'],'kind':check_kind,'rationale':check['rationale'],'covers':check['covers'],'exit_code':code,'tree_cleanup':cleanup,'controlled_stop':bool(smoke and smoke['controlled_stop']),'startup_seconds':time.monotonic()-smoke_started if check_kind=='launch-smoke' else None,'started':started,'finished':finished,'log':str(log),'log_sha256':sha(log),'evidence':evidence}
+        record={'argv':check['argv'],'kind':check_kind,'rationale':check['rationale'],'covers':check['covers'],'exit_code':code,'tree_cleanup':cleanup,'timeout_phase':timeout_phase,'controlled_stop':bool(smoke and smoke['controlled_stop']),'startup_seconds':time.monotonic()-smoke_started if check_kind=='launch-smoke' else None,'started':started,'finished':finished,'log':str(log),'log_sha256':sha(log),'evidence':evidence}
         if executed_argv!=check['argv']: record['executed_argv']=executed_argv
         records.append(record)
         if blocker and cleanup_blocked: cleanup_blocked(blocker,log,record)

@@ -35,6 +35,7 @@ SOURCES = (
 )
 ASSETS = ("contracts/preflight.schema.json", "contracts/protocol.schema.json")
 ROOT_ASSETS = (
+    "tooling/agent_workflow/validation-logging.gradle",
     "tooling/agent_workflow/requirements-workflow-coordinator.txt",
     "tooling/agent_workflow/install_workflow_coordinator.ps1",
     "tooling/agent_workflow/workflow_coordinator_package.py",
