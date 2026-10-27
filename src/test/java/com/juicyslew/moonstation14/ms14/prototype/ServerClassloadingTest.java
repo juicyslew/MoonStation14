@@ -56,7 +56,8 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/mixin/client/ContainedPerspectiveLockMixin.java",
             "com/juicyslew/moonstation14/mixin/client/ContainedOwnerPickMixin.java",
             "com/juicyslew/moonstation14/mixin/client/MouseHandlerMindGhostLookMixin.java",
-            "com/juicyslew/moonstation14/ms14/medical_observer/client/MedicalCameraAnchorEntity.java",
+             "com/juicyslew/moonstation14/ms14/medical_observer/client/MedicalCameraAnchorEntity.java",
+             "com/juicyslew/moonstation14/ms14/animals/diagnostics/AnimalPopulationClientSampler.java",
              "com/juicyslew/moonstation14/ms14/medical/client/HealthAnalyzerRenderer.java",
              "com/juicyslew/moonstation14/ms14/medical/client/HealthAnalyzerWorkspace.java",
              "com/juicyslew/moonstation14/ms14/medical/client/HealthAnalyzerLayout.java",
@@ -158,14 +159,15 @@ class ServerClassloadingTest {
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/ghost_roles/client/")
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/mouse/client/")
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mobs/client/")
-                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")
-                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")
-                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/tesla/client/")
-                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/combat/client/")
-                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/item_processing/client/")
-                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/animals/client/")
-                           || relativePath.startsWith("com/juicyslew/moonstation14/validation/client/")
-                           || relativePath.equals("com/juicyslew/moonstation14/ms14/animals/diagnostics/AnimalPopulationClientSampler.java")) {
+                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/animals/client/")
+                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")
+                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")
+                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/actions/client/")
+                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/tesla/client/")
+                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/combat/client/")
+                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/item_processing/client/")
+                          || relativePath.startsWith("com/juicyslew/moonstation14/validation/client/")
+                          || relativePath.equals("com/juicyslew/moonstation14/ms14/animals/diagnostics/AnimalPopulationClientSampler.java")) {
                     continue;
                 }
 
@@ -286,7 +288,8 @@ class ServerClassloadingTest {
         assertTrue(Files.isRegularFile(source), "Player character harness renderer source should exist");
 
         String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
-        assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*MoonStation14\\.MOD_ID\\s*,"
+        assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*"
+                        + "(?:MoonStation14\\.MOD_ID|com\\.juicyslew\\.moonstation14\\.MoonStation14\\.MOD_ID)\\s*,"
                         + "\\s*value\\s*=\\s*Dist\\.CLIENT\\s*\\).*"),
                 "Player character harness renderer must be explicitly subscribed on Dist.CLIENT");
         assertTrue(code.matches("(?s).*event\\.registerEntityRenderer\\s*\\(\\s*"
@@ -305,6 +308,18 @@ class ServerClassloadingTest {
         assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*MoonStation14\\.MOD_ID\\s*,"
                         + "\\s*value\\s*=\\s*Dist\\.CLIENT\\s*\\).*"),
                 "Ghost control client must be explicitly subscribed on Dist.CLIENT");
+    }
+
+    @Test
+    void animalPopulationClientSamplerExceptionIsExplicitlyClientOnly() throws IOException {
+        Path source = findProductionSourceRoot().resolve(
+                "com/juicyslew/moonstation14/ms14/animals/diagnostics/AnimalPopulationClientSampler.java");
+        assertTrue(Files.isRegularFile(source), "Animal population client sampler source should exist");
+        String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+        assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*"
+                        + "com\\.juicyslew\\.moonstation14\\.MoonStation14\\.MOD_ID\\s*,"
+                        + "\\s*value\\s*=\\s*Dist\\.CLIENT\\s*\\).*"),
+                "Animal population client sampler must remain explicitly subscribed on Dist.CLIENT");
     }
 
     @Test

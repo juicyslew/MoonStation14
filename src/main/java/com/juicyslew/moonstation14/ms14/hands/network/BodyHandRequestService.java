@@ -668,6 +668,14 @@ public final class BodyHandRequestService {
                     .isSignaller(looseTarget.getItem()))
                 return result(request, com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerServer.activateLoose(
                         actor, authority, hands, request, looseTarget), authority);
+            if (looseTarget != null) {
+                var slicing = com.juicyslew.moonstation14.ms14.item_processing.LooseFoodSlicingService.use(
+                        actor, authority, hands, request, looseTarget, held);
+                if (slicing != null) return result(request, slicing, authority);
+                var cutting = com.juicyslew.moonstation14.ms14.item_processing.LooseLogCuttingService.use(
+                        actor, authority, hands, request, looseTarget, held);
+                if (cutting != null) return result(request, cutting, authority);
+            }
             var heldId = held == null ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
             try {
                 // Ordinary liquid containers are intentionally not in the medical catalog.
@@ -688,6 +696,15 @@ public final class BodyHandRequestService {
                 if (dispatched != null) return dispatched;
             } catch (RuntimeException ignored) { return result(request, BodyHandActionResult.Reason.DENIED, authority); }
             return result(request, BodyHandActionResult.Reason.DENIED, authority);
+        }
+        if (request.action() == BodyHandActionRequest.Action.BUTCHER) {
+            var held = hands.stackCopy(request.handId()).orElse(null);
+            var looseTarget = nominatedLoose(authority, request);
+            if (looseTarget == null)
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            var outcome = com.juicyslew.moonstation14.ms14.item_processing.LooseButcheringService.use(
+                    actor, authority, hands, request, looseTarget, held);
+            return result(request, outcome == null ? BodyHandActionResult.Reason.DENIED : outcome, authority);
         }
         if (request.action() == BodyHandActionRequest.Action.USE_IN_HAND) {
             var stack = hands.stackCopy(request.handId()).orElse(null);
@@ -713,6 +730,9 @@ public final class BodyHandRequestService {
                     return result(request, heldMutationReason(com.juicyslew.moonstation14.ms14.medical.syringe.SyringeModeService.activate(
                             actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence())), authority);
             } catch (RuntimeException ignored) { }
+            var conversion = com.juicyslew.moonstation14.ms14.item_processing.HeldItemConversionService.tryUse(
+                    actor, authority, hands, request, stack);
+            if (conversion != null) return result(request, conversion, authority);
             if (!(stack.getItem() instanceof IReagentTrait))
                 return result(request, BodyHeldItemActions.activate(actor, request), authority);
             boolean policyDrink = false;
@@ -963,11 +983,11 @@ public final class BodyHandRequestService {
                 }
                 return new BodyHandActionResult(request.epoch(), request.sequence(),
                         reason == BodyHandActionResult.Reason.OK, reason, true, hands.revision(),
-                        hands.activeHand(), null, null, 0, null);
+                        hands.activeHand(), null, null, 0, transition);
             }
         }
         return new BodyHandActionResult(request.epoch(), request.sequence(),
-                reason == BodyHandActionResult.Reason.OK, reason, false, 0, null, null, null, 0, null);
+                reason == BodyHandActionResult.Reason.OK, reason, false, 0, null, null, null, 0, transition);
     }
 
     /** Pure dispatch policy; never serves as proof of a real authenticated player. */

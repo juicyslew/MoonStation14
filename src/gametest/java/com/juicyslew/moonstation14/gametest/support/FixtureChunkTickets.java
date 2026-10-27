@@ -12,6 +12,8 @@ import net.minecraft.world.phys.AABB;
 import com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -73,14 +75,45 @@ public final class FixtureChunkTickets {
                                           java.util.function.BooleanSupplier additionalReady, String condition,
                                           Runnable ready, BlockPos... positions) {
         if (maxWaitTicks < 1 || positions.length == 0) throw new IllegalArgumentException("invalid ticket readiness wait");
+        long startGameTime = helper.getLevel().getGameTime();
         BoundedGameTestWait.await(helper, maxWaitTicks,
-                () -> "fixture ticket did not become entity-ticking within " + maxWaitTicks + " ticks: "
-                        + java.util.Arrays.stream(positions).map(lease::diagnostic).toList()
-                        + "; additionalReady[" + condition + "]=" + additionalReady.getAsBoolean(), () -> {
+                () -> timeoutDiagnostic(helper, lease, positions, maxWaitTicks, startGameTime,
+                        additionalReady, condition), () -> {
             boolean readyNow = true;
             for (BlockPos position : positions) readyNow &= lease.entityTicking(position);
             return readyNow && additionalReady.getAsBoolean();
         }, ready);
+    }
+
+    private static String timeoutDiagnostic(GameTestHelper helper, Lease lease, BlockPos[] positions,
+                                            int maxWaitTicks, long startGameTime,
+                                            java.util.function.BooleanSupplier additionalReady, String condition) {
+        Map<ChunkPos, BlockPos> unique = new LinkedHashMap<>();
+        for (BlockPos position : positions) unique.putIfAbsent(new ChunkPos(position), position);
+        Map<ChunkPos, BlockPos> pending = new LinkedHashMap<>();
+        for (Map.Entry<ChunkPos, BlockPos> entry : unique.entrySet())
+            if (!lease.entityTicking(entry.getValue())) pending.put(entry.getKey(), entry.getValue());
+        boolean extra = additionalReady.getAsBoolean();
+        StringBuilder message = new StringBuilder("fixture entity-ticking timeout pendingChunks=")
+                .append(pending.size()).append('/').append(unique.size())
+                .append(" elapsedWorldTicks=").append(helper.getLevel().getGameTime() - startGameTime)
+                .append(" maxWaitTicks=").append(maxWaitTicks)
+                .append(" additionalReady[").append(condition).append("]=").append(extra).append(" pending=");
+        if (pending.isEmpty()) message.append("none");
+        else {
+            int shown = 0;
+            for (Map.Entry<ChunkPos, BlockPos> entry : pending.entrySet()) {
+                if (shown++ == 6) break;
+                BlockPos pos = entry.getValue();
+                message.append("{chunk=").append(entry.getKey()).append(" pos=").append(pos)
+                        .append(" covers=").append(lease.covers(entry.getKey()))
+                        .append(" closed=").append(lease.isClosed())
+                        .append(" loaded=").append(helper.getLevel().hasChunkAt(pos))
+                        .append(" entityTicking=false}");
+            }
+            if (pending.size() > 6) message.append(" +").append(pending.size() - 6).append(" more");
+        }
+        return message.toString();
     }
 
     public static final class Lease implements AutoCloseable {
@@ -99,7 +132,8 @@ public final class FixtureChunkTickets {
         public boolean covers(net.minecraft.world.level.ChunkPos chunk) { return chunks.contains(chunk); }
         public Set<ChunkPos> chunkPositions() { return chunks; }
         public String diagnostic(BlockPos position) {
-            return position + " chunk=" + new ChunkPos(position) + " loaded=" + level.hasChunkAt(position)
+            return position + " chunk=" + new ChunkPos(position) + " covers=" + covers(new ChunkPos(position))
+                    + " loaded=" + level.hasChunkAt(position)
                     + " entityTicking=" + entityTicking(position);
         }
         public boolean isClosed() { return closed; }

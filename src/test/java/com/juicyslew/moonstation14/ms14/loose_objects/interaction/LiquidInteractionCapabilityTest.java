@@ -38,6 +38,14 @@ class LiquidInteractionCapabilityTest {
     }
 
     @Test
+    void selectedDoseReceiptAmountTracksPartialSourceInsteadOfRequest() {
+        var plan = LiquidInteractionCapability.plan(Map.of(WATER, 375L), Map.of(), 10_000L, 500L);
+        assertEquals(375L, plan.transferredCents());
+        assertTrue(plan.sourceAfter().isEmpty());
+        assertEquals(Map.of(WATER, 375L), plan.destinationAfter());
+    }
+
+    @Test
     void selectedSyringeDoseCanExceedDefaultFiveUnits() {
         var plan = LiquidInteractionCapability.plan(Map.of(WATER, 2_000L), Map.of(), 1_500L, 1_500L);
         assertEquals(1_500L, plan.transferredCents());

@@ -66,6 +66,10 @@ public class ModSounds {
     public static final Supplier<SoundEvent> MALE_GASP = registerSoundEvent("gasp/male");
     public static final Supplier<SoundEvent> FEMALE_GASP = registerSoundEvent("gasp/female");
     public static final Supplier<SoundEvent> MOUSE_SQUEAK = registerSoundEvent("mouse_squeak");
+    public static final Supplier<SoundEvent> VOCAL_HUMAN_SCREAM = registerSoundEvent("vocal_human_scream");
+    public static final Supplier<SoundEvent> VOCAL_REPTILIAN_SCREAM = registerSoundEvent("vocal_reptilian_scream");
+    public static final Supplier<SoundEvent> VOCAL_SCURRET_SCREAM = registerSoundEvent("vocal_scurret_scream");
+    public static final Supplier<SoundEvent> VOCAL_WILHELM = registerSoundEvent("vocal_wilhelm");
     private record SpeechSounds(Supplier<SoundEvent> say, Supplier<SoundEvent> ask, Supplier<SoundEvent> exclaim) {
         SpeechSounds(Supplier<SoundEvent> all) { this(all, all, all); }
     }

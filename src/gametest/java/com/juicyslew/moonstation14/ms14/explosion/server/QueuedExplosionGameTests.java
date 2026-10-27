@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.damage.ItemDamageState;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosiveSourceData;
+import com.juicyslew.moonstation14.ms14.explosion.core.BlastKnockbackPolicy;
 import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 import com.juicyslew.moonstation14.ms14.loose_objects.ModLooseObjectProfiles;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
@@ -30,7 +31,8 @@ public final class QueuedExplosionGameTests {
     @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 100, batch = "catalog-queued-explosion-tomato")
     public static void adjacentOriginsMergeAndExecuteThroughLevelTicks(GameTestHelper helper) {
         var level = helper.getLevel();
-        var firstOrigin = helper.absolutePos(new BlockPos(8, 2, 8));
+        // atmos_large_empty is 36x5x8; z=8 is beyond its last template cell.
+        var firstOrigin = helper.absolutePos(new BlockPos(8, 2, 4));
         var secondOrigin = firstOrigin.east();
         if (!level.hasChunkAt(firstOrigin) || !level.hasChunkAt(secondOrigin)
                 || !level.getBlockState(firstOrigin).isAir() || !level.getBlockState(secondOrigin).isAir())
@@ -62,7 +64,6 @@ public final class QueuedExplosionGameTests {
             second = tomato(level, secondOrigin);
             var firstStack = first.getItem();
             var secondStack = second.getItem();
-            var secondVelocity = second.getDeltaMovement();
             var proposal = new ExplosiveSourceData(.1, 1, .001,
                     ResourceLocation.fromNamespaceAndPath("moonstation14", "default"));
             require(QueuedExplosionSystem.enqueue(level, firstOrigin, proposal) == QueuedExplosionSystem.Outcome.QUEUED,
@@ -79,8 +80,16 @@ public final class QueuedExplosionGameTests {
                     require(aLedger != null && aLedger.damage().equals(Map.of("blunt", 1f, "piercing", 1f, "heat", 1f)),
                             "only first anchor receives merged three-channel damage");
                     require(bLedger == null && b.getItem() == secondStack && b.getItem().getCount() == 1
-                                    && b.getDeltaMovement().equals(secondVelocity),
-                            "second anchor remains undamaged and unimpulsed");
+                                    && b.getDeltaMovement().lengthSqr() > 0,
+                            "second anchor remains undamaged while receiving blast physics");
+                    var expectedImpulse = BlastKnockbackPolicy.calculate(1,
+                            firstOrigin.getX() + .5, firstOrigin.getY() + .5, firstOrigin.getZ() + .5,
+                            b.getX(), b.getY() + b.getBbHeight() * .5, b.getZ());
+                    var actual = b.getDeltaMovement();
+                    var velocity = expectedImpulse.velocity();
+                    require(expectedImpulse.applicable() && actual.x * velocity.x() + actual.y * velocity.y()
+                                    + actual.z * velocity.z() > 0,
+                            "second anchor velocity points outward according to shared blast knockback policy");
                     helper.succeed();
                 } catch (Throwable failure) { helper.fail("queued merge runtime effect: " + failure); }
                 finally { if (!a.isRemoved()) a.discard(); if (!b.isRemoved()) b.discard(); }

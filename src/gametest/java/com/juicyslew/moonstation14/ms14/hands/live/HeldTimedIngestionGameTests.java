@@ -523,8 +523,15 @@ public final class HeldTimedIngestionGameTests {
             try {
                 var active = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver.readyAndQuery(fixture);
                 var body = active.body();
+                var seedId = com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat");
+                var seedProfile = com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.serverCatalog().get(seedId);
+                require(seedProfile != null && seedProfile.product().equals(
+                                ResourceLocation.fromNamespaceAndPath("moonstation14", "wheat_bushel")),
+                        "current resolved seed profile produces wheat");
+                float potency = seedProfile.lifecycle().potency();
+                require(Float.isFinite(potency) && potency > 0f, "current resolved wheat potency is positive");
                 ItemStack wheat = com.juicyslew.moonstation14.ms14.botany.ProduceFactory.createHarvest(
-                        com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat"), 10f);
+                        seedId, seedProfile, potency);
                 var hands = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
                 String hand = hands.activeHand(), token = "ready-wheat-food";
                 require(LiveHandsFixtureTransfer.put(fixture.player(), body, hand, token, wheat), "wheat assigned through live hands owner");
@@ -550,7 +557,7 @@ public final class HeldTimedIngestionGameTests {
         });
     }
 
-    @GameTestTags({"ingestion", "botany", "botany-food"})
+    @GameTestTags({"ingestion", "botany", "botany-food", "merge-main-remaining", "merge-main-root-causes"})
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 30)
     public static void wheatWholeSourceTransactionRejectsCurrentSpecialDigestionProfile(GameTestHelper h) {
         var fixture = com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture
@@ -559,8 +566,15 @@ public final class HeldTimedIngestionGameTests {
             try {
                 var active = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver.readyAndQuery(fixture);
                 var body = active.body();
+                var seedId = com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat");
+                var seedProfile = com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.serverCatalog().get(seedId);
+                require(seedProfile != null && seedProfile.product().equals(
+                                ResourceLocation.fromNamespaceAndPath("moonstation14", "wheat_bushel")),
+                        "current resolved seed profile produces wheat");
+                float potency = seedProfile.lifecycle().potency();
+                require(Float.isFinite(potency) && potency > 0f, "current resolved wheat potency is positive");
                 ItemStack wheat = com.juicyslew.moonstation14.ms14.botany.ProduceFactory.createHarvest(
-                        com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat"), 10f);
+                        seedId, seedProfile, potency);
                 var hands = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
                 String hand = hands.activeHand(), token = "whole-wheat-food";
                 require(LiveHandsFixtureTransfer.put(fixture.player(), body, hand, token, wheat), "actual wheat put through live hands owner");

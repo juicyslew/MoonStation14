@@ -135,6 +135,7 @@ public class MoonStation14 {
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.actions.network.BodyActionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.botany.ui.GrinderNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.botany.GrinderProcessingAudioNetworking::registerPayloadHandlers);

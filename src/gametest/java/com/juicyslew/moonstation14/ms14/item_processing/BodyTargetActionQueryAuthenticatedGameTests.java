@@ -25,8 +25,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class BodyTargetActionQueryAuthenticatedGameTests {
     private BodyTargetActionQueryAuthenticatedGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"butchering-query-authenticated"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000, batch = "catalog-query-admission")
+    @GameTestTags({"butchering-query-authenticated", "merge-main-remaining", "merge-main-stage-two"})
     public static void liveQueryAdmissionEchoesProofAndTracksSourceAndSharpEligibility(GameTestHelper helper) {
         com.juicyslew.moonstation14.ms14.hands.network.BotanyHarvestAuthenticatedGameTests.runAuthenticatedHarvest(
                 helper, new ItemStack(ModItems.WHEAT_SEEDS.get()), "target-action-query", (h, fixture, epoch, hand,

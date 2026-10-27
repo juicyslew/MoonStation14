@@ -5,6 +5,7 @@
     {"type": "MobState"},
     {"type": "GhostOnMove", "must_be_dead": true, "can_return": true},
     {"type": "Pullable"},
+    {"type": "CombatMode", "combatToggleAction": "moonstation14:combat_mode_toggle"},
     {"type":"lightningTarget","priority":2,"probability":1.0,"resistance":1.0,"structuralDamage":1.0,"explodes":false}
   ]
 }

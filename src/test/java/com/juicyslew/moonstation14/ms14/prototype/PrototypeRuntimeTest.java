@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.atmos.reaction.ModGasReactions;
 import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.ModAirAlarms;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.actions.prototype.ModActionPrototypes;
 import com.juicyslew.moonstation14.ms14.chat.radio.ModRadioChannels;
 import com.juicyslew.moonstation14.ms14.chat.radio.RadioChannelData;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionData;
@@ -158,7 +159,8 @@ class PrototypeRuntimeTest {
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAcceleratorParticles.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.radiation.ModRadiationCollectors.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.SingularityGeneratorProfile.TYPE);
-         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay.TYPE);
+        expectedTypes.add(ModActionPrototypes.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
@@ -307,7 +309,13 @@ class PrototypeRuntimeTest {
                  com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.BASE_ID,
                  fixture("singularity_beacon", "singularity_beacon_base"),
                  com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.DEFAULT_ID,
-                 fixture("singularity_beacon", "singularity_beacon")));
+                  fixture("singularity_beacon", "singularity_beacon")));
+         server.reload(ModActionPrototypes.TYPE, Map.of(
+                 id("base_action"), fixture("character_action", "base_action"),
+                 id("base_mental_action"), fixture("character_action", "base_mental_action"),
+                 id("combat_mode_toggle"), fixture("character_action", "combat_mode_toggle"),
+                 id("scream"), fixture("character_action", "scream"),
+                 id("debug_pulse"), fixture("character_action", "debug_pulse")));
          Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
@@ -362,8 +370,9 @@ class PrototypeRuntimeTest {
                  com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId()), exported.keySet());
+                  com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId(),
+                  ModActionPrototypes.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);
@@ -390,6 +399,17 @@ class PrototypeRuntimeTest {
         assertTrue(exported.get(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()).containsKey(id("source-test")));
 
          client.publishEncodedCatalogs(exported);
+         var serverActions = ModActionPrototypes.serverCatalog();
+         var clientActions = ModActionPrototypes.clientCatalog();
+         var combatAction = id("combat_mode_toggle");
+         var screamAction = id("scream");
+         assertFalse(serverActions.get(combatAction).checkCanInteract());
+         assertFalse(serverActions.get(combatAction).checkConsciousness());
+         assertEquals(200, serverActions.get(screamAction).useDelayTicks());
+         assertEquals(serverActions.get(combatAction), clientActions.get(combatAction));
+         assertNotSame(serverActions.get(combatAction), clientActions.get(combatAction));
+         assertEquals(serverActions.get(screamAction), clientActions.get(screamAction));
+         assertNotSame(serverActions.get(screamAction), clientActions.get(screamAction));
          var serverBeacon = PrototypeRuntime.serverSingularityBeacons().get(
                  com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.DEFAULT_ID);
          var clientBeacon = PrototypeRuntime.clientSingularityBeacons().get(

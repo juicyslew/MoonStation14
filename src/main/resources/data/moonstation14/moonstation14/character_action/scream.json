@@ -1,0 +1,1 @@
+{"parent":"base_action","display_name":"action.moonstation14.scream","icon":"moonstation14:textures/interface/actions/scream.png","handler":"SCREAM","check_can_interact":false,"use_delay_ticks":200}

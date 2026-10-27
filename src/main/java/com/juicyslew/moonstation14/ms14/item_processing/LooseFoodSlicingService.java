@@ -69,11 +69,10 @@ public final class LooseFoodSlicingService {
         if (sourceIngestion == null || sourceIngestion.edible().kind() != IngestionProfile.Kind.FOOD) return BodyHandActionResult.Reason.DENIED;
         var sourceTrait = target.getItem().getItem() instanceof IReagentTrait trait ? trait : null;
         var sourceBridge = sourceTrait == null ? null : ReagentSystem.bridgeForHolder(target.getItem());
-        if (sourceBridge == null || sourceTrait.solutionName(target.getItem(), level) == null
-                || sourceTrait.solutionName(target.getItem(), level).isBlank())
-            return BodyHandActionResult.Reason.DENIED;
-        // The supported one-solution item adapter uses the generic default channel.
-        if (!"default".equals(sourceTrait.solutionName(target.getItem(), level)))
+        var sourceFoodSolution = com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.resolve(id, level);
+        var sourceSolutionName = sourceTrait == null ? null : sourceTrait.solutionName(target.getItem(), level);
+        if (sourceBridge == null || sourceFoodSolution == null || sourceSolutionName == null
+                || sourceSolutionName.isBlank() || !sourceSolutionName.equals(sourceFoodSolution.solutionName()))
             return BodyHandActionResult.Reason.DENIED;
         var sourceOrigin = target.position();
         var sourceStack = target.getItem().copy();
@@ -82,9 +81,9 @@ public final class LooseFoodSlicingService {
         int ticks = Math.max(1, (int) Math.ceil(slice.delaySeconds() * 20));
         var result = TimedInteractionSystem.start(body, actor, request.sequence(), KIND, sourceKey, ticks,
                 true, true, 0.3, 0.3, () -> ticks, () -> current(proof, processing,
-                        sourceIngestion, outputIngestion, sourceBridge, sourceTrait),
+                 sourceIngestion, outputIngestion, sourceBridge, sourceTrait, sourceFoodSolution, sourceSolutionName),
                 () -> complete(actor, authority, hands, request, target, targetId, sourceOrigin,
-                        sourceStack, heldStack, processing, sourceIngestion, outputIngestion, sourceBridge, sourceTrait, proof,
+                         sourceStack, heldStack, processing, sourceIngestion, outputIngestion, sourceBridge, sourceTrait, sourceFoodSolution, sourceSolutionName, proof,
                          slice.count(), sourceSolution.capacityCents(), outputItem),
                 java.util.Optional.of(target.blockPosition()), () -> { });
         return result == TimedInteractionEngine.StartResult.STARTED
@@ -97,8 +96,9 @@ public final class LooseFoodSlicingService {
             net.minecraft.world.phys.Vec3 origin, ItemStack sourceStack, ItemStack heldStack,
             ItemProcessingProfile expected, IngestionProfile sourceIngestion, IngestionProfile outputIngestion,
             com.juicyslew.moonstation14.util.SystemLink<com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment, com.juicyslew.moonstation14.ms14.reagent.ReagentComponent> bridge,
-             IReagentTrait trait, LooseItemProcessingProof proof, int count, long capacity, net.minecraft.world.item.Item outputItem) {
-        if (!current(proof, expected, sourceIngestion, outputIngestion, bridge, trait))
+              IReagentTrait trait, com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfile foodSolution,
+              String solutionName, LooseItemProcessingProof proof, int count, long capacity, net.minecraft.world.item.Item outputItem) {
+        if (!current(proof, expected, sourceIngestion, outputIngestion, bridge, trait, foodSolution, solutionName))
             return TimedInteractionSystem.Completion.DENIED;
         try {
             var current = MS14Provider.getDetached(target.getItem(), bridge);
@@ -114,7 +114,7 @@ public final class LooseFoodSlicingService {
             outputs.addAll(trash);
             var outputIndex = new java.util.concurrent.atomic.AtomicInteger();
             var published = FreshWorldOutputBatch.publishAtSourcePosition((ServerLevel) authority.body().level(), origin,
-                    outputs, () -> current(proof, expected, sourceIngestion, outputIngestion, bridge, trait), () -> {
+                     outputs, () -> current(proof, expected, sourceIngestion, outputIngestion, bridge, trait, foodSolution, solutionName), () -> {
                         target.discard();
                         return com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransfer.Result.SUCCESS;
                     }, (entity, stack) -> {
@@ -151,7 +151,8 @@ public final class LooseFoodSlicingService {
     private static boolean current(LooseItemProcessingProof proof,
             ItemProcessingProfile expected, IngestionProfile sourceIngestion, IngestionProfile outputIngestion,
             com.juicyslew.moonstation14.util.SystemLink<com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment, com.juicyslew.moonstation14.ms14.reagent.ReagentComponent> bridge,
-            IReagentTrait trait) {
+            IReagentTrait trait, com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfile foodSolution,
+            String solutionName) {
         if (!proof.current()) return false;
         var target = proof.source();
         var level = (ServerLevel) proof.authority().body().level();
@@ -161,7 +162,8 @@ public final class LooseFoodSlicingService {
                 || ModIngestionProfiles.serverLookup(id) != sourceIngestion
                 || ModIngestionProfiles.serverLookup(expected.sliceableFood().output()) != outputIngestion
                 || !(target.getItem().getItem() instanceof IReagentTrait currentTrait) || currentTrait != trait
-                || !"default".equals(currentTrait.solutionName(target.getItem(), level))
+                || com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.resolve(id, level) != foodSolution
+                || !solutionName.equals(currentTrait.solutionName(target.getItem(), level))
                 || ReagentSystem.bridgeForHolder(target.getItem()) != bridge) return false;
         return true;
     }

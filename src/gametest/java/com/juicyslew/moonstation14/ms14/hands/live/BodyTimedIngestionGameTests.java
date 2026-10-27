@@ -45,6 +45,7 @@ public final class BodyTimedIngestionGameTests {
     private BodyTimedIngestionGameTests() { }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining", "merge-main-stage-two"})
     public static void humanCannotStartTimedWheatIngestion(GameTestHelper helper) {
         var level = helper.getLevel();
         Villager body = makeBody(helper, new BlockPos(2, 1, 2));
@@ -72,7 +73,7 @@ public final class BodyTimedIngestionGameTests {
         var direct = BodyLiquidInteraction.sipTimedOwned(body, wheat.getUUID(), hands.activeHand(), null,
                 hands.revision(), 500, false, false, () -> true);
         require(direct == BodyLiquidInteraction.Result.DENIED, "final transaction guard denies wheat even when caller says drink");
-        require(wheatBefore.equals(wheat.getItem()), "final guard leaves actual world source unchanged");
+        require(net.minecraft.world.item.ItemStack.matches(wheatBefore, wheat.getItem()), "final guard leaves actual world source unchanged");
         require(before.equals(MS14Provider.getDetached(body, MS14Bridges.STOMACH).getMap()), "final guard leaves stomach unchanged");
 
         // Positive control through the same transaction path: ordinary resolved food is allowed.

@@ -312,6 +312,7 @@ public final class PrototypeRuntime {
         manager.register(ModConstruction.ENTITY_TYPE);
         manager.register(ModLooseObjectProfiles.PROFILE_TYPE);
         manager.register(ModItemFootprints.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.actions.prototype.ModActionPrototypes.TYPE);
         manager.register(ModIngestionProfiles.TYPE);
         manager.register(ModItemFoodSolutionProfiles.TYPE);
         manager.register(ModSeedProfiles.TYPE);

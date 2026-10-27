@@ -147,6 +147,9 @@ public final class BodyLooseThrow {
         if (!live(body, level) || level.getEntity(entity.getUUID()) != entity || entity.isRemoved()
                 || !entity.isAddedToLevel() || !same(stack, entity.getItem())
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != transition.state()) return Result.RECOVERY_REQUIRED;
+        // Only an authenticated, voluntary throw arms the one-shot landing damage state.
+        // Forced disarms share publication mechanics but are not voluntary item throws.
+        if (!forced) entity.markExplicitThrowForLanding();
         synchronized (COOLDOWN) {
             if (usesVoluntaryCooldown(forced) && entity.profile().throwCooldown() > 0)
                 COOLDOWN.put(body, now + entity.profile().throwCooldown());

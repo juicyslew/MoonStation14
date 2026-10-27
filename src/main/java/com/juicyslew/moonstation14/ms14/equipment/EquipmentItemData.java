@@ -14,7 +14,8 @@ import java.util.Optional;
 /** Fully resolved equipment composition used by the shared worn-equipment owners. */
 public record EquipmentItemData(Item item, Optional<Clothing> clothing,
                                 Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags,
-                                Optional<Armor> armor, Optional<NoSlip> noSlip,
+                                Optional<Armor> armor, Optional<SupportedActionGrant> supportedActionGrant,
+                                Optional<NoSlip> noSlip,
                                 Optional<ProtectedFromStepTriggers> protectedFromStepTriggers,
                                 Optional<ContactDamageProtectionData> contactDamageProtection) {
     public enum AppearanceRegion { HEAD, TORSO, LEGS, FEET, HANDS, EYES, EARS, NECK, FACE }
@@ -67,35 +68,50 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
             : com.mojang.serialization.DataResult.error(() -> "NoSlip is presence-only"), ignored -> true);
     public static final Codec<ProtectedFromStepTriggers> PROTECTED_FROM_STEP_TRIGGERS_CODEC = ProtectedFromStepTriggers.CODEC;
     public static final Codec<ContactDamageProtectionData> CONTACT_DAMAGE_PROTECTION_CODEC = ContactDamageProtectionData.CODEC;
+    public static final Codec<ItemActionGrant> ITEM_ACTION_GRANT_CODEC = RecordCodecBuilder.create(i -> i.group(
+            Codec.BOOL.fieldOf("active_if_worn").forGetter(ItemActionGrant::activeIfWorn)
+    ).apply(i, ItemActionGrant::new));
+    public static final Codec<SupportedActionGrant> SUPPORTED_ACTION_GRANT_CODEC = RecordCodecBuilder.create(i -> i.group(
+            ResourceLocation.CODEC.listOf().fieldOf("actions").forGetter(SupportedActionGrant::actions),
+            ITEM_ACTION_GRANT_CODEC.fieldOf("item_action_grant").forGetter(SupportedActionGrant::itemActionGrant)
+    ).apply(i, SupportedActionGrant::new));
     public static final Codec<EquipmentItemData> CODEC = RecordCodecBuilder.create(i -> i.group(
             ITEM_CODEC.fieldOf("item").forGetter(EquipmentItemData::item),
             CLOTHING_CODEC.optionalFieldOf("clothing").forGetter(EquipmentItemData::clothing),
             SUIT_STORAGE_CODEC.optionalFieldOf("allow_suit_storage").forGetter(EquipmentItemData::allowSuitStorage),
             EquipmentTag.CODEC.listOf().optionalFieldOf("tags", List.of()).forGetter(EquipmentItemData::tags),
             ARMOR_CODEC.optionalFieldOf("armor").forGetter(EquipmentItemData::armor),
+            SUPPORTED_ACTION_GRANT_CODEC.optionalFieldOf("supported_action_grant").forGetter(EquipmentItemData::supportedActionGrant),
             NO_SLIP_CODEC.optionalFieldOf("no_slip").forGetter(EquipmentItemData::noSlip),
             PROTECTED_FROM_STEP_TRIGGERS_CODEC.optionalFieldOf("protected_from_step_triggers").forGetter(EquipmentItemData::protectedFromStepTriggers),
             CONTACT_DAMAGE_PROTECTION_CODEC.optionalFieldOf("damage_on_interact_protection").forGetter(EquipmentItemData::contactDamageProtection)
     ).apply(i, EquipmentItemData::new));
 
     public EquipmentItemData {
-        if (item == null || clothing == null || allowSuitStorage == null || tags == null || armor == null
+        if (item == null || clothing == null || allowSuitStorage == null || tags == null || armor == null || supportedActionGrant == null
                 || noSlip == null || protectedFromStepTriggers == null || contactDamageProtection == null)
             throw new IllegalArgumentException("null equipment composition");
         tags = List.copyOf(tags);
+        supportedActionGrant = supportedActionGrant == null ? Optional.empty() : supportedActionGrant;
     }
     public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage,
                              List<EquipmentTag> tags, Optional<Armor> armor) {
-        this(item, clothing, storage, tags, armor, Optional.empty(), Optional.empty(), Optional.empty());
+        this(item, clothing, storage, tags, armor, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
     public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage,
                              List<EquipmentTag> tags, Optional<Armor> armor, Optional<NoSlip> noSlip) {
-        this(item, clothing, storage, tags, armor, noSlip, Optional.empty(), Optional.empty());
+        this(item, clothing, storage, tags, armor, Optional.empty(), noSlip, Optional.empty(), Optional.empty());
     }
     public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage,
                              List<EquipmentTag> tags, Optional<Armor> armor, Optional<NoSlip> noSlip,
                              Optional<ProtectedFromStepTriggers> protection) {
-        this(item, clothing, storage, tags, armor, noSlip, protection, Optional.empty());
+        this(item, clothing, storage, tags, armor, Optional.empty(), noSlip, protection, Optional.empty());
+    }
+    public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage,
+                             List<EquipmentTag> tags, Optional<Armor> armor, Optional<NoSlip> noSlip,
+                             Optional<ProtectedFromStepTriggers> protection,
+                             Optional<ContactDamageProtectionData> contactDamageProtection) {
+        this(item, clothing, storage, tags, armor, Optional.empty(), noSlip, protection, contactDamageProtection);
     }
     public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage, List<EquipmentTag> tags) {
         this(item, clothing, storage, tags, Optional.empty());
@@ -161,4 +177,12 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
     public record WornModel(ResourceLocation mesh, PlayerCharacterBodyShape bodyShape) { public WornModel { if (mesh == null || bodyShape == null) throw new IllegalArgumentException("invalid worn model"); } }
     public record AllowSuitStorage(boolean enabled) { public AllowSuitStorage { if (!enabled) throw new IllegalArgumentException("AllowSuitStorage must be enabled when composed"); } }
     public record NoSlip() { }
+    public record SupportedActionGrant(List<ResourceLocation> actions, ItemActionGrant itemActionGrant) {
+        public SupportedActionGrant {
+            if (actions == null || itemActionGrant == null || new java.util.HashSet<>(actions).size() != actions.size()
+                    || actions.stream().anyMatch(java.util.Objects::isNull)) throw new IllegalArgumentException("invalid supported action grant");
+            actions = List.copyOf(actions);
+        }
+    }
+    public record ItemActionGrant(boolean activeIfWorn) { }
 }

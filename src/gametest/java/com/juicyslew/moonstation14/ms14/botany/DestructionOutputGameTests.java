@@ -40,6 +40,7 @@ public final class DestructionOutputGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100, batch = "destruction-output-impact-catalog")
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining", "merge-main-root-causes"})
     public static void impactPublishesOneFreshOutputAndConsumesSource(GameTestHelper helper) {
         var type = ModLooseObjectProfiles.PROFILE_TYPE;
         var original = new java.util.HashMap<>(PrototypeRuntime.serverManager().snapshot(type).asMap());
@@ -88,7 +89,11 @@ public final class DestructionOutputGameTests {
                 require(!product.get(ModDataComponents.REAGENT.get()).equals(sourceReagents), "output does not inherit live source chemistry");
                 var freshChemistry = PrototypeRuntime.serverItemFoodSolutionProfiles().get(
                         ResourceLocation.fromNamespaceAndPath("moonstation14", "food_cocoa_beans"));
-                require(freshChemistry != null && product.get(ModDataComponents.REAGENT.get()).centContents().equals(freshChemistry.contentsCents()),
+                var outputReagents = product.get(ModDataComponents.REAGENT.get());
+                require(freshChemistry != null && outputReagents != null, "fresh output chemistry and its profile are present");
+                var outputContents = outputReagents.centContents().entrySet().stream()
+                        .collect(java.util.stream.Collectors.toMap(entry -> entry.getKey().location(), Map.Entry::getValue));
+                require(outputContents.equals(freshChemistry.contentsCents()),
                         "output chemistry is initialized from its own food solution prototype");
                 helper.succeed();
             } catch (Throwable failure) { helper.fail("fixed destruction output: " + failure); }

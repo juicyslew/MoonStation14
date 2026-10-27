@@ -244,6 +244,7 @@ public final class BodyLooseJugSipGameTests {
         helper.succeed();
     }
 
+    @GameTestTags({"hands-liquid", "generated-produce-capacity"})
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20,
             batch = "food-refill-owned-transaction-tomato")
     public static void ownedJugFillInitializesOnlyFreshTomatoOnStagedCopy(GameTestHelper helper) {
@@ -308,6 +309,14 @@ public final class BodyLooseJugSipGameTests {
         var seedId = ResourceLocation.fromNamespaceAndPath("moonstation14", "tomato");
         var seed = com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.serverCatalog().get(seedId);
         require(seed != null, "resolved tomato seed profile exists");
+        // The partial and explicit-empty cases above consume the original 10u jug.
+        // Restore a bounded source so this case tests generated-target admission,
+        // rather than accidentally asserting that an exhausted source can refill.
+        hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemStack replenishedJug = filledJug(10);
+        hands = hands.replaceOwnedComponents(hands.revision(), hand,
+                new com.juicyslew.moonstation14.ms14.hands.ItemToken(token), replenishedJug).orElseThrow();
+        body.setData(ModDataAttachments.LIVE_HANDS.get(), hands);
         ItemStack generated = com.juicyslew.moonstation14.ms14.botany.ProduceFactory.createHarvest(seedId, seed, 1f);
         generated.remove(ModDataComponents.REAGENT.get());
         target.setItem(generated);

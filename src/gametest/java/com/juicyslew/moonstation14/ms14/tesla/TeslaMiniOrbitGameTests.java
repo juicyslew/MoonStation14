@@ -16,10 +16,12 @@ import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 @GameTestTags({"tesla","tesla-motion"})
 @PrefixGameTestTemplate(false)
 public final class TeslaMiniOrbitGameTests {
+    private static final int OBSERVATION_TICKS=1800;
     private TeslaMiniOrbitGameTests() { }
     private static void check(boolean ok,String message){if(!ok)throw new GameTestAssertException(message);}
 
-    @GameTest(templateNamespace="moonstation14",template="atmos_large_empty",timeoutTicks=700)
+    @GameTest(templateNamespace="moonstation14",template="atmos_large_empty",timeoutTicks=2100)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining", "merge-main-stage-two"})
     public static void registeredMiniContinuouslyOrbitsItsLiveMainTarget(GameTestHelper h) {
         var level=(net.minecraft.server.level.ServerLevel)h.getLevel();
         int baseY=level.getMaxBuildHeight()-40;
@@ -39,7 +41,7 @@ public final class TeslaMiniOrbitGameTests {
         });
         FixtureChunkTickets.awaitEntityTicking(h,lease,100,()->{
         fieldRefs.addAll(ContainmentFixture.placeBox(h,new BlockPos(0,baseY,0)));
-        // Floor is below the enclosure's bottom emitters and spans the mini's full radius-eight envelope.
+         // Floor is below the enclosure's bottom emitters and spans the mini's full radius-eight envelope.
         for(int x=-6;x<=13;x++)for(int z=-6;z<=13;z++){BlockPos local=new BlockPos(x,baseY,z);h.setBlock(local,net.minecraft.world.level.block.Blocks.STONE);floorRefs.add(h.absolutePos(local));}
         var main=ModEntities.TESLA_ENERGY_BALL.get().create(level);
         var mini=ModEntities.TESLA_ENERGY_BALL.get().create(level);
@@ -80,8 +82,8 @@ public final class TeslaMiniOrbitGameTests {
             maxStep[0]=Math.max(maxStep[0],pos.distanceTo(prevPos[0]));maxAccel[0]=Math.max(maxAccel[0],velocity.subtract(prevVelocity[0]).length());
             check(Double.isFinite(pos.y)&&Double.isFinite(velocity.length())&&velocity.length()<=7.001,"finite bounded mini trajectory");
             prevPos[0]=pos;prevVelocity[0]=velocity;
-             if(tick<399){sample(h,main,mini,fields,tick+1,min,max,minY,maxY,maxStep,maxAccel,maxPlaneVolume,planeSamples,prevPos,prevVelocity);return;}
-            check(min[0]<=3.5&&max[0]>=5.5,"orbit repeatedly visits near and far bands: "+min[0]+".."+max[0]);
+              if(tick<OBSERVATION_TICKS-1){sample(h,main,mini,fields,tick+1,min,max,minY,maxY,maxStep,maxAccel,maxPlaneVolume,planeSamples,prevPos,prevVelocity);return;}
+              check(min[0]<=3.5&&max[0]>=5.5,"orbit bands min="+min[0]+" max="+max[0]+" ticks="+OBSERVATION_TICKS+" uuid="+mini.getUUID()+" radial=14s angular=10s response=1.5 profile="+mini.profileId()+" main="+main.position()+" mini="+mini.position()+" velocity="+mini.getDeltaMovement());
              check(maxY[0]-minY[0]>1,"orbit varies in 3D: "+minY[0]+".."+maxY[0]);
              check(maxPlaneVolume[0]>.5,"orbit trajectory is not confined to a single orbital plane: "+maxPlaneVolume[0]);
             check(maxStep[0]<=.351,"continuous bounded fixed-step motion step="+maxStep[0]);

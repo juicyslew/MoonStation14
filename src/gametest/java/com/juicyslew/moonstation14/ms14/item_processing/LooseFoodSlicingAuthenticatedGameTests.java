@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixtur
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransfer;
+import com.juicyslew.moonstation14.ms14.hands.live.LiveHandsFixtureTransfer;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateQuery;
@@ -41,8 +42,8 @@ import java.util.function.Consumer;
 public final class LooseFoodSlicingAuthenticatedGameTests {
     private LooseFoodSlicingAuthenticatedGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"food-slicing", "food-slicing-authenticated"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000, batch = "catalog-item-processing-slicing-output")
+    @GameTestTags({"food-slicing", "food-slicing-authenticated", "merge-main-remaining", "merge-main-stage-two"})
     public static void registeredPlayerStartsTimedSliceAndPublishesFiveIndependentFoodItems(GameTestHelper helper) {
         BotanyHarvestAuthenticatedGameTests.runAuthenticatedHarvest(helper, new ItemStack(ModItems.WHEAT_SEEDS.get()),
                 "authenticated-food-slicing", (h, fixture, epoch, hand, tray, pos, level, finished) -> {
@@ -87,7 +88,8 @@ public final class LooseFoodSlicingAuthenticatedGameTests {
                 var tomatoStack = new ItemStack(ModItems.TOMATO.get());
                 com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(tomatoStack, level);
                 var source = LooseItemEntity.create(level, body.position().add(0, .1, 1.5), tomatoStack);
-                source.setNoGravity(true); require(level.addFreshEntity(source), "real registered tomato source published");
+                require(level.addFreshEntity(source), "real registered tomato source published with native loose-item physics");
+                Runnable beginSlice = () -> {
                 var sounds = new java.util.ArrayList<net.minecraft.network.protocol.game.ClientboundSoundPacket>();
                 drainFoodChop(fixture, sounds);
                 var carrier = fixture.player();
@@ -97,27 +99,53 @@ public final class LooseFoodSlicingAuthenticatedGameTests {
                         "camera remains the nearby committed body while native carrier is remote");
                 var sourceUnits = MS14Provider.getDetached(source.getItem(), MS14Bridges.REAGENT).snapshotUnits();
                 body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, source.getBoundingBox().getCenter());
-                var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
-                var active = query.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow();
+                var settledHands = body.getExistingDataOrNull(hands);
+                var otherHand = settledHands.handIds().stream().filter(id -> !id.equals(hand)).findFirst().orElseThrow();
+                require(LiveHandsFixtureTransfer.put(fixture.player(), body, otherHand, "fixture-stick",
+                        new ItemStack(net.minecraft.world.item.Items.STICK)), "real Stick assigned through live hand ownership gateway");
+                var query = fixture.queryHands(epoch);
+                var selected = BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(
+                        BodyHandActionRequest.Action.SELECT_HAND, otherHand, epoch, 2, query.revision(), null, null));
+                require(selected.accepted(), "authenticated selection activates Stick hand");
+                var stickQuery = fixture.queryHands(epoch);
+                var active = stickQuery.hands().stream().filter(value -> value.id().equals(otherHand)).findFirst().orElseThrow();
                 var sharpOnly = new HashMap<>(oldTools);
-                sharpOnly.put(knifeId, new ToolProfile(null, null, null,
+                var fixtureToolId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(net.minecraft.world.item.Items.STICK);
+                sharpOnly.put(fixtureToolId, new ToolProfile(null, null, null,
                         com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata.EMPTY,
                         Set.of(), null, null, null, new ToolProfile.Sharp(), null));
                 manager.publishDecoded(toolType, sharpOnly);
-                require(BodyHandRequestService.apply(fixture.player(), request(epoch, 2, query.revision(), hand, active.token(), source)).reason()
+                require(BodyHandRequestService.apply(fixture.player(), request(epoch, 3, stickQuery.revision(), otherHand, active.token(), source)).reason()
                         == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.DENIED
                         && !source.isRemoved(), "Sharp-only capability is not the slicing Knife utensil and preserves source");
                 var cutterOnly = new HashMap<>(oldTools);
-                cutterOnly.put(knifeId, new ToolProfile(new ToolProfile.Tool(java.util.List.of(ToolProfile.Quality.CUTTING)),
+                cutterOnly.put(fixtureToolId, new ToolProfile(new ToolProfile.Tool(java.util.List.of(ToolProfile.Quality.CUTTING)),
                         null, null, com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata.EMPTY,
                         Set.of(), null, null, null, null, null));
                 manager.publishDecoded(toolType, cutterOnly);
-                require(BodyHandRequestService.apply(fixture.player(), request(epoch, 3, query.revision(), hand, active.token(), source)).reason()
+                require(BodyHandRequestService.apply(fixture.player(), request(epoch, 4, stickQuery.revision(), otherHand, active.token(), source)).reason()
                         == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.DENIED
                         && !source.isRemoved(), "CUTTING-only capability cannot slice and preserves source");
                 manager.publishDecoded(toolType, oldTools);
-                var accepted = BodyHandRequestService.apply(fixture.player(), request(epoch, 4, query.revision(), hand, active.token(), source));
-                require(accepted.accepted() && !source.isRemoved(), "authenticated USE_TARGET starts timed slicing without immediate deletion");
+                var restoreQuery = fixture.queryHands(epoch);
+                require(BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(
+                        BodyHandActionRequest.Action.SELECT_HAND, hand, epoch, 5, restoreQuery.revision(), null, null)).accepted(),
+                        "authenticated selection restores original KitchenKnife hand");
+                var knifeQuery = fixture.queryHands(epoch);
+                var knifeActive = knifeQuery.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow();
+                var accepted = BodyHandRequestService.apply(fixture.player(), request(epoch, 6, knifeQuery.revision(), hand, token, source));
+                if (!accepted.accepted() || source.isRemoved()) {
+                    var live = body.getExistingDataOrNull(hands);
+                    var operations = body.getData(com.juicyslew.moonstation14.component.ModDataAttachments.TIMED_OPERATIONS.get()).operations();
+                    throw new AssertionError("slice start reason=" + accepted.reason() + " active=" + live.activeHand()
+                            + " requested=" + hand + " rev=" + knifeQuery.revision() + "/" + live.revision()
+                            + " ; authenticated USE_TARGET starts timed slicing without immediate deletion, hostTransition="
+                            + accepted.hostTransition() + ", epoch=" + epoch
+                            + ", sequence=6, requestedHand=" + hand + ", selectedHand=" + live.activeHand() + ", tool="
+                            + live.stackCopy(hand).map(stack -> stack.getItem().toString()).orElse("empty")
+                            + ", sourceRemoved=" + source.isRemoved() + ", pendingOperations=" + operations.stream()
+                                    .filter(operation -> operation.kind().equals("food_slicing")).toList());
+                }
                 drainFoodChop(fixture, sounds);
                 require(sounds.isEmpty(), "timed slice start emits no chop cue");
                 var sourceOrigin = source.position();
@@ -127,8 +155,8 @@ public final class LooseFoodSlicingAuthenticatedGameTests {
                      drainFoodChop(fixture, sounds);
                      require(sounds.isEmpty(), "cancelled slice emits no chop cue");
                     require(hasCancelledSlice(body, source), "damage cancels the active slice session before restart");
-                    require(BodyHandRequestService.apply(fixture.player(), request(epoch, 5, query.revision(), hand,
-                            active.token(), source)).accepted(), "authenticated request restarts after damage cancellation");
+                     require(BodyHandRequestService.apply(fixture.player(), request(epoch, 7, knifeQuery.revision(), hand,
+                             knifeActive.token(), source)).accepted(), "authenticated request restarts after damage cancellation");
                 }));
                 h.runAfterDelay(4, () -> guarded(cleanup, () -> {
                     source.setPos(sourceOrigin.add(.1, 0, 0));
@@ -136,8 +164,8 @@ public final class LooseFoodSlicingAuthenticatedGameTests {
                     source.setPos(sourceOrigin);
                     body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, source.getBoundingBox().getCenter());
                         require(hasCancelledSlice(body, source), "moving nominated target cancels prior slice before restart");
-                        require(BodyHandRequestService.apply(fixture.player(), request(epoch, 6, query.revision(), hand,
-                                active.token(), source)).accepted(), "target/source staleness cancels old session and fresh exact target starts anew");
+                        require(BodyHandRequestService.apply(fixture.player(), request(epoch, 8, knifeQuery.revision(), hand,
+                                knifeActive.token(), source)).accepted(), "target/source staleness cancels old session and fresh exact target starts anew");
                     }));
                 }));
                 var outputIdsBefore = level.getEntitiesOfClass(LooseItemEntity.class,
@@ -149,20 +177,22 @@ public final class LooseFoodSlicingAuthenticatedGameTests {
                 h.runAfterDelay(12, () -> guarded(cleanup, () -> {
                     try {
                         require(!source.isRemoved(), "source remains before completion deadline");
-                        require(BodyHandRequestService.apply(fixture.player(), request(epoch, 7, query.revision(), hand,
-                                active.token(), source)).accepted() && !source.isRemoved(),
+                        require(BodyHandRequestService.apply(fixture.player(), request(epoch, 9, knifeQuery.revision(), hand,
+                                knifeActive.token(), source)).accepted() && !source.isRemoved(),
                                 "duplicate USE_TARGET cancels the live timed slice without consuming source");
                         drainFoodChop(fixture, sounds);
                         require(sounds.isEmpty(), "cancel and replay emit no chop cue");
-                        require(BodyHandRequestService.apply(fixture.player(), request(epoch, 8, query.revision(), hand,
-                                active.token(), source)).accepted() && !source.isRemoved(), "second authorized request restarts timed slicing");
+                        require(BodyHandRequestService.apply(fixture.player(), request(epoch, 10, knifeQuery.revision(), hand,
+                                knifeActive.token(), source)).accepted() && !source.isRemoved(), "second authorized request restarts timed slicing");
                     } catch (Throwable failure) {
                         cleanup.finish(failure); return;
                     }
                 }));
                 h.runAfterDelay(40, () -> guarded(cleanup, () -> {
                     try {
-                        require(source.isRemoved(), "source removed after successful completion publication");
+                        require(source.isRemoved(), completionFailureDiagnostic(body, source, sourceOrigin,
+                                body.getExistingDataOrNull(hands), hand,
+                                knifeQuery.revision(), level));
                         drainFoodChop(fixture, sounds);
                         require(sounds.size() == 1, "successful committed slice emits exactly one chop cue");
                         var heard = sounds.getFirst();
@@ -212,20 +242,22 @@ public final class LooseFoodSlicingAuthenticatedGameTests {
                     }
                     cleanup.finish(null);
                 }));
+                };
+                ItemProcessingFixtureSupport.awaitSettledSource(h, cleanup, source, beginSlice);
             } catch (Throwable failure) {
                 cleanup.finish(failure);
             }
         });
     }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"food-slicing", "food-slicing-authenticated"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000, batch = "catalog-item-processing-slicing-cancel")
+    @GameTestTags({"food-slicing", "food-slicing-authenticated", "merge-main-remaining"})
     public static void activeHandChangeInvalidatesAdmittedSlice(GameTestHelper helper) {
         runCancellationFixture(helper, false);
     }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"food-slicing", "food-slicing-authenticated"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000, batch = "catalog-item-processing-slicing-blocked")
+    @GameTestTags({"food-slicing", "food-slicing-authenticated", "merge-main-remaining"})
     public static void blockedOutputFootprintRetainsAdmittedSliceSource(GameTestHelper helper) {
         runCancellationFixture(helper, true);
     }
@@ -271,9 +303,10 @@ public final class LooseFoodSlicingAuthenticatedGameTests {
                 var sourceStack = new ItemStack(ModItems.TOMATO.get());
                 com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(sourceStack, level);
                 var source = LooseItemEntity.create(level, body.position().add(0, .1, 1.5), sourceStack);
-                source.setNoGravity(true); require(level.addFreshEntity(source), "slice source published");
+                require(level.addFreshEntity(source), "slice source published with native loose-item physics");
+                Runnable admitSlice = () -> {
                 body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, source.getBoundingBox().getCenter());
-                var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                var query = fixture.queryHands(epoch);
                 var active = query.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow();
                 require(BodyHandRequestService.apply(fixture.player(), request(epoch, 2, query.revision(), hand, active.token(), source)).accepted(),
                         "authenticated slice admitted before changing hand/publication environment");
@@ -284,18 +317,28 @@ public final class LooseFoodSlicingAuthenticatedGameTests {
                 AtomicInteger joinCount = new AtomicInteger();
                 Consumer<EntityJoinLevelEvent> listener = event -> {
                     if (event.getLevel() == level && event.getEntity() instanceof LooseItemEntity loose
-                            && loose.getItem().is(ModItems.WHEAT_BUSHEL.get()) && joinCount.incrementAndGet() == 2)
-                        event.setCanceled(true);
+                            && loose.getItem().is(ModItems.WHEAT_BUSHEL.get())) {
+                        int attempt = joinCount.incrementAndGet();
+                        if (blockOutput && attempt == 2) event.setCanceled(true);
+                    }
                 };
-                cleanup.attachListener(listener);
-                if (!blockOutput) {
-                    String other = hands.handIds().stream().filter(id -> !id.equals(hand)).findFirst().orElseThrow();
-                    require(BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(
-                            BodyHandActionRequest.Action.SELECT_HAND, other, epoch, 3, hands.revision(), null, null)).accepted(),
-                            "real authenticated SELECT_HAND changes active hand and revision");
-                    require(body.getExistingDataOrNull(attachment).token(hand).filter(token::equals).isPresent(),
-                            "knife remains owned in original slot after hand selection");
-                }
+                 cleanup.attachListener(listener);
+                 if (!blockOutput) {
+                      var currentHandsForSwitch = body.getExistingDataOrNull(attachment);
+                      String other = currentHandsForSwitch.handIds().stream().filter(id -> !id.equals(hand)).findFirst().orElseThrow();
+                      long revisionBeforeSelection = currentHandsForSwitch.revision();
+                      require(BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(
+                              BodyHandActionRequest.Action.SELECT_HAND, other, epoch, 3, currentHandsForSwitch.revision(), null, null)).accepted(),
+                             "real authenticated SELECT_HAND changes active hand and revision");
+                      var handsAfterSelection = body.getExistingDataOrNull(attachment);
+                      require(handsAfterSelection.activeHand().equals(other)
+                                      && handsAfterSelection.revision() > revisionBeforeSelection,
+                              "hand selection commits the other active hand and advances revision");
+                      require(body.getExistingDataOrNull(attachment).token(hand).filter(token::equals).isPresent(),
+                              "knife remains owned in original slot after hand selection");
+                      h.runAfterDelay(2, () -> guarded(cleanup, () -> require(hasCancelledSlice(body, source),
+                             "active-hand change records cancelled admitted slice during terminal retention")));
+                 }
                 h.runAfterDelay(30, () -> guarded(cleanup, () -> {
                     try {
                         require(!source.isRemoved() && level.getEntity(source.getUUID()) == source,
@@ -308,13 +351,19 @@ public final class LooseFoodSlicingAuthenticatedGameTests {
                         require(outputs.isEmpty(), "no slices or source/child trash leak from cancelled batch");
                         require(body.getExistingDataOrNull(attachment).token(hand).filter(token::equals).isPresent(),
                                 "knife ownership is not duplicated or lost");
-                        require(joinCount.get() >= 2, "publication failure injection canceled the second real slice spawn");
+                        if (blockOutput) {
+                            require(joinCount.get() >= 2, "publication failure injection canceled the second real slice spawn");
+                        } else {
+                            require(joinCount.get() == 0, "active-hand cancellation occurs before any output publication attempt");
+                        }
                     } catch (Throwable failure) {
                         cleanup.finish(failure);
                         return;
                     }
                     cleanup.finish(null);
                 }));
+                };
+                ItemProcessingFixtureSupport.awaitSettledSource(h, cleanup, source, admitSlice);
             } catch (Throwable failure) {
                 cleanup.finish(failure);
             }
@@ -336,6 +385,23 @@ public final class LooseFoodSlicingAuthenticatedGameTests {
                 .stream().anyMatch(operation -> operation.kind().equals("food_slicing")
                         && operation.sourceKey().equals(source.getUUID().toString())
                         && operation.phase() == com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperation.Phase.CANCELLED);
+    }
+    private static String completionFailureDiagnostic(net.minecraft.world.entity.LivingEntity body, LooseItemEntity source,
+            net.minecraft.world.phys.Vec3 origin, com.juicyslew.moonstation14.ms14.hands.live.LiveHands hands,
+            String hand, long expectedRevision, net.minecraft.server.level.ServerLevel level) {
+        var operations = body.getData(com.juicyslew.moonstation14.component.ModDataAttachments.TIMED_OPERATIONS.get())
+                .operations().stream().filter(operation -> operation.kind().equals("food_slicing")
+                        && operation.sourceKey().equals(source.getUUID().toString()))
+                .map(operation -> "id=" + operation.id() + ",phase=" + operation.phase() + ",start="
+                        + operation.startTick() + ",due=" + operation.dueTick() + ",terminal=" + operation.terminalTick())
+                .limit(4).toList();
+        long outputs = level.getEntitiesOfClass(LooseItemEntity.class,
+                new net.minecraft.world.phys.AABB(body.position(), body.position()).inflate(5),
+                entity -> entity.getItem().is(ModItems.WHEAT_BUSHEL.get())).size();
+        String sourcePosition = source.isRemoved() ? "removed" : source.position().toString();
+        return "source removed at +40 after sequence 10 restart: source=" + sourcePosition + ",origin=" + origin
+                + ",body=" + body.position() + ",handRevision=" + hands.revision() + "/" + expectedRevision
+                + ",outputs=" + outputs + ",matchingOperations=" + operations;
     }
     private static void require(boolean value, String message) { if (!value) throw new AssertionError(message); }
     private static void guarded(ItemProcessingFixtureCleanup cleanup, Runnable callback) {

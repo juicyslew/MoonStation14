@@ -28,17 +28,17 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(75, raw.size());
+        assertEquals(76, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(70, resolved.size());
+        assertEquals(71, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
                 "apc_cable_spool", "bag", "belt", "pickaxe", "syringe", "metal_rod", "screwdriver", "multitool",
                 "network_configurator", "remote_signaller", "remote_signaller_advanced", "signal_button", "signal_switch",
                 "beaker", "beaker_large", "chem_master", "black_bandana", "black_gloves", "black_shoes",
-                "blank_id_card", "earpieces", "glasses", "grey_cap", "grey_jumpsuit", "red_tie", "simple_coat",
+                "blank_id_card", "earpieces", "glasses", "grey_cap", "debug_capability_cap", "grey_jumpsuit", "red_tie", "simple_coat",
                 "utility_case", "pill", "pill_canister", "mothroach_normal", "hamster_tiny", "plasma_tank", "suit_rad", "hood_rad", "meatwheat_seeds", "meatwheat_bushel"};
         for (String name : coreItems) assertTrue(resolved.get(id(name)) != null, "missing profile " + name);
 
@@ -52,7 +52,9 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(70, catalog.size());
+        assertEquals(71, catalog.size());
+        assertEquals(catalog.get(id("grey_cap")).cells(), catalog.get(id("debug_capability_cap")).cells());
+        assertEquals(catalog.get(id("grey_cap")).itemSize(), catalog.get(id("debug_capability_cap")).itemSize());
         var pocket = new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData(java.util.List.of(
                 new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.Slot("pocket1", "Pocket",
                         ResourceLocation.withDefaultNamespace("test"), "Default", 0, 0, java.util.List.of(

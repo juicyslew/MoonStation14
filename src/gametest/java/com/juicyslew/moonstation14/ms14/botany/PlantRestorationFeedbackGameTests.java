@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.botany;
 import com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import net.minecraft.core.BlockPos;
@@ -12,8 +13,11 @@ import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.RelativeMovement;
 import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+import java.util.Set;
 
 @PrefixGameTestTemplate(false)
 @GameTestTags({"botany", "botany-care", "botany-restoration-feedback"})
@@ -21,16 +25,19 @@ public final class PlantRestorationFeedbackGameTests {
     private PlantRestorationFeedbackGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 4000)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining", "merge-main-stage-two"})
     public static void successfulOrdinaryTrayRestorationPollSendsTrackedActionbar(GameTestHelper helper) {
         run(helper, 0);
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 4000)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining"})
     public static void failedProbabilityPollSendsNoRestorationFeedback(GameTestHelper helper) {
         run(helper, 1);
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", timeoutTicks = 4000)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining"})
     public static void alreadySeededEligiblePollSendsNoRestorationFeedback(GameTestHelper helper) {
         run(helper, 2);
     }
@@ -41,11 +48,23 @@ public final class PlantRestorationFeedbackGameTests {
             RegisteredServerPlayerFixture fixture = null;
             try {
                 fixture = RegisteredServerPlayerFixture.register(level, "restoration-viewer");
-                var player = fixture.player();
-                player.teleportTo(level, tray.getBlockPos().getX() + .5, tray.getBlockPos().getY(),
-                        tray.getBlockPos().getZ() + .5, player.getYRot(), player.getXRot());
-                drain(fixture);
-                awaitViewer(helper, fixture, tray, testCase, 0);
+                fixture.enableChunkBatchAcknowledgements();
+                var registeredFixture = fixture;
+                helper.runAfterDelay(2, () -> {
+                    try {
+                        var active = RegisteredPlayerReadyDriver.readyAndQuery(registeredFixture);
+                        var body = active.body();
+                        body.teleportTo(level, tray.getBlockPos().getX() + .5, tray.getBlockPos().getY(),
+                                tray.getBlockPos().getZ() + .5, Set.<RelativeMovement>of(),
+                                body.getYRot(), body.getXRot());
+                        registeredFixture.player().setCamera(body);
+                        drain(registeredFixture);
+                        awaitViewer(helper, registeredFixture, body, tray, testCase, 0);
+                    } catch (Throwable failure) {
+                        registeredFixture.close();
+                        helper.testInfo.fail(failure);
+                    }
+                });
             } catch (Throwable failure) {
                 if (fixture != null) fixture.close();
                 helper.testInfo.fail(failure);
@@ -54,17 +73,39 @@ public final class PlantRestorationFeedbackGameTests {
     }
 
     private static void awaitViewer(GameTestHelper helper, RegisteredServerPlayerFixture fixture,
+                                    net.minecraft.world.entity.LivingEntity body,
                                     HydroponicsTrayBlockEntity tray, int testCase, int waited) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BoundedGameTestWait.safeDelay(helper, 1, () -> {
             try {
+                // Polling outbound processes real chunk-batch receipts and advances native chunk ACKs.
+                drain(fixture);
                 var viewers = level.getChunkSource().chunkMap.getPlayers(new ChunkPos(tray.getBlockPos()), false);
                 if (viewers.contains(fixture.player())) {
                     prepareAndPoll(helper, fixture, tray, testCase);
                     return;
                 }
-                if (waited >= 300) throw new AssertionError("registered player did not enter normal chunk tracking view");
-                awaitViewer(helper, fixture, tray, testCase, waited + 1);
+                if (waited >= 300) {
+                    var player = fixture.player();
+                    var targetChunk = new ChunkPos(tray.getBlockPos());
+                    var targetHolder = level.getChunkSource().chunkMap.getChunkToSend(ChunkPos.asLong(targetChunk.x, targetChunk.z));
+                    var batches = fixture.chunkBatchProgress();
+                    var camera = player.getCamera();
+                    var view = com.juicyslew.moonstation14.ms14.medical_observer.ObserverTracking.viewPosition(player);
+                    throw new AssertionError("viewer wait=" + waited + " trayChunk=" + targetChunk
+                            + " trackingView=" + view + " bodyChunk=" + body.chunkPosition()
+                            + " nativePlayerChunk=" + player.chunkPosition() + " viewers=" + viewers.size()
+                            + " trackingContains=" + player.getChunkTrackingView().contains(
+                                    new ChunkPos(tray.getBlockPos()).x, new ChunkPos(tray.getBlockPos()).z)
+                             + " targetPending=" + player.connection.chunkSender.isPending(
+                                     ChunkPos.asLong(targetChunk.x, targetChunk.z))
+                             + " targetSendReady=" + (targetHolder != null)
+                             + " batches=" + batches.sent() + "/" + batches.received() + "/" + batches.acknowledged()
+                            + " cameraMatchesBody=" + (camera == body)
+                            + " player=" + player.getUUID() + " playerPos=" + player.position()
+                            + " cameraPos=" + (camera == null ? "null" : camera.position()));
+                }
+                awaitViewer(helper, fixture, body, tray, testCase, waited + 1);
             } catch (Throwable failure) {
                 fixture.close();
                 helper.testInfo.fail(failure);

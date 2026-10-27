@@ -28,8 +28,8 @@ import java.util.Optional;
 public final class EquipmentArmorGameTests {
     private EquipmentArmorGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
-    @GameTestTags({"equipment-noslip"})
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40, batch = "catalog-equipment-noslip")
+    @GameTestTags({"equipment-noslip", "merge-main-remaining"})
     public static void liveWornFeetNoSlipQuery(GameTestHelper helper) {
         var bodies = new java.util.ArrayList<Villager>();
         helper.runAfterDelay(1, () -> {
@@ -93,7 +93,8 @@ public final class EquipmentArmorGameTests {
         });
     }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40, batch = "catalog-equipment-armor")
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining"})
     public static void wornArmorTypedNativeHeldAndBypassDamage(GameTestHelper helper) {
         var bodies = new java.util.ArrayList<Villager>();
         helper.runAfterDelay(1, () -> {
@@ -119,17 +120,32 @@ public final class EquipmentArmorGameTests {
             com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager()
                     .publishDecoded(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE, updated);
                 Villager worn = body(helper, new BlockPos(1, 1, 1), bodies);
+                float wornBaseline = worn.getHealth();
                 equipCap(worn);
                 require(DamageSystem.applyHealthChange(worn, Map.of(DamageKeys.BLUNT, 5f), 1f, false)
                         == DamageSystem.Result.APPLIED, "typed damage accepted");
                 requireClose(4.75f, typed(worn, DamageKeys.BLUNT), "worn typed armor applies once");
-                requireClose(19.05f, worn.getHealth(), "worn typed armor projects matching health");
+                requireClose(wornBaseline - .95f, worn.getHealth(), "worn typed armor projects matching health");
 
                 Villager nativeHit = body(helper, new BlockPos(3, 1, 1), bodies);
+                float nativeBaseline = nativeHit.getHealth();
                 equipCap(nativeHit);
-                require(nativeHit.hurt(nativeHit.level().damageSources().generic(), 1f), "native hit accepted");
+                var armoredSource = nativeHit.level().damageSources().mobAttack(nativeHit);
+                require(!armoredSource.is(net.minecraft.tags.DamageTypeTags.BYPASSES_ARMOR),
+                        "native armor fixture source is armor-eligible");
+                require(nativeHit.hurt(armoredSource, 1f), "native hit accepted");
                 requireClose(4.75f, typed(nativeHit, DamageKeys.BLUNT), "native incoming armor maps through typed ledger once");
-                requireClose(19.05f, nativeHit.getHealth(), "native vanilla health stays in agreement");
+                requireClose(nativeBaseline - .95f, nativeHit.getHealth(), "native vanilla health stays in agreement");
+
+                Villager nativeBypass = body(helper, new BlockPos(15, 1, 1), bodies);
+                float nativeBypassBaseline = nativeBypass.getHealth();
+                equipCap(nativeBypass);
+                var genericSource = nativeBypass.level().damageSources().generic();
+                require(genericSource.is(net.minecraft.tags.DamageTypeTags.BYPASSES_ARMOR),
+                        "vanilla generic source exercises native armor bypass");
+                require(nativeBypass.hurt(genericSource, 1f), "native bypass hit accepted");
+                requireClose(DamageSystem.TYPED_PER_HEALTH, typed(nativeBypass, DamageKeys.BLUNT), "native bypass hit skips equipment armor");
+                requireClose(nativeBypassBaseline - 1f, nativeBypass.getHealth(), "native bypass health stays unarmored");
 
                 Villager held = body(helper, new BlockPos(5, 1, 1), bodies);
                 putCapInHand(held);
@@ -164,12 +180,13 @@ public final class EquipmentArmorGameTests {
                 com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager()
                         .publishDecoded(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE, zeroCatalog);
                 Villager mixed = body(helper, new BlockPos(9, 1, 1), bodies);
+                float mixedBaseline = mixed.getHealth();
                 equipCap(mixed);
                 DamageSystem.applyHealthChange(mixed, Map.of(DamageKeys.BLUNT, 10f, DamageKeys.CAUSTIC, 10f), 1f, true);
                 DamageSystem.applyHealthChange(mixed, Map.of(DamageKeys.BLUNT, 5f, DamageKeys.CAUSTIC, -5f), 1f, false);
                 requireClose(10f, typed(mixed, DamageKeys.BLUNT), "zeroed positive type does not add damage");
                 requireClose(5f, typed(mixed, DamageKeys.CAUSTIC), "mixed negative healing survives zeroed positive armor");
-                requireClose(17f, mixed.getHealth(), "mixed healing projects normally after positive zeroing");
+                requireClose(mixedBaseline - 3f, mixed.getHealth(), "mixed healing projects normally after positive zeroing");
 
                 com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager()
                         .publishDecoded(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE, updated);
@@ -177,6 +194,7 @@ public final class EquipmentArmorGameTests {
                         .get(id).armor().orElseThrow().coefficients().get(DamageKeys.BLUNT),
                         "nested guard fixture restores its .95 blunt modifier");
                 Villager nested = body(helper, new BlockPos(13, 1, 1), bodies);
+                float nestedBaseline = nested.getHealth();
                 equipCap(nested);
                 var triggered = new java.util.concurrent.atomic.AtomicBoolean();
                 var nestedAccepted = new java.util.concurrent.atomic.AtomicBoolean();
@@ -188,14 +206,14 @@ public final class EquipmentArmorGameTests {
                     eventCount.incrementAndGet();
                     if (triggered.compareAndSet(false, true)) {
                         outerAmount.set(event.getAmount());
-                        nestedAccepted.set(nested.hurt(nested.level().damageSources().generic(), .25f));
+                        nestedAccepted.set(nested.hurt(nested.level().damageSources().mobAttack(nested), .25f));
                         // Let the outer hit proceed as a distinct vanilla hit after the nested one.
                         nested.invulnerableTime = 0;
                     } else {
                         nestedAmount.set(event.getAmount());
                     }
                 };
-                NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, listener);
+                NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, LivingIncomingDamageEvent.class, listener);
                 try {
                     DamageSystem.applyHealthChange(nested, Map.of(DamageKeys.BLUNT, 5f), 1f, false);
                 } finally {
@@ -206,7 +224,7 @@ public final class EquipmentArmorGameTests {
                 requireClose(.95f, outerAmount.get(), "matching pending typed source retains its already-armored incoming amount");
                 requireIngressAmount(.236f, nestedAmount.get(), "unmatched nested native source receives one source-cent armor quantization");
                 requireClose(5.93f, typed(nested, DamageKeys.BLUNT), "both nested native and outer typed post-ledgers commit exactly once");
-                requireClose(18.814f, nested.getHealth(), "both vanilla hits reconcile to the resulting typed ledger");
+                requireClose(nestedBaseline - 1.186f, nested.getHealth(), "both vanilla hits reconcile to the resulting typed ledger");
                 helper.succeed();
             } finally {
                 try {
@@ -223,14 +241,18 @@ public final class EquipmentArmorGameTests {
         Villager body = helper.spawn(EntityType.VILLAGER, position);
         cleanup.add(body);
         if (LiveHands.initialize(body).isEmpty()) throw new GameTestAssertException("bound human villager inventory initializes");
+        if (com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(body).isEmpty())
+            throw new GameTestAssertException("villager has resolved human identity before medical projection");
+        DamageSystem.reconcile(body);
+        if (body.getHealth() != body.getMaxHealth())
+            throw new GameTestAssertException("resolved zero-ledger human begins at its medical maximum");
         return body;
     }
     private static void putCapInHand(Villager body) {
         putInHand(body, "cap", new ItemStack(com.juicyslew.moonstation14.item.ModEquipmentItems.GREY_CAP.get()));
     }
     private static void putInHand(Villager body, String token, ItemStack stack) {
-        var state = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        body.setData(ModDataAttachments.LIVE_HANDS.get(), state.putWhole(state.revision() + 1, "left", new ItemToken(token), stack).state());
+        EquipmentStepTriggerProtectionGameTests.putOwnedHandFixture(body, "left", token, stack);
     }
     private static void equipCap(Villager body) {
         putCapInHand(body);
