@@ -11,6 +11,8 @@ public interface PowerRuntimeNode {
 
     /** Null when this node is not a supplier. Zero current and zero rating are valid inactive states. */
     default SupplierOffer powerSupplierOffer() { return null; }
+    /** Interval-aware supplier offer; energy-backed suppliers can cap output to stored energy. */
+    default SupplierOffer powerSupplierOffer(long elapsedTicks) { return powerSupplierOffer(); }
 
     /** Null when this node is not a genuine MV consumer; zero is valid. Demand changes call deviceChanged. */
     default Double mvPowerDemandWatts() { return null; }
@@ -26,6 +28,10 @@ public interface PowerRuntimeNode {
 
     /** Receives this solve's APC allocation, including zero/unknown. */
     default void receiveApcPowerAllocation(double actualWatts, boolean graphKnown, long sampleTick) { }
+
+    /** Actual HV source delivery; elapsedTicks are ticks at 20 ticks/second. */
+    default void receivePowerSupplyAllocation(double actualWatts, boolean graphKnown,
+                                              long elapsedTicks, long sampleTick) { }
 
     record SupplierOffer(double currentWatts, double ratedMaximumWatts) {
         public SupplierOffer {

@@ -24,12 +24,16 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class MuteToxinChatGameTests {
     private MuteToxinChatGameTests() { }
 
-    @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    // Two real-time speech cooldowns need not elapse within 100 native ticks (native GameTest clocks may run faster than 20 Hz).
+    // 4000 is the existing bounded engine cap; each cooldown still has an independent 5-second wall-clock guard.
+    @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining", "merge-main-root-causes"})
     public static void decodedMuteToxinEffectBlocksCommittedBodyChat(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         var fixture = RegisteredServerPlayerFixture.register(level, "muted-speech-fixture");
-        net.minecraft.world.entity.LivingEntity body = null;
-        try {
+        helper.runAtTickTime(2, () -> {
+            net.minecraft.world.entity.LivingEntity body = null;
+            try {
             body = RegisteredPlayerReadyDriver.readyAndQuery(fixture).body();
             final var committedBody = body;
             body.setPos(helper.absolutePos(new net.minecraft.core.BlockPos(2, 1, 2)).getX() + .5,
@@ -42,26 +46,30 @@ public final class MuteToxinChatGameTests {
             var context = new EffectContext(level, body, .5f, RandomSource.create(19), ConditionContext.unavailable(), EffectCause.METABOLISM);
             var effects = EffectSystem.withDefaults();
             drain(fixture);
+            long firstAttemptNanos = System.nanoTime();
             var first = net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new ServerChatEvent(fixture.player(), "before mute", Component.literal("before mute")));
             require(first.isCanceled() && hasSpeech(drain(fixture)), "unmuted committed body speech reaches speaker payload");
-            require(effects.apply(effect, context) == EffectResult.APPLIED, "resolved MuteToxin GenericStatusEffect applied through dispatcher");
-            require(effects.apply(effect, context) == EffectResult.APPLIED, "repeat decoded effect adds duration");
-            var statusKey = ModStatusEffects.createKey("muted");
-            var attached = MS14Provider.get(body, StatusEffectSystem.bridge).get(statusKey).orElseThrow();
-            require(attached.remainingDurationTicks().orElseThrow() == 200, "two scaled 10-second applications add to 200 ticks");
-            require(StatusEffectSystem.hasActiveBehavior(body, com.juicyslew.moonstation14.component.codec.json.StatusEffectBehavior.SPEECH_BLOCK),
-                    "actual body receives active SPEECH_BLOCK status");
-            drain(fixture);
-            helper.runAfterDelay(11, () -> {
+            awaitSpeechCooldown(helper, firstAttemptNanos, 0, 0, () -> cleanup(committedBody, level, fixture), () -> {
                 try {
+                    require(effects.apply(effect, context) == EffectResult.APPLIED, "resolved MuteToxin GenericStatusEffect applied through dispatcher");
+                    require(effects.apply(effect, context) == EffectResult.APPLIED, "repeat decoded effect adds duration");
+                    var statusKey = ModStatusEffects.createKey("muted");
+                    var attached = MS14Provider.get(committedBody, StatusEffectSystem.bridge).get(statusKey).orElseThrow();
+                    require(attached.remainingDurationTicks().orElseThrow() == 200, "two scaled 10-second applications add to 200 ticks");
+                    require(StatusEffectSystem.hasActiveBehavior(committedBody, com.juicyslew.moonstation14.component.codec.json.StatusEffectBehavior.SPEECH_BLOCK),
+                            "actual body receives active SPEECH_BLOCK status");
                     drain(fixture);
+                    require(StatusEffectSystem.hasActiveBehavior(committedBody, com.juicyslew.moonstation14.component.codec.json.StatusEffectBehavior.SPEECH_BLOCK),
+                            "mute remains active at muted chat attempt");
+                    require(!committedBody.isRemoved() && committedBody.isAlive(), "muted body remains able to attempt speech");
+                    long mutedAttemptNanos = System.nanoTime();
                     var mutedEvent = net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new ServerChatEvent(fixture.player(), "muted", Component.literal("muted")));
                     var mutedPackets = drain(fixture);
                     require(mutedEvent.isCanceled() && !hasSpeech(mutedPackets), "muted body chat emits no local speech payload");
                     require(!mutedPackets.stream().anyMatch(p -> p instanceof net.minecraft.network.protocol.game.ClientboundSoundPacket), "muted chat emits no speech sound");
                     require(hasMuteFeedback(mutedPackets), "muted chat emits exact private speech-muted translation feedback");
                     StatusEffectSystem.clearAll(((IStatusEffectTrait) committedBody).toHandleSelf(), level);
-                    helper.runAfterDelay(11, () -> {
+                    awaitSpeechCooldown(helper, mutedAttemptNanos, 0, 0, () -> cleanup(committedBody, level, fixture), () -> {
                         try {
                             drain(fixture);
                             var recovered = net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new ServerChatEvent(fixture.player(), "after mute", Component.literal("after mute")));
@@ -69,16 +77,20 @@ public final class MuteToxinChatGameTests {
                             helper.succeed();
                         } finally { cleanup(committedBody, level, fixture); }
                     });
-                } catch (RuntimeException | Error failure) { cleanup(committedBody, level, fixture); throw failure; }
+                } catch (RuntimeException | Error failure) {
+                    cleanup(committedBody, level, fixture);
+                    helper.fail("mute toxin chat muted callback: " + failure);
+                }
             });
-        } catch (RuntimeException | Error failure) {
+            } catch (RuntimeException | Error failure) {
             if (body != null) {
                 cleanup(body, level, fixture);
+            } else {
+                fixture.close();
             }
-            throw failure;
-        } finally {
-            if (body == null) fixture.close();
-        }
+            helper.fail("mute toxin chat fixture: " + failure);
+            }
+        });
     }
 
     private static java.util.List<Object> drain(RegisteredServerPlayerFixture fixture) {
@@ -96,6 +108,22 @@ public final class MuteToxinChatGameTests {
         return packets.stream().anyMatch(packet -> packet instanceof ClientboundSetActionBarTextPacket actionbar
                 && actionbar.text().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents text
                 && text.getKey().equals("speech-muted"));
+    }
+
+    private static void awaitSpeechCooldown(GameTestHelper helper, long attemptNanos, long deadlineNanos, int elapsedTicks,
+                                            Runnable timeoutCleanup, Runnable action) {
+        if (deadlineNanos == 0) deadlineNanos = attemptNanos + 5_000_000_000L;
+        if (System.nanoTime() - attemptNanos >= com.juicyslew.moonstation14.ms14.chat.server.LocalSpeechPolicy.SPEECH_COOLDOWN_NANOS + 10_000_000L) {
+            action.run();
+            return;
+        }
+        if (System.nanoTime() >= deadlineNanos) {
+            timeoutCleanup.run();
+            helper.fail("speech cooldown did not elapse within fixture timeout");
+            return;
+        }
+        final long deadline = deadlineNanos;
+        helper.runAfterDelay(1, () -> awaitSpeechCooldown(helper, attemptNanos, deadline, elapsedTicks + 1, timeoutCleanup, action));
     }
 
     private static void cleanup(net.minecraft.world.entity.LivingEntity body, ServerLevel level,

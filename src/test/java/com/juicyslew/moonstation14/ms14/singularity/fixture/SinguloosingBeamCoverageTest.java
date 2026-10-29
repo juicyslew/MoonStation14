@@ -15,6 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -104,12 +105,58 @@ class SinguloosingBeamCoverageTest {
         assertEquals(11.0,maxZ,"accessible Z upper bound is horizon-inset");
     }
 
+    @Test void threeResolvedPaLanesCaptureAtLeastOneParticleAcrossCompactTeslaInterior() throws Exception {
+        var pa=load(ModParticleAccelerators.TYPE,Map.of("pa_base.json",ResourceLocation.fromNamespaceAndPath("moonstation14","pa_base"),
+                "particle_accelerator.json",PA)).get(PA);
+        var control=BlockPos.ZERO.offset(19,5,8);
+        var assembly=ParticleAcceleratorAssembly.resolve(control,Rotation.NONE,pa,pos->{
+            for(var e:pa.parts().entrySet()) {
+                var p=e.getValue();var world=control.offset(ParticleAcceleratorAssembly.toWorldVec(p.offsetX(),p.offsetY(),Rotation.NONE));
+                if(world.equals(pos))return new TestPart(e.getKey(),ResourceLocation.parse(p.completedPrototype()),p.relativeRotation(),true,true);
+            } return null;
+        }).orElseThrow();
+        var lanes=assembly.parts().stream().filter(p->List.of("port","fore","starboard").contains(p.profile().role()))
+                .map(p->ParticleAcceleratorPartBlockEntity.emissionOrigin(p.position(),p.rotation().rotate(Direction.SOUTH))).toList();
+        assertEquals(3,lanes.size());
+        var gameplay=load(ModSingularityGameplay.TYPE,Map.of("singularity.json",SINGULARITY)).get(SINGULARITY);
+        var particle=load(ModParticleAcceleratorParticles.TYPE,Map.of("base_bullet.json",ResourceLocation.fromNamespaceAndPath("moonstation14","base_bullet"),
+                "particle_accelerator_particle.json",PARTICLE)).get(PARTICLE);
+        var balls=load(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE,Map.of(
+                "base.json",com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.id("base"),
+                "tesla_energy_ball.json",com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MAIN_ID));
+        var tesla=balls.get(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MAIN_ID);
+        assertNotNull(tesla);
+        double radius=tesla.contactRadius()+particle.halfExtent();
+        // Production compact cage is x=5..9, y=3..7, z=7..11; containment
+        // keeps the collider-radius center at least .55 blocks inside each plane.
+        var bounds=SingularityFixtureLayout.fieldBounds(BlockPos.ZERO,SingularityFixtureLayout.Enclosure.COMPACT);
+        double collider=tesla.colliderRadius();
+        double minX=FieldGeometry.center(bounds.min().getX())+collider,maxX=FieldGeometry.center(bounds.max().getX())-collider;
+        double minY=FieldGeometry.center(bounds.min().getY())+collider,maxY=FieldGeometry.center(bounds.max().getY())-collider;
+        double minZ=FieldGeometry.center(bounds.min().getZ())+collider,maxZ=FieldGeometry.center(bounds.max().getZ())-collider;
+        for(double x:sampleCoordinates(minX,maxX))
+            for(double y:sampleCoordinates(minY,maxY))
+                for(double z:sampleCoordinates(minZ,maxZ)) {
+                    Vec3 center=new Vec3(x,y,z);
+                    boolean captured=assembly.parts().stream().filter(p->List.of("port","fore","starboard").contains(p.profile().role()))
+                            .anyMatch(p->{var direction=p.rotation().rotate(Direction.SOUTH);var from=ParticleAcceleratorPartBlockEntity.emissionOrigin(p.position(),direction);
+                                double distance=pa.particleSpeed()*particle.lifetimeTicks()/20.0;
+                                var to=from.add(direction.getStepX()*distance,direction.getStepY()*distance,direction.getStepZ()*distance);
+                                return ParticleAcceleratorReceiverContactGeometry.entry(from,to,center,radius,particle.energyReceiverVerticalPadding())>=0;});
+                    assertTrue(captured,"actual PA lanes miss legal compact cage center x="+x+" y="+y+" z="+z);
+                }
+    }
+
     private record TestPart(String role,ResourceLocation prototypeId,Rotation orientation,boolean anchored,boolean completed) implements ParticleAcceleratorPartIdentity { }
 
     private static double[] criticalCoordinates(double[] lanes,double min,double max) {
         var values=new TreeSet<Double>(); values.add(min);values.add(max);
         for(int i=1;i<lanes.length;i++){double midpoint=(lanes[i-1]+lanes[i])/2;if(midpoint>=min&&midpoint<=max)values.add(midpoint);}
         for(double lane:lanes)if(lane>=min&&lane<=max)values.add(lane);
+        return values.stream().mapToDouble(Double::doubleValue).toArray();
+    }
+    private static double[] sampleCoordinates(double min,double max) {
+        var values=new ArrayList<Double>();for(double v=min;v<max;v+=.25)values.add(v);values.add(max);
         return values.stream().mapToDouble(Double::doubleValue).toArray();
     }
     private static <T> com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog<T> load(PrototypeType<T> type,Map<String,ResourceLocation> files)throws Exception {

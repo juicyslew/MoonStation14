@@ -121,6 +121,7 @@ public class MoonStation14 {
         modEventBus.addListener(LocalSpeechNetworking::registerPayloadHandlers);
         modEventBus.addListener(GrenadeSoundNetworking::registerPayloadHandlers);
         modEventBus.addListener(AtmosphereVisualNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.tesla.TeslaArcNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.singularity.containment.FieldFaceNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.singularity.pa.control.PaControlNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.radiation.control.RadiationCollectorControlNetworking::registerPayloadHandlers);
@@ -134,6 +135,7 @@ public class MoonStation14 {
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.actions.network.BodyActionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.botany.ui.GrinderNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.botany.GrinderProcessingAudioNetworking::registerPayloadHandlers);
@@ -265,6 +267,7 @@ public class MoonStation14 {
             com.juicyslew.moonstation14.ms14.explosion.server.QueuedExplosionSystem.tick(level);
             com.juicyslew.moonstation14.ms14.disposal.transport.DisposalPendingAirSavedData.retryLoaded(level);
             com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.tick(level);
+            com.juicyslew.moonstation14.ms14.tesla.TeslaLightningBeamHazard.tick(level);
             com.juicyslew.moonstation14.ms14.animals.flight.FlightSystem.tick(level);
         }
     }
@@ -276,6 +279,7 @@ public class MoonStation14 {
         {
             com.juicyslew.moonstation14.ms14.singularity.fixture.SingularityFixtureService.unload(level);
             com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.closeLevel(level);
+            com.juicyslew.moonstation14.ms14.tesla.TeslaLightningBeamHazard.unload(level);
         }
     }
 }

@@ -51,7 +51,12 @@ public class ModDataAttachments {
     public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment>> FLIGHT = ATTACHMENT_TYPES.register(
             "flight", () -> AttachmentType.builder((Supplier<com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment>) com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment::new)
                     .serialize(com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment.CODEC)
-                    .sync(com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment.STREAM_CODEC).build());
+                    .sync(com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment.STREAM_CODEC)
+                    .build()
+    );
+
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.actions.BodyActionRuntimeState>> ACTION_RUNTIME = ATTACHMENT_TYPES.register(
+            "action_runtime", () -> AttachmentType.builder(com.juicyslew.moonstation14.ms14.actions.BodyActionRuntimeState::new).build());
     public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.UdderAttachment>> UDDER = ATTACHMENT_TYPES.register(
             "udder", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.UdderAttachment.EMPTY)
                     .serialize(com.juicyslew.moonstation14.ms14.animals.UdderAttachment.CODEC).build());

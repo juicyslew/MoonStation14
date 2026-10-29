@@ -48,7 +48,7 @@ def _index_digest(root: Path) -> str:
 def validate_shared_config_plan_shape(plan):
     """Validate exact public plan contract, reusable by package/deploy validators."""
     required_fields = {"version", "mode", "template", "initialize", "untrack_generated", "targets"}
-    if (not isinstance(plan, dict) or set(plan) - (required_fields | {"refresh_reviewer_instructions"}) or
+    if (not isinstance(plan, dict) or set(plan) - (required_fields | {"refresh_reviewer_instructions", "workflow_credentials"}) or
             not required_fields.issubset(plan)):
         raise ValueError("shared config plan has unknown or missing fields")
     if type(plan["version"]) is not int or plan["version"] != 1 or plan["mode"] != "shared-opencode-config":
@@ -57,6 +57,21 @@ def validate_shared_config_plan_shape(plan):
         raise ValueError("shared config flags must be booleans")
     if "refresh_reviewer_instructions" in plan and type(plan["refresh_reviewer_instructions"]) is not bool:
         raise ValueError("shared config reviewer-instruction flag must be boolean")
+    if "workflow_credentials" in plan:
+        credentials = plan["workflow_credentials"]
+        try:
+            from deploy_workflow import _reviewed_loopback_endpoint
+        except ModuleNotFoundError:
+            from tooling.agent_workflow.deploy_workflow import _reviewed_loopback_endpoint
+        if (not isinstance(credentials, dict) or set(credentials) != {"config_path", "sha256", "coordinator_endpoint"} or
+                not isinstance(credentials["config_path"], str) or not Path(credentials["config_path"]).is_absolute() or
+                not isinstance(credentials["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", credentials["sha256"]) or
+                not isinstance(credentials["coordinator_endpoint"], str)):
+            raise ValueError("workflow_credentials must bind an absolute config path, SHA-256, and loopback coordinator endpoint")
+        try:
+            _reviewed_loopback_endpoint(credentials["coordinator_endpoint"])
+        except ValueError as exc:
+            raise ValueError("workflow_credentials coordinator endpoint must be explicit loopback HTTP") from exc
     template = plan["template"]
     if (not isinstance(template, dict) or set(template) != {"path", "sha256"} or
             not isinstance(template["path"], str) or not Path(template["path"]).is_absolute() or
@@ -100,6 +115,63 @@ def _refresh_reviewer_instructions(overlay: dict) -> dict:
     return result
 
 
+def _refresh_workflow_credentials(overlay: dict, root: Path, coordinator: dict, config_base: Path, endpoint: str) -> dict:
+    """Replace only file references on the existing canonical workflow profiles."""
+    result = deepcopy(overlay)
+    servers = result.get("config", {}).get("mcp", {}).get("servers", {})
+    if not isinstance(servers, dict):
+        raise ValueError("workflow credential refresh requires an MCP servers object")
+    expected = {}
+    slots = coordinator.get("author_worktrees", [])
+    if not isinstance(slots, list):
+        raise ValueError("coordinator author_worktrees is malformed")
+    for slot in slots:
+        if not isinstance(slot, dict) or set(slot) != {"caller", "token_file", "context_file"}:
+            raise ValueError("coordinator author worktree slot is malformed")
+        cp = _resolve(config_base, slot["context_file"])
+        if cp.is_symlink() or not cp.is_file(): raise ValueError("author context missing or unsafe")
+        context = json.loads(cp.read_text(encoding="utf-8"))
+        if set(context) != {"repo", "floors", "publication_receipt_path", "publication_receipt_sha256"}:
+            raise ValueError("author worktree context is malformed")
+        repo = _resolve(cp.parent, context["repo"])
+        if repo == root.resolve():
+            if "author" in expected: raise ValueError("multiple author worktree slots match target")
+            expected["author"] = ("ms14_workflow", "author", slot["token_file"])
+    reviewers = coordinator.get("reviewers", {})
+    if not isinstance(reviewers, dict): raise ValueError("coordinator reviewers is malformed")
+    if root.name == "MoonStation14":
+        for role, row in reviewers.items():
+            if role not in REVIEW_ROLES or not isinstance(row, dict) or set(row) != {"worktree", "agent", "token_file", "caller"}:
+                raise ValueError("coordinator reviewer row is malformed")
+            if Path(row["worktree"]).resolve() == root.resolve():
+                agents = result.get("config", {}).get("agents", {})
+                if not isinstance(agents, dict) or row["agent"] != REVIEWER_AGENT_PREFIX + role or row["agent"] not in agents:
+                    raise ValueError("configured reviewer agent is absent from existing overlay")
+                expected[role] = (f"ms14_workflow_review_{role}", "reviewer", row["token_file"])
+    actual = {key for key in servers if key == "ms14_workflow" or key.startswith("ms14_workflow_review_")}
+    if actual != {item[0] for item in expected.values()}:
+        raise ValueError("existing workflow profiles do not match configured target identities")
+    try:
+        from deploy_workflow import _reviewed_loopback_endpoint
+    except ModuleNotFoundError:
+        from tooling.agent_workflow.deploy_workflow import _reviewed_loopback_endpoint
+    endpoint = _reviewed_loopback_endpoint(endpoint)
+    for key, profile, token_value in expected.values():
+        token_path = _resolve(config_base, token_value)
+        entry = servers[key]
+        auth = entry.get("headers", {}).get("Authorization") if isinstance(entry, dict) else None
+        if not isinstance(auth, str) or not re.fullmatch(r"Bearer \{file:[^{}\r\n]+\}", auth):
+            raise ValueError("existing workflow profile has malformed authorization reference")
+        old_endpoint = entry.get("url", "").rsplit("/mcp/", 1)[0]
+        if not _canonical_remote_entry_shape(entry, profile) or old_endpoint.rstrip("/") != endpoint.rstrip("/"):
+            raise ValueError("existing workflow profile is foreign or has a different coordinator endpoint")
+        desired = deepcopy(entry)
+        desired["headers"]["Authorization"] = "Bearer {file:" + str(token_path) + "}"
+        materialize_remote_authorization(desired, endpoint=endpoint, profile=profile, token_file=str(token_path))
+        entry["headers"]["Authorization"] = desired["headers"]["Authorization"]
+    return result
+
+
 def stage_shared_config_plan(binding_plan: Path, stage: Path, receipt: dict, *, main_root: Path, shared_root: Path) -> dict:
     """Receipt-owned, read-only staging for the canonical shared OpenCode template."""
     raw = binding_plan.read_bytes()
@@ -117,6 +189,19 @@ def stage_shared_config_plan(binding_plan: Path, stage: Path, receipt: dict, *, 
     from workflow_opencode_config import (load_template, extract_local_overlay, render_config,
                                            preserve_existing_bytes, serialize_config, configs_equivalent)
     template = load_template(template_bytes)
+    credential_coordinator = None
+    credential_path = None
+    if "workflow_credentials" in plan:
+        credential_path = Path(plan["workflow_credentials"]["config_path"])
+        if credential_path.is_symlink() or not credential_path.is_file():
+            raise ValueError("workflow coordinator config is missing or unsafe")
+        _assert_no_reparse(Path(credential_path.anchor), credential_path)
+        credential_bytes = credential_path.read_bytes()
+        if hashlib.sha256(credential_bytes).hexdigest() != plan["workflow_credentials"]["sha256"]:
+            raise ValueError("workflow coordinator config hash changed")
+        credential_coordinator = json.loads(credential_bytes.decode("utf-8"))
+        if not isinstance(credential_coordinator, dict) or not isinstance(credential_coordinator.get("author_worktrees", []), list) or not isinstance(credential_coordinator.get("reviewers", {}), dict):
+            raise ValueError("workflow coordinator config schema is malformed")
     stage.mkdir(parents=True, exist_ok=True)
     variables = {"shared_root": shared_root.as_posix(), "workspace_parent": main_root.parent.as_posix(),
                  "ss14_root": (Path.home() / "Documents/SS14-dev/space-station-14").as_posix()}
@@ -155,10 +240,24 @@ def stage_shared_config_plan(binding_plan: Path, stage: Path, receipt: dict, *, 
                 overlay = _refresh_reviewer_instructions(overlay)
                 if overlay != prior_overlay:
                     overlay_output = serialize_config(overlay).encode()
+            if credential_coordinator is not None:
+                prior_overlay = overlay
+                overlay = _refresh_workflow_credentials(overlay, root, credential_coordinator, credential_path.parent,
+                                                        plan["workflow_credentials"]["coordinator_endpoint"])
+                if overlay != prior_overlay:
+                    overlay_output = serialize_config(overlay).encode()
         else:
             if row["expected_local_sha256"] is not None: raise ValueError("planned local overlay is absent")
             overlay = extract_local_overlay(template, cfg_bytes, variables)
-        desired = render_config(template, overlay)
+        if credential_coordinator is not None:
+            import workflow_opencode_config as oc
+            current = {"config": oc._loads(cfg_bytes)}
+            desired = _refresh_workflow_credentials(
+                current, root, credential_coordinator, credential_path.parent,
+                plan["workflow_credentials"]["coordinator_endpoint"])
+            desired = desired["config"]
+        else:
+            desired = render_config(template, overlay)
         try:
             equivalent = cfg.is_file() and configs_equivalent(__import__("workflow_opencode_config")._loads(cfg_bytes), desired)
         except (ValueError, UnicodeError):
@@ -189,6 +288,8 @@ def stage_shared_config_plan(binding_plan: Path, stage: Path, receipt: dict, *, 
             new_hash=hashlib.sha256(output).hexdigest(); item={"target":name,"path":rel,"old_sha256":hashlib.sha256(before).hexdigest() if before is not None else None,"new_sha256":new_hash,"receipt_sha256":receipt_sha,"staged_path":sr.as_posix(),"staged_sha256":new_hash,"source":str(root/rel),"source_sha256":hashlib.sha256(before).hexdigest() if before is not None else None}
             if before is not None and not no_backup: item.update({"backup_path":br.as_posix(),"backup_sha256":item["old_sha256"]})
             if scope is not None: item["config_scope"]=scope
+            if scope is not None and credential_path is not None:
+                scope["workflow_credentials"] = {"path": str(credential_path), "sha256": plan["workflow_credentials"]["sha256"]}
             staged_files[f"{name}/{rel}"]=item
     plan_rel="bindings/binding-plan.json"; (stage/plan_rel).parent.mkdir(parents=True,exist_ok=True); (stage/plan_rel).write_bytes(raw)
     result={"version":1,"mode":"shared-opencode-config","source_plan":str(binding_plan.resolve()),"source_plan_sha256":hashlib.sha256(raw).hexdigest(),"staged_plan":plan_rel,"staged_plan_sha256":hashlib.sha256(raw).hexdigest(),"receipt_path":receipt["_path"],"receipt_sha256":receipt["_sha256"],"targets":sorted(r["target"] for r in plan["targets"]),"files":staged_files,"metadata":{"index_transition":{"untrack_generated":plan["untrack_generated"],"expected_index_digests":{r["target"]:r["expected_index_digest"] for r in plan["targets"]}}}}
@@ -505,7 +606,7 @@ def _validate_reviewer_declarations(declarations, target_rows, main_root: Path) 
 
 
 def _reviewer_system(role: str, output_dir: str) -> str:
-    shared = ("Review only the assigned frozen task and supplied source/evidence. OWNER_READY means technical-ready for owner testing, not owner acceptance; owner acceptance is a separate later decision. Classify each blocking finding as TECHNICAL. Outstanding subjective/physical owner observations belong in owner_followups, never blocking findings. Concrete UI/render/input/audio defects and required machine-check coverage remain technical blockers even in those domains. Claim it, inspect your scope, submit "
+    shared = ("Review only the assigned frozen task and supplied source/evidence. OWNER_READY means technical-ready for owner testing, not owner acceptance; owner acceptance is a separate later decision. Classify each blocking finding as TECHNICAL. Outstanding subjective/physical owner observations belong in owner_followups, never blocking findings. Concrete UI/render/input/audio defects and required machine-check coverage remain technical blockers even in those domains. For COVERAGE findings, include coverage_basis: MISSING_EXECUTION_EVIDENCE or INSUFFICIENT_CHECK_COVERAGE; the former also requires nonempty check_kind (for example gametest, junit, readiness, build). Treat trusted same-run, generation, and input-bound check receipts as current execution facts: never claim missing execution evidence when a current bound PASS receipt exists. Author objective/pre-submit notes may truthfully say checks are pending before the gate. A passing check can still have insufficient coverage only with a concrete untested branch or scope gap; PASS does not equal owner acceptance. Claim it, inspect your scope, submit "
               "evidence-backed PASS/FAIL through its role tool; report missing/bad inputs as ERROR. Source is read-only. "
               "Do not assume filesystem write tools, shell, or any generic read/edit tool exists. Do not edit, rerun "
               "checks, orchestrate, or spawn agents.")
@@ -517,7 +618,7 @@ def _reviewer_system(role: str, output_dir: str) -> str:
                  "Follow the guide's semantic result/error schemas and include task_id, decision/evidence or error fields. Omit contract_version, run_id, evaluation_generation, assignment_generation, and input_digest; the coordinator binds them after authorization. Submit the complete result inline with "
                  "complete_review(result=<semantic review result>, session_id=<assigned session>) or the complete typed "
                  "error inline with report_error(error=<semantic task error>, session_id=<assigned session>). "
-                "Every finding requires validation_stage=TECHNICAL. Put pending owner observations in owner_followups entries {criterion_id,message,manual_check,evidence_refs?}; these are retained for the owner log and do not block PASS. Never classify OWNER_TESTING as a blocking finding: the API rejects it and instructs correction. PASS requires no technical findings; FAIL requires actionable technical findings. Do not use result_path/error_path or rely on writing a file: inline submission is the required mode. "
+                 "Every finding requires validation_stage=TECHNICAL. Put pending owner observations in owner_followups entries {criterion_id,message,manual_check,evidence_refs?}; these are retained for the owner log and do not block PASS. Never classify OWNER_TESTING as a blocking finding: the API rejects it and instructs correction. PASS requires no technical findings; FAIL requires actionable technical findings. Do not use result_path/error_path or rely on writing a file: inline submission is the required mode. "
                 "If a legitimate assigned input is unsupported, report its actual typed read error only after attempting "
                 "the SDK read; do not treat an invalid selector as infrastructure failure. "
                 f"{output_dir} is an optional private output location only when an external client can write there; "

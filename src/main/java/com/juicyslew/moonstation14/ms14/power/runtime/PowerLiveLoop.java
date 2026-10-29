@@ -158,7 +158,7 @@ public final class PowerLiveLoop {
                          Map<String, Double> alarmWatts, Map<String, Double> airlockWatts,
                          Map<String, Double> disposalWatts, Map<String, Double> chemMasterWatts,
                          Map<String, Double> mvConsumerWatts, Map<String, Double> apcConsumerWatts,
-                         Map<String, Double> processingWatts) {
+                          Map<String, Double> processingWatts, Map<String, Double> hvSourceWatts) {
         public Result {
             substationInputWatts = Map.copyOf(substationInputWatts); apcInputWatts = Map.copyOf(apcInputWatts);
             lampWatts = Map.copyOf(lampWatts); apcOutputWatts = Map.copyOf(apcOutputWatts);
@@ -167,6 +167,7 @@ public final class PowerLiveLoop {
             disposalWatts = Map.copyOf(disposalWatts); chemMasterWatts = Map.copyOf(chemMasterWatts);
             mvConsumerWatts = Map.copyOf(mvConsumerWatts); apcConsumerWatts = Map.copyOf(apcConsumerWatts);
             processingWatts = Map.copyOf(processingWatts);
+            hvSourceWatts = Map.copyOf(hvSourceWatts);
         }
     }
 
@@ -177,6 +178,8 @@ public final class PowerLiveLoop {
 
     public static Result solve(Input input) {
         Map<String, Double> hvInputs = new HashMap<>();
+        Map<String, Double> hvSourceWatts = new HashMap<>();
+        for (Source source : input.sources()) hvSourceWatts.put(source.id(), 0.0);
         Map<Integer, List<Source>> sourcesByComponent = group(input.sources(), Source::known, Source::component);
         Map<Integer, List<Substation>> subsByHv = group(input.substations(), Substation::hvKnown, Substation::hvComponent);
         for (var entry : subsByHv.entrySet()) {
@@ -187,6 +190,14 @@ public final class PowerLiveLoop {
             var allocation = PowerAllocation.solve(new PowerAllocation.Network(PowerAllocation.Tier.HV, true,
                     offers, loads, null), input.elapsedTicks());
             allocation.deliveredWatts().forEach((id, watts) -> hvInputs.put(id, watts));
+            double sourceTotal = sourcesByComponent.getOrDefault(entry.getKey(), List.of()).stream()
+                    .mapToDouble(source -> Math.min(source.watts(), source.ratedMaximumWatts())).sum();
+            if (sourceTotal > 0 && allocation.sourceUsedWatts() > 0) {
+                for (Source source : sourcesByComponent.getOrDefault(entry.getKey(), List.of())) {
+                    double offer = Math.min(source.watts(), source.ratedMaximumWatts());
+                    hvSourceWatts.put(source.id(), allocation.sourceUsedWatts() * offer / sourceTotal);
+                }
+            }
         }
 
         Map<String, Double> apcInputs = new HashMap<>();
@@ -323,7 +334,7 @@ public final class PowerLiveLoop {
             energies.put(apc.id(), chargeBattery(energy, apcInputs.getOrDefault(apc.id(), 0.0), secondsFor(input.elapsedTicks())));
         }
         return new Result(hvInputs, apcInputs, lampWatts, apcOutputWatts, energies, ventWatts, alarmWatts,
-                airlockWatts, disposalWatts, chemMasterWatts, mvConsumerWatts, genericWatts, processingWatts);
+                airlockWatts, disposalWatts, chemMasterWatts, mvConsumerWatts, genericWatts, processingWatts, hvSourceWatts);
     }
 
     private static double secondsFor(long elapsedTicks) {

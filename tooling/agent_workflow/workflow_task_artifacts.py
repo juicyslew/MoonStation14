@@ -2,6 +2,7 @@
 import hashlib
 import os
 import re
+from collections import deque
 from pathlib import Path
 
 try:
@@ -24,7 +25,7 @@ def register_bytes(store, task, artifact_dir, kind, data):
 
 
 def read_log_excerpt(artifact, *, artifact_dir, task_id, run_id, input_digest,
-                    secret_values=(), max_source=16 * 1024 * 1024, tail_bytes=8192, offset=None):
+                    secret_values=(), max_source=None, tail_bytes=8192, offset=None):
     """Return a bounded tail only for the exact immutable native TASK log."""
     def unavailable(reason, meta=None):
         out={'available':False,'reason':reason}
@@ -40,7 +41,11 @@ def read_log_excerpt(artifact, *, artifact_dir, task_id, run_id, input_digest,
     if not isinstance(sha, str) or not re.fullmatch(r'[0-9a-f]{64}', sha) or not isinstance(size, int) or isinstance(size, bool) or size < 0:
         return unavailable('metadata_mismatch')
     meta={'artifact_id':artifact.get('artifact_id'),'sha256':sha,'size_bytes':size}
-    if size > max_source: return unavailable('oversized',meta)
+    if not isinstance(tail_bytes, int) or isinstance(tail_bytes, bool) or tail_bytes < 0:
+        tail_bytes = 8192
+    tail_bytes = min(tail_bytes, 8192)
+    if offset is not None and (not isinstance(offset,int) or isinstance(offset,bool) or offset<0 or offset > (1 << 63)-1):
+        return unavailable('invalid_offset',meta)
     from workflow_coordinator_package import assert_no_reparse
     root = Path(os.path.abspath(artifact_dir))
     expected = root / 'immutable' / task_id / ('log-' + sha)
@@ -48,21 +53,82 @@ def read_log_excerpt(artifact, *, artifact_dir, task_id, run_id, input_digest,
         path = Path(artifact.get('path', ''))
         if path != expected: return unavailable('path_mismatch',meta)
         assert_no_reparse(root, expected)
-        with expected.open('rb') as stream: raw = stream.read(max_source + 1)
+        digest=hashlib.sha256(); actual_size=0; sanitized_size=0
+        tail=bytearray(); page=bytearray(); page_start=offset
+        secrets=tuple(x for x in secret_values if isinstance(x,str) and x)
+        if any('\n' in value or '\r' in value for value in secrets):
+            return unavailable('unsupported_multiline_secret',meta)
+        record=bytearray(); oversized=False
+        redact_continuation=False; pending_header=''
+        key_start=re.compile(r'(?i)^\s*(?:authorization|password|token|api[_-]?key)\b')
+        incomplete_header=re.compile(r'(?i)^\s*(?:authorization\s*(?::\s*(?:(?:bearer|basic)\s*)?)?|(?:password|token|api[_-]?key)\s*(?:[=:]\s*)?)$')
+        credential_header=re.compile(r'(?i)^\s*(?:authorization\s*:\s*(?:bearer|basic)\s*|(?:password|token|api[_-]?key)\s*[=:]\s*)$')
+        def sanitized_record(raw):
+            nonlocal redact_continuation,pending_header
+            text=raw.decode('utf-8',errors='replace')
+            if pending_header:
+                if not text.strip(): return ''
+                combined=pending_header+' '+text.strip(); pending_header=''
+                if credential_header.fullmatch(combined):
+                    redact_continuation=True
+                    return sanitize_text(combined,secrets)
+                if incomplete_header.fullmatch(combined) and len(combined)<=256:
+                    pending_header=combined
+                    return ''
+                text=combined
+            elif key_start.match(text) and incomplete_header.fullmatch(text.strip()):
+                pending_header=text.strip()
+                return ''
+            if redact_continuation and text.strip():
+                text='[REDACTED]'; redact_continuation=False
+            elif not text.strip():
+                return sanitize_text(text,secrets)
+            redacted=sanitize_text(text,secrets)
+            return redacted
+        def accept(text):
+            nonlocal sanitized_size
+            encoded=text.encode('utf-8')
+            start=sanitized_size; end=start+len(encoded); sanitized_size=end
+            tail.extend(encoded)
+            if len(tail)>8192: del tail[:-8192]
+            if offset is not None and end>offset and start<offset+tail_bytes:
+                lo=max(offset,start)-start; hi=min(offset+tail_bytes,end)-start
+                page.extend(encoded[lo:hi])
+        with expected.open('rb') as stream:
+            while True:
+                block=stream.read(64*1024)
+                if not block: break
+                digest.update(block); actual_size+=len(block)
+                for byte in block:
+                    if oversized:
+                        if byte==10:
+                            accept('[oversized log record omitted]\n'); oversized=False
+                        continue
+                    if byte==10:
+                        accept(sanitized_record(bytes(record))+'\n'); record.clear()
+                    else:
+                        record.append(byte)
+                        if len(record)>1024*1024:
+                            record.clear(); oversized=True
+            if oversized:
+                accept('[oversized log record omitted]')
+            elif record:
+                accept(sanitized_record(bytes(record)))
+        if pending_header:
+            accept(sanitize_text(pending_header,secrets))
     except FileNotFoundError: return unavailable('missing',meta)
     except (OSError, ValueError): return unavailable('unsafe_path',meta)
-    if len(raw) != size or len(raw) > max_source or hashlib.sha256(raw).hexdigest() != sha:
+    if actual_size != size or digest.hexdigest() != sha:
         return unavailable('integrity_mismatch',meta)
-    text = raw.decode('utf-8', errors='replace')
-    text = sanitize_text(text,secret_values)
-    encoded = text.encode('utf-8')
+    if offset is not None and offset > sanitized_size: return unavailable('invalid_offset',meta)
     if offset is None:
-        offset=max(0,len(encoded)-tail_bytes)
-    if not isinstance(offset,int) or isinstance(offset,bool) or offset<0: return unavailable('invalid_offset',meta)
-    chunk=encoded[offset:offset+tail_bytes]
-    end=offset+len(chunk)
+        page_start=max(0,sanitized_size-tail_bytes); chunk=bytes(tail)[-tail_bytes:] if tail_bytes else b''
+    else:
+        page_start=offset; chunk=bytes(page)
+    end=page_start+len(chunk)
     return {'available': True, **meta, 'text': chunk.decode('utf-8', errors='replace'),
-        'offset':offset,'next_offset':end if end<len(encoded) else None,'truncated':offset>0 or end<len(encoded)}
+        'offset':page_start,'offset_basis':'sanitized_utf8','content_size_bytes':sanitized_size,
+        'next_offset':end if end<sanitized_size else None,'truncated':page_start>0 or end<sanitized_size}
 
 
 def sanitize_text(text, secret_values=()):

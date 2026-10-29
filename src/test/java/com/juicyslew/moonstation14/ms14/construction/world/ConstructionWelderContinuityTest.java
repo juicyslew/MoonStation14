@@ -18,8 +18,11 @@ class ConstructionWelderContinuityTest {
         var after = before.copy();
         after.set(ModDataComponents.WELDER_FUEL.get(), new WelderFuelData(99, true, 30));
         assertTrue(ConstructionWorldService.sameStackOrPassiveFuel(before, after));
+        assertTrue(com.juicyslew.moonstation14.ms14.construction.tool.WelderFuelService.sameStackOrPassiveFuel(before, after));
         assertTrue(ConstructionWorldService.passiveFuelChanged(before, after));
         assertTrue(ConstructionWorldService.revisionContinuity(4, 5, true));
+        assertTrue(com.juicyslew.moonstation14.ms14.construction.tool.WelderFuelService.revisionContinuity(4, 5,
+                com.juicyslew.moonstation14.ms14.construction.tool.WelderFuelService.passiveFuelChanged(before, after)));
     }
 
     @Test void arbitraryItemOrNonFuelMutationDoesNotPreserveContinuity() {
@@ -29,8 +32,10 @@ class ConstructionWelderContinuityTest {
         changed.set(DataComponents.CUSTOM_NAME, Component.literal("tampered"));
         var swapped = new ItemStack(Items.STICK);
         assertFalse(ConstructionWorldService.sameStackOrPassiveFuel(before, changed));
+        assertFalse(com.juicyslew.moonstation14.ms14.construction.tool.WelderFuelService.sameStackOrPassiveFuel(before, changed));
         assertFalse(ConstructionWorldService.sameStackOrPassiveFuel(before, swapped));
         assertFalse(ConstructionWorldService.revisionContinuity(4, 5, false));
         assertFalse(ConstructionWorldService.revisionContinuity(5, 4, true));
+        assertFalse(com.juicyslew.moonstation14.ms14.construction.tool.WelderFuelService.revisionContinuity(4, 5, false));
     }
 }

@@ -8,7 +8,7 @@ import workflow_native_worker, workflow_submission, workflow_store, workflow_pre
 from preflight_test_support import make_preflight_case
 
 
-def admit_native_fixture(root, *, caller, key, shared_store=None, timeline=None, delay=.2, review_roles=None, fail_check=False, extra_files=None, producer_code=None, checks=None, author_session=None):
+def admit_native_fixture(root, *, caller, key, shared_store=None, timeline=None, delay=.2, review_roles=None, fail_check=False, extra_files=None, producer_code=None, checks=None, author_session=None, packs=None, program_checks=None):
     root=Path(root); case=make_preflight_case(root,repo_name='repo',caller=caller,key=key)
     if author_session is not None:
         case.author['session_id']=author_session
@@ -35,7 +35,7 @@ def admit_native_fixture(root, *, caller, key, shared_store=None, timeline=None,
     (case.repo/'.gitignore').write_text('counter.txt\nbuild/\n')
     for rel, content in (extra_files or {}).items():
         dest=case.repo/rel; dest.parent.mkdir(parents=True,exist_ok=True); dest.write_text(content)
-    plan={'registry_version':1,'packs':[],'plan':{'title':'native fixture','kind':'feature','acceptance_criteria':['c1'],'fixture':'manual.md','manual_steps':['Run.'],'references':{},'checks':checks if checks is not None else [{'argv':[sys.executable,str(producer)],'rationale':'fixture','covers':['c1'],'kind':'build','artifacts':[output]}]},'program_checks':[]}
+    plan={'registry_version':1,'packs':packs if packs is not None else [],'plan':{'title':'native fixture','kind':'feature','acceptance_criteria':['c1'],'fixture':'manual.md','manual_steps':['Run.'],'references':{},'checks':checks if checks is not None else [{'argv':[sys.executable,str(producer)],'rationale':'fixture','covers':['c1'],'kind':'build','artifacts':[output]}]},'program_checks':program_checks if program_checks is not None else []}
     case.request['input_digest']=workflow_store.digest(workflow_preflight.capture_source(case.repo)); case.request['plan_digest']=workflow_store.digest(plan)
     store=shared_store or workflow_store.WorkflowStore(root/'db.sqlite')
     with patch.object(workflow_preflight,'resolve_check_packs',return_value=plan):

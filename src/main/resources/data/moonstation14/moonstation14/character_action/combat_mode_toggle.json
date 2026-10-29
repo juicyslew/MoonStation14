@@ -1,0 +1,1 @@
+{"parent":"base_mental_action","display_name":"action.moonstation14.combat_mode_toggle","icon":"moonstation14:textures/interface/actions/harm_off.png","icon_on":"moonstation14:textures/interface/actions/harm.png","handler":"COMBAT_TOGGLE","kind":"TOGGLE","priority":-100}

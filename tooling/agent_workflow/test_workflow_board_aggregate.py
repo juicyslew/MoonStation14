@@ -155,6 +155,49 @@ class BoardAggregateHTTPTests(unittest.TestCase):
             self.assertFalse(response.json()['available'])
             self.assertEqual('unknown',response.json()['system']['queue'])
 
+    def test_passed_feature_remains_visible_alongside_live_author_activity(self):
+        for activity in ('working', 'idle'):
+            with self.subTest(activity=activity), tempfile.TemporaryDirectory() as tmp:
+                c,main,agent,_=self.setup_coordinator(Path(tmp))
+                c.author_activity_observer=lambda: {'checked_at':1,'complete':True,'agents':[
+                    {'worktree':str(agent),'label':'Agent 01','activity':activity,'summary':activity.title(),'session_id':'safe-session'}], 'errors':[]}
+                c.refresh_author_activity()
+                client=TestClient(c.app(),base_url='http://127.0.0.1:59180',client=('127.0.0.1',12345))
+                client.get('/integration-status')
+                passed=record('DECIDED','PASS',extra={'terminal_result':{'result_id':'result-pass'},'events':[]})
+                passed['worktree']=str(agent); passed['run']['run_id']='passed-feature'
+                c.store.get_run.side_effect=lambda rid: None
+                c.store.get_terminal_result.return_value=None
+                with patch.object(workflow_store.WorkflowStore,'readonly_board_snapshot',return_value={'available':True,'records':[passed],'history':[]}):
+                    response=client.get('/v1/board/snapshot')
+                self.assertEqual(200,response.status_code)
+                board=response.json()
+                self.assertTrue(any(card['run_id']=='passed-feature' for card in board['columns']['Your testing']))
+                column='Building' if activity=='working' else 'Idle'
+                self.assertTrue(any(card['details'].get('session_id')=='safe-session' for card in board['columns'][column]))
+
+    def test_cold_start_configured_roots_and_observer_failure_remain_truthful(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); main=root/'MoonStation14'; main.mkdir()
+            roots=[root/f'MoonStation14-agent-{i:02d}' for i in range(1,5)]
+            observer=Mock(side_effect=RuntimeError('observer unavailable'))
+            binding=wc.CoordinatorBinding('main',SimpleNamespace(repo=str(main),authenticated_author={'session_id':'owner'}))
+            configured={f'agent-{i:02d}':wc.AuthorWorktreeBinding(f'agent-{i:02d}','unused','unused',str(path),{},'receipt','sha')
+                        for i,path in enumerate(roots,1)}
+            coordinator=wc.ExplicitCoordinator(Mock(path=str(root/'state.sqlite'),outbox_summary=Mock(return_value={}),list_tasks=Mock(return_value=[])),
+                bindings={'main-token':binding},author_worktrees=configured,artifact_dir=root/'artifacts',identity_verifier=lambda *_:True,
+                owner_bindings={'owner-token':wc.OwnerBinding('owner',str(main),'owner')},author_activity_observer=observer)
+            client=TestClient(coordinator.app(),base_url='http://127.0.0.1:59183',client=('127.0.0.1',12345)); client.get('/integration-status')
+            before=client.get('/v1/board/snapshot').json()
+            before_cards=before['columns']['Building']+before['columns']['Idle']
+            self.assertEqual(4,len(before_cards))
+            self.assertTrue(all(card['details'].get('activity_unknown') for card in before_cards))
+            coordinator.refresh_author_activity()
+            after=client.get('/v1/board/snapshot').json()
+            after_cards=after['columns']['Building']+after['columns']['Idle']
+            self.assertEqual(4,len(after_cards))
+            self.assertTrue(all(card['details'].get('activity_unknown') for card in after_cards))
+
 
 if __name__=='__main__':
     unittest.main()

@@ -66,6 +66,10 @@ public class ModSounds {
     public static final Supplier<SoundEvent> MALE_GASP = registerSoundEvent("gasp/male");
     public static final Supplier<SoundEvent> FEMALE_GASP = registerSoundEvent("gasp/female");
     public static final Supplier<SoundEvent> MOUSE_SQUEAK = registerSoundEvent("mouse_squeak");
+    public static final Supplier<SoundEvent> VOCAL_HUMAN_SCREAM = registerSoundEvent("vocal_human_scream");
+    public static final Supplier<SoundEvent> VOCAL_REPTILIAN_SCREAM = registerSoundEvent("vocal_reptilian_scream");
+    public static final Supplier<SoundEvent> VOCAL_SCURRET_SCREAM = registerSoundEvent("vocal_scurret_scream");
+    public static final Supplier<SoundEvent> VOCAL_WILHELM = registerSoundEvent("vocal_wilhelm");
     private record SpeechSounds(Supplier<SoundEvent> say, Supplier<SoundEvent> ask, Supplier<SoundEvent> exclaim) {
         SpeechSounds(Supplier<SoundEvent> all) { this(all, all, all); }
     }
@@ -125,6 +129,10 @@ public class ModSounds {
     public static final Supplier<SoundEvent> SINGULARITY_COMPONENT_AMBIENT = registerFixedRangeSoundEvent("singularity/component_ambient", 20.0F);
     public static final Supplier<SoundEvent> SINGULARITY_FORM = registerSoundEvent("singularity/form");
     public static final Supplier<SoundEvent> SINGULARITY_DISSIPATE = registerSoundEvent("singularity/dissipate");
+    public static final Supplier<SoundEvent> TESLA_AMBIENT = registerFixedRangeSoundEvent("tesla/ambient", 15.0F);
+    public static final Supplier<SoundEvent> TESLA_SPAWN = registerSoundEvent("tesla/spawn");
+    public static final Supplier<SoundEvent> TESLA_CONSUME = registerSoundEvent("tesla/consume");
+    public static final Supplier<SoundEvent> TESLA_LIGHTNING_SHOCK = registerSoundEvent("tesla/lightning_shock");
     public static final Supplier<SoundEvent> EMITTER_FIRE = registerSoundEvent("emitter/fire");
     public static final Supplier<SoundEvent> PROJECTILE_FLY_BY = registerSoundEvent("projectile/fly_by");
     public static final Supplier<SoundEvent> ITEM_SLOT_INSERT = registerSoundEvent("item_slot_insert");

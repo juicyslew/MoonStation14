@@ -16,6 +16,38 @@ from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 
+GAME_TEST_PREFLIGHT = re.compile(r"GameTest tag preflight:\s*(\d+)/(\d+) fixtures selected")
+GAME_TEST_COMPLETE = re.compile(r"(\d+) GAME TESTS COMPLETE IN (\d+(?:\.\d+)?) s\b", re.I)
+GAME_TEST_PASSED = re.compile(r"All\s+(\d+) required tests passed", re.I)
+
+
+class GameTestCompletionTracker:
+    """Incrementally correlate bounded capture lines without retaining the log."""
+    def __init__(self):
+        self.selected = self.total = None
+
+    def feed(self, text):
+        for line in text.splitlines():
+            pre = GAME_TEST_PREFLIGHT.search(line)
+            if pre:
+                selected, total = map(int, pre.groups())
+                if 0 < selected <= total:
+                    self.selected, self.total = selected, total
+            complete = GAME_TEST_COMPLETE.search(line)
+            if complete and self.selected is not None:
+                count = int(complete.group(1))
+                elapsed = float(complete.group(2))
+                if count == self.selected and elapsed >= 0 and elapsed < float('inf'):
+                    passed = GAME_TEST_PASSED.search(line)
+                    return {"selected": self.selected, "total": self.total, "elapsed": elapsed,
+                            "passed": bool(passed and int(passed.group(1)) == self.selected)}
+        return None
+
+
+def gametest_completion_state(text):
+    """One-shot compatibility wrapper for callers with a complete text buffer."""
+    return GameTestCompletionTracker().feed(text)
+
 
 def _stat(path):
     try:
@@ -98,6 +130,10 @@ def collect_evidence(check, repo, started, finished, log_path, before, *, hash_f
     kind = check.get("kind", "command")
     counts = dict(tests=None, passed=None, failed=None, errors=None, skipped=None, selected=None, total=None)
     selection, findings, artifacts = "unknown", [], []
+
+    if check.get("not_launched"):
+        return {"status": "FAIL", "counts": counts, "selection": selection,
+                "artifacts": artifacts, "findings": [check["not_launched"]]}
 
     def add(path):
         path = Path(path)
@@ -186,19 +222,17 @@ def collect_evidence(check, repo, started, finished, log_path, before, *, hash_f
             producer_fresh = bool(producer and producer.is_file() and _fresh(producer, before, started, finished, hash_file))
             if producer_fresh: add(producer)
             if kind == "gametest":
-                pre = re.compile(r"GameTest tag preflight:\s*(\d+)/(\d+) fixtures selected")
-                complete = re.compile(r"All\s+(\d+) required tests passed", re.I)
                 failed = re.compile(r"(?m)^\s*(\d+) (?:required )?tests? failed\b", re.I)
                 saw_pre = saw_complete = False
                 # Stream to avoid retaining large Gradle/server logs in memory.
                 with log_path.open(encoding="utf-8", errors="replace") as stream:
                     for line in stream:
-                        m = pre.search(line)
+                        m = GAME_TEST_PREFLIGHT.search(line)
                         if m:
                             counts["selected"], counts["total"] = map(int, m.groups())
                             selection = "filtered" if counts["selected"] != counts["total"] else "full"
                             saw_pre = True
-                        m = complete.search(line)
+                        m = GAME_TEST_PASSED.search(line)
                         if m:
                             counts["tests"] = counts["passed"] = int(m.group(1)); saw_complete = True
                         m = failed.search(line)

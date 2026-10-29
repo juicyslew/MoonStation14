@@ -30,7 +30,7 @@ public final class SeedExtractorRegisteredPlayerGameTests {
     private SeedExtractorRegisteredPlayerGameTests() { }
 
     @GameTest(template = "botany_extractor_power_clear", templateNamespace = "moonstation14", timeoutTicks = 220)
-    @GameTestTags({"botany-seed-extractor-inhands", "network"})
+    @GameTestTags({"botany-seed-extractor-inhands", "network", "merge-main-remaining", "merge-main-stage-two"})
     public static void registeredPlayerExtractsAndPlantsFreshWheatSeedPacket(GameTestHelper helper) {
         var fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "botany-extractor-inhands-v1");
         helper.runAtTickTime(2, () -> {
@@ -82,10 +82,12 @@ public final class SeedExtractorRegisteredPlayerGameTests {
                          var bean = LooseItemEntity.create(level, body.position().add(1.5, 1.0, -1.5), cocoa);
                          bean.setNoGravity(true); require(level.addFreshEntity(bean), "real unbound cocoa beans published");
                          aimAt(body, bean);
-                         var cocoaHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
-                         require(BodyHandItemTransfer.pickupSelected(fixture.player(), bean.getUUID(), hand, cocoaHands.revision(), ignored -> {}) == BodyHandItemTransfer.Result.SUCCESS,
-                                 "normal cocoa bean pickup");
-                         var cocoaQuery = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 3));
+                          var cocoaHandsBeforePickup = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                          require(BodyHandItemTransfer.pickupSelected(fixture.player(), bean.getUUID(), hand, cocoaHandsBeforePickup.revision(), ignored -> {}) == BodyHandItemTransfer.Result.SUCCESS,
+                                  "normal cocoa bean pickup");
+                          // Pickup commits a replacement LiveHands value; the pre-pickup snapshot is immutable.
+                          var cocoaHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                          var cocoaQuery = fixture.queryHands(owner.epoch());
                          var cocoaHeld = cocoaQuery.hands().stream().filter(h -> h.id().equals(hand)).findFirst()
                                  .orElseThrow(() -> new AssertionError("missing cocoa source hand"));
                          String cocoaToken = cocoaHeld.token();
@@ -94,7 +96,13 @@ public final class SeedExtractorRegisteredPlayerGameTests {
                           require(cocoaTarget != null && cocoaTarget.pos().equals(machinePos)
                                           && cocoaTarget.face() == cocoaHit.getDirection(),
                                   "cocoa USE target is admitted at the exact machine position and face");
-                          var cocoaBefore = cocoaHands.stackCopy(hand).orElseThrow().copy();
+                          var cocoaHeldStack = cocoaHands.stackCopy(hand);
+                          require(cocoaHands.activeHand().equals(hand) && cocoaHeldStack.isPresent()
+                                          && cocoaHands.token(hand).filter(cocoaToken::equals).isPresent(),
+                                  "cocoa pickup ownership admitted: active=" + cocoaHands.activeHand().equals(hand)
+                                          + " stack=" + cocoaHeldStack.isPresent() + " token="
+                                          + cocoaHands.token(hand).filter(cocoaToken::equals).isPresent());
+                          var cocoaBefore = cocoaHeldStack.orElseThrow().copy();
                           long cocoaRevisionBefore = cocoaHands.revision();
                           var nearbyItemsBefore = level.getEntitiesOfClass(LooseItemEntity.class,
                                   new net.minecraft.world.phys.AABB(machinePos).inflate(8), e -> true).stream()
@@ -196,7 +204,7 @@ public final class SeedExtractorRegisteredPlayerGameTests {
                         require(pickup == BodyHandItemTransfer.Result.SUCCESS, "normal produce pickup; result=" + pickup
                                 + " projected=" + projected + " eye=" + body.getEyePosition() + " look=" + body.getLookAngle()
                                 + " bounds=" + loose.getBoundingBox());
-                         var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 4));
+                         var query = fixture.queryHands(owner.epoch());
                         var held = query.hands().stream().filter(h -> h.id().equals(hand)).findFirst()
                                 .orElseThrow(() -> new AssertionError("missing source hand; returned hand ids=" + query.hands().stream().map(h -> h.id()).toList()));
                         var hit = RegisteredPlayerReadyDriver.aimAt(body, level, machinePos);
@@ -225,7 +233,7 @@ public final class SeedExtractorRegisteredPlayerGameTests {
                         hands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
                         String selectedSeedHand = seedHand;
                         body.setPos(trayPos.getX() + .5, trayPos.getY() + 1, trayPos.getZ() - 1.5);
-                         var plantQuery = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 5));
+                         var plantQuery = fixture.queryHands(owner.epoch());
                         var seedHeld = plantQuery.hands().stream().filter(h -> h.id().equals(selectedSeedHand)).findFirst()
                                 .orElseThrow(() -> new AssertionError("missing extracted seed hand; returned hand ids=" + plantQuery.hands().stream().map(h -> h.id()).toList()));
                         var plantHit = RegisteredPlayerReadyDriver.aimAt(body, level, trayPos);
@@ -233,7 +241,7 @@ public final class SeedExtractorRegisteredPlayerGameTests {
                         require(com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat").equals(tray.plantState().seed()), "tray contains wheat");
                         require(body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()).token(selectedSeedHand).isEmpty(), "planted packet consumed");
                         helper.succeed();
-                    } catch (Throwable failure) { helper.fail("registered extractor/player loop: " + failure); }
+                    } catch (Throwable failure) { helper.testInfo.fail(failure); }
                     finally { fixture.close(); }
                 }));
             } catch (Throwable failure) { fixture.close(); helper.fail("extractor player readiness: " + failure); }

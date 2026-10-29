@@ -103,7 +103,7 @@ public final class MeleeAttackEvents {
         public MeleeWeaponResolver.Selection weaponSelection() { return weaponSelection; }
     }
 
-    /** After cooldown, once a valid target hit or miss is resolved; targets is immutable and contains zero or one entity. */
+    /** After cooldown, once valid nominated targets or a miss are resolved; targets is immutable. */
     public static final class MeleeHitEvent extends Event {
         private final LivingEntity attacker;
         private final List<Entity> targets;
@@ -113,7 +113,7 @@ public final class MeleeAttackEvents {
         private final Map<String, Float> bonusDamage = new LinkedHashMap<>();
         public MeleeHitEvent(LivingEntity attacker, List<? extends Entity> targets, MeleeWeaponResolver.Selection selection) {
             this.attacker = Objects.requireNonNull(attacker); Objects.requireNonNull(targets);
-            if (targets.size() > 1 || targets.stream().anyMatch(Objects::isNull)) throw new IllegalArgumentException("melee targets must contain zero or one entity");
+            if (targets.stream().anyMatch(Objects::isNull)) throw new IllegalArgumentException("melee targets must not contain null entities");
             this.targets = List.copyOf(targets); this.weaponSelection = Objects.requireNonNull(selection);
         }
         public LivingEntity attacker() { return attacker; }

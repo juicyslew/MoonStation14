@@ -80,6 +80,8 @@ public final class BodyHandClient {
             net.neoforged.neoforge.client.settings.KeyConflictContext.IN_GAME, net.neoforged.neoforge.client.settings.KeyModifier.NONE,
             com.mojang.blaze3d.platform.InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_RIGHT, "key.categories.moonstation14");
     private static final net.minecraft.client.KeyMapping DIRECT_CLIMB = new net.minecraft.client.KeyMapping("key.moonstation14.disposal_climb",
+            net.neoforged.neoforge.client.settings.KeyConflictContext.IN_GAME,
+            net.neoforged.neoforge.client.settings.KeyModifier.CONTROL,
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.moonstation14");
     // NeoForge modifier-aware mouse mappings are not consistently routed through InputEvent.MouseButton.Pre.
     // Keep pull rebindable with the explicit SS14-style P adaptation instead.
@@ -168,6 +170,9 @@ public final class BodyHandClient {
         });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::suppressNativeInventoryScreen);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::renderChatScreenHud);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::routeChatPointerClick);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::routeChatPointerDrag);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(BodyHandClient::routeChatPointerRelease);
         BodyHandStateSnapshot.setClientHandler(BodyHandClient::onSnapshot);
         com.juicyslew.moonstation14.ms14.ingestion.IngestionCommitted.setClientHandler(BodyHandClient::ingestionCommitted);
         BodyHandActionResult.setClientHandler(BodyHandClient::onResult);
@@ -3011,6 +3016,30 @@ public final class BodyHandClient {
             renderHud(event.getGuiGraphics(), event.getPartialTick());
     }
 
+    private static boolean currentChatPointerHost(net.minecraft.client.gui.screens.Screen screen) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        return screen instanceof net.minecraft.client.gui.screens.ChatScreen && mc.screen == screen;
+    }
+
+    private static void routeChatPointerClick(net.neoforged.neoforge.client.event.ScreenEvent.MouseButtonPressed.Pre event) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (!currentChatPointerHost(event.getScreen()) || mc.mouseHandler.isMouseGrabbed()) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.routeWorkspaceClick(
+                event.getMouseX(), event.getMouseY(), event.getButton(), false, false, () -> false)) event.setCanceled(true);
+    }
+
+    private static void routeChatPointerDrag(net.neoforged.neoforge.client.event.ScreenEvent.MouseDragged.Pre event) {
+        if (!currentChatPointerHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.drag(event.getMouseX(), event.getMouseY()))
+            event.setCanceled(true);
+    }
+
+    private static void routeChatPointerRelease(net.neoforged.neoforge.client.event.ScreenEvent.MouseButtonReleased.Pre event) {
+        if (!currentChatPointerHost(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.release(event.getButton()))
+            event.setCanceled(true);
+    }
+
     private static void renderHud(net.minecraft.client.gui.GuiGraphics graphics, float partialTick) {
         var mc = net.minecraft.client.Minecraft.getInstance();
         renderDumpAimFeedback(graphics, mc);
@@ -3071,9 +3100,9 @@ public final class BodyHandClient {
         if (feedback != null && !feedback.toLowerCase(java.util.Locale.ROOT).contains("waiting"))
             drawHudLine(graphics, mc, feedback.replaceFirst("^Hands: ", ""), 8, 54, width);
         if (snapshot != null) drawEquipmentPanel(graphics, mc, snapshot, width, height, !POLICY.presentationPending());
-        // Gameplay HUD phase is after the HUD only; Screen hosts paint in ScreenEvent.Render.Post.
-        if (gameplay && com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.shouldPaintWorkspace(
-                true,false,true,true)) renderPointerWorkspace(graphics, partialTick);
+        // One shared workspace painter owns gameplay and chat; machine screens retain their own host phase.
+        if (com.juicyslew.moonstation14.ms14.ui.client.GameplayHudPolicy.hudPaintsWorkspace(mc.screen))
+            renderPointerWorkspace(graphics, partialTick);
     }
 
     private static void renderDumpAimFeedback(net.minecraft.client.gui.GuiGraphics graphics, net.minecraft.client.Minecraft mc) {
@@ -3341,7 +3370,8 @@ public final class BodyHandClient {
 
     public static void renderPointerWorkspace(net.minecraft.client.gui.GuiGraphics graphics, float partialTick) {
         var mc=net.minecraft.client.Minecraft.getInstance();
-        if (mc.options.hideGui || !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(mc.screen)) return;
+        if (mc.options.hideGui || !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(mc.screen)
+                && !(mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen)) return;
         int width=mc.getWindow().getGuiScaledWidth(),height=mc.getWindow().getGuiScaledHeight();
         int storageSiblingCount=(int) POPUPS.windows().stream().filter(StoragePopupWorkspace.Window::visible).count()
                 +(int) com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.windows().stream()

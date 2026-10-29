@@ -41,7 +41,12 @@ public final class BotanyHandUseService {
                 || !tray.getBlockPos().equals(admission.hit().pos()) || !level.mayInteract(actor, tray.getBlockPos()))
             return BodyBlockUseResult.Outcome.DENIED;
 
-        if (held != null && !held.isEmpty() && held.getItem() instanceof com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) {
+        // Explicitly resolved seed packets take precedence over their reagent capability:
+        // reagent-bearing food must still be plantable when its seed profile is valid.
+        var resolvedPacket = held == null || held.isEmpty() ? null : GeneticCarriers.resolveSeedPacket(held);
+        var seedPacket = resolvedPacket != null && resolvedPacket.profile() != null ? resolvedPacket : null;
+        if (held != null && !held.isEmpty() && seedPacket == null
+                && held.getItem() instanceof com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) {
             var result = BotanyLiquidUseService.water(actor, authority, request.handId(), request.expectedToken(),
                     request.expectedRevision(), tray);
             return result == com.juicyslew.moonstation14.ms14.hands.live.BodyLiquidInteraction.Result.SUCCESS
@@ -61,7 +66,7 @@ public final class BotanyHandUseService {
             if (seed == null || seed.lifecycle().ligneous() || !plant.ready()) return BodyBlockUseResult.Outcome.DENIED;
             return harvestReady(actor, request, admission, tray, plant, seed, authority, hands, level);
         }
-        var otherAction = nonHarvestActions(actor, request, admission, tray, held, authority, hands, level, plant);
+        var otherAction = nonHarvestActions(actor, request, admission, tray, held, authority, hands, level, plant, seedPacket);
         if (otherAction != BodyBlockUseResult.Outcome.DENIED) return otherAction;
         if (held != null && !held.isEmpty()) {
             var resolvedTool = ToolQualities.profile(held);
@@ -128,7 +133,7 @@ public final class BotanyHandUseService {
     private static BodyBlockUseResult.Outcome nonHarvestActions(ServerPlayer actor, BodyBlockUseRequest request,
             BodyHandRequestService.BlockUseAdmission admission, HydroponicsTrayBlockEntity tray, ItemStack held,
             HandActorAuthority.Snapshot authority, com.juicyslew.moonstation14.ms14.hands.live.LiveHands hands,
-            ServerLevel level, PlantInstance plant) {
+            ServerLevel level, PlantInstance plant, GeneticCarriers.SeedPacket packet) {
         var body = authority.body();
         if (held != null && !held.isEmpty()) {
             // Capability is resolved through the inherited tool-profile catalog.
@@ -136,7 +141,6 @@ public final class BotanyHandUseService {
                     && ToolQualities.profile(held).botanySwab() != null)
                 return BotanySwabHandUseService.start(actor, request, admission, tray, held);
             PlantSeedReference carriedReference = held.get(ModDataComponents.PLANT_SEED_REFERENCE.get());
-            var packet = GeneticCarriers.resolveSeedPacket(held);
             GeneticValue carried = packet == null ? null : packet.genetics();
             Float healthOverride = packet == null ? null : packet.healthOverride();
             var seedId = carried == null ? null : carried.species();

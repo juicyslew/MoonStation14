@@ -42,18 +42,17 @@ public final class ObserverTracking {
             AppliedView old = CENTERS.remove(player);
             if (old != null) {
                 var chunkMap = player.serverLevel().getChunkSource().chunkMap;
-                int radius = player.getChunkTrackingView() instanceof ChunkTrackingView.Positioned view
-                        ? view.viewDistance() : player.serverLevel().getServer().getPlayerList().getViewDistance();
-                ((ChunkMapObserverAccess) (Object) chunkMap).moonstation14$applyChunkTrackingView(player,
+                var access = (ChunkMapObserverAccess) (Object) chunkMap;
+                int radius = access.moonstation14$getPlayerViewDistance(player);
+                access.moonstation14$applyChunkTrackingView(player,
                         ChunkTrackingView.of(player.chunkPosition(), radius));
                 chunkMap.move(player);
             }
             return;
         }
         ChunkPos center = new ChunkPos(net.minecraft.core.BlockPos.containing(position));
-        int radius = Math.min(player.serverLevel().getServer().getPlayerList().getViewDistance(),
-                player.getChunkTrackingView() instanceof ChunkTrackingView.Positioned view ? view.viewDistance()
-                        : player.serverLevel().getServer().getPlayerList().getViewDistance());
+        var chunkMap = player.serverLevel().getChunkSource().chunkMap;
+        int radius = ((ChunkMapObserverAccess) (Object) chunkMap).moonstation14$getPlayerViewDistance(player);
         AppliedView previous = CENTERS.get(player);
         boolean sameOwner = previous != null && previous.level() == player.serverLevel()
                 && previous.family() == target.family() && previous.epoch() == target.epoch()
@@ -75,9 +74,9 @@ public final class ObserverTracking {
         // at the same center still needs a bounded client cache-center resync.
         if (decision.resyncClientCenter())
             player.connection.send(new ClientboundSetChunkCacheCenterPacket(center.x, center.z));
-        ((ChunkMapObserverAccess) (Object) player.serverLevel().getChunkSource().chunkMap)
-                .moonstation14$applyChunkTrackingView(player, ChunkTrackingView.of(center, radius));
-        player.serverLevel().getChunkSource().chunkMap.move(player);
+        ((ChunkMapObserverAccess) (Object) chunkMap).moonstation14$applyChunkTrackingView(player,
+                ChunkTrackingView.of(center, radius));
+        chunkMap.move(player);
     }
 
     static Reconciliation reconcile(ChunkPos cachedCenter, int cachedRadius, Object cachedLevel,
@@ -97,4 +96,3 @@ public final class ObserverTracking {
                 actualCenter, actualRadius);
     }
 }
-

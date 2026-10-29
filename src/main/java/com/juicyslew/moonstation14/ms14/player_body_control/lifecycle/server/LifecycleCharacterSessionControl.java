@@ -465,6 +465,10 @@ public final class LifecycleCharacterSessionControl {
                         session.body.getId(), failure);
             }
             session.committed = true;
+            // The identity was resolved before lifecycle binding completed, so its known-zero
+            // ledger may have skipped the initial native projection. Reproject only now that
+            // this exact body has passed Ready authority checks; this preserves saved damage/death.
+            com.juicyslew.moonstation14.ms14.damage.DamageSystem.reconcile(session.body);
             // The body can have entered tracking before its client acknowledged Ready. Republish
             // the authoritative ledger only after the exact lifecycle owner is committed.
             com.juicyslew.moonstation14.ms14.damage.DamageSystem.publishHealthState(session.body);

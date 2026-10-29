@@ -285,6 +285,47 @@ class WorkflowTests(unittest.TestCase):
         # no partial/cherry-pick option exists
         self.assertNotIn('--files',[x for x in self.cli('--help').stdout.split()])
 
+    def test_obj_mtl_texture_delivery_imports_frozen_closed_group_end_to_end(self):
+        # This fixture exercises delivery and import only; model.json is declared editable
+        # metadata and is not evidence of native geometry runtime integration.
+        (self.assets/'model.obj').write_text('mtllib model.mtl\nv 0 0 0\n')
+        (self.assets/'model.mtl').write_text('newmtl material\nmap_Kd model.png\n')
+        self.manifest.write_text(json.dumps({'files':[
+            {'file':'model.json','destination':'assets/moon/models/model.json'},
+            {'file':'model.obj','destination':'assets/moon/models/model.obj'},
+            {'file':'model.mtl','destination':'assets/moon/models/model.mtl'},
+            {'file':'model.png','destination':'assets/moon/models/model.png'}]}))
+        d=self.create_claim_delivery(); report=self.ready(d)
+        receipt=self.root/'owner.json'
+        receipt.write_text(json.dumps({'request_id':'test-1','decision':'accepted_as_is_closed','delivery_digest':d['digest']}))
+        folder=self.root/'work/agent_exchange/requests/test-1'
+        frozen={name:(folder/'delivery/files/assets/moon/models'/name).read_bytes()
+                for name in ('model.obj','model.mtl','model.png')}
+        (self.assets/'origin.txt').write_text('changed origin')
+        self.manifest.write_text(self.manifest.read_text()+' ')
+        (self.assets/'model.obj').write_text('new unapproved obj')
+        target=self.root/'target'; plan=self.root/'plan.json'
+        self.cli('import-assets','test-1','--target',target,'--owner-receipt',receipt,'--plan-out',plan)
+        self.cli('import-assets','test-1','--target',target,'--owner-receipt',receipt,'--plan',plan,'--apply')
+        for name,content in frozen.items():
+            self.assertEqual((target/'assets/moon/models'/name).read_bytes(),content)
+        self.assertNotEqual((target/'assets/moon/models/model.obj').read_text(),'new unapproved obj')
+
+    def test_obj_dependency_closure_rejects_missing_mtl_texture_and_unsafe_remap(self):
+        (self.assets/'model.obj').write_text('mtllib model.mtl\nv 0 0 0\n')
+        (self.assets/'model.mtl').write_text('newmtl material\nmap_Kd model.png\n')
+        manifest=self.assets/'obj-manifest.json'
+        rows=[{'file':'model.obj','destination':'assets/moon/models/model.obj'},
+              {'file':'model.mtl','destination':'assets/moon/models/model.mtl'},
+              {'file':'model.png','destination':'assets/moon/models/model.png'}]
+        for i,case in enumerate((rows[:1],rows[:2],
+                                  [dict(rows[0]),dict(rows[1],destination='assets/moon/models/materials/model.mtl'),dict(rows[2],destination='assets/moon/textures/model.png')])):
+            manifest.write_text(json.dumps({'files':case}))
+            self.cli('plan-manifest','--manifest',manifest,'--source-root',self.assets,ok=False)
+        (self.assets/'model.mtl').write_text('newmtl material\nmap_Kd ../escape.png\n')
+        manifest.write_text(json.dumps({'files':rows}))
+        self.cli('plan-manifest','--manifest',manifest,'--source-root',self.assets,ok=False)
+
     def test_import_preview_survives_changed_candidate_source_but_uses_frozen_copy(self):
         d=self.create_claim_delivery(); self.ready(d)
         receipt=self.root/'owner.json'; receipt.write_text(json.dumps({'request_id':'test-1','decision':'accepted','delivery_digest':d['digest']}))

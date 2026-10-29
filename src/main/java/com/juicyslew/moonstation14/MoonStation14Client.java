@@ -181,6 +181,7 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerMenuScreens);
         modEventBus.addListener(LocalSpeechReviewKey::register);
         modEventBus.addListener(BodyHandClient::registerKeys);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.actions.client.BodyActionKeys::register);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.standing.client.PostureClient::register);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient::register);
         modEventBus.addListener(DisposalConstructionClient::registerKeys);
@@ -204,7 +205,7 @@ public class MoonStation14Client {
             if (camera == null || camera.isRemoved() || camera.level() != minecraft.level) return;
             var sound = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(payload.sound()).orElse(null);
             if (sound != null) minecraft.level.playLocalSound(payload.x(), payload.y(), payload.z(), sound,
-                    net.minecraft.sounds.SoundSource.PLAYERS, payload.volume(), payload.pitch(), false);
+                    payload.category(), payload.volume(), payload.pitch(), false);
         });
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
@@ -372,7 +373,7 @@ public class MoonStation14Client {
     }
 
     @SubscribeEvent
-    public static void tickTimedInteractions(ClientTickEvent.Post event) { TimedInteractionClient.tick(); }
+    public static void tickTimedInteractions(ClientTickEvent.Post event) { TimedInteractionClient.tick(); com.juicyslew.moonstation14.ms14.actions.client.BodyActionClient.tick(event); com.juicyslew.moonstation14.ms14.actions.client.BodyActionKeys.tick(); }
 
     @SubscribeEvent
     public static void renderTimedInteractions(RenderLevelStageEvent event) { TimedInteractionRenderer.render(event); }
@@ -385,6 +386,7 @@ public class MoonStation14Client {
 
     @SubscribeEvent
     public static void renderSpeechCues(RenderGuiEvent.Post event) {
+        com.juicyslew.moonstation14.ms14.actions.client.BodyActionHud.render(event);
         LocalSpeechReviewOverlay.render(event);
         DirectionalCueOverlay.render(event);
         LocalSpeechClient.renderCallouts(event);
@@ -1045,6 +1047,7 @@ public class MoonStation14Client {
         event.registerEntityRenderer(ModEntities.EMITTER_BOLT.get(), com.juicyslew.moonstation14.entities.client.EmitterBoltRenderer::new);
         event.registerEntityRenderer(ModEntities.PA_PARTICLE.get(), com.juicyslew.moonstation14.entities.client.ParticleAcceleratorParticleRenderer::new);
         event.registerEntityRenderer(ModEntities.SINGULARITY.get(), com.juicyslew.moonstation14.entities.client.SingularityRenderer::new);
+        event.registerEntityRenderer(ModEntities.TESLA_ENERGY_BALL.get(), com.juicyslew.moonstation14.entities.client.TeslaEnergyBallRenderer::new);
         event.registerEntityRenderer(ModEntities.DISPOSAL_TRANSIT_HOLDER.get(), context -> new net.minecraft.client.renderer.entity.EntityRenderer<>(context) {
             @Override public net.minecraft.resources.ResourceLocation getTextureLocation(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalTransitHolder entity) {
                 return net.minecraft.resources.ResourceLocation.withDefaultNamespace("textures/misc/white.png");

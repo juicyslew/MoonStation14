@@ -41,6 +41,26 @@ public final class FieldContainmentRuntimeGameTests {
     }
     private static void check(GameTestHelper h,boolean pass,String message) { if(!pass)throw new GameTestAssertException(message); }
 
+    @GameTestTags({"containment", "singularity-horizon"})
+    @GameTest(templateNamespace="moonstation14",template="atmos_large_empty",timeoutTicks=40)
+    public static void removalRefreshesProjectionWithoutDroppingUnrelatedLinks(GameTestHelper h) {
+        var level=(net.minecraft.server.level.ServerLevel)h.getLevel();
+        var surviving=ContainmentFixture.placeBox(h,new BlockPos(0,0,0));
+        var removed=ContainmentFixture.placeBox(h,new BlockPos(8,0,0));
+        var survivor=surviving.getFirst();
+        var removedEndpoint=removed.getFirst();
+        check(h,FieldContainmentRuntime.hasConnection(level,survivor),"first enclosure has a live link");
+        check(h,FieldContainmentRuntime.hasConnection(level,removedEndpoint),"second enclosure has a live link");
+        BlockPos removedPos=removedEndpoint.getBlockPos();
+        level.setBlock(removedPos,Blocks.AIR.defaultBlockState(),3);
+        check(h,FieldContainmentRuntime.hasConnection(level,survivor),"unrelated removal refreshes and preserves surviving connection before server tick");
+        check(h,FieldContainmentRuntime.currentEdges(level).stream().noneMatch(e->e.first().equals(removedPos)||e.second().equals(removedPos)),"removed endpoint has no cached edge");
+        check(h,FieldContainmentRuntime.currentFaces(level).stream().noneMatch(f->f.corners().contains(removedPos)),"removed endpoint has no cached face");
+        surviving.forEach(be->level.setBlock(be.getBlockPos(),Blocks.AIR.defaultBlockState(),3));
+        removed.stream().filter(be->!be.getBlockPos().equals(removedPos)).forEach(be->level.setBlock(be.getBlockPos(),Blocks.AIR.defaultBlockState(),3));
+        h.succeed();
+    }
+
     @GameTestTags({"reactor-models", "containment"})
     @GameTest(templateNamespace="moonstation14",template="atmos_large_empty",timeoutTicks=40)
     public static void resolvedProfileEnabledZeroChargeSelectsVisibleFieldTierIndependently(GameTestHelper h) {

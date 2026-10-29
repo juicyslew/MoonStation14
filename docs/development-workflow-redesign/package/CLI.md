@@ -42,3 +42,28 @@ This is an unexecuted administrative prerequisite recipe, not an agent handoff, 
 ```
 
 The final command checks all five pinned dependency versions before any later service start. This recipe has not been run and does not prove a clean environment install. Never alter/reuse the active `.venv-workflow-mcp`; do not select or change models. Recheck source-root, receipt and staged-byte freshness immediately before any later live operation. WR10 `-Install` remains deliberately refused; this documents only a bounded future dependency setup, not a general installer/apply engine.
+
+## Asset model handoff (separate from coding gates)
+
+Use the actual installed entrypoint, `python ../MoonStation14-shared/tooling/agent_workflow/workflow.py`, from the asset workspace. For commands targeting this repository, pass `--repo ../MoonStation14` before the command. The default exchange is shared; use `--asset-workspace DIR` only for isolated fixtures. Ask `--help` for the current schema.
+
+Create an explicit request describing scope, target runtime/source pin, assets, dependencies, and context, then submit and claim it:
+
+```powershell
+python ../MoonStation14-shared/tooling/agent_workflow/workflow.py --repo ../MoonStation14 request --from-json request.json --context-root .
+python ../MoonStation14-shared/tooling/agent_workflow/workflow.py --repo ../MoonStation14 claim REQUEST_ID --agent NAME
+```
+
+Only the flat `{"files":[{"file":"export/...","destination":"src/main/resources/assets/..."}]}` manifest is supported. Declare and deliver every file in the complete runtime group; a manifest is not proof of semantic completeness. For native OBJ/MTL, preserve bytes and relative references; for NeoForge `#atlas` models, include the wrapper JSON and all required PNGs. Do not remap, transform, expand archives, or infer missing files. Preview early with `plan-manifest` using explicit manifest, source root, and target; destinations must be real runtime paths under `src/main/resources/assets`.
+
+Delivery requires a claim, full manifest, revision, provenance, editable project(s), and actual review-image paths. Provenance, editable files, and gallery images are sidecars, not runtime destinations. Delivery freezes an immutable snapshot and digest bound to the request. Review that exact frozen delivery—not current README/source freshness—with an independent reviewer (not the claimant); report the request ID, snapshot key, digest, findings, and viewed-image hashes. Hash verification does not itself prove inspection or truth.
+
+Import is a separate owner-authorized step. The owner receipt must bind the exact request and delivery digest and explicitly authorize import; accepted decisions alone do not authorize it. Art-only acceptance/closure is not queue authorization and must not be auto-converted. `import-assets` first produces a dry-run plan; apply uses that plan and copies only frozen snapshot bytes, never overwriting an unreviewed group:
+
+```powershell
+python ../MoonStation14-shared/tooling/agent_workflow/workflow.py --repo ../MoonStation14 import-assets REQUEST_ID --target . --plan-out preview.json
+python ../MoonStation14-shared/tooling/agent_workflow/workflow.py --repo ../MoonStation14 import-assets REQUEST_ID --target . --owner-receipt owner.json --plan-out accepted-plan.json
+python ../MoonStation14-shared/tooling/agent_workflow/workflow.py --repo ../MoonStation14 import-assets REQUEST_ID --target . --owner-receipt owner.json --plan accepted-plan.json --apply
+```
+
+Plans bind owner receipt and target prior hashes; changed targets/reports/receipt require a fresh plan. No overwrites are allowed without explicit overwrite authorization at planning and apply. Archive-only delivery is not runtime-installed: it requires a separate explicit runtime-file manifest. Never guess from the latest unzip or refresh previously accepted art. Missing delivery files must be supplied as a normal complete group, not reconstructed from acceptance records. Asset handoff/import does not substitute for coding gates.

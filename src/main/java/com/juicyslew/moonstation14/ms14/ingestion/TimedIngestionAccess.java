@@ -63,6 +63,7 @@ public final class TimedIngestionAccess {
         }
         public String sourceKey() { return sourceKey; }
         public ResourceLocation profileId() { return profileId; }
+        public boolean heldSource() { return kind == Kind.HELD; }
     }
 
     public static Optional<Admission> admitHeld(LivingEntity body, String hand, String token, long revision, BooleanSupplier authority) {
@@ -190,6 +191,12 @@ public final class TimedIngestionAccess {
 
     public static Completion complete(LivingEntity body, Admission admission, int doseCents, boolean destroyOnEmpty,
                                       boolean food, BooleanSupplier authority, java.util.function.LongConsumer receipt) {
+        return complete(body, admission, doseCents, destroyOnEmpty, food, authority, receipt, null);
+    }
+
+    public static Completion complete(LivingEntity body, Admission admission, int doseCents, boolean destroyOnEmpty,
+                                      boolean food, BooleanSupplier authority, java.util.function.LongConsumer receipt,
+                                      java.util.function.BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterTrashCommit) {
         if (receipt == null) return Completion.DENIED;
         if(doseCents<=0||!valid(body,admission,authority)) return Completion.DENIED;
         IngestionProfile resolvedProfile = ModIngestionProfiles.serverLookup(admission.profileId);
@@ -205,8 +212,8 @@ public final class TimedIngestionAccess {
             if (fullDose <= 0 || fullDose > Integer.MAX_VALUE) return Completion.DENIED;
             BodyLiquidInteraction.Result consumed = BodyLiquidInteraction.consumeTimedEdibleOwned(body, hand,
                     admission.token, revision, (int) fullDose, authority, resolvedProfile.completionSound(),
-                    resolvedProfile.completionVolumeDb(), resolvedProfile.completionPitchVariation());
-            if (consumed == BodyLiquidInteraction.Result.SUCCESS) receipt.accept(fullDose);
+                    resolvedProfile.completionVolumeDb(), resolvedProfile.completionPitchVariation(),
+                    cents -> receipt.accept(cents), afterTrashCommit);
             return consumed == BodyLiquidInteraction.Result.SUCCESS ? Completion.COMMITTED_STOP
                     : consumed == BodyLiquidInteraction.Result.CANNOT_INGEST ? Completion.CANNOT_INGEST
                     : consumed == BodyLiquidInteraction.Result.RECOVERY_REQUIRED ? Completion.RECOVERY_REQUIRED : Completion.DENIED;
@@ -218,7 +225,7 @@ public final class TimedIngestionAccess {
                 hand,admission.kind==Kind.HELD?admission.token:null,revision,doseCents,destroyOnEmpty,food,authority,
                 resolvedProfile == null ? null : resolvedProfile.completionSound(),
                 resolvedProfile == null ? -2f : resolvedProfile.completionVolumeDb(),
-                resolvedProfile == null ? .25f : resolvedProfile.completionPitchVariation(), receipt);
+                resolvedProfile == null ? .25f : resolvedProfile.completionPitchVariation(), receipt, afterTrashCommit);
         return switch(result) {
             case DENIED -> Completion.DENIED;
             case CANNOT_INGEST -> Completion.CANNOT_INGEST;

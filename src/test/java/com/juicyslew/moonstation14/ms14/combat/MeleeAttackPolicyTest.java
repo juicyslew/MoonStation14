@@ -39,15 +39,18 @@ class MeleeAttackPolicyTest {
         assertEquals(MeleeAttackPolicy.Reason.ALLOWED, MeleeAttackPolicy.evaluate(true, false, false, false, true, false, false));
     }
 
-    @Test void meleeHitEventCopiesTargetsAndMissIsEmpty() {
+    @Test void meleeHitEventCopiesWideTargetsAndMissIsEmpty() {
         var attacker = mock(LivingEntity.class);
         var target = mock(Entity.class);
+        var second = mock(Entity.class);
+        var third = mock(Entity.class);
         var selection = selection();
-        var mutable = new java.util.ArrayList<Entity>(List.of(target));
+        var mutable = new java.util.ArrayList<Entity>(List.of(target, second, third));
         var hit = new MeleeAttackEvents.MeleeHitEvent(attacker, mutable, selection);
         mutable.clear();
-        assertEquals(List.of(target), hit.targets());
+        assertEquals(List.of(target, second, third), hit.targets());
         assertThrows(UnsupportedOperationException.class, () -> hit.targets().add(target));
+        assertThrows(IllegalArgumentException.class, () -> new MeleeAttackEvents.MeleeHitEvent(attacker, java.util.Arrays.asList(target, null), selection));
         var miss = new MeleeAttackEvents.MeleeHitEvent(attacker, List.of(), selection);
         assertTrue(miss.targets().isEmpty());
         assertThrows(UnsupportedOperationException.class, () -> miss.targets().add(target));

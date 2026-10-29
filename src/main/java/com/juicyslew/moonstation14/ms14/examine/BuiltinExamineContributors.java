@@ -28,6 +28,7 @@ public final class BuiltinExamineContributors {
     public static void register() {
         if (!REGISTERED.compareAndSet(false, true)) return;
         ExamineContributorRegistry.register("domain-metadata", BuiltinExamineContributors::metadata);
+        ExamineContributorRegistry.register("structural-damage", BuiltinExamineContributors::structuralDamage);
         ExamineContributorRegistry.register("receiver-power", BuiltinExamineContributors::receiverPower);
         ExamineContributorRegistry.register("apc-battery", BuiltinExamineContributors::apcBattery);
         ExamineContributorRegistry.register("puddle-solution", BuiltinExamineContributors::puddleSolution);
@@ -35,6 +36,15 @@ public final class BuiltinExamineContributors {
         ExamineContributorRegistry.register("beaker-solution", BuiltinExamineContributors::beakerSolution);
         ExamineContributorRegistry.register("botany-tray", BotanyExamineContributor::contribute);
         ExamineContributorRegistry.register("botany-seed-packet", BotanySeedPacketExamineContributor::contribute);
+    }
+
+    /** SS14 ExaminableDamage WindowMessages, backed by resolved machine composition and persisted damage. */
+    static void structuralDamage(ExamineContext context, ExamineCollector collector) {
+        if (!(context.blockEntity() instanceof com.juicyslew.moonstation14.ms14.tesla.TeslaMachineBlockEntity machine)) return;
+        var profile = machine.profile();
+        if (profile == null || profile.examineDamageMessages().size() != 6) return;
+        int band = StructuralDamageExamineFormatter.band(machine.structuralDamage(), profile.destructionThreshold());
+        collector.publicEntry(Component.translatable(profile.examineDamageMessages().get(band)), "damage", 60);
     }
 
     static void metadata(ExamineContext context, ExamineCollector collector) {
@@ -160,4 +170,3 @@ public final class BuiltinExamineContributors {
         return SolutionExamineFormatter.volumeCategory(units, capacity); // deterministic adaptation for SS14 examiner-dependent middle band.
     }
 }
-

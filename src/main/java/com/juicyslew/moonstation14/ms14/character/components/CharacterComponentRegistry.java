@@ -87,10 +87,12 @@ public final class CharacterComponentRegistry {
             Map.entry(NpcIdleAttentionComponent.TYPE, new Entry<>(NpcIdleAttentionComponent.class, NpcIdleAttentionComponent.CODEC)),
             Map.entry(PortableBodyComponent.TYPE, new Entry<>(PortableBodyComponent.class, PortableBodyComponent.CODEC)),
             Map.entry(CanEscapeInventoryComponent.TYPE, new Entry<>(CanEscapeInventoryComponent.class, CanEscapeInventoryComponent.CODEC)),
+            Map.entry(LightningTargetComponent.TYPE, new Entry<>(LightningTargetComponent.class, LightningTargetComponent.CODEC)),
             Map.entry(UdderComponent.TYPE, new Entry<>(UdderComponent.class, UdderComponent.CODEC)),
             Map.entry(EggLayerComponent.TYPE, new Entry<>(EggLayerComponent.class, EggLayerComponent.CODEC)),
             Map.entry(AbsorbentCleaningComponent.TYPE,
-                    new Entry<>(AbsorbentCleaningComponent.class, AbsorbentCleaningComponent.CODEC)));
+                    new Entry<>(AbsorbentCleaningComponent.class, AbsorbentCleaningComponent.CODEC)),
+            Map.entry(VocalComponent.TYPE, new Entry<>(VocalComponent.class, VocalComponent.CODEC)));
 
     public static boolean registered(String type) { return TYPES.containsKey(type); }
 

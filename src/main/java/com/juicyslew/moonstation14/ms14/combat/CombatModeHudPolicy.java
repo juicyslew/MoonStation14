@@ -13,6 +13,16 @@ public final class CombatModeHudPolicy {
     public static String icon(boolean enabled) { return enabled ? "on" : "off"; }
     /** Register for capability, not attachment presence; combat mode defaults to OFF without an attachment. */
     public static boolean shouldRegister(boolean capable) { return capable; }
+
+    /** Keep the legacy control only until the current body's resolved first action slot is available. */
+    public static boolean shouldShowLegacy(boolean capable,
+                                           com.juicyslew.moonstation14.ms14.actions.BodyActionSnapshot snapshot,
+                                           java.util.UUID bodyId, long bodyEpoch) {
+        if (!capable) return false;
+        if (snapshot == null || bodyId == null || bodyEpoch <= 0
+                || !bodyId.equals(snapshot.bodyId()) || bodyEpoch != snapshot.bodyEpoch()) return true;
+        return com.juicyslew.moonstation14.ms14.actions.client.BodyActionSlots.at(snapshot, 1) == null;
+    }
     public static boolean admitted(boolean ready,boolean mouseGrabbed,boolean modal,boolean storageOwnsStream) {
         return ready && !mouseGrabbed && !modal && !storageOwnsStream;
     }

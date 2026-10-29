@@ -34,8 +34,9 @@ public final class EquipmentStepTriggerProtectionGameTests {
         require(BodyEquipmentTransfer.transferOwned(body, hand, "outerClothing", token, committed.revision(), true,
                         () -> true) == BodyEquipmentTransfer.Result.SUCCESS,
                 "ordinary equipment owner transfers coat to outer clothing");
-        require(com.juicyslew.moonstation14.ms14.equipment.EquipmentStepTriggerProtectionPolicy.protects(body),
-                "resolved worn hardsuit equipment is recognized");
+        require(com.juicyslew.moonstation14.ms14.equipment.MeleeInjectionProtectionPolicy.protects(
+                         com.juicyslew.moonstation14.ms14.equipment.ResolvedWornEquipment.entries(body), false),
+                 "resolved worn hardsuit equipment is recognized");
     }
 
     /** Test-only owned hand setup for a separately enrolled target; production transfer rules remain unchanged. */
@@ -48,6 +49,7 @@ public final class EquipmentStepTriggerProtectionGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40, batch = "catalog-equipment-step-protection-shoes")
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining"})
     public static void liveWornFeetProtectionQuery(GameTestHelper helper) {
         var bodies = new java.util.ArrayList<Villager>();
         helper.runAfterDelay(1, () -> {
@@ -59,7 +61,17 @@ public final class EquipmentStepTriggerProtectionGameTests {
                 require(shoes != null, "registered shoes profile exists");
                 var updated = new LinkedHashMap<>(prior);
                 updated.put(id, new EquipmentItemData(shoes.item(), shoes.clothing(), shoes.allowSuitStorage(), shoes.tags(),
-                        shoes.armor(), shoes.noSlip(), Optional.of(ProtectedFromStepTriggers.DEFAULT)));
+                        shoes.armor(), shoes.supportedActionGrant(), shoes.noSlip(), Optional.of(ProtectedFromStepTriggers.DEFAULT),
+                        shoes.contactDamageProtection()));
+                var pocketItemId = com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.id("black_bandana");
+                var pocketItem = prior.get(pocketItemId);
+                require(pocketItem != null && pocketItem.clothing().isPresent()
+                                && "Small".equals(pocketItem.item().size()),
+                        "registered small clothing item profile exists for pocket admission");
+                updated.put(pocketItemId, new EquipmentItemData(pocketItem.item(), pocketItem.clothing(),
+                        pocketItem.allowSuitStorage(), pocketItem.tags(), pocketItem.armor(),
+                        pocketItem.supportedActionGrant(), pocketItem.noSlip(), Optional.of(ProtectedFromStepTriggers.DEFAULT),
+                        pocketItem.contactDamageProtection()));
                 com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager()
                         .publishDecoded(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE, updated);
 
@@ -75,9 +87,13 @@ public final class EquipmentStepTriggerProtectionGameTests {
                 Villager pocket = body(helper, new BlockPos(5, 1, 1), bodies);
                 putInHand(pocket, "jumpsuit", new ItemStack(com.juicyslew.moonstation14.item.ModEquipmentItems.GREY_JUMPSUIT.get()));
                 transfer(pocket, "jumpsuit", "jumpsuit", "jumpsuit", com.juicyslew.moonstation14.item.ModEquipmentItems.GREY_JUMPSUIT.get());
-                putInHand(pocket, "shoes", new ItemStack(com.juicyslew.moonstation14.item.ModEquipmentItems.BLACK_SHOES.get()));
-                transfer(pocket, "pocket1", "shoes", "shoes", com.juicyslew.moonstation14.item.ModEquipmentItems.BLACK_SHOES.get());
-                require(!policy(pocket), "FEET mask does not protect shoes in declared POCKET slot");
+                 var resolvedPocketItem = com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.serverCatalog().get(pocketItemId);
+                 require(resolvedPocketItem != null && resolvedPocketItem.protectedFromStepTriggers().orElseThrow().slotFlags()
+                                 .contains(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.FEET),
+                         "live resolved pocket item carries the FEET protection mask");
+                 putInHand(pocket, "bandana", new ItemStack(com.juicyslew.moonstation14.item.ModEquipmentItems.BLACK_BANDANA.get()));
+                 transfer(pocket, "pocket1", "bandana", "bandana", com.juicyslew.moonstation14.item.ModEquipmentItems.BLACK_BANDANA.get());
+                 require(!policy(pocket), "FEET mask does not protect bandana legally owned in declared POCKET slot");
                 helper.succeed();
             } finally {
                 try { com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager()
@@ -97,8 +113,7 @@ public final class EquipmentStepTriggerProtectionGameTests {
         return body;
     }
     private static void putInHand(Villager body, String token, ItemStack stack) {
-        var state = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        body.setData(ModDataAttachments.LIVE_HANDS.get(), state.putWhole(state.revision() + 1, "left", new ItemToken(token), stack).state());
+        putOwnedHandFixture(body, "left", token, stack);
     }
     private static void transfer(Villager body, String slotId, String token, String expectedToken, net.minecraft.world.item.Item item) {
         var before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());

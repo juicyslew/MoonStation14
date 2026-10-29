@@ -41,4 +41,19 @@ class SingularityAudioResourceTest {
         assertFalse(SingularityAmbientPolicy.shouldPlay(true, false, true, 1, 20));
         assertFalse(SingularityAmbientPolicy.shouldPlay(true, true, false, 1, 20));
     }
+
+    @Test void teslaLoopLifecycleReplacesStoppedOrChangedLoopsWithoutDuplicatingLiveLoops() {
+        var action = SingularityAmbientPolicy.loopAction(true, false, false, false);
+        assertEquals(SingularityAmbientPolicy.LoopAction.CREATE, action);
+        // Leaving range stops the active instance; re-entry must allocate a fresh one.
+        action = SingularityAmbientPolicy.loopAction(true, true, true, true);
+        assertEquals(SingularityAmbientPolicy.LoopAction.REPLACE, action);
+        // A live in-range loop is retained, not replayed as a second voice.
+        assertEquals(SingularityAmbientPolicy.LoopAction.REUSE,
+                SingularityAmbientPolicy.loopAction(true, true, false, true));
+        assertEquals(SingularityAmbientPolicy.LoopAction.REPLACE,
+                SingularityAmbientPolicy.loopAction(true, true, false, false));
+        assertEquals(SingularityAmbientPolicy.LoopAction.DISCARD,
+                SingularityAmbientPolicy.loopAction(false, true, false, true));
+    }
 }

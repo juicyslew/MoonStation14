@@ -198,14 +198,7 @@ public final class ConstructionWorldService {
         return stack.get(ModDataComponents.WELDER_FUEL.get());
     }
     private static ItemStack spendFuel(ItemStack before, ToolPrototypeData tool, int amount, long now) {
-        var state = fuel(before);
-        if (state == null || !state.lit()) return null;
-        var welder = tool.welder().orElse(null);
-        if (welder == null) return null;
-        var current = state.tick(welder, now);
-        if (!current.lit() || current.fuel() < amount) return null;
-        var after = before.copy(); after.set(ModDataComponents.WELDER_FUEL.get(), new WelderFuelData(current.fuel()-amount, true, now));
-        return after;
+        return WelderFuelService.spendFuel(before, tool, amount, now).orElse(null);
     }
     private static ConstructionWorldData data(ServerLevel level) { return ConstructionWorldData.existing(level).orElse(null); }
     private static boolean validHost(BodyUseItemContext c, ServerLevel level, ConstructionWorldData.Record record,
@@ -279,23 +272,13 @@ public final class ConstructionWorldService {
         return false;
     }
     static boolean revisionContinuity(long initial, long current, boolean passiveFuelChanged) {
-        return current >= initial && (current == initial || passiveFuelChanged);
+        return WelderFuelService.revisionContinuity(initial, current, passiveFuelChanged);
     }
     static boolean sameStackOrPassiveFuel(ItemStack before, ItemStack after) {
-        if (before == null || after == null) return before == after;
-        if (!ItemStack.isSameItem(before, after) || before.getCount() != after.getCount()) return false;
-        if (ItemStack.isSameItemSameComponents(before, after)) return true;
-        if (!before.is(ModItems.WELDER)) return false;
-        var oldFuel = fuel(before); var newFuel = fuel(after);
-        if (oldFuel == null || newFuel == null || newFuel.fuel() > oldFuel.fuel()
-                || (newFuel.lastBurnTick() < oldFuel.lastBurnTick()
-                && !(newFuel.fuel() == 0 && !newFuel.lit()))) return false;
-        ItemStack a = before.copy(), b = after.copy();
-        a.remove(ModDataComponents.WELDER_FUEL.get()); b.remove(ModDataComponents.WELDER_FUEL.get());
-        return ItemStack.isSameItemSameComponents(a, b);
+        return WelderFuelService.sameStackOrPassiveFuel(before, after);
     }
     static boolean passiveFuelChanged(ItemStack before, ItemStack after) {
-        return before != null && after != null && before.is(ModItems.WELDER) && !java.util.Objects.equals(fuel(before), fuel(after));
+        return WelderFuelService.passiveFuelChanged(before, after);
     }
     private static TimedInteractionSystem.Completion completeEdge(BodyUseItemContext c, ServerLevel level, ConstructionWorldData data,
             ConstructionWorldData.Record record, ConstructionGraph graph, ConstructionGraph.Edge edge, int edgeIndex,

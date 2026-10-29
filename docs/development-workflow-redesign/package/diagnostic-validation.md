@@ -2,6 +2,8 @@
 
 Request relevant automated checks whenever useful during the task, including before feature completion or without a preceding failure. Give a concrete rationale, select focused checks, batch related captures where useful, and reuse still-valid evidence rather than repeating unchanged runs. There is no diagnostic run budget or routine owner-approval step.
 
+State the concrete question each selected check answers, using its existing rationale field. Start with the cheapest check capable of answering it. `DIAGNOSTIC` is not permission to run native, packaging, or a full gate automatically, nor does a failing check itself justify escalation. Unit-only diagnostics need no GameTest, readiness, or package check; select only readiness categories actually implicated. Select all categories only when the question truly affects all of them. Keep trusted selectors and prototype/runtime coverage intact. Use a full suite only for a genuinely broad integration question; preserve existing full-suite requirements for broad changes and MAIN merges. Read existing bounded failure evidence before rerunning. Diagnostic purpose does not enable debug logging: normal GameTest logging remains INFO; use only the explicit `-Pms14ValidationDebug=true` flag for an active investigation that needs it, and describe the specific confirmed log field it investigates.
+
 ## Author actions
 
 1. Obtain your authenticated context with the existing author `status` tool. Prepare and `register_scope` the normal bound policy and fresh evidence for the intended submission key. Keep scratch request files in ignored build output.

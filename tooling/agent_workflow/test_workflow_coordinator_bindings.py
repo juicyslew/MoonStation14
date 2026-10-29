@@ -64,6 +64,9 @@ class BindingPlanTests(unittest.TestCase):
             self.assertIn("Do not use result_path/error_path", prompt)
             self.assertNotIn("must write", prompt)
             self.assertIn("Every tool call must include your assigned session_id", prompt)
+            self.assertIn("MISSING_EXECUTION_EVIDENCE", prompt)
+            self.assertIn("current bound PASS receipt exists", prompt)
+            self.assertIn("concrete untested branch or scope gap", prompt)
 
     def test_author_binding_refreshes_owned_shared_overlay_and_future_template_keeps_entry(self):
         with tempfile.TemporaryDirectory(dir=Path(__import__("os").environ["LOCALAPPDATA"])/"Temp/opencode") as temp:

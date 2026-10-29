@@ -20,6 +20,7 @@ import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.resources.ResourceLocation;
 import com.mojang.serialization.JsonOps;
@@ -34,7 +35,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 public final class BotanyPlantingAuthenticatedGameTests {
     private BotanyPlantingAuthenticatedGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 200)
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 200, batch = "catalog-botany-seed-item-composition")
     @GameTestTags({"botany-planting"})
     public static void registeredPlayerPlantsOnceAndOccupiedTrayRejectsSecondSeed(GameTestHelper helper) {
         var fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "botany-planting-v2");
@@ -49,7 +50,8 @@ public final class BotanyPlantingAuthenticatedGameTests {
                         var tray = (HydroponicsTrayBlockEntity) level.getBlockEntity(pos);
                         require(tray != null && tray.plantState() != null, "tray tick initializes resolved empty profile");
                         var body = owner.body(); body.setPos(pos.getX() + .5, pos.getY() + 1, pos.getZ() - 1.5);
-                        String handId = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()).handIds().getFirst();
+                         var initialHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                         String handId = initialHands.activeHand();
                         ItemStack packet = new ItemStack(ModItems.WHEAT_SEEDS.get());
                         var loose = LooseItemEntity.create(level, body.position().add(0, .1, .8), packet);
                         loose.setNoGravity(true); require(level.addFreshEntity(loose), "seed packet enters world");
@@ -60,7 +62,7 @@ public final class BotanyPlantingAuthenticatedGameTests {
                                 + " eye=" + body.getEyePosition() + " look=" + body.getLookAngle() + " item=" + loose.position()
                                 + " selected=" + com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe.probeSelected(
                                         level, body, loose.getUUID(), com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe.MAX_REACH));
-                        var first = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 10));
+                        var first = fixture.queryHands(owner.epoch());
                         var firstHand = first.hands().stream().filter(h -> h.id().equals(handId)).findFirst().orElseThrow();
                         var firstHit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                         var firstRequest = new BodyBlockUseRequest(owner.epoch(), 1, first.revision(), handId, firstHand.token(), pos,
@@ -69,7 +71,7 @@ public final class BotanyPlantingAuthenticatedGameTests {
                         var planted = tray.plantState();
                         require(com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat").equals(planted.seed()), "planted wheat profile");
                         require(planted.age() == 1f && planted.health() == 100f, "plant starts age one at resolved endurance");
-                         var empty = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 11));
+                         var empty = fixture.queryHands(owner.epoch());
                          require(empty.hands().stream().filter(h -> h.id().equals(handId)).findFirst().orElseThrow().token() == null, "one packet consumed");
                          var emptyHit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                          var emptyUse = new BodyBlockUseRequest(owner.epoch(), 2, empty.revision(), handId, null, pos,
@@ -84,7 +86,7 @@ public final class BotanyPlantingAuthenticatedGameTests {
                         require(BodyHandItemTransfer.Result.SUCCESS == BodyHandItemTransfer.pickupSelected(fixture.player(), secondLoose.getUUID(), handId,
                                 beforeSecondPickup.revision(), ignored -> {}), "normal pickup obtains second packet");
                         var currentHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
-                        var second = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 12));
+                        var second = fixture.queryHands(owner.epoch());
                         var secondHand = second.hands().stream().filter(h -> h.id().equals(handId)).findFirst().orElseThrow();
                         var secondHit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                         var secondRequest = new BodyBlockUseRequest(owner.epoch(), 2, second.revision(), handId, secondHand.token(), pos,
@@ -101,7 +103,7 @@ public final class BotanyPlantingAuthenticatedGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 200)
-    @GameTestTags({"botany-seed-item-composition"})
+    @GameTestTags({"botany-seed-item-composition", "merge-main-remaining", "merge-main-stage-two"})
     public static void cocoaBeansRequireExplicitSeedItemAdmission(GameTestHelper helper) {
         var fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "botany-seed-item-composition-v1");
         helper.runAtTickTime(2, () -> {
@@ -125,12 +127,30 @@ public final class BotanyPlantingAuthenticatedGameTests {
                         aimAtItem(body, replacement);
                         var state = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
                         require(BodyHandItemTransfer.Result.SUCCESS == BodyHandItemTransfer.pickupSelected(fixture.player(), replacement.getUUID(), handId, state.revision(), ignored -> {}), "pickup cocoa beans with valid wheat genetics");
-                        var manager = com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager();
-                        var type = ModSeedItemProfiles.TYPE;
-                        var previous = manager.snapshot(type);
-                        var priorPlant = tray.plantState();
-                        try {
-                            var snapshot = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 20));
+                             var manager = com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverManager();
+                             var type = ModSeedItemProfiles.TYPE;
+                             var previous = manager.snapshot(type);
+                             var priorPlant = tray.plantState();
+                             var cleanupOnce = new java.util.concurrent.atomic.AtomicBoolean();
+                             Runnable cleanup = () -> {
+                                 if (!cleanupOnce.compareAndSet(false, true)) return;
+                                 try {
+                                     var rawPrevious = new java.util.LinkedHashMap<ResourceLocation, com.google.gson.JsonObject>();
+                                     previous.asMap().forEach((key, value) -> rawPrevious.put(key, type.codec().encodeStart(JsonOps.INSTANCE, value).getOrThrow().getAsJsonObject()));
+                                     manager.reload(type, rawPrevious);
+                                 } finally { fixture.close(); }
+                             };
+                              helper.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener() {
+                                  @Override public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo info) { }
+                                  @Override public void testPassed(net.minecraft.gametest.framework.GameTestInfo info,
+                                          net.minecraft.gametest.framework.GameTestRunner runner) { cleanup.run(); }
+                                  @Override public void testFailed(net.minecraft.gametest.framework.GameTestInfo info, net.minecraft.gametest.framework.GameTestRunner runner) { cleanup.run(); }
+                                  @Override public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo info,
+                                          net.minecraft.gametest.framework.GameTestInfo rerunInfo,
+                                          net.minecraft.gametest.framework.GameTestRunner runner) { cleanup.run(); }
+                              });
+                             try {
+                            var snapshot = fixture.queryHands(owner.epoch());
                              var hand = snapshot.hands().stream().filter(value -> value.id().equals(handId)).findFirst().orElseThrow();
                              var liveHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
                              ItemStack heldBeforeDenial = liveHands.stackCopy(handId).orElseThrow();
@@ -142,8 +162,11 @@ public final class BotanyPlantingAuthenticatedGameTests {
                               var genesBeforeDenial = referenceBeforeDenial.genetics();
                               long plantRevisionBeforeDenial = referenceBeforeDenial.revision();
                                var seedReferenceBeforeDenial = tray.plantState().seedReference();
-                             var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
-                            var denied = new BodyBlockUseRequest(owner.epoch(), 1, snapshot.revision(), handId, hand.token(), pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE);
+                              var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
+                             require(liveHands.activeHand().equals(handId), "cocoa USE source is the current active hand");
+                             require(BodyBlockUseTargetProbe.probe(level, body, pos, hit.getDirection()) != null,
+                                     "unprofiled cocoa USE target is admitted");
+                             var denied = new BodyBlockUseRequest(owner.epoch(), 1, snapshot.revision(), handId, hand.token(), pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE);
                             require(BodyHandActionNetworking.handleBlockUse(fixture.player(), denied) == BodyBlockUseResult.Outcome.DENIED, "unprofiled cocoa item denied on ordinary USE");
                              var afterDenialHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
                               require(tray.plantState() == priorPlant && tray.plantState() == referenceBeforeDenial
@@ -159,15 +182,43 @@ public final class BotanyPlantingAuthenticatedGameTests {
                             var encoded = new java.util.LinkedHashMap<ResourceLocation, com.google.gson.JsonObject>();
                             previous.asMap().forEach((key, value) -> encoded.put(key, type.codec().encodeStart(JsonOps.INSTANCE, value).getOrThrow().getAsJsonObject()));
                             encoded.put(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ModItems.FOOD_COCOA_BEANS.get()), type.codec().encodeStart(JsonOps.INSTANCE, new SeedItemProfile(com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId("wheat"))).getOrThrow().getAsJsonObject());
-                            manager.reload(type, encoded);
-                            var admitted = new BodyBlockUseRequest(owner.epoch(), 2, snapshot.revision(), handId, hand.token(), pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE);
-                             require(BodyHandActionNetworking.handleBlockUse(fixture.player(), admitted) == BodyBlockUseResult.Outcome.PLACED, "explicit cocoa seed profile admits ordinary USE");
+                             manager.reload(type, encoded);
+                             var resolvedProfile = ModSeedItemProfiles.serverLookup(
+                                     BuiltInRegistries.ITEM.getKey(ModItems.FOOD_COCOA_BEANS.get()));
+                             var heldForAdmission = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get())
+                                     .stackCopy(handId).orElseThrow();
+                             var resolvedPacket = com.juicyslew.moonstation14.ms14.botany.GeneticCarriers.resolveSeedPacket(heldForAdmission);
+                              require(resolvedProfile != null && seed.current().species().equals(resolvedProfile.seedId())
+                                              && resolvedPacket != null && resolvedPacket.genetics().equals(seed.current()),
+                                      "resolved cocoa admission: profile=" + (resolvedProfile != null)
+                                              + " species=" + (resolvedProfile == null ? "none" : resolvedProfile.seedId())
+                                              + " packet=" + (resolvedPacket != null)
+                                              + " packetSpecies=" + (resolvedPacket == null ? "none" : resolvedPacket.genetics().species()));
+                               var admittedSnapshot = fixture.queryHands(owner.epoch());
+                               var admittedHand = admittedSnapshot.hands().stream().filter(value -> value.id().equals(handId)).findFirst().orElseThrow();
+                               var currentAuthority = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElse(null);
+                               var currentHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                               var currentHeld = currentHands == null ? null : currentHands.stackCopy(handId).orElse(null);
+                               String guards = "issued=" + (currentAuthority != null && com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.hasIssued(fixture.player(), currentAuthority))
+                                       + ",act=" + com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(body)
+                                       + ",registered=" + (currentAuthority != null && currentAuthority.body() == body && level.getEntity(body.getUUID()) == body)
+                                       + ",rev=" + (currentHands == null ? -1 : currentHands.revision()) + "/" + admittedSnapshot.revision()
+                                       + ",active=" + (currentHands != null && currentHands.activeHand().equals(handId))
+                                       + ",handIds=" + (currentHands != null && currentAuthority != null && currentHands.handIds().equals(currentAuthority.handIds()))
+                                       + ",token=" + (currentHands != null && java.util.Objects.equals(currentHands.token(handId).orElse(null), admittedHand.token()))
+                                       + ",stack=" + (currentHands != null && currentHeld != null && ItemStack.matches(currentHeld, currentHands.stackCopy(handId).orElse(null)))
+                                       + ",tray=" + (tray.isLoadedValid() && tray.plantState() != null && tray.plantState().seed() == null);
+                               var admitted = new BodyBlockUseRequest(owner.epoch(), 2, admittedSnapshot.revision(), handId, admittedHand.token(), pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE);
+                               var admittedOutcome = BodyHandActionNetworking.handleBlockUse(fixture.player(), admitted);
+                                require(admittedOutcome == BodyBlockUseResult.Outcome.PLACED,
+                                        "explicit cocoa USE outcome=" + admittedOutcome + " trayRev=" + tray.plantState().revision()
+                                                + " token=" + liveHands.token(handId).isPresent() + " guards=" + guards);
                               require(tray.plantState() == referenceBeforeDenial && tray.plantState().genetics().equals(seed.current())
                                       && tray.plantState().genetics().species().equals(seed.current().species()), "explicit profile plants source carried seed genetics in-place");
                                require(tray.plantState().revision() > plantRevisionBeforeDenial && tray.plantState().seedReference() == seed
                                       && tray.plantState().age() == 1f && tray.plantState().health() == 100f,
                                       "planted instance advances in-place with carried seed reference, age one, and source endurance health");
-                             var consumed = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 21));
+                             var consumed = fixture.queryHands(owner.epoch());
                              var consumedHand = consumed.hands().stream().filter(value -> value.id().equals(handId)).findFirst().orElseThrow();
                              require(consumedHand.token() == null && body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()).stackCopy(handId).isEmpty(), "one cocoa bean consumed and hand ownership cleared");
                               var replayPlant = tray.plantState(); var replayPlantRevision = replayPlant.revision();
@@ -178,15 +229,43 @@ public final class BotanyPlantingAuthenticatedGameTests {
                              var afterReplayHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
                               require(tray.plantState() == replayPlant && tray.plantState().revision() == replayPlantRevision
                                        && tray.plantState().seedReference() == replaySeedReference && tray.plantState().genetics().equals(replayGenes), "stale replay leaves planted instance, revision, seed reference, and genes unchanged");
-                             require(afterReplayHands.revision() == replayRevision && afterReplayHands.token(handId).equals(replayToken) && afterReplayHands.stackCopy(handId).isEmpty(), "stale replay leaves hand revision and cleared ownership unchanged");
-                        } finally {
-                            var rawPrevious = new java.util.LinkedHashMap<ResourceLocation, com.google.gson.JsonObject>();
-                            previous.asMap().forEach((key, value) -> rawPrevious.put(key, type.codec().encodeStart(JsonOps.INSTANCE, value).getOrThrow().getAsJsonObject()));
-                            manager.reload(type, rawPrevious);
-                        }
-                        helper.succeed();
-                    } catch (Throwable failure) { helper.fail("botany seed item composition fixture: " + failure); }
-                    finally { fixture.close(); }
+                              require(afterReplayHands.revision() == replayRevision && afterReplayHands.token(handId).equals(replayToken) && afterReplayHands.stackCopy(handId).isEmpty(), "stale replay leaves hand revision and cleared ownership unchanged");
+                             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
+                                 try {
+                                     var handsNow = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                                     ItemStack secondBeans = new ItemStack(ModItems.FOOD_COCOA_BEANS.get());
+                                     com.juicyslew.moonstation14.ms14.botany.GeneticCarriers.attach(secondBeans, seed);
+                                     var secondEntity = LooseItemEntity.create(level, body.position().add(0, .1, .8), secondBeans);
+                                     secondEntity.setNoGravity(true); require(level.addFreshEntity(secondEntity), "second genetic cocoa beans enter world");
+                                     aimAtItem(body, secondEntity);
+                                     require(BodyHandItemTransfer.Result.SUCCESS == BodyHandItemTransfer.pickupSelected(fixture.player(), secondEntity.getUUID(), handId, handsNow.revision(), ignored -> {}), "normal pickup obtains second cocoa beans");
+                                     var occupiedPlant = tray.plantState(); var occupiedRev = occupiedPlant.revision();
+                                     var occupiedSeed = occupiedPlant.seedReference(); var occupiedGenes = occupiedPlant.genetics();
+                                     float water = occupiedPlant.water(), nutrition = occupiedPlant.nutrition();
+                                     float occupiedHealth = occupiedPlant.health(), occupiedAge = occupiedPlant.age();
+                                     var occupiedSnapshot = fixture.queryHands(owner.epoch());
+                                     var occupiedHand = occupiedSnapshot.hands().stream().filter(value -> value.id().equals(handId)).findFirst().orElseThrow();
+                                     var actualBefore = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                                     var stackBefore = actualBefore.stackCopy(handId).orElseThrow();
+                                     long handRev = actualBefore.revision(); var token = actualBefore.token(handId).orElseThrow();
+                                     var occupiedHit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
+                                     var occupiedRequest = new BodyBlockUseRequest(owner.epoch(), 3, occupiedSnapshot.revision(), handId, occupiedHand.token(), pos, occupiedHit.getDirection(), false, BodyBlockUseRequest.Intent.USE);
+                                     require(BodyHandActionNetworking.handleBlockUse(fixture.player(), occupiedRequest) == BodyBlockUseResult.Outcome.DENIED, "second valid cocoa seed denied by occupied tray");
+                                     var after = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                                     require(tray.plantState() == occupiedPlant && occupiedPlant.revision() == occupiedRev && occupiedPlant.seedReference() == occupiedSeed && occupiedPlant.genetics().equals(occupiedGenes)
+                                             && occupiedPlant.water() == water && occupiedPlant.nutrition() == nutrition && occupiedPlant.health() == occupiedHealth && occupiedPlant.age() == occupiedAge,
+                                             "occupied denial preserves tray identity, state, resources, and growth");
+                                     require(ItemStack.matches(stackBefore, after.stackCopy(handId).orElseThrow()) && stackBefore.getComponents().equals(after.stackCopy(handId).orElseThrow().getComponents())
+                                             && after.revision() == handRev && after.token(handId).orElseThrow().equals(token), "occupied denial preserves actual held item and live-hand authority");
+                                     helper.succeed();
+                                 } catch (Throwable failure) { helper.testInfo.fail(failure); }
+                                 finally { cleanup.run(); }
+                             });
+                         } finally {
+                             // The delayed occupied-tray phase owns cleanup.
+                         }
+                     } catch (Throwable failure) { helper.testInfo.fail(failure); fixture.close(); }
+                     finally { /* callback owns fixture/profile through the next natural tick */ }
                 });
             } catch (Throwable failure) { fixture.close(); helper.fail("botany seed item readiness: " + failure); }
         });
@@ -217,7 +296,7 @@ public final class BotanyPlantingAuthenticatedGameTests {
                         aimAtItem(body, hoe);
                         var hands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
                         require(BodyHandItemTransfer.Result.SUCCESS == BodyHandItemTransfer.pickupSelected(fixture.player(), hoe.getUUID(), handId, hands.revision(), ignored -> {}), "normal pickup obtains hoe");
-                        var snapshot = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 2));
+                        var snapshot = fixture.queryHands(owner.epoch());
                         var hand = snapshot.hands().stream().filter(value -> value.id().equals(handId)).findFirst().orElse(null);
                         require(hand != null, "authoritative query includes active hoe hand; reason=" + snapshot.reason());
                         var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
@@ -264,14 +343,14 @@ public final class BotanyPlantingAuthenticatedGameTests {
                         aimAtItem(body, loose);
                         var beforeHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
                         require(BodyHandItemTransfer.Result.SUCCESS == BodyHandItemTransfer.pickupSelected(fixture.player(), loose.getUUID(), handId, beforeHands.revision(), ignored -> {}), "ordinary pickup obtains filled beaker");
-                        var snapshot = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 30));
+                        var snapshot = fixture.queryHands(owner.epoch());
                         var hand = snapshot.hands().stream().filter(value -> value.id().equals(handId)).findFirst().orElseThrow();
                         var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                         var request = new BodyBlockUseRequest(owner.epoch(), 1, snapshot.revision(), handId, hand.token(), pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE);
                         require(BodyHandActionNetworking.handleBlockUse(fixture.player(), request) == BodyBlockUseResult.Outcome.PLACED, "ordinary admitted USE waters tray");
                         var soil = tray.soilSolution().snapshotUnits();
                         require(soil.getOrDefault(water, 0L) == 250 && soil.getOrDefault(nutrient, 0L) == 250, "exact proportional 250-cent transfer to soil");
-                        var afterHands = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 31));
+                        var afterHands = fixture.queryHands(owner.epoch());
                         var afterHand = afterHands.hands().stream().filter(value -> value.id().equals(handId)).findFirst().orElseThrow();
                         var sourceContents = afterHand.presentation().stack().get(ModDataComponents.REAGENT.get()).centContents();
                         require(sourceContents.getOrDefault(water, 0L) == 250

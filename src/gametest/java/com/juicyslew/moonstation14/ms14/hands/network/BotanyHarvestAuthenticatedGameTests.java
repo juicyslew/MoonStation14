@@ -21,14 +21,11 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.Reg
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.PlayLevelSoundEvent;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -52,7 +49,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                                 e -> !e.getItem().isEmpty()).stream().map(net.minecraft.world.entity.Entity::getUUID)
                                 .collect(java.util.stream.Collectors.toSet());
                         var body = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
-                        var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                        var query = fixture.queryHands(epoch);
                         var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                         require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2,
                                 query.revision(), hand, null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE))
@@ -137,7 +134,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                         "production output batch publishes produce above tray");
                 var output = level.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(2),
                         entity -> !entity.getItem().isEmpty() && entity.getItem().is(produce.getItem())).stream().findFirst().orElseThrow();
-                var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                var query = fixture.queryHands(epoch);
                 var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                 var outcome = BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2,
                         query.revision(), hand, null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE));
@@ -154,20 +151,8 @@ public final class BotanyHarvestAuthenticatedGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"botany-scream", "botany-harvest"})
+    @GameTestTags({"botany-scream", "botany-harvest", "merge-main-remaining", "merge-main-stage-two"})
     public static void authenticatedManualHarvestOnlyScreamsAfterOutputCommit(GameTestHelper helper) {
-        var level = (ServerLevel) helper.getLevel();
-        var soundCount = new AtomicInteger();
-        var trayPosition = new AtomicReference<BlockPos>();
-        Consumer<PlayLevelSoundEvent.AtPosition> listener = event -> {
-            if (event.getLevel() == level && event.getSound().unwrapKey()
-                    .map(key -> key.location().equals(SeedProfile.Scream.DEFAULT_SOUND)).orElse(false)) {
-                BlockPos pos = trayPosition.get();
-                if (pos != null && event.getPosition().distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5) < 1e-6)
-                    soundCount.incrementAndGet();
-            }
-        };
-        NeoForge.EVENT_BUS.addListener(listener);
         var species = ModSeedProfiles.seedId("wheat");
         var base = ModSeedProfiles.serverLookup(species);
         var scream = new SeedProfile.Scream(true, SeedProfile.Scream.DEFAULT_SOUND, -10f);
@@ -175,25 +160,24 @@ public final class BotanyHarvestAuthenticatedGameTests {
                 base.chemicals(), base.consumeGasses(), base.exudeGasses(), base.mutationTargets(), scream, base.sourceName());
         var packet = new ItemStack(ModItems.WHEAT_SEEDS.get());
         packet.set(ModDataComponents.GENETIC_VALUE.get(), new GeneticValue(species, profile));
-        try {
-            runAuthenticatedHarvest(helper, packet, "scream-manual-wheat", (h, fixture, epoch, hand, tray, pos, world, finished) -> {
-                trayPosition.set(pos);
+        runAuthenticatedHarvest(helper, packet, "scream-manual-wheat", (h, fixture, epoch, hand, tray, pos, world, finished) -> {
                 try {
+                    drainPlantScreamPackets(fixture);
                     var before = world.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8),
                             entity -> !entity.getItem().isEmpty()).stream().map(net.minecraft.world.entity.Entity::getUUID)
                             .collect(java.util.stream.Collectors.toSet());
                     var body = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
-                    var staleSnapshot = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 2));
+                    var staleSnapshot = fixture.queryHands(epoch);
                     var staleHit = RegisteredPlayerReadyDriver.aimAt(body, world, pos);
                     require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2,
                                     staleSnapshot.revision() - 1, hand, null, pos, staleHit.getDirection(), false,
                                     BodyBlockUseRequest.Intent.USE)) == BodyBlockUseResult.Outcome.DENIED,
                             "stale authenticated manual harvest is denied");
-                    require(soundCount.get() == 0 && world.getEntitiesOfClass(LooseItemEntity.class,
+                    require(drainPlantScreamPackets(fixture).isEmpty() && world.getEntitiesOfClass(LooseItemEntity.class,
                                     new net.minecraft.world.phys.AABB(pos).inflate(8), entity -> !entity.getItem().isEmpty()).stream()
                                     .map(net.minecraft.world.entity.Entity::getUUID).collect(java.util.stream.Collectors.toSet()).equals(before),
                             "stale denial creates no output and emits no scream");
-                    var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                    var query = fixture.queryHands(epoch);
                     var hit = RegisteredPlayerReadyDriver.aimAt(body, world, pos);
                     require(AuthenticatedBlockUseDriver.use(fixture.player(), new BodyBlockUseRequest(epoch, 3,
                                     query.revision(), hand, null, pos, hit.getDirection(), false,
@@ -202,20 +186,17 @@ public final class BotanyHarvestAuthenticatedGameTests {
                     var outputs = world.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8),
                             entity -> !entity.getItem().isEmpty() && !before.contains(entity.getUUID()));
                     require(outputs.size() == profile.lifecycle().yield(), "committed manual harvest publishes expected outputs");
-                    require(soundCount.get() == 1, "successful manual output commit emits exactly one resolved scream");
+                    var screamPackets = drainPlantScreamPackets(fixture);
+                    require(screamPackets.size() == 1, "successful manual output commit publishes exactly one scream packet");
+                    assertPlantScreamPacket(screamPackets.getFirst(), pos);
                     require(tray.plantState().seed() == null, "no-repeat source plant lifecycle committed");
                     finish(h, fixture, finished, "authenticated manual scream harvest", null);
                 } catch (Throwable failure) { finish(h, fixture, finished, "authenticated manual scream harvest", failure); }
-                finally { NeoForge.EVENT_BUS.unregister(listener); }
             });
-        } catch (Throwable failure) {
-            NeoForge.EVENT_BUS.unregister(listener);
-            helper.testInfo.fail(failure);
-        }
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"botany-sampling", "botany"})
+    @GameTestTags({"botany-sampling", "botany", "merge-main-remaining", "merge-main-root-causes"})
     public static void registeredWirecutterSamplesThroughOrdinaryAuthenticatedUse(GameTestHelper helper) {
         var species = ModSeedProfiles.seedId("wheat");
         var base = ModSeedProfiles.serverLookup(species);
@@ -224,21 +205,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                 base.chemicals(), base.consumeGasses(), base.exudeGasses(), base.mutationTargets(), scream, base.sourceName());
         ItemStack seeds = new ItemStack(ModItems.WHEAT_SEEDS.get());
         seeds.set(ModDataComponents.GENETIC_VALUE.get(), new GeneticValue(species, profiled));
-        var soundCount = new AtomicInteger();
-        var trayPosition = new AtomicReference<BlockPos>();
-        var level = (ServerLevel) helper.getLevel();
-        Consumer<PlayLevelSoundEvent.AtPosition> listener = event -> {
-            if (event.getLevel() == level && event.getSound().unwrapKey()
-                    .map(key -> key.location().equals(SeedProfile.Scream.DEFAULT_SOUND)).orElse(false)) {
-                BlockPos pos = trayPosition.get();
-                if (pos != null && event.getPosition().distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5) < 1e-6)
-                    soundCount.incrementAndGet();
-            }
-        };
-        NeoForge.EVENT_BUS.addListener(listener);
-        try {
-            runAuthenticatedHarvest(helper, seeds, "wirecutter-sampling", (h, fixture, epoch, emptyHand, tray, pos, world, finished) -> {
-                trayPosition.set(pos);
+        runAuthenticatedHarvest(helper, seeds, "wirecutter-sampling", (h, fixture, epoch, emptyHand, tray, pos, world, finished) -> {
                 try {
                     var plant = tray.plantState();
                     var reference = plant.seedReference();
@@ -254,7 +221,8 @@ public final class BotanyHarvestAuthenticatedGameTests {
                     var beforeIds = world.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8),
                             entity -> !entity.getItem().isEmpty()).stream().map(net.minecraft.world.entity.Entity::getUUID)
                             .collect(java.util.stream.Collectors.toSet());
-                    var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                    drainPlantScreamPackets(fixture);
+                    var query = fixture.queryHands(epoch);
                     var heldTool = query.hands().stream().filter(value -> value.id().equals(emptyHand)).findFirst().orElseThrow();
                     String token = heldTool.token(); int count = heldTool.presentation().stack().getCount();
                     var hit = RegisteredPlayerReadyDriver.aimAt(body, world, pos);
@@ -279,12 +247,14 @@ public final class BotanyHarvestAuthenticatedGameTests {
                             "exactly one packet retains current seed-reference identity");
                     require(packets.getFirst().get(ModDataComponents.SEED_PACKET_HEALTH_OVERRIDE.get()) == null,
                             "ready packet omits health override");
-                    require(soundCount.get() == 1, "committed sampling screams once from tray after packet publication");
+                    var packetsOut = drainPlantScreamPackets(fixture);
+                    require(packetsOut.size() == 1, "committed sampling publishes exactly one scream packet to the nearby registered player");
+                    assertPlantScreamPacket(packetsOut.getFirst(), pos);
+                    require(packets.size() == 1 && packets.getFirst().get(ModDataComponents.PLANT_SEED_REFERENCE.get()) == reference,
+                            "scream packet is published only after the sampled packet is visible");
                     finish(h, fixture, finished, "registered authenticated wirecutter sample", null);
                 } catch (Throwable failure) { finish(h, fixture, finished, "registered authenticated wirecutter sample", failure); }
-                finally { NeoForge.EVENT_BUS.unregister(listener); }
             });
-        } catch (Throwable failure) { NeoForge.EVENT_BUS.unregister(listener); helper.testInfo.fail(failure); }
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
@@ -334,7 +304,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                 var before = level.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8),
                         e -> !e.getItem().isEmpty()).stream().map(net.minecraft.world.entity.Entity::getUUID)
                         .collect(java.util.stream.Collectors.toSet());
-                var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                var query = fixture.queryHands(epoch);
                 var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                 require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2, query.revision(), hand,
                         null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE)) == BodyBlockUseResult.Outcome.PLACED,
@@ -412,7 +382,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                 var before = level.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8),
                         e -> !e.getItem().isEmpty()).stream().map(net.minecraft.world.entity.Entity::getUUID).collect(java.util.stream.Collectors.toSet());
                 var body = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
-                var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                var query = fixture.queryHands(epoch);
                 var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                 require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2, query.revision(), hand,
                         null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE)) == BodyBlockUseResult.Outcome.PLACED,
@@ -463,7 +433,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                                 e -> !e.getItem().isEmpty()).stream().map(net.minecraft.world.entity.Entity::getUUID)
                                 .collect(java.util.stream.Collectors.toSet());
                         var body = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
-                        var harvestQuery = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                        var harvestQuery = fixture.queryHands(epoch);
                         var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                         require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2,
                                 harvestQuery.revision(), hand, null, pos, hit.getDirection(), false,
@@ -501,7 +471,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                         require(plant.ready() && expected.equals(plant.genetics()),
                                 "ordinary growth reaches readiness with arranged zero-yield genetics");
                         var body = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
-                        var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                        var query = fixture.queryHands(epoch);
                         require(query.reason() == BodyHandStateSnapshot.Reason.OK,
                                 "before-harvest hand snapshot admitted: sequence=" + query.sequence() + " reason=" + query.reason());
                         var emptyHand = query.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow();
@@ -524,7 +494,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                         require(after.equals(before), "zero-yield harvest publishes no fresh loose output");
                         require(plant.seed() == null && plant.water() == water && plant.nutrition() == nutrition,
                                 "zero-yield no-repeat harvest clears source and preserves soil resources");
-                        var handsAfter = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 4));
+                        var handsAfter = fixture.queryHands(epoch);
                         require(handsAfter.reason() == BodyHandStateSnapshot.Reason.OK,
                                 "after-harvest hand snapshot admitted: sequence=" + handsAfter.sequence() + " reason=" + handsAfter.reason());
                         var emptyAfter = handsAfter.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow();
@@ -615,7 +585,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
             var before = level.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8), e -> !e.getItem().isEmpty())
                     .stream().map(net.minecraft.world.entity.Entity::getUUID).collect(java.util.stream.Collectors.toSet());
             var body = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
-            var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+            var query = fixture.queryHands(epoch);
             var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
             require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2, query.revision(), hand,
                     null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE)) == BodyBlockUseResult.Outcome.PLACED,
@@ -705,7 +675,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                              "extractor has fresh real 1000 W allocation: " + meter);
                      if (stage != null) stage.set("authenticated extractor USE");
                     body.setPos(machinePos.getX() + .5, machinePos.getY() + 1, machinePos.getZ() - 1.5);
-                    var produceQuery = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 4));
+                    var produceQuery = fixture.queryHands(epoch);
                     var heldProduce = produceQuery.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow();
                     var machineHit = RegisteredPlayerReadyDriver.aimAt(body, level, machinePos);
                     String produceToken = heldProduce.token();
@@ -730,7 +700,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                      if (expectDenied) {
                          if (stage != null) stage.set("seedless extractor denial verification");
                         require(outcome == BodyBlockUseResult.Outcome.DENIED, "seedless carried genetics deny admitted extractor USE");
-                        var afterQuery = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 5));
+                        var afterQuery = fixture.queryHands(epoch);
                         var afterHand = afterQuery.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow();
                         require(afterHand.token().equals(produceToken) && ItemStack.isSameItemSameComponents(
                                         afterHand.presentation().stack(), heldBefore)
@@ -788,7 +758,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                         heldPacketHand = hand;
                       }
                      if (stage != null) stage.set("ordinary USE replant");
-                    var plantedQuery = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 5));
+                    var plantedQuery = fixture.queryHands(epoch);
                     String selectedPacketHand = heldPacketHand;
                     var packetInHand = plantedQuery.hands().stream().filter(value -> value.id().equals(selectedPacketHand)).findFirst().orElseThrow();
                       require(expected.equals(packetInHand.presentation().stack().get(ModDataComponents.GENETIC_VALUE.get())),
@@ -934,7 +904,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                             var hands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
                             require(BodyHandItemTransfer.pickupSelected(fixture.player(), packet.getUUID(), hand, hands.revision(), ignored -> {})
                                     == BodyHandItemTransfer.Result.SUCCESS, "normal authenticated pickup of " + label + " seeds");
-                            var held = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 2));
+                            var held = fixture.queryHands(owner.epoch());
                             var active = held.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow();
                             var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                             require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(
@@ -1007,7 +977,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
         var body = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
         var plant = tray.plantState(); float water = plant.water(), nutrition = plant.nutrition();
         var before = level.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8), e -> !e.getItem().isEmpty()).size();
-        var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+        var query = fixture.queryHands(epoch);
         var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
         var harvestOutcome = BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2, query.revision(), hand,
                 null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE));
@@ -1023,7 +993,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                         && publishedAppearance.getInt("PlantAppearanceStage") == 0
                         && publishedAppearance.getString("PlantAppearanceKey").isEmpty(),
                 "immediate server update tag publishes empty appearance after harvest");
-        var repeatQuery = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 4));
+        var repeatQuery = fixture.queryHands(epoch);
         hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
         require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 3, repeatQuery.revision(), hand,
                 null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.ACTIVATE_WORLD)) == BodyBlockUseResult.Outcome.DENIED,
@@ -1035,7 +1005,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
         var live = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
         require(BodyHandItemTransfer.pickupSelected(fixture.player(), selected.getUUID(), hand, live.revision(), ignored -> {})
                 == BodyHandItemTransfer.Result.SUCCESS, "normal pickup takes harvested produce");
-        var picked = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 5)).hands().stream()
+        var picked = fixture.queryHands(epoch).hands().stream()
                 .filter(value -> value.id().equals(hand)).findFirst().orElseThrow().presentation().stack();
         var reagent = picked.get(ModDataComponents.REAGENT.get());
         var flour = com.juicyslew.moonstation14.ms14.reagent.ModReagents.createKey("flour");
@@ -1066,7 +1036,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
             var seed = com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.serverLookup(
                     com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.seedId(tomato ? "tomato" : "wheat"));
             int preview = com.juicyslew.moonstation14.ms14.botany.PlantMetabolismEvaluator.previewHarvestYield(plant, seed, 1f);
-            var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+            var query = fixture.queryHands(epoch);
             var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
             require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2, query.revision(), hand,
                     null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE)) == BodyBlockUseResult.Outcome.PLACED,
@@ -1089,6 +1059,32 @@ public final class BotanyHarvestAuthenticatedGameTests {
         body.setYRot((float) Math.toDegrees(Math.atan2(-delta.x, delta.z)));
         body.setXRot((float) -Math.toDegrees(Math.asin(delta.y)));
     }
+    private static java.util.List<net.minecraft.network.protocol.game.ClientboundSoundPacket> drainPlantScreamPackets(
+            RegisteredServerPlayerFixture fixture) {
+        var sounds = new java.util.ArrayList<net.minecraft.network.protocol.game.ClientboundSoundPacket>();
+        Object packet;
+        while ((packet = fixture.pollOutbound()) != null)
+            if (packet instanceof net.minecraft.network.protocol.game.ClientboundSoundPacket sound
+                    && sound.getSound().value() == net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.get(SeedProfile.Scream.DEFAULT_SOUND))
+                sounds.add(sound);
+        return sounds;
+    }
+
+    public static boolean matchesPlantScreamPacket(net.minecraft.network.protocol.game.ClientboundSoundPacket actual, BlockPos pos) {
+        var expected = new net.minecraft.network.protocol.game.ClientboundSoundPacket(
+                net.minecraft.core.Holder.direct(net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.get(SeedProfile.Scream.DEFAULT_SOUND)),
+                net.minecraft.sounds.SoundSource.BLOCKS, pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5,
+                (float) Math.pow(10d, -10d / 20d), 1f, 0L);
+        return actual.getSound().value() == expected.getSound().value() && actual.getSource() == expected.getSource()
+                        && actual.getX() == expected.getX() && actual.getY() == expected.getY() && actual.getZ() == expected.getZ()
+                        && actual.getVolume() == expected.getVolume() && actual.getPitch() == expected.getPitch();
+    }
+
+    private static void assertPlantScreamPacket(net.minecraft.network.protocol.game.ClientboundSoundPacket actual, BlockPos pos) {
+        require(matchesPlantScreamPacket(actual, pos),
+                "scream packet has expected sound, source, tray-center coordinates, gain, and pitch");
+    }
+
     private static void require(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
     private static void finish(GameTestHelper helper, RegisteredServerPlayerFixture fixture, AtomicBoolean done,
                                String context, Throwable failure) {

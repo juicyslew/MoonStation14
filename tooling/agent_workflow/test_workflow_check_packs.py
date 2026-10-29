@@ -4,7 +4,7 @@ import unittest
 import hashlib
 from pathlib import Path
 
-from workflow_check_packs import resolve_check_packs
+from workflow_check_packs import resolve_check_packs, resolve_diagnostic_plan
 from workflow_runtime import resolve_gate_plan, validate_gate_plan
 from workflow_store import ProtocolError
 from validation_evidence import collect_evidence
@@ -33,6 +33,19 @@ class CheckPackTests(unittest.TestCase):
 
     def resolve(self, req=None, policy=None):
         return resolve_check_packs(req or self.request, repo=self.repo, policy=policy or self.policy)
+
+    def test_unit_only_diagnostic_does_not_require_gate_packs(self):
+        request = copy.deepcopy(self.request)
+        request.update(purpose='DIAGNOSTIC', implementation_complete=False, manual_steps=[], check_packs=[],
+            diagnostic_rationale='Determine whether the isolated feature unit regression remains.',
+            criteria=[{'criterion_id':'c1', 'status':'DIAGNOSTIC', 'evidence_refs':['test']}],
+            diagnostic_plan={'title':'Unit diagnostic', 'kind':'diagnostic',
+                'acceptance_criteria':['c1'], 'fixture':'manual.md', 'references':[], 'manual_steps':[],
+                'checks':[{'argv':['python','-c','pass'], 'rationale':'Answers whether the isolated unit check passes.', 'covers':['c1']}]})
+        result = resolve_diagnostic_plan(request, repo=self.repo, policy=self.policy)
+        self.assertEqual(result['packs'], [])
+        self.assertEqual(len(result['plan']['checks']), 1)
+        self.assertEqual(result['program_checks'], ['managed_config_provenance'])
 
     def test_deterministic_order_and_existing_producer_plan(self):
         result = self.resolve()

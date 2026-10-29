@@ -56,6 +56,9 @@ public class ModEntities {
     public static final DeferredHolder<EntityType<?>, EntityType<SingularityEntity>> SINGULARITY =
             ENTITIES.register("singularity", () -> EntityType.Builder.<SingularityEntity>of(SingularityEntity::new, MobCategory.MISC)
                     .sized(1.5f, 1.5f).clientTrackingRange(16).updateInterval(1).build("singularity"));
+    public static final DeferredHolder<EntityType<?>, EntityType<TeslaEnergyBallEntity>> TESLA_ENERGY_BALL =
+            ENTITIES.register("tesla_energy_ball", () -> EntityType.Builder.<TeslaEnergyBallEntity>of(TeslaEnergyBallEntity::new, MobCategory.MISC)
+                    .sized(1.5f, 1.5f).clientTrackingRange(16).updateInterval(1).build("tesla_energy_ball"));
     public static final DeferredHolder<EntityType<?>, EntityType<ParticleAcceleratorParticleEntity>> PA_PARTICLE =
             ENTITIES.register("particle_accelerator_particle", () -> EntityType.Builder.<ParticleAcceleratorParticleEntity>of(ParticleAcceleratorParticleEntity::new, MobCategory.MISC)
                     .sized(.96f, .96f).clientTrackingRange(8).updateInterval(1).build("particle_accelerator_particle"));

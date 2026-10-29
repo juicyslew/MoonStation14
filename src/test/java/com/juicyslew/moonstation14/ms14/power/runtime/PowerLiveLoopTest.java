@@ -8,6 +8,39 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class PowerLiveLoopTest {
+    @Test void hvSourceDeliveryIsAttributedByCappedOfferAndNeverExceedsActualUse() {
+        var sub = List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true));
+        var capped = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(
+                new PowerLiveLoop.Source("small", 1, true, 4_000, 4_000),
+                new PowerLiveLoop.Source("large", 1, true, 20_000, 20_000)), sub, List.of(), List.of(), 20));
+        assertEquals(4_000, capped.hvSourceWatts().get("small"), 1e-9);
+        assertEquals(20_000, capped.hvSourceWatts().get("large"), 1e-9);
+        assertEquals(24_000, capped.hvSourceWatts().values().stream().mapToDouble(Double::doubleValue).sum(), 1e-9);
+
+        var loadCapped = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(
+                new PowerLiveLoop.Source("small", 1, true, 10_000),
+                new PowerLiveLoop.Source("large", 1, true, 30_000)), sub,
+                List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 0)),
+                List.of(new PowerLiveLoop.Lamp("lamp", 3, true)), 20));
+        assertEquals(30_000, loadCapped.hvSourceWatts().values().stream().mapToDouble(Double::doubleValue).sum(), 1e-9);
+        assertEquals(7_500, loadCapped.hvSourceWatts().get("small"), 1e-9);
+        assertEquals(22_500, loadCapped.hvSourceWatts().get("large"), 1e-9);
+    }
+
+    @Test void hvSourceDeliveryIsZeroWithoutKnownConnectedSubstationOrWithExhaustedOffer() {
+        var source = new PowerLiveLoop.Source("source", 1, true, 1_000);
+        var disconnected = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(source), List.of(), List.of(), List.of(), 20));
+        assertEquals(0, disconnected.hvSourceWatts().get("source"), 1e-9);
+        var unknown = PowerLiveLoop.solve(new PowerLiveLoop.Input(
+                List.of(new PowerLiveLoop.Source("unknown", 1, false, 1_000)),
+                List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true)), List.of(), List.of(), 20));
+        assertEquals(0, unknown.hvSourceWatts().get("unknown"), 1e-9);
+        var empty = PowerLiveLoop.solve(new PowerLiveLoop.Input(
+                List.of(new PowerLiveLoop.Source("empty", 1, true, 0)),
+                List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true)), List.of(), List.of(), 20));
+        assertEquals(0, empty.hvSourceWatts().get("empty"), 1e-9);
+    }
+
     @Test void genericApcConsumerSharesProductionDownstreamAllocation() {
         var input = new PowerLiveLoop.Input(List.of(new PowerLiveLoop.Source("src", 1, true, 1_000)),
                 List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true)),

@@ -27,6 +27,7 @@ import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateQuery;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
@@ -67,7 +68,7 @@ public final class GrinderRegisteredPlayerGameTests {
         runRegisteredGrinderProgram(helper, GrinderProgram.Operation.GRIND, SourceCase.EMPTY_TOMATO);
     }
 
-    @GameTestTags({"botany", "botany-grinder-registered-player", "interaction", "prediction", "botany-material-juice"})
+    @GameTestTags({"botany", "botany-grinder-registered-player", "interaction", "prediction", "botany-material-juice", "merge-main-remaining"})
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
     public static void registeredPlayerJuicesCottonMaterialSource(GameTestHelper helper) {
         runRegisteredGrinderProgram(helper, GrinderProgram.Operation.JUICE, SourceCase.COTTON_MATERIAL);
@@ -99,6 +100,9 @@ public final class GrinderRegisteredPlayerGameTests {
                 ServerLevel level = (ServerLevel) helper.getLevel();
                 BlockPos pos = helper.absolutePos(new BlockPos(3, 1, 3));
                 level.setBlock(pos, ModBlocks.REAGENT_GRINDER.get().defaultBlockState(), 3);
+                BlockPos headroom = pos.above();
+                level.setBlock(headroom, Blocks.AIR.defaultBlockState(), 3);
+                require(level.getBlockState(headroom).isAir(), "controlled grinder fixture headroom is clear");
                 helper.runAfterDelay(2, () -> {
                     try {
                         var grinder = (ReagentGrinderBlockEntity) level.getBlockEntity(pos);
@@ -180,7 +184,8 @@ public final class GrinderRegisteredPlayerGameTests {
                                 require(grinder.canStart(GrinderProgram.Operation.GRIND), "registered tomato is grind-admissible from its resolved produce profile");
                             if (materialProfile != null)
                                 require(grinder.canStart(GrinderProgram.Operation.JUICE), "registered material becomes juice-admissible through its actual machine item slot");
-                         require(level.getBlockState(pos).getValue(com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlock.BEAKER_ATTACHED), "chamber-only insert leaves beaker-attached appearance unchanged");
+                          require(level.getBlockState(pos).getValue(com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlock.BEAKER_ATTACHED), "chamber-only insert leaves beaker-attached appearance unchanged");
+                          require(level.getBlockState(headroom).isAir(), "grinder fixture headroom remains clear before ordinary activation aim");
                          body.setPos(pos.getX() + .5, pos.getY() + 1, pos.getZ() - 1.5);
                          var nativeSoundPackets = new ArrayList<net.minecraft.network.protocol.game.ClientboundSoundPacket>();
                            grinder.slotTransferCommitted(true, true); // Fixture-only committed insert path after the slot was populated.

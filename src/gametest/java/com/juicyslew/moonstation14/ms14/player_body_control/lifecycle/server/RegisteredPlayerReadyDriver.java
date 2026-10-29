@@ -52,7 +52,7 @@ public final class RegisteredPlayerReadyDriver {
         LifecycleCharacterSessionControl.onPayload(new GhostControlPayloads.Ready(begin.mindEpoch()), fixture.player());
         var active = LifecycleCharacterSessionControl.activeCharacterBody(fixture.player())
                 .orElseThrow(() -> new IllegalStateException("normal Ready did not establish active body"));
-        BodyHandStateSnapshot snapshot = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(active.epoch(), 1));
+        BodyHandStateSnapshot snapshot = fixture.queryHands(active.epoch());
         if (snapshot.reason() != BodyHandStateSnapshot.Reason.OK)
             throw new IllegalStateException("full hand query denied after Ready: " + snapshot.reason());
         BodyHandStateService.requireFreshQuery(fixture.player());
@@ -173,8 +173,21 @@ public final class RegisteredPlayerReadyDriver {
                     if (blockHit.getBlockPos().equals(target)) return blockHit;
                 }
             }
-        throw new IllegalStateException("aimed body ray missed fixture target=" + target + " eye=" + eye
-                + " candidate=" + lastAim + " hit=" + (lastHit == null ? "MISS" : lastHit.getBlockPos()
+        BlockPos hitPos = lastHit == null ? null : lastHit.getBlockPos();
+        throw new IllegalStateException("aimed body ray missed fixture target=" + target
+                + " targetState=" + outlineSummary(level, target)
+                + " aboveState=" + outlineSummary(level, target.above())
+                + " hitState=" + (hitPos == null ? "none" : outlineSummary(level, hitPos))
+                + " bodyPos=" + body.position() + " bodyPose=" + body.getPose()
+                + " eye=" + eye + " candidate=" + lastAim + " hit=" + (lastHit == null ? "MISS" : hitPos
                 + "/" + lastHit.getDirection() + "@" + lastHit.getLocation()));
+    }
+
+    private static String outlineSummary(ServerLevel level, BlockPos pos) {
+        var state = level.getBlockState(pos);
+        var shape = state.getShape(level, pos);
+        var boxes = shape.toAabbs();
+        return state + "[outline=" + boxes.stream().limit(3).toList()
+                + (boxes.size() > 3 ? ",..." : "") + "]";
     }
 }

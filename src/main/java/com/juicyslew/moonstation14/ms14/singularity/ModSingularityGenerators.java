@@ -7,6 +7,8 @@ import net.minecraft.world.level.Level;
 
 public final class ModSingularityGenerators {
     public static final ResourceLocation DEFAULT_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "default");
+    /** Canonical startup-profile ID consumed by the Tesla generator block and its resource prototype. */
+    public static final ResourceLocation TESLA_ID = ResourceLocation.fromNamespaceAndPath("moonstation14", "tesla");
     public static final SingularityGeneratorProfile TYPE_PROFILE = new SingularityGeneratorProfile(16, false, true, 16, 10,
             ResourceLocation.fromNamespaceAndPath("moonstation14", "singularity"));
     private ModSingularityGenerators() { }

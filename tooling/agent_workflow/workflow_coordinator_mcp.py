@@ -18,7 +18,7 @@ SCHEMAS = {
     "submit": schema({"request_path": {"type": "string", "description":"Path to the prepared strict JSON request file. To replace your settled current FEATURE PASS or FAIL after feedback/new source work, put replaces_run_id in the request JSON; DIAGNOSTIC submissions never replace a run."}, "idempotency_key": {"type": "string", "description":"Registered submission key; exact retries reuse this key. A new feature revision uses a fresh key."}}, ("request_path", "idempotency_key")),
     "register_scope": schema({"scope_path":{"type":"string","description":"Path to the prepared strict JSON scope file."},"idempotency_key":{"type":"string","description":"Fresh scope-registration key; recovery checks reuse this key."}},("scope_path","idempotency_key")),
     "scope_status": schema({"idempotency_key":{"type":"string"}},("idempotency_key",)),
-    "status": schema({"run_id": {"type": "string"}, "idempotency_key": {"type": "string"}, "include_diagnostics":{"type":"boolean","default":False}, "log_artifact_id":{"type":"string","description":"An artifact ID returned by your diagnostics."}, "log_offset":{"type":"integer","minimum":0,"description":"Byte offset for paging the selected log; use its next_offset."}}),
+    "status": schema({"run_id": {"type": "string"}, "idempotency_key": {"type": "string"}, "include_diagnostics":{"type":"boolean","default":False}, "log_artifact_id":{"type":"string","description":"An artifact ID returned by your diagnostics."}, "log_offset":{"type":"integer","minimum":0,"maximum":9223372036854775807,"description":"Sanitized UTF-8 byte offset for paging the selected log; omitted offset returns the default tail. Use next_offset; this is not a file-size limit and does not download the full log."}}),
     "acknowledge_result": schema({"contract_version":{"type":"integer","const":1},"command_id":{"type":"string"},"event_id":{"type":"string"},"run_id":{"type":"string"},"evaluation_generation":{"type":"integer"},"result_id":{"type":"string"},"result_digest":{"type":"string"}}, ("contract_version","command_id","event_id","run_id","evaluation_generation","result_id","result_digest")),
 }
 REVIEW_SCHEMAS = {
@@ -173,7 +173,7 @@ class CoordinatorClient:
                 if not isinstance(v,bool): raise ClientInputError('INVALID_TOOL_ARGUMENTS',key,'Set include_diagnostics to true or false.')
                 continue
             if key == 'log_offset':
-                if isinstance(v,bool) or not isinstance(v,int) or v<0 or v>16*1024*1024: raise ClientInputError('INVALID_TOOL_ARGUMENTS',key,'Provide a nonnegative byte offset within the log limit.')
+                if isinstance(v,bool) or not isinstance(v,int) or v<0 or v>2**63-1: raise ClientInputError('INVALID_TOOL_ARGUMENTS',key,'Provide a nonnegative byte offset no greater than 9223372036854775807.')
                 continue
             if key in ('contract_version','evaluation_generation','assignment_generation'):
                 if isinstance(v,bool) or not isinstance(v,int): raise ClientInputError('INVALID_TOOL_ARGUMENTS',key,'Provide an integer value.')

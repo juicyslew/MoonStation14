@@ -10,6 +10,8 @@ import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.character.components.CharacterComponentRegistry;
 import com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.VocalComponent;
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 
 import java.util.Set;
@@ -296,6 +298,31 @@ public final class CharacterSchemaAudit {
                     "planIntervalTicks", "idleMinimumTicks", "idleMaximumTicks"), path);
             return;
         }
+        if (CombatModeComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type", "combatToggleAction", "initially_in_combat", "can_disarm", "base_disarm_fail_chance", "disarm_success_sound"), path);
+            if (object.has("combatToggleAction")) auditCapabilityString(object, "combatToggleAction", path);
+            if (object.has("base_disarm_fail_chance") && (!finiteNumber(object.get("base_disarm_fail_chance"))
+                    || object.get("base_disarm_fail_chance").getAsDouble() < 0 || object.get("base_disarm_fail_chance").getAsDouble() > 1))
+                fail(path + ".base_disarm_fail_chance", "expected finite number in [0, 1]");
+            if (object.has("disarm_success_sound")) auditResourceLocation(object.get("disarm_success_sound"), path + ".disarm_success_sound");
+            if (object.has("can_disarm") && (!object.get("can_disarm").isJsonPrimitive() || !object.getAsJsonPrimitive("can_disarm").isBoolean()))
+                fail(path + ".can_disarm", "expected boolean");
+            if (object.has("initially_in_combat") && (!object.get("initially_in_combat").isJsonPrimitive() || !object.getAsJsonPrimitive("initially_in_combat").isBoolean()))
+                fail(path + ".initially_in_combat", "expected boolean");
+            return;
+        }
+        if (VocalComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type", "screamAction", "screamEmote", "screamSound", "screamPitchVariation", "wilhelmProbability"), path);
+            for (String field : Set.of("screamAction", "screamEmote"))
+                if (object.has(field)) auditCapabilityString(object, field, path);
+            if (object.has("screamSound")) auditResourceLocation(object.get("screamSound"), path + ".screamSound");
+            for (String field : Set.of("screamPitchVariation", "wilhelmProbability")) if (object.has(field)) {
+                JsonElement value = object.get(field);
+                if (!finiteNumber(value) || value.getAsDouble() < 0 || value.getAsDouble() > 1)
+                    fail(path + "." + field, "expected finite number in [0, 1]");
+            }
+            return;
+        }
         if ("AbsorbentCleaning".equals(type)) {
             checkFields(object, Set.of("type", "pickupCents", "capacityCents", "cooldownTicks", "regenerationCents", "purgeCents", "cycleTicks"), path);
             if (complete) for (String field : Set.of("pickupCents", "capacityCents", "cooldownTicks", "regenerationCents", "purgeCents", "cycleTicks"))
@@ -311,6 +338,11 @@ public final class CharacterSchemaAudit {
                 if (parsed == null || !profile.getAsString().contains(":") || !profile.getAsString().equals(parsed.toString()))
                     fail(path + ".profile", "expected canonical namespaced loose-object profile ID");
             }
+            return;
+        }
+        if ("lightningTarget".equals(type)) {
+            checkFields(object, Set.of("type", "priority", "probability", "resistance", "structuralDamage",
+                    "explodes", "intensity", "dropoff", "maximumPerTile"), path);
             return;
         }
         if ("CanEscapeInventory".equals(type)) {
@@ -1032,6 +1064,13 @@ public final class CharacterSchemaAudit {
         for (String field : object.keySet()) {
             if (!allowed.contains(field)) fail(path + "." + field, "unknown field");
         }
+    }
+
+    private static void auditCapabilityString(JsonObject object, String field, String path) {
+        JsonElement value = object.get(field);
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()
+                || value.getAsString().isBlank() || value.getAsString().length() > 128)
+            fail(path + "." + field, "expected nonblank string of at most 128 characters");
     }
 
     private static void auditResourceLocation(JsonElement value, String path) {

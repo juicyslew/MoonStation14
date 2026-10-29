@@ -74,14 +74,27 @@ public final class BodyGrenadeHeldFuseGameTests {
                 LiveHands expired = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
                 require(expired.stackCopy("left").isEmpty() && expired.token("left").isEmpty(),
                         "body-owned item is removed before explosion");
-                require(level.getBlockState(wall).isAir(), "blast did not breach steel wall: body="
-                        + body.blockPosition() + ", wall=" + wall + ", wallState=" + level.getBlockState(wall));
                 BodyGrenadeHeldFuseService.tickHand(body, level, expired, "left", () -> true);
                 require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == expired,
                         "repeated expiry cannot detonate again");
-                helper.succeed();
+                awaitQueuedBlast(helper, level, wall, body, 20);
             });
         });
+    }
+
+    private static void awaitQueuedBlast(GameTestHelper helper, ServerLevel level, BlockPos wall,
+                                         Villager body, int remainingTicks) {
+        if (level.getBlockState(wall).isAir()) {
+            helper.succeed();
+            return;
+        }
+        if (remainingTicks == 0) {
+            helper.fail("queued blast did not breach steel wall within 20 game ticks: body="
+                    + body.blockPosition() + ", wall=" + wall + ", wallState=" + level.getBlockState(wall));
+            return;
+        }
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1,
+                () -> awaitQueuedBlast(helper, level, wall, body, remainingTicks - 1));
     }
 
     public static void invalidAuthorityDoesNotPublishHeldFuse(GameTestHelper helper) {
