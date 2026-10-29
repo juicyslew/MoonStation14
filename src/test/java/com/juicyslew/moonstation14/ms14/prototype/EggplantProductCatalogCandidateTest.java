@@ -56,6 +56,6 @@ class EggplantProductCatalogCandidateTest {
         assertEquals("food", extract.get(id("eggplant")).grindableSolutionName());
         assertNull(extract.get(id("eggplant")).juiceSolution());
         for (String family : new String[]{"produce_profile", "ingestion_profile", "extractable_profile", "item_food_solution_profile"})
-            assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/eggplant.json"));
+            assertNotNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/eggplant.json"));
     }
 }

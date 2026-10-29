@@ -55,6 +55,12 @@ public final class GrinderRegisteredPlayerGameTests {
         runRegisteredGrinderProgram(helper, GrinderProgram.Operation.GRIND, SourceCase.FRESH_TOMATO);
     }
 
+    @GameTestTags({"botany-catalog", "botany-grinder-registered-player", "interaction", "prediction"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
+    public static void registeredPlayerGrindsFreshRegisteredCarrotThroughAuthenticatedSession(GameTestHelper helper) {
+        runRegisteredGrinderProgram(helper, GrinderProgram.Operation.GRIND, SourceCase.FRESH_CARROT);
+    }
+
     @GameTestTags({"botany", "botany-grinder-registered-player", "interaction", "prediction"})
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
     public static void registeredPlayerGrindsZeroDataTomatoWithoutRefillingThroughAuthenticatedSession(GameTestHelper helper) {
@@ -79,7 +85,7 @@ public final class GrinderRegisteredPlayerGameTests {
         runRegisteredGrinderProgram(helper, GrinderProgram.Operation.JUICE, SourceCase.PYROTTON_STACK);
     }
 
-    private enum SourceCase { NORMAL, FRESH_TOMATO, EMPTY_TOMATO, COTTON_MATERIAL, PYROTTON_MATERIAL, PYROTTON_STACK }
+    private enum SourceCase { NORMAL, FRESH_TOMATO, FRESH_CARROT, EMPTY_TOMATO, COTTON_MATERIAL, PYROTTON_MATERIAL, PYROTTON_STACK }
 
     private static void runRegisteredGrinderProgram(GameTestHelper helper, GrinderProgram.Operation operation) {
         runRegisteredGrinderProgram(helper, operation, SourceCase.NORMAL);
@@ -105,7 +111,9 @@ public final class GrinderRegisteredPlayerGameTests {
                                   ? new ItemStack(ModItems.COTTON_MATERIAL.get())
                                   : sourceCase == SourceCase.PYROTTON_MATERIAL || sourceCase == SourceCase.PYROTTON_STACK
                                           ? new ItemStack(ModItems.PYROTTON_MATERIAL.get(), sourceCase == SourceCase.PYROTTON_STACK ? 30 : 1)
-                                          : sourceCase == SourceCase.NORMAL && operation == GrinderProgram.Operation.JUICE
+                                  : sourceCase == SourceCase.FRESH_CARROT
+                                          ? ProduceFactory.createHarvest(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "carrots"), 10)
+                                  : sourceCase == SourceCase.NORMAL && operation == GrinderProgram.Operation.JUICE
                                   ? ProduceFactory.createHarvest(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "tomato"), 10)
                                   : sourceCase == SourceCase.NORMAL
                                           ? ProduceFactory.createHarvest(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "wheat"), 5)
@@ -113,7 +121,7 @@ public final class GrinderRegisteredPlayerGameTests {
                           var tomatoSource = sourceCase == SourceCase.NORMAL ? null
                                   : com.juicyslew.moonstation14.ms14.botany.ProduceSourceComposition.resolve(
                                           produce.getItem(), level);
-                           if (sourceCase == SourceCase.FRESH_TOMATO || sourceCase == SourceCase.EMPTY_TOMATO) {
+                            if (sourceCase == SourceCase.FRESH_TOMATO || sourceCase == SourceCase.EMPTY_TOMATO) {
                               require(tomatoSource != null && tomatoSource.capacityCents() == 1400
                                               && tomatoSource.contentsCents().equals(Map.of(
                                                       net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "nutriment"), 700L,
@@ -271,8 +279,13 @@ public final class GrinderRegisteredPlayerGameTests {
                                       } else if (sourceCase == SourceCase.EMPTY_TOMATO) {
                                           require(completedContents.centContents().isEmpty(),
                                                   "zero-data registered tomato does not refill beaker with prototype chemistry");
-                                      } else require(completedContents.centContents().values().stream().mapToLong(Long::longValue).sum() == 650,
-                                              "timed grinding transfers 650 cents");
+                                   } else if (sourceCase == SourceCase.FRESH_CARROT) {
+                                       var sourceChemistry = produce.get(ModDataComponents.REAGENT.get());
+                                       require(sourceChemistry != null && !sourceChemistry.centContents().isEmpty()
+                                                       && completedContents.centContents().equals(sourceChemistry.centContents()),
+                                               "powered authenticated grind transfers exact generated carrot chemistry");
+                                   } else require(completedContents.centContents().values().stream().mapToLong(Long::longValue).sum() == 650,
+                                               "timed grinding transfers 650 cents");
                                   }
                                   if (sourceCase != SourceCase.PYROTTON_STACK) {
                                       require(grinder.chamberSlots().get(0).snapshot().stack().isEmpty(), "timed mode consumes source");

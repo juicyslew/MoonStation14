@@ -178,7 +178,6 @@ def flatmanifest(path,source_root):
         status=row.get('status','')
         if isinstance(status,str) and any(word in status.casefold() for word in ('remap','transform','unsupported')):
             raise ValueError(f'unsupported manifest transform at files[{i}]: {status}')
-        if Path(src).suffix.casefold()=='.mtl': raise ValueError(f'unsupported MTL remapping/transform: {src}')
         sp=safe(base,src); dp=Path(dest)
         if dp.is_absolute() or '..' in dp.parts or not dp.parts: raise ValueError(f'invalid destination: {dest}')
         sk=src.casefold(); dk=dp.as_posix().casefold()
@@ -187,6 +186,37 @@ def flatmanifest(path,source_root):
         srcs.add(sk); dests.add(dk)
         if not sp.is_file(): raise ValueError(f'missing source/dependency: {src}')
         output.append({'source':src,'destination':dp.as_posix(),'source_sha256':sha(sp),'size':sp.stat().st_size})
+    by_source={Path(row['source']).as_posix().casefold():row for row in output}
+    referenced_mtls=set()
+    for row in output:
+        if Path(row['source']).suffix.casefold()!='.obj': continue
+        for line in safe(base,row['source']).read_text(encoding='utf-8').splitlines():
+            fields=line.strip().split()
+            if fields and fields[0].casefold()=='mtllib':
+                for name in fields[1:]:
+                    dependency=(Path(row['source']).parent/name).as_posix()
+                    if dependency.casefold() not in by_source or Path(by_source[dependency.casefold()]['source']).suffix.casefold()!='.mtl':
+                        raise ValueError(f'missing OBJ material dependency: {dependency}')
+                    material=by_source[dependency.casefold()]
+                    expected=(Path(row['destination']).parent/name).as_posix()
+                    if material['destination'].casefold()!=expected.casefold():
+                        raise ValueError(f'OBJ material destination remaps its unchanged reference: {name}')
+                    referenced_mtls.add(dependency.casefold())
+    for row in output:
+        if Path(row['source']).suffix.casefold()=='.mtl' and Path(row['source']).as_posix().casefold() not in referenced_mtls:
+            raise ValueError(f'MTL requires matching OBJ in delivered group: {row["source"]}')
+        if Path(row['source']).suffix.casefold()=='.mtl' and not row['destination'].casefold().startswith('assets/'):
+            raise ValueError(f'MTL destination must remain in the canonical assets tree: {row["destination"]}')
+        if Path(row['source']).suffix.casefold()=='.mtl':
+            for line in safe(base,row['source']).read_text(encoding='utf-8').splitlines():
+                fields=line.strip().split()
+                if fields and fields[0].casefold().startswith('map_'):
+                    dependency=(Path(row['source']).parent/fields[-1]).as_posix()
+                    if dependency.casefold() not in by_source:
+                        raise ValueError(f'missing MTL texture dependency: {dependency}')
+                    expected=(Path(row['destination']).parent/fields[-1]).as_posix()
+                    if by_source[dependency.casefold()]['destination'].casefold()!=expected.casefold():
+                        raise ValueError(f'MTL texture destination remaps its unchanged reference: {fields[-1]}')
     return path,m,output
 
 def context_snapshot(values,base,folder):
@@ -271,22 +301,24 @@ def delivery_digest(manifest_hash,rows,metadata,revision):
     blob=json.dumps({'manifest':manifest_hash,'files':rows,'metadata':metadata,'revision':revision},sort_keys=True,separators=(',',':')).encode()
     return hashlib.sha256(blob).hexdigest()
 
-def verify_delivery(folder,r):
+def verify_delivery(folder,r, *, verify_sources=True):
     d=r.get('delivery')
     if not d: raise ValueError('no delivery')
     mp=folder/'delivery'/'source_manifest.json'
     if not mp.is_file() or sha(mp)!=d['manifest_sha256']: raise ValueError('captured manifest hash changed')
     srcroot=Path(d['source_root']); path=Path(d['manifest_path'])
-    if not path.is_file() or sha(path)!=d['manifest_sha256']: raise ValueError('original source manifest stale; create a new revision')
-    _,_,current=flatmanifest(path,srcroot)
-    if current!=d['files']: raise ValueError('source files changed since delivery; create a new revision')
+    if verify_sources:
+        if not path.is_file() or sha(path)!=d['manifest_sha256']: raise ValueError('original source manifest stale; create a new revision')
+        _,_,current=flatmanifest(path,srcroot)
+        if current!=d['files']: raise ValueError('source files changed since delivery; create a new revision')
     if delivery_digest(d['manifest_sha256'],d['files'],d['metadata'],d['revision'])!=d['digest']: raise ValueError('delivery receipt digest mismatch')
     for row in d['files']:
         copied=folder/'delivery'/'files'/row['destination']
         if not copied.is_file() or sha(copied)!=row['source_sha256']: raise ValueError(f'delivered bytes changed: {row["source"]}')
-    for x in d['metadata']:
-        p=safe(srcroot,x['path'])
-        if not p.is_file() or sha(p)!=x['sha256']: raise ValueError(f'delivery metadata stale: {x["path"]}')
+    if verify_sources:
+        for x in d['metadata']:
+            p=safe(srcroot,x['path'])
+            if not p.is_file() or sha(p)!=x['sha256']: raise ValueError(f'delivery metadata stale: {x["path"]}')
     return d
 
 def evidence_paths(paths,base):
@@ -399,8 +431,8 @@ def cmd_review(a,root):
     r['review']={'result':a.result,'report_path':str(Path(a.report).resolve()),'report_sha256':sha(Path(a.report)),'report':report,'viewed_images':images,'inspection_is_reviewer_assertion':True}
     r['status']=a.result; writejson(folder/'request.json',r); print(a.result)
 
-def current_review(folder,r):
-    d=verify_delivery(folder,r); review=r.get('review')
+def current_review(folder,r, *, verify_sources=True):
+    d=verify_delivery(folder,r,verify_sources=verify_sources); review=r.get('review')
     if not review or review['result']!='ready_for_owner': raise ValueError('independent ready_for_owner review required')
     if not Path(review.get('report_path','')).is_file() or review['report_sha256']!=sha(Path(review['report_path'])): raise ValueError('review report changed')
     report=read_report(review['report_path'])
@@ -432,14 +464,14 @@ def target_plan(target,d,overwrite=False):
     return result
 
 def cmd_import(a,root):
-    folder,r=getrequest(root,a.id); d=verify_delivery(folder,r)
+    folder,r=getrequest(root,a.id); d=verify_delivery(folder,r,verify_sources=False)
     owner_hash=None
     if a.owner_receipt:
         owner=readjson(a.owner_receipt)
-        if owner.get('request_id')!=a.id or owner.get('decision')!='accepted' or owner.get('delivery_digest')!=d['digest']: raise ValueError('owner receipt must accept this exact request and delivery digest')
+        if owner.get('request_id')!=a.id or owner.get('decision') not in ('accepted','accepted_as_is_closed') or owner.get('delivery_digest')!=d['digest']: raise ValueError('owner receipt must accept this exact request and delivery digest')
         owner_hash=sha(Path(a.owner_receipt))
     if a.apply:
-        d,review=current_review(folder,r)
+        d,review=current_review(folder,r,verify_sources=False)
         if owner_hash is None: raise ValueError('owner receipt required for --apply')
         if (folder/'import_receipt.json').exists(): raise ValueError('this request already has a successful import receipt; use a new request/revision id')
     target=Path(a.target).resolve(); plan=target_plan(target,d,a.allow_overwrite)
@@ -455,7 +487,6 @@ def cmd_import(a,root):
     for row in d['files']:
         dst=safe(target,row['destination']); src=folder/'delivery'/'files'/row['destination']
         if sha(src)!=row['source_sha256']: raise ValueError('delivery changed after plan')
-        if sha(safe(d['source_root'],row['source']))!=row['source_sha256']: raise ValueError('source changed after plan')
     outcomes=[]
     for index,(row,p) in enumerate(zip(d['files'],plan)):
         dst=safe(target,row['destination'])

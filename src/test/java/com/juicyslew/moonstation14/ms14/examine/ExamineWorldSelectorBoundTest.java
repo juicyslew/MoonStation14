@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -50,4 +51,29 @@ class ExamineWorldSelectorBoundTest {
         assertEquals(32, bounded.size());
         assertEquals(pool, bounded, "under-cap candidate order is unchanged");
     }
+
+    @Test void expandedLooseItemRayHitWinsFloorBehindAndFrontOverlapHasStableOrder() {
+        Vec3 origin = Vec3.ZERO, direction = new Vec3(0, 0, 1);
+        AABB physicalItem = new AABB(-.1, 0, 2, .1, .2, 2.2);
+        AABB itemRayBounds = physicalItem.inflate(BodyItemTargetProbe.TARGET_MARGIN);
+        var itemHit = com.juicyslew.moonstation14.ms14.examine.client.ExamineRay.intersect(origin, direction, 8, itemRayBounds);
+        assertNotNull(itemHit);
+        assertTrue(itemHit.distance() < 2, "canonical targeting margin nominates item before the floor");
+        var item = new ExamineSelector.Candidate(ExamineTarget.entity(1,
+                UUID.fromString("00000000-0000-0000-0000-000000000001")), itemHit.point(), itemHit.distance(), "item", itemRayBounds, false, true);
+        var floor = new ExamineSelector.Candidate(ExamineTarget.block(new BlockPos(0, 0, 2)),
+                new Vec3(0, 0, 2), 2, "floor", new AABB(-1, 0, 2, 1, 1, 3));
+        var frontBounds = itemRayBounds.move(0, 0, -.2);
+        var frontHit = com.juicyslew.moonstation14.ms14.examine.client.ExamineRay.intersect(origin, direction, 8, frontBounds);
+        assertNotNull(frontHit);
+        var frontOverlap = new ExamineSelector.Candidate(ExamineTarget.entity(2,
+                UUID.fromString("00000000-0000-0000-0000-000000000002")), frontHit.point(), frontHit.distance(),
+                "front item", frontBounds, false, true);
+        var ordered = com.juicyslew.moonstation14.ms14.examine.client.ExamineCandidateOrdering.nearest(
+                List.of(floor, item, frontOverlap), 8);
+        assertEquals(frontOverlap.target(), ordered.get(0).target());
+        assertEquals(item.target(), ordered.get(1).target());
+        assertEquals(floor.target(), ordered.get(2).target());
+    }
+
 }

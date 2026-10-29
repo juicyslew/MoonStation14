@@ -60,9 +60,7 @@ class BotanyProductIdentityTest {
         assertTrue(produce.containsKey(id("poppy")));
 
         var mainRoot = "data/moonstation14/moonstation14/produce_profile/";
-        for (var key : existing) if (!key.equals("meatwheat_bushel"))
-            assertNull(loader.getResource(mainRoot + key + ".json"), "candidate-only primary profile " + key);
-        assertNotNull(loader.getResource(mainRoot + "meatwheat_bushel.json"));
+        BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate("produce_profile", existing.toArray(String[]::new));
         var aliases = new String[]{"food_lemon", "food_lemoon", "food_lime", "food_orange", "food_apple", "food_golden_apple", "chanterelle"};
         for (var family : new String[]{"produce_profile", "ingestion_profile", "extractable_profile"}) {
             for (var alias : aliases) {

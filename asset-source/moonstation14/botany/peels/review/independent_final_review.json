@@ -1,0 +1,34 @@
+{
+  "request_id": "botany-peels-3d-loose-production-20261028",
+  "recommendation": "ready_for_owner",
+  "reviewer": "investigate independent read-only subagent",
+  "session_id": "ses_e79ed9abfffetnQJhtAlvGV9Eb",
+  "scope": "Complete frozen banana and mimana pair, not owner acceptance or import permission",
+  "frozen_file_hashes_independently_recomputed": 109,
+  "saved_files": 110,
+  "findings": [
+    "Both models read as low, open, curved, separated peel lobes; yellow/ochre banana and distinct pale gray/green mimana palettes retained.",
+    "No whole fruit, flat sprite extrusion or wearable remake. Both models66quads within96target, same volume across loose/held/inventory.",
+    "All109frozen entries matched and all11actual-viewed preview hashes matched visual_review.json.",
+    "OBJ/MTL/wrappers form complete12file group. Banana keeps physical/gameplay fields, adding visual-only render settings; mimana keeps inherited chain. Wearable bindings remain untouched."
+  ],
+  "uncertainties": [
+    "Proposed model_scale.8 and floor_offset.4 depend on unexecuted native ItemRenderer centring/pose-order assumptions; CPU contract previews are not Blockbench-app/NeoForge/GPU/in-game validation.",
+    "Owner/integration review must resolve native placement and item context behavior before import. Recommendation is NOT owner acceptance."
+  ],
+  "viewed_images": [
+    {"path":"previews/source_contact.png","sha256":"4ed0af9e0afe1993ed1d2933c09d617624726066ed4cc76349c64186cb697aae"},
+    {"path":"previews/trash_banana_peel_source_model.png","sha256":"4c69ae93b4e464a0e1aaaf9f478027eb7ed15345769fee1407af4bfc1f0febb9"},
+    {"path":"previews/trash_banana_peel_eight_views.png","sha256":"43eb97bcffa6a9c5903a8a50381945a2148696218ce3497a2bcb8f87e19feff0"},
+    {"path":"previews/trash_banana_peel_world.png","sha256":"89e746d14ba7024849340fa7945f4be92d8b1957eb56ea6386cc91de93cb490c"},
+    {"path":"previews/trash_banana_peel_palm.png","sha256":"bcac0a3e126374bb5b49650912ab121e581d80cd028f1517eac7457a9d4dba62"},
+    {"path":"previews/trash_banana_peel_item_contexts.png","sha256":"f02cbdbc82ca056e4e693ded343539ef3d0943196e79b8f9835169b1e2f0d91e"},
+    {"path":"previews/trash_mimana_peel_source_model.png","sha256":"251721c8e6bf5b917b04bcb60ec77f28c05f5d6dfd2795569f6fcaa5986e3d61"},
+    {"path":"previews/trash_mimana_peel_eight_views.png","sha256":"2854f9e9d18d10445d6c160e05cdb3a99e4ac4afb1544da29ce1fc02e86ae76d"},
+    {"path":"previews/trash_mimana_peel_world.png","sha256":"aa58ce21a3db7ee471bf7f28f21d8055f7d07938dd67f14a335f3ae3c7531b40"},
+    {"path":"previews/trash_mimana_peel_palm.png","sha256":"e06e48a549b2f21edd4f222d22ce590b60cd8d13fcd167e03e096ebe5d431f37"},
+    {"path":"previews/trash_mimana_peel_item_contexts.png","sha256":"75883f81e6cdd0258a09342c68ef43428e0f7a547f981a56ad7151c1b816fb3a"}
+  ],
+  "edits_performed_by_reviewer": false,
+  "queue_or_owner_handoff_performed_by_reviewer": false
+}

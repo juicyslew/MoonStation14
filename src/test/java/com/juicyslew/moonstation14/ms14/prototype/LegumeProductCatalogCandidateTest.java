@@ -65,11 +65,10 @@ class LegumeProductCatalogCandidateTest {
             assertEquals(entry.getKey().equals("rice") || entry.getKey().equals("soybeans") || entry.getKey().equals("koibean"), edible.requiresSpecialDigestion());
             assertEquals(juiceKeys(juices.get(entry.getKey())), extract.get(productId).juiceSolution() == null ? null : extract.get(productId).juiceSolution().centContents());
             assertEquals("food", extract.get(productId).grindableSolutionName());
-            assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/produce_profile/" + entry.getValue() + ".json"));
-            assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/ingestion_profile/" + entry.getValue() + ".json"));
-            assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/extractable_profile/" + entry.getValue() + ".json"));
+            for (String family : new String[]{"produce_profile", "ingestion_profile", "extractable_profile"})
+                BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, entry.getValue());
         }
-        assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/ingestion_profile/ruminant_edible_base.json"));
+        BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate("ingestion_profile", "ruminant_edible_base");
     }
 
     private static Map<net.minecraft.resources.ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData>, Long> juiceKeys(Map<ResourceLocation, Long> contents) {

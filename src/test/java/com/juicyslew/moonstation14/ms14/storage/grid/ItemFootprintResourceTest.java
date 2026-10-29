@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.storage.grid;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeResolver;
@@ -20,18 +21,51 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ItemFootprintResourceTest {
     private static final String RESOURCE_ROOT = "data/moonstation14/moonstation14/item_footprint";
 
     @Test
+    void everySupportedSourceSpeciesLinksToMainProductAndPacketFootprints() throws IOException {
+        var unsupported = java.util.Set.of("killer_tomato", "anomaly_berry", "gatfruit", "fake_capfruit",
+                "real_capfruit", "spacemans_trumpet");
+        var expectedSpecies = BotanyCatalogCandidateTest.resources().keySet().stream()
+                .map(ResourceLocation::getPath).filter(name -> !name.equals("defaults") && !unsupported.contains(name))
+                .collect(java.util.stream.Collectors.toSet());
+        assertEquals(65, expectedSpecies.size());
+
+        var mainSeeds = BotanyCatalogCandidateTest.mainResources("seed_profile", expectedSpecies.toArray(String[]::new));
+        var footprints = PrototypeResolver.resolve(loadResources());
+        for (String species : expectedSpecies) {
+            var source = mainSeeds.get(id(species));
+            assertTrue(source != null, "missing MAIN seed profile " + species);
+            var packet = ResourceLocation.parse(source.get("packet").getAsString());
+            var product = ResourceLocation.parse(source.get("product").getAsString());
+            assertTrue(footprints.get(packet) != null, species + " packet footprint " + packet);
+            assertTrue(footprints.get(product) != null, species + " product footprint " + product);
+            var packetProfile = ItemFootprintProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                    footprints.get(packet)).getOrThrow();
+            assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), packetProfile.itemSize(),
+                    species + " packet size from source packet expectation");
+        }
+        assertEquals(65, mainSeeds.size());
+        assertEquals(id("pea_seeds"), ResourceLocation.parse(mainSeeds.get(id("pea")).get("packet").getAsString()));
+        assertEquals(ResourceLocation.parse(mainSeeds.get(id("pea")).get("packet").getAsString()),
+                ResourceLocation.parse(mainSeeds.get(id("world_pea")).get("packet").getAsString()));
+        assertNotEquals(ResourceLocation.parse(mainSeeds.get(id("pea")).get("product").getAsString()),
+                ResourceLocation.parse(mainSeeds.get(id("world_pea")).get("product").getAsString()));
+    }
+
+    @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        assertEquals(72, raw.size());
+        // 202 concrete profiles plus five abstract geometry templates in the production inventory.
+        assertEquals(207, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(67, resolved.size());
+        assertEquals(202, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -52,7 +86,7 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(67, catalog.size());
+        assertEquals(202, catalog.size());
         var pocket = new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData(java.util.List.of(
                 new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.Slot("pocket1", "Pocket",
                         ResourceLocation.withDefaultNamespace("test"), "Default", 0, 0, java.util.List.of(
@@ -118,6 +152,22 @@ class ItemFootprintResourceTest {
         assertEquals(1, catalog.get(id("signal_button")).cells().size());
         assertEquals(1, catalog.get(id("signal_switch")).cells().size());
         assertTrue(catalog.get(id("bag")).cells().contains(new GridGeometry.Cell(3, 3)));
+
+        // Representative profiles from the expanded production crop/output catalog.
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("carrots_seeds")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id("carrot")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("pea_seeds")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id("food_world_peas")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id("food_pea_pod")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id("watermelon")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("trash_cherry_pit")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("blood_tomato_seeds")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("blue_tomato_seeds")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("papercane_seeds")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("steelcap_seeds")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("towercap_seeds")).itemSize());
+        for (String product : new String[]{"blood_tomato", "blue_tomato", "papercane", "steel_log", "log"})
+            assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id(product)).itemSize(), product);
     }
 
     @Test

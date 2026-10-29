@@ -1,0 +1,6 @@
+{
+  "parent": "moonstation14:trash_banana_peel",
+  "slippery": {
+    "sound_volume_db": -100
+  }
+}

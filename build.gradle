@@ -257,6 +257,7 @@ readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.loose_objects.LooseSlipPrototypeManagerTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantMutationRecordTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantSpeciesMutationCycleTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantPollenCrossTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantSeedReferenceTest',
@@ -313,6 +314,10 @@ readinessCatalog.ui.addAll([
 readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRendererAlphaTest')
 readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogProductionTest',
+    'com.juicyslew.moonstation14.ms14.botany.BotanySpeciesAvailabilityTest',
+    'com.juicyslew.moonstation14.ms14.botany.BotanyCatalogSupplyPlanTest',
+    'com.juicyslew.moonstation14.resource.BotanyCatalogItemResourcesTest',
     'com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest',
     'com.juicyslew.moonstation14.ms14.botany.SeedItemProfileTest',
     'com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest',

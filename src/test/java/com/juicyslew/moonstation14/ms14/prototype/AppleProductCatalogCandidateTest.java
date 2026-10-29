@@ -75,7 +75,7 @@ class AppleProductCatalogCandidateTest {
 
     private static void assertMainSourceAbsent(String name) {
         try (var stream = AppleProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream("data/moonstation14/moonstation14/item_food_solution_profile/" + name + ".json")) {
-            assertNull(stream, "candidate source remains TEST-only: " + name);
+            assertNotNull(stream, "activated MAIN food solution: " + name);
         } catch (java.io.IOException e) { throw new AssertionError(e); }
     }
 

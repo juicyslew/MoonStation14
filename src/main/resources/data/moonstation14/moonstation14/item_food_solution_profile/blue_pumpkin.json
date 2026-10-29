@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:blue_pumpkin",
+  "capacity_cents": 2500,
+  "contents_cents": {
+    "moonstation14:ammonia": 1000,
+    "moonstation14:chlorine": 500,
+    "moonstation14:vitamin": 1000
+  },
+  "refillable": true
+}

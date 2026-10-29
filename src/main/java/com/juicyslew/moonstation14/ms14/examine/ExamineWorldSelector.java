@@ -14,9 +14,12 @@ public final class ExamineWorldSelector {
     public static final int MAX_CANDIDATES = 32;
     public static final double MAX_VISIBLE_RANGE = 128;
     public record Candidate(ExamineTarget target, Vec3 hitPoint, double distance, String publicName, AABB box,
-                            boolean transparent) {
+                            boolean transparent, boolean looseItem) {
+        public Candidate(ExamineTarget target, Vec3 hitPoint, double distance, String publicName, AABB box, boolean transparent) {
+            this(target, hitPoint, distance, publicName, box, transparent, false);
+        }
         public Candidate(ExamineTarget target, Vec3 hitPoint, double distance, String publicName, AABB box) {
-            this(target, hitPoint, distance, publicName, box, false);
+            this(target, hitPoint, distance, publicName, box, false, false);
         }
     }
     private ExamineWorldSelector() { }
@@ -114,9 +117,11 @@ public final class ExamineWorldSelector {
         AABB search = new AABB(rayOrigin, end).inflate(1.0);
         for (Entity entity : level.getEntities((Entity) null, search, e -> !e.isRemoved()
                 && !e.isInvisible() && (ignoredEntityIds == null || !ignoredEntityIds.contains(e.getId())))) {
-            Hit hit = intersect(rayOrigin, direction, Math.min(limit, opaqueStop), entity.getBoundingBox());
+            AABB bounds = entity.getBoundingBox();
+            Hit hit = intersect(rayOrigin, direction, Math.min(limit, opaqueStop), bounds);
             if (hit != null) candidates.add(new Candidate(ExamineTarget.entity(entity), hit.point(), hit.distance(),
-                    com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(entity).getString(), entity.getBoundingBox(), false));
+                    com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(entity).getString(), bounds,
+                    false, entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity));
         }
         LinkedHashMap<ExamineTarget, Candidate> unique = new LinkedHashMap<>();
         candidates.stream().sorted(Comparator.comparingDouble(Candidate::distance))
@@ -200,4 +205,3 @@ public final class ExamineWorldSelector {
     private static double delta(double v){return v==0?Double.POSITIVE_INFINITY:Math.abs(1/v);}
     private static double firstBoundary(double origin,double direction,int cell,int step){return step==0?Double.POSITIVE_INFINITY:((step>0?cell+1.0:cell)-origin)/direction;}
 }
-

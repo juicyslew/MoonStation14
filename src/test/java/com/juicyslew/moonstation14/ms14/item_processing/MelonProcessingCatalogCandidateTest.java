@@ -1,7 +1,6 @@
 package com.juicyslew.moonstation14.ms14.item_processing;
 
 import com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest;
-import com.juicyslew.moonstation14.ms14.prototype.PrototypeLoadException;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeResolver;
 import com.mojang.serialization.JsonOps;
@@ -42,7 +41,7 @@ class MelonProcessingCatalogCandidateTest {
                     profile.butcherable().outputs());
             assertNull(profile.log());
             assertNull(profile.spawnItemsOnUse());
-            assertMainAbsent(source);
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate("item_processing_profile", source);
         }
 
         // This candidate intentionally cannot pass registered-output admission. Do not create
@@ -50,20 +49,10 @@ class MelonProcessingCatalogCandidateTest {
         var manager = new PrototypeManager();
         manager.register(ModItemProcessingProfiles.TYPE);
         var before = manager.snapshot();
-        var failure = assertThrows(PrototypeLoadException.class,
+        var failure = assertThrows(IllegalArgumentException.class,
                 () -> manager.stage(Map.of(ModItemProcessingProfiles.TYPE, raw), ignored -> { }));
-        assertTrue(rootMessages(failure).contains("unknown SliceableFood output item"), rootMessages(failure));
+        assertTrue(failure.getMessage().contains("has no resolved edible solution profile"), failure.getMessage());
         assertSame(before, manager.snapshot());
     }
 
-    private static String rootMessages(Throwable error) {
-        var messages = new StringBuilder();
-        for (var current = error; current != null; current = current.getCause()) messages.append(current.getMessage()).append('\n');
-        return messages.toString();
-    }
-
-    private static void assertMainAbsent(String item) {
-        assertNull(MelonProcessingCatalogCandidateTest.class.getClassLoader().getResource(
-                "data/moonstation14/moonstation14/item_processing_profile/" + item + ".json"));
-    }
 }

@@ -22,6 +22,61 @@ class AuthoredWearableRendererTest {
         assertFalse(AuthoredWearableRenderer.canRender(Optional.empty(), PlayerCharacterBodyShape.WIDE, true));
     }
 
+    @Test void selectsActualAuthoredSequenceMeshesAtPresentationBoundaries() {
+        var base = ResourceLocation.parse("moonstation14:wearables/meshes/hats/hat_holy_watermelon.json");
+        var frames = java.util.stream.IntStream.range(0, 4).mapToObj(i -> new EquipmentItemData.WornModel.Frame(
+                i == 0 ? base : ResourceLocation.parse("moonstation14:wearables/meshes/hats/hat_holy_watermelon__f" + i + ".json"), .5)).toList();
+        var animated = new EquipmentItemData.WornModel(base, PlayerCharacterBodyShape.WIDE, frames);
+        assertEquals(frames.get(0).mesh(), AuthoredWearableRenderer.selectedMesh(animated, 0));
+        assertEquals(frames.get(0).mesh(), AuthoredWearableRenderer.selectedMesh(animated, .4999));
+        assertEquals(frames.get(1).mesh(), AuthoredWearableRenderer.selectedMesh(animated, .5));
+        assertEquals(frames.get(2).mesh(), AuthoredWearableRenderer.selectedMesh(animated, 1));
+        assertEquals(frames.get(3).mesh(), AuthoredWearableRenderer.selectedMesh(animated, 1.5));
+        assertEquals(frames.get(0).mesh(), AuthoredWearableRenderer.selectedMesh(animated, 2));
+        assertEquals(base, AuthoredWearableRenderer.selectedMesh(new EquipmentItemData.WornModel(base, PlayerCharacterBodyShape.WIDE), 50));
+    }
+
+    @Test void selectedFrameMeshLookupEmitsThatMeshAndMissingSelectedFrameFallsBack() throws Exception {
+        var base = ResourceLocation.parse("moonstation14:wearables/meshes/hats/hat_holy_watermelon.json");
+        var frame = ResourceLocation.parse("moonstation14:wearables/meshes/hats/hat_holy_watermelon__f1.json");
+        var worn = new EquipmentItemData.WornModel(base, PlayerCharacterBodyShape.WIDE, java.util.stream.IntStream.range(0, 4)
+                .mapToObj(i -> new EquipmentItemData.WornModel.Frame(i == 0 ? base : ResourceLocation.parse(
+                        "moonstation14:wearables/meshes/hats/hat_holy_watermelon__f" + i + ".json"), .5)).toList());
+        var garment = new EquipmentRenderPlan.Garment("head", base, EquipmentItemData.AppearanceRegion.HEAD,
+                -1, java.util.List.of(EquipmentRenderPlan.Anchor.HEAD), 0, Optional.of(worn));
+        var loaded = java.util.Map.of(base, loadMesh(base), frame, loadMesh(frame));
+        var selectedLookup = new java.util.ArrayList<ResourceLocation>();
+        var emittedTexture = new java.util.ArrayList<ResourceLocation>();
+        var capture = new Capture();
+        var bone = new net.minecraft.client.model.geom.ModelPart(java.util.List.of(), java.util.Map.of());
+        var rendered = AuthoredWearableRenderer.render(garment, .5, id -> {
+            selectedLookup.add(id);
+            return Optional.ofNullable(loaded.get(id));
+        }, texture -> { emittedTexture.add(texture); return capture; }, ignored -> bone, new PoseStack(), 123);
+        assertTrue(rendered);
+        assertEquals(java.util.List.of(frame), selectedLookup);
+        assertEquals(java.util.List.of(ResourceLocation.parse("moonstation14:textures/entity/equipment/hats/hat_holy_watermelon__f1.png")), emittedTexture);
+        assertTrue(capture.x.size() > 0, "selected frame authored vertices are emitted");
+
+        var missingFrameLookups = new java.util.ArrayList<ResourceLocation>();
+        var missingFrameCapture = new Capture();
+        var authored = AuthoredWearableRenderer.render(garment, .5, id -> {
+            missingFrameLookups.add(id);
+            return Optional.ofNullable(id.equals(base) ? loaded.get(base) : null);
+        }, ignored -> missingFrameCapture, ignored -> bone, new PoseStack(), 123);
+        assertFalse(authored, "missing selected frame requests placeholder fallback despite base mesh being loaded");
+        assertEquals(java.util.List.of(frame), missingFrameLookups);
+        assertTrue(missingFrameCapture.x.isEmpty());
+    }
+
+    private static AuthoredWearableMesh loadMesh(ResourceLocation id) throws Exception {
+        var path = "/assets/" + id.getNamespace() + "/" + id.getPath();
+        try (var reader = new java.io.InputStreamReader(java.util.Objects.requireNonNull(
+                AuthoredWearableRendererTest.class.getResourceAsStream(path)), java.nio.charset.StandardCharsets.UTF_8)) {
+            return AuthoredWearableMesh.parse(reader);
+        }
+    }
+
     @Test void productionEmitterUsesBoneTransformAndWhiteAuthoredVertices() {
         var mesh=AuthoredWearableMesh.parse(new java.io.StringReader("""
                 {"schema":"moonstation14.wearable_interchange.v1 (proposed, NOT existing runtime loader)","texture":"moonstation14:textures/test.png","anchors":{"head":{"canonical_pivot":[99,88,77],"cubes":[{"quads":[{"vertices":[[16,0,0],[0,0,0],[0,16,0],[16,16,0]],"normal":[0,0,-1],"uv_top_left":[[0,0],[1,0],[1,1],[0,1]],"winding":[0,1,2,3]}]}]}}}

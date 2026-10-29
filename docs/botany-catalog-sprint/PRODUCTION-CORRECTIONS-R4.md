@@ -1,0 +1,24 @@
+# Botany catalog production corrections R4
+
+**Request:** `botany-catalog-production-corrections-r4-20261029`. This is a new immutable corrective request, not a revision of R3 and not authorization to import or overwrite runtime assets. Produce a complete, reviewable production delivery (not a checkpoint, sample loop, or partial patch) using conforming R7 native assets as starting material. Reject only the specific failed criteria below; preserve all already-conforming R7 work.
+
+## Lineage and review findings
+
+R3 delivery `botany-catalog-tree-performance-production-r3-20261028`, digest `bca2fa2df19dd7b314253888562b6fab1e16281eb4e4d6056236295eaaf181da`, revision `production_completion_r7_full_catalog_bounds_optics`. Independent review `ses_e795e7d5bffeTWCBoz6xfVfwii` failed. The review verified all 1,420 delivered file hashes; failures are content/compliance, not package hash integrity:
+
+- Producer `tooling/package.py` and `finish.py` deliberately override live adult foliage clearance: apple canopy bottom is 20.2 native units (1.2625 blocks), below the required 2.1 blocks. Correct all nine woody families' live adult states; do not rely on comments or script overrides as permission to depart.
+- Ordinary pumpkin and blue pumpkin remain over-budget in all five states each: stage 1 has 524 faces; stage 2, stage 3, dead 2,140; harvest 5,140. Retopologize these ten states.
+- The all-state tree views expose foliage/trunk/fruit geometry clearance issues. Independently inspect geometry and prove live-leaf clearance, not just a nominal overall bound.
+
+R7's top-height result of 2.8 ±0.1 blocks is conforming and should be retained. Its active-65 aggregate of 38,466 triangle-equivalents is below 50,000, but does not excuse per-state hotspots. Review's sampled ordinary maximum of 384 is likewise not proof that every state meets the ordinary target.
+
+## Required corrections and preservation
+
+1. Correct all nine woody adult live-foliage states (`apple`, `golden_apple`, `lemon`, `lemoon`, `lime`, `orange`, `extradimensional_orange`, `banana`, `mimana`): leaf geometry bottom ≥2.1 blocks above native tray origin; natural geometry top 2.8 ±0.1 blocks. Measure leaves separately from trunk and fruit. Banana fruit may hang below the threshold; leaves may not. Young/dead droop is acceptable where natural. Achieve this through natural topology/placement, never vertex stretching or post-export height hacks. Retain natural family anatomy, native scale/root, and recognizable palettes.
+2. Retopologize ordinary pumpkin and blue pumpkin across **all five states each** to ≤256 declared faces per state (hard cap 384). Use recognizable pumpkin/rind/vine topology, native palette and source identity; avoid texture polish or deformation as a substitute.
+3. Retain the R3 full catalog scope: canonical 69 visuals / 428 bindings; screen every state of active 65, with projected mature active-65 total ≤50,000 triangle-equivalents. Preserve the six protected baselines (wheat, tomato, potato, poppy, aloe, meatwheat) and Bungo geometry (69 faces); do not edit them. Preserve inactive/gated status. Ordinary target ≤256 and hard cap 384 for every ordinary state; tree target ≤384 and hard cap 576 for every tree state; small first stages target ≤96 where practical. Report each state, actual projected totals, and exception list; **no new hard-cap exceptions without an architect decision**.
+4. Preserve R7-conforming geometry, palette, source identity, and dependencies everywhere else. Preserve exact optical source animation: rainbow cannabis 22 aggregate frame-delay entries at 80 ms and ambrosia Deus harvest four frames at 100 ms. Retain R7's documented native 50 ms Minecraft-clock quantization jitter only; no artificial timers, frozen animation, or changed long-term cadence/pattern.
+5. Deliver full closure: all native OBJ/JSON/MTL/PNG/`.mcmeta`, editable sources, licenses/attribution, complete flat runtime manifest and source-state counts, all 69/428 canonical bindings and geometry-derived bounds. Bounds must separate live leaf minimum from trunk/fruit where applicable and match geometry. Include before/after state counts and a complete per-state geometry audit.
+6. Review evidence: original-first comparisons, all nine trees in all states and multiple angles, native tray/floor origin, human 2.1-block clearance line, and separate leaf bounding minimum. Include full pumpkin and blue-pumpkin all-state views, animation frame/delay coverage, and all-state budget accounting. Images should demonstrate geometry rather than beauty-only renders.
+
+No runtime feature/refactor, simulation/collider, seed/genetics, shader/library/timer, mechanical/growth animation, or other unrelated changes. Do not change room height/renderer scale or override lighting. Delivery is for independent review only; it does not imply import authorization or owner acceptance.

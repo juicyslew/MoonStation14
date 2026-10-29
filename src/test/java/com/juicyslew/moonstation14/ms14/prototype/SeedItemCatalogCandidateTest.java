@@ -46,9 +46,7 @@ class SeedItemCatalogCandidateTest {
 
         var itemResources = BotanyCatalogCandidateTest.resources("seed_item_profile", candidateNames.toArray(String[]::new));
         var mainResources = BotanyCatalogCandidateTest.mainResources("seed_item_profile", mainNames.toArray(String[]::new));
-        for (var name : candidateNames)
-            assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/seed_item_profile/"
-                    + name + ".json"), "extended item must not exist in main resources: " + name);
+        BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate("seed_item_profile", candidateNames.toArray(String[]::new));
         for (var name : mainNames) if (!name.equals("meatwheat_seeds"))
             assertNull(getClass().getClassLoader().getResource("botany-catalog-candidate/seed_item_profile/"
                     + name + ".json"), "main item must not have a candidate copy: " + name);

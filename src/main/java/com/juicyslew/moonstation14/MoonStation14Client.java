@@ -173,6 +173,7 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerItemColors);
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
         modEventBus.addListener(MoonStation14Client::registerJugModels);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.botany.client.PlantTrayModelRegistration::onModifyBakingResult);
         modEventBus.addListener(MoonStation14Client::registerEmitterImpactParticle);
         modEventBus.addListener(MoonStation14Client::onRegisterRenderers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.mobs.client.MouseMobRenderer::registerLayer);
@@ -1267,4 +1268,3 @@ final class MoonStation14ClientNetworkEvents {
         MoonStation14Client.flushPendingAtmosphere(level);
     }
 }
-

@@ -10,7 +10,6 @@ import com.juicyslew.moonstation14.ms14.loose_objects.ModLooseObjectProfiles;
 import com.juicyslew.moonstation14.ms14.item_processing.ItemProcessingProfile;
 import com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeResolver;
-import com.juicyslew.moonstation14.ms14.prototype.PrototypeLoadException;
 import com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
@@ -70,22 +69,23 @@ class PumpkinProductCatalogCandidateTest {
         assertEquals(java.util.List.of(new ItemProcessingProfile.ItemOutput(id("carved_pumpkin"), 1),
                 new ItemProcessingProfile.ItemOutput(id("pumpkin_seeds"), 1)), processing.butcherable().outputs());
         assertNull(processing.sliceableFood(), "Pumpkin has no slicing action");
-        var processingFailure = assertThrows(PrototypeLoadException.class,
-                () -> manager.stage(Map.of(ModItemProcessingProfiles.TYPE, processingResources), ignored -> { }));
-        assertSame(before, manager.snapshot(), "unregistered butcher outputs remain rejected without publishing");
+        var activatedProcessing = new LinkedHashMap<ResourceLocation, ItemProcessingProfile>();
+        manager.stage(Map.of(ModItemProcessingProfiles.TYPE, processingResources), catalogs ->
+                catalogs.get(ModItemProcessingProfiles.TYPE.typeId()).forEach((key, raw) -> activatedProcessing.put(key,
+                        ItemProcessingProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, raw).getOrThrow())));
+        assertEquals(id("carved_pumpkin"), activatedProcessing.get(id("pumpkin")).butcherable().outputs().get(0).output());
+        var invalidProcessing = new LinkedHashMap<>(processingResources);
+        invalidProcessing.get(id("pumpkin")).getAsJsonObject("butcherable").getAsJsonArray("outputs").get(0)
+                .getAsJsonObject().addProperty("output", "moonstation14:synthetic_missing_output");
+        assertThrows(com.juicyslew.moonstation14.ms14.prototype.PrototypeLoadException.class,
+                () -> manager.stage(Map.of(ModItemProcessingProfiles.TYPE, invalidProcessing), ignored -> { }));
+        assertSame(before, manager.snapshot(), "candidate staging does not publish");
         var carved = equipmentResources.get(id("carved_pumpkin"));
         assertNotNull(carved, "carved pumpkin is item metadata, not clothing or armor");
-        for (var family : new String[]{"produce_profile", "ingestion_profile", "item_food_solution_profile", "extractable_profile", "loose_object_profile", "equipment_item"}) {
-            assertMainAbsent(family, "pumpkin");
-            assertMainAbsent(family, "carved_pumpkin");
-        }
+        for (var family : new String[]{"produce_profile", "ingestion_profile", "item_food_solution_profile", "extractable_profile", "loose_object_profile", "equipment_item"})
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "pumpkin", "carved_pumpkin");
         assertNull(BotanyCatalogCandidateTest.class.getClassLoader().getResource("botany-catalog-candidate/item_food_solution_profile/pumpkin_seeds.json"),
                 "reuse the existing pumpkin seed profile; do not add a duplicate");
     }
 
-    private static void assertMainAbsent(String family, String name) {
-        var path = "data/moonstation14/moonstation14/" + family + "/" + name + ".json";
-        try (var stream = PumpkinProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream(path)) { assertNull(stream, path); }
-        catch (java.io.IOException e) { throw new AssertionError(e); }
-    }
 }

@@ -94,4 +94,49 @@ class ExamineCandidateCycleTest {
         assertEquals(farther, cycle.update(List.of(candidate(glass, 1, true), candidate(behind, 2, false), candidate(farther, 3, false)), glass, behind, -1));
         assertEquals(farther, cycle.update(List.of(candidate(farther, 1, false), candidate(glass, 1, true), candidate(behind, 2, false)), glass, behind, 0));
     }
+
+    @Test void itemPileFrontDefaultAndTransparentWindowRetainCyclableCandidateOrder() {
+        var window = candidate(ExamineTarget.block(new BlockPos(0, 0, 1)), 1, true);
+        var front = looseCandidate(10, 1.5);
+        var rear = looseCandidate(11, 1.7);
+        var floor = candidate(ExamineTarget.block(new BlockPos(0, 0, 2)), 2, false);
+        var cycle = new ExamineCandidateCycle();
+        var visible = List.of(window, front, rear, floor);
+        assertEquals(front.target(), cycle.update(visible, null, null, 0),
+                "window is transparent, but default choice is the first front pile member");
+        assertEquals(rear.target(), cycle.update(visible, null, front.target(), -1));
+        assertEquals(floor.target(), cycle.update(visible, null, rear.target(), -1));
+    }
+
+    @Test void automaticSelectionTracksNearestOpaqueCandidateRatherThanStalePreferredFloor() {
+        var item = looseCandidate(20, 1);
+        var floor = candidate(ExamineTarget.block(new BlockPos(0, 0, 2)), 2, false);
+        var cycle = new ExamineCandidateCycle();
+        assertEquals(floor.target(), cycle.update(List.of(floor), null, null, 0));
+        assertEquals(item.target(), cycle.update(List.of(item, floor), null, floor.target(), 0));
+        assertEquals(floor.target(), cycle.update(List.of(floor), null, item.target(), 0));
+    }
+
+    @Test void nearerLooseItemOverridesStaleFloorButOrdinaryEntityDoesNot() {
+        var floor = candidate(ExamineTarget.block(new BlockPos(0, 0, 2)), 2, false);
+        var loose = looseCandidate(21, 1);
+        var ordinary = candidate(ExamineTarget.entity(22, java.util.UUID.fromString(
+                "00000000-0000-0000-0000-000000000022")), .5, false);
+        var cycle = new ExamineCandidateCycle();
+        assertEquals(floor.target(), cycle.update(List.of(floor), null, null, 0));
+        assertEquals(loose.target(), cycle.update(List.of(loose, floor), null, floor.target(), 0));
+        cycle.clear();
+        assertEquals(ordinary.target(), cycle.update(List.of(ordinary, floor), null, null, 0));
+        assertEquals(floor.target(), cycle.update(List.of(ordinary, floor), null, null, 1));
+        assertEquals(floor.target(), cycle.update(List.of(ordinary, loose, floor), null, floor.target(), 0),
+                "a manual floor choice remains until its candidate disappears");
+        cycle.clear();
+        assertEquals(floor.target(), cycle.update(List.of(floor), null, null, 0));
+        assertEquals(floor.target(), cycle.update(List.of(ordinary, floor), null, floor.target(), 0));
+    }
+
+    private static ExamineSelector.Candidate looseCandidate(int id, double distance) {
+        return new ExamineSelector.Candidate(ExamineTarget.entity(id, java.util.UUID.nameUUIDFromBytes(("loose" + id).getBytes())),
+                Vec3.ZERO, distance, "loose", new AABB(0, 0, distance, 1, 1, distance + 1), false, true);
+    }
 }

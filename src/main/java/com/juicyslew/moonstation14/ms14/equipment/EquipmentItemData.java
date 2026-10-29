@@ -25,12 +25,17 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
     }, AppearanceRegion::name);
     public static final Codec<Item> ITEM_CODEC = RecordCodecBuilder.create(i -> i.group(
             Codec.STRING.fieldOf("size").forGetter(Item::size)).apply(i, Item::new));
+    public static final Codec<WornModel.Frame> WORN_MODEL_FRAME_CODEC = RecordCodecBuilder.create(i -> i.group(
+            ResourceLocation.CODEC.fieldOf("mesh").forGetter(WornModel.Frame::mesh),
+            Codec.DOUBLE.fieldOf("duration_seconds").forGetter(WornModel.Frame::durationSeconds)
+    ).apply(i, WornModel.Frame::new));
     public static final Codec<WornModel> WORN_MODEL_CODEC = RecordCodecBuilder.create(i -> i.group(
             ResourceLocation.CODEC.fieldOf("mesh").forGetter(WornModel::mesh),
             Codec.STRING.comapFlatMap(value -> {
                 try { return com.mojang.serialization.DataResult.success(PlayerCharacterBodyShape.valueOf(value)); }
                 catch (IllegalArgumentException exception) { return com.mojang.serialization.DataResult.error(() -> "unknown body shape " + value); }
-            }, PlayerCharacterBodyShape::name).fieldOf("body_shape").forGetter(WornModel::bodyShape)
+             }, PlayerCharacterBodyShape::name).fieldOf("body_shape").forGetter(WornModel::bodyShape),
+            WORN_MODEL_FRAME_CODEC.listOf().optionalFieldOf("frames", List.of()).forGetter(WornModel::frames)
     ).apply(i, WornModel::new));
     public static final Codec<Clothing> CLOTHING_CODEC = RecordCodecBuilder.create(i -> i.group(
             InventoryTemplateData.SLOT_FLAG_CODEC.listOf().fieldOf("slot_flags").forGetter(Clothing::slotFlags),
@@ -158,7 +163,11 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
         public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip) { this(flags, region, color, delay, equip, unequip, true); }
         public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick, Optional<WornModel> model) { this(flags, region, color, delay, equip, unequip, quick, model, 0); }
     }
-    public record WornModel(ResourceLocation mesh, PlayerCharacterBodyShape bodyShape) { public WornModel { if (mesh == null || bodyShape == null) throw new IllegalArgumentException("invalid worn model"); } }
+    public record WornModel(ResourceLocation mesh, PlayerCharacterBodyShape bodyShape, List<Frame> frames) {
+        public WornModel { if (mesh == null || bodyShape == null || frames == null || (!frames.isEmpty() && !frames.get(0).mesh().equals(mesh))) throw new IllegalArgumentException("invalid worn model"); frames = List.copyOf(frames); }
+        public WornModel(ResourceLocation mesh, PlayerCharacterBodyShape bodyShape) { this(mesh, bodyShape, List.of()); }
+        public record Frame(ResourceLocation mesh, double durationSeconds) { public Frame { if (mesh == null || !Double.isFinite(durationSeconds) || durationSeconds <= 0) throw new IllegalArgumentException("invalid worn model frame"); } }
+    }
     public record AllowSuitStorage(boolean enabled) { public AllowSuitStorage { if (!enabled) throw new IllegalArgumentException("AllowSuitStorage must be enabled when composed"); } }
     public record NoSlip() { }
 }

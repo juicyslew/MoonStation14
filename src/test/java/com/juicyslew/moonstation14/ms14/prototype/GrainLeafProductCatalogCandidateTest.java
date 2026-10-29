@@ -70,9 +70,9 @@ class GrainLeafProductCatalogCandidateTest {
                         extract.get(productId).juiceSolution().centContents());
             } else assertNull(extract.get(productId).juiceSolution());
             for (String family : new String[]{"produce_profile", "ingestion_profile", "extractable_profile"})
-                assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/" + entry.getValue() + ".json"));
+                BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, entry.getValue());
         }
-        assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/ingestion_profile/ruminant_edible_base.json"));
+        BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate("ingestion_profile", "ruminant_edible_base");
     }
 
     private static Map<ResourceLocation, com.google.gson.JsonObject> resources(String family, String base, String... names) {

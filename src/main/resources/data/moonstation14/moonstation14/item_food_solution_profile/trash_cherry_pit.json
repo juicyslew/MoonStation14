@@ -1,0 +1,8 @@
+{
+  "id": "moonstation14:trash_cherry_pit",
+  "capacity_cents": 100,
+  "contents_cents": {
+    "moonstation14:toxin": 100
+  },
+  "refillable": true
+}

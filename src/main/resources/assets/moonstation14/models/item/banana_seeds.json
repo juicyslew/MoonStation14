@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "moonstation14:item/botany/packet_seed",
+    "layer1": "moonstation14:item/botany/banana_seed",
+    "layer2": "moonstation14:item/botany/packet_paper"
+  }
+}

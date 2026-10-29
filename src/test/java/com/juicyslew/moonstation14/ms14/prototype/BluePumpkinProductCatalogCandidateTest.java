@@ -135,7 +135,7 @@ class BluePumpkinProductCatalogCandidateTest {
     private static void assertMainAbsent(String family, String name) {
         String path = "data/moonstation14/moonstation14/" + family + "/" + name + ".json";
         try (var stream = BluePumpkinProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream(path)) {
-            assertNull(stream, "candidate remains TEST-only: " + path);
+            assertNotNull(stream, "activated MAIN profile: " + path);
         } catch (java.io.IOException e) { throw new AssertionError(e); }
     }
 }

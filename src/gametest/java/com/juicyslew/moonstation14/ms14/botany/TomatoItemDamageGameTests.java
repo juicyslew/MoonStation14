@@ -62,6 +62,28 @@ public final class TomatoItemDamageGameTests {
         });
     }
 
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 120)
+    public static void ordinaryWatermelonDropSurvivesGravityWithoutDamageOrReagentChange(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos floor = helper.absolutePos(new BlockPos(5, 1, 5));
+        level.setBlock(floor, Blocks.STONE.defaultBlockState(), 3);
+        var stack = ProduceFactory.createHarvest(ResourceLocation.fromNamespaceAndPath("moonstation14", "watermelon"), 10);
+        var chemistry = stack.get(ModDataComponents.REAGENT.get());
+        var item = LooseItemEntity.create(level, new Vec3(floor.getX() + .5, floor.getY() + 4, floor.getZ() + .5), stack);
+        require(level.addFreshEntity(item), "ordinary harvested watermelon enters loose world");
+        helper.runAfterDelay(90, () -> {
+            try {
+                require(!item.isRemoved() && item.getItem().is(ModItems.WATERMELON.get()), "ordinary falling watermelon remains an item");
+                require(item.getItem().get(ModDataComponents.ITEM_DAMAGE_STATE.get()) == null,
+                        "ordinary vertical watermelon drop is not an explicit throw and gains no impact damage");
+                require(item.getItem().get(ModDataComponents.REAGENT.get()).equals(chemistry),
+                        "gravity-only watermelon landing preserves exact food chemistry");
+                require(level.getBlockState(floor.above()).isAir(), "ordinary watermelon drop creates no destruction puddle");
+                helper.succeed();
+            } catch (Throwable failure) { helper.fail("ordinary watermelon drop: " + failure); }
+        });
+    }
+
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 240)
     public static void authenticatedThrowLandsDestroysTomatoAndSpillsOnlyCurrentChemistry(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
@@ -91,7 +113,10 @@ public final class TomatoItemDamageGameTests {
                 require(BodyHandItemTransfer.pickupSelected(fixture.player(), loose.getUUID(), hand, hands.revision(), ignored -> { })
                                 == BodyHandItemTransfer.Result.SUCCESS,
                         "real registered player picks up current tomato through existing transfer owner");
-                BlockPos aimBlock = new BlockPos(origin.getX() + 7, origin.getY(), origin.getZ());
+                BlockPos aimBlock = new BlockPos(origin.getX() + 4, origin.getY(), origin.getZ());
+                double aimDistance = body.getEyePosition().distanceTo(Vec3.atCenterOf(aimBlock));
+                require(aimDistance <= com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseTargetProbe.MAX_REACH,
+                        "fixture aim target remains within registered body block-use reach: " + aimDistance);
                 RegisteredPlayerReadyDriver.aimAt(body, level, aimBlock);
                 var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 2));
                 var handSnapshot = query.hands().stream().filter(candidate -> candidate.id().equals(hand)).findFirst().orElseThrow();
@@ -101,7 +126,10 @@ public final class TomatoItemDamageGameTests {
                 var result = BodyHandRequestService.apply(fixture.player(), request);
                 require(result.accepted() && result.hostTransition() != null
                                 && result.hostTransition().direction() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.HostTransition.Direction.DROP,
-                        "authenticated request commits actual hand-to-world THROW publication");
+                        "authenticated request commits actual hand-to-world THROW publication; reason=" + result.reason()
+                                + ", accepted=" + result.accepted() + ", hostTransition=" + result.hostTransition()
+                                + ", bodyPosition=" + body.position() + ", eyePosition=" + body.getEyePosition()
+                                + ", look=" + body.getLookAngle() + ", aimBlock=" + aimBlock);
                 require(body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get())
                                 .stackCopy(hand).orElse(ItemStack.EMPTY).isEmpty(), "successful throw empties only its source hand");
                 UUID thrownId = result.hostTransition().worldEntity();

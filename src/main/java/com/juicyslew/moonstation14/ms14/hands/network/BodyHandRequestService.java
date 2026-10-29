@@ -963,7 +963,7 @@ public final class BodyHandRequestService {
                 }
                 return new BodyHandActionResult(request.epoch(), request.sequence(),
                         reason == BodyHandActionResult.Reason.OK, reason, true, hands.revision(),
-                        hands.activeHand(), null, null, 0, null);
+                        hands.activeHand(), null, null, 0, transition);
             }
         }
         return new BodyHandActionResult(request.epoch(), request.sequence(),

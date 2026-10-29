@@ -1,0 +1,84 @@
+{
+  "status": "PASS",
+  "items": [
+    {
+      "id": "trash_banana_peel",
+      "quads": 66,
+      "triangles": 132,
+      "bounds": {
+        "min": [
+          -3.8723594728501114,
+          0.0,
+          -3.0534746680219396
+        ],
+        "max": [
+          3.6737154350598185,
+          3.39,
+          1.4282540408074198
+        ],
+        "size": [
+          7.546074907909929,
+          3.39,
+          4.481728708829359
+        ]
+      },
+      "world_bounds_min": [
+        -0.19361797364250558,
+        0.0,
+        -0.152673733401097
+      ],
+      "world_bounds_max": [
+        0.18368577175299095,
+        0.16950000000000004,
+        0.07141270204037099
+      ]
+    },
+    {
+      "id": "trash_mimana_peel",
+      "quads": 66,
+      "triangles": 132,
+      "bounds": {
+        "min": [
+          -3.8723594728501114,
+          0.0,
+          -3.0534746680219396
+        ],
+        "max": [
+          3.6737154350598185,
+          3.39,
+          1.4282540408074198
+        ],
+        "size": [
+          7.546074907909929,
+          3.39,
+          4.481728708829359
+        ]
+      },
+      "world_bounds_min": [
+        -0.19361797364250558,
+        0.0,
+        -0.152673733401097
+      ],
+      "world_bounds_max": [
+        0.18368577175299095,
+        0.16950000000000004,
+        0.07141270204037099
+      ]
+    }
+  ],
+  "numeric_vertex_uv_normal_values": 3036,
+  "savedBB_OBJ_CPU_image_equalities": 8,
+  "runtime_dependencies": 12,
+  "source_palette_membership": true,
+  "closed_semantic_mesh_edges": true,
+  "quad_planarity_winding": true,
+  "world_floor_alignment": true,
+  "all_gameplay_and_wearable_bindings_unchanged": true,
+  "preserved_files": 229,
+  "not_validated": [
+    "Blockbench application",
+    "NeoForge native bake/Java-loader execution",
+    "Minecraft/GPU/production player/world rendering/lighting/mips/performance",
+    "independent owner acceptance/import"
+  ]
+}

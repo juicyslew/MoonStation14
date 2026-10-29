@@ -54,7 +54,7 @@ class MushroomPepperProductCatalogCandidateTest {
             assertEquals(id(expectedSeed), produce.get(id(name)).seed());
             assertEquals(1f, produce.get(id(name)).potencyVisuals().minimumScale()); assertEquals(2f, produce.get(id(name)).potencyVisuals().maximumScale());
             assertEquals("food", extract.get(id(name)).grindableSolutionName()); assertNull(extract.get(id(name)).juiceSolution());
-            try (var ignored = getClass().getClassLoader().getResourceAsStream("data/moonstation14/moonstation14/produce_profile/" + name + ".json")) { assertNull(ignored); }
+            try (var activated = getClass().getClassLoader().getResourceAsStream("data/moonstation14/moonstation14/produce_profile/" + name + ".json")) { assertNotNull(activated, name); }
             catch (java.io.IOException e) { throw new AssertionError(e); }
         }
         var seeds = new LinkedHashMap<ResourceLocation, com.juicyslew.moonstation14.ms14.botany.SeedProfile>();
@@ -65,9 +65,9 @@ class MushroomPepperProductCatalogCandidateTest {
             assertEquals(id(name), seeds.get(produce.get(id(name)).seed()).product());
         for (var name : NAMES) {
             String path = "data/moonstation14/moonstation14/ingestion_profile/" + name + ".json";
-            assertNull(getClass().getClassLoader().getResource(path), "candidate must remain off main classpath: " + path);
+            assertNotNull(getClass().getClassLoader().getResource(path), "activated MAIN profile: " + path);
             path = "data/moonstation14/moonstation14/extractable_profile/" + name + ".json";
-            assertNull(getClass().getClassLoader().getResource(path), "candidate must remain off main classpath: " + path);
+            assertNotNull(getClass().getClassLoader().getResource(path), "activated MAIN profile: " + path);
         }
     }
 

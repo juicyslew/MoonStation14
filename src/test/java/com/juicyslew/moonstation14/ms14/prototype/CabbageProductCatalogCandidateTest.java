@@ -62,7 +62,7 @@ class CabbageProductCatalogCandidateTest {
         assertEquals(new SeedProfile.Chemical(1, 10, 10, true), seed.chemicals().get(id("nutriment")));
         assertEquals(new SeedProfile.Chemical(1, 4, 25, true), seed.chemicals().get(id("vitamin")));
         try (var stream = CabbageProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream("data/moonstation14/moonstation14/item_food_solution_profile/cabbage.json")) {
-            assertNull(stream, "candidate source remains TEST-only");
+            assertNotNull(stream, "activated production profile");
         } catch (java.io.IOException e) { throw new AssertionError(e); }
     }
 }

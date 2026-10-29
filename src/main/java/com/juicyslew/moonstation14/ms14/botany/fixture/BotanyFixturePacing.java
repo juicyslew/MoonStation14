@@ -32,6 +32,22 @@ public final class BotanyFixturePacing {
         return result;
     }
     public static void pauseAll(ServerLevel level, BlockPos origin) { trays(level,origin).forEach(t->t.setFixturePaused(true)); }
+    public static List<HydroponicsTrayBlockEntity> trays(ServerLevel level, java.util.Collection<BlockPos> positions) {
+        var result = new ArrayList<HydroponicsTrayBlockEntity>();
+        for (var pos : positions) if (level.getBlockEntity(pos) instanceof HydroponicsTrayBlockEntity tray) result.add(tray);
+        return result;
+    }
+    public static void pauseAll(ServerLevel level, java.util.Collection<BlockPos> positions) {
+        trays(level, positions).forEach(t -> t.setFixturePaused(true));
+    }
+    public static void activate(ServerLevel level, java.util.Collection<BlockPos> positions) {
+        trays(level, positions).forEach(t -> t.setFixturePaused(false));
+    }
+    public static String pausedStatus(ServerLevel level, java.util.Collection<BlockPos> positions) {
+        var active = trays(level, positions).stream().filter(t -> !t.fixturePaused()).count();
+        long total = positions.size();
+        return (total-active)+"/"+total+" trays paused; active="+active+"/"+total;
+    }
     public static void activate(ServerLevel level, BlockPos origin, int first, int last) {
         for(var station:BotanyFixtureStations.all()) if(level.getBlockEntity(SmallBotanyFixtureLayout.stationTray(origin,station.legacyId())) instanceof HydroponicsTrayBlockEntity tray)
             tray.setFixturePaused(station.number()<first||station.number()>last);

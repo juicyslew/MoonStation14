@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:pumpkin",
+  "capacity_cents": 2500,
+  "contents_cents": {
+    "moonstation14:pumpkinflesh": 2000,
+    "moonstation14:vitamin": 500
+  },
+  "refillable": true
+}

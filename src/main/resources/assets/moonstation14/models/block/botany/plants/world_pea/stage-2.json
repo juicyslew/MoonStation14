@@ -1,0 +1,13 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/block/botany/plants/world_pea/stage-2.obj",
+  "textures": {
+    "atlas": "moonstation14:block/botany/plants/world_pea/stage-2",
+    "particle": "moonstation14:block/botany/plants/world_pea/stage-2"
+  },
+  "flip_v": false,
+  "automatic_culling": false,
+  "shade_quads": true,
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

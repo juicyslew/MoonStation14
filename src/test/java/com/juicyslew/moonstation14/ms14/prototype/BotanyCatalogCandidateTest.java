@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class BotanyCatalogCandidateTest {
@@ -366,6 +367,29 @@ public class BotanyCatalogCandidateTest {
         return resourcesFrom("data/moonstation14/moonstation14", family, names);
     }
 
+    public static Map<ResourceLocation, JsonObject> mainResourcesAll(String family) {
+        var result = new LinkedHashMap<ResourceLocation, JsonObject>();
+        String resourceDirectory = "data/moonstation14/moonstation14/" + family;
+        var url = BotanyCatalogCandidateTest.class.getClassLoader().getResource(resourceDirectory);
+        assertNotNull(url, resourceDirectory);
+        try {
+            var directory = java.nio.file.Path.of(url.toURI());
+            try (var files = java.nio.file.Files.list(directory)) {
+                files.filter(path -> path.toString().endsWith(".json")).sorted().forEach(path -> {
+                    String name = path.getFileName().toString().replaceFirst("\\.json$", "");
+                    try {
+                        result.put(id(name), JsonParser.parseString(java.nio.file.Files.readString(path)).getAsJsonObject());
+                    } catch (java.io.IOException exception) {
+                        throw new AssertionError("Unable to read MAIN profile " + path, exception);
+                    }
+                });
+            }
+        } catch (java.io.IOException | java.net.URISyntaxException exception) {
+            throw new AssertionError("Unable to enumerate MAIN profile resource directory " + url, exception);
+        }
+        return result;
+    }
+
     private static Map<ResourceLocation, JsonObject> resourcesFrom(String root, String family, String... names) {
         var result = new LinkedHashMap<ResourceLocation, JsonObject>();
         for (String name : names) {
@@ -376,5 +400,65 @@ public class BotanyCatalogCandidateTest {
             } catch (java.io.IOException exception) { throw new AssertionError(exception); }
         }
         return result;
+    }
+
+    /** Checks production promotion against the audited candidate component, never against MAIN itself. */
+    public static void assertMainPromotionMatchesCandidate(String family, String... names) {
+        var loader = BotanyCatalogCandidateTest.class.getClassLoader();
+        for (String name : names) {
+            String source = "botany-catalog-candidate/" + family + "/" + name + ".json";
+            String main = "data/moonstation14/moonstation14/" + family + "/" + name + ".json";
+            var candidate = loader.getResource(source);
+            var production = loader.getResource(main);
+            assertEquals(candidate != null, production != null, "MAIN promotion availability must match audited candidate " + source);
+            if (candidate == null) continue;
+            var candidateJson = readJsonResource(source).getAsJsonObject();
+            var productionJson = readJsonResource(main).getAsJsonObject();
+            if (family.equals("ingestion_profile") && name.equals("meatwheat_bushel")) {
+                candidateJson = resolveMeatwheatIngestion(true);
+                productionJson = resolveMeatwheatIngestion(false);
+            }
+            assertPromotedCompositionMatches(family, name, candidateJson, productionJson);
+        }
+    }
+
+    static void assertPromotedCompositionMatches(String family, String name, JsonObject candidate, JsonObject production) {
+        assertEquals(normalizePromotedComposition(family, name, candidate), normalizePromotedComposition(family, name, production),
+                "MAIN composition must preserve audited candidate fields: " + family + "/" + name);
+    }
+
+    private static JsonObject normalizePromotedComposition(String family, String name, JsonObject source) {
+        var normalized = source.deepCopy();
+        // Prototype keys come from the canonical resource filename; the JSON id is decorative metadata.
+        normalized.remove("id");
+        // Minecraft wearable mesh wiring is intentionally added only for these seven botany hats.
+            if (family.equals("equipment_item") && Set.of("ambrosia_deus", "ambrosia_vulgaris",
+                "clothing_head_hat_holy_watermelon", "clothing_head_hat_watermelon", "lily",
+                "trash_banana_peel", "trash_mimana_peel").contains(name)) {
+            if (normalized.has("clothing") && normalized.getAsJsonObject("clothing").has("worn_model"))
+                normalized.getAsJsonObject("clothing").remove("worn_model");
+            if (normalized.getAsJsonObject("clothing") != null && normalized.getAsJsonObject("clothing").size() == 0)
+                normalized.remove("clothing");
+        }
+        if (family.equals("ingestion_profile") && name.equals("meatwheat_bushel")
+                && normalized.has("edible") && !normalized.getAsJsonObject("edible").has("destroy_on_empty"))
+            normalized.getAsJsonObject("edible").addProperty("destroy_on_empty", true);
+        if (family.equals("item_processing_profile") && name.equals("meatwheat_bushel")
+                && normalized.has("spawn_items_on_use")) {
+            var action = normalized.getAsJsonObject("spawn_items_on_use");
+            if (action.has("sound") && action.get("sound").getAsString().equals("moonstation14:slime_squish"))
+                action.addProperty("sound", "moonstation14:botany/produce/slime_squish");
+        }
+        return normalized;
+    }
+
+    private static JsonObject resolveMeatwheatIngestion(boolean candidate) {
+        var raw = candidate ? new LinkedHashMap<ResourceLocation, JsonObject>() : mainResourcesAll("ingestion_profile");
+        if (candidate) {
+            raw.putAll(mainResources("ingestion_profile", "edible_defaults"));
+            raw.putAll(resources("ingestion_profile", "food_base", "ruminant_edible_base", "meatwheat_bushel"));
+        }
+        return PrototypeResolver.resolve(raw, com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles.TYPE
+                .mergeStrategy().orElseThrow()).get(id("meatwheat_bushel"));
     }
 }

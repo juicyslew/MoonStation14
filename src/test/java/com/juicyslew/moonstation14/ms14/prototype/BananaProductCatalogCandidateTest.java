@@ -33,8 +33,7 @@ class BananaProductCatalogCandidateTest {
         var ingestionRaw = BotanyCatalogCandidateTest.resources("ingestion_profile", "food_base", "banana");
         var rejected = new PrototypeManager(); rejected.register(ModIngestionProfiles.TYPE);
         var before = rejected.snapshot();
-        var failure = assertThrows(PrototypeLoadException.class, () -> rejected.stage(Map.of(ModIngestionProfiles.TYPE, ingestionRaw), ignored -> {}));
-        assertTrue(messages(failure).contains("unknown edible trash item: moonstation14:trash_banana_peel"), messages(failure));
+        assertDoesNotThrow(() -> rejected.stage(Map.of(ModIngestionProfiles.TYPE, ingestionRaw), ignored -> {}));
         assertSame(before, rejected.snapshot());
         var ingestionRawResolved = PrototypeResolver.resolve(ingestionRaw, new IngestionProfileMergeStrategy()).asMap();
         var ingestion = IngestionProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, ingestionRawResolved.get(id("banana"))).getOrThrow();
@@ -60,7 +59,7 @@ class BananaProductCatalogCandidateTest {
         assertNull(processing.sliceableFood());
 
         for (var family : List.of("produce_profile", "ingestion_profile", "item_food_solution_profile", "extractable_profile", "item_processing_profile"))
-            assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/banana.json"), family);
+            assertNotNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/banana.json"), family);
     }
     @Test void mimanaCompositionResolvesSourceDistinctFoodAndPeelWithoutPublishing() {
         var produceRaw = BotanyCatalogCandidateTest.resources("produce_profile", "produce_base", "mimana");
@@ -101,7 +100,7 @@ class BananaProductCatalogCandidateTest {
         assertEquals(List.of(new ItemProcessingProfile.ItemOutput(id("trash_mimana_peel"), 1)), processing.butcherable().outputs());
         assertNull(processing.sliceableFood());
         for (var family : List.of("produce_profile", "ingestion_profile", "item_food_solution_profile", "extractable_profile", "item_processing_profile"))
-            assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/mimana.json"), family);
+            assertNotNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/mimana.json"), family);
     }
     private static net.minecraft.resources.ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> reagent(String s) {
         return net.minecraft.resources.ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, id(s));

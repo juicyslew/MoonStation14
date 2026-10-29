@@ -60,12 +60,9 @@ class OnionProductCatalogCandidateTest {
             assertEquals(id(name.equals("onion") ? "onion_slice" : "onion_red_slice"), processing.sliceableFood().output());
             assertEquals(5, processing.sliceableFood().count()); assertEquals(1f, processing.sliceableFood().delaySeconds());
         }
-        for (String family : new String[]{"produce_profile", "ingestion_profile", "extractable_profile", "item_processing_profile"})
-            for (String name : new String[]{"onion", "onion_red", "onion_slice", "onion_red_slice"}) {
-                String path = "data/moonstation14/moonstation14/" + family + "/" + name + ".json";
-                try (var resource = getClass().getClassLoader().getResourceAsStream(path)) { assertNull(resource, path); }
-                catch (java.io.IOException e) { throw new AssertionError(e); }
-            }
+        BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate("produce_profile", "onion", "onion_red");
+        for (String family : new String[]{"ingestion_profile", "extractable_profile", "item_processing_profile"})
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "onion", "onion_red", "onion_slice", "onion_red_slice");
     }
 
     private static void assertEdibleDefaults(IngestionProfile.Edible edible) {

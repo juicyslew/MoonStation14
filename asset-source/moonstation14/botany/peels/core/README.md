@@ -1,0 +1,30 @@
+# Banana and mimana peels — finished native3D pair R1
+
+[Fully expanded source/model/eightview/world/palm/inventory gallery](index.html). Two complete editable models, distinct yellow/ochre and muted gray/green native palettes. **Owner art approval/import pending; not installed.** Frozen final independent review +receipt live in `assets/Objects/Botany/Peels/deliveries/source_peels_r1/` outside this immutable package.
+
+## Model / open
+Open `authoring/trash_banana_peel.bbmodel` or `trash_mimana_peel.bbmodel` in Blockbench Free format (4.10 schema, pinned4.12.6 codec conventions). Textures embedded plus portable `textures/` PNGs. Semantic parts:three independently editable closed curved/tapered skin lobes, joined short skin neck and dark terminal stalk. Light reconstructed inner faces, ochre/olive outer surfaces, dark thin edges.66planar quads /132triangles each, five mesh parts,64×32PNG,4texels/modelunit target density with minimum1texel edge. Under96quad target. No flat-icon extrusion, fitted-wearable reuse or full fruit.
+
+One `open_peel_ribbon_r1` family reused for both variants. Authored dimensions7.5461×3.3900×4.4817units (X×Y×Z),16units/block. Ground-centred BB, +Yup andforward−Z. Default low floor pose. Proposed loose scale.8 yields0.3773×0.1695×0.2241blocks, not jug-sized. Root exactly minY0. Static persistent default only; no source mechanical animation, no invented clips. `peel2`/`peel3` are unselected source alternatives, held directions are pose references, all growth/produce/baked/primed/worn states explicitly source-only/out of scope.
+
+## Native exports / integration boundary
+`export/manifest.json` is the flat complete12file runtime group, **package-relative**:2item bindings,2OBJwrappers,2OBJmeshes,2MTLs,2PNGs and2visual profile candidates. All expected destinations are `src/main/resources/...`. Use ONE matching OBJ/MTL/JSON/PNGgroup per identity. OBJ is built-in `neoforge:obj`, not Java cube geometry or a newly installed animation library; tapered curved skins need noncuboid faces, cannot survive vanilla Java cuboid export unchanged. Existing project example +NeoForge reference inspected. `flip_v:false`, MTL `map_Kd #atlas`, exact `(BB+[8,0,8])/16` conversion once; no second recenter/scale. Ordinary item JSON parent binding, no jug route/custom renderer/code.
+
+Proposed banana profile **keeps generic parent, exact physical_width.4, inherited height.08 and all gameplay/slip/trigger fields**; adds only `render_kind:block_model`, visual `model_scale:.8`, `model_floor_offset:.4`. Mimana keeps banana parent/sound override exact, inheriting the visual proposal. No generic/block_model base profile is replaced. The shared renderer requests ItemDisplayContext.NONE, so ground display is NOT the loose-world pose. Display GUI/first/thirdperson/ground/fixed transforms are separate contexts on the SAMEvolume, not representation switches. Profile centring arithmetic assumes native ItemRenderer subtracts.5; exact vanilla transform order/native bake not executed here, must be checked by integration owner. CPU world preview implements proposed floor arithmetic, not measured game placement. ProduceWorldAppearance assumed1forTrash identities; validate live native consumer before installation.
+
+See `export/binding_contract.json` for composition and transform formula. **Equipment/head bindings and fitted wearable meshes entirely untouched.** Existing physical height deliberately unchanged despite taller rendered stalk, so artwork is not proof of selection/collision. No mechanics/slip/edibility/output/stack/network/renderer changes. Independent artwork review is not owner import permission; references remain READONLY.
+
+## Validation / visual limits
+`validation.json`:2reproductions,66quads each, closed2-use mesh edges perpart, finitegeometry, planarfaces/outwardwinding/UVbounds, exact native source RGB membership,3036numericvertexUVnormal comparisons and8savedBB/decodedOBJCPU image equalities. Full12dependency group and visual-only profile diffs verified. Fresh separate generation exact in `independent_reproduction.json`.11ACTUAL author-reviewed image hashes; final independent findings outside package. First pilot and crosswiseouter-UV/GUIorientation fixes preserved ownwork.
+
+Nearest texels, opaque diffuse materials; no glow/transparency/emissive. Low-poly facets, three-lobe count and hidden back/thickness conservative. Semantic closed strips overlap at neck intentionally. Existing sprites are stylized perspective references, not exact orthographic blueprints. World/player floor cell and palm proxy are scale/fit illustrations. Declared item contexts are CPU transform previews, NOT Blockbench-app/nativeplayer/Minecraft screenshots. Blockbenchimport/export, nativeNeoForgebake, exactItemRendererordering, hand/GPUlighting/mips/culling and performance remain unverified. No game/integration tests requested or executed. Runtime imports/overwrite require separate ownerauthorization after independentreview.
+
+## Reproduce / preserve
+Tooling: `tooling/Objects/Botany/Peels/asset.py`, `package.py`, `delivery.py`; Python/Pillow/NumPy versions and hashes in toolchain.json. Source palettes +ribbon parameters/specifications drive deterministic generation, using existing BB/OBJ/CPUhelpers read-only.
+```powershell
+python tooling/Objects/Botany/Peels/package.py verify
+python tooling/Objects/Botany/Peels/delivery.py verify
+```
+Prefreeze build example: `package.py build --output work/Objects/Botany/Peels/source_peels_r1/independent02`; review `package.py review --output <fresh-work-path>`. Saved writers refuse regeneration. Retrieve these saved models/dependencies, never work/pilots/wearable models, regenerate-to-retrieve or delete guards. Future authorized art changes go to a separate revision; preserve manual edits.
+
+Sourcepin/metadata/statecoverage/hash provenance: source/manifest.json, verbatimRSIs, queuedcontext/prototypes, ATTRIBUTION.md. Request `botany-peels-3d-loose-production-20261028`. Owner source repository and both reference repositories unchanged.

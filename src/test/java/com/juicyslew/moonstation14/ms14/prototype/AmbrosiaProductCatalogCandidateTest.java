@@ -71,11 +71,11 @@ class AmbrosiaProductCatalogCandidateTest {
             assertEquals(EquipmentItemData.AppearanceRegion.HEAD, clothing.region());
             assertTrue(clothing.quickEquip(), "upstream ClothingComponent quickEquip default is true");
             assertTrue(clothing.wornModel().isEmpty(), "no art or worn rendering asserted");
-            assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/equipment_item/" + name + ".json"));
+            assertNotNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/equipment_item/" + name + ".json"));
         }
         var loader = getClass().getClassLoader();
-        for (String family : new String[]{"produce_profile", "ingestion_profile", "extractable_profile", "item_food_solution_profile", "equipment_item"})
-            for (String name : NAMES) assertNull(loader.getResource("data/moonstation14/moonstation14/" + family + "/" + name + ".json"));
+         for (String family : new String[]{"produce_profile", "ingestion_profile", "extractable_profile", "item_food_solution_profile"})
+             for (String name : NAMES) assertNotNull(loader.getResource("data/moonstation14/moonstation14/" + family + "/" + name + ".json"));
     }
 
     private static Map<ResourceLocation, com.google.gson.JsonObject> resources(String family, String base) {

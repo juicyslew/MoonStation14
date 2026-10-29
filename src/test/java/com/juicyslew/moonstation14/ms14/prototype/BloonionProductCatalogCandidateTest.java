@@ -73,11 +73,10 @@ class BloonionProductCatalogCandidateTest {
         for (String family : new String[]{"ingestion_profile", "seed_item_profile"}) {
             try (var stream = getClass().getClassLoader().getResourceAsStream("botany-catalog-candidate/" + family + "/bloonion.json")) { assertNull(stream); }
         }
-        assertMainAbsent("produce_profile");
+        assertMainPresent("produce_profile");
     }
 
-    private static void assertMainAbsent(String family) {
-        try (var stream = BloonionProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream("data/moonstation14/moonstation14/" + family + "/bloonion.json")) { assertNull(stream); }
-        catch (java.io.IOException exception) { throw new AssertionError(exception); }
+    private static void assertMainPresent(String family) {
+        assertNotNull(BloonionProductCatalogCandidateTest.class.getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/bloonion.json"));
     }
 }

@@ -53,6 +53,7 @@ public final class BotanyFixtureCommandGameTests {
     }
     private BotanyFixtureCommandGameTests() { }
 
+    @GameTestTags("botany-fixture-command-core")
     @GameTest(template="botany_fixture_space", templateNamespace="moonstation14", timeoutTicks=1600)
     public static void singleCommandBuildsCompleteFixture(GameTestHelper helper) {
         String mixedPending="H CHEMISTRY — preset genes: STATIC\nJ GAS — preset gas genes: STATIC\nH CHEMISTRY — CHANGED: acquired [moonstation14:test]\nJ GAS — preset gas genes: WAITING: ordinary exchange cycle not reported";
@@ -701,9 +702,9 @@ public final class BotanyFixtureCommandGameTests {
                 +" authority="+HandActorAuthority.resolve(player).isPresent();
     }
 
-    record CapturedSource(net.minecraft.commands.CommandSourceStack stack, java.util.List<String> feedback) { }
-    static CapturedSource capture(net.minecraft.commands.CommandSourceStack original) { return capture(original, ignored->{ }); }
-    static CapturedSource capture(net.minecraft.commands.CommandSourceStack original, java.util.function.Consumer<String> observer) {
+    public record CapturedSource(net.minecraft.commands.CommandSourceStack stack, java.util.List<String> feedback) { }
+    public static CapturedSource capture(net.minecraft.commands.CommandSourceStack original) { return capture(original, ignored->{ }); }
+    public static CapturedSource capture(net.minecraft.commands.CommandSourceStack original, java.util.function.Consumer<String> observer) {
         var messages=new java.util.ArrayList<String>();
         CommandSource wrapper=new CommandSource() {
             @Override public void sendSystemMessage(Component message) { String text=message.getString(); messages.add(text); observer.accept(text); }
@@ -714,7 +715,7 @@ public final class BotanyFixtureCommandGameTests {
         return new CapturedSource(original.withSource(wrapper),messages);
     }
 
-    static int execute(com.mojang.brigadier.CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher,
+    public static int execute(com.mojang.brigadier.CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher,
                                String command,net.minecraft.commands.CommandSourceStack source) {
         try { return dispatcher.execute(command,source); }
         catch(com.mojang.brigadier.exceptions.CommandSyntaxException failure) {

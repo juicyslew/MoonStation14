@@ -306,4 +306,59 @@ class EquipmentPrototypeTest {
         var petOnly=new EquipmentItemData(backItem.item(),backItem.clothing(),backItem.allowSuitStorage(),java.util.List.of(EquipmentTag.PET_ONLY),backItem.armor());
         assertFalse(EquipmentFitPolicy.fits(template,"back",petOnly,java.util.Set.of(),false));
     }
+
+    @Test void productionPlantEquipmentResolvesClientParentClosureFitAndArmor() throws Exception {
+        var manager = new PrototypeManager(); manager.register(ModInventoryTemplates.TYPE); manager.register(ModEquipmentItems.TYPE);
+        manager.reload(ModInventoryTemplates.TYPE, new LinkedHashMap<>(Map.of(ModInventoryTemplates.HUMAN_ID,
+                resource("inventory_template", "human"))));
+        var names = java.util.List.of("base_item", "base_clothing", "poppy", "clothing_head_base",
+                "ambrosia_deus", "ambrosia_vulgaris", "lily", "clothing_head_hat_watermelon",
+                "clothing_head_hat_holy_watermelon", "trash_banana_peel", "trash_mimana_peel", "carved_pumpkin");
+        var raw = new LinkedHashMap<ResourceLocation, JsonObject>();
+        for (String name : names) raw.put(ModInventoryTemplates.id(name), resource("equipment_item", name));
+        manager.reload(ModEquipmentItems.TYPE, raw);
+        var catalog = manager.snapshot(ModEquipmentItems.TYPE);
+        var template = manager.snapshot(ModInventoryTemplates.TYPE).get(ModInventoryTemplates.HUMAN_ID);
+        for (String name : java.util.List.of("ambrosia_deus", "ambrosia_vulgaris", "lily",
+                "clothing_head_hat_watermelon", "clothing_head_hat_holy_watermelon", "trash_banana_peel", "trash_mimana_peel")) {
+            var item = ModEquipmentItems.require(catalog, ModInventoryTemplates.id(name));
+            assertTrue(EquipmentFitPolicy.fits(template, "head", item, java.util.Set.of(), false), name);
+            assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.HEAD), item.clothing().orElseThrow().slotFlags(), name);
+            assertTrue(item.clothing().orElseThrow().wornModel().isPresent(), name);
+        }
+        assertTrue(ModEquipmentItems.require(catalog, ModInventoryTemplates.id("ambrosia_deus")).clothing().orElseThrow().quickEquip());
+        assertTrue(ModEquipmentItems.require(catalog, ModInventoryTemplates.id("ambrosia_vulgaris")).clothing().orElseThrow().quickEquip());
+        assertFalse(ModEquipmentItems.require(catalog, ModInventoryTemplates.id("lily")).clothing().orElseThrow().quickEquip());
+        assertFalse(ModEquipmentItems.require(catalog, ModInventoryTemplates.id("trash_banana_peel")).clothing().orElseThrow().quickEquip());
+        assertFalse(ModEquipmentItems.require(catalog, ModInventoryTemplates.id("trash_mimana_peel")).clothing().orElseThrow().quickEquip());
+        assertEquals(Map.of("blunt", .95f), ModEquipmentItems.require(catalog,
+                ModInventoryTemplates.id("clothing_head_hat_watermelon")).armor().orElseThrow().coefficients());
+        assertEquals(Map.of("caustic", .95f), ModEquipmentItems.require(catalog,
+                ModInventoryTemplates.id("clothing_head_hat_holy_watermelon")).armor().orElseThrow().coefficients());
+        assertEquals(4, ModEquipmentItems.require(catalog, ModInventoryTemplates.id("clothing_head_hat_holy_watermelon")).clothing().orElseThrow().wornModel().orElseThrow().frames().size());
+        var pumpkin = ModEquipmentItems.require(catalog, ModInventoryTemplates.id("carved_pumpkin"));
+        assertTrue(pumpkin.clothing().isEmpty(), "carved pumpkin source has no Clothing component");
+        assertEquals("Normal", pumpkin.item().size());
+        ModEquipmentItems.bootstrapClientBundled();
+        var client = ModEquipmentItems.clientCatalog();
+        for (String name : names.stream().filter(name -> !java.util.Set.of("base_item", "base_clothing", "clothing_head_base").contains(name)).toList())
+            assertNotNull(client.get(ModInventoryTemplates.id(name)), name);
+        assertNull(client.get(ModInventoryTemplates.id("base_item")), "abstract item template stays out of the concrete catalog");
+        assertNull(client.get(ModInventoryTemplates.id("base_clothing")), "abstract shared parent stays out of the concrete catalog");
+        assertNull(client.get(ModInventoryTemplates.id("clothing_head_base")), "abstract headwear parent stays out of the concrete catalog");
+        for (String name : java.util.List.of("ambrosia_deus", "ambrosia_vulgaris", "lily", "clothing_head_hat_watermelon",
+                "clothing_head_hat_holy_watermelon", "trash_banana_peel", "trash_mimana_peel")) {
+            var clientItem = ModEquipmentItems.require(client, ModInventoryTemplates.id(name));
+            assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.HEAD), clientItem.clothing().orElseThrow().slotFlags(), name);
+            assertTrue(clientItem.clothing().orElseThrow().wornModel().isPresent(), name);
+        }
+        assertTrue(ModEquipmentItems.require(client, ModInventoryTemplates.id("ambrosia_deus")).clothing().orElseThrow().quickEquip());
+        assertTrue(ModEquipmentItems.require(client, ModInventoryTemplates.id("ambrosia_vulgaris")).clothing().orElseThrow().quickEquip());
+        assertFalse(ModEquipmentItems.require(client, ModInventoryTemplates.id("lily")).clothing().orElseThrow().quickEquip());
+        assertFalse(ModEquipmentItems.require(client, ModInventoryTemplates.id("trash_mimana_peel")).clothing().orElseThrow().quickEquip());
+        assertEquals(Map.of("blunt", .95f), ModEquipmentItems.require(client,
+                ModInventoryTemplates.id("clothing_head_hat_watermelon")).armor().orElseThrow().coefficients());
+        assertEquals(Map.of("caustic", .95f), ModEquipmentItems.require(client,
+                ModInventoryTemplates.id("clothing_head_hat_holy_watermelon")).armor().orElseThrow().coefficients());
+    }
 }

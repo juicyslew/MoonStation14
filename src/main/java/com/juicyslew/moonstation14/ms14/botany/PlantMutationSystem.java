@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.random.RandomGenerator;
 import java.util.function.Supplier;
+import java.util.function.Predicate;
 
 /** Server-authoritative supported subset of the source mutation-cycle table. */
 public final class PlantMutationSystem {
@@ -22,6 +23,12 @@ public final class PlantMutationSystem {
     public static Result cycle(PlantInstance plant, PlantMutationTable table, RandomGenerator random,
                                Supplier<Float> chemicalRandom, PrototypeCatalog<WeightedRandomFillSolution> chemicalTables,
                                PrototypeCatalog<ReagentData> reagents, PrototypeCatalog<SeedProfile> seedProfiles) {
+        return cycle(plant, table, random, chemicalRandom, chemicalTables, reagents, seedProfiles, ignored -> true);
+    }
+    public static Result cycle(PlantInstance plant, PlantMutationTable table, RandomGenerator random,
+                               Supplier<Float> chemicalRandom, PrototypeCatalog<WeightedRandomFillSolution> chemicalTables,
+                               PrototypeCatalog<ReagentData> reagents, PrototypeCatalog<SeedProfile> seedProfiles,
+                               Predicate<ResourceLocation> speciesAvailable) {
         if (plant == null || plant.seed() == null || plant.dead() || plant.genetics() == null || plant.mutationLevel() <= 0)
             return new Result(0, List.of());
         float severity = Math.min(plant.mutationLevel(), 25f);
@@ -62,6 +69,11 @@ public final class PlantMutationSystem {
                     var target = seedProfiles == null ? null : seedProfiles.get(targetId);
                     if (target == null) {
                         unsupported.add(entry.name() + ":species_target_missing:" + targetId);
+                        break;
+                    }
+                    // Temporary catalog boundary: preserve source weights/order; never reroll unavailable content.
+                    if (!speciesAvailable.test(targetId)) {
+                        unsupported.add(entry.name() + ":species_target_unsupported:" + targetId);
                         break;
                     }
                     value = value.transformSpecies(targetId, target);

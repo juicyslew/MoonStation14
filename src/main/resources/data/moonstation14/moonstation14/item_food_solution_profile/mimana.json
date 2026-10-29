@@ -1,0 +1,8 @@
+{
+  "capacity_cents": 700,
+  "contents_cents": {
+    "moonstation14:mutetoxin": 500,
+    "moonstation14:vitamin": 200
+  },
+  "refillable": true
+}

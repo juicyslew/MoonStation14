@@ -79,7 +79,7 @@ class BananaPeelCompositionCandidateTest {
         });
         assertSame(before, manager.snapshot());
         for (var family : new String[]{"equipment_item", "ingestion_profile", "item_food_solution_profile", "extractable_profile", "loose_object_profile", "produce_profile", "seed_profile"})
-            assertMainAbsent(family, "trash_banana_peel");
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "trash_banana_peel");
     }
 
     @Test void mimanaPeelInheritsBananaCompositionAndOverridesOnlySlipVolumeWithoutPublishing() {
@@ -128,7 +128,7 @@ class BananaPeelCompositionCandidateTest {
         });
         assertSame(before, manager.snapshot());
         for (var family : new String[]{"equipment_item", "ingestion_profile", "item_food_solution_profile", "extractable_profile", "loose_object_profile", "produce_profile", "seed_profile"})
-            assertMainAbsent(family, "trash_mimana_peel");
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "trash_mimana_peel");
     }
 
     private static void assertMainAbsent(String family, String name) {

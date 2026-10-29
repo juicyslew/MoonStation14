@@ -1,0 +1,70 @@
+{
+  "source_revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "plants": {
+    "apple": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/apple.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce sprites created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub)"
+    },
+    "banana": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/banana.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from tgstation at https://github.com/tgstation/tgstation/commit/6be7633abca9f1a51cab1020500cf0776ce78e5c, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub), On-head sprites by FlipBrooke,."
+    },
+    "bungo": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/bungo.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from tgstation: https://github.com/tgstation/tgstation/commit/b3399ffe39f9ace645123c98323c4832412cc641"
+    },
+    "cherry": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/cherry.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068 and remade by RumiTiger, Growth stages, harvest, dead, and produce sprites created by Chaoticaa (GitHub)"
+    },
+    "cocoa": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/cocoa.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13. produce-beans drawn by FillerVK, inhands by mubururu_ (github)"
+    },
+    "extradimensional_orange": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/extradimensional_orange.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068 and https://github.com/tgstation/tgstation/commit/ead6d8d59753ef033efdfad17f337df268038ff3 and modified by slarticodefast, inhands by mubururu_ (github)"
+    },
+    "golden_apple": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/golden_apple.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce sprites created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub)"
+    },
+    "lemon": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/lemon.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub)"
+    },
+    "lemoon": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/lemoon.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken and resprite from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github)"
+    },
+    "lime": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/lime.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub)"
+    },
+    "mimana": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/mimana.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from tgstation at https://github.com/tgstation/tgstation/commit/6be7633abca9f1a51cab1020500cf0776ce78e5c, inhands by mubururu_ (github). Mimana peel on-head sprite by FlipBrooke, based on the mimana item sprite."
+    },
+    "orange": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/orange.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github), seed.png modified from https://github.com/space-wizards/space-station-14/pull/23210/files#diff-1ee24e9bb4023f490a3f87c861b65e459bd3fda10e688471cdf72b8a8aab381b by Chaoticaa (github), Growth stages, harvest, dead, and produce created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub)"
+    },
+    "tea_plant": {
+      "source_rsi": "Resources/Textures/Objects/Specific/Hydroponics/tea_plant.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from tgstation at https://github.com/tgstation/tgstation/commit/da3da71e29400c8c2879037ae8d74e690a6fe604, produce modified by potato1234x (github) for ss14"
+    }
+  }
+}

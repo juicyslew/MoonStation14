@@ -1,0 +1,27 @@
+# Botany tree and model-performance revision request
+
+**New-model request.** Route through the existing modeler coordinator for a representative concept/design checkpoint, then reviewed production. The request author has not claimed or assigned a modeler. This authorizes the coordinator's normal workflow, not import/overwrite authority; batch production follows checkpoint approval, and import requires independent review plus explicit owner authorization. This is a geometry redesign, not vertical stretching: preserve actual source-family assets and fixed rendering scale. The existing 933-file delivery and all 84 baseline assets remain protected unless the owner later explicitly revises that direction. The six previously accepted families (wheat, tomato, potato, poppy, aloe, meatwheat) and accepted Bungo/legacy assets are not redone.
+
+## Phase A — nine woody families
+
+Create new, source-recognizable mature geometry for `apple`, `golden_apple`, `lemon`, `lemoon`, `lime`, `orange`, `extradimensional_orange`, `banana`, and `mimana`. Include real trunk, branching, crown/leaf anatomy, and family-appropriate fruit; do not substitute generic Minecraft oak forms. Mature tops should be about 3.3–3.7 blocks above the tray (tray root at Y=5/16), taller than unchanged Bungo (2.279 blocks). Keep total X/Z silhouette span ≤about 1.9 blocks, centered on root X/Z `(0.5,0.5)`, to fit the two-block gallery pitch. If a natural silhouette cannot fit, stop for parent fixture-spacing adjustment rather than distorting geometry.
+
+Preserve the existing root `(8,5,8)` in native JSON units (16 units/block) or OBJ block units, with renderer scale exactly 1. No Y-stretch, affine rescaling, added root translation, shader, or new library. Supply all resolved stage 1..6 (or upstream count), harvest, and dead states, with genuinely small seedling/juvenile progression rather than mature geometry at stage 1. Native JSON bounds are `from/to [-16,32]`; geometry exceeding them must use the existing NeoForge OBJ + MTL + `#atlas` wrapper contract with complete dependencies, not invalid oversized JSON.
+
+## Phase B — geometry budget
+
+Start with the five heaviest active families: nettle, death_nettle, cannabis, rainbow_cannabis, oat. Inspect all 59 active imported families and revise only over-budget geometry; leave lightweight families untouched. The four inactive/gated families are excluded. Ambrosia shading/fruit polish is deferred; no texture-polish scope is requested.
+
+Provisional screening targets: ordinary states ≤256 declared faces, hard maximum 384; tree states target ≤384, hard maximum 576; genuinely small first stages target ≤96 where source permits. Count OBJ polygons/tri-equivalents as well as JSON faces; no JSON-only loophole. Remove hidden internal faces and voxel-fill/tiny cuboid excess; use deliberate cutout foliage and low-poly forms within the existing pipeline. Across all 65 resolved visuals, audited source geometry is 33,736 stage-1, 120,624 final-growth, and 161,348 harvest triangle-equivalents (JSON + OBJ; OBJ polygons triangulated n−2, JSON quads counted as two triangles). Target ≤25,000 mature faces only where counting quads, and ≤50,000 mixed-format triangle-equivalents across all 65 mature plants. These are screening targets, not proof of FPS; the source audit is not a GPU/frame profile. Explain exceptions at checkpoint before full production.
+
+## Checkpoint and handoff
+
+Before batch production, show native-scale front/side/back and gameplay-size views with tray, human, and Bungo comparison; representative apple and banana seedling/mid/mature/harvest/dead states; and optimized nettle/cannabis foliage. Include original-first previews, native-frame/bounds/UV checks, and correctly mapped full 16×16 UV textures. Obtain independent visual review and explicit owner asset acceptance plus overwrite authorization for any reviewed replacement group before import. Never auto-apply, delete, or overwrite current assets. Keep editable `.bbmodel`, palettes, attribution, and geometry-derived bounds updated; provide a complete flat destination manifest and source hashes.
+
+## Boundaries
+
+The SS14 source pin is `c9df5ef5d675b0d1d226828bddf6b78c28502d91`; retain source composition/recognition without changing simulation. Completed combined JSON+OBJ audit covers 65/65 species and distinct visuals, all resolved without fallback/zero. Stable evidence: `build/botany-catalog-validation/performance/plant-face-counts.csv`, `plant-face-counts.json`, and `audit_plant_faces.py`. This source estimate is not GPU/frame-cost profiling. Client profiling and a visible 65-plant gallery remain required to assess reported lag. Carrot seed/peel binding corrections reference existing canonical SS14 PNGs and need no commissioned art. Ambrosia polish and the extradimensional-orange 3D/4D joke are explicitly deferred.
+
+## References
+
+Prior family/state/source contract: `docs/botany-catalog-sprint/MODEL-REQUEST.md` and `docs/botany-genetics-sprint/PLANT-MODEL-BRIEF.md`. Existing imported geometry/state manifest: `docs/botany-sprint/model-delivery/provenance/tooling/manifest.json`. The prior request's collection/README paths are historical pipeline references and are absent in this worktree; derive current export destinations and provenance from the actual runtime assets and manifest, not those historical paths. Stable audit evidence is referenced above; do not copy bulk assets or previews into documentation.

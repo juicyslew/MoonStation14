@@ -20,18 +20,24 @@ public final class BodyAppearanceClothingLayer extends RenderLayer<PlayerCharact
         var snapshot = BodyHandNetworking.clientCache().get(entity.level().dimension().location(), entity.getUUID(), entity.getId()).orElse(null);
         if (snapshot == null) return;
         var plan = EquipmentRenderPlan.create(snapshot, com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.clientCatalog());
-        renderGarments(plan.garments(), getParentModel(), entity.bodyShape(), pose, buffer, light);
+        renderGarments(plan.garments(), getParentModel(), entity.bodyShape(), pose, buffer, light,
+                (entity.level().getGameTime() + partialTicks) / 20.0);
     }
 
     static void renderGarments(java.util.List<EquipmentRenderPlan.Garment> garments,
                               PlayerModel<?> model,
                               com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape shape,
                               PoseStack pose, MultiBufferSource buffer, int light) {
+        renderGarments(garments, model, shape, pose, buffer, light, 0);
+    }
+    static void renderGarments(java.util.List<EquipmentRenderPlan.Garment> garments, PlayerModel<?> model,
+                              com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape shape,
+                              PoseStack pose, MultiBufferSource buffer, int light, double elapsedSeconds) {
         boolean slim = shape == com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBodyShape.SLIM;
         for (var garment : garments) {
-            boolean authored = AuthoredWearableRenderer.canRender(garment.wornModel(), shape,
-                    garment.wornModel().flatMap(w -> AuthoredWearableMeshes.get(w.mesh())).isPresent())
-                    && AuthoredWearableRenderer.render(garment, model, pose, buffer, light);
+            var selectedMeshLoaded = garment.wornModel().filter(w -> AuthoredWearableMeshes.get(AuthoredWearableRenderer.selectedMesh(w, elapsedSeconds)).isPresent()).isPresent();
+            boolean authored = AuthoredWearableRenderer.canRender(garment.wornModel(), shape, selectedMeshLoaded)
+                    && AuthoredWearableRenderer.render(garment, model, pose, buffer, light, elapsedSeconds);
             if (!authored) {
                 // Authored rendering may switch the shared MultiBufferSource's active builder.
                 // Acquire the placeholder consumer only after that attempt, for this garment.
@@ -41,4 +47,3 @@ public final class BodyAppearanceClothingLayer extends RenderLayer<PlayerCharact
         }
     }
 }
-

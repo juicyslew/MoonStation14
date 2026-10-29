@@ -82,7 +82,7 @@ class BotanySeedPacketExamineTest {
         var items = manager.snapshot(ModSeedItemProfiles.TYPE);
         try {
             manager.reload(ModSeedProfiles.TYPE, com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.mainResources(
-                    "seed_profile", "defaults", "wheat", "tomato", "potato", "poppy", "aloe"));
+                    "seed_profile", "defaults", "wheat", "meatwheat", "tomato", "blue_tomato", "blood_tomato", "killer_tomato", "potato", "poppy", "lily", "spacemans_trumpet", "aloe"));
             manager.reload(ModSeedItemProfiles.TYPE, com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.mainResources(
                     "seed_item_profile", "aloe_seeds", "poppy_seeds", "potato_seeds", "tomato_seeds", "wheat_seeds"));
             test.run();

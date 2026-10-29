@@ -22,7 +22,7 @@ class LooseObjectProfileTest {
         try (var files = Files.list(directory)) {
             for (Path file : files.filter(path -> path.toString().endsWith(".json")).toList()) {
                 JsonObject json = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
-                raw.put(ResourceLocation.parse(json.get("id").getAsString()), json);
+                raw.put(ResourceLocation.fromNamespaceAndPath("moonstation14", file.getFileName().toString().replaceFirst("\\.json$", "")), json);
             }
         }
         var resolved = PrototypeResolver.resolve(raw);
@@ -32,6 +32,8 @@ class LooseObjectProfileTest {
         LooseObjectProfile grenade = decode(resolved.get(ModLooseObjectProfiles.GRENADE_ID));
         LooseObjectProfile blockModel = decode(resolved.get(LooseObjectProfile.BLOCK_MODEL_ID));
         LooseObjectProfile canister = decode(resolved.get(LooseObjectProfile.GAS_CANISTER_ID));
+        LooseObjectProfile bananaPeel = decode(resolved.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "trash_banana_peel")));
+        LooseObjectProfile mimanaPeel = decode(resolved.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "trash_mimana_peel")));
         assertEquals(.75f, generic.throwSpeed());
         assertEquals(generic.throwSpeed(), jug.throwSpeed());
         assertEquals(generic.throwSpeed(), grenade.throwSpeed());
@@ -60,6 +62,18 @@ class LooseObjectProfileTest {
         assertEquals(.45f, grenade.physicalWidth());
         assertEquals("grenade", grenade.renderKind());
         assertEquals("block_model", blockModel.renderKind());
+        assertEquals("block_model", bananaPeel.renderKind());
+        assertEquals("block_model", mimanaPeel.renderKind());
+        assertEquals(1.2f, bananaPeel.modelScale());
+        assertEquals(.6f, bananaPeel.modelFloorOffset());
+        assertEquals(bananaPeel.visual(), mimanaPeel.visual());
+        assertEquals(.4f, bananaPeel.physicalWidth());
+        assertEquals(bananaPeel.physicalWidth(), mimanaPeel.physicalWidth());
+        assertEquals(bananaPeel.stepTrigger(), mimanaPeel.stepTrigger());
+        assertEquals("moonstation14:ss14/effects/slip", bananaPeel.slippery().soundEvent().toString());
+        assertEquals(bananaPeel.slippery().soundEvent(), mimanaPeel.slippery().soundEvent());
+        assertEquals(0d, bananaPeel.slippery().soundVolumeDb());
+        assertEquals(-100d, mimanaPeel.slippery().soundVolumeDb());
         assertEquals(.65f, blockModel.physicalHeight());
         assertEquals(.65f * 0 + .325f, blockModel.modelFloorOffset());
         assertEquals(.5f, canister.physicalWidth());

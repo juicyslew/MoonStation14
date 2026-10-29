@@ -17,13 +17,35 @@ final class AuthoredWearableRenderer {
                 && wornModel.filter(w -> w.bodyShape() == shape).isPresent();
     }
 
+    static net.minecraft.resources.ResourceLocation selectedMesh(com.juicyslew.moonstation14.ms14.equipment.EquipmentItemData.WornModel model, double elapsedSeconds) {
+        if (model.frames().isEmpty()) return model.mesh();
+        double[] durations = model.frames().stream().mapToDouble(com.juicyslew.moonstation14.ms14.equipment.EquipmentItemData.WornModel.Frame::durationSeconds).toArray();
+        int index = com.juicyslew.moonstation14.ms14.singularity.SingularityFrameTiming.frameAt(elapsedSeconds, durations);
+        return model.frames().get(index).mesh();
+    }
+
     static boolean render(EquipmentRenderPlan.Garment garment, PlayerModel<?> model, PoseStack pose,
                           MultiBufferSource buffers, int light) {
+        return render(garment, model, pose, buffers, light, 0);
+    }
+    static boolean render(EquipmentRenderPlan.Garment garment, PlayerModel<?> model, PoseStack pose,
+                           MultiBufferSource buffers, int light, double elapsedSeconds) {
+        return render(garment, elapsedSeconds, AuthoredWearableMeshes::get,
+                texture -> buffers.getBuffer(RenderType.entityCutoutNoCull(texture)),
+                anchor -> EquipmentPlaceholderGeometry.boneFor(model, anchor), pose, light);
+    }
+
+    static boolean render(EquipmentRenderPlan.Garment garment, double elapsedSeconds,
+                          java.util.function.Function<net.minecraft.resources.ResourceLocation, java.util.Optional<AuthoredWearableMesh>> lookup,
+                          java.util.function.Function<net.minecraft.resources.ResourceLocation, VertexConsumer> consumers,
+                          java.util.function.Function<EquipmentRenderPlan.Anchor, net.minecraft.client.model.geom.ModelPart> bones,
+                          PoseStack pose, int light) {
         if (garment.wornModel().isEmpty()) return false;
-        var mesh = AuthoredWearableMeshes.get(garment.wornModel().get().mesh()).orElse(null);
+        var selected = selectedMesh(garment.wornModel().get(), elapsedSeconds);
+        var mesh = lookup.apply(selected).orElse(null);
         if (mesh == null) return false;
-        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(mesh.texture()));
-        emit(mesh, anchor -> EquipmentPlaceholderGeometry.boneFor(model, anchor), pose, consumer, light);
+        VertexConsumer consumer = consumers.apply(mesh.texture());
+        emit(mesh, bones, pose, consumer, light);
         return true;
     }
 
@@ -48,4 +70,3 @@ final class AuthoredWearableRenderer {
         }
     }
 }
-

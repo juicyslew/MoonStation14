@@ -37,7 +37,7 @@ import java.util.function.Consumer;
 public final class BotanyHarvestAuthenticatedGameTests {
     private BotanyHarvestAuthenticatedGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 12000)
+    @GameTest(template = "botany_fixture_space", templateNamespace = "moonstation14", timeoutTicks = 12000)
     @GameTestTags({"botany-meatwheat", "botany-harvest", "botany-genetics"})
     public static void registeredMeatwheatNaturallyHarvestsExtractsAndReplants(GameTestHelper helper) {
         var species = ModSeedProfiles.seedId("meatwheat");
@@ -64,6 +64,53 @@ public final class BotanyHarvestAuthenticatedGameTests {
                                 "canonical bushel output carries resolved meatwheat genetics");
                         continueGeneticsThroughExtractor(h, fixture, epoch, hand, pos, level, finished, expected, output);
                     } catch (Throwable failure) { finish(h, fixture, finished, "meatwheat harvest", failure); }
+                });
+    }
+
+    @GameTest(template = "botany_fixture_space", templateNamespace = "moonstation14", timeoutTicks = 12000)
+    @GameTestTags({"botany-catalog", "botany-harvest", "botany-seed-extractor"})
+    public static void registeredCarrotNaturallyHarvestsExtractsAndReplants(GameTestHelper helper) {
+        runCatalogRoundtrip(helper, "carrots", ModItems.CARROTS_SEEDS.get(), ModItems.CARROT.get(), false);
+    }
+
+    @GameTest(template = "botany_fixture_space", templateNamespace = "moonstation14", timeoutTicks = 12000)
+    @GameTestTags({"botany-catalog", "botany-harvest", "botany-seed-extractor"})
+    public static void registeredLemonNaturallyHarvestsExtractsAndReplants(GameTestHelper helper) {
+        runCatalogRoundtrip(helper, "lemon", ModItems.LEMON_SEEDS.get(), ModItems.LEMON.get(), true);
+    }
+
+    private static void runCatalogRoundtrip(GameTestHelper helper, String speciesName,
+            net.minecraft.world.item.Item seedItem, net.minecraft.world.item.Item productItem, boolean repeats) {
+        var species = ModSeedProfiles.seedId(speciesName);
+        var expected = new GeneticValue(species, ModSeedProfiles.serverLookup(species));
+        runAuthenticatedHarvest(helper, new ItemStack(seedItem), speciesName + "-catalog-roundtrip", 10000,
+                (h, fixture, epoch, hand, tray, pos, level, finished) -> {
+                    try {
+                        var plant = tray.plantState();
+                        require(plant.ready() && expected.equals(plant.genetics()),
+                                speciesName + " naturally grows using its resolved production profile");
+                        var before = level.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8),
+                                e -> !e.getItem().isEmpty()).stream().map(net.minecraft.world.entity.Entity::getUUID)
+                                .collect(java.util.stream.Collectors.toSet());
+                        var body = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
+                        var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                        var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
+                        require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2,
+                                query.revision(), hand, null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE))
+                                == BodyBlockUseResult.Outcome.PLACED, "ordinary authenticated USE harvests " + speciesName);
+                        var output = level.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8),
+                                e -> !e.getItem().isEmpty() && !before.contains(e.getUUID()) && e.getItem().is(productItem))
+                                .stream().findFirst().orElseThrow();
+                        var stack = output.getItem();
+                        require(expected.equals(stack.get(ModDataComponents.GENETIC_VALUE.get())), "product retains resolved " + speciesName + " genetics");
+                        require(stack.get(ModDataComponents.PLANT_SEED_REFERENCE.get()) != null, "product carries seed reference");
+                        require(stack.get(ModDataComponents.REAGENT.get()) != null
+                                        && stack.get(ModDataComponents.PRODUCE_INSTANCE.get()) != null,
+                                "product is generated with chemistry and produce instance");
+                        require((plant.seed() != null) == repeats, repeats
+                                ? "repeat lemon source remains planted" : "no-repeat carrot source is cleared");
+                        continueGeneticsThroughExtractor(h, fixture, epoch, hand, pos, level, finished, expected, output);
+                    } catch (Throwable failure) { finish(h, fixture, finished, speciesName + " catalog roundtrip", failure); }
                 });
     }
 

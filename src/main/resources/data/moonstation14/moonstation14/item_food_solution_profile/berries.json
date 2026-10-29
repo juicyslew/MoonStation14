@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:berries",
+  "capacity_cents": 1100,
+  "contents_cents": {
+    "moonstation14:nutriment": 500,
+    "moonstation14:vitamin": 400
+  },
+  "refillable": true
+}

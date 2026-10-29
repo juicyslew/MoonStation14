@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:extradimensional_orange",
+  "capacity_cents": 1400,
+  "contents_cents": {
+    "moonstation14:haloperidol": 500,
+    "moonstation14:nutriment": 500,
+    "moonstation14:vitamin": 400
+  },
+  "refillable": true
+}

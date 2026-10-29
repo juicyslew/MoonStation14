@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:ambrosia_deus",
+  "capacity_cents": 1000,
+  "contents_cents": {
+    "moonstation14:omnizine": 300,
+    "moonstation14:spacedrugs": 500,
+    "moonstation14:nutriment": 200
+  },
+  "refillable": true
+}
