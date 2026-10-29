@@ -26,6 +26,26 @@ def project(item):
 
 
 class WorkflowBoardProjectionTests(unittest.TestCase):
+    def test_stage_clock_uses_current_generation_boundaries_only(self):
+        for phase, expected in (("QUEUED", 300), ("CHECKING", 700), ("REVIEWING", 900)):
+            events = [
+                {"kind":"TASK_READY", "generation":1, "created_ms":1},
+                {"kind":"TASK_READY", "generation":2, "created_ms":300},
+                {"kind":"ATTEMPT_CHECKING", "generation":2, "created_ms":500},
+                {"kind":"ATTEMPT_REVIEWING", "generation":2, "created_ms":600},
+                {"kind":"ATTEMPT_CHECKING", "generation":2, "created_ms":700},
+                {"kind":"ATTEMPT_REVIEWING", "generation":2, "created_ms":900},
+                {"kind":"UNRELATED", "generation":2, "created_ms":9999},
+            ]
+            item=record(phase, extra={"events":events})
+            card=project(item)["columns"][{"QUEUED":"Queued","CHECKING":"Checking","REVIEWING":"Reviewing"}[phase]][0]
+            self.assertEqual(card["stage_started_ms"], expected)
+            self.assertNotIn("payload", card["details"]["events"][0])
+        for phase, unrelated in (("QUEUED", {"kind":"UNRELATED","generation":2,"created_ms":77}),
+                                 ("CHECKING", {"kind":"ATTEMPT_REVIEWING","generation":2,"created_ms":77}),
+                                 ("REVIEWING", {"kind":"ATTEMPT_CHECKING","generation":2,"created_ms":77})):
+            card=project(record(phase, extra={"events":[unrelated]}))["columns"][{"QUEUED":"Queued","CHECKING":"Checking","REVIEWING":"Reviewing"}[phase]][0]
+            self.assertIsNone(card["stage_started_ms"])
     def test_result_recency_uses_only_exact_current_generation_terminal_event(self):
         result_id="result-current"
         events=[

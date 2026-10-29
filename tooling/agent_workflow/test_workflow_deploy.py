@@ -452,6 +452,37 @@ class DeployWorkflowTests(unittest.TestCase):
         dirty = dict(snapshot); dirty["attempts"] = [{"attempt_json": {"phase": "WEBPAGEPENDING"}}]
         with self.assertRaises(ValueError): deploy.assert_quiescent(dirty)
 
+    def test_quiescence_allows_exact_transport_accepted_terminal_pair_without_mutation(self):
+        try: import workflow_store
+        except ModuleNotFoundError: from tooling.agent_workflow import workflow_store
+        payload = {"run_id":"r", "evaluation_generation":1, "result":"FAIL"}
+        event = {"id":"e", "run_id":"r", "generation":1, "kind":"DISPATCH",
+                 "payload":json.dumps(payload), "payload_digest":workflow_store.digest(payload)}
+        ar = {"session_id":"s","worktree":"w","role":"author"}
+        author = {"id":"d", "event_id":"e", "target_kind":"AUTHOR", "state":"TRANSPORT_ACCEPTED",
+                  "transport_receipt":{"accepted":True,"event_id":"e","message_id":"d","payload_digest":event["payload_digest"],"recipient":ar}, "protocol_ack":None, "lease_token":"historical",
+                  "lease_until_ms":1, "recipient_json":ar,
+                  "attempts":1, "claim_generation":1, "payload_digest":event["payload_digest"]}
+        page = {"event_id":"e", "target_kind":"WEBPAGE", "state":"PENDING", "attempts":0,
+                "claim_generation":0, "lease_token":None, "lease_until_ms":None,
+                "transport_receipt":None, "protocol_ack":None,
+                "recipient_json":{"session_id":None,"worktree":"w","role":"owner"},
+                "payload_digest":event["payload_digest"]}
+        snapshot = {key: [] for key in deploy._SNAPSHOT_TABLES}
+        snapshot.update(events=[event], outbox=[{"event_id":"e","state":"ACKNOWLEDGED"}],
+                        runs=[{"id":"r","run_json":{"author":{"session_id":"s","worktree":"w","role":"author"}}}],
+                        attempts=[{"run_id":"r","generation":1,"attempt_json":{"phase":"DECIDED"}}],
+                        deliveries=[author,page])
+        before = json.dumps(snapshot, sort_keys=True)
+        deploy.assert_quiescent(snapshot)
+        self.assertEqual(json.dumps(snapshot, sort_keys=True), before)
+        for index, mutate in enumerate((lambda a: a.update(state="CLAIMED"), lambda a: a.update(lease_until_ms=9999999999999),
+                       lambda a: a.update(recipient_json={"session_id":"foreign"}),
+                       lambda p: p.update(payload_digest="bad"))):
+            bad = json.loads(before)
+            mutate(bad["deliveries"][1])
+            with self.subTest(index=index), self.assertRaises(ValueError): deploy.assert_quiescent(bad)
+
     def test_stop_verifies_all_identities_then_stops_supervisor_before_job(self):
         identities = [{"pid": i, "created": i * 10} for i in range(1, 5)]
         health = {"supervisor": {"identity": identities[0]},

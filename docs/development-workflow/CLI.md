@@ -18,7 +18,7 @@ Only the flat manifest shape below is supported; all rows are required and trans
 {"files":[{"file":"export/resourcepack/assets/.../model.json","destination":"src/main/resources/assets/.../model.json"}]}
 ```
 
-It does not prove semantic completeness, dependencies, or fidelity: use package read-only validators and provenance/binding/source records. Nested `items[]` wearable/equipment manifests, null geometry destinations, bone meshes, frame geometry, OBJ/MTL remaps and transforms are unsupported and blocked. Preview safely before delivery:
+It does not prove semantic completeness, dependencies, or fidelity: use package read-only validators and provenance/binding/source records. Nested `items[]` wearable/equipment manifests, null geometry destinations, bone meshes and frame geometry are unsupported and blocked. Flat OBJ/MTL/PNG groups are permitted only as complete explicit groups with byte-preserving copies and unchanged references, closed at both source and destination (including real destinations under `src/main/resources/assets`). Remaps, transforms, nested groups and archive-only contents are not implicitly expanded or accepted. Preview safely before delivery:
 
 ```powershell
 python tooling/agent_workflow/workflow.py plan-manifest `
@@ -36,16 +36,16 @@ python tooling/agent_workflow/workflow.py deliver airlock-r1 `
   --review-images index.html previews/review.png
 ```
 
-Provenance/editable/gallery are metadata sidecars, not runtime destinations. Sources, manifest and metadata are saved with hashes/delivery digest; changes make the delivery stale. Independent reviewer JSON binds request snapshot, digest, reviewer, decision, findings and viewed-image hashes, e.g.:
+Provenance/editable/gallery are metadata sidecars, not runtime destinations. The accepted delivery is an immutable, hashed snapshot bound to its request and digest. Independent reviewer JSON binds that snapshot, digest, reviewer, decision, findings and viewed-image hashes, e.g.:
 
 ```json
 {"request_id":"airlock-r1","snapshot_key":"<request snapshot sha256>","delivery_digest":"<recorded sha256>","reviewer":"reviewer-2","decision":"ready_for_owner","findings":["..."],"viewed_images":[{"path":"review.png","sha256":"<image sha256>"}]}
 ```
 
-`review ID --reviewer NAME --result needs_changes|ready_for_owner --report report.json` verifies bindings, bounded report, reviewer distinct from claimant, and declared PNG hashes/signature/dimensions. Hashes do not prove inspection or truth. `import-assets ID --target WORKTREE [--owner-receipt receipt.json] [--plan-out plan.json]` is dry-run. A receipt must bind request, accepted decision, and delivery digest:
+`review ID --reviewer NAME --result needs_changes|ready_for_owner --report report.json` verifies bindings, bounded report, reviewer distinct from claimant, and declared PNG hashes/signature/dimensions. Hashes do not prove inspection or truth. Independent review binds the exact frozen delivery request, snapshot, and digest, and verifies the actual review report and viewed-image hashes; mutable candidate/source freshness is not a prerequisite for reviewing that immutable delivery. Current-source freshness remains relevant to explicit source verification or creating a new delivery, but does not replace the frozen delivery. Import consumes that same exact hashed immutable delivery snapshot and its bound request, digest, and independent review; later changes to source art, README, or protection metadata cannot invalidate that accepted copy or substitute newer art. Existing report, image, and provenance checks still apply. `import-assets ID --target WORKTREE [--owner-receipt receipt.json] [--plan-out plan.json]` is dry-run. A receipt must bind the exact request and delivery digest and use decision `accepted` or `accepted_as_is_closed`:
 
 ```json
-{"request_id":"airlock-r1","decision":"accepted","delivery_digest":"<exact digest>"}
+{"request_id":"airlock-r1","decision":"accepted_as_is_closed","delivery_digest":"<exact digest>"}
 ```
 
 ```powershell
@@ -54,7 +54,9 @@ python tooling/agent_workflow/workflow.py import-assets airlock-r1 --target . --
 python tooling/agent_workflow/workflow.py import-assets airlock-r1 --target . --owner-receipt owner.json --plan accepted-plan.json --apply
 ```
 
-Only ready independent review plus exact owner receipt permits apply. Plans bind target prior hashes and receipt; changed targets/sources/reports/receipt require a fresh post-acceptance plan. Overwrites require `--allow-overwrite` at both plan and apply. All paths preflight before writes; directories/non-directory parents conflict. Copy OS errors create `import_attempt.json` with copied/failed/not-attempted paths; earlier copies may remain, with no rollback. Reconcile manually. No deletes, staging, or merges.
+Only ready independent review plus an exact accepted owner receipt permits apply; these decisions authorize only that request and delivery digest, not broad approval. Plans bind target prior hashes and receipt; changed targets or reports/receipt require a fresh post-acceptance plan. Import copies the recorded snapshot, not a current candidate. This asset acceptance does not create a queue delivery, runtime manifest, or installed consumer. If a required delivery manifest is missing, the modeler must provide the normal complete delivery; do not select latest art or fall back to archive contents. Overwrites require `--allow-overwrite` at both plan and apply. All paths preflight before writes; directories/non-directory parents conflict. Copy OS errors create `import_attempt.json` with copied/failed/not-attempted paths; earlier copies may remain, with no rollback. Reconcile manually. No deletes, staging, or merges.
+
+Art-only acceptance or closure is not import authorization and cannot be used or automatically converted into one. `import_authorized: false` rejects a receipt even when its decision is `accepted` or `accepted_as_is_closed` and its request/delivery bindings are correct; queue apply requires independent ready review plus request- and exact-delivery-bound owner import authorization. A missing delivery manifest (including a missing Part03 delivery) must be repaired and supplied by the supplier as the normal complete group, not invented from acceptance records.
 
 ## Coding gate commands
 

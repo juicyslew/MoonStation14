@@ -131,6 +131,10 @@ def collect_evidence(check, repo, started, finished, log_path, before, *, hash_f
     counts = dict(tests=None, passed=None, failed=None, errors=None, skipped=None, selected=None, total=None)
     selection, findings, artifacts = "unknown", [], []
 
+    if check.get("not_launched"):
+        return {"status": "FAIL", "counts": counts, "selection": selection,
+                "artifacts": artifacts, "findings": [check["not_launched"]]}
+
     def add(path):
         path = Path(path)
         if path.is_file():

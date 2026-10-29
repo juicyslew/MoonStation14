@@ -67,6 +67,22 @@ class FiniteChecksTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             wf.run_finite_checks(self.repo,{'checks':[check(self.script("print('ok')"))]},self.repo/'later',completed_prefix=[record])
 
+    @unittest.skipUnless(wf.os.name == 'nt', 'Windows batch launch limit')
+    def test_oversized_junit_is_not_launched_and_stale_xml_is_not_evidence(self):
+        xml=self.repo/'build'/'test-results'/'test'/'TEST-Stale.xml'
+        xml.parent.mkdir(parents=True)
+        xml.write_text('<testsuite tests="99" failures="0"/>',encoding='utf-8')
+        selectors=[f'org.example.Case{i:03d}Test' for i in range(400)]
+        argv=['C:/fixture/gradlew.bat','test',*sum((['--tests',s] for s in selectors),[]),'--no-daemon']
+        item=dict(check(argv,'junit'),selectors=['not.the.frozen.argv.selectors'])
+        with mock.patch.object(wf.subprocess,'Popen') as popen:
+            record=wf.run_finite_checks(self.repo,{'checks':[item]},self.logs)[0]
+        popen.assert_not_called()
+        self.assertEqual('FAIL',record['evidence']['status'])
+        self.assertIsNone(record['evidence']['counts']['tests'])
+        self.assertEqual([],record['evidence']['artifacts'])
+        self.assertTrue(any('not launched' in finding for finding in record['evidence']['findings']))
+
     def test_completion_callback_can_externalize_typed_evidence_before_next_check(self):
         producer = "from pathlib import Path; p=Path('build/test-results/test'); p.mkdir(parents=True,exist_ok=True); (p/'TEST-fixture.xml').write_text('<testsuite tests=\"1\" failures=\"0\"/>')"
         wipe = "from pathlib import Path; import shutil; shutil.rmtree('build/test-results/test')"

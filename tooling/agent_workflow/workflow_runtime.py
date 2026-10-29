@@ -178,7 +178,6 @@ def flatmanifest(path,source_root):
         status=row.get('status','')
         if isinstance(status,str) and any(word in status.casefold() for word in ('remap','transform','unsupported')):
             raise ValueError(f'unsupported manifest transform at files[{i}]: {status}')
-        if Path(src).suffix.casefold()=='.mtl': raise ValueError(f'unsupported MTL remapping/transform: {src}')
         sp=safe(base,src); dp=Path(dest)
         if dp.is_absolute() or '..' in dp.parts or not dp.parts: raise ValueError(f'invalid destination: {dest}')
         sk=src.casefold(); dk=dp.as_posix().casefold()
@@ -187,6 +186,92 @@ def flatmanifest(path,source_root):
         srcs.add(sk); dests.add(dk)
         if not sp.is_file(): raise ValueError(f'missing source/dependency: {src}')
         output.append({'source':src,'destination':dp.as_posix(),'source_sha256':sha(sp),'size':sp.stat().st_size})
+    by_source={Path(row['source']).as_posix().casefold():row for row in output}
+    referenced_mtls=set()
+    def asset_location(destination):
+        """Return (namespace, resource path) for either supported asset-root spelling."""
+        parts=Path(destination).parts
+        folded=tuple(x.casefold() for x in parts)
+        if len(parts)>=3 and folded[0]=='assets':
+            return parts[1],Path(*parts[2:]).as_posix()
+        if len(parts)>=5 and folded[:4]==('src','main','resources','assets'):
+            return parts[4],Path(*parts[5:]).as_posix()
+        return None
+    for row in output:
+        if Path(row['source']).suffix.casefold()!='.obj': continue
+        for line in safe(base,row['source']).read_text(encoding='utf-8').splitlines():
+            fields=line.strip().split()
+            if fields and fields[0].casefold()=='mtllib':
+                for name in fields[1:]:
+                    dependency=(Path(row['source']).parent/name).as_posix()
+                    if dependency.casefold() not in by_source or Path(by_source[dependency.casefold()]['source']).suffix.casefold()!='.mtl':
+                        raise ValueError(f'missing OBJ material dependency: {dependency}')
+                    material=by_source[dependency.casefold()]
+                    expected=(Path(row['destination']).parent/name).as_posix()
+                    if material['destination'].casefold()!=expected.casefold():
+                        raise ValueError(f'OBJ material destination remaps its unchanged reference: {name}')
+                    referenced_mtls.add(dependency.casefold())
+    for row in output:
+        if Path(row['source']).suffix.casefold()=='.mtl' and Path(row['source']).as_posix().casefold() not in referenced_mtls:
+            raise ValueError(f'MTL requires matching OBJ in delivered group: {row["source"]}')
+        if Path(row['source']).suffix.casefold()=='.mtl' and asset_location(row['destination']) is None:
+            raise ValueError(f'MTL destination must remain in the canonical assets tree: {row["destination"]}')
+        if Path(row['source']).suffix.casefold()=='.mtl':
+            for line in safe(base,row['source']).read_text(encoding='utf-8').splitlines():
+                fields=line.strip().split()
+                if fields and fields[0].casefold().startswith('map_'):
+                    reference=fields[-1]
+                    if reference.startswith('#'):
+                        # NeoForge OBJ material aliases are resolved by the adjacent OBJ wrapper JSON.
+                        # Defer the alias resolution until wrappers have been indexed below.
+                        continue
+                    dependency=(Path(row['source']).parent/reference).as_posix()
+                    if dependency.casefold() not in by_source:
+                        raise ValueError(f'missing MTL texture dependency: {dependency}')
+                    expected=(Path(row['destination']).parent/reference).as_posix()
+                    if by_source[dependency.casefold()]['destination'].casefold()!=expected.casefold():
+                        raise ValueError(f'MTL texture destination remaps its unchanged reference: {reference}')
+    # Resolve only NeoForge's explicit OBJ wrapper/texture alias contract. No guessed sidecars
+    # or reference rewriting: each OBJ-linked symbolic MTL map must have a matching wrapper.
+    wrappers={}
+    for row in output:
+        if Path(row['source']).suffix.casefold()!='.json': continue
+        try: wrapper=json.loads(safe(base,row['source']).read_text(encoding='utf-8'))
+        except (json.JSONDecodeError,UnicodeDecodeError): continue
+        if isinstance(wrapper,dict) and wrapper.get('loader')=='neoforge:obj':
+            wrappers[Path(row['source']).as_posix().casefold()]=wrapper
+    for row in output:
+        if Path(row['source']).suffix.casefold()!='.obj': continue
+        symbolic=[]
+        obj_mtls=[]
+        for line in safe(base,row['source']).read_text(encoding='utf-8').splitlines():
+            fields=line.strip().split()
+            if fields and fields[0].casefold()=='mtllib': obj_mtls.extend((Path(row['source']).parent/n).as_posix().casefold() for n in fields[1:])
+        for mtl_source in obj_mtls:
+            material=by_source[mtl_source]
+            for line in safe(base,material['source']).read_text(encoding='utf-8').splitlines():
+                fields=line.strip().split()
+                if fields and fields[0].casefold().startswith('map_') and fields[-1].startswith('#'):
+                    symbolic.append(fields[-1][1:])
+        if not symbolic: continue
+        wrapper_source=(Path(row['source']).with_suffix('.json')).as_posix().casefold()
+        wrapper=wrappers.get(wrapper_source)
+        if wrapper is None: raise ValueError(f'NeoForge OBJ symbolic material requires matching wrapper JSON: {row["source"]}')
+        namespace,resource=asset_location(row['destination']) or (None,None)
+        model=wrapper.get('model')
+        expected=f'{namespace}:{resource}' if namespace else None
+        if model!=expected: raise ValueError(f'OBJ wrapper model must resolve to delivered OBJ: {row["source"]}')
+        textures=wrapper.get('textures')
+        if not isinstance(textures,dict): raise ValueError(f'OBJ wrapper textures must be an object: {wrapper_source}')
+        for slot in symbolic:
+            texture=textures.get(slot)
+            if not isinstance(texture,str) or ':' not in texture: raise ValueError(f'unresolved OBJ material alias #{slot}: {wrapper_source}')
+            tex_ns,tex_path=texture.split(':',1)
+            if tex_ns!=namespace: raise ValueError(f'OBJ wrapper texture namespace differs from asset group: {texture}')
+            tex_dest=f'assets/{tex_ns}/textures/{tex_path}.png'
+            candidates=[x for x in output if x['destination'].casefold() in (tex_dest.casefold(),f'src/main/resources/{tex_dest}'.casefold())]
+            if not candidates or Path(candidates[0]['source']).suffix.casefold()!='.png':
+                raise ValueError(f'missing OBJ wrapper texture dependency: {tex_dest}')
     return path,m,output
 
 def context_snapshot(values,base,folder):
@@ -271,22 +356,24 @@ def delivery_digest(manifest_hash,rows,metadata,revision):
     blob=json.dumps({'manifest':manifest_hash,'files':rows,'metadata':metadata,'revision':revision},sort_keys=True,separators=(',',':')).encode()
     return hashlib.sha256(blob).hexdigest()
 
-def verify_delivery(folder,r):
+def verify_delivery(folder,r, *, verify_sources=True):
     d=r.get('delivery')
     if not d: raise ValueError('no delivery')
     mp=folder/'delivery'/'source_manifest.json'
     if not mp.is_file() or sha(mp)!=d['manifest_sha256']: raise ValueError('captured manifest hash changed')
     srcroot=Path(d['source_root']); path=Path(d['manifest_path'])
-    if not path.is_file() or sha(path)!=d['manifest_sha256']: raise ValueError('original source manifest stale; create a new revision')
-    _,_,current=flatmanifest(path,srcroot)
-    if current!=d['files']: raise ValueError('source files changed since delivery; create a new revision')
+    if verify_sources:
+        if not path.is_file() or sha(path)!=d['manifest_sha256']: raise ValueError('original source manifest stale; create a new revision')
+        _,_,current=flatmanifest(path,srcroot)
+        if current!=d['files']: raise ValueError('source files changed since delivery; create a new revision')
     if delivery_digest(d['manifest_sha256'],d['files'],d['metadata'],d['revision'])!=d['digest']: raise ValueError('delivery receipt digest mismatch')
     for row in d['files']:
         copied=folder/'delivery'/'files'/row['destination']
         if not copied.is_file() or sha(copied)!=row['source_sha256']: raise ValueError(f'delivered bytes changed: {row["source"]}')
-    for x in d['metadata']:
-        p=safe(srcroot,x['path'])
-        if not p.is_file() or sha(p)!=x['sha256']: raise ValueError(f'delivery metadata stale: {x["path"]}')
+    if verify_sources:
+        for x in d['metadata']:
+            p=safe(srcroot,x['path'])
+            if not p.is_file() or sha(p)!=x['sha256']: raise ValueError(f'delivery metadata stale: {x["path"]}')
     return d
 
 def evidence_paths(paths,base):
@@ -388,7 +475,10 @@ def optional_reviewed_images(records,base):
     return reviewed_images(records,base) if records else []
 
 def cmd_review(a,root):
-    folder,r=getrequest(root,a.id); d=verify_delivery(folder,r)
+    # Review the immutable captured bytes, not the mutable author-side sources.
+    # Source freshness is checked at delivery; post-delivery edits require a new
+    # revision, but must not invalidate an independent review of this snapshot.
+    folder,r=getrequest(root,a.id); d=verify_delivery(folder,r,verify_sources=False)
     if a.reviewer==readjson(folder/'claim.json').get('agent'): raise ValueError('reviewer must differ from implementer/claim agent')
     report=read_report(a.report)
     required={'request_id':a.id,'snapshot_key':r['snapshot_key'],'delivery_digest':d['digest'],'reviewer':a.reviewer,'findings':report.get('findings'),'viewed_images':report.get('viewed_images')}
@@ -399,8 +489,8 @@ def cmd_review(a,root):
     r['review']={'result':a.result,'report_path':str(Path(a.report).resolve()),'report_sha256':sha(Path(a.report)),'report':report,'viewed_images':images,'inspection_is_reviewer_assertion':True}
     r['status']=a.result; writejson(folder/'request.json',r); print(a.result)
 
-def current_review(folder,r):
-    d=verify_delivery(folder,r); review=r.get('review')
+def current_review(folder,r, *, verify_sources=True):
+    d=verify_delivery(folder,r,verify_sources=verify_sources); review=r.get('review')
     if not review or review['result']!='ready_for_owner': raise ValueError('independent ready_for_owner review required')
     if not Path(review.get('report_path','')).is_file() or review['report_sha256']!=sha(Path(review['report_path'])): raise ValueError('review report changed')
     report=read_report(review['report_path'])
@@ -432,14 +522,15 @@ def target_plan(target,d,overwrite=False):
     return result
 
 def cmd_import(a,root):
-    folder,r=getrequest(root,a.id); d=verify_delivery(folder,r)
+    folder,r=getrequest(root,a.id); d=verify_delivery(folder,r,verify_sources=False)
     owner_hash=None
     if a.owner_receipt:
         owner=readjson(a.owner_receipt)
-        if owner.get('request_id')!=a.id or owner.get('decision')!='accepted' or owner.get('delivery_digest')!=d['digest']: raise ValueError('owner receipt must accept this exact request and delivery digest')
+        if owner.get('request_id')!=a.id or owner.get('decision') not in ('accepted','accepted_as_is_closed') or owner.get('delivery_digest')!=d['digest']: raise ValueError('owner receipt must accept this exact request and delivery digest')
+        if owner.get('import_authorized') is False: raise ValueError('owner receipt explicitly denies queue import authorization')
         owner_hash=sha(Path(a.owner_receipt))
     if a.apply:
-        d,review=current_review(folder,r)
+        d,review=current_review(folder,r,verify_sources=False)
         if owner_hash is None: raise ValueError('owner receipt required for --apply')
         if (folder/'import_receipt.json').exists(): raise ValueError('this request already has a successful import receipt; use a new request/revision id')
     target=Path(a.target).resolve(); plan=target_plan(target,d,a.allow_overwrite)
@@ -455,7 +546,6 @@ def cmd_import(a,root):
     for row in d['files']:
         dst=safe(target,row['destination']); src=folder/'delivery'/'files'/row['destination']
         if sha(src)!=row['source_sha256']: raise ValueError('delivery changed after plan')
-        if sha(safe(d['source_root'],row['source']))!=row['source_sha256']: raise ValueError('source changed after plan')
     outcomes=[]
     for index,(row,p) in enumerate(zip(d['files'],plan)):
         dst=safe(target,row['destination'])
@@ -724,6 +814,66 @@ def execution_argv(repo, argv, *, os_name=None):
     return result
 
 
+WINDOWS_BATCH_ARGV_LIMIT = 6000
+
+
+def _windows_batch_command_length(argv):
+    """Measure the Windows command line that CreateProcess receives for a batch wrapper."""
+    return len(subprocess.list2cmdline([str(value) for value in argv]).encode('utf-16-le')) // 2
+
+
+def _prepare_check_argv(check, executed_argv, log, *, os_name=None):
+    """Move large trusted JUnit selector lists into a JSON artifact, never broaden them."""
+    windows = (os_name or os.name) == 'nt'
+    if not windows:
+        return executed_argv
+    launcher = Path(executed_argv[0]).name.lower() if executed_argv else ''
+    command_length = _windows_batch_command_length(executed_argv)
+    is_command_host = launcher in ('cmd', 'cmd.exe')
+    is_batch = launcher.endswith(('.bat', '.cmd')) or (is_command_host and any(str(arg).lower() in ('/c', '/k') for arg in executed_argv[1:]))
+    is_gradle_batch = launcher in ('gradlew.bat', 'gradle.bat')
+    selectors = check.get('selectors')
+    if check.get('kind') == 'junit' and is_gradle_batch:
+        args = list(executed_argv)
+        if args and args[-1] == '--tests':
+            raise ValueError('JUnit argv has a trailing --tests without a selector')
+        pairs = [(args[i], args[i + 1]) for i in range(len(args) - 1) if args[i] == '--tests']
+        if not isinstance(selectors, list) or not selectors or not pairs or [value for _, value in pairs] != selectors:
+            raise ValueError('JUnit argv --tests do not match frozen selectors')
+    if is_batch and command_length <= WINDOWS_BATCH_ARGV_LIMIT:
+        return executed_argv
+    if not is_batch:
+        if command_length <= 32766:
+            return executed_argv
+        raise ValueError('Windows command line exceeds CreateProcess 32767-character limit; check was not launched')
+    if check.get('kind') != 'junit' or not is_gradle_batch or not isinstance(selectors, list) or not selectors:
+        raise ValueError(f'Windows command line exceeds safe {WINDOWS_BATCH_ARGV_LIMIT}-character batch limit; check was not launched')
+    args = list(executed_argv)
+    if not pairs:
+        raise ValueError('JUnit argv is missing --tests selectors')
+    # Remove only the selector values paired with --tests, preserving all other arguments.
+    args = []
+    skip = False
+    for arg in executed_argv:
+        if skip:
+            skip = False
+            continue
+        if arg == '--tests':
+            skip = True
+            continue
+        args.append(arg)
+    artifact = Path(log).with_suffix('.selectors.json')
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_text(json.dumps(selectors, ensure_ascii=False), encoding='utf-8')
+    script = Path(__file__).resolve().with_name('validation-junit-selectors.gradle')
+    if not script.is_file():
+        raise ValueError('canonical managed JUnit selector init script is missing')
+    args.extend(['-Pms14JUnitSelectors=' + str(artifact.resolve()), '--init-script', str(script)])
+    if _windows_batch_command_length(args) > WINDOWS_BATCH_ARGV_LIMIT:
+        raise ValueError(f'JUnit selector transport still exceeds safe {WINDOWS_BATCH_ARGV_LIMIT}-character Windows batch limit')
+    return args
+
+
 def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, gametest_teardown_timeout=60, verify_inputs=None, child_started=None, progress=None, record_completed=None, cleanup_blocked=None, completed_prefix=()):
     """Run a finite, sequential check plan and return its typed evidence records."""
     checks=plan['checks']
@@ -749,8 +899,13 @@ def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, ga
         if verify_inputs: verify_inputs()
         check_kind=check.get('kind','command')
         executed_argv=execution_argv(repo,check['argv'])
-        before=validation_evidence.snapshot_evidence(check,repo,hash_file=sha,safe_path=safe)
         started=time.time(); log=Path(logdir)/f'{i+1}.log'
+        launch_error=None
+        try:
+            executed_argv=_prepare_check_argv(check,executed_argv,log)
+        except ValueError as exc:
+            launch_error=str(exc)
+        before=validation_evidence.snapshot_evidence(check,repo,hash_file=sha,safe_path=safe)
         if check_kind in ('gametest','launch-smoke'):
             producer=safe(repo,check['log'])
             capture_key=os.path.normcase(str(log.resolve(strict=False)))
@@ -775,10 +930,17 @@ def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, ga
                             raise blocked from exc
                     raise
             try:
-                proc=subprocess.Popen(executed_argv,cwd=repo,stdout=stream,stderr=subprocess.STDOUT,shell=False,creationflags=(getattr(subprocess,'CREATE_NEW_PROCESS_GROUP',0)|getattr(subprocess,'CREATE_NO_WINDOW',0)) if os.name=='nt' else 0,start_new_session=os.name!='nt')
-                if child_started: invoke_owned(child_started,proc,check,log)
-                if progress: invoke_owned(progress,check,i+1,0.0)
-                if check_kind=='launch-smoke':
+                if launch_error:
+                    stream.write(f'CHECK LAUNCH REJECTED: {launch_error}\n')
+                    code=127
+                else:
+                    proc=subprocess.Popen(executed_argv,cwd=repo,stdout=stream,stderr=subprocess.STDOUT,shell=False,creationflags=(getattr(subprocess,'CREATE_NEW_PROCESS_GROUP',0)|getattr(subprocess,'CREATE_NO_WINDOW',0)) if os.name=='nt' else 0,start_new_session=os.name!='nt')
+                if launch_error:
+                    pass
+                elif child_started:
+                    invoke_owned(child_started,proc,check,log)
+                if not launch_error and progress: invoke_owned(progress,check,i+1,0.0)
+                if not launch_error and check_kind=='launch-smoke':
                     limit=min(smoke_timeout,120)
                     try:
                         smoke=monitor_launch_smoke(proc,safe(repo,check['log']),check,limit,stream,heartbeat=lambda: invoke_owned(progress,check,i+1,time.monotonic()-smoke_started) if progress else None); code=smoke['code']; cleanup='terminated' if smoke['controlled_stop'] else 'not_needed'
@@ -789,7 +951,7 @@ def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, ga
                         for pattern in smoke.get('matched_ready',[]): stream.write(f'\nGATE READY PATTERN MATCHED: {pattern}\n')
                         if smoke.get('error_pattern'): stream.write(f'\nGATE ERROR PATTERN MATCHED: {smoke["error_pattern"]}\n')
                         if smoke['controlled_stop']: stream.write('\nGATE CONTROLLED OWNED PROCESS TREE STOP: confirmed\n')
-                else:
+                elif not launch_error:
                     deadline=time.monotonic()+timeout
                     completion_deadline=None; capture_offset=0; carry=b''; completion_info=None
                     completion_tracker=validation_evidence.GameTestCompletionTracker() if check_kind=='gametest' else None
@@ -829,13 +991,17 @@ def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, ga
                         try: code=proc.wait(timeout=min(1 if check_kind=='gametest' else 10,remaining)); break
                         except subprocess.TimeoutExpired:
                             if progress: invoke_owned(progress,check,i+1,time.monotonic()-monotonic_started)
-            except OSError as e: stream.write(f'COMMAND START FAILED: {e}\n')
+            except OSError as e:
+                launch_error=f'command could not be started: {e}'
+                code=127
+                stream.write(f'COMMAND START FAILED: {e}\n')
             except BaseException as exc:
                 callback_error=exc
                 code=124 if cleanup=='unverified' else 127
                 stream.write(f'FINITE CHECK CALLBACK FAILED: {exc}\n')
             finished=time.time(); stream.write(f'GATE COMMAND EXIT: {code}; finished={finished:.9f}\n')
         evidence_check=dict(check,exit_code=code)
+        if launch_error: evidence_check['not_launched']=f'check not launched: {launch_error}'
         evidence=validation_evidence.collect_evidence(evidence_check,repo,started,finished,log,before,hash_file=sha,safe_path=safe)
         record={'argv':check['argv'],'kind':check_kind,'rationale':check['rationale'],'covers':check['covers'],'exit_code':code,'tree_cleanup':cleanup,'timeout_phase':timeout_phase,'controlled_stop':bool(smoke and smoke['controlled_stop']),'startup_seconds':time.monotonic()-smoke_started if check_kind=='launch-smoke' else None,'started':started,'finished':finished,'log':str(log),'log_sha256':sha(log),'evidence':evidence}
         if executed_argv!=check['argv']: record['executed_argv']=executed_argv
@@ -1724,6 +1890,45 @@ def cmd_status(a,root):
     for p in sorted((root/'candidates').glob('*.json')) if (root/'candidates').exists() else []:
         c=readjson(p); print(_candidate_status_line(c,verify=bool(getattr(a,'verify',False)),root=root))
 
+def cmd_list(a,root):
+    """Discover requests using bounded metadata reads only; this is not an integrity audit."""
+    records=[]; requests=root/'requests'
+    if requests.exists():
+        for folder in sorted(requests.iterdir(),key=lambda p:p.name):
+            if not folder.is_dir(): continue
+            request_path=folder/'request.json'
+            try:
+                r=readjson(request_path)
+                if not isinstance(r,dict): raise ValueError('request metadata must be an object')
+                rid=r.get('id')
+                if not isinstance(rid,str): raise ValueError('request metadata id must be a string')
+                validid(rid)
+                if rid!=folder.name: raise ValueError('request filename/identity mismatch')
+                if not isinstance(r.get('status'),str): raise ValueError('request status must be a string')
+                snapshot=r.get('context_snapshot')
+                if snapshot is None:
+                    context=r.get('context',[])
+                    if not isinstance(context,list) or any(not isinstance(x,str) for x in context): raise ValueError('request context must be a list of paths')
+                    context_paths=context
+                else:
+                    if not isinstance(snapshot,list): raise ValueError('request context_snapshot must be a list')
+                    if any(not isinstance(x,dict) or not isinstance(x.get('path'),str) for x in snapshot): raise ValueError('request context_snapshot entries must contain paths')
+                    context_paths=[x['path'] for x in snapshot]
+                claim_path=folder/'claim.json'; claim=None
+                if claim_path.exists():
+                    try:
+                        if claim_path.stat().st_size>16*1024: raise ValueError('claim metadata exceeds 16 KiB limit')
+                        claim=readjson(claim_path)
+                    except (ValueError,OSError): claim=None
+                if getattr(a,'open_only',False) and (r['status']!='open' or claim_path.exists()): continue
+                claimant=None
+                if claim_path.exists(): claimant=claim.get('agent') if isinstance(claim,dict) and isinstance(claim.get('agent'),str) else 'unknown'
+                title=r.get('title'); scope=r.get('scope')
+                records.append({'request_id':rid,'title':title if isinstance(title,str) else None,'scope':scope if isinstance(scope,str) else None,'status':r['status'],'claimant':claimant,'context_paths':context_paths})
+            except (ValueError,OSError,UnicodeError,json.JSONDecodeError) as exc:
+                records.append({'request_id':folder.name,'title':'','scope':'','status':'error','claimant':'unknown','context_paths':[], 'error':str(exc)[:200]})
+    print(json.dumps({'mode':'metadata-discovery','integrity_verified':False,'requests':records},sort_keys=True))
+
 def main():
     p=argparse.ArgumentParser(description=__doc__); p.add_argument('--repo',default='.'); p.add_argument('--asset-workspace')
     s=p.add_subparsers(dest='command',required=True)
@@ -1748,9 +1953,10 @@ def main():
     q=s.add_parser('gate-request'); q.add_argument('id'); q.set_defaults(fn=cmd_gate_request)
     q=s.add_parser('gate-scope-review'); q.add_argument('id'); q.add_argument('--reviewer',choices=['review','fidelity-reviewer'],required=True); q.add_argument('--actor',required=True); q.set_defaults(fn=cmd_gate_scope_review)
     q=s.add_parser('status'); q.add_argument('--candidate',help='show one code candidate without scanning history'); q.add_argument('--verify',action='store_true',help='explicitly verify source freshness and publication proofs (all candidates unless --candidate is supplied)'); q.set_defaults(fn=cmd_status)
+    q=s.add_parser('list'); q.add_argument('--open',dest='open_only',action='store_true',help='show only open unreserved requests'); q.add_argument('--json',action='store_true',help='emit deterministic metadata discovery JSON'); q.set_defaults(fn=cmd_list)
     a=p.parse_args()
     try:
-        root=queue(a,create=a.command not in ('status','plan-manifest')); a.fn(a,root)
+        root=queue(a,create=a.command not in ('status','plan-manifest','list')); a.fn(a,root)
     except WorkflowExit as e: return e.code
     except (ValueError,OSError,subprocess.CalledProcessError) as e: print(f'error: {e}',file=sys.stderr); return 2
     return 0
