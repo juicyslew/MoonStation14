@@ -52,9 +52,9 @@ public final class AirlockBlock extends Block implements EntityBlock {
         return super.updateShape(s,d,n,l,p,np);
     }
     @Override public VoxelShape getCollisionShape(BlockState s,BlockGetter l,BlockPos p,CollisionContext c) {
-        if(s.getValue(OPEN))return Shapes.empty();
-        BlockPos root=s.getValue(HALF)==DoubleBlockHalf.UPPER?p.below():p;
-        if(l.getBlockEntity(root) instanceof AirlockBlockEntity door && door.isCrushExempt(c))return Shapes.empty();
+         BlockPos root=s.getValue(HALF)==DoubleBlockHalf.UPPER?p.below():p;
+         if(l.getBlockEntity(root) instanceof AirlockBlockEntity door){if(door.isCrushExempt(c))return Shapes.empty();if(s.getValue(OPEN)&&door.firelockPassable())return Shapes.empty();}
+         else if(s.getValue(OPEN))return Shapes.empty();
         return Shapes.block();
     }
     @Nullable @Override public BlockEntity newBlockEntity(BlockPos p,BlockState s) { return s.getValue(HALF)==DoubleBlockHalf.LOWER?ModBlockEntities.AIRLOCK.get().create(p,s):null; }
@@ -77,4 +77,3 @@ public final class AirlockBlock extends Block implements EntityBlock {
         if(level.getBlockEntity(root) instanceof AirlockBlockEntity be)be.onScheduledTick(level);
     }
 }
-

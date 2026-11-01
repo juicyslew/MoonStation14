@@ -58,9 +58,9 @@ public final class ModVentilationDevices {
                 || base.has("gasVentPump") || base.has("gasVentScrubber")
                 || !base.has("pipeLane") || !base.has("apcPowerReceiver")
                   || !base.has("extensionCableReceiver")
-                  || !base.has("fixtureGeometry")
-                  || !Set.of("abstract", "pipeLane", "apcPowerReceiver", "extensionCableReceiver",
-                           "fixtureGeometry", "deviceComponents").containsAll(base.keySet()))
+                   || !base.has("fixtureGeometry") || !base.has("atmosMonitor")
+                   || !Set.of("abstract", "pipeLane", "apcPowerReceiver", "extensionCableReceiver",
+                             "fixtureGeometry", "deviceComponents", "atmosMonitor", "atmosAlarmable").containsAll(base.keySet()))
             throw new IllegalArgumentException("gas_unary_base must be an abstract shared parent without kind components");
         for (ResourceLocation id : Set.of(VENT, SCRUBBER)) {
             JsonObject child = raw.get(id);
@@ -92,9 +92,8 @@ public final class ModVentilationDevices {
     private static void required(PrototypeCatalog<VentilationDeviceData> catalog, ResourceLocation id,
                                  VentilationDeviceData.Kind kind) {
         VentilationDeviceData data = catalog.get(id);
-        if (data == null || data.kind() != kind
+        if (data == null || data.kind() != kind || data.atmosMonitor() == null
                 || data.apcPowerReceiver().requestedWatts() != Ss14VentilationDefaults.APC_REQUESTED_POWER_WATTS)
             throw new IllegalArgumentException("missing or invalid required ventilation prototype: " + id);
     }
 }
-

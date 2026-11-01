@@ -1,0 +1,71 @@
+{
+  "request_id": "automatic-atmos-standard-firelock-large-indicators-20261030-r4",
+  "parent_request_id": "automatic-atmos-standard-firelock-two-sided-lights-20261030-r3",
+  "parts": 18,
+  "quads": 108,
+  "fixed_frame_parts": 0,
+  "moving": {
+    "upper_leaf": {
+      "travel": [
+        0,
+        16,
+        0
+      ],
+      "pivot": [
+        8,
+        16,
+        8
+      ]
+    },
+    "lower_leaf": {
+      "travel": [
+        0,
+        -16,
+        0
+      ],
+      "pivot": [
+        8,
+        16,
+        8
+      ]
+    }
+  },
+  "draw": "Bodiesupper/lowerEXACTR3 + ONEindicatorcomponentchoicecontainingall4largehousings; neverdrawpressureandtemperaturemodels on topofeachother. Allindicatorcubesmoveupper+16*q. NoR3tinyLEDcomponents.",
+  "closed_visibility": "Twofullopaque16x32facesplusmovingedgefoldsoccludebasedoorfrombothfaces/eye-levelobliques. Baseassetsarenotdeleted/recolored.",
+  "lights": {
+    "location": "ONEcontinuous1.75x6unitverticalhousingpereachedgeofUPPERpanel, BOTHfaces; Y21..27center24=1.5blocks",
+    "housing_count": 4,
+    "old_R3_lamp_size": [
+      0.75,
+      1.25
+    ],
+    "new_housing_size": [
+      1.75,
+      6
+    ],
+    "motion_group": "upper_leaf",
+    "selection": "Dark unless latchedClosed ANDq0. Effectivewarningmask0dark/1cyanpressure/2redtemperature/3BOTHwithinONEhousing(redtop/cyanbottom). Never addseparatepressure+temperaturefixtures.",
+    "source_distinction": "Originalhasnormalstatusstripanddistinctwarningoverlays; thissinglefixturecombinessourcewarningstateswithoutinventingpriorityordiscardingboth-warningcase.",
+    "phase": "800/400ms nativecolors/cadence; manualbothphase00/01/10/11 preservesindependentwarningclocks; optionalbothloopissynchronized",
+    "base_lights": "BaseunchangedandoccludedbyR3skins; no extraframe/headerlamps"
+  },
+  "activation": "Selectlit ormanualphasecomponentsONLYwhen authoritativefullyClosedlatch AND q==0; otherwise darkcomponents, includingtravelandunlatchedq0. No geometry shrink/operatinglampduplication.",
+  "clock": "800/400ms source cadence. Bothlitoptionissynchronized; both_p0_t0/p0_t1/p1_t0/p1_t1supportindependentwarningphasebindings.",
+  "geometry": "Upper+16Y,lower-16Y; clip0..32AFTERtranslationwithUVcrop. FoldsoutsideX0..16by.25units, no newfixedframe/collider.",
+  "integration": "Existingdoorhostownsindependentfirelockq/latch/warningmask/network/collision/airtight. AssetsandCPUdemoonly; no gamecode/import.",
+  "source_adaptations": "ONLYlamps: replace8tinyseparateLEDswith4largeverticalhousings. Pressureonlycyan/temperatureonlyred/bothredtop+cyanbottomwithinSAMEhousing; no inventedwarningpriority. Nonlampgeometry/UV/IDs/motionunchanged.",
+  "closed_base_draw_rule": "IfauthoritativelatchedClosed AND q==0, cullunderlyingairlockRENDERmodelonly (notlogicalstate). Restorebasewhentravelbegins. Guaranteesnobasevisibility/roof-edgeleakfromanyangle; opaque skins/returns separatelytestedgeometricallyfrombothfaces. Editorreferencekeepsbaseforfitinspection.",
+  "clip_bounds_units": [
+    [
+      -0.25,
+      0,
+      0
+    ],
+    [
+      16.25,
+      32,
+      16
+    ]
+  ],
+  "clip_integration_note": "FirelockmovingreturnsneedX[-.25,16.25], NOTordinaryairlockhardX0..16 clipping. NativeJSONcoordslegal[-16,32]; hostadaptermustpreservethesequarterunitfolds. Renderbounds/cullingneed1/64blockhorizontalpadding; collisionunchanged."
+}

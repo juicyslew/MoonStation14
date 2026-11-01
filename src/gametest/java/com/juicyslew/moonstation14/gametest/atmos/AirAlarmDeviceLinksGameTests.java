@@ -59,11 +59,12 @@ public final class AirAlarmDeviceLinksGameTests {
         if (alarm.resolveDeviceLink(link) != vent || alarm.addDeviceLink(vent))
             throw new AssertionError("identity resolution and duplicate protection");
         if (AirAlarmDeviceLinks.resolve(level, new AirAlarmDeviceLinks.Link(level.dimension(), ventPos,
-                VentilationDeviceConfig.Kind.SCRUBBER, link.deviceId())) != null
+                AirAlarmDeviceLinks.EndpointRole.SCRUBBER, link.deviceId())) != null
                 || AirAlarmDeviceLinks.resolve(level, new AirAlarmDeviceLinks.Link(level.dimension(), ventPos,
-                link.kind(), UUID.randomUUID())) != null
+                AirAlarmDeviceLinks.EndpointRole.ventilation(link.role().ventilationKind().orElseThrow()
+                        == VentilationDeviceConfig.Kind.VENT ? VentilationDeviceConfig.Kind.SCRUBBER : VentilationDeviceConfig.Kind.VENT), UUID.randomUUID())) != null
                 || AirAlarmDeviceLinks.resolve(level, new AirAlarmDeviceLinks.Link(net.minecraft.world.level.Level.NETHER,
-                ventPos, link.kind(), link.deviceId())) != null)
+                ventPos, link.role(), link.deviceId())) != null)
             throw new AssertionError("wrong kind/dimension/UUID resolved");
         level.setBlock(ventPos, Blocks.AIR.defaultBlockState(), 3);
         level.setBlock(ventPos, ModBlocks.GAS_VENT.get().defaultBlockState(), 3);
@@ -81,7 +82,7 @@ public final class AirAlarmDeviceLinksGameTests {
         if (level.getChunkSource().getChunkNow(unloaded.getX() >> 4, unloaded.getZ() >> 4) != null)
             throw new AssertionError("test requires unloaded chunk");
         if (AirAlarmDeviceLinks.resolve(level, new AirAlarmDeviceLinks.Link(level.dimension(), unloaded,
-                link.kind(), link.deviceId())) != null
+                link.role(), link.deviceId())) != null
                 || level.getChunkSource().getChunkNow(unloaded.getX() >> 4, unloaded.getZ() >> 4) != null)
             throw new AssertionError("resolver loaded an unloaded chunk");
         helper.succeed();

@@ -10,6 +10,8 @@ public interface DeviceEndpoint {
  default boolean ownsAddressOutsideWorldSavedData() { return false; }
  /** Whether a clicked block position names this endpoint (including owned multiblock aliases). */
  default boolean acceptsBlockTarget(BlockPos target) { return position().equals(target); }
+ /** Higher-priority explicit subtarget wins when multiple composed endpoints share a block position. */
+ default int targetPriority(BlockPos target) { return 0; }
  default boolean powered() { return true; }
  /** Human-readable prototype/item name for configurator rows; addresses are shown separately. */
  default String displayName() { return "Device"; }
@@ -22,4 +24,3 @@ public interface DeviceEndpoint {
  /** Optional endpoint-side BeforePacketSent gate after network/range eligibility is established. */
  default boolean beforePacketReceived(DeviceEndpoint sender, DeviceNetworkPacket packet) { return true; }
 }
-

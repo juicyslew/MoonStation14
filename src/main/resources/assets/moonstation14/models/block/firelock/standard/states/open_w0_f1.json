@@ -1,0 +1,8 @@
+{
+  "ambientocclusion": true,
+  "textures": {
+    "atlas": "moonstation14:block/firelock/standard/atlas",
+    "particle": "moonstation14:block/firelock/standard/atlas"
+  },
+  "elements": []
+}

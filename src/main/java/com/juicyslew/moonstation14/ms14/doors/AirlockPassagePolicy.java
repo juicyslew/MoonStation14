@@ -43,6 +43,11 @@ public final class AirlockPassagePolicy {
                 .flatMap(data -> data.component(CollisionProfileComponent.class)).orElse(null);
         return profile == null || pairCollides(profile, door.prototype().collision());
     }
+    public static boolean pairCollides(Entity actor, FirelockBlockEntity door) {
+        if (!(actor instanceof LivingEntity living) || door == null || door.prototype() == null) return true;
+        var profile=CharacterIdentitySystem.resolveForActor(living).flatMap(data->data.component(CollisionProfileComponent.class)).orElse(null);
+        return profile==null||pairCollides(profile,door.prototype().collision());
+    }
     private static boolean pairCollides(CollisionProfileComponent actor, com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData.Collision object) {
         return actor.collidesWith(new CollisionProfileComponent(object.mask(), object.layer()));
     }

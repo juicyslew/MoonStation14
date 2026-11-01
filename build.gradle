@@ -304,6 +304,12 @@ def readinessCatalog = [
 ]
 readinessCatalog.interaction.add('com.juicyslew.moonstation14.ms14.botany.BotanyInspectCommandTest')
 readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.doors.FirelockStateTest',
+    'com.juicyslew.moonstation14.ms14.doors.FirelockPryServiceTest',
+    'com.juicyslew.moonstation14.ms14.tools.ToolProfileTest'
+])
+readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.doors.FirelockPryServiceTest')
+readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.prototype.NettleProductCatalogCandidateTest',
     'com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageTest',
     'com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageRuntimeTest',
@@ -386,6 +392,11 @@ readinessCatalog.ui.addAll([
     'com.juicyslew.moonstation14.ms14.combat.CombatModeHudPolicyTest'
 ])
 readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRendererAlphaTest')
+readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlProtocolTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmLayoutTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmScreenTest'
+])
 readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest',
     'com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogProductionTest',

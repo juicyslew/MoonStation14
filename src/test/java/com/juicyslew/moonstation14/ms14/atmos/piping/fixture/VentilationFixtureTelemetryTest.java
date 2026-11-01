@@ -28,6 +28,12 @@ class VentilationFixtureTelemetryTest {
         assertFalse(text.contains("powered"));
     }
 
+    @Test
+    void unavailableMeterRemainsUnknownRatherThanZero() {
+        assertEquals("UNKNOWN (meter unavailable/stale/not delivered)",
+                VentilationFixtureTelemetry.powerText(PowerRuntime.VentMeterObservation.UNKNOWN));
+    }
+
     private static GasMixture merge(GasMixture a, GasMixture b) {
         return new GasMixture(Map.of(GasType.OXYGEN, a.totalMoles() + b.totalMoles()), 300.0);
     }

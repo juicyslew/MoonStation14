@@ -16,11 +16,18 @@ import com.juicyslew.moonstation14.ms14.power.ui.ApcVisualState;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlock;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationGasRuntime;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosMonitorWorklist;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.AirAlarmData;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlock;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity;
+import com.juicyslew.moonstation14.ms14.doors.FirelockBlock;
+import com.juicyslew.moonstation14.ms14.doors.FirelockBlockEntity;
+import com.juicyslew.moonstation14.ms14.doors.FirelockController;
+import com.juicyslew.moonstation14.ms14.doors.FirelockHost;
+import com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity;
+import com.juicyslew.moonstation14.ms14.doors.prototype.FirelockData;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
 import com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity;
@@ -48,9 +55,12 @@ public final class PowerRuntime {
     public static final double LAMP_WATTS = 100;
     private static final Map<ServerLevel, Set<BlockPos>> DEVICES = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> VENTILATION_DEVICES = new WeakHashMap<>();
+    private static final Map<ServerLevel, AtmosMonitorWorklist> ATMOS_MONITOR_WORK = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> AIR_ALARMS = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> AIRLOCKS = new WeakHashMap<>();
     private static final Map<ServerLevel,Map<BlockPos,AirlockMeterSample>> AIRLOCK_METERS=new WeakHashMap<>();
+    private static final Map<ServerLevel, Set<BlockPos>> FIRELOCKS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, FirelockMeterSample>> FIRELOCK_METERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> DISPOSAL_UNITS = new WeakHashMap<>();
     private static final Map<ServerLevel, Map<BlockPos, DisposalMeterSample>> DISPOSAL_METERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> CHEM_MASTERS = new WeakHashMap<>();
@@ -80,7 +90,13 @@ public final class PowerRuntime {
                                     PowerDeviceBlockEntity apc, long breakerRevision) { }
     private record AirlockMeterSample(long sampleTick,long topologyGeneration,double deliveredWatts,
                                        AirlockBlockEntity airlock,com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData prototype,
-                                       PowerDeviceBlockEntity apc,long breakerRevision) { }
+                                        PowerDeviceBlockEntity apc,long breakerRevision) { }
+    static record FirelockTarget(BlockEntity owner, FirelockController controller, FirelockHost host, FirelockData prototype) {
+        java.util.UUID identity(){return controller.identity();}
+        boolean sameController(FirelockTarget other){return other!=null&&owner==other.owner&&controller==other.controller&&identity().equals(other.identity());}
+    }
+    private record FirelockMeterSample(long sampleTick,long topologyGeneration,double deliveredWatts,
+            FirelockTarget target,PowerDeviceBlockEntity apc,long breakerRevision) { }
     private record DisposalMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
                                        DisposalUnitBlockEntity unit, DisposalEntityData.Unit prototype,
                                         PowerDeviceBlockEntity apc, long breakerRevision) { }
@@ -130,6 +146,38 @@ public final class PowerRuntime {
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
     }
 
+    /** Derived loaded-endpoint sampling queue; explicit DeviceList membership remains owned by alarms. */
+    public static void monitorDeviceLoaded(ServerLevel level, VentilationDeviceBlockEntity device) {
+        if (level == null || device == null || device.getLevel() != level || device.isRemoved() || device.deviceId() == null) return;
+        ATMOS_MONITOR_WORK.computeIfAbsent(level, ignored -> new AtmosMonitorWorklist())
+                .register(device.getBlockPos(), device.deviceId());
+    }
+    public static void monitorDeviceUnloaded(ServerLevel level, BlockPos position, java.util.UUID identity) {
+        AtmosMonitorWorklist work = ATMOS_MONITOR_WORK.get(level);
+        if (work != null) work.unregister(position, identity);
+    }
+    /** Called by the existing AtmosphereService ATMOS_DEVICES stage with its bounded stage deadline. */
+    public static AtmosMonitorWorklist.DrainResult processAtmosMonitorStage(ServerLevel level, long cycleIdentity,
+            java.util.function.BooleanSupplier deadlineReached) {
+        AtmosMonitorWorklist work = ATMOS_MONITOR_WORK.get(level);
+        if (work == null) return new AtmosMonitorWorklist.DrainResult(0, 0);
+        return work.drain(cycleIdentity, 8, deadlineReached, registration -> {
+            LevelChunk chunk = loadedFullChunk(level, registration.position());
+            if (chunk == null) return null;
+            BlockEntity blockEntity = chunk.getBlockEntity(registration.position());
+            if (!(blockEntity instanceof VentilationDeviceBlockEntity vent)
+                    || !registration.identity().equals(vent.deviceId())
+                    || !(chunk.getBlockState(registration.position()).getBlock() instanceof VentilationDeviceBlock)) return null;
+            return new AtmosMonitorWorklist.Device() {
+                public java.util.UUID identity() { return vent.deviceId(); }
+                public boolean available() { return !vent.isRemoved() && vent.getLevel() == level
+                        && chunk.getBlockEntity(registration.position()) == vent; }
+                public boolean paidAndPowered() { return ventilationMeter(level, vent).known(); }
+                public void sample(long cycle) { vent.monitorAfterAtmosphereCycle(level, cycle); }
+            };
+        });
+    }
+
     public static void airAlarmChanged(ServerLevel level, BlockPos pos) {
                 PowerGraphService.invalidateLampChoice(level, pos);
         AIR_ALARMS.computeIfAbsent(level, ignored -> new LinkedHashSet<>()).add(pos.immutable());
@@ -144,6 +192,30 @@ public final class PowerRuntime {
         Map<BlockPos, AlarmMeterSample> meters = ALARM_METERS.get(level);
         if (meters != null) meters.remove(pos);
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+
+    /** Refreshes bounded alarm/firelock relay authorization after device-network topology changes. */
+    public static void reconcileDeviceNetworkPowerFreshness(ServerLevel level) {
+        if (level == null || !level.getServer().isSameThread()) return;
+        Set<BlockPos> alarms = AIR_ALARMS.get(level);
+        if (alarms != null) for (BlockPos pos : List.copyOf(alarms)) {
+            LevelChunk chunk = loadedFullChunk(level, pos);
+            if (chunk == null || !(chunk.getBlockEntity(pos) instanceof AirAlarmBlockEntity alarm)) continue;
+            var data = alarm.prototype();
+            var meter = airAlarmMeter(level, alarm);
+            alarm.observeNetworkPowerFreshness(data != null && meter.known()
+                    && meter.deliveredWatts() == data.apcPowerReceiver().requestedWatts());
+        }
+        Set<BlockPos> firelocks = FIRELOCKS.get(level);
+        if (firelocks != null) for (BlockPos pos : List.copyOf(firelocks)) {
+            LevelChunk chunk = loadedFullChunk(level, pos);
+            if (chunk == null) continue;
+            FirelockTarget target = firelockTarget(chunk.getBlockEntity(pos));
+            if (target == null || target.prototype() == null) continue;
+            var meter = firelockPowerForHost(level, target.host());
+            target.controller().observeNetworkPowerFreshness(target.host(), meter.known()
+                    && meter.deliveredWatts() == target.prototype().apcPowerReceiver().requestedWatts());
+        }
     }
 
     public static void disposalUnitChanged(ServerLevel level, BlockPos pos) {
@@ -358,6 +430,24 @@ public final class PowerRuntime {
     public static VentMeterObservation airlockPower(ServerLevel level,AirlockBlockEntity expected) {
         return airlockMeterCheck(level, expected).observation();
     }
+    public static VentMeterObservation firelockPower(ServerLevel level,FirelockBlockEntity expected) {
+        return firelockPowerForHost(level, expected);
+    }
+    /** Fresh, shared-lane meter query for either standalone or airlock-attached firelock owners. */
+    public static VentMeterObservation firelockPowerForHost(ServerLevel level,FirelockHost expected) {
+        if(level==null||expected==null||!level.getServer().isSameThread()||expected.level()!=level||!expected.initialized()||!expected.live(level)||!PowerGraphService.topologyReady(level))return VentMeterObservation.UNKNOWN;
+        FirelockTarget target=firelockTarget(expected.owner()); if(target==null||target.host()!=expected||!target.controller().initialized())return VentMeterObservation.UNKNOWN;
+        BlockPos pos=expected.root();
+        if(!(level.getChunkSource().getChunk(pos.getX()>>4,pos.getZ()>>4,ChunkStatus.FULL,false) instanceof LevelChunk chunk)||chunk.getBlockEntity(pos)!=expected.owner())return VentMeterObservation.UNKNOWN;
+        FirelockMeterSample sample=FIRELOCK_METERS.getOrDefault(level,Map.of()).get(pos);FirelockData data=expected.prototype();
+        if(sample==null||!sample.target().sameController(target)||sample.target().host()!=target.host()||data==null)return VentMeterObservation.UNKNOWN;
+        boolean validProvider=false;long currentBreakerRevision=-1;boolean breakerClosed=false;
+        if(sample.apc()!=null){if(sample.apc().isRemoved())return VentMeterObservation.UNKNOWN;BlockPos apcPos=sample.apc().getBlockPos();validProvider=level.getChunkSource().getChunk(apcPos.getX()>>4,apcPos.getZ()>>4,ChunkStatus.FULL,false) instanceof LevelChunk apcChunk&&apcChunk.getBlockEntity(apcPos)==sample.apc()&&sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock block&&block.kind()==PowerDeviceKind.APC;if(!validProvider)return VentMeterObservation.UNKNOWN;currentBreakerRevision=sample.apc().breakerRevision();breakerClosed=sample.apc().breakerClosed();}
+        if(!FirelockPowerFreshness.accepts(target.controller().identity(),sample.target().controller().identity(),data,sample.target().prototype(),sample.topologyGeneration(),PowerGraphService.topologyGeneration(level),sample.sampleTick(),serverTickSequence,TICKS_PER_SOLVE,validProvider,breakerClosed,sample.breakerRevision(),currentBreakerRevision,sample.deliveredWatts()))return VentMeterObservation.UNKNOWN;
+        return new VentMeterObservation(true,sample.deliveredWatts());
+    }
+    public static void firelockChanged(ServerLevel level,BlockPos pos){PowerGraphService.invalidateLampChoice(level,pos);FIRELOCKS.computeIfAbsent(level,ignored->new LinkedHashSet<>()).add(pos.immutable());FIRELOCK_METERS.computeIfAbsent(level,ignored->new HashMap<>()).remove(pos);PowerGraphService.noteChanged(level,new ChunkPos(pos));}
+    public static void firelockRemoved(ServerLevel level,BlockPos pos){PowerGraphService.invalidateLampChoice(level,pos);Set<BlockPos> index=FIRELOCKS.get(level);if(index!=null)index.remove(pos);Map<BlockPos,FirelockMeterSample> samples=FIRELOCK_METERS.get(level);if(samples!=null)samples.remove(pos);PowerGraphService.noteChanged(level,new ChunkPos(pos));}
 
     /** Diagnostic for the exact airlock meter acceptance checks; read-only and non-loading. */
     public static String airlockPowerDiagnostic(ServerLevel level, AirlockBlockEntity expected) {
@@ -470,6 +560,8 @@ public final class PowerRuntime {
     public static void ventilationDeviceRemoved(ServerLevel level, BlockPos pos) {
         PowerGraphService.invalidateLampChoice(level, pos);
         VentilationDeviceBlockEntity oldVent = findVentIdentity(level, pos);
+        if (oldVent != null && oldVent.deviceId() != null)
+            monitorDeviceUnloaded(level, pos, oldVent.deviceId());
         VentilationGasRuntime.forgetDevice(level, oldVent);
         Set<BlockPos> indexed = VENTILATION_DEVICES.get(level);
         if (indexed != null) indexed.remove(pos);
@@ -714,6 +806,7 @@ public final class PowerRuntime {
             if (be instanceof AirAlarmBlockEntity) airAlarmChanged(level, be.getBlockPos());
 
             if (be instanceof AirlockBlockEntity) airlockChanged(level,be.getBlockPos());
+            if (be instanceof FirelockBlockEntity) firelockChanged(level,be.getBlockPos());
 
             if (be instanceof DisposalUnitBlockEntity) disposalUnitChanged(level, be.getBlockPos());
             if (be instanceof ChemMasterBlockEntity) chemMasterChanged(level, be.getBlockPos());
@@ -743,6 +836,7 @@ public final class PowerRuntime {
 
         Set<BlockPos> doors=AIRLOCKS.get(level);if(doors!=null)doors.removeIf(pos->new ChunkPos(pos).equals(event.getChunk().getPos()));
         Map<BlockPos,AirlockMeterSample> doorMeters=AIRLOCK_METERS.get(level);if(doorMeters!=null)doorMeters.keySet().removeIf(pos->new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Set<BlockPos> firelocks=FIRELOCKS.get(level);if(firelocks!=null)firelocks.removeIf(pos->new ChunkPos(pos).equals(event.getChunk().getPos()));Map<BlockPos,FirelockMeterSample> firelockMeters=FIRELOCK_METERS.get(level);if(firelockMeters!=null)firelockMeters.keySet().removeIf(pos->new ChunkPos(pos).equals(event.getChunk().getPos()));
 
         Set<BlockPos> disposal = DISPOSAL_UNITS.get(level);
         if (disposal != null) disposal.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
@@ -804,9 +898,11 @@ public final class PowerRuntime {
             VentilationGasRuntime.forgetLevel(level);
             DEVICES.remove(level);
             VENTILATION_DEVICES.remove(level); VENT_METERS.remove(level);
+            ATMOS_MONITOR_WORK.remove(level);
             AIR_ALARMS.remove(level); ALARM_METERS.remove(level);
 
             AIRLOCKS.remove(level);AIRLOCK_METERS.remove(level);
+            FIRELOCKS.remove(level);FIRELOCK_METERS.remove(level);
 
             DISPOSAL_UNITS.remove(level); DISPOSAL_METERS.remove(level);
             CHEM_MASTERS.remove(level); CHEM_MASTER_METERS.remove(level);
@@ -828,9 +924,11 @@ public final class PowerRuntime {
         VentilationGasRuntime.clear();
         DEVICES.clear(); LAST_SOLVE.clear(); RESOLVE_AFTER_TRIP.clear(); RESOLVE_AFTER_TOPOLOGY.clear();
         VENTILATION_DEVICES.clear(); VENT_METERS.clear();
+        ATMOS_MONITOR_WORK.clear();
         AIR_ALARMS.clear(); ALARM_METERS.clear();
 
         AIRLOCKS.clear();AIRLOCK_METERS.clear();
+        FIRELOCKS.clear();FIRELOCK_METERS.clear();
 
         DISPOSAL_UNITS.clear(); DISPOSAL_METERS.clear();
         CHEM_MASTERS.clear(); CHEM_MASTER_METERS.clear();
@@ -847,7 +945,9 @@ public final class PowerRuntime {
     private static void solve(ServerLevel level, long elapsedTicks, long sampleTick) {
         Set<BlockPos> indexed = DEVICES.get(level);
         Set<BlockPos> indexedAirlockPositions=AIRLOCKS.get(level);
+        Set<BlockPos> indexedFirelockPositions=FIRELOCKS.get(level);
         if ((indexed == null || indexed.isEmpty()) && (indexedAirlockPositions == null || indexedAirlockPositions.isEmpty())
+                && (indexedFirelockPositions == null || indexedFirelockPositions.isEmpty())
                 && (DISPOSAL_UNITS.get(level) == null || DISPOSAL_UNITS.get(level).isEmpty())
                 && (CHEM_MASTERS.get(level) == null || CHEM_MASTERS.get(level).isEmpty())
                 && (PROCESSING_MACHINES.get(level) == null || PROCESSING_MACHINES.get(level).isEmpty())) return;
@@ -902,6 +1002,8 @@ public final class PowerRuntime {
             BlockEntity be=chunk.getBlockEntity(pos);if(!(be instanceof AirlockBlockEntity door)||!(door.getBlockState().getBlock() instanceof AirlockBlock)){it.remove();continue;}
             if(door.prototype()!=null)airlocks.add(door);
         }}
+        List<FirelockTarget> firelocks=new ArrayList<>();Set<BlockPos> indexedFirelocks=FIRELOCKS.get(level);
+        if(indexedFirelocks!=null){Iterator<BlockPos> it=indexedFirelocks.iterator();while(it.hasNext()){BlockPos pos=it.next();LevelChunk chunk=loadedFullChunk(level,pos);if(chunk==null){it.remove();continue;}BlockEntity be=chunk.getBlockEntity(pos);FirelockTarget target=firelockTarget(be);if(target==null||!target.host().live(level)){it.remove();continue;}if(target.prototype()!=null)firelocks.add(target);}}
 
         List<DisposalUnitBlockEntity> disposalUnits = new ArrayList<>();
         Set<BlockPos> indexedDisposal = DISPOSAL_UNITS.get(level);
@@ -956,6 +1058,7 @@ public final class PowerRuntime {
         for (AirlockBlockEntity door : airlocks)
             receiverGraphReady &= PowerGraphService.prepareLoadedFootprint(level, door.getBlockPos(),
                     door.prototype().extensionCableReceiver().localReachBlocks());
+        for(FirelockTarget door:firelocks)receiverGraphReady &= PowerGraphService.prepareLoadedFootprint(level,door.host().root(),door.prototype().extensionCableReceiver().localReachBlocks());
         for (DisposalUnitBlockEntity unit : disposalUnits)
             receiverGraphReady &= PowerGraphService.prepareLoadedFootprint(level, unit.getBlockPos(), 3);
         for (ChemMasterBlockEntity machine : chemMasters)
@@ -1040,6 +1143,8 @@ public final class PowerRuntime {
                 if(eligible.size()==1&&eligible.get(0).breakerClosed())airlockProviders.put(door,eligible.get(0));
             }
         }
+        Map<FirelockTarget,LoadedPowerGraph.NodeState> firelockStates=new HashMap<>();Map<FirelockTarget,PowerDeviceBlockEntity> firelockProviders=new HashMap<>();
+        for(FirelockTarget door:firelocks){LoadedPowerGraph.NodeState state=firelockReceiverState(level,door);firelockStates.put(door,state);if(PowerGraphService.topologyReady(level)&&state.knowledge()==LoadedPowerGraph.Knowledge.KNOWN){List<PowerDeviceBlockEntity> eligible=apcs.stream().filter(candidate->isKnown(known,candidate,CableTier.APC)&&component(components,candidate,CableTier.APC)==state.componentId()).toList();if(eligible.size()==1&&eligible.get(0).breakerClosed())firelockProviders.put(door,eligible.get(0));}}
 
         Map<DisposalUnitBlockEntity, LoadedPowerGraph.NodeState> disposalStates = new IdentityHashMap<>();
         Map<DisposalUnitBlockEntity, PowerDeviceBlockEntity> disposalProviders = new IdentityHashMap<>();
@@ -1153,11 +1258,11 @@ public final class PowerRuntime {
                     var state = disposalStates.get(unit);
                     return new PowerLiveLoop.DisposalLoad(id(unit), state.componentId(), disposalProviders.containsKey(unit), unit.prototype().powerWatts());
                 }).toList(),
-                chemMasters.stream().map(machine -> {
+                 chemMasters.stream().map(machine -> {
                     var state = chemMasterStates.get(machine);
                     return new PowerLiveLoop.ChemMasterLoad(machine.placementIdentity().toString(), state.componentId(),
                             chemMasterProviders.containsKey(machine), machine.powerLoadWatts());
-                }).toList(), mvConsumers, apcConsumers,
+                 }).toList(), mvConsumers, firelockApcConsumers(firelocks,firelockStates,firelockProviders,apcConsumers),
                 processingMachines.stream().filter(machine -> processingDemand(machine) > 0).map(machine -> {
                     var state = processingStates.get(machine);
                     return new PowerLiveLoop.ProcessingLoad(processingIdentity(machine).toString(),
@@ -1225,6 +1330,17 @@ public final class PowerRuntime {
                     new AlarmMeterSample(sampleTick, PowerGraphService.topologyGeneration(level),
                             result.alarmWatts().getOrDefault(id(alarm), 0.0), alarm,
                             alarm.prototype(), provider, provider.breakerRevision()));
+            var definition = alarm.prototype();
+            LoadedPowerGraph.NodeState state = alarmStates.get(alarm);
+            if (!PowerGraphService.topologyReady(level) || state == null
+                    || state.knowledge() != LoadedPowerGraph.Knowledge.KNOWN) {
+                alarm.observeNetworkPowerFreshness(false);
+            } else {
+                var meter = airAlarmMeter(level, alarm);
+                if (meter.known()) alarm.updateReceiverPower(definition != null
+                        && meter.deliveredWatts() == definition.apcPowerReceiver().requestedWatts());
+                else alarm.updateReceiverPower(false); // Authoritative known graph, but no valid paid provider.
+            }
         }
 
         Map<BlockPos,AirlockMeterSample> airlockMeters=AIRLOCK_METERS.computeIfAbsent(level,ignored->new HashMap<>());airlockMeters.clear();
@@ -1232,6 +1348,8 @@ public final class PowerRuntime {
              if(provider!=null||PowerGraphService.topologyReady(level)&&airlockStates.get(door).knowledge()==LoadedPowerGraph.Knowledge.KNOWN)airlockMeters.put(door.getBlockPos().immutable(),new AirlockMeterSample(sampleTick,PowerGraphService.topologyGeneration(level),delivery,door,door.prototype(),provider,provider==null?-1:provider.breakerRevision()));
             if(!door.state().receiverPowerDisabled())door.setPowered(provider!=null&&delivery==door.prototype().apcPowerReceiver().requestedWatts());
         }
+        Map<BlockPos,FirelockMeterSample> firelockMeters=FIRELOCK_METERS.computeIfAbsent(level,ignored->new HashMap<>());firelockMeters.clear();
+        for(FirelockTarget door:firelocks){PowerDeviceBlockEntity provider=firelockProviders.get(door);double delivery=result.apcConsumerWatts().getOrDefault(firelockPowerId(door),0.0);LoadedPowerGraph.NodeState receiver=firelockStates.get(door);if(provider!=null||PowerGraphService.topologyReady(level)&&receiver.knowledge()==LoadedPowerGraph.Knowledge.KNOWN)firelockMeters.put(door.host().root().immutable(),new FirelockMeterSample(sampleTick,PowerGraphService.topologyGeneration(level),delivery,door,provider,provider==null?-1:provider.breakerRevision()));if(!PowerGraphService.topologyReady(level)||receiver==null||receiver.knowledge()!=LoadedPowerGraph.Knowledge.KNOWN)door.controller().observeNetworkPowerFreshness(door.host(),false);else{var observation=firelockPowerForHost(level,door.host());if(observation.known())door.controller().setPaidPower(door.host(),observation.deliveredWatts()==door.prototype().apcPowerReceiver().requestedWatts());else door.controller().setPaidPower(door.host(),false);}}
 
         Map<BlockPos, DisposalMeterSample> disposalMeters = DISPOSAL_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
         disposalMeters.clear();
@@ -1367,9 +1485,12 @@ public final class PowerRuntime {
         for (PowerDeviceBlockEntity lamp : lamps)
             setLit(level, lamp.getBlockPos(), result.lampWatts().getOrDefault(id(lamp), 0.0)
                     >= ((PowerDeviceBlock) lamp.getBlockState().getBlock()).kind().lampDemandWatts());
-        // Gas work is authorized only after APC battery billing and single-use budgets exist.
-        for (VentilationDeviceBlockEntity vent : vents)
+        // Monitor power transitions reuse this paid receiver observation; atmosphere samples run
+        // later in the bounded ATMOS_DEVICES stage and never consume gas-work authorization.
+        for (VentilationDeviceBlockEntity vent : vents) {
+            vent.observeMonitorPower(level, ventilationMeter(level, vent).known());
             VentilationGasRuntime.onCompletedPaidSolve(level, vent);
+        }
     }
 
     /** Project native display states from the authoritative solve; DISPLAY never changes topology. */
@@ -1475,6 +1596,10 @@ public final class PowerRuntime {
     private static String id(AirAlarmBlockEntity device) { return device.getBlockPos().toShortString(); }
 
     private static String id(AirlockBlockEntity device) { return "airlock-"+device.getBlockPos().toShortString(); }
+    static String firelockPowerId(FirelockTarget device){return "firelock-"+device.identity();}
+    private static List<PowerLiveLoop.ApcConsumer> firelockApcConsumers(List<FirelockTarget> firelocks,
+            Map<FirelockTarget,LoadedPowerGraph.NodeState> states,Map<FirelockTarget,PowerDeviceBlockEntity> providers,
+            List<PowerLiveLoop.ApcConsumer> existing){List<PowerLiveLoop.ApcConsumer> result=new ArrayList<>(existing);for(FirelockTarget door:firelocks){var state=states.get(door);result.add(new PowerLiveLoop.ApcConsumer(firelockPowerId(door),state.componentId(),providers.containsKey(door),door.prototype().apcPowerReceiver().requestedWatts()));}return result;}
 
     private static String id(DisposalUnitBlockEntity device) { return device.getBlockPos().toShortString(); }
     private static BlockPos processingPos(Object machine) { return machine instanceof ReagentGrinderBlockEntity g ? g.getBlockPos() : ((SeedExtractorBlockEntity) machine).getBlockPos(); }
@@ -1504,6 +1629,28 @@ public final class PowerRuntime {
         CableFaceNode node=nearby.stream().filter(candidate->PowerGraphService.state(level,candidate).knowledge()==LoadedPowerGraph.Knowledge.KNOWN)
                 .min(Comparator.comparingDouble(candidate->candidate.host().distSqr(door.getBlockPos()))).orElse(null);
         return node==null?new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.KNOWN,-1):PowerGraphService.state(level,node);
+    }
+    private static FirelockTarget firelockTarget(BlockEntity owner){
+        FirelockController controller;FirelockHost host;
+        if(owner instanceof FirelockBlockEntity standalone){controller=standalone.firelockController();host=standalone.firelockHost();}
+        else if(owner instanceof AirlockBlockEntity airlock){controller=airlock.firelockController();host=airlock.firelockHost();}
+        else return null;
+        if(controller==null||host==null)return null;FirelockData prototype=host.prototype();
+        return prototype==null?null:new FirelockTarget(owner,controller,host,prototype);
+    }
+    private static LoadedPowerGraph.NodeState firelockReceiverState(ServerLevel level,FirelockTarget door){
+        var prototype=door.prototype();if(prototype==null)return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN,-1);
+        int radius=prototype.extensionCableReceiver().localReachBlocks();BlockPos center=door.host().root();
+        if(!PowerGraphService.topologyReady(level))return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN,-1);
+        var nearby=PowerGraphService.nodesNear(level,center,radius,CableTier.APC);
+        if(nearby==null)return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN,-1);
+        if(nearby.isEmpty()&&FirelockPowerFreshness.receiverKnowledge(true,false,false))
+            return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.KNOWN,-1);
+        // Reuse the shared nearest-known receiver policy: unknown closer components do not
+        // displace a farther known receiver, but an all-unknown neighborhood stays unknown.
+        CableFaceNode node=PowerGraphService.nearestApcExtensionNode(level,center,radius);
+        boolean known=FirelockPowerFreshness.receiverKnowledge(PowerGraphService.topologyReady(level),!nearby.isEmpty(),node!=null);
+        return !known?new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN,-1):PowerGraphService.state(level,node);
     }
     /** Return an already-loaded full chunk only; periodic power work must never request a chunk ticket. */
     private static LevelChunk loadedFullChunk(ServerLevel level, BlockPos pos) {

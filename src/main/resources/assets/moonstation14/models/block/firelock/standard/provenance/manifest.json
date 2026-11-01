@@ -1,0 +1,267 @@
+{
+  "request_id": "automatic-atmos-standard-firelock-large-indicators-20261030-r4",
+  "files": [
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/closed.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/closed.json",
+      "sha256": "3cd8d85885870de96ff819d2b652f03713377b00b9c8be122490a8fbcf989bf5"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_both_lit.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_both_lit.json",
+      "sha256": "9a6f8fc328f47336de8d5eab71e79641084124cf68a27cafb755c297a5836ee5"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_both_p0_t0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_both_p0_t0.json",
+      "sha256": "1b9ba8f91e3151222ebfc062f71822dda42b33a864d7cdbc691c1752a177d33c"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_both_p0_t1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_both_p0_t1.json",
+      "sha256": "f179893a2db932d31e8501fd8ea7cc84a4053d81706393a916b83ac1473b0506"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_both_p1_t0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_both_p1_t0.json",
+      "sha256": "70de4f9109a9bd152239eca664eba262cd1898363e4e7893fed3642ef93292d0"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_both_p1_t1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_both_p1_t1.json",
+      "sha256": "41ae14fdaa2bd1fd0692b52a52d8606b65f76b264642c30ea11f2667658f008e"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_dark.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_dark.json",
+      "sha256": "fd1d9497f71c9fded5362f2f6d8ff1a5974a2c714210f1835da04666befe2016"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_pressure_lit.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_pressure_lit.json",
+      "sha256": "c464d53eb9aa636094c6b05620e97d6a683a7fea148b4c1e2f5946449d276b94"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_pressure_phase0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_pressure_phase0.json",
+      "sha256": "e874e620c52d665081c1d81a0ec67a0e206a7f33eb6a230316cea79758442068"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_pressure_phase1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_pressure_phase1.json",
+      "sha256": "19472d2852c4375c90932dcfb04de176f546af1319749c9b095bff22df3dd021"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_temperature_lit.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_temperature_lit.json",
+      "sha256": "c203fcf7b7bee2d8b0bc4a155bbdb3f73c9156b6432463bd224202b4b2aa7392"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_temperature_phase0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_temperature_phase0.json",
+      "sha256": "91d9bc6b3d603ee8a636a5a041271c106e83221c974894164e9b4bd0456554db"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/indicator_temperature_phase1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/indicator_temperature_phase1.json",
+      "sha256": "d3b2f3d4be2d3635e8c9aa2747cb27c4968f4b371c3e092a5c0e48e089da427e"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/lower_leaf.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/lower_leaf.json",
+      "sha256": "54aaa1a417146f336800ef232085d53acde45bce8281f3b150c15e435fda936f"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/components/upper_leaf.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/components/upper_leaf.json",
+      "sha256": "ec7d04ee3615c603061bf0e85e83388170ccc3d7b81741e193ab6462272ac65c"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/midpoint.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/midpoint.json",
+      "sha256": "9de56f530437a58449eb05776cd587bbd21ccf2395512a80c528de8dc1556e70"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/open.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/open.json",
+      "sha256": "995d21f726724a3509e1b9e916bd49a3961810cfc09e642ab4f5dc31c325b11a"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_both_p0_t1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_both_p0_t1.json",
+      "sha256": "6f24cb147883f2f633061add939525983d8b3f905d0e9f60f55e10cbd2a092c5"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_both_p1_t0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_both_p1_t0.json",
+      "sha256": "74bdcf59f87b791f80410dcef3bbe807412db1d48c20b945ffe1983736f64d71"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_unlatched_w3.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_unlatched_w3.json",
+      "sha256": "6a5b2675643d09e80d04bf27aa83f387a562b297f0ffdb88469ed6f18dcf1210"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_w0_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_w0_f0.json",
+      "sha256": "6a5b2675643d09e80d04bf27aa83f387a562b297f0ffdb88469ed6f18dcf1210"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_w0_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_w0_f1.json",
+      "sha256": "6a5b2675643d09e80d04bf27aa83f387a562b297f0ffdb88469ed6f18dcf1210"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_w1_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_w1_f0.json",
+      "sha256": "08b207daacc5a26bf096bf11501de4aea4528c7a33189d7e8a0ee05a6557beac"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_w1_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_w1_f1.json",
+      "sha256": "1232c7040e260ffcc7adfb2a7f9b2875b0ce7151d1ea2e8cfa10a9ea6899c3b1"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_w2_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_w2_f0.json",
+      "sha256": "b68baab833a97a32f0501e3fdd852e2678b45907557fb26e68089b3aa3f87611"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_w2_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_w2_f1.json",
+      "sha256": "cf7cb1a35d989d43932c2cd97ed01c46c737050df2d606dae4bdde8ca645e2a0"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_w3_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_w3_f0.json",
+      "sha256": "02218c57680d01913ea6fb65df296e81db731e172c996e511ae9834e852d6e14"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/closed_w3_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/closed_w3_f1.json",
+      "sha256": "56d76e436d4bad51ea1e7e8c453867a267329297cbb2f06752874cfaf3b74d73"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/midpoint_w0_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/midpoint_w0_f0.json",
+      "sha256": "345d1b29984cd07d8c77a84425716c53ccabe3ec988e9a80d93bd9602c314c3b"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/midpoint_w0_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/midpoint_w0_f1.json",
+      "sha256": "345d1b29984cd07d8c77a84425716c53ccabe3ec988e9a80d93bd9602c314c3b"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/midpoint_w1_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/midpoint_w1_f0.json",
+      "sha256": "345d1b29984cd07d8c77a84425716c53ccabe3ec988e9a80d93bd9602c314c3b"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/midpoint_w1_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/midpoint_w1_f1.json",
+      "sha256": "345d1b29984cd07d8c77a84425716c53ccabe3ec988e9a80d93bd9602c314c3b"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/midpoint_w2_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/midpoint_w2_f0.json",
+      "sha256": "345d1b29984cd07d8c77a84425716c53ccabe3ec988e9a80d93bd9602c314c3b"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/midpoint_w2_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/midpoint_w2_f1.json",
+      "sha256": "345d1b29984cd07d8c77a84425716c53ccabe3ec988e9a80d93bd9602c314c3b"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/midpoint_w3_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/midpoint_w3_f0.json",
+      "sha256": "345d1b29984cd07d8c77a84425716c53ccabe3ec988e9a80d93bd9602c314c3b"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/midpoint_w3_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/midpoint_w3_f1.json",
+      "sha256": "345d1b29984cd07d8c77a84425716c53ccabe3ec988e9a80d93bd9602c314c3b"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/open_w0_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/open_w0_f0.json",
+      "sha256": "a879023dd96b12ad6736faed7b417e0a2005539638341565f6d76021c4e02ca1"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/open_w0_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/open_w0_f1.json",
+      "sha256": "a879023dd96b12ad6736faed7b417e0a2005539638341565f6d76021c4e02ca1"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/open_w1_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/open_w1_f0.json",
+      "sha256": "a879023dd96b12ad6736faed7b417e0a2005539638341565f6d76021c4e02ca1"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/open_w1_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/open_w1_f1.json",
+      "sha256": "a879023dd96b12ad6736faed7b417e0a2005539638341565f6d76021c4e02ca1"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/open_w2_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/open_w2_f0.json",
+      "sha256": "a879023dd96b12ad6736faed7b417e0a2005539638341565f6d76021c4e02ca1"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/open_w2_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/open_w2_f1.json",
+      "sha256": "a879023dd96b12ad6736faed7b417e0a2005539638341565f6d76021c4e02ca1"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/open_w3_f0.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/open_w3_f0.json",
+      "sha256": "a879023dd96b12ad6736faed7b417e0a2005539638341565f6d76021c4e02ca1"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/block/firelock/standard/states/open_w3_f1.json",
+      "destination": "src/main/resources/assets/moonstation14/models/block/firelock/standard/states/open_w3_f1.json",
+      "sha256": "a879023dd96b12ad6736faed7b417e0a2005539638341565f6d76021c4e02ca1"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/item/firelock.json",
+      "destination": "src/main/resources/assets/moonstation14/models/item/firelock.json",
+      "sha256": "94fac2e8a2ace16d6bb59d254ec0e8d17580225ed16d3c4ee801c63f74aff422"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/textures/block/firelock/standard/atlas.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/block/firelock/standard/atlas.png",
+      "sha256": "97a06d4267bea3ef05efc27dc538e4a8e69e7ddb8a46c061073e2139be07c1b6"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/textures/block/firelock/standard/both.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/block/firelock/standard/both.png",
+      "sha256": "e194d77592a9952165f10b11f8e3ded93d702e77b15328ee11149b02baec9474"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/textures/block/firelock/standard/both.png.mcmeta",
+      "destination": "src/main/resources/assets/moonstation14/textures/block/firelock/standard/both.png.mcmeta",
+      "sha256": "e0bd2ccac56ed1ca65c7a7be22782ffc03bafd6199569c754d15e7725b1ad106"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/textures/block/firelock/standard/pressure.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/block/firelock/standard/pressure.png",
+      "sha256": "13ab8735ab6f2e81e1310405414de8600ca568250c2717287f8b529f44e40b81"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/textures/block/firelock/standard/pressure.png.mcmeta",
+      "destination": "src/main/resources/assets/moonstation14/textures/block/firelock/standard/pressure.png.mcmeta",
+      "sha256": "e0bd2ccac56ed1ca65c7a7be22782ffc03bafd6199569c754d15e7725b1ad106"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/textures/block/firelock/standard/temperature.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/block/firelock/standard/temperature.png",
+      "sha256": "092d2f4e1d0b9fee6fd242bac68a7758cc482df26ed315722088e5711654c8f3"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/textures/block/firelock/standard/temperature.png.mcmeta",
+      "destination": "src/main/resources/assets/moonstation14/textures/block/firelock/standard/temperature.png.mcmeta",
+      "sha256": "e0bd2ccac56ed1ca65c7a7be22782ffc03bafd6199569c754d15e7725b1ad106"
+    }
+  ],
+  "scope": "CompleteR4lamp-onlyrevision; R3bodiesbyteexact, singlelargeindicatorchoice; nooldtinyLEDmixing",
+  "import_authorized": false
+}
