@@ -2,6 +2,8 @@ package com.juicyslew.moonstation14.ms14.combat;
 
 /** Pure client-presentation sampler for the pinned SS14 melee arc animation tracks. */
 public final class MeleeArcTimeline {
+    /** Peak generic whole-body lunge displacement, shared with strike-source clearance. */
+    public static final double MAX_LUNGE_DISTANCE = .22;
     private static final double THRUST_LENGTH = 0.6;
     private static final double FADE_TAIL = 0.15;
 
@@ -12,8 +14,8 @@ public final class MeleeArcTimeline {
     /** C9Effects lunge keys are absolute animation-local times, independent of attack rate. */
     public static double lunge(double elapsedSeconds) {
         if (!Double.isFinite(elapsedSeconds) || elapsedSeconds < 0) throw new IllegalArgumentException("elapsed time must be finite and nonnegative");
-        if (elapsedSeconds <= .04) return .15 * (elapsedSeconds / .04);
-        if (elapsedSeconds <= .10) return .15 * (1 - (elapsedSeconds - .04) / .06);
+        if (elapsedSeconds <= .04) return MAX_LUNGE_DISTANCE * (elapsedSeconds / .04);
+        if (elapsedSeconds <= .10) return MAX_LUNGE_DISTANCE * (1 - (elapsedSeconds - .04) / .06);
         return 0;
     }
 

@@ -18,6 +18,47 @@ public final class MeleeAttackEvents {
     private MeleeAttackEvents() { }
 
     public enum DisarmSource { HELD_ITEM, TARGET }
+    /** Receipt of the trusted NPC feedback actually selected and published by the shared attack path. */
+    public static final class TrustedNpcFeedbackPublishedEvent extends Event {
+        private final net.minecraft.world.entity.Mob attacker;
+        private final LivingEntity victim;
+        private final PositionalSoundCue cue;
+        private final MeleeArcObserverPublisher.Selection arc;
+        public TrustedNpcFeedbackPublishedEvent(net.minecraft.world.entity.Mob attacker, LivingEntity victim, PositionalSoundCue cue, MeleeArcObserverPublisher.Selection arc) {
+            this.attacker = Objects.requireNonNull(attacker); this.victim = victim;
+            this.cue = cue; this.arc = arc;
+        }
+        public net.minecraft.world.entity.Mob attacker() { return attacker; }
+        public LivingEntity victim() { return victim; }
+        public PositionalSoundCue cue() { return cue; }
+        public MeleeArcObserverPublisher.Selection arc() { return arc; }
+    }
+    /** Immutable receipt emitted only after a committed disarm flight has been sent to its actual audience. */
+    public static final class DisarmFlightPublishedEvent extends Event {
+        private final java.util.UUID actorUUID;
+        private final java.util.UUID victimUUID;
+        private final com.juicyslew.moonstation14.ms14.hands.live.BodyLooseThrow.CommittedFlight flight;
+        private final java.util.Set<java.util.UUID> recipientUUIDs;
+        private final net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> world;
+        private final long publishedTick;
+        public DisarmFlightPublishedEvent(java.util.UUID actorUUID, java.util.UUID victimUUID,
+                com.juicyslew.moonstation14.ms14.hands.live.BodyLooseThrow.CommittedFlight flight,
+                java.util.Set<java.util.UUID> recipientUUIDs,
+                net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> world, long publishedTick) {
+            this.actorUUID = Objects.requireNonNull(actorUUID);
+            this.victimUUID = Objects.requireNonNull(victimUUID);
+            this.flight = Objects.requireNonNull(flight);
+            this.recipientUUIDs = java.util.Set.copyOf(recipientUUIDs);
+            this.world = Objects.requireNonNull(world);
+            this.publishedTick = publishedTick;
+        }
+        public java.util.UUID actorUUID() { return actorUUID; }
+        public java.util.UUID victimUUID() { return victimUUID; }
+        public com.juicyslew.moonstation14.ms14.hands.live.BodyLooseThrow.CommittedFlight flight() { return flight; }
+        public java.util.Set<java.util.UUID> recipientUUIDs() { return recipientUUIDs; }
+        public net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> world() { return world; }
+        public long publishedTick() { return publishedTick; }
+    }
     public record OwnedItem(String hand, String token, long revision, ItemStack stack) {
         public OwnedItem { Objects.requireNonNull(hand); Objects.requireNonNull(token); if (revision < 0) throw new IllegalArgumentException("invalid owned item revision"); stack = Objects.requireNonNull(stack).copy(); }
         @Override public ItemStack stack() { return stack.copy(); }
@@ -49,17 +90,20 @@ public final class MeleeAttackEvents {
     }
 
     public static final class DisarmedEvent extends Event {
+        private final LivingEntity actor;
         private final Entity target;
         private final float pushProbability;
         private boolean handled;
         private boolean stunned;
         private String popupPrefix;
         private boolean terminalAbort;
-        public DisarmedEvent(Entity target, float pushProbability) {
+        public DisarmedEvent(LivingEntity actor, Entity target, float pushProbability) {
+            this.actor = Objects.requireNonNull(actor);
             this.target = Objects.requireNonNull(target);
             if (!Float.isFinite(pushProbability) || pushProbability < 0 || pushProbability > 1) throw new IllegalArgumentException("invalid push probability");
             this.pushProbability = pushProbability;
         }
+        public LivingEntity actor() { return actor; }
         public Entity target() { return target; }
         public float pushProbability() { return pushProbability; }
         public boolean handled() { return handled; }

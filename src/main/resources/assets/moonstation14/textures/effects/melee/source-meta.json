@@ -4,8 +4,8 @@
         "x": 32,
         "y": 32
     },
-    "license": "CC-BY-SA-3.0",
-    "copyright": "Taken from https://github.com/tgstation/tgstation/raw/c545428822f1ee0d402b812221518632dbe198cb/icons/effects/effects.dmi with offsets modified",
+    "license": "CC0-1.0",
+    "copyright": "Project-original simple disarm hand silhouette",
     "states": [
         {
             "name": "bite",
@@ -79,6 +79,16 @@
         },
         {
             "name": "fist"
+        }
+    ],
+    "sources": [{"file":"claw.png","source":"SS14 Resources/Textures/Effects/arcs.rsi/claw.png at c9df5ef5d675b0d1d226828bddf6b78c28502d91","license":"CC-BY-SA-3.0","copyright":"Taken from tgstation effects.dmi with offsets modified; upstream arcs.rsi/meta.json","modification":"Copied unchanged."}],
+    "derivatives": [
+        {
+            "file": "disarm_hand.png",
+            "source": "project-original",
+            "source_license": "CC0-1.0",
+            "source_copyright": "Project-original; released under CC0-1.0.",
+            "modification": "Original solid white simplified five-digit palm-and-thumb silhouette on transparent 32x32 canvas; replaces prior derived wrestling-figure crop."
         }
     ]
 }

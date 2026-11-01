@@ -11,6 +11,7 @@ import com.juicyslew.moonstation14.ms14.combat.MeleeAttackEvents.DisarmAttemptEv
 import com.juicyslew.moonstation14.ms14.combat.MeleeAttackEvents.DisarmSource;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyLooseThrow;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.HandCapability;
 import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
@@ -37,6 +38,9 @@ public final class DisarmSystem {
     public enum Result { REJECTED, ROLLED_FAILURE, HANDLED, RECOVERY_REQUIRED }
 
     public static Result resolve(ServerPlayer owner, LivingEntity user, MeleeWeaponResolver.Selection weapon, UUID targetId) {
+        return resolve(owner, user, weapon, targetId, false);
+    }
+    public static Result resolve(ServerPlayer owner, LivingEntity user, MeleeWeaponResolver.Selection weapon, UUID targetId, boolean swingPredicted) {
         if (owner == null || user == null || weapon == null || targetId == null
                 || !(user.level() instanceof ServerLevel level) || level.getServer() == null
                 || !level.getServer().isSameThread() || user.level() != owner.level()
@@ -46,13 +50,16 @@ public final class DisarmSystem {
                 || !target.isAlive() || target.level() != level || MobStateSystem.isIncapacitated(target)) return Result.REJECTED;
         var actor = ActiveCharacterPolicy.resolveActor(user).orElse(null);
         CombatModeComponent combat = actor == null ? null : actor.component(CombatModeComponent.class).orElse(null);
-        if (combat == null || !combat.canDisarm().orElse(false)) return Result.REJECTED;
+        if (combat == null || !MeleeSecondaryGesture.allowsDisarm(weapon, combat.canDisarm().orElse(false))) return Result.REJECTED;
         LiveHands hands = target.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        boolean liveHands = hands != null && hands.compatible(target);
         var targetCharacter = ActiveCharacterPolicy.resolveActor(target).orElse(null);
+        // Capability admission is prototype-driven; the live attachment is consulted only
+        // below for an actual held item/throw, never as a proxy for being disarmable.
+        boolean hasHands = targetCharacter != null && HandCapability.resolve(target).isPresent();
+        boolean liveHands = hands != null && hands.compatible(target);
         var statusAdmission = targetCharacter == null ? null : targetCharacter.component(StatusEffectsPrototypeComponent.class).orElse(null);
         boolean allowsKnockdown = statusAdmission != null && statusAdmission.allowed().contains(StatusEffectsPrototypeComponent.KNOCKDOWN);
-        if (!DisarmPolicy.canTarget(liveHands, allowsKnockdown)) return Result.REJECTED;
+        if (!DisarmPolicy.canTarget(hasHands, allowsKnockdown)) return Result.REJECTED;
         var probe = CombatMeleeTargetProbe.probe(level, user, targetId, weapon.weapon().range());
         if (probe.status() != CombatMeleeTargetProbe.Status.HIT || !CombatMeleeTargetProbe.revalidate(level, user, probe)) return Result.REJECTED;
 
@@ -76,13 +83,14 @@ public final class DisarmSystem {
         var swing = weapon.weapon().audio().swing();
         if (swing != null) PositionalSoundRouter.play(level, swing.event(), SoundSource.PLAYERS,
                 user.getX(), user.getY(), user.getZ(), swing.volume(),
-                MeleeSoundPolicy.pitch(1f, level.getRandom().nextFloat(), swing.pitchVariation()), owner.getUUID());
+                 MeleeSoundPolicy.pitch(1f, level.getRandom().nextFloat(), swing.pitchVariation()),
+                 MeleeSoundPolicy.swingExcludedPlayer(owner.getUUID(), swingPredicted));
         float failure = DisarmPolicy.failureChance(combat.baseDisarmFailChance(), malus, disarmProne(user), disarmProne(target));
         if (level.getRandom().nextFloat() < failure) {
-            owner.sendSystemMessage(Component.translatable("moonstation14.disarm.failure", target.getDisplayName()));
+            owner.sendSystemMessage(Component.translatable("moonstation14.disarm.failure", com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(target)));
             return Result.ROLLED_FAILURE;
         }
-        var disarmed = new MeleeAttackEvents.DisarmedEvent(target, push);
+        var disarmed = new MeleeAttackEvents.DisarmedEvent(user, target, push);
         NeoForge.EVENT_BUS.post(disarmed);
         if (disarmed.terminalAbort()) return Result.RECOVERY_REQUIRED;
         if (!disarmed.handled()) return Result.REJECTED;
@@ -91,7 +99,7 @@ public final class DisarmSystem {
             if (id != null) PositionalSoundRouter.play(level, id, SoundSource.PLAYERS, target.getX(), target.getY(), target.getZ(),
                     (float) Math.pow(10d, 5d / 20d), 1f + (level.getRandom().nextFloat() * 2f - 1f) * .025f);
         });
-        owner.sendSystemMessage(Component.translatable("moonstation14.disarm.success", target.getDisplayName()));
+        owner.sendSystemMessage(Component.translatable("moonstation14.disarm.success", com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(target)));
         return Result.HANDLED;
     }
 
@@ -122,7 +130,7 @@ public final class DisarmSystem {
             Vec3 direction = new Vec3(target.getRandom().nextDouble() * 2 - 1, 0, target.getRandom().nextDouble() * 2 - 1);
             if (direction.lengthSqr() < 1.0e-8) direction = new Vec3(1, 0, 0);
             direction = direction.normalize().scale(1 + target.getRandom().nextDouble() * .5);
-            var result = BodyLooseThrow.throwForDisarm(target, direction);
+            var result = BodyLooseThrow.throwForDisarm(target, direction, flight -> DisarmFlightNetworking.publish(event.actor(), target, flight));
             if (result == BodyLooseThrow.Result.SUCCESS) {
                 event.setHandled(true); event.setPopupPrefix("disarm-action-");
             } else if (DisarmPolicy.shouldTerminate(result)) { event.setHandled(true); event.setTerminalAbort(true); }

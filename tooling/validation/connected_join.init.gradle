@@ -20,6 +20,24 @@ gradle.projectsEvaluated {
     if (flyerPoseProperty != null && flyerPoseProperty != 'true') throw new GradleException('ms14AnimalFlyerPoseDiagnostic must be true when specified.')
     if (flyerPoseProperty == 'true' && populationScenario != 'mixed') throw new GradleException('Flyer pose diagnostic requires mixed population scenario.')
     def sustainedProperty = p.findProperty('ms14AnimalPopulationSustained')
+    def meleeCaptureDir = p.findProperty('ms14MeleePresentationCaptureDir')
+    def meleeStrikeProperty = p.findProperty('ms14MeleeStrikePresentationDiagnostic')
+    if (meleeStrikeProperty != null && meleeStrikeProperty != 'true') throw new GradleException('ms14MeleeStrikePresentationDiagnostic must be true when specified.')
+    if (meleeCaptureDir != null || meleeStrikeProperty == 'true') {
+        if (meleeCaptureDir == null || meleeCaptureDir.toString().trim().isEmpty()) throw new GradleException('Melee presentation capture directory is required.')
+        if (meleeCaptureDir != null && meleeStrikeProperty == 'true') {
+            if (populationScenario != null || sustainedProperty != null || flyerPoseProperty != null) throw new GradleException('Melee presentation diagnostic cannot be combined with animal diagnostic modes.')
+            def capturePath = p.file(meleeCaptureDir).canonicalPath
+            [server, client].each { run -> run.jvmArguments.addAll('-Dms14.meleePresentationDiagnostic=true', '-Dms14.meleeStrikePresentationDiagnostic=true', "-Dms14.meleePresentationCaptureDir=${capturePath}") }
+            server.jvmArguments.add('-Dms14.starterStation.enabled=false')
+        } else {
+        if (populationScenario != null || sustainedProperty != null || flyerPoseProperty != null)
+            throw new GradleException('Melee presentation diagnostic cannot be combined with animal diagnostic modes.')
+        def capturePath = p.file(meleeCaptureDir).canonicalPath
+        [server, client].each { run -> run.jvmArguments.addAll('-Dms14.meleePresentationDiagnostic=true', "-Dms14.meleePresentationCaptureDir=${capturePath}") }
+        server.jvmArguments.add('-Dms14.starterStation.enabled=false')
+        }
+    }
     if (sustainedProperty != null && !(sustainedProperty in ['true', 'false']))
         throw new GradleException('ms14AnimalPopulationSustained must be the literal true or false.')
     def populationSustained = sustainedProperty == 'true'

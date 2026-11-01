@@ -259,8 +259,7 @@ Minecraft is an explicit port adaptation, not an upstream 3D steering algorithm.
 The bat's authored native wing clip already exists; correct state projection and
 runtime selection are required to display it. Exported models remain unchanged.
 
-`MobBaseAncestor` explicitly defines one left `Hand` and `ComplexInteraction`
-(`animals.yml:1348–1401`); monkey, kobold and scurret inherit it. Ordinary bat has
+`MobBaseAncestor` explicitly defines one left `Hand`, `ComplexInteraction`, and `CombatMode(canDisarm=true)` (`animals.yml:1348–1401`); its MobDamageable base supplies Stamina defaults (100 / 3 / 3 / 6), and MobBaseAncestor adds Stunnable. Monkey, kobold and scurret resolve these through local `supported_animal_ancestor`. The shared melee default is 3 blunt / 3 piercing; kobold overrides it with 5 slash / 4 piercing and scurret with 10 piercing. Ordinary bat has
 no upstream GhostRole. Operator development entries in `/ghostroles` must reuse
 the existing trusted development-offer origin rather than alter that composition.
 

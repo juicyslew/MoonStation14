@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:strong_plastic_drink_container",
+  "parent": "moonstation14:plastic_drink_container",
+  "item_damage": {
+    "destruction_threshold": 20.0,
+    "destruction_sound_volume_db": -4.0,
+    "destruction_outputs": [{"output":"moonstation14:plastic","count":1}],
+    "destruction_output_probability": 0.5
+  }
+}

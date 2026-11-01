@@ -74,7 +74,8 @@ public final class CommonItemDestructionEffects {
                     level, BlockPos.containing(origin), composition.destructionExplosion()); }
             catch (RuntimeException ignored) { }
         }
-        if (!composition.destructionOutputs().isEmpty()) {
+        if (!composition.destructionOutputs().isEmpty()
+                && shouldPublishDestructionOutputs(composition.destructionOutputProbability(), level.getRandom().nextFloat())) {
             try {
                 var ids = new ArrayList<net.minecraft.resources.ResourceLocation>();
                 for (var output : composition.destructionOutputs())
@@ -92,6 +93,11 @@ public final class CommonItemDestructionEffects {
         terminal = commit.get();
         if (terminal != BodyHandItemTransfer.Result.SUCCESS) return terminal;
         return outputResult ? BodyHandItemTransfer.Result.SUCCESS : BodyHandItemTransfer.Result.DENIED;
+    }
+
+    public static boolean shouldPublishDestructionOutputs(float probability, float sample) {
+        return Float.isFinite(probability) && probability >= 0f && probability <= 1f
+                && Float.isFinite(sample) && sample >= 0f && sample < 1f && sample < probability;
     }
 
     static final class MemoizedCommit implements Supplier<BodyHandItemTransfer.Result> {

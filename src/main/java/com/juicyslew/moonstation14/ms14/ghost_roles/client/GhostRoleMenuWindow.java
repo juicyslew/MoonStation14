@@ -46,6 +46,7 @@ public final class GhostRoleMenuWindow implements PointerOverlayWindow {
     @Override public boolean visible(){if(visible&&!state.activeFor(com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedGhostContext()))close();return visible;}
     @Override public boolean contains(double x,double y){return visible()&&geometry!=null&&x>=geometry.x()&&y>=geometry.y()&&x<geometry.x()+geometry.width()&&y<geometry.y()+geometry.height();}
     @Override public boolean isSearchFocused(){return false;}
+    @Override public boolean ownsPointerCapture(){return captured&&geometry!=null&&geometry.isPointerCaptured();}
     @Override public void clearTextFocus(){}
     @Override public void renderIntoGui(GuiGraphics g,int mx,int my,float partial,int sw,int sh){
         if(!visible())return;

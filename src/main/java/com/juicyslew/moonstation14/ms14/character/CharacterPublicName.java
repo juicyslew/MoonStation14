@@ -26,6 +26,10 @@ public final class CharacterPublicName {
 
     /** A body's saved identity follows its durable account/profile binding, not its current controller. */
     private static Component boundPersonalName(LivingEntity entity) {
+        // A mapped native mob's lifecycle binding denotes control ownership, not
+        // the personal identity of the human character that previously owned it.
+        if (!(entity instanceof com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
+                .PlayerCharacterHarnessEntity)) return null;
         if (!(entity.level() instanceof net.minecraft.server.level.ServerLevel level)) return null;
         var binding = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
                 .PlayerCharacterHarnessBinder.binding(entity);

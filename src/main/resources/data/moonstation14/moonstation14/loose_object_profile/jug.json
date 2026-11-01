@@ -1,6 +1,6 @@
 {
   "id": "moonstation14:jug",
-  "parent": "moonstation14:generic",
+  "parent": "moonstation14:strong_plastic_drink_container",
   "mass": 1.0,
   "friction": 0.2,
   "restitution": 0.3,

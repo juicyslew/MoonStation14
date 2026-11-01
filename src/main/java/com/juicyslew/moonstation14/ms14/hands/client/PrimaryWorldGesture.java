@@ -70,4 +70,23 @@ public final class PrimaryWorldGesture {
                                         UUID portableLiving, boolean medicalTarget, UUID medicalBody) {
         return click(aimedBlock, handOccupied, looseItem, portableLiving, medicalTarget, medicalBody);
     }
+
+    /** Combat-mode primary input yields to a valid pickup only with current proof of an unoccupied hand. */
+    public static boolean combatPickupMayRoute(boolean confirmedActiveHand, boolean handOccupied,
+                                                boolean virtualPullOccupied, ClickDecision decision) {
+        return confirmedActiveHand && !handOccupied && !virtualPullOccupied && decision != null
+                && decision.route() == Route.PICKUP && decision.action() == BodyHandActionRequest.Action.PICKUP_SELECTED
+                && decision.target() != null;
+    }
+
+    /** SS14 combat hand interaction excludes living item-like targets; dead portable bodies remain pickup eligible. */
+    public static boolean targetAllowsCombatHandInteract(boolean portableLivingTarget, boolean targetDead) {
+        return !portableLivingTarget || targetDead;
+    }
+
+    /** Fail closed: only a resolved loose item or a resolved dead portable entity is pickupable in combat mode. */
+    public static boolean combatPickupTargetEligible(boolean resolved, boolean ordinaryItem,
+                                                      boolean portableLiving, boolean dead) {
+        return resolved && (ordinaryItem || portableLiving && dead);
+    }
 }

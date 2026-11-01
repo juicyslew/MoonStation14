@@ -27,6 +27,14 @@ if ($withoutFlyer -contains '--require-flyer-pose') { throw 'Disabled flyer-pose
 Assert-ConnectedJoinParameters 900 300 $true $true
 Assert-ConnectedJoinParameters 120 300 $false $false
 Assert-ConnectedJoinParameters 120 300 $true $false
+Assert-ConnectedJoinParameters 180 300 $false $false $false '' $true
+Assert-ConnectedJoinParameters 180 300 $false $false $false '' $false $true
+$meleeRejected = $false; try { Assert-ConnectedJoinParameters 241 300 $false $false $false '' $true } catch { $meleeRejected = $true }
+if (!$meleeRejected) { throw 'Melee diagnostic exceeded the bounded wall timeout but was accepted.' }
+$meleeRejected = $false; try { Assert-ConnectedJoinParameters 180 300 $true $false $false 'Mixed' $true } catch { $meleeRejected = $true }
+if (!$meleeRejected) { throw 'Melee and animal diagnostics were combined.' }
+$meleeRejected = $false; try { Assert-ConnectedJoinParameters 180 300 $false $false $false '' $true $true $true } catch { $meleeRejected = $true }
+if (!$meleeRejected) { throw 'Old and strike melee diagnostics were combined.' }
 Assert-ConnectedJoinParameters 120 300 $true $false $true 'Mixed'
 foreach ($case in @(@{scenario=$false;name='';flag=$true},@{scenario=$true;name='Parrots';flag=$true})) {
     $rejected=$false; try { Assert-ConnectedJoinParameters 120 300 $case.scenario $false $case.flag $case.name } catch { $rejected=$true }
@@ -80,6 +88,16 @@ if ($populationBranch.Groups[1].Value -match "client\.jvmArguments\.add\([^\r\n]
 }
 if ($init -notmatch 'ms14\.animalPopulationCaptureDir=\$\{capturePath\}') {
     throw 'Capture output directory JVM property is not wired from the launcher argument.'
+}
+$strikeBranch = [regex]::Match($init, 'if \(meleeCaptureDir != null && meleeStrikeProperty == ''true''\) \{([\s\S]*?)\n            server\.jvmArguments')
+$legacyBranch = [regex]::Match($init, '\} else \{([\s\S]*?)\n        \}\n    \}')
+if (!$strikeBranch.Success -or $strikeBranch.Groups[1].Value -notmatch "'-Dms14.meleePresentationDiagnostic=true', '-Dms14.meleeStrikePresentationDiagnostic=true'" -or
+    $strikeBranch.Groups[1].Value -notmatch 'meleePresentationCaptureDir=\$\{capturePath\}' -or
+    $strikeBranch.Groups[1].Value -notmatch '\[server, client\]\.each \{ run -> run\.jvmArguments\.addAll\(') {
+    throw 'Strike mode must forward the common presentation probe flag, strike mode flag, and capture directory to both runs.'
+}
+if (!$legacyBranch.Success -or $legacyBranch.Groups[1].Value -notmatch 'ms14\.meleePresentationDiagnostic=true' -or $legacyBranch.Groups[1].Value -match 'ms14\.meleeStrikePresentationDiagnostic=true') {
+    throw 'Legacy melee mode must retain only the common diagnostic flag, without enabling strike mode.'
 }
 $captureAst = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-PopulationRecordingReady' }, $true)
 if (!$captureAst) { throw 'Launcher has no recording-ready artifact validator.' }

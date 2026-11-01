@@ -42,6 +42,10 @@ public final class BodyLooseThrow {
 
     /** Shared-kernel forced disarm; supplied direction is bounded and horizontal, with no voluntary cooldown. */
     public static Result throwForDisarm(LivingEntity target, Vec3 horizontalOffset) {
+        return throwForDisarm(target, horizontalOffset, ignored -> { });
+    }
+    public record CommittedFlight(UUID entityId, Vec3 origin, Vec3 velocity) { }
+    public static Result throwForDisarm(LivingEntity target, Vec3 horizontalOffset, java.util.function.Consumer<CommittedFlight> committedFlight) {
         if (target == null || horizontalOffset == null || !finite(horizontalOffset)
                 || horizontalOffset.y != 0 || horizontalOffset.horizontalDistanceSqr() < 1.0e-8)
             return Result.DENIED;
@@ -53,7 +57,10 @@ public final class BodyLooseThrow {
         String token = hands.token(hand).orElse(null);
         if (token == null) return Result.DENIED;
         return LiveHandsCommitGateway.batch(() -> throwOwnedCommitted(target, hand, token, hands.revision(),
-                () -> true, ignored -> { }, horizontalOffset, true));
+                () -> true, uuid -> {
+                    if (target.level() instanceof ServerLevel level && level.getEntity(uuid) instanceof LooseItemEntity item)
+                         committedFlight.accept(new CommittedFlight(item.getUUID(), item.position(), item.getDeltaMovement()));
+                }, horizontalOffset, true));
     }
 
     static Result throwOwned(LivingEntity body, String hand, String expectedToken, long revision,
@@ -85,15 +92,15 @@ public final class BodyLooseThrow {
             if (!forced) return throwPortableBody(body, level, hand, expectedToken, revision, authorityValid, committed,
                     before, token, held, now);
         LiveHands.WholeResult transition = before.takeWhole(revision, hand, token);
-        if (!transition.succeeded()) return Result.DENIED;
+        if (!transition.succeeded()) return denyPortableThrow("whole-stack-transition-" + transition);
         ItemStack stack = transition.takenStack().orElseThrow();
         // The key references a live body; throwing it would create a second, non-owning loose copy.
-        if (PortableBodyCarrying.containsPortableReferences(stack)) return Result.DENIED;
+        if (PortableBodyCarrying.containsPortableReferences(stack)) return denyPortableThrow("portable-reference-in-stack");
         if (stack.isEmpty() || !authorityValid.getAsBoolean()
                 || !live(body, level) || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before)
-            return Result.DENIED;
+            return denyPortableThrow("post-transition-authority-or-empty-stack");
         Vec3 eye = body.getEyePosition(), look = forced ? forcedOffset.normalize() : body.getLookAngle(), bodyPosition = body.position();
-        if (!finite(look) || !finite(eye) || !finite(bodyPosition) || (!forced && (look.lengthSqr() < .99 || look.lengthSqr() > 1.01))) return Result.DENIED;
+        if (!finite(look) || !finite(eye) || !finite(bodyPosition) || (!forced && (look.lengthSqr() < .99 || look.lengthSqr() > 1.01))) return denyPortableThrow("look-eye-or-body-position");
         LooseItemEntity entity;
         Vec3 handOrigin;
         try {
@@ -103,28 +110,26 @@ public final class BodyLooseThrow {
             double range = aimRange(forced, Math.min(8.0, profile.throwRange()), forcedOffset);
             double minimum = Math.min(range, profile.minimumThrowRange());
             Vec3 end = eye.add(look.scale(range));
-            if (!finite(end)) return Result.DENIED;
+             if (!finite(end)) return denyPortableThrow("aim-end-not-finite");
             Vec3 aim = forced ? BodyItemTargetProbe.loadedAimPoint(level, body, range, look)
                     : BodyItemTargetProbe.loadedAimPoint(level, body, range);
-            if (aim == null) return Result.DENIED;
+             if (aim == null) return denyPortableThrow("loaded-aim-unavailable");
             double distance = eye.distanceTo(aim);
-            if (!finite(aim) || distance + 1.0e-4 < minimum) return Result.DENIED;
-            double handY = body.getY() + Mth.clamp(1.125, 0.0,
-                    Math.max(0.0, body.getBbHeight() - profile.physicalHeight() - .075));
-            handOrigin = new Vec3(body.getX(), handY, body.getZ());
+             if (!finite(aim) || distance + 1.0e-4 < minimum) return denyPortableThrow("loaded-aim-below-minimum-range");
+            handOrigin = currentHandOrigin(body, profile.physicalHeight());
             Vec3 toAim = aim.subtract(handOrigin);
-            if (distance <= .1 || !finite(toAim) || toAim.lengthSqr() < 1.0e-8) return Result.DENIED;
+             if (distance <= .1 || !finite(toAim) || toAim.lengthSqr() < 1.0e-8) return denyPortableThrow("hand-to-aim-direction");
             Vec3 launch = handOrigin.add(toAim.normalize().scale(.1));
             if (!BodyItemTargetProbe.loadedItemBoxClear(level, launch, profile.physicalWidth(), profile.physicalHeight()))
-                return Result.DENIED;
+                 return denyPortableThrow("launch-box-blocked");
             entity.setPos(launch.x, launch.y, launch.z);
             Vec3 direction = aim.subtract(handOrigin);
-            if (!finite(direction) || direction.lengthSqr() < 1.0e-8) return Result.DENIED;
+             if (!finite(direction) || direction.lengthSqr() < 1.0e-8) return denyPortableThrow("launch-direction");
             entity.launch(direction.normalize().scale(profile.throwSpeed()), profile.throwSpin());
             if (!eye.equals(body.getEyePosition()) || (!forced && !look.equals(body.getLookAngle())) || !bodyPosition.equals(body.position())
-                    || !handOrigin.equals(currentHandOrigin(body, profile.physicalHeight()))) return Result.DENIED;
-        } catch (RuntimeException failure) { return Result.DENIED; }
-        if (!same(stack, entity.getItem())) return Result.DENIED;
+                     || !handOrigin.equals(currentHandOrigin(body, profile.physicalHeight()))) return denyPortableThrow("precommit-position-revalidation");
+        } catch (RuntimeException failure) { return denyPortableThrow("entity-create-or-launch-exception-" + failure.getClass().getSimpleName()); }
+        if (!same(stack, entity.getItem())) return denyPortableThrow("created-item-mismatch");
         // Revalidate every authority and hand invariant after entity construction/probing, just before clear.
         if (!authorityValid.getAsBoolean() || !live(body, level)
                 || !intentPermits(forced, CharacterControlSystem.canAct(body), cooldownReady(body, now))
@@ -133,14 +138,14 @@ public final class BodyLooseThrow {
                 || !before.token(hand).filter(expectedToken::equals).isPresent()
                 || !before.stackCopy(hand).filter(s -> same(stack, s)).isPresent()
                 || !eye.equals(body.getEyePosition()) || (!forced && !look.equals(body.getLookAngle())) || !bodyPosition.equals(body.position())
-                || !handOrigin.equals(currentHandOrigin(body, entity.profile().physicalHeight()))) return Result.DENIED;
+                 || !handOrigin.equals(currentHandOrigin(body, entity.profile().physicalHeight()))) return denyPortableThrow("preclear-revalidation");
         try { LiveHandsCommitGateway.commitOwned(body, transition.state()); }
         catch (RuntimeException failure) { return body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == before
-                ? Result.DENIED : Result.RECOVERY_REQUIRED; }
+                ? denyPortableThrow("hand-clear-commit-exception-" + failure.getClass().getSimpleName()) : Result.RECOVERY_REQUIRED; }
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != transition.state()
                 || !transition.state().compatible(body)) return Result.RECOVERY_REQUIRED;
         try {
-            if (!level.addFreshEntity(entity)) return compensate(body, level, entity, before, transition.state(), hand, token, stack);
+            if (!level.addFreshEntity(entity)) { LAST_PORTABLE_THROW_GATE = "entity-spawn-rejected"; return compensate(body, level, entity, before, transition.state(), hand, token, stack); }
         } catch (RuntimeException failure) {
             return compensate(body, level, entity, before, transition.state(), hand, token, stack);
         }
@@ -270,8 +275,11 @@ public final class BodyLooseThrow {
         synchronized (COOLDOWN) { return now >= COOLDOWN.getOrDefault(body, Long.MIN_VALUE); }
     }
     private static Vec3 currentHandOrigin(LivingEntity body, double physicalHeight) {
-        return new Vec3(body.getX(), body.getY() + Mth.clamp(1.125, 0.0,
-                Math.max(0.0, body.getBbHeight() - physicalHeight - .075)), body.getZ());
+        return handOrigin(body.position(), body.getBbHeight(), physicalHeight);
+    }
+    static Vec3 handOrigin(Vec3 bodyPosition, double bodyHeight, double physicalHeight) {
+        return new Vec3(bodyPosition.x, bodyPosition.y + Mth.clamp(1.125, 0.0,
+                Math.max(0.0, bodyHeight - physicalHeight - .075)), bodyPosition.z);
     }
     private static boolean same(ItemStack a, ItemStack b) { return b != null && a.getCount() == b.getCount()
             && ItemStack.isSameItemSameComponents(a, b); }

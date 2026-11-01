@@ -359,7 +359,7 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         if (!impact.applied()) return false;
         if (isRemoved() || getItem() != ownedStack) return false;
         ownedStack.set(ModDataComponents.ITEM_DAMAGE_STATE.get(), impact.state());
-        if (impact.destructionDue()) destroyByItemDamage(server, profile, ownedStack);
+        destroyAtAccumulatedThreshold(server, profile, ownedStack, DamageReducer.total(impact.state().damage()));
         return isRemoved();
     }
 
@@ -372,7 +372,7 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         ItemDamageState next = ItemDamageKernel.apply(old, profile.throwLandDamage(), profile.allowedGroups(), profile.allowedTypes(), profile.damageModifiers());
         if (isRemoved() || getItem() != ownedStack) return false;
         ownedStack.set(ModDataComponents.ITEM_DAMAGE_STATE.get(), next);
-        if (DamageReducer.total(next.damage()) >= profile.destructionThreshold()) destroyByItemDamage(server, profile, ownedStack);
+        destroyAtAccumulatedThreshold(server, profile, ownedStack, DamageReducer.total(next.damage()));
         return isRemoved();
     }
 
@@ -397,13 +397,27 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         catch (RuntimeException invalidDamage) { return false; }
         if (isRemoved() || getItem() != ownedStack || damageDestructionStarted) return false;
         ownedStack.set(ModDataComponents.ITEM_DAMAGE_STATE.get(), next);
-        if (DamageReducer.total(next.damage()) >= profile.destructionThreshold()) destroyByItemDamage(server, profile, ownedStack);
+        destroyAtAccumulatedThreshold(server, profile, ownedStack, DamageReducer.total(next.damage()));
         return true;
     }
 
+    private void destroyAtAccumulatedThreshold(ServerLevel server, LooseObjectProfile.ItemDamageComposition profile,
+                                                ItemStack ownedStack, float accumulated) {
+        switch (ItemDamageKernel.classifyDestruction(accumulated, profile.destructionThreshold(), profile.overkillDestructionThreshold())) {
+            case OVERKILL -> destroyByItemDamage(server, profile, ownedStack, true);
+            case NORMAL -> destroyByItemDamage(server, profile, ownedStack);
+            case NONE -> { }
+        }
+    }
+
     private void destroyByItemDamage(ServerLevel server, LooseObjectProfile.ItemDamageComposition profile, ItemStack ownedStack) {
+        destroyByItemDamage(server, profile, ownedStack, false);
+    }
+
+    private void destroyByItemDamage(ServerLevel server, LooseObjectProfile.ItemDamageComposition profile, ItemStack ownedStack, boolean overkill) {
         if (damageDestructionStarted || isRemoved() || getItem() != ownedStack) return;
         damageDestructionStarted = true;
+        if (overkill) { discard(); return; }
         Vec3 origin = new Vec3(getX(), getBoundingBox().minY, getZ());
         BlockPos spillSurface = profile.spillCurrentReagents() ? com.juicyslew.moonstation14.ms14.damage.CommonItemDestructionEffects.findSpillSurface(server, getBoundingBox()) : null;
         var itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ownedStack.getItem());

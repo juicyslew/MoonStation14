@@ -50,6 +50,13 @@ public final class MeleeWeaponResolver {
         if (body == null || !(body.level() instanceof ServerLevel)) return Optional.empty();
         CharacterData actor = ActiveCharacterPolicy.resolveActor(body).orElse(null);
         if (actor == null) return Optional.empty();
+        var handsCapability = actor.component(com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent.class);
+        if (handsCapability.map(h -> h.hands().isEmpty()).orElse(true)) {
+            Optional<MeleeWeaponData> unarmed = actor.component(MeleeWeaponComponent.class).map(MeleeWeaponComponent::weapon);
+            if (unarmed.isEmpty()) unarmed = actor.component(com.juicyslew.moonstation14.ms14.character.components.MeleeAttackComponent.class).map(UnarmedMeleeProfileResolver::resolve);
+            return unarmed.map(data -> new Selection(Kind.UNARMED,
+                    new MeleeWeaponProfile(data, java.util.Map.of(), Optional.empty()), body.getUUID(), 0, "", Optional.empty()));
+        }
         LiveHands hands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
         if (hands == null || !hands.compatible(body)) return Optional.empty();
         String hand = hands.activeHand();
@@ -66,6 +73,7 @@ public final class MeleeWeaponResolver {
         if (!coherentOwnedStack(glovesStack.filter(stack -> !stack.isEmpty()).isPresent(), glovesToken)) return Optional.empty();
         Optional<MeleeWeaponProfile> gloves = glovesStack.filter(stack -> !stack.isEmpty()).flatMap(MeleeWeaponResolver::profile);
         Optional<MeleeWeaponData> unarmed = actor.component(MeleeWeaponComponent.class).map(MeleeWeaponComponent::weapon);
+        if (unarmed.isEmpty()) unarmed = actor.component(com.juicyslew.moonstation14.ms14.character.components.MeleeAttackComponent.class).map(UnarmedMeleeProfileResolver::resolve);
         return choose(body.getUUID(), hands.revision(), hand, !heldStack.isEmpty(), token, glovesToken, held, gloves, unarmed);
     }
 

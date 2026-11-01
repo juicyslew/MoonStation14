@@ -41,4 +41,47 @@ class ClientBodyEntityRayTest {
     @Test void noCandidatesMeansNoHit() {
         assertNull(select(List.of(), 8, 9));
     }
+
+    @Test void lightContactChoosesNearestAndHonorsAnyBlockOcclusion() {
+        var hit = new net.minecraft.world.phys.BlockHitResult(new Vec3(4, 0, 0), net.minecraft.core.Direction.WEST,
+                net.minecraft.core.BlockPos.ZERO, false);
+        assertEquals(FIRST, ClientBodyEntityRay.chooseLightContact(FIRST, 2, hit, 4).entity());
+        assertEquals(hit, ClientBodyEntityRay.chooseLightContact(SECOND, 5, hit, 4).block());
+        assertNull(ClientBodyEntityRay.chooseLightContact(null, Double.POSITIVE_INFINITY, hit, 4).entity());
+        assertEquals(SECOND, ClientBodyEntityRay.chooseLightContact(SECOND, 3, null, Double.POSITIVE_INFINITY).entity());
+    }
+
+    @Test void verticalRayUsesSameNearestContactOrdering() {
+        var hit = new net.minecraft.world.phys.BlockHitResult(new Vec3(0, 3, 0), net.minecraft.core.Direction.DOWN,
+                net.minecraft.core.BlockPos.ZERO, false);
+        var start = Vec3.ZERO;
+        var bounds = new AABB(-1, 1, -1, 1, 2, 1);
+        double entityDistance = BodyInteractionRay.hit(bounds, start, new Vec3(0, 8, 0), 8, 3)
+                .map(start::distanceTo).orElse(Double.POSITIVE_INFINITY);
+        assertEquals(1, entityDistance, 1e-9);
+        assertEquals(FIRST, ClientBodyEntityRay.chooseLightContact(FIRST, entityDistance, hit, 3).entity());
+    }
+
+    @Test void structuralNominationRejectsMissEvenWhenItsPositionIsStructural() {
+        var pos = new net.minecraft.core.BlockPos(2, 0, 0);
+        var state = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+        var miss = net.minecraft.world.phys.BlockHitResult.miss(new Vec3(2.5, .5, .5),
+                net.minecraft.core.Direction.WEST, pos);
+        var states = (java.util.function.Function<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>) p -> state;
+        var structural = (java.util.function.Predicate<net.minecraft.world.level.block.state.BlockState>) s -> true;
+        assertNull(ClientBodyEntityRay.nominateStructuralContact(miss, START, 4, states, structural));
+        var hit = new net.minecraft.world.phys.BlockHitResult(new Vec3(2.5, .5, .5), net.minecraft.core.Direction.WEST, pos, false);
+        assertNotNull(ClientBodyEntityRay.nominateStructuralContact(hit, START, 4, states, structural));
+        assertNull(ClientBodyEntityRay.nominateStructuralContact(hit, START, 1, states, structural));
+        assertNull(ClientBodyEntityRay.nominateStructuralContact(hit, START, 4, states, s -> false));
+    }
+
+    @Test void pitchedFanDirectionPreservesVerticalLookAndConservativeEyeReach() {
+        var up = ClientBodyEntityRay.pitchedYawDirection(new Vec3(0, 1, 0), 0);
+        var down = ClientBodyEntityRay.pitchedYawDirection(new Vec3(0, -1, 0), 1.2);
+        assertEquals(1, up.y, 1e-9); assertEquals(0, up.x, 1e-9);
+        assertEquals(-1, down.y, 1e-9); assertEquals(0, down.z, 1e-9);
+        assertEquals(Vec3.ZERO, ClientBodyEntityRay.pitchedYawDirection(new Vec3(Double.NaN, 0, 1), 0));
+        assertEquals(2 + Math.sqrt(3), ClientBodyEntityRay.eyeRayReach(2, new AABB(0, 0, 0, 1, 1, 1)), 1e-9);
+    }
 }

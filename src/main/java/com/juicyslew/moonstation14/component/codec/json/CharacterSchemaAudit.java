@@ -16,6 +16,7 @@ import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 
 import java.util.Set;
 import java.util.HashSet;
+import java.util.List;
 
 /** Strict structural and semantic validation for character target capabilities. */
 public final class CharacterSchemaAudit {
@@ -378,7 +379,7 @@ public final class CharacterSchemaAudit {
             return;
         }
         if ("AnimalAppearance".equals(type)) {
-            checkFields(object, Set.of("type", "model_ids"), path);
+            checkFields(object, Set.of("type", "model_ids", "eye_height", "speech_height"), path);
             JsonElement ids = object.get("model_ids");
             if (ids == null || !ids.isJsonArray() || ids.getAsJsonArray().isEmpty()) fail(path + ".model_ids", "expected nonempty array");
             Set<String> seen = new HashSet<>();
@@ -386,6 +387,11 @@ public final class CharacterSchemaAudit {
                 JsonElement id = ids.getAsJsonArray().get(i);
                 if (!id.isJsonPrimitive() || !id.getAsJsonPrimitive().isString() || id.getAsString().isBlank()) fail(path + ".model_ids[" + i + "]", "expected nonblank model id");
                 if (!seen.add(id.getAsString())) fail(path + ".model_ids[" + i + "]", "duplicate model id");
+            }
+            for (String height : List.of("eye_height", "speech_height")) {
+                JsonElement value = object.get(height);
+                if (value != null && (!finiteNumber(value) || value.getAsDouble() <= 0 || value.getAsDouble() > 16))
+                    fail(path + "." + height, "expected finite positive height at most 16");
             }
             return;
         }
@@ -425,14 +431,22 @@ public final class CharacterSchemaAudit {
             return;
         }
         if ("NpcRetaliation".equals(type)) {
-            checkFields(object, Set.of("type", "attackMemorySeconds"), path);
+            checkFields(object, Set.of("type", "attackMemorySeconds", "meleeMissChance"), path);
             if (object.has("attackMemorySeconds") && (!finiteNumber(object.get("attackMemorySeconds"))
                     || object.get("attackMemorySeconds").getAsInt() < 0 || object.get("attackMemorySeconds").getAsInt() > 3600))
                 fail(path + ".attackMemorySeconds", "expected integer seconds in [0, 3600]");
+            if (object.has("meleeMissChance") && (!finiteNumber(object.get("meleeMissChance"))
+                    || object.get("meleeMissChance").getAsDouble() < 0 || object.get("meleeMissChance").getAsDouble() > 1))
+                fail(path + ".meleeMissChance", "expected number in [0, 1]");
             return;
         }
         if ("MeleeAttack".equals(type)) {
-            checkFields(object, Set.of("type", "damage", "attackRate", "range"), path);
+            checkFields(object, Set.of("type", "damage", "attackRate", "range", "audio", "arc"), path);
+            if (object.has("audio")) {
+                JsonElement audio = object.get("audio");
+                if (audio == null || !audio.isJsonObject()) fail(path + ".audio", "expected object");
+                checkFields(audio.getAsJsonObject(), Set.of("swing", "hit", "no_damage"), path + ".audio");
+            }
             if (complete || object.has("damage")) {
                 JsonElement damage = object.get("damage");
                 if (damage == null || !damage.isJsonObject()) fail(path + ".damage", "expected object");
@@ -632,7 +646,12 @@ public final class CharacterSchemaAudit {
                 JsonElement weaponValue = object.get("weapon");
                 if (!weaponValue.isJsonObject()) fail(path + ".weapon", "expected object");
                 JsonObject weapon = weaponValue.getAsJsonObject();
-                checkFields(weapon, Set.of("damage", "attack_rate", "range", "resistance_bypass", "auto_attack", "click_damage_modifier", "must_be_equipped_to_use", "audio", "arc", "animation_offset", "wide_animation_rotation", "blunt_stamina_damage_factor", "reset_on_hand_selected", "angle_degrees", "wide_arc", "alt_disarm"), path + ".weapon");
+                checkFields(weapon, Set.of("damage", "attack_rate", "range", "resistance_bypass", "auto_attack", "click_damage_modifier", "must_be_equipped_to_use", "audio", "arc", "animation_offset", "wide_animation_rotation", "blunt_stamina_damage_factor", "reset_on_hand_selected", "angle_degrees", "wide_arc", "alt_disarm", "wide_origin_height_ratio"), path + ".weapon");
+                if (weapon.has("wide_origin_height_ratio")) {
+                    JsonElement ratio = weapon.get("wide_origin_height_ratio");
+                    auditNonNegativeNumber(ratio, path + ".weapon.wide_origin_height_ratio");
+                    if (ratio.getAsDouble() > 1) fail(path + ".weapon.wide_origin_height_ratio", "expected ratio in [0,1]");
+                }
             }
             return;
         }

@@ -62,6 +62,7 @@ public final class GhostControlClient {
     private static GhostPredictionHistory predictionHistory;
     private static final GhostPredictionClock predictionClock = new GhostPredictionClock();
     private static GhostControlPayloads.Snapshot authoritativePredictionBase;
+    private static boolean confirmedClockAvailable;
     private static final OwnedPredictionApplicationSchedule snapshotApplication = new OwnedPredictionApplicationSchedule();
     private static boolean latestSnapshotAllowsReplay;
     private static boolean characterPredictionStopped;
@@ -440,6 +441,7 @@ public final class GhostControlClient {
         offerReadySent = false;
         predictionHistory = null;
         predictionClock.reset();
+        confirmedClockAvailable = false;
         authoritativePredictionBase = null;
         snapshotApplication.clear();
         latestSnapshotAllowsReplay = false;
@@ -543,7 +545,7 @@ public final class GhostControlClient {
         Minecraft minecraft = Minecraft.getInstance();
         Entity target = minecraft.level == null ? null : minecraft.level.getEntity(entityId);
         if (ownedHarnessForTracker(target) != null && predictionHistory != null)
-            { predictionHistory.onAuthorityBarrier(); predictionClock.reset(); authoritativePredictionBase = null; }
+            { predictionHistory.onAuthorityBarrier(); predictionClock.reset(); authoritativePredictionBase = null; confirmedClockAvailable = false; }
     }
 
     private static float normalizeYaw(float yaw) {
@@ -568,6 +570,22 @@ public final class GhostControlClient {
     public static long committedCharacterEpoch() {
         return ownedCharacterForHud() == null ? 0 : activeEpoch;
     }
+
+    /** Confirmed prediction timebase for the exact committed CHARACTER body, or null until a fresh snapshot. */
+    public static CharacterSessionClockContext confirmedCharacterSessionClock() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (!confirmedClockAvailable || !committed || !readySent || harnessKind != MobHarnessKind.CHARACTER
+                || activeEpoch <= 0 || activeEpoch != pendingEpoch || owner == null || owner != minecraft.player
+                || minecraft.level == null || ownerLevel != minecraft.level) return null;
+        Entity body = currentBody(minecraft, ghostEntityId, harnessKind);
+        if (!(body instanceof Mob mob) || mob.isRemoved() || authoritativePredictionBase == null
+                || predictionClock.anchorTick() < 0) return null;
+        return new CharacterSessionClockContext(mob.getUUID(), activeEpoch,
+                minecraft.level.dimension().location().toString(), predictionClock.targetTick(System.nanoTime(), 0));
+    }
+
+    public record CharacterSessionClockContext(java.util.UUID body, long activeEpoch,
+                                               String dimension, long estimatedServerTick) { }
 
     /** Canonical local ghost-control mode; observer medical snapshots are presentation hints only. */
     public static boolean isLocalGhostControl() {
@@ -606,6 +624,7 @@ public final class GhostControlClient {
         if (predictionHistory != null) predictionHistory.onAuthorityBarrier();
         predictionClock.reset();
         authoritativePredictionBase = null;
+        confirmedClockAvailable = false;
         return true;
     }
 
@@ -658,6 +677,7 @@ public final class GhostControlClient {
                         java.util.Map.entry("pendingCount",predictionHistory.pendingCount()),java.util.Map.entry("result",result.status().name())));
         authoritativePredictionBase = snapshot;
         predictionClock.anchor(snapshot.serverGameTick(), System.nanoTime());
+        confirmedClockAvailable = predictionClock.anchorTick() >= 0;
         if (characterPredictionStopped) predictionHistory.onAuthorityBarrier();
         characterMovementMode = snapshot.movementMode();
         if (harnessKind == MobHarnessKind.CHARACTER)

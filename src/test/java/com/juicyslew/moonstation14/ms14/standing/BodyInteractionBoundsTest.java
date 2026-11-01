@@ -7,6 +7,36 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyInteractionBoundsTest {
+    @org.junit.jupiter.api.Test void headLocalFanKeepsWidthAtVerticalPitch() {
+        for (float yaw : new float[]{0, 41, 180}) for (double pitch : new double[]{0,30,60,89.999,90}) {
+            double p=Math.toRadians(pitch);
+            Vec3 look=new Vec3(-Math.sin(Math.toRadians(yaw))*Math.cos(p),Math.sin(p),Math.cos(Math.toRadians(yaw))*Math.cos(p));
+            var basis=BodyInteractionRay.headLocalBasis(look,yaw);
+            assertNotNull(basis);
+            assertEquals(0,basis.forward().dot(basis.right()),1e-8);
+            double angle=Math.toRadians(30);
+            Vec3 ray=BodyInteractionRay.headLocalFanDirection(look,yaw,angle);
+            assertEquals(Math.sin(angle),basis.forward().cross(ray).length(),1e-7);
+            assertTrue(Double.isFinite(ray.x+ray.y+ray.z));
+        }
+    }
+    @Test void headLocalBasisIsOrthonormalAtEveryPitchAndYaw() {
+        Vec3 level = new Vec3(0, 0, 1);
+        var zeroYaw = BodyInteractionRay.headLocalBasis(level, 0);
+        assertEquals(1, zeroYaw.right().x, 1e-9);
+        assertEquals(0, zeroYaw.right().z, 1e-9);
+        for (double yaw : new double[]{0, 37, 90, 181}) for (double pitch : new double[]{-90, -45, 0, 45, 90}) {
+            double y = Math.toRadians(yaw), p = Math.toRadians(pitch);
+            Vec3 look = new Vec3(-Math.sin(y)*Math.cos(p), Math.sin(p), Math.cos(y)*Math.cos(p));
+            var basis = BodyInteractionRay.headLocalBasis(look, yaw);
+            assertEquals(1, basis.forward().length(), 1e-9);
+            assertEquals(1, basis.right().length(), 1e-9);
+            assertEquals(1, basis.up().length(), 1e-9);
+            assertEquals(0, basis.forward().dot(basis.right()), 1e-9);
+            assertEquals(0, basis.forward().dot(basis.up()), 1e-9);
+            assertEquals(0, basis.right().dot(basis.up()), 1e-9);
+        }
+    }
     @Test void standingModelHeadAndFeetRemainAimableOnProneCollisionBox() {
         AABB physical = new AABB(-.3, 0, -.3, .3, .6, .3);
         for (boolean faceUp : new boolean[]{false, true}) {

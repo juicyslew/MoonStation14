@@ -263,7 +263,7 @@ public final class LocalSpeechClient {
                     if (entity == null && owned != null && owned.level() == level && !owned.isRemoved()
                             && owned.getId() == id) entity = owned;
                     return entity == null ? null : new Speaker(entity.getUUID(), entity.getPosition(partialTick),
-                            entity.position(), entity.getEyePosition(partialTick), entity.getBbHeight());
+                            entity.position(), entity.getEyePosition(partialTick), speechHeight(entity));
                  }, (id, uuid) -> minecraft.getCameraEntity() != null && sameSpeaker(id, uuid,
                          minecraft.getCameraEntity().getId(), minecraft.getCameraEntity().getUUID()),
                 (from, to) -> loadedSightline(level, from, to),
@@ -571,6 +571,20 @@ public final class LocalSpeechClient {
         if (drawn) flush.run();
         if (submitted != null) diagnose(submitted, now, true);
         else if (skipped != null) diagnose(skipped, now, false);
+    }
+
+    private static double speechHeight(Entity entity) {
+        if (entity instanceof com.juicyslew.moonstation14.entities.AnimalMob animal) {
+            var id = com.juicyslew.moonstation14.ms14.character.ModCharacters.characterForHost(animal.level(),
+                    net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(animal.getType())).orElse(null);
+            if (id != null) {
+                var component = com.juicyslew.moonstation14.ms14.character.ModCharacters.require(
+                        com.juicyslew.moonstation14.ms14.character.ModCharacters.catalog(animal.level()), id)
+                        .component(com.juicyslew.moonstation14.ms14.character.components.AnimalAppearanceComponent.class).orElse(null);
+                if (component != null) return com.juicyslew.moonstation14.ms14.animals.AnimalPresentationAnchors.speechHeight(component, entity.getBbHeight());
+            }
+        }
+        return entity.getBbHeight();
     }
 
     private static void diagnose(LocalSpeechTranscript.Placement placement, long now, boolean submitted) {

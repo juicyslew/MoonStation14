@@ -34,6 +34,7 @@ public final class BuiltinExamineContributors {
         ExamineContributorRegistry.register("puddle-solution", BuiltinExamineContributors::puddleSolution);
         ExamineContributorRegistry.register("jug-solution", BuiltinExamineContributors::jugSolution);
         ExamineContributorRegistry.register("beaker-solution", BuiltinExamineContributors::beakerSolution);
+        ExamineContributorRegistry.register("syringe-solution", BuiltinExamineContributors::syringeSolution);
         ExamineContributorRegistry.register("botany-tray", BotanyExamineContributor::contribute);
         ExamineContributorRegistry.register("botany-seed-packet", BotanySeedPacketExamineContributor::contribute);
     }
@@ -158,6 +159,23 @@ public final class BuiltinExamineContributors {
         collector.detailEntry(output.volume(), "beaker-solution", 40);
         for (int i = 0; i < output.details().size(); i++)
             collector.detailEntry(output.details().get(i), "beaker-solution", 39 - i);
+    }
+
+    /** World-item syringe solution inspection from a detached authoritative stack snapshot. */
+    static void syringeSolution(ExamineContext context, ExamineCollector collector) {
+        if (!context.detailsAllowed() || !(context.targetEntity() instanceof ItemEntity item)
+                || !(item.getItem().getItem() instanceof com.juicyslew.moonstation14.item.custom.SyringeItem syringe)) return;
+        var data = com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
+                com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalog(context.level()),
+                com.juicyslew.moonstation14.item.custom.SyringeItem.PROTOTYPE_ID);
+        var policy = data.syringePolicy().orElse(null);
+        if (policy == null) return;
+        ReagentAttachment solution = MS14Provider.getDetached(syringe.toHandle(item.getItem()), MS14Bridges.REAGENT);
+        var output = SolutionExamineFormatter.format(solution, context.level(), policy.capacityUnits(), true,
+                SolutionExamineFormatter.Templates.GENERIC, id -> lookup(context, id));
+        collector.detailEntry(output.volume(), "syringe-solution", 40);
+        for (int i = 0; i < output.details().size(); i++)
+            collector.detailEntry(output.details().get(i), "syringe-solution", 39 - i);
     }
 
     private static ReagentData lookup(ExamineContext context, ResourceLocation id) {

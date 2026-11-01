@@ -2,6 +2,12 @@
 
 ## Current unfiltered result
 
+Owner explicitly deferred manual smoke testing in favor of finding regressions
+during the next sprint. No manual testing was performed or claimed. Gun/combat
+names in incoming code, assets or automated fixtures do not establish implemented
+player-facing gun or combat gameplay; earlier smoke-test suggestions overstated
+the available gameplay. Preserve the uncommitted/unpushed merge state.
+
 `run_594c9098e242c7c2c15de788`, generation 1: acknowledged diagnostic **PASS**,
 cleanup confirmed. Unfiltered **1,343/1,343 selected, 1,343 passed, 0 failed**,
 4.892 minutes. Focused JVM (**174 tests / 34 classes**), interaction/prediction

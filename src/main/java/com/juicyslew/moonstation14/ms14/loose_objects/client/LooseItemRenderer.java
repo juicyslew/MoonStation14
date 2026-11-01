@@ -18,9 +18,18 @@ public final class LooseItemRenderer extends EntityRenderer<LooseItemEntity> {
         applyFlatPose(pose,profile,1f);
     }
     public static void applyFlatPose(PoseStack pose, LooseObjectProfile profile,float appearanceScale) {
+        applyFlatPose(pose, profile, appearanceScale, false);
+    }
+    /** Flat sprite pose for a camera-facing caller; offsets/scales stay in the caller's XY plane. */
+    public static void applyCameraFacingFlatPose(PoseStack pose, LooseObjectProfile profile, float appearanceScale) {
+        applyFlatPose(pose, profile, appearanceScale, true);
+    }
+    private static void applyFlatPose(PoseStack pose, LooseObjectProfile profile, float appearanceScale, boolean cameraFacing) {
         float sx = profile.visual().spriteScaleX()*appearanceScale, sy = profile.visual().spriteScaleY()*appearanceScale;
-        pose.translate(0, .002 + .03125 * Math.max(sx, sy), 0);
-        pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(90));
+        if (!cameraFacing) {
+            pose.translate(0, .002 + .03125 * Math.max(sx, sy), 0);
+            pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(90));
+        }
         pose.translate(profile.visual().spriteOffsetX(), profile.visual().spriteOffsetY(), 0);
         pose.scale(sx, sy, Math.max(sx, sy));
     }
@@ -44,7 +53,9 @@ public final class LooseItemRenderer extends EntityRenderer<LooseItemEntity> {
             pose.translate(0, LooseItemRenderLayers.offset(entity), 0);
             pose.mulPose(com.mojang.math.Axis.YP.rotation(entity.getRotationAngle(partialTick)));
             if ("jug".equals(profile.renderKind())) pose.translate(-.5, 0, -.5);
-            WorldItemPresentationRenderer.render(stack, profile, pose, buffers, light, entity.level(), entity.getId());
+            float flash = com.juicyslew.moonstation14.ms14.damage.client.DamageFeedbackClientState.redFlashProgress(entity);
+            int tint = WorldItemPresentationRenderer.blendRed(0xFFFFFF, flash);
+            WorldItemPresentationRenderer.render(stack, profile, pose, buffers, light, entity.level(), entity.getId(), 1f, tint);
         } finally { pose.popPose(); }
         super.render(entity, entityYaw, partialTick, pose, buffers, light);
     }
@@ -53,4 +64,3 @@ public final class LooseItemRenderer extends EntityRenderer<LooseItemEntity> {
         return net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS;
     }
 }
-

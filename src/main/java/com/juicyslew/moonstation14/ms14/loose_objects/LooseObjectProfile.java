@@ -61,7 +61,8 @@ public record LooseObjectProfile(float mass, float friction, float restitution, 
                                           ResourceLocation destructionSound, boolean spillCurrentReagents,
                                           java.util.List<com.juicyslew.moonstation14.ms14.item_processing.ItemProcessingProfile.ItemOutput> destructionOutputs,
                                            com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosiveSourceData destructionExplosion,
-                                            float destructionSoundVolumeDb, com.juicyslew.moonstation14.ms14.damage.DamageModifierData damageModifiers) {
+                                              float destructionSoundVolumeDb, com.juicyslew.moonstation14.ms14.damage.DamageModifierData damageModifiers,
+                                              java.util.Optional<Float> overkillDestructionThreshold, float destructionOutputProbability) {
         public static final Codec<ItemDamageComposition> CODEC = RecordCodecBuilder.create(i -> i.group(
                  Codec.STRING.listOf().fieldOf("allowed_groups").forGetter(c -> c.allowedGroups.stream().toList()),
                  Codec.STRING.listOf().optionalFieldOf("allowed_types", java.util.List.of()).forGetter(c -> c.allowedTypes.stream().toList()),
@@ -78,12 +79,17 @@ public record LooseObjectProfile(float mass, float friction, float restitution, 
                  com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosiveSourceData.CODEC.optionalFieldOf("destruction_explosion")
                           .forGetter(c -> java.util.Optional.ofNullable(c.destructionExplosion)),
                    Codec.FLOAT.optionalFieldOf("destruction_sound_volume_db", 0f).forGetter(ItemDamageComposition::destructionSoundVolumeDb),
-                   com.juicyslew.moonstation14.ms14.damage.DamageModifierData.CODEC.optionalFieldOf("damage_modifiers", com.juicyslew.moonstation14.ms14.damage.DamageModifierData.EMPTY).forGetter(ItemDamageComposition::damageModifiers)
-            ).apply(i, (groups, types, impact, minimum, factor, cooldown, land, threshold, sound, spill, outputs, explosion, volumeDb, modifiers) ->
-                    new ItemDamageComposition(Set.copyOf(groups), Set.copyOf(types), impact, minimum, factor, cooldown, land,
-                           threshold, sound.orElse(null), spill, outputs, explosion.orElse(null), volumeDb, modifiers)));
+                    com.juicyslew.moonstation14.ms14.damage.DamageModifierData.CODEC.optionalFieldOf("damage_modifiers", com.juicyslew.moonstation14.ms14.damage.DamageModifierData.EMPTY).forGetter(ItemDamageComposition::damageModifiers),
+                     Codec.FLOAT.optionalFieldOf("overkill_destruction_threshold").forGetter(c -> c.overkillDestructionThreshold),
+                     Codec.floatRange(0f, 1f).optionalFieldOf("destruction_output_probability", 1f).forGetter(ItemDamageComposition::destructionOutputProbability)
+              ).apply(i, (groups, types, impact, minimum, factor, cooldown, land, threshold, sound, spill, outputs, explosion, volumeDb, modifiers, overkill, probability) ->
+                      new ItemDamageComposition(Set.copyOf(groups), Set.copyOf(types), impact, minimum, factor, cooldown, land,
+                             threshold, sound.orElse(null), spill, outputs, explosion.orElse(null), volumeDb, modifiers, overkill, probability)));
         public ItemDamageComposition {
               if (damageModifiers == null) damageModifiers = com.juicyslew.moonstation14.ms14.damage.DamageModifierData.EMPTY;
+              if (overkillDestructionThreshold == null || overkillDestructionThreshold.isPresent()
+                      && (!Float.isFinite(overkillDestructionThreshold.get()) || overkillDestructionThreshold.get() <= destructionThreshold))
+                  throw new IllegalArgumentException("invalid overkill destruction threshold");
              allowedGroups = Set.copyOf(allowedGroups);
              allowedTypes = Set.copyOf(allowedTypes);
              allowedTypes.forEach(DamageKeys::requireCanonical);
@@ -94,7 +100,8 @@ public record LooseObjectProfile(float mass, float friction, float restitution, 
                      || !Float.isFinite(minimumImpactSpeed) || minimumImpactSpeed <= 0
                     || !Float.isFinite(impactFactor) || impactFactor < 0 || impactCooldownTicks < 0
                      || !Float.isFinite(destructionThreshold) || destructionThreshold < 0
-                     || !Float.isFinite(destructionSoundVolumeDb)
+                      || !Float.isFinite(destructionSoundVolumeDb) || !Float.isFinite(destructionOutputProbability)
+                      || destructionOutputProbability < 0 || destructionOutputProbability > 1
                      || !Float.isFinite((float) Math.pow(10d, destructionSoundVolumeDb / 20d)))
                 throw new IllegalArgumentException("invalid item damage composition");
             long outputCount = 0;
@@ -105,7 +112,28 @@ public record LooseObjectProfile(float mass, float friction, float restitution, 
             }
             if (outputCount > 65535) throw new IllegalArgumentException("destruction output count exceeds 65535");
         }
-        public float destructionSoundGain() { return (float) Math.pow(10d, destructionSoundVolumeDb / 20d); }
+         public float destructionSoundGain() { return (float) Math.pow(10d, destructionSoundVolumeDb / 20d); }
+         public ItemDamageComposition(Set<String> allowedGroups, Set<String> allowedTypes, Map<String, Float> highSpeedImpact,
+                                      float minimumImpactSpeed, float impactFactor, int impactCooldownTicks, Map<String, Float> throwLandDamage,
+                                      float destructionThreshold, ResourceLocation destructionSound, boolean spillCurrentReagents,
+                                      java.util.List<com.juicyslew.moonstation14.ms14.item_processing.ItemProcessingProfile.ItemOutput> destructionOutputs,
+                                      com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosiveSourceData destructionExplosion,
+                                      float volumeDb, com.juicyslew.moonstation14.ms14.damage.DamageModifierData modifiers,
+                                      java.util.Optional<Float> overkill) {
+             this(allowedGroups, allowedTypes, highSpeedImpact, minimumImpactSpeed, impactFactor, impactCooldownTicks,
+                     throwLandDamage, destructionThreshold, destructionSound, spillCurrentReagents, destructionOutputs,
+                     destructionExplosion, volumeDb, modifiers, overkill, 1f);
+         }
+        public ItemDamageComposition(Set<String> allowedGroups, Set<String> allowedTypes, Map<String, Float> highSpeedImpact,
+                                     float minimumImpactSpeed, float impactFactor, int impactCooldownTicks, Map<String, Float> throwLandDamage,
+                                     float destructionThreshold, ResourceLocation destructionSound, boolean spillCurrentReagents,
+                                     java.util.List<com.juicyslew.moonstation14.ms14.item_processing.ItemProcessingProfile.ItemOutput> destructionOutputs,
+                                     com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosiveSourceData destructionExplosion,
+                                     float volumeDb, com.juicyslew.moonstation14.ms14.damage.DamageModifierData modifiers) {
+            this(allowedGroups, allowedTypes, highSpeedImpact, minimumImpactSpeed, impactFactor, impactCooldownTicks,
+                    throwLandDamage, destructionThreshold, destructionSound, spillCurrentReagents, destructionOutputs,
+                    destructionExplosion, volumeDb, modifiers, java.util.Optional.empty());
+        }
         public ItemDamageComposition(Set<String> allowedGroups, Set<String> allowedTypes, Map<String, Float> highSpeedImpact,
                                      float minimumImpactSpeed, float impactFactor, int impactCooldownTicks, Map<String, Float> throwLandDamage,
                                      float destructionThreshold, ResourceLocation destructionSound, boolean spillCurrentReagents,
