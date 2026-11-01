@@ -431,6 +431,25 @@ public class BotanyCatalogCandidateTest {
         var normalized = source.deepCopy();
         // Prototype keys come from the canonical resource filename; the JSON id is decorative metadata.
         normalized.remove("id");
+        // Closed botany sprint approved native loose OBJ presentation for banana peels; keep
+        // gameplay composition in the candidate comparison while checking this adapter separately.
+        if (family.equals("loose_object_profile") && Set.of("trash_banana_peel", "trash_mimana_peel").contains(name)) {
+            normalized.remove("render_kind");
+            if (normalized.has("visual")) {
+                var visual = normalized.getAsJsonObject("visual");
+                // Decoder-required sprite defaults are retained and checked here before
+                // removing these presentation-only fields from legacy candidate parity.
+                assertEquals(1, visual.get("sprite_scale_x").getAsInt());
+                assertEquals(1, visual.get("sprite_scale_y").getAsInt());
+                assertEquals(0, visual.get("sprite_offset_x").getAsInt());
+                assertEquals(0, visual.get("sprite_offset_y").getAsInt());
+                visual.remove("sprite_scale_x"); visual.remove("sprite_scale_y");
+                visual.remove("sprite_offset_x"); visual.remove("sprite_offset_y");
+                visual.remove("model_scale");
+                visual.remove("model_floor_offset");
+                if (visual.size() == 0) normalized.remove("visual");
+            }
+        }
         // Minecraft wearable mesh wiring is intentionally added only for these seven botany hats.
             if (family.equals("equipment_item") && Set.of("ambrosia_deus", "ambrosia_vulgaris",
                 "clothing_head_hat_holy_watermelon", "clothing_head_hat_watermelon", "lily",
@@ -450,6 +469,15 @@ public class BotanyCatalogCandidateTest {
                 action.addProperty("sound", "moonstation14:botany/produce/slime_squish");
         }
         return normalized;
+    }
+
+    @Test void approvedLoosePeelPresentationDoesNotMaskGameplayCompositionChanges() {
+        var candidate = resources("loose_object_profile", "trash_banana_peel").get(id("trash_banana_peel"));
+        var production = mainResources("loose_object_profile", "trash_banana_peel").get(id("trash_banana_peel"));
+        var tampered = production.deepCopy();
+        tampered.addProperty("physical_width", 0.8);
+        assertThrows(AssertionError.class, () -> assertPromotedCompositionMatches(
+                "loose_object_profile", "trash_banana_peel", candidate, tampered));
     }
 
     private static JsonObject resolveMeatwheatIngestion(boolean candidate) {

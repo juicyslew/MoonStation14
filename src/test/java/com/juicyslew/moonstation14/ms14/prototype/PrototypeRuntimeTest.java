@@ -33,6 +33,7 @@ import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
 import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
+import com.juicyslew.moonstation14.ms14.doors.prototype.ModFirelocks;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
 import com.juicyslew.moonstation14.ms14.puddle.ModPuddles;
 import com.mojang.serialization.JsonOps;
@@ -108,6 +109,7 @@ class PrototypeRuntimeTest {
                 ModAlerts.ALERT_TYPE, ModCharacters.CHARACTER_TYPE, ModOrgans.ORGAN_TYPE,
                 ModGasReactions.GAS_REACTION_TYPE, ModRadioChannels.RADIO_CHANNEL_TYPE,
                 ModVentilationDevices.VENTILATION_DEVICE_TYPE, ModAirAlarms.AIR_ALARM_TYPE,
+                com.juicyslew.moonstation14.ms14.atmos.monitor.ModAtmosAlarmThresholds.TYPE,
                 ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE,
                 ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE));
         expectedTypes.add(ModIngestionProfiles.TYPE);
@@ -122,6 +124,7 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE);
         expectedTypes.add(ModAirlocks.TYPE);
+        expectedTypes.add(ModFirelocks.TYPE);
         expectedTypes.add(ModToolProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE);
@@ -263,8 +266,10 @@ class PrototypeRuntimeTest {
                 constructionFixtures("construction_recipe"));
         server.reload(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE,
                 constructionFixtures("construction_entity"));
-        server.reload(ModAirlocks.TYPE, Map.of(ModAirlocks.STANDARD,
-                fixture("airlock", "standard_airlock"), id("base_airlock"), fixture("airlock", "base_airlock")));
+         server.reload(ModAirlocks.TYPE, Map.of(ModAirlocks.STANDARD,
+                 fixture("airlock", "standard_airlock"), id("base_airlock"), fixture("airlock", "base_airlock")));
+         server.reload(ModFirelocks.TYPE, Map.of(id("base_firelock"), fixture("firelock", "base_firelock"),
+                 ModFirelocks.STANDARD, fixture("firelock", "firelock"), id("base_structure"), fixture("firelock", "base_structure")));
         server.reload(ModToolProfiles.TYPE, Map.of(id("crowbar"), fixture("tool_profile", "crowbar"),
                 id("wirecutter"), fixture("tool_profile", "wirecutter"), id("screwdriver"), fixture("tool_profile", "screwdriver"),
                 id("multitool"), fixture("tool_profile", "multitool"), id("base_item"), fixture("tool_profile", "base_item"),
@@ -321,7 +326,8 @@ class PrototypeRuntimeTest {
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
                 ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId(),
                 ModGasReactions.GAS_REACTION_TYPE.typeId(), ModRadioChannels.RADIO_CHANNEL_TYPE.typeId(),
-                ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
+                 ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.atmos.monitor.ModAtmosAlarmThresholds.TYPE.typeId(),
                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
                 ModDisposals.DISPOSAL_TYPE.typeId(), ModTools.TOOL_TYPE.typeId(),
                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
@@ -329,7 +335,7 @@ class PrototypeRuntimeTest {
                  com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
-                ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(), ModPuddles.TYPE.typeId(),
+                 ModAirlocks.TYPE.typeId(), ModFirelocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(), ModPuddles.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE.typeId(),
@@ -387,7 +393,8 @@ class PrototypeRuntimeTest {
         assertTrue(exported.get(ModRadioChannels.RADIO_CHANNEL_TYPE.typeId()).containsKey(id("common")));
         assertEquals(Set.of(ModVentilationDevices.VENT, ModVentilationDevices.SCRUBBER),
                  exported.get(ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId()).keySet());
-        assertEquals(Set.of(ModAirAlarms.AIR_ALARM), exported.get(ModAirAlarms.AIR_ALARM_TYPE.typeId()).keySet());
+         assertEquals(Set.of(ModAirAlarms.AIR_ALARM), exported.get(ModAirAlarms.AIR_ALARM_TYPE.typeId()).keySet());
+         assertEquals(Set.of(ModFirelocks.STANDARD), exported.get(ModFirelocks.TYPE.typeId()).keySet());
         assertTrue(exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).containsKey(id("explosion-test")));
         assertTrue(exported.get(ModLooseObjectProfiles.PROFILE_TYPE.typeId()).containsKey(id("profile-test")));
         assertTrue(exported.get(ModDamageFeedback.TYPE.typeId()).containsKey(id("damage-feedback-test")));
@@ -418,6 +425,10 @@ class PrototypeRuntimeTest {
          assertEquals(5000, serverBeacon.powerWatts());
          assertEquals(serverBeacon, clientBeacon);
          assertNotSame(serverBeacon, clientBeacon);
+         assertEquals(PrototypeRuntime.serverFirelocks().get(ModFirelocks.STANDARD),
+                 PrototypeRuntime.clientFirelocks().get(ModFirelocks.STANDARD));
+         assertNotSame(PrototypeRuntime.serverFirelocks().get(ModFirelocks.STANDARD),
+                 PrototypeRuntime.clientFirelocks().get(ModFirelocks.STANDARD));
         var serverWelder = PrototypeRuntime.serverTools().get(ModTools.WELDER);
         assertEquals(serverWelder, PrototypeRuntime.clientTools().get(ModTools.WELDER));
         assertNotSame(serverWelder, PrototypeRuntime.clientTools().get(ModTools.WELDER));

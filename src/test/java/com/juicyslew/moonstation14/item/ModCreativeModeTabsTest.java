@@ -32,6 +32,23 @@ class ModCreativeModeTabsTest {
         }
     }
 
+    @Test
+    void firelockIsAvailableInExistingConstructionTabWithLocalizedNameAndModel() throws Exception {
+        assertTrue(ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES.contains(ModBlocks.FIRELOCK));
+        String displayKey = ModBlocks.FIRELOCK.get().asItem().getDescriptionId();
+        assertEquals("block.moonstation14.firelock", displayKey);
+        assertLocalizedName(displayKey);
+        try (var stream = ModCreativeModeTabsTest.class.getResourceAsStream("/assets/moonstation14/lang/en_us.json")) {
+            assertNotNull(stream);
+            assertTrue(new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                    .contains("\"" + displayKey + "\": \"Firelock\""));
+        }
+        try (var stream = ModCreativeModeTabsTest.class.getResourceAsStream(
+                "/assets/moonstation14/models/item/firelock.json")) {
+            assertNotNull(stream, "firelock item model resource is available");
+        }
+    }
+
     private static void assertLocalizedName(String key) throws Exception {
         try (var stream = ModCreativeModeTabsTest.class.getResourceAsStream("/assets/moonstation14/lang/en_us.json")) {
             assertNotNull(stream, "English language file is available");

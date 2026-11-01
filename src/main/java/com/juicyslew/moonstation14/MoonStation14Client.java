@@ -1023,6 +1023,7 @@ public class MoonStation14Client {
         }
         com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer.additionalModels()
                 .forEach(event::register);
+        com.juicyslew.moonstation14.ms14.doors.client.FirelockRenderer.additionalModels().forEach(event::register);
         com.juicyslew.moonstation14.ms14.atmos.tank.client.GasCanisterRenderer.additionalModels()
                 .forEach(event::register);
         com.juicyslew.moonstation14.ms14.botany.client.HydroponicsTrayBlockEntityRenderer.additionalModels()
@@ -1031,6 +1032,7 @@ public class MoonStation14Client {
 
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.AIRLOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.FIRELOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.StandaloneFirelockBlockEntityRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.HYDROPONICS_TRAY.get(), com.juicyslew.moonstation14.ms14.botany.client.HydroponicsTrayBlockEntityRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.REAGENT_GRINDER.get(), com.juicyslew.moonstation14.ms14.botany.client.ReagentGrinderBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.LOOSE_ITEM.get(), LooseItemRenderer::new);

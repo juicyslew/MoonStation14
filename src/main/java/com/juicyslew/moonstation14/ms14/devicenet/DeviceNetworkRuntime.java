@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.devicenet;
 import net.minecraft.server.level.ServerLevel;
 import java.util.Objects;
 import com.juicyslew.moonstation14.sounds.ModSounds;
+import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
 
@@ -49,7 +50,12 @@ public final class DeviceNetworkRuntime {
         DeviceLinkSavedData.forMutation(level).forgetDefaultAddress(identity);
     }
     /** Invoke once in the later server-update phase; enqueue remains non-synchronous. */
-    public int update() { return transport.drain(); }
+    public int update() {
+        PowerRuntime.reconcileDeviceNetworkPowerFreshness(level);
+        int drained = transport.drain();
+        PowerRuntime.reconcileDeviceNetworkPowerFreshness(level);
+        return drained;
+    }
     public void gameTick() { links.nextGameTick(); }
     private void playOverloadEffect(DeviceEndpoint endpoint,DeviceComposition.SoundOnOverload effect) {
         effect.sound().ifPresent(soundId->{
@@ -59,4 +65,3 @@ public final class DeviceNetworkRuntime {
         });
     }
 }
-

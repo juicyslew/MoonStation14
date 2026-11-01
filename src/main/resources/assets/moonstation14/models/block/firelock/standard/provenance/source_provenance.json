@@ -1,0 +1,9 @@
+{
+  "reference": "Existing workspace pinned Blockbench4.12.6 source copies, read only; not a new app run.",
+  "files": {
+    "blockbench-4.12.6-bbmodel.js": "20fe4fda66f3546af1b579830d3ff0f4b2af82db4635321df844902d417cdbb2",
+    "blockbench-4.12.6-timeline_animators.js": "7c364964373040bcf178dfe2e6c09cee726000811fe5391b928a91c8dca57fe3",
+    "BLOCKBENCH-LICENSE.txt": "8b1ba204bb69a0ade2bfcf65ef294a920f6bb361b317dba43c7ef29d96332b9b"
+  },
+  "animator_conversion": "displayRotation negates X/Y and preserves Z; collector uses negative X animation keys for canonical positive-X lift."
+}

@@ -264,9 +264,32 @@ class BotanyCatalogItemResourcesTest {
     }
 
     @Test void carrotSeedAndBananaPeelItemsBindCanonicalSprites() throws Exception {
-        assertModel("carrots_seeds", "moonstation14:item/botany/carrot_seed");
-        assertModel("trash_banana_peel", "moonstation14:ss14/botany/Objects/Specific/Hydroponics/banana.rsi/peel");
-        assertModel("trash_mimana_peel", "moonstation14:ss14/botany/Objects/Specific/Hydroponics/mimana.rsi/peel");
+        var carrotSeed = json(ROOT + "models/item/carrots_seeds.json");
+        assertEquals("minecraft:item/generated", carrotSeed.get("parent").getAsString());
+        assertEquals("moonstation14:item/botany/carrot_seed",
+                carrotSeed.getAsJsonObject("textures").get("layer0").getAsString());
+        for (String name : new String[]{"trash_banana_peel", "trash_mimana_peel"}) {
+            var wrapper = json(ROOT + "models/item/" + name + ".json");
+            assertEquals("moonstation14:item/botany/peels/" + name, wrapper.get("parent").getAsString());
+            var model = json(ROOT + "models/item/botany/peels/" + name + ".json");
+            assertEquals("neoforge:obj", model.get("loader").getAsString());
+            String obj = model.get("model").getAsString().replace("moonstation14:", "");
+            String stem = "assets/moonstation14/" + obj;
+            try (var stream = resource("/" + stem)) { assertTrue(stream.readAllBytes().length > 0, obj); }
+            try (var reader = new java.io.BufferedReader(new InputStreamReader(resource(
+                    "/assets/moonstation14/models/item/botany/peels/" + name + ".obj"), StandardCharsets.UTF_8))) {
+                assertTrue(reader.lines().anyMatch(line -> line.trim().equals("mtllib " + name + ".mtl")), name);
+            }
+            try (var reader = new java.io.BufferedReader(new InputStreamReader(resource(
+                    "/assets/moonstation14/models/item/botany/peels/" + name + ".mtl"), StandardCharsets.UTF_8))) {
+                assertTrue(reader.lines().anyMatch(line -> line.trim().equals("map_Kd #atlas")), name);
+            }
+            assertTrue(model.getAsJsonObject("textures").get("atlas").getAsString()
+                    .equals("moonstation14:item/botany/peels/" + name));
+            try (var stream = resource(ROOT + "textures/item/botany/peels/" + name + ".png")) {
+                assertNotNull(ImageIO.read(stream), name + " OBJ atlas");
+            }
+        }
         for (String path : new String[]{
                 ROOT + "textures/item/botany/carrot_seed.png",
                 ROOT + "textures/ss14/botany/Objects/Specific/Hydroponics/banana.rsi/peel.png",

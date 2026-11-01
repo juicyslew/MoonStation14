@@ -9,14 +9,18 @@ import com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata;
 /** Resolved, supported tool-related item components. */
 public record ToolProfile(Tool tool, Prying prying, String useSound, ExamineMetadata metadata,
                             Set<String> tags, Shovel shovel, BotanySwab botanySwab, BotanySampleTaker botanySampleTaker,
-                             Sharp sharp, Knife knife) {
-    public ToolProfile(Tool tool, Prying prying, String useSound, ExamineMetadata metadata, Set<String> tags, Shovel shovel, BotanySwab swab) { this(tool, prying, useSound, metadata, tags, shovel, swab, null, null, null); }
-    public ToolProfile(Tool tool, Prying prying, String useSound) { this(tool, prying, useSound, ExamineMetadata.EMPTY, Set.of(), null, null, null, null, null); }
-    public ToolProfile(Tool tool, Prying prying, String useSound, ExamineMetadata metadata) { this(tool, prying, useSound, metadata, Set.of(), null, null, null, null, null); }
+                              Sharp sharp, Knife knife, boolean strongPry, boolean poweredPry) {
+    public ToolProfile(Tool tool, Prying prying, String useSound, ExamineMetadata metadata, Set<String> tags, Shovel shovel, BotanySwab swab) { this(tool, prying, useSound, metadata, tags, shovel, swab, null, null, null, false, false); }
+    public ToolProfile(Tool tool, Prying prying, String useSound) { this(tool, prying, useSound, ExamineMetadata.EMPTY, Set.of(), null, null, null, null, null, false, false); }
+    public ToolProfile(Tool tool, Prying prying, String useSound, ExamineMetadata metadata) { this(tool, prying, useSound, metadata, Set.of(), null, null, null, null, null, false, false); }
     /** Compatibility constructor for resolved compositions predating the optional knife utensil capability. */
     public ToolProfile(Tool tool, Prying prying, String useSound, ExamineMetadata metadata, Set<String> tags, Shovel shovel,
                        BotanySwab swab, BotanySampleTaker sampler, Sharp sharp) {
-        this(tool, prying, useSound, metadata, tags, shovel, swab, sampler, sharp, null);
+        this(tool, prying, useSound, metadata, tags, shovel, swab, sampler, sharp, null, false, false);
+    }
+    public ToolProfile(Tool tool, Prying prying, String useSound, ExamineMetadata metadata, Set<String> tags, Shovel shovel,
+                       BotanySwab swab, BotanySampleTaker sampler, Sharp sharp, Knife knife) {
+        this(tool,prying,useSound,metadata,tags,shovel,swab,sampler,sharp,knife,false,false);
     }
     public enum Quality { SCREWING, CUTTING, PULSING, PRYING }
 
@@ -64,16 +68,18 @@ public record ToolProfile(Tool tool, Prying prying, String useSound, ExamineMeta
     public static final Codec<ToolProfile> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Tool.CODEC.optionalFieldOf("tool").forGetter(p -> java.util.Optional.ofNullable(p.tool())),
             Prying.CODEC.optionalFieldOf("prying").forGetter(p -> java.util.Optional.ofNullable(p.prying())),
-            Codec.STRING.optionalFieldOf("useSound").forGetter(p -> java.util.Optional.ofNullable(p.useSound())),
+             Codec.STRING.optionalFieldOf("useSound").forGetter(p -> java.util.Optional.ofNullable(p.useSound())),
             ExamineMetadata.CODEC.optionalFieldOf("metadata", ExamineMetadata.EMPTY).forGetter(ToolProfile::metadata),
             TAGS_CODEC.optionalFieldOf("tags", Set.of()).forGetter(ToolProfile::tags),
             Shovel.CODEC.optionalFieldOf("shovel").forGetter(p -> java.util.Optional.ofNullable(p.shovel())),
              BotanySwab.CODEC.optionalFieldOf("botanySwab").forGetter(p -> java.util.Optional.ofNullable(p.botanySwab())),
              BotanySampleTaker.CODEC.optionalFieldOf("botanySampleTaker").forGetter(p -> java.util.Optional.ofNullable(p.botanySampleTaker()))
               , Sharp.CODEC.optionalFieldOf("sharp").forGetter(p -> java.util.Optional.ofNullable(p.sharp())),
-              Knife.CODEC.optionalFieldOf("knife").forGetter(p -> java.util.Optional.ofNullable(p.knife()))
-       ).apply(i, (tool, prying, useSound, metadata, tags, shovel, swab, sampler, sharp, knife) ->
-               new ToolProfile(tool.orElse(null), prying.orElse(null), useSound.orElse(null), metadata, tags, shovel.orElse(null), swab.orElse(null), sampler.orElse(null), sharp.orElse(null), knife.orElse(null))));
+               Knife.CODEC.optionalFieldOf("knife").forGetter(p -> java.util.Optional.ofNullable(p.knife())),
+               Codec.BOOL.optionalFieldOf("strongPry",false).forGetter(ToolProfile::strongPry),
+               Codec.BOOL.optionalFieldOf("poweredPry",false).forGetter(ToolProfile::poweredPry)
+        ).apply(i, (tool, prying, useSound, metadata, tags, shovel, swab, sampler, sharp, knife, strongPry, poweredPry) ->
+                new ToolProfile(tool.orElse(null), prying.orElse(null), useSound.orElse(null), metadata, tags, shovel.orElse(null), swab.orElse(null), sampler.orElse(null), sharp.orElse(null), knife.orElse(null),strongPry,poweredPry)));
 
     public void validate() {
         if (tool != null && (tool.qualities() == null || tool.qualities().isEmpty()
@@ -94,4 +100,3 @@ public record ToolProfile(Tool tool, Prying prying, String useSound, ExamineMeta
             throw new IllegalArgumentException("unsupported resolved tool use sound: " + useSound);
     }
 }
-

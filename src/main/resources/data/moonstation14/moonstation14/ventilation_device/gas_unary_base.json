@@ -4,5 +4,20 @@
   "apcPowerReceiver": { "requestedWatts": 5.0 },
   "extensionCableReceiver": { "localReachBlocks": 3 }
   ,"fixtureGeometry": { "width": 0.75, "height": 0.75, "depth": 0.125, "nonColliding": true, "allowVerticalMounts": true },
-  "deviceComponents": { "deviceNetwork": { "network": "moonstation14:atmos_devices", "transmitFrequency": "moonstation14:atmos_monitor", "receiveFrequency": "moonstation14:atmos_monitor", "broadcastHook": true }, "deviceConnection": { "wired": true } }
+  "deviceComponents": { "deviceNetwork": { "network": "moonstation14:atmos_devices", "transmitFrequency": "moonstation14:atmos_monitor", "receiveFrequency": "moonstation14:atmos_monitor", "broadcastHook": true }, "deviceConnection": { "wired": true } },
+  "atmosMonitor": {
+    "pressureThreshold": "moonstation14:stationpressure",
+    "temperatureThreshold": "moonstation14:stationtemperature",
+    "gasThresholds": {
+      "oxygen": "moonstation14:stationoxygen",
+      "nitrogen": "moonstation14:stationnitrogen",
+      "carbon_dioxide": "moonstation14:stationco2",
+      "plasma": "moonstation14:stationplasma",
+      "tritium": "moonstation14:stationtritium",
+      "water_vapor": "moonstation14:stationwatervapor",
+      "ammonia": "moonstation14:stationammonia",
+      "nitrous_oxide": "moonstation14:stationno",
+      "frezon": "moonstation14:danger"
+    }
+  }
 }

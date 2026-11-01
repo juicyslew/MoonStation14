@@ -35,6 +35,8 @@ class AirlockPrototypeTest {
         assertEquals(3, resolved.extensionCableReceiver().localReachBlocks());
         assertEquals(5, resolved.airlock().autoCloseSeconds());
         assertEquals(15, resolved.door().crushDamageBlunt());
+        assertEquals(1.5,resolved.door().pryTimeSeconds(),"Door pry time inherits upstream default without changing ordinary door timing");
+        assertEquals(0.1,resolved.pryUnpowered().pryModifier());
         assertFalse(resolved.electrified().enabled());
         assertTrue(resolved.electrified().usesApcPower());
         assertTrue(resolved.electrified().requirePower());
@@ -119,6 +121,16 @@ class AirlockPrototypeTest {
         var raw=new LinkedHashMap<ResourceLocation,JsonObject>();raw.put(ResourceLocation.fromNamespaceAndPath("moonstation14","base_airlock"),base);raw.put(ModAirlocks.STANDARD,resource("standard_airlock"));
         var manager=new PrototypeManager();manager.register(ModAirlocks.TYPE);manager.reload(ModAirlocks.TYPE,raw);
         assertFalse(manager.snapshot(ModAirlocks.TYPE).get(ModAirlocks.STANDARD).door().bumpOpen());
+    }
+    @Test void unpoweredPryModifierAndDoorTimeResolveInheritanceAndOverrides() throws Exception {
+        var base=resource("base_airlock");base.getAsJsonObject("door").addProperty("pryTimeSeconds",2.0);
+        base.getAsJsonObject("pryUnpowered").addProperty("pryModifier",0.2);
+        var raw=new LinkedHashMap<ResourceLocation,JsonObject>();raw.put(ResourceLocation.fromNamespaceAndPath("moonstation14","base_airlock"),base);raw.put(ModAirlocks.STANDARD,resource("standard_airlock"));
+        var manager=new PrototypeManager();manager.register(ModAirlocks.TYPE);manager.reload(ModAirlocks.TYPE,raw);
+        var resolved=manager.snapshot(ModAirlocks.TYPE).get(ModAirlocks.STANDARD);
+        assertEquals(2.0,resolved.door().pryTimeSeconds());assertEquals(0.2,resolved.pryUnpowered().pryModifier());
+        assertEquals(200,com.juicyslew.moonstation14.ms14.doors.AirlockPryService.durationTicks(resolved,true,1.0));
+        assertEquals(40,com.juicyslew.moonstation14.ms14.doors.AirlockPryService.durationTicks(resolved,false,1.0));
     }
     @Test void invalidPowerDemandRejected() throws Exception {
         var base = resource("base_airlock");

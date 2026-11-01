@@ -18,7 +18,7 @@ public final class VentilationFixtureSavedData extends SavedData {
     public static final Factory<VentilationFixtureSavedData> FACTORY = new Factory<>(
             VentilationFixtureSavedData::new, VentilationFixtureSavedData::load, null);
 
-    public record Entry(BlockPos origin, UUID scrubberUUID, UUID ventUUID, UUID fixtureUUID, boolean initialized) {
+    public record Entry(BlockPos origin, UUID scrubberUUID, UUID ventUUID, UUID fixtureUUID, boolean initialized, boolean firelockVariant, UUID firelockUUID, UUID alarmUUID, UUID apcUUID) {
         public Entry {
             origin = new BlockPos(Objects.requireNonNull(origin));
             Objects.requireNonNull(scrubberUUID); Objects.requireNonNull(ventUUID); Objects.requireNonNull(fixtureUUID);
@@ -26,7 +26,7 @@ public final class VentilationFixtureSavedData extends SavedData {
                 throw new IllegalArgumentException("Fixture device UUIDs must be distinct");
         }
         @Override public BlockPos origin() { return new BlockPos(origin); }
-        private Entry initializedCopy() { return new Entry(origin, scrubberUUID, ventUUID, fixtureUUID, true); }
+        private Entry initializedCopy() { return new Entry(origin, scrubberUUID, ventUUID, fixtureUUID, true, firelockVariant, firelockUUID, alarmUUID, apcUUID); }
     }
 
     private static final Codec<Entry> ENTRY_CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -34,14 +34,21 @@ public final class VentilationFixtureSavedData extends SavedData {
             Codec.STRING.fieldOf("scrubber").xmap(UUID::fromString, UUID::toString).forGetter(Entry::scrubberUUID),
             Codec.STRING.fieldOf("vent").xmap(UUID::fromString, UUID::toString).forGetter(Entry::ventUUID),
             Codec.STRING.fieldOf("fixture").xmap(UUID::fromString, UUID::toString).forGetter(Entry::fixtureUUID),
-            Codec.BOOL.fieldOf("initialized").forGetter(Entry::initialized)
-    ).apply(instance, Entry::new));
+            Codec.BOOL.fieldOf("initialized").forGetter(Entry::initialized),
+            Codec.BOOL.optionalFieldOf("firelockVariant", false).forGetter(Entry::firelockVariant),
+            Codec.STRING.optionalFieldOf("firelock").xmap(s -> s.map(UUID::fromString), id -> id.map(UUID::toString)).forGetter(e -> Optional.ofNullable(e.firelockUUID())),
+            Codec.STRING.optionalFieldOf("alarmUUID").xmap(s -> s.map(UUID::fromString), id -> id.map(UUID::toString)).forGetter(e -> Optional.ofNullable(e.alarmUUID())),
+            Codec.STRING.optionalFieldOf("apcUUID").xmap(s -> s.map(UUID::fromString), id -> id.map(UUID::toString)).forGetter(e -> Optional.ofNullable(e.apcUUID()))
+    ).apply(instance, (origin, scrubber, vent, fixture, initialized, firelockVariant, firelock, alarm, apc) ->
+            new Entry(origin, scrubber, vent, fixture, initialized, firelockVariant,
+                    firelock.orElse(null), alarm.orElse(null), apc.orElse(null))));
     private static final Codec<List<Entry>> CODEC = ENTRY_CODEC.listOf().validate(entries -> {
         if (entries.size() > MAX_FIXTURES) return com.mojang.serialization.DataResult.error(() -> "Too many ventilation fixtures");
         Set<BlockPos> origins = new HashSet<>(); Set<UUID> ids = new HashSet<>();
         for (Entry entry : entries) {
             if (!origins.add(entry.origin())) return com.mojang.serialization.DataResult.error(() -> "Duplicate fixture origin");
-            if (!ids.add(entry.scrubberUUID()) || !ids.add(entry.ventUUID()) || !ids.add(entry.fixtureUUID()))
+            if (!ids.add(entry.scrubberUUID()) || !ids.add(entry.ventUUID()) || !ids.add(entry.fixtureUUID())
+                    || entry.alarmUUID()!=null && !ids.add(entry.alarmUUID()) || entry.apcUUID()!=null && !ids.add(entry.apcUUID()))
                 return com.mojang.serialization.DataResult.error(() -> "Duplicate fixture device UUID");
         }
         return com.mojang.serialization.DataResult.success(entries);
@@ -63,12 +70,24 @@ public final class VentilationFixtureSavedData extends SavedData {
     public int count() { return entries.size(); }
 
     public boolean recordBuilt(BlockPos origin, UUID scrubber, UUID vent, UUID alarm) {
-        Entry candidate = new Entry(origin, scrubber, vent, alarm, false);
+        return recordBuilt(origin,scrubber,vent,alarm,false,null,null);
+    }
+    public boolean recordBuilt(BlockPos origin, UUID scrubber, UUID vent, UUID alarm, boolean firelockVariant, UUID firelock) {
+        return recordBuilt(origin,scrubber,vent,alarm,firelockVariant,firelock,null);
+    }
+    public boolean recordBuilt(BlockPos origin, UUID scrubber, UUID vent, UUID fixture, boolean firelockVariant, UUID firelock, UUID alarmUUID) {
+        return recordBuilt(origin, scrubber, vent, fixture, firelockVariant, firelock, alarmUUID, null);
+    }
+    public boolean recordBuilt(BlockPos origin, UUID scrubber, UUID vent, UUID fixture, boolean firelockVariant, UUID firelock, UUID alarmUUID, UUID apcUUID) {
+        Entry candidate = new Entry(origin, scrubber, vent, fixture, false, firelockVariant, firelock, alarmUUID, apcUUID);
         if (entries.containsKey(candidate.origin()) || entries.size() >= MAX_FIXTURES) return false;
         for (Entry old : entries.values())
-            if (old.scrubberUUID().equals(scrubber) || old.scrubberUUID().equals(vent) || old.scrubberUUID().equals(alarm)
-                    || old.ventUUID().equals(scrubber) || old.ventUUID().equals(vent) || old.ventUUID().equals(alarm)
-                    || old.fixtureUUID().equals(scrubber) || old.fixtureUUID().equals(vent) || old.fixtureUUID().equals(alarm)) return false;
+            if (old.scrubberUUID().equals(scrubber) || old.scrubberUUID().equals(vent) || old.scrubberUUID().equals(fixture)
+                    || old.ventUUID().equals(scrubber) || old.ventUUID().equals(vent) || old.ventUUID().equals(fixture)
+                    || old.fixtureUUID().equals(scrubber) || old.fixtureUUID().equals(vent) || old.fixtureUUID().equals(fixture)
+                    || alarmUUID!=null && (alarmUUID.equals(old.scrubberUUID()) || alarmUUID.equals(old.ventUUID())
+                     || alarmUUID.equals(old.fixtureUUID()) || alarmUUID.equals(old.alarmUUID()) || alarmUUID.equals(old.apcUUID()))
+                    || apcUUID!=null && (apcUUID.equals(old.scrubberUUID()) || apcUUID.equals(old.ventUUID()) || apcUUID.equals(old.fixtureUUID()) || apcUUID.equals(old.alarmUUID()) || apcUUID.equals(old.apcUUID()))) return false;
         entries.put(candidate.origin(), candidate); setDirty(); return true;
     }
     public boolean markInitialized(BlockPos origin, UUID scrubber, UUID vent, UUID alarm) {
@@ -89,4 +108,3 @@ public final class VentilationFixtureSavedData extends SavedData {
         return tag;
     }
 }
-

@@ -1,0 +1,1 @@
+{"id":"firelock","parent":"base_firelock","deviceComponents":{"deviceNetwork":{"network":"moonstation14:atmos_devices","transmit":true,"receive":true,"transmitFrequency":"moonstation14:atmos_monitor","receiveFrequency":"moonstation14:atmos_monitor","requiresPower":true},"deviceConnection":{"wireless":true,"wirelessRange":200}}}

@@ -53,7 +53,9 @@ class ToolProfileTest {
         assertNull(catalog.get(ModToolProfiles.BASE_ITEM));
         assertNull(catalog.get(ModToolProfiles.BASE_CROWBAR));
         assertEquals(java.util.List.of(ToolProfile.Quality.PRYING), catalog.get(ModToolProfiles.CROWBAR).tool().qualities());
-        assertEquals(1.0, catalog.get(ModToolProfiles.CROWBAR).prying().speedModifier());
+         assertEquals(1.0, catalog.get(ModToolProfiles.CROWBAR).prying().speedModifier());
+         assertFalse(catalog.get(ModToolProfiles.CROWBAR).strongPry());
+         assertFalse(catalog.get(ModToolProfiles.CROWBAR).poweredPry());
         assertEquals(java.util.List.of(ToolProfile.Quality.CUTTING), catalog.get(ModToolProfiles.WIRECUTTER).tool().qualities());
         assertEquals("moonstation14:tools/wirecutter", catalog.get(ModToolProfiles.WIRECUTTER).useSound());
         assertNotNull(catalog.get(ModToolProfiles.WIRECUTTER).botanySampleTaker());
@@ -100,6 +102,20 @@ class ToolProfileTest {
         var empty = manager().snapshot(ModToolProfiles.TYPE);
         assertFalse(ToolQualities.has(ModToolProfiles.CROWBAR, ToolProfile.Quality.PRYING, empty));
         assertEquals(0, ToolQualities.prySpeed(ModToolProfiles.CROWBAR, empty));
+    }
+
+    @Test void strongAndPoweredPryCapabilitiesAreSeparateTypedDefaultsNotSpeedInference(){
+        var raw=bundled();
+        raw.get(ModToolProfiles.CROWBAR).addProperty("strongPry",true);
+        var manager=manager();manager.reload(ModToolProfiles.TYPE,raw);var catalog=manager.snapshot(ModToolProfiles.TYPE);
+        var crowbar=catalog.get(ModToolProfiles.CROWBAR);
+        assertEquals(1.0,crowbar.prying().speedModifier());
+        assertTrue(crowbar.strongPry());assertFalse(crowbar.poweredPry());
+        raw=bundled();raw.get(ModToolProfiles.CROWBAR).addProperty("poweredPry",true);
+        manager.reload(ModToolProfiles.TYPE,raw);catalog=manager.snapshot(ModToolProfiles.TYPE);crowbar=catalog.get(ModToolProfiles.CROWBAR);
+        assertFalse(crowbar.strongPry());assertTrue(crowbar.poweredPry());
+        assertFalse(catalog.get(ModToolProfiles.WIRECUTTER).strongPry());
+        assertFalse(catalog.get(ModToolProfiles.WIRECUTTER).poweredPry());
     }
 
     @Test void gardeningEligibilityUsesResolvedComponentsWithoutChangingLegacyToolCapabilities() {

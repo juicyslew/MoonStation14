@@ -1,0 +1,429 @@
+{
+  "ambientocclusion": true,
+  "textures": {
+    "atlas": "moonstation14:block/firelock/standard/atlas",
+    "particle": "moonstation14:block/firelock/standard/atlas"
+  },
+  "elements": [
+    {
+      "name": "front_upper_opaque_skin",
+      "from": [
+        0,
+        16,
+        12
+      ],
+      "to": [
+        16,
+        32,
+        13.25
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            11.875,
+            0.125,
+            15.375,
+            7.625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            11.875,
+            0.125,
+            15.375,
+            7.625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        }
+      }
+    },
+    {
+      "name": "front_FIRE_panel",
+      "from": [
+        2,
+        18,
+        13.25
+      ],
+      "to": [
+        14,
+        31,
+        13.5
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            5.375,
+            0.125,
+            8.375,
+            3.375
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            5.375,
+            0.125,
+            8.375,
+            3.375
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        }
+      }
+    },
+    {
+      "name": "rear_upper_opaque_skin",
+      "from": [
+        0,
+        16,
+        2.75
+      ],
+      "to": [
+        16,
+        32,
+        4
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            11.875,
+            0.125,
+            15.375,
+            7.625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            11.875,
+            0.125,
+            15.375,
+            7.625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        }
+      }
+    },
+    {
+      "name": "rear_FIRE_panel",
+      "from": [
+        2,
+        18,
+        2.5
+      ],
+      "to": [
+        14,
+        31,
+        2.75
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            5.375,
+            0.125,
+            8.375,
+            3.375
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            5.375,
+            0.125,
+            8.375,
+            3.375
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        }
+      }
+    },
+    {
+      "name": "upper_leaf_left_moving_return",
+      "from": [
+        -0.25,
+        16,
+        4
+      ],
+      "to": [
+        0,
+        32,
+        12
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        }
+      }
+    },
+    {
+      "name": "upper_leaf_right_moving_return",
+      "from": [
+        16,
+        16,
+        4
+      ],
+      "to": [
+        16.25,
+        32,
+        12
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            3.875,
+            0.125,
+            4.375,
+            0.625
+          ]
+        }
+      }
+    }
+  ]
+}

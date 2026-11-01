@@ -8,24 +8,83 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.function.Consumer;
 import static org.junit.jupiter.api.Assertions.*;
+import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosAlarmPayload;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmPortSignals;
+import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosMonitorReportPublisher;
+import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosMonitorSubscriptions;
+import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosDevicePayload;
 
 class DeviceNetworkCoreTest {
     private static final ResourceKey<Level> DIM=Level.OVERWORLD;
     static final class Endpoint implements DeviceEndpoint {
         final DeviceIdentity id=DeviceIdentity.random(); String address; final double range;
-        final List<DevicePayload> received=new ArrayList<>(); final BlockPos pos; boolean powered=true,requiresPower;
+        final List<DevicePayload> received=new ArrayList<>(); final BlockPos pos; boolean powered=true,requiresPower; int targetPriority;
+        List<DevicePort> sourcePorts = List.of(new DevicePort("Pressed","Pressed",""));
         int networkId=2, txFrequency=1280, rxFrequency=1280, configuredLimit=10; boolean receiveAll=true, broadcastHook,wired,wireless=true,connectionPresent=true,autoConnect=true,customAddress, externalAddressOwner; int overloaded; DeviceList list; Consumer<DevicePayload> onReceive=payload->{ }; Optional<DeviceComposition.SoundOnOverload> overloadSound=Optional.empty();
         Endpoint(String address,int x,double range){this.address=address;this.pos=new BlockPos(x,64,0);this.range=range;}
         public DeviceIdentity identity(){return id;} public ResourceKey<Level> dimension(){return DIM;} public BlockPos position(){return pos;}
-        public DeviceComposition composition(){return new DeviceComposition(List.of(new DevicePort("Pressed","Pressed","")),List.of(new DevicePort("Toggle","Toggle","")),Optional.of(new DeviceComposition.NetworkInterface(networkId,true,true,address,"",txFrequency,rxFrequency,receiveAll,requiresPower,autoConnect,true,customAddress,broadcastHook)),Optional.of(new DeviceList.Config(32,true,false)),Optional.of(new DeviceComposition.SourceConfig(30,Map.of())),Optional.of(new DeviceComposition.SinkConfig(configuredLimit)),connectionPresent?Optional.of(new DeviceComposition.ConnectionConfig(wired,wireless,range)):Optional.empty(),overloadSound);}
+        public DeviceComposition composition(){return new DeviceComposition(sourcePorts,List.of(new DevicePort("Toggle","Toggle","")),Optional.of(new DeviceComposition.NetworkInterface(networkId,true,true,address,"",txFrequency,rxFrequency,receiveAll,requiresPower,autoConnect,true,customAddress,broadcastHook)),Optional.of(new DeviceList.Config(32,true,false)),Optional.of(new DeviceComposition.SourceConfig(30,Map.of())),Optional.of(new DeviceComposition.SinkConfig(configuredLimit)),connectionPresent?Optional.of(new DeviceComposition.ConnectionConfig(wired,wireless,range)):Optional.empty(),overloadSound);}
         public boolean available(){return true;} public boolean powered(){return powered;} public DeviceList deviceList(){return list;} public boolean mutateDeviceListMembers(DeviceList replacement){list=replacement;return true;} public void receive(DevicePayload payload,String source){received.add(payload);onReceive.accept(payload);} public void onOverload(){overloaded++;}
         public boolean ownsAddressOutsideWorldSavedData(){return externalAddressOwner;}
+        public int targetPriority(BlockPos target){return targetPriority;}
     }
+      @Test void lookupAtUsesExplicitHighestSubtargetPriority(){var transport=new DeviceNetworkTransport();var base=new Endpoint("base",1,5);var attached=new Endpoint("firelock",1,5);base.targetPriority=0;attached.targetPriority=10;assertEquals(base.pos,base.position());assertEquals(base.pos,attached.position());assertEquals(0,base.targetPriority(base.pos));assertEquals(10,attached.targetPriority(base.pos));assertEquals(10,((DeviceEndpoint)attached).targetPriority(base.pos));transport.register(base);transport.register(attached);assertEquals(0,transport.lookup(base.id).targetPriority(base.pos));assertEquals(10,transport.lookup(attached.id).targetPriority(base.pos));assertEquals(List.of(attached.id),transport.lookupAt(base.pos).stream().map(DeviceEndpoint::identity).toList());}
     @Test void enqueueIsDeferredAndRoutesByNumericNetworkFrequencyAndRange(){
         var transport=new DeviceNetworkTransport(); var sender=new Endpoint("source",0,30); var target=new Endpoint("target",20,30); var far=new Endpoint("far",40,30);
         transport.register(sender);transport.register(target);transport.register(far);
         assertTrue(transport.enqueue(new DeviceNetworkPacket(sender.id,2,1280,"source","",true,new SignalPayload("Pressed",DeviceSignal.MOMENTARY))));
         assertTrue(target.received.isEmpty()); assertEquals(1,transport.drain()); assertEquals(1,target.received.size()); assertTrue(far.received.isEmpty());
+    }
+
+    @Test void atmosphereMeasurementIsAddressedQueuedAndDeliveredOnNextTransportUpdate() {
+        var transport = new DeviceNetworkTransport();
+        var sensor = new Endpoint("sensor", 0, 30);
+        var alarm = new Endpoint("alarm", 1, 30);
+        transport.register(sensor); transport.register(alarm);
+        var payload = new AtmosAlarmPayload.Measurement(AtmosAlarmSeverity.DANGER, 10, 300, 1,
+                Set.of("GasVent"), true, false);
+        assertTrue(transport.enqueue(new DeviceNetworkPacket(sensor.id, 2, 1280, "sensor", "alarm", false, payload)));
+        assertTrue(alarm.received.isEmpty());
+        assertEquals(1, transport.drain());
+        assertEquals(payload, alarm.received.getFirst());
+    }
+
+    @Test void newSubscriberSyncReceivesUnchangedCachedMeasurementThroughQueue() {
+        var transport = new DeviceNetworkTransport();
+        var sensor = new Endpoint("sensor", 0, 30);
+        var alarm = new Endpoint("alarm", 1, 30);
+        transport.register(sensor); transport.register(alarm);
+        var cached = new AtmosAlarmPayload.Measurement(AtmosAlarmSeverity.WARNING, 100, 295, 1,
+                Set.of("GasVent"), true, false);
+        var subscriptions = new AtmosMonitorSubscriptions();
+        assertTrue(subscriptions.receive(new AtmosDevicePayload.Register(), "alarm"));
+        assertTrue(subscriptions.receive(new AtmosDevicePayload.Sync(), "alarm"));
+        AtmosMonitorReportPublisher.publish(transport, sensor, subscriptions.addresses(), cached);
+        assertTrue(alarm.received.isEmpty(), "reply is deferred to a later network update");
+        assertEquals(1, transport.drain());
+        assertEquals(cached, alarm.received.getFirst(), "same severity and latest measurement are synchronized");
+    }
+
+    @Test void atmosphereSeverityTransitionsUseExistingHighLowPortSignalOwner() {
+        var transport = new DeviceNetworkTransport();
+        var source = new Endpoint("source", 0, 30);
+        source.sourcePorts = List.of(new DevicePort("AirDanger", "AirDanger", ""),
+                new DevicePort("AirWarning", "AirWarning", ""), new DevicePort("AirNormal", "AirNormal", ""));
+        var target = new Endpoint("target", 1, 30);
+        transport.register(source); transport.register(target);
+        var links = new DeviceLinkService(transport);
+        var graph = new DeviceLinkGraph();
+        for (var port : source.sourcePorts) graph.link(new DeviceLinkGraph.Link(
+                new DeviceLinkGraph.PortRef(source.id, port.id()), new DeviceLinkGraph.PortRef(target.id, "Toggle")));
+        AtmosAlarmPortSignals.emit(links, graph, source, AtmosAlarmSeverity.DANGER);
+        assertEquals(DeviceSignal.HIGH, graph.remembered(new DeviceLinkGraph.PortRef(source.id, "AirDanger")).orElseThrow());
+        assertEquals(DeviceSignal.LOW, graph.remembered(new DeviceLinkGraph.PortRef(source.id, "AirNormal")).orElseThrow());
+        AtmosAlarmPortSignals.emit(links, graph, source, AtmosAlarmSeverity.WARNING);
+        assertEquals(DeviceSignal.HIGH, graph.remembered(new DeviceLinkGraph.PortRef(source.id, "AirWarning")).orElseThrow());
+        AtmosAlarmPortSignals.emit(links, graph, source, AtmosAlarmSeverity.NORMAL);
+        assertEquals(DeviceSignal.HIGH, graph.remembered(new DeviceLinkGraph.PortRef(source.id, "AirNormal")).orElseThrow());
+        assertEquals(DeviceSignal.LOW, graph.remembered(new DeviceLinkGraph.PortRef(source.id, "AirDanger")).orElseThrow());
     }
     @Test void scopedDeliveryObserverDistinguishesPowerVetoFromEndpointCallAndCanBeClosed() throws Exception {
         var transport=new DeviceNetworkTransport();var sender=new Endpoint("sender",0,30);var target=new Endpoint("target",1,30);

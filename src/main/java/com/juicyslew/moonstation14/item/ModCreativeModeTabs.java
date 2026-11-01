@@ -28,6 +28,8 @@ public class ModCreativeModeTabs {
             ModItems.MIMANA, ModItems.WATERMELON, ModItems.AMBROSIA_DEUS, ModItems.AMBROSIA_VULGARIS, ModItems.BANANA, ModItems.BERRIES, ModItems.BLOOD_TOMATO, ModItems.BLOONION, ModItems.BLUE_PUMPKIN, ModItems.BLUE_TOMATO, ModItems.BUNGO, ModItems.LEAVES_CANNABIS, ModItems.MUSHROOM, ModItems.CHERRY, ModItems.CHILI, ModItems.CHILLY, ModItems.COCOA_POD, ModItems.CORN, ModItems.COTTON_BOL, ModItems.DEATH_NETTLE, ModItems.EGGPLANT, ModItems.EGG, ModItems.FLY_AMANITA, ModItems.GALAXYTHISTLE, ModItems.GARLIC, ModItems.GLASSTLE, ModItems.GRAPE, ModItems.HOLYMELON, ModItems.FOOD_KOIBEAN, ModItems.FOOD_LAUGHIN_PEA_POD, ModItems.LILY, ModItems.LINGZHI, ModItems.NETTLE, ModItems.OAT_BUSHEL, ModItems.ONION, ModItems.ONION_RED, ModItems.PAPERCANE, ModItems.FOOD_PEA_POD, ModItems.PINEAPPLE, ModItems.PUMPKIN, ModItems.PYROTTON_BOL, ModItems.LEAVES_CANNABIS_RAINBOW, ModItems.RICE_BUSHEL, ModItems.FOOD_SOYBEANS, ModItems.STEEL_LOG, ModItems.SUGARCANE, ModItems.LEAVES_TEA, ModItems.LEAVES_TOBACCO, ModItems.LOG, ModItems.FOOD_WORLD_PEAS,
             ModItems.TRASH_BANANA_PEEL, ModItems.TRASH_MIMANA_PEEL, ModItems.TRASH_CHERRY_PIT, ModItems.FOOD_BUNGO_PIT, ModItems.FOOD_CORN_TRASH, ModItems.HOLYMELON_SLICE, ModItems.ONION_SLICE, ModItems.ONION_RED_SLICE, ModItems.PINEAPPLE_SLICE, ModItems.WATERMELON_SLICE, ModItems.CLOTHING_HEAD_HAT_HOLY_WATERMELON, ModItems.CLOTHING_HEAD_HAT_WATERMELON, ModItems.CARVED_PUMPKIN, ModItems.EGGSHELLS, ModItems.SHARD_GLASS,
             ModItems.CROWBAR, ModItems.AIRLOCK_MULTITOOL, ModItems.PILL, ModItems.PILL_CANISTER, ModItems.STATION_FLOOR_TILE, ModItems.STATION_FLOOR_TILE_WHITE,
+            ModItems.WEAPON_REVOLVER_PYTHON, ModItems.REVOLVER_CAP_GUN, ModItems.REVOLVER_CAP_GUN_FAKE,
+            ModItems.CARTRIDGE_MAGNUM, ModItems.CARTRIDGE_MAGNUM_AP, ModItems.CARTRIDGE_CAP,
             ModItems.STATION_FLOOR_TILE_PRY, ModItems.HV_CABLE_SPOOL, ModItems.MV_CABLE_SPOOL,
             ModItems.APC_CABLE_SPOOL, ModItems.WIRECUTTER, ModItems.WAFFLE, ModItems.BOTTLE, ModItems.SYRINGE,
             ModItems.ATMOSPHERE_ANALYZER, ModItems.GRENADE, ModItems.BAG, ModItems.BELT, ModItems.PICKAXE,
@@ -44,7 +46,7 @@ public class ModCreativeModeTabs {
             ModEquipmentItems.BLANK_ID_CARD, ModEquipmentItems.UTILITY_CASE, ModEquipmentItems.SUIT_RAD,
             ModEquipmentItems.HOOD_RAD);
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_BLOCK_ENTRIES = List.of(
-            ModBlocks.STEEL_WALL_BLOCK, ModBlocks.PLASTIC_WALL, ModBlocks.STEEL_WALL_GIRDER_BLOCK, ModBlocks.STATION_FLOOR, ModBlocks.AIRLOCK,
+            ModBlocks.STEEL_WALL_BLOCK, ModBlocks.PLASTIC_WALL, ModBlocks.STEEL_WALL_GIRDER_BLOCK, ModBlocks.STATION_FLOOR, ModBlocks.AIRLOCK, ModBlocks.FIRELOCK,
             ModBlocks.HV_SOURCE, ModBlocks.HV_MV_SUBSTATION, ModBlocks.APC, ModBlocks.POWER_LAMP,
             ModBlocks.HIGH_LOAD_TEST_LAMP, ModBlocks.MAGIC_BLOCK,
             ModBlocks.PA_CONTROL_BOX, ModBlocks.PA_END_CAP, ModBlocks.PA_FUEL_CHAMBER, ModBlocks.PA_POWER_BOX,

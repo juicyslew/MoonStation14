@@ -16,6 +16,7 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntit
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity;
+import com.juicyslew.moonstation14.ms14.doors.FirelockBlockEntity;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity;
 import com.juicyslew.moonstation14.ms14.devicenet.control.WallSignalControlBlockEntity;
 import com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity;
@@ -73,6 +74,8 @@ public class ModBlockEntities {
             () -> BlockEntityType.Builder.of(DisposalUnitBlockEntity::new, ModBlocks.DISPOSAL_UNIT.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AirlockBlockEntity>> AIRLOCK = BLOCK_ENTITY_TYPES.register("airlock",
             () -> BlockEntityType.Builder.of(AirlockBlockEntity::new, ModBlocks.AIRLOCK.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FirelockBlockEntity>> FIRELOCK = BLOCK_ENTITY_TYPES.register("firelock",
+            () -> BlockEntityType.Builder.of(FirelockBlockEntity::new, ModBlocks.FIRELOCK.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ChemMasterBlockEntity>> CHEM_MASTER = BLOCK_ENTITY_TYPES.register("chem_master",
             () -> BlockEntityType.Builder.of(ChemMasterBlockEntity::new, ModBlocks.CHEM_MASTER.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<WallSignalControlBlockEntity>> WALL_SIGNAL_CONTROL = BLOCK_ENTITY_TYPES.register("wall_signal_control",

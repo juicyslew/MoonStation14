@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.atmos.piping;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -10,6 +11,9 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 
 import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Predicate;
 
 /** Synchronous room/device exchange. Invoke only after a paid PowerRuntime ventilation interval. */
 final class FiniteVentilationTransfer {
@@ -42,9 +46,8 @@ final class FiniteVentilationTransfer {
         BlockPos roomPos = devicePos.relative(facing);
         BlockPos pipePos = devicePos.relative(facing.getOpposite());
         if (roomPos.equals(pipePos)) return Result.none();
-        LevelChunk roomChunk = fullChunk(level, roomPos);
         LevelChunk pipeChunk = fullChunk(level, pipePos);
-        if (roomChunk == null || pipeChunk == null) return Result.none();
+        if (pipeChunk == null) return Result.none();
         int lane = layerBit(settings.selectedLayer());
         Direction towardDevice = facing;
         PipeGasInventoryEndpoint pipe;
@@ -55,14 +58,56 @@ final class FiniteVentilationTransfer {
             pipe = PipeGasInventoryEndpoint.createSealed(level, pipePos,
                     PipeTopology.Layer.valueOf(settings.selectedLayer().name()), towardDevice).orElse(null);
         }
-        PipeGasTransaction.Endpoint room = atmosphere.finiteRoomEndpointForTrustedSimulation(level, roomPos).orElse(null);
-        if (pipe == null || room == null) return Result.none();
+        if (pipe == null) return Result.none();
+
+        boolean wide = exactDevice.kind() == VentilationDeviceConfig.Kind.SCRUBBER && settings.wideNet();
+        // Center is the trusted foreground anchor: do not let a known neighbor become a bridge
+        // when the original foreground cell has unknown/provisional ownership.
+        java.util.Map<BlockPos, PipeGasTransaction.Endpoint> roomEndpoints = new java.util.HashMap<>();
+        PipeGasTransaction.Endpoint center = atmosphere.finiteRoomEndpointForTrustedSimulation(level, roomPos).orElse(null);
+        if (center == null || !center.eligible() || fullChunk(level, roomPos) == null) return Result.none();
+        roomEndpoints.put(roomPos, center);
+        List<BlockPos> targets = trustedScrubberTargets(roomPos, wide,
+                target -> fullChunk(level, target) != null && AtmosphereTopology.canExchange(level, roomPos, target),
+                target -> {
+                    PipeGasTransaction.Endpoint endpoint = atmosphere.finiteRoomEndpointForTrustedSimulation(level, target).orElse(null);
+                    if (endpoint == null || !endpoint.eligible()) return false;
+                    roomEndpoints.put(target, endpoint);
+                    return true;
+                });
+        Result total = Result.none();
+        for (BlockPos target : targets) {
+            PipeGasTransaction.Endpoint room = roomEndpoints.get(target);
+            if (room == null) continue;
+            Result moved = transferCell(exactDevice.kind(), settings, room, pipe, solverPaidSeconds);
+            if (moved.moved()) total = moved;
+        }
+        return total;
+    }
+
+    static List<BlockPos> trustedScrubberTargets(BlockPos center, boolean wide,
+            Predicate<BlockPos> loadedAndExchangeable, Predicate<BlockPos> finiteOwned) {
+        List<BlockPos> selected = new ArrayList<>();
+        if (!finiteOwned.test(center)) return List.of();
+        selected.add(center);
+        if (!wide) return List.copyOf(selected);
+        for (BlockPos target : new BlockPos[]{center.west(), center.east(), center.north(), center.south()}) {
+            if (target.getY() == center.getY() && loadedAndExchangeable.test(target) && finiteOwned.test(target))
+                selected.add(target);
+        }
+        return List.copyOf(selected);
+    }
+
+    static Result transferCell(VentilationDeviceConfig.Kind kind,
+            VentilationDeviceConfig.Settings settings,
+            PipeGasTransaction.Endpoint room, PipeGasTransaction.Endpoint pipe,
+            double solverPaidSeconds) {
 
         GasMixture roomBefore = room.snapshot();
         GasMixture pipeBefore = pipe.snapshot();
         if (roomBefore == null || pipeBefore == null) return Result.none();
         Optional<PipeGasTransfer.Plan> reference;
-        boolean vent = exactDevice.kind() == VentilationDeviceConfig.Kind.VENT;
+        boolean vent = kind == VentilationDeviceConfig.Kind.VENT;
         try {
             reference = vent
                     ? VentilationGasFlow.planVentRelease(pipeBefore, roomBefore,
@@ -116,4 +161,3 @@ final class FiniteVentilationTransfer {
                 instanceof LevelChunk chunk ? chunk : null;
     }
 }
-

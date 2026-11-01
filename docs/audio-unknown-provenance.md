@@ -1,4 +1,16 @@
-# Audio with unresolved provenance
+# Audio provenance records
+
+## Atmos/fire alarm
+
+- Runtime asset: `src/main/resources/assets/moonstation14/sounds/ss14/atmos/alarm.ogg`.
+- Event: `moonstation14:atmos/fire_alarm` (`ModSounds.FIRE_ALARM`).
+- Imported unchanged from pinned SS14 `c9df5ef5d675b0d1d226828bddf6b78c28502d91`,
+  `Resources/Audio/Machines/alarm.ogg`; SHA-256:
+  `407cc41a7a554780a51bdcc0a543baaa7bd5a05eb0deb43752d7879b08317a43`.
+- Provenance/license is resolved by byte identity with
+  `Resources/Audio/Ambience/Objects/alarm.ogg` at the same revision; the exact
+  attribution is packaged beside the runtime asset in
+  `alarm.ogg.license.txt`. This file is not an unresolved-provenance entry.
 
 ## Reptilian scream
 

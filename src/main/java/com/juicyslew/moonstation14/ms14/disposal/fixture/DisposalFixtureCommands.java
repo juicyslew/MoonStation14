@@ -18,6 +18,7 @@ import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceFixturePlacement
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
+import com.juicyslew.moonstation14.ms14.fixture.FixtureSiteContext;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
@@ -45,7 +46,7 @@ public final class DisposalFixtureCommands {
     static final BlockPos LAMP=new BlockPos(3,3,7);
     static final BlockPos ENTRY_CELL=new BlockPos(6,1,8);
      private static List<DisposalFixtureTourPlan.Node> route(){return tour().nodes();}
-    private static final Map<net.minecraft.server.MinecraftServer,DisposalFixtureSiteContext> SITES=Collections.synchronizedMap(new WeakHashMap<>());
+    private static final Map<net.minecraft.server.MinecraftServer,FixtureSiteContext> SITES=Collections.synchronizedMap(new WeakHashMap<>());
     private static boolean stopListenerRegistered;
     private DisposalFixtureCommands() {}
     public static void registerCommands(RegisterCommandsEvent event){
@@ -57,7 +58,7 @@ public final class DisposalFixtureCommands {
         fixture.then(action("enter", 3));
         event.getDispatcher().register(Commands.literal("ms14").requires(s->s.hasPermission(2)).then(fixture));
     }
-    private static void serverStopped(ServerStoppedEvent event){SITES.remove(event.getServer());}
+    private static void serverStopped(ServerStoppedEvent event){var sites=SITES.remove(event.getServer());if(sites!=null)sites.clear();}
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.commands.CommandSourceStack> action(String name, int action) {
         var command = Commands.literal(name);
         command.executes(context -> run(context.getSource(), null, action));
@@ -68,7 +69,7 @@ public final class DisposalFixtureCommands {
     }
     private static int run(net.minecraft.commands.CommandSourceStack s,BlockPos requested,int action){
         UUID operator=s.getEntity()==null?new UUID(0,0):s.getEntity().getUUID();
-        var sites=SITES.computeIfAbsent(s.getServer(),ignored->new DisposalFixtureSiteContext());
+        var sites=SITES.computeIfAbsent(s.getServer(),ignored->new FixtureSiteContext());
         BlockPos entry=requested;
          if(entry==null&&action==0){if(s.getEntity()==null){s.sendFailure(Component.literal("Console must supply floor reference X Y Z for build."));return 0;}var auth=s.getPlayer()==null?null:HandActorAuthority.resolve(s.getPlayer()).orElse(null);entry=auth==null?s.getEntity().blockPosition():auth.body().blockPosition();}
         if(entry==null)entry=sites.find(operator,s.getLevel().dimension());
@@ -212,4 +213,3 @@ public final class DisposalFixtureCommands {
     private static String partial(BlockPos o,String what){return "Partial build failed at "+what+"; inspect/repair bounded area "+bounds(o)+".";}
     private static String bounds(BlockPos o){return "["+o.getX()+","+o.getY()+","+o.getZ()+"]..["+(o.getX()+W-1)+","+(o.getY()+H-1)+","+(o.getZ()+D-1)+"]";}
 }
-

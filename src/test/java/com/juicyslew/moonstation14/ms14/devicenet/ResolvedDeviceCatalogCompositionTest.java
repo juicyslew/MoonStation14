@@ -52,9 +52,13 @@ class ResolvedDeviceCatalogCompositionTest {
         assertEquals(1621, alarm.network().orElseThrow().receiveFrequency());
         assertEquals(32, alarm.deviceList().orElseThrow().capacity());
         assertTrue(alarm.network().orElseThrow().requiresPower());
+        assertEquals(java.util.Set.of("AirDanger", "AirWarning", "AirNormal"),
+                alarm.sources().stream().map(DevicePort::id).collect(java.util.stream.Collectors.toSet()));
         assertEquals("AIR-", alarm.network().orElseThrow().addressPrefix());
         assertTrue(alarm.connection().orElseThrow().wired());
         assertTrue(alarm.connection().orElseThrow().wireless());
+        assertEquals(java.util.Set.of("AirAlarm", "AirSensor", "GasVent", "GasScrubber"),
+                manager.snapshot(ModAirAlarms.AIR_ALARM_TYPE).get(ModAirAlarms.AIR_ALARM).atmosAlarmable().syncWith());
 
         var vents = manager.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE);
         for (var entry : vents.asMap().values()) {
@@ -64,6 +68,9 @@ class ResolvedDeviceCatalogCompositionTest {
             assertTrue(composition.connection().orElseThrow().wired());
             assertFalse(composition.connection().orElseThrow().wireless());
             assertFalse(composition.network().orElseThrow().requiresPower());
+            assertEquals(java.util.Set.of("AirDanger", "AirWarning", "AirNormal"),
+                    composition.sources().stream().map(DevicePort::id).collect(java.util.stream.Collectors.toSet()));
+            assertTrue(entry.atmosAlarmable().sourceTags().contains(entry.kind() == com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData.Kind.VENT ? "GasVent" : "GasScrubber"));
             assertEquals(entry.kind()==com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData.Kind.VENT
                     ? "VNT-" : "SCR-", composition.network().orElseThrow().addressPrefix());
         }
