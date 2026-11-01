@@ -72,8 +72,33 @@ class ExecutionArgvTests(unittest.TestCase):
             (repo/'tooling'/'agent_workflow').mkdir(parents=True)
             (repo/'tooling'/'agent_workflow'/'validation-logging.gradle').write_text('// managed')
             actual=workflow_runtime.execution_argv(repo,['gradle','runGameTestServer'])
+            self.assertEqual(1,actual.count('--no-daemon'))
             self.assertIn('-Pms14ValidationDebug=false',actual)
             self.assertIn('--init-script',actual)
+
+    def test_gradle_normalization_is_finite_idempotent_and_rejects_daemon(self):
+        for argv in (['gradle','check'], ['./gradlew','test'],
+                     ['C:/repo/gradlew.bat','build','--no-daemon']):
+            normalized=workflow_runtime.execution_argv('.',argv,os_name='posix')
+            self.assertEqual(1,normalized.count('--no-daemon'))
+            self.assertEqual(normalized,workflow_runtime.execution_argv('.',normalized,os_name='posix'))
+        self.assertEqual(['python','--daemon'],workflow_runtime.execution_argv('.', ['python','--daemon']))
+        for argv in (['gradle','check','--daemon'], ['./gradlew','check','--daemon']):
+            with self.assertRaisesRegex(ValueError,'persistent Gradle daemon'):
+                workflow_runtime.execution_argv('.',argv)
+
+    def test_daemon_request_is_recorded_as_not_launched_without_owned_child(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            check={'argv':['gradle','check','--daemon'],'kind':'command',
+                   'rationale':'reject persistent process','covers':['c1']}
+            with patch.object(workflow_runtime.subprocess,'Popen') as popen:
+                record=workflow_runtime.run_finite_checks(tmp,{'checks':[check]},Path(tmp)/'logs')[0]
+            popen.assert_not_called()
+            self.assertEqual(check['argv'],record['argv'])
+            self.assertNotIn('executed_argv',record)
+            self.assertEqual(127,record['exit_code'])
+            self.assertEqual('not_needed',record['tree_cleanup'])
+            self.assertIn('persistent Gradle daemon',Path(record['log']).read_text(encoding='utf-8'))
 
     def test_windows_launcher_resolution_is_exact_and_posix_preserves_argv(self):
         with tempfile.TemporaryDirectory() as tmp:

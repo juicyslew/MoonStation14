@@ -794,13 +794,18 @@ def cmd_gate_validate(a,root):
     print(json.dumps({k:job.get(k) for k in ('state','job_id','candidate_id','snapshot_key','reason')},indent=2))
 
 def execution_argv(repo, argv, *, os_name=None):
-    """Resolve launcher and apply managed logging for GameTest executions."""
+    """Resolve launcher and make recognized Gradle checks finite before launch."""
     result=list(argv)
     if (os_name or os.name)=='nt' and result and result[0] in ('./gradlew','gradlew'):
         wrapper=Path(repo)/'gradlew.bat'
         if wrapper.is_file(): result[0]=str(wrapper.resolve())
     launcher = Path(result[0]).name.lower() if result else ''
     is_gradle_launcher = launcher in ('gradle', 'gradle.bat', 'gradlew', 'gradlew.bat')
+    if is_gradle_launcher:
+        if '--daemon' in result:
+            raise ValueError('persistent Gradle daemon request (--daemon) is not allowed; check was not launched')
+        if '--no-daemon' not in result:
+            result.append('--no-daemon')
     if is_gradle_launcher and 'runGameTestServer' in result:
         script=Path(__file__).resolve().with_name('validation-logging.gradle')
         if not script.is_file():
@@ -898,10 +903,11 @@ def run_finite_checks(repo, plan, logdir, *, timeout=3600, smoke_timeout=120, ga
     for i,check in enumerate(checks[len(accepted):],start=len(accepted)):
         if verify_inputs: verify_inputs()
         check_kind=check.get('kind','command')
-        executed_argv=execution_argv(repo,check['argv'])
+        executed_argv=list(check['argv'])
         started=time.time(); log=Path(logdir)/f'{i+1}.log'
         launch_error=None
         try:
+            executed_argv=execution_argv(repo,check['argv'])
             executed_argv=_prepare_check_argv(check,executed_argv,log)
         except ValueError as exc:
             launch_error=str(exc)
