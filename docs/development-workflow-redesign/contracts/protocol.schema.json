@@ -621,7 +621,7 @@
                 "const": "FIX_FINDINGS"
               },
               "findings": {
-                "maxItems": 0,
+                "minItems": 1,
                 "items": {
                   "required": [
                     "required_change"

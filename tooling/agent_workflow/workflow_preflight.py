@@ -177,7 +177,23 @@ def preflight(request, *, caller, context):
                     _error('DIAGNOSTIC_CHECK_PLAN', getattr(exc,'field',None) or 'diagnostic_plan',
                            'Diagnostic plan could not be resolved against its contract.', 'FAIL',
                            getattr(exc,'recovery',None) or 'Correct the typed diagnostic plan and recompute its plan digest; prepare a fresh scope and submission key.')
-                _error('CHECK_PACK_PLAN',getattr(exc,'field',None) or 'check_packs',
+                field = getattr(exc, 'field', None) or 'check_packs'
+                if field in {'policy.package_artifacts', 'policy.selector_requirements.unit', 'check_packs.unit.selectors'}:
+                    # Only typed validation fields with bounded, actionable recovery are
+                    # surfaced. Never forward arbitrary exception text (which may echo input).
+                    message = {
+                        'policy.package_artifacts': 'Trusted package artifact inputs must name safe built archive outputs.',
+                        'policy.selector_requirements.unit': 'Trusted unit selector requirements do not match verifiable top-level test classes.',
+                        'check_packs.unit.selectors': 'Unit check selectors do not match verifiable top-level test classes.',
+                    }[field]
+                    detail = str(exc)
+                    if field in {'policy.selector_requirements.unit', 'check_packs.unit.selectors'} and 'Unknown unit test class selectors:' in detail:
+                        # Unit-class diagnostics identify a verifiable Java FQN, never
+                        # arbitrary scalar/schema input (which remains redacted).
+                        message = detail[:2048]
+                    recovery = getattr(exc, 'recovery', None) or _CORRECTABLE_GUIDANCE['CHECK_PACK_PLAN']
+                    _error('CHECK_PACK_PLAN', field, message, 'FAIL', recovery[:2048])
+                _error('CHECK_PACK_PLAN', field,
                        'Check-pack plan could not be resolved against trusted coverage.', 'FAIL',
                        _CORRECTABLE_GUIDANCE['CHECK_PACK_PLAN'])
             if store.digest(resolved) != req['plan_digest']:

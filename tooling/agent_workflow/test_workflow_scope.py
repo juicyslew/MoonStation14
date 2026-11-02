@@ -93,6 +93,15 @@ class AuthorScopeTests(unittest.TestCase):
             self.register(self.context,'scope-caller',weakened,'weakened')
         self.assertEqual(error.exception.code,'FLOOR_COVERAGE')
 
+    def test_scope_registration_rejects_static_package_artifacts_as_policy_input(self):
+        payload=self.payload('static-package','static-submission')
+        payload['policy']['package_artifacts']=['src/main/resources/assets/icon.png']
+        with self.assertRaises(scopes.ScopeError) as error:
+            self.register(self.context,'scope-caller',payload,'static-package-registration')
+        self.assertEqual(error.exception.code,'POLICY_INPUT')
+        self.assertEqual(error.exception.field,'policy.package_artifacts')
+        self.assertIn('.jar or .zip',error.exception.recovery)
+
     def test_contract_version_requires_exact_non_boolean_integer(self):
         for value in (True,False,1.0,'1',None):
             with self.subTest(version=value):

@@ -22,6 +22,10 @@ except ModuleNotFoundError:
     from tooling.agent_workflow import workflow_preflight, workflow_runtime, workflow_store, workflow_submission, gate_execution, workflow_regression, workflow_task_artifacts, workflow_toolchain, workflow_native_fixtures
 
 
+class SourceSnapshotChanged(RuntimeError):
+    """Live source no longer matches the admitted snapshot (not bundle corruption)."""
+
+
 def load_native_inputs(store, run_id, *, verify_current_source=True):
     """Load integrity-checked frozen inputs, optionally requiring the live source snapshot."""
     run=store.get_run(run_id)
@@ -55,8 +59,7 @@ def load_native_inputs(store, run_id, *, verify_current_source=True):
         manifest_bytes!=workflow_store.canonical_json(bundle['source_manifest']).encode('utf-8')):
         raise ValueError('frozen source manifest integrity mismatch')
     if verify_current_source:
-        live=workflow_preflight.capture_source(Path(request['source_worktree']))
-        if live!=bundle['source_manifest']: raise ValueError('current source differs from admitted snapshot')
+        _verify_current_source(Path(request['source_worktree']),bundle['source_manifest'])
     return request,bundle
 
 
@@ -408,7 +411,8 @@ def execute_native_task(store, *, task_id, process_identity, claim_token,
                 for r in records)
             if not full: decision='ERROR'; code='FULL_REGRESSION_EVIDENCE_REQUIRED'
     except Exception as exc:
-        records=[]; decision='ERROR'; code='NATIVE_RECOVERY_PROOF_INVALID' if str(exc).startswith('NATIVE_RECOVERY_PROOF_INVALID:') else 'NATIVE_EXECUTION_ERROR'; message=str(exc)[:500]
+        records=[]; decision='ERROR'; code=('SOURCE_SNAPSHOT_CHANGED' if isinstance(exc,SourceSnapshotChanged) else
+            'NATIVE_RECOVERY_PROOF_INVALID' if str(exc).startswith('NATIVE_RECOVERY_PROOF_INVALID:') else 'NATIVE_EXECUTION_ERROR'); message=str(exc)[:500]
     scope_proof=None; scope_error=None
     saved_scope=store.get_native_scope(task_id)
     if saved_scope is not None:
@@ -512,7 +516,8 @@ def execute_native_task(store, *, task_id, process_identity, claim_token,
 
 
 def _verify_current_source(repo,manifest):
-    if workflow_preflight.capture_source(repo)!=manifest: raise RuntimeError('current source differs from admitted snapshot')
+    if workflow_preflight.capture_source(repo) != manifest:
+        raise SourceSnapshotChanged('current source differs from admitted snapshot')
 
 
 def _verify_execution_inputs(request,bundle):

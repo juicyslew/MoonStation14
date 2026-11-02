@@ -198,8 +198,17 @@ def collect_evidence(check, repo, started, finished, log_path, before, *, hash_f
             for path in paths:
                 try: found.add(ET.parse(path).getroot().attrib.get("name", ""))
                 except (ET.ParseError, OSError): pass
-            if expected_classes and any(not any(n == e or n.endswith("." + e) for n in found) for e in expected_classes):
+            missing_classes = sorted({e for e in expected_classes
+                                      if not any(n == e or n.endswith("." + e) for n in found)})
+            if missing_classes:
                 findings.append("expected selected JUnit classes missing from fresh XML")
+                # Keep the established generic finding for existing consumers, and
+                # separately expose bounded, deterministic selector-level detail.
+                detail_limit = 10
+                detail = ", ".join(missing_classes[:detail_limit])
+                if len(missing_classes) > detail_limit:
+                    detail += f", ... ({len(missing_classes) - detail_limit} more)"
+                findings.append(f"Missing JUnit selectors: {detail}")
             if selection == "unknown": selection = "full"
         for path in paths: add(path)
         if kind == "readiness" and counts["tests"]:
