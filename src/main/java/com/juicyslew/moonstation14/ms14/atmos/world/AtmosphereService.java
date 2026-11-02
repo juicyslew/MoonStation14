@@ -1357,7 +1357,9 @@ public final class AtmosphereService {
                     cycle.groupsPending(excitedGroups.get(level) != null
                             && excitedGroups.get(level).hasUnprocessedCycleWork());
                 }
-                case HIGH_PRESSURE, DELTA_PRESSURE, PIPE_NET, ATMOS_DEVICES -> { /* not implemented by this adapter */ }
+                case HIGH_PRESSURE, DELTA_PRESSURE, PIPE_NET -> { /* not implemented by this adapter */ }
+                case ATMOS_DEVICES -> com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime
+                        .processAtmosMonitorStage(level, cycle.identity(), deadlineReached);
                 case HOTSPOTS -> cycle.reactionsPending(processReactions(level, gameTime, cycle, deadlineReached));
         }
         long stageEnd = System.nanoTime();
@@ -1963,9 +1965,36 @@ public final class AtmosphereService {
             equalizationJobs.remove(level);
             return false;
         }
+        // Explosive Space-flow uses the same freshly rebuilt live boundary graph as its solve.
+        // A firelock may close both doorway cells synchronously, invalidating every boundary
+        // snapshot in this patch; never solve or commit against the pre-close graph.
+        // Select policy from the rebuilt live boundary classification first. Only the
+        // solver's actual Space kernel corresponds to ExplosivelyDepressurize/ConsiderFirelocks.
+        PatchKernel kernel = chooseKernelForPatch(exterior, isSpace(level.dimension()));
+        if (preflightSpaceFirelocks(kernel, finite.keySet(), pos -> {
+                     if (level.getBlockState(pos).getBlock() instanceof
+                             com.juicyslew.moonstation14.ms14.doors.FirelockBlock
+                             && level.getBlockState(pos).getValue(com.juicyslew.moonstation14.ms14.doors.FirelockBlock.HALF)
+                             == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER) return pos.below();
+                     if (level.getBlockState(pos).getBlock() instanceof
+                             com.juicyslew.moonstation14.ms14.doors.AirlockBlock
+                             && level.getBlockState(pos).getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.HALF)
+                             == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER) return pos.below();
+                     return pos;
+                 }, root -> {
+                     LevelChunk chunk = loadedChunk(level, root);
+                     if(chunk==null)return false;
+                     if(level.getBlockEntity(root) instanceof com.juicyslew.moonstation14.ms14.doors.FirelockBlockEntity door)return door.emergencyPressureStop();
+                     if(level.getBlockEntity(root) instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity airlock
+                             && airlock.firelockController()!=null)return airlock.firelockController().emergencyPressureStop(airlock.firelockHost());
+                     return false;
+                 })) {
+            prioritizeSeed(level, job.seed);
+            cells.forEach(pos -> prioritizeSeed(level, pos));
+            equalizationJobs.remove(level);
+            return false;
+        }
         // A single graph cannot safely couple a vacuum sink and a replenishing reservoir.
-        boolean spacePolicy = isSpace(level.dimension());
-        PatchKernel kernel = chooseKernelForPatch(exterior, spacePolicy);
         patchDiagnostics.put(level, new PatchDiagnostic(kernel.name(), "none", "attempted", cells.size(), 0, 0, 0, 0));
         boolean spacePass = kernel == PatchKernel.SPACE_FLOW;
         boolean normalIncomplete = false;
@@ -2089,6 +2118,23 @@ public final class AtmosphereService {
             changedCells.forEach(pos -> prioritizeSeed(level, pos));
         }
         return true;
+    }
+
+    /** Small shared production seam: inspect only actual finite patch cells, root-deduplicated. */
+    static boolean preflightSpaceFirelocks(PatchKernel kernel, java.util.Collection<BlockPos> patchCells,
+                                            Function<BlockPos, BlockPos> rootForCell,
+                                            Predicate<BlockPos> emergencyClose) {
+        if (kernel != PatchKernel.SPACE_FLOW) return false;
+        Set<BlockPos> roots = new HashSet<>();
+        int visited = 0;
+        for (BlockPos cell : patchCells) {
+            if (++visited > MonstermosEqualization.MAX_DISCOVERED_CELLS) break;
+            BlockPos root = rootForCell.apply(cell);
+            // Only the lower controller has a BE; upper-cell traversal resolves to it.
+            // The caller supplies cells already verified finite, loaded, and passable.
+            if (roots.add(root.immutable()) && emergencyClose.test(root.immutable())) return true;
+        }
+        return false;
     }
 
     static boolean applyPatchTransaction(List<BlockPos> positions, Map<BlockPos, GasMixture> before,
@@ -3613,4 +3659,3 @@ public final class AtmosphereService {
         int size() { return pending.size(); }
     }
 }
-

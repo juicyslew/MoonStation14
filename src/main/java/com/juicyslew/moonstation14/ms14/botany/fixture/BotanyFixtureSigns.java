@@ -40,7 +40,10 @@ public final class BotanyFixtureSigns {
     }
     /** Place navigation signs only after the complete plan has passed preflight. */
     public static void placeGuides(ServerLevel level, BlockPos origin) {
-        for (Guide guide : guides(origin)) {
+        placeGuides(level,guides(origin));
+    }
+    public static void placeGuides(ServerLevel level,List<Guide> guides) {
+        for (Guide guide : guides) {
             var state = guide.wall()
                     ? Blocks.OAK_WALL_SIGN.defaultBlockState().setValue(net.minecraft.world.level.block.WallSignBlock.FACING, net.minecraft.core.Direction.WEST)
                     : Blocks.OAK_SIGN.defaultBlockState().setValue(net.minecraft.world.level.block.StandingSignBlock.ROTATION, guide.rotation());
@@ -55,6 +58,28 @@ public final class BotanyFixtureSigns {
                 sign.setChanged();
             }
         }
+    }
+    /** Plain, numbered catalog identity labels; intentionally no station scenario/action semantics. */
+    public static List<Guide> catalogLabels(BotanyCatalogGalleryPlan plan) {
+        var labels=new java.util.ArrayList<Guide>();
+        for(int i=0;i<plan.entries().size();i++) {
+            var entry=plan.entries().get(i);
+            String name=entry.species().getPath().replace('_',' ');
+            var lines=new java.util.ArrayList<String>();
+            lines.add(String.format(java.util.Locale.ROOT,"SEED %02d",i+1));
+            for(String raw:name.split(" ")) {
+              for(int start=0;start<raw.length();) {
+                if(lines.size()==4) break;
+                String word=raw.substring(start,Math.min(start+16,raw.length())); start+=word.length();
+                int last=lines.size()-1;
+                String previous=last==0?"":lines.get(last);
+                if(last>0 && previous.length()+(previous.isEmpty()?0:1)+word.length()<=16) lines.set(last,previous.isEmpty()?word:previous+" "+word);
+                else lines.add(word);
+              }
+            }
+            labels.add(new Guide(entry.labelPosition(),false,0,List.copyOf(lines)));
+        }
+        return List.copyOf(labels);
     }
     public record CareDose(String station, String reagent, long cents) {
         public String displayStationName() { return BotanyFixtureStations.displayTitle(station); }

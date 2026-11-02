@@ -16,7 +16,7 @@ public record AirAlarmControlRequest(int containerId, UUID session, long request
                                   Operation operation, boolean desired, int enumIndex) {
         this(containerId, session, requestId, deviceId, expectedRevision, operation, desired, enumIndex, 0);
     }
-    public enum Operation { QUERY, PAIR, UNPAIR, SET_ENABLED, SET_SCRUBBER_MODE, SET_FILTER_GAS, SET_EXTERNAL_PRESSURE_BOUND, SET_VOLUME_RATE }
+    public enum Operation { QUERY, PAIR, UNPAIR, SET_ENABLED, SET_SCRUBBER_MODE, SET_FILTER_GAS, SET_EXTERNAL_PRESSURE_BOUND, SET_VOLUME_RATE, SET_ALARM_MODE, SET_AUTO_MODE }
     public static final Type<AirAlarmControlRequest> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("moonstation14", "air_alarm_control"));
     public static final StreamCodec<RegistryFriendlyByteBuf, AirAlarmControlRequest> STREAM_CODEC = StreamCodec.of(
             (b, v) -> { b.writeVarInt(v.containerId); b.writeUUID(v.session); b.writeVarLong(v.requestId);
@@ -27,10 +27,11 @@ public record AirAlarmControlRequest(int containerId, UUID session, long request
 
     public AirAlarmControlRequest {
         if (containerId < 0 || session == null || requestId < 0 || deviceId == null || expectedRevision < 0
-                || operation == null || enumIndex < 0 || enumIndex >= GasType.values().length
+                || operation == null || enumIndex < 0 || enumIndex >= (operation == Operation.SET_ALARM_MODE
+                    ? com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.values().length
+                    : GasType.values().length)
                 || !Double.isFinite(numericValue) || numericValue < 0)
             throw new IllegalArgumentException("Invalid air alarm intent");
     }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
-

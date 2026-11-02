@@ -143,6 +143,7 @@ class ReviewCoordinator:
             content=base64.b64encode(page).decode('ascii')
         return {'task_id':task['task_id'],'run_id':task['run_id'],'input_digest':task['input_digest'],
             'assignment_body_sha256':assignment['body_sha256'],'artifact_id':artifact_id,'type':art.get('type'),
+            **({'content_kind':'review_guide'} if input_ref == 'review_guide' else {}),
             'sha256':expected,'size_bytes':size,'encoding':encoding,'content':content,
             'offset':input_offset,'next_offset':end if end<size else None,'eof':end==size}
 
@@ -276,6 +277,99 @@ class ReviewCoordinator:
                     raise workflow_store.ProtocolError(f'CHECK_RECEIPT input differs from review input: {ref}')
                 for row in receipt.get('checks',[]):
                     if isinstance(row,dict): out.append({'receipt_ref':ref,'task_id':check['task_id'],**row})
+                declared=bundle.get('resolved_plan',{}).get('program_checks',[])
+                program_rows=receipt.get('program_checks',[])
+                if not isinstance(declared,list) or not isinstance(program_rows,list):
+                    raise workflow_store.ProtocolError(f'CHECK_RECEIPT program checks are malformed: {ref}')
+                if len(declared)!=len(set(declared)):
+                    raise workflow_store.ProtocolError(f'Frozen program checks contain duplicates: {ref}')
+                seen=set()
+                for row in program_rows:
+                    if not isinstance(row,dict) or row.get('kind') not in declared or row.get('kind') in seen:
+                        raise workflow_store.ProtocolError(f'CHECK_RECEIPT program check binding failed: {ref}')
+                    if row['kind']=='accepted_snapshot_provenance' and row.get('covers')!=[]:
+                        raise workflow_store.ProtocolError(f'CHECK_RECEIPT accepted snapshot provenance coverage failed: {ref}')
+                    evidence=row.get('evidence',{})
+                    if (row.get('covers') is None or evidence.get('status')!='PASS' or
+                        evidence.get('task_id')!=check['task_id'] or evidence.get('run_id')!=review['run_id'] or
+                        evidence.get('evaluation_generation')!=check.get('evaluation_generation') or
+                        evidence.get('input_digest')!=request.get('input_digest') or
+                        evidence.get('plan_digest')!=request.get('plan_digest') or
+                        evidence.get('policy_digest')!=request.get('policy_digest') or
+                        evidence.get('source_manifest_digest')!=workflow_store.digest(bundle['source_manifest'])):
+                        raise workflow_store.ProtocolError(f'CHECK_RECEIPT program evidence failed: {ref}')
+                    if row['kind']=='managed_config_provenance':
+                        cfg=bundle.get('config_provenance') or {}
+                        pack_covers=[]
+                        for pack in bundle.get('resolved_plan',{}).get('packs',[]):
+                            if pack.get('pack_id')=='provenance' or pack.get('kind')=='provenance': pack_covers.extend(pack.get('covers',[]))
+                        if (row['covers']!=list(dict.fromkeys(pack_covers)) or
+                            evidence.get('covers')!=row['covers'] or
+                            evidence.get('publication_receipt_path')!=cfg.get('receipt_path') or
+                            evidence.get('publication_receipt_sha256')!=cfg.get('receipt_sha256') or
+                            evidence.get('config_path')!='opencode.jsonc' or
+                            evidence.get('config_sha256')!=cfg.get('actual_sha256') or
+                            evidence.get('target')!=cfg.get('target') or
+                            not isinstance(evidence.get('package_artifacts'),list)):
+                            raise workflow_store.ProtocolError(f'CHECK_RECEIPT managed provenance bindings failed: {ref}')
+                        if any(not isinstance(x,str) or not x for x in row['covers']):
+                            raise workflow_store.ProtocolError(f'CHECK_RECEIPT provenance coverage is malformed: {ref}')
+                        package_packs=[p for p in bundle.get('resolved_plan',{}).get('packs',[]) if p.get('pack_id')=='package' or p.get('kind')=='package']
+                        if package_packs and not evidence['package_artifacts']:
+                            raise workflow_store.ProtocolError(f'CHECK_RECEIPT package proof is empty: {ref}')
+                        allowed_originals=set()
+                        metadata=self.store.get_recovery_metadata(review['run_id'],check['evaluation_generation'])
+                        if metadata and metadata.get('boundary')=='native:'+check.get('logical_key',''):
+                            try:
+                                try: import workflow_native_retry
+                                except ModuleNotFoundError: from tooling.agent_workflow import workflow_native_retry
+                                prefix=workflow_native_retry.load_recovery_prefix(self.store,check,request,bundle)
+                                allowed_originals={link['artifact_ref'] for link in prefix['source_links']}
+                            except Exception as exc:
+                                raise workflow_store.ProtocolError(f'CHECK_RECEIPT recovery prefix invalid: {ref}') from exc
+                        plan_checks=bundle.get('resolved_plan',{}).get('plan',{}).get('checks',[])
+                        expected={}
+                        for frozen in plan_checks:
+                            if frozen.get('kind')=='build':
+                                for source in frozen.get('artifacts',[]):
+                                    expected[str(Path(request['source_worktree'],source).resolve())]=source
+                        build_rows=[row for row in receipt.get('checks',[]) if isinstance(row,dict) and row.get('kind')=='build']
+                        expected_refs={}
+                        for build_row in build_rows:
+                            for artifact_row in build_row.get('evidence',{}).get('artifacts',[]):
+                                source=artifact_row.get('source_path',artifact_row.get('path'))
+                                if source and str(Path(source).resolve()) in expected:
+                                    expected_refs[artifact_row.get('artifact_ref')]=(artifact_row,source)
+                        seen_proofs=set()
+                        for proof in evidence['package_artifacts']:
+                            if not isinstance(proof,dict):
+                                raise workflow_store.ProtocolError(f'CHECK_RECEIPT package proof is malformed: {ref}')
+                            artifact_ref=proof.get('artifact_ref')
+                            if artifact_ref in seen_proofs or artifact_ref not in expected_refs:
+                                raise workflow_store.ProtocolError(f'CHECK_RECEIPT package proof is unbound or duplicated: {ref}')
+                            seen_proofs.add(artifact_ref)
+                            build_evidence,source=expected_refs[artifact_ref]
+                            archived=self.store.get_artifact(artifact_ref)
+                            if not archived:
+                                raise workflow_store.ProtocolError(f'CHECK_RECEIPT package artifact is unavailable: {ref}')
+                            art=archived['artifact']; raw=Path(art.get('path','')).read_bytes()
+                            producer_ok=art.get('producer_id')==check['task_id'] or artifact_ref in allowed_originals
+                            if (art.get('type')!='BUILD' or art.get('producer_kind')!='TASK' or not producer_ok or
+                                art.get('producer_task_id')!=art.get('producer_id') or
+                                proof.get('source_input_digest')!=request.get('input_digest') or
+                                proof.get('source_path')!=source or
+                                proof.get('sha256')!=build_evidence.get('sha256') or
+                                proof.get('size_bytes')!=build_evidence.get('size') or
+                                len(raw)!=art.get('size_bytes') or
+                                hashlib.sha256(raw).hexdigest()!=art.get('sha256') or
+                                proof.get('sha256')!=art.get('sha256') or proof.get('size_bytes')!=art.get('size_bytes')):
+                                raise workflow_store.ProtocolError(f'CHECK_RECEIPT package artifact proof failed: {ref}')
+                        if package_packs and seen_proofs!=set(expected_refs):
+                            raise workflow_store.ProtocolError(f'CHECK_RECEIPT package proof set differs from frozen build outputs: {ref}')
+                    seen.add(row['kind'])
+                    out.append({'receipt_ref':ref,'task_id':check['task_id'],'program_check':True,**row})
+                if set(declared)!=seen:
+                    raise workflow_store.ProtocolError(f'CHECK_RECEIPT omits declared program check: {ref}')
         return out
 
     @staticmethod
@@ -408,12 +502,21 @@ class ReviewCoordinator:
         # Put the trusted, generation-bound check summary before frozen author prose
         # and the potentially large artifact inventory.  Reviewers should not need
         # to page through receipt XML/JSON merely to learn current execution facts.
+        # Keep the trusted execution overview compact: full receipt artifacts remain
+        # separately addressable through their original assignment refs.
+        check_overview = []
+        for row in current_checks:
+            evidence = row.get('evidence') if isinstance(row.get('evidence'), dict) else {}
+            summary = {key: row[key] for key in ('receipt_ref', 'task_id', 'kind', 'covers', 'exit_code') if key in row}
+            summary['evidence'] = {key: evidence[key] for key in ('status', 'counts', 'selection', 'findings') if key in evidence}
+            check_overview.append(summary)
         current_validation = {'run_id':task['run_id'], 'evaluation_generation':task['evaluation_generation'],
-            'input_digest':task['input_digest'], 'checks':current_checks,
+            'input_digest':task['input_digest'], 'checks':check_overview,
             'meaning':'These summaries come from verified receipts produced by completed PASS checks in this run/generation/input. They describe execution facts, not whether the checks adequately cover a criterion. Author objective text and pre-submit notes are historical plans, not current runtime facts.'}
-        guide = {'current_validation':current_validation,
-            'task_id': task_id, 'run_id': task['run_id'], 'evaluation_generation': task['evaluation_generation'],
-            'assignment_generation': task['assignment_generation'], 'input_digest': task['input_digest'],
+        guide = {'document_type':'review_guide', 'task_id': task_id, 'run_id': task['run_id'],
+            'evaluation_generation': task['evaluation_generation'], 'assignment_generation': task['assignment_generation'], 'input_digest': task['input_digest'],
+            'semantic_identity': 'This canonical review guide is stored as a PROVENANCE artifact; PROVENANCE is only its storage label, not its semantic content type. This document is the review guide. Read every page (follow next_offset until eof=true). Full assigned receipts remain available by their exact assignment artifact refs.',
+            'current_validation':current_validation,
             'source_worktree': request['source_worktree'], 'assignment_body_sha256': assignment['body_sha256'],
             'review_scope': assignment['body']['review'],
             'assignment_artifact_refs': refs,

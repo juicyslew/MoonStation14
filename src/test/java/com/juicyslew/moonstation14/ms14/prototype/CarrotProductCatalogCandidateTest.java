@@ -56,7 +56,7 @@ class CarrotProductCatalogCandidateTest {
         assertEquals(Map.of(id("juicecarrot"), 500L, id("vitamin"), 400L, id("oculine"), 300L), sources.get(id("carrot")).contentsCents());
         assertTrue(sources.get(id("carrot")).capacityCents() >= sources.get(id("carrot")).contentsCents().values().stream().mapToLong(Long::longValue).sum());
         try (var stream = CarrotProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream("data/moonstation14/moonstation14/item_food_solution_profile/carrot.json")) {
-            assertNull(stream, "candidate source remains TEST-only");
+            assertNotNull(stream, "activated production profile");
         } catch (java.io.IOException e) { throw new AssertionError(e); }
         assertEquals(id("carrot"), seeds.get(id("carrots")).product());
         assertEquals("carrot", seeds.get(id("carrots")).visualKey());

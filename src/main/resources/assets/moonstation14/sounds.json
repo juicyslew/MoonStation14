@@ -714,6 +714,11 @@
       "moonstation14:ss14/atmos/squeak3"
     ]
   },
+  "atmos/fire_alarm": {
+    "sounds": [
+      "moonstation14:ss14/atmos/alarm"
+    ]
+  },
   "tesla/ambient": {
     "sounds": [
       {

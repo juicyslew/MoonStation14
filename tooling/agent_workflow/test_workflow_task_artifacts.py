@@ -42,13 +42,65 @@ class ArtifactExcerptTests(unittest.TestCase):
         item['sha256']='0'*64; item['path']=str(self.root/'immutable'/self.task/('log-'+'0'*64))
         self.assertEqual(self.read(item)['reason'],'missing')
 
-    def test_oversize_rejected_before_open_and_size_mismatch(self):
+    def test_forged_size_and_hash_mismatch(self):
         item=self.save('small'); item['size_bytes']=16*1024*1024+1
         unavailable=self.read(item)
-        self.assertEqual(unavailable['reason'],'oversized'); self.assertEqual(unavailable['artifact_id'],'art-a')
+        self.assertEqual(unavailable['reason'],'integrity_mismatch'); self.assertEqual(unavailable['artifact_id'],'art-a')
         self.assertEqual(unavailable['sha256'],item['sha256']); self.assertEqual(unavailable['size_bytes'],item['size_bytes'])
         item=self.save('small'); item['size_bytes']+=1
         self.assertEqual(self.read(item)['reason'],'integrity_mismatch')
+
+    def test_large_file_tail_and_sanitized_paging(self):
+        raw=(b'ordinary compiler diagnostic\n' * (600_000)) + b'FINAL authorization: Bearer pagesecret\n'
+        item=self.save(raw.decode())
+        result=self.read(item,secret_values=['pagesecret'])
+        self.assertTrue(result['available']); self.assertIn('FINAL authorization: Bearer [REDACTED]',result['text'])
+        self.assertNotIn('pagesecret',result['text'])
+        page=self.read(item,offset=16*1024*1024,tail_bytes=100)
+        self.assertTrue(page['available']); self.assertEqual(page['offset_basis'],'sanitized_utf8')
+        self.assertEqual(page['offset'],16*1024*1024)
+
+    def test_secret_redaction_before_page_and_utf8(self):
+        item=self.save('x'*8190+'token=page-secret é😀\n')
+        result=self.read(item,offset=8190,tail_bytes=100,secret_values=['page-secret'])
+        self.assertTrue(result['available']); self.assertNotIn('page-secret',result['text'])
+        self.assertIn('[REDACTED]',result['text'])
+        self.assertFalse(self.read(item,offset=True)['available'])
+        self.assertFalse(self.read(item,offset=1<<63)['available'])
+
+    def test_multiline_credential_values_and_cross_chunk_secret(self):
+        secret='chunk-secret-value'
+        item=self.save('Authorization: Bearer\nmultiline-auth-secret\npassword =\nmultiline-password-secret\n'+
+                       'x'*(64*1024-8)+secret+'\n')
+        result=self.read(item,secret_values=[secret])
+        self.assertTrue(result['available'])
+        self.assertNotIn('multiline-auth-secret',result['text'])
+        self.assertNotIn('multiline-password-secret',result['text'])
+        self.assertNotIn(secret,result['text'])
+        self.assertIn('[REDACTED]',result['text'])
+
+    def test_multiline_credential_prefix_components_are_redacted(self):
+        values=['multiline-auth','multiline-basic','multiline-password','multiline-token']
+        item=self.save('Authorization:\nBearer\n'+values[0]+'\n'+
+                       'authorization\n:\nBasic\n'+values[1]+'\n'+
+                       'password\n=\n'+values[2]+'\n'+
+                       'token:\n\n'+values[3]+'\n')
+        result=self.read(item)
+        self.assertTrue(result['available'])
+        for value in values: self.assertNotIn(value,result['text'])
+        self.assertEqual(result['text'].count('[REDACTED]'),len(values))
+
+    def test_multiline_known_secret_fails_closed(self):
+        item=self.save('contains secret fragment')
+        result=self.read(item,secret_values=['secret\nfragment'])
+        self.assertFalse(result['available'])
+        self.assertEqual(result['reason'],'unsupported_multiline_secret')
+
+    def test_oversized_record_omitted_but_later_tail_visible(self):
+        item=self.save('x'*(1024*1024+1)+'\nFINAL failure\n')
+        result=self.read(item)
+        self.assertTrue(result['available']); self.assertIn('[oversized log record omitted]',result['text'])
+        self.assertIn('FINAL failure',result['text'])
         item=self.save('same-size')
         Path(item['path']).write_bytes(b'changed!')
         self.assertEqual(self.read(item)['reason'],'integrity_mismatch')

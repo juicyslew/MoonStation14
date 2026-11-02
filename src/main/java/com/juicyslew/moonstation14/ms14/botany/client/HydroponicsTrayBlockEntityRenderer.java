@@ -8,7 +8,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 
 import java.util.Set;
@@ -27,32 +26,35 @@ public final class HydroponicsTrayBlockEntityRenderer implements BlockEntityRend
         return java.util.stream.Stream.concat(manifest.plants().values().stream().flatMap(states -> states.values().stream()), manifest.indicators().values().stream()).distinct().toList();
     }
 
+    private PlantModelManifest manifestFor(HydroponicsTrayBlockEntity tray) {
+        var model = Minecraft.getInstance().getBlockRenderer().getBlockModelShaper().getBlockModel(tray.getBlockState());
+        return model instanceof PlantTrayBakedModel wrapper ? wrapper.manifest() : manifest;
+    }
+
     @Override public AABB getRenderBoundingBox(HydroponicsTrayBlockEntity tray) {
-        BlockPos pos = tray.getBlockPos();
-        return new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 2, pos.getZ() + 1);
+        var appearance = tray.appearanceSnapshot();
+        return manifestFor(tray).renderBoundingBox(appearance.key(), appearance.status() != com.juicyslew.moonstation14.ms14.botany.PlantInstance.Status.EMPTY, tray.getBlockPos());
     }
 
     @Override public void render(HydroponicsTrayBlockEntity tray, float partialTick, PoseStack pose,
                                  MultiBufferSource buffers, int packedLight, int packedOverlay) {
-        var status = tray.appearanceStatus();
-        String state = switch (status) {
-            case EMPTY -> null;
-            case DEAD -> "dead";
-            case HARVEST -> "harvest";
-            case GROWING -> "stage-" + tray.appearanceStage();
-        };
-        var modelId = state == null ? null : manifest.model(tray.appearanceKey(), state);
-        if (state != null && modelId == null) {
-            String key = tray.appearanceKey() + "/" + state;
+        var appearance = tray.appearanceSnapshot();
+        var currentModel = Minecraft.getInstance().getBlockRenderer().getBlockModelShaper().getBlockModel(tray.getBlockState());
+        var activeManifest = currentModel instanceof PlantTrayBakedModel wrapper ? wrapper.manifest() : manifest;
+        var modelId = activeManifest.model(appearance);
+        if (appearance.status() != com.juicyslew.moonstation14.ms14.botany.PlantInstance.Status.EMPTY && modelId == null) {
+            String key = appearance.key() + "/" + appearance.status() + "/" + appearance.stage();
             if (WARNED.add(key)) LOGGER.warning("No hydroponics plant model binding for " + key);
-            return;
         }
         var mc = Minecraft.getInstance();
         var blockState = tray.getBlockState();
-        if (modelId != null) {
+        boolean berPlantPath = PlantTrayBakedModel.shouldRenderInBer(currentModel, appearance, tray.getBlockPos());
+        if (modelId != null && berPlantPath) {
+            pose.pushPose();
             var model = mc.getModelManager().getModel(modelId);
             mc.getBlockRenderer().getModelRenderer().renderModel(pose.last(), buffers.getBuffer(RenderType.cutout()),
                     blockState, model, 1, 1, 1, packedLight, OverlayTexture.NO_OVERLAY);
+            pose.popPose();
         }
         String[] indicators = {"harvest", "health", "alert", "nutrition", "water"};
         for (int i = 0; i < indicators.length; i++) {

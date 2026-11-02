@@ -1,0 +1,68 @@
+{
+  "request_id": "botany-peels-3d-loose-production-20261028",
+  "status": "complete pair awaiting independent final review and owner acceptance; not imported",
+  "states": [
+    {
+      "id": "trash_banana_peel",
+      "prototype": "TrashBananaPeel",
+      "master": "authoring/trash_banana_peel.bbmodel",
+      "specification": "specifications/trash_banana_peel.json",
+      "texture": "textures/trash_banana_peel.png",
+      "runtime_model": "moonstation14:item/trash_banana_peel",
+      "bounds": {
+        "min": [
+          -3.8723594728501114,
+          0.0,
+          -3.0534746680219396
+        ],
+        "max": [
+          3.6737154350598185,
+          3.39,
+          1.4282540408074198
+        ],
+        "size": [
+          7.546074907909929,
+          3.39,
+          4.481728708829359
+        ]
+      },
+      "quad_count": 66,
+      "triangles": 132,
+      "persistent_states": [
+        "default"
+      ],
+      "animations": []
+    },
+    {
+      "id": "trash_mimana_peel",
+      "prototype": "TrashMimanaPeel",
+      "master": "authoring/trash_mimana_peel.bbmodel",
+      "specification": "specifications/trash_mimana_peel.json",
+      "texture": "textures/trash_mimana_peel.png",
+      "runtime_model": "moonstation14:item/trash_mimana_peel",
+      "bounds": {
+        "min": [
+          -3.8723594728501114,
+          0.0,
+          -3.0534746680219396
+        ],
+        "max": [
+          3.6737154350598185,
+          3.39,
+          1.4282540408074198
+        ],
+        "size": [
+          7.546074907909929,
+          3.39,
+          4.481728708829359
+        ]
+      },
+      "quad_count": 66,
+      "triangles": 132,
+      "persistent_states": [
+        "default"
+      ],
+      "animations": []
+    }
+  ]
+}

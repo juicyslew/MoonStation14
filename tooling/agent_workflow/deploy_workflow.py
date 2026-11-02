@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import time
 import sqlite3
 import os
 import subprocess
@@ -250,15 +251,67 @@ def _assert_released_resources_scopes_deliveries(snapshot: dict) -> None:
     for row in snapshot["deliveries"]:
         target, state = row.get("target_kind"), row.get("state")
         if target == "AUTHOR":
-            if state != "ACKNOWLEDGED" or row.get("protocol_ack") is None:
+            if state == "ACKNOWLEDGED" and row.get("protocol_ack") is not None:
+                continue
+            # A transport-accepted terminal result is durable and passive even
+            # while the author's protocol acknowledgement is outstanding.
+            # Admit only its exact AUTHOR/WEBPAGE projection pair.
+            if (state != "TRANSPORT_ACCEPTED" or row.get("protocol_ack") is not None or
+                    not isinstance(row.get("transport_receipt"), dict) or
+                    (row.get("lease_until_ms") is not None and row.get("lease_until_ms") > int(time.time() * 1000))):
                 raise ValueError("author delivery is not acknowledged")
+            event_id = row.get("event_id")
+            event = next((e for e in snapshot["events"] if e.get("id") == event_id), None)
+            try:
+                import workflow_store
+            except ModuleNotFoundError:
+                from tooling.agent_workflow import workflow_store
+            payload = event.get("payload") if event else None
+            if isinstance(payload, str):
+                try: payload = json.loads(payload)
+                except json.JSONDecodeError: payload = None
+            if (not isinstance(event, dict) or event.get("kind") != "DISPATCH" or
+                    not isinstance(payload, dict) or payload.get("run_id") != event.get("run_id") or
+                    payload.get("evaluation_generation") != event.get("generation") or
+                    payload.get("result", payload.get("decision")) not in ("PASS", "FAIL", "ERROR") or
+                    workflow_store.digest(payload) != event.get("payload_digest")):
+                raise ValueError("author delivery is not a verified terminal result")
+            run_row = next((r for r in snapshot.get("runs", []) if r.get("id") == event.get("run_id")), None)
+            run = run_row.get("run_json") if run_row else None
+            if isinstance(run, str):
+                try: run = json.loads(run)
+                except json.JSONDecodeError: run = None
+            author = run.get("author") if isinstance(run, dict) else None
+            recipient = row.get("recipient_json")
+            if isinstance(recipient, str):
+                try: recipient = json.loads(recipient)
+                except json.JSONDecodeError: recipient = None
+            webpage = [d for d in snapshot["deliveries"] if d.get("event_id") == event_id and d.get("target_kind") == "WEBPAGE"]
+            outs = [o for o in snapshot["outbox"] if o.get("event_id") == event_id]
+            page = webpage[0] if len(webpage) == 1 else {}
+            page_recipient = page.get("recipient_json")
+            if isinstance(page_recipient, str):
+                try: page_recipient = json.loads(page_recipient)
+                except json.JSONDecodeError: page_recipient = None
+            receipt = row.get("transport_receipt")
+            if (recipient != author or not isinstance(receipt, dict) or receipt.get("accepted") is not True or
+                    row.get("payload_digest") != event.get("payload_digest") or
+                    receipt.get("event_id") != event_id or receipt.get("message_id") != row.get("id") or
+                    receipt.get("payload_digest") != event.get("payload_digest") or receipt.get("recipient") != recipient or
+                    len(outs) != 1 or outs[0].get("state") != "ACKNOWLEDGED" or
+                    len(webpage) != 1 or page.get("state") != "PENDING" or
+                    page_recipient != {"session_id": None, "worktree": (author or {}).get("worktree"), "role": "owner"} or
+                    page.get("payload_digest") != event.get("payload_digest") or page.get("attempts") != 0 or
+                    page.get("claim_generation") != 0 or any(page.get(k) is not None for k in ("lease_token", "lease_until_ms", "transport_receipt", "protocol_ack"))):
+                raise ValueError("author delivery is not an exact passive terminal result pair")
         elif target == "WEBPAGE" and state == "PENDING":
             untouched = (row.get("attempts") == 0 and row.get("claim_generation") == 0 and
                          all(row.get(k) is None for k in ("lease_token", "lease_until_ms", "transport_receipt", "protocol_ack")))
             event_id = row.get("event_id")
             outbox = [o for o in snapshot["outbox"] if o.get("event_id") == event_id]
             author_ack = any(d.get("event_id") == event_id and d.get("target_kind") == "AUTHOR" and
-                             d.get("state") == "ACKNOWLEDGED" and d.get("protocol_ack") is not None
+                             ((d.get("state") == "ACKNOWLEDGED" and d.get("protocol_ack") is not None) or
+                              (d.get("state") == "TRANSPORT_ACCEPTED" and d.get("protocol_ack") is None))
                              for d in snapshot["deliveries"])
             if not (untouched and len(outbox) == 1 and outbox[0].get("state") == "ACKNOWLEDGED" and author_ack):
                 raise ValueError("webpage delivery is not an untouched passive projection")

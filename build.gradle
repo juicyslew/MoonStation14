@@ -305,6 +305,12 @@ def readinessCatalog = [
 readinessCatalog.interaction.add('com.juicyslew.moonstation14.ms14.botany.BotanyInspectCommandTest')
 readinessCatalog.interaction.add('com.juicyslew.moonstation14.gametest.support.ScopedPrototypeCatalogFixtureTest')
 readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.doors.FirelockStateTest',
+    'com.juicyslew.moonstation14.ms14.doors.FirelockPryServiceTest',
+    'com.juicyslew.moonstation14.ms14.tools.ToolProfileTest'
+])
+readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.doors.FirelockPryServiceTest')
+readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.prototype.NettleProductCatalogCandidateTest',
     'com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageTest',
     'com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageRuntimeTest',
@@ -332,6 +338,7 @@ readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.loose_objects.LooseSlipPrototypeManagerTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantMutationRecordTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantSpeciesMutationCycleTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantPollenCrossTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantSeedReferenceTest',
@@ -397,8 +404,17 @@ readinessCatalog.ui.addAll([
     'com.juicyslew.moonstation14.ms14.combat.client.DisarmFlightHudTest'
 ])
 readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRendererAlphaTest')
+readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlProtocolTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmLayoutTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmScreenTest'
+])
 readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogProductionTest',
+    'com.juicyslew.moonstation14.ms14.botany.BotanySpeciesAvailabilityTest',
+    'com.juicyslew.moonstation14.ms14.botany.BotanyCatalogSupplyPlanTest',
+    'com.juicyslew.moonstation14.resource.BotanyCatalogItemResourcesTest',
     'com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest',
     'com.juicyslew.moonstation14.ms14.botany.SeedItemProfileTest',
     'com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest',

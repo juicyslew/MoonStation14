@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:bungo",
+  "capacity_cents": 2000,
+  "contents_cents": {
+    "moonstation14:nutriment": 1000,
+    "moonstation14:enzyme": 1000
+  },
+  "refillable": true
+}

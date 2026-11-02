@@ -1,0 +1,8 @@
+{
+  "id": "moonstation14:mushroom",
+  "capacity_cents": 500,
+  "contents_cents": {
+    "moonstation14:nutriment": 500
+  },
+  "refillable": true
+}

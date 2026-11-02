@@ -20,7 +20,19 @@ public final class VentilationGasFlow {
         validate(pipeBefore, roomBefore, pipeVolumeM3, roomVolumeM3, elapsedSeconds, settings);
         if (!settings.configuredEnabled() || pipeBefore.totalMoles() == 0.0) return Optional.empty();
         double roomPressure = roomBefore.pressureKpa(roomVolumeM3);
-        double remainingPressure = Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa()) - roomPressure;
+        if (!settings.pressureLockoutOverride() && roomPressure < 80.0) {
+            // Upstream component stores the leak coefficient as float (0.0001f).
+            double leakMoles = elapsedSeconds * Math.max(0.0,
+                    pipeBefore.pressureKpa(pipeVolumeM3) - roomPressure) * (double) 0.0001f;
+            if (!(leakMoles > 0.0)) return Optional.empty();
+            return PipeGasTransfer.plan(pipeBefore, roomBefore, pipeVolumeM3, roomVolumeM3,
+                    leakMoles, settings.externalPressureBoundKPa(), java.util.Set.of(com.juicyslew.moonstation14.ms14.atmos.core.GasType.values()));
+        }
+        // GasVentPumpSystem uses PumpPower=2 to limit supply from a low-pressure pipe,
+        // independently of the external destination ceiling.
+        double effectiveTarget = Math.min(Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa()),
+                pipeBefore.pressureKpa(pipeVolumeM3) * 2.0);
+        double remainingPressure = effectiveTarget - roomPressure;
         if (!(remainingPressure > Math.ulp((float) Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa())))
                 || roomBefore.temperatureKelvin() <= 0.0) return Optional.empty();
         double maxMoles = Math.min(settings.targetPressureChangeKPaPerSecond() * elapsedSeconds,
@@ -61,4 +73,3 @@ public final class VentilationGasFlow {
             throw new IllegalArgumentException(name + " must be positive and finite");
     }
 }
-

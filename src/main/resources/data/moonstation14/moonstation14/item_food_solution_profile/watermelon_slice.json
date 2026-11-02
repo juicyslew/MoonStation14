@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:watermelon_slice",
+  "capacity_cents": 500,
+  "contents_cents": {
+    "moonstation14:nutriment": 200,
+    "moonstation14:vitamin": 100,
+    "moonstation14:water": 200
+  },
+  "refillable": true
+}

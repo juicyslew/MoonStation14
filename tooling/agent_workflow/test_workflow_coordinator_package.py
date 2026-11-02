@@ -157,10 +157,55 @@ class PackageTests(unittest.TestCase):
                 package.build(root/"unowned-preserve",receipt,reviewed_source_hashes=selected)
             receipt.write_text(json.dumps({"files":rows,"source_hashes":{},"shared_root":str(shared),"main_root":str(main)}))
             pointer=main/package.POINTER_RELATIVE;pointer.parent.mkdir(parents=True);pointer.write_text(json.dumps({"receipt":str(receipt)}))
-            result=package.publish(stage,receipt,root/"published.json",pointer_path=pointer,expected_pointer_sha256=hashlib.sha256(pointer.read_bytes()).hexdigest())
+            durable=Path(os.environ["LOCALAPPDATA"])/"MoonStation14/workflow"
+            durable.mkdir(parents=True,exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix="package-publish-fixture-",dir=durable) as durable_fixture:
+                output=Path(durable_fixture)/"published.json"
+                result=package.publish(stage,receipt,output,pointer_path=pointer,expected_pointer_sha256=hashlib.sha256(pointer.read_bytes()).hexdigest())
+                self.assertTrue(output.is_file())
+                self.assertEqual(output.resolve(),Path(json.loads(pointer.read_text())["receipt"]).resolve())
             self.assertEqual("applied",result["status"])
             for key in selected_keys:self.assertEqual((package.ROOT/key).read_bytes(),(shared/key).read_bytes())
             self.assertEqual(baseline_dirty,(shared/dirty_key).read_bytes())
+
+    def test_reviewed_runtime_alias_and_cli_are_published_and_installed_runtime_runs(self):
+        import hashlib
+        with tempfile.TemporaryDirectory(dir=Path(os.environ["LOCALAPPDATA"])/"Temp/opencode") as directory:
+            root=Path(directory);shared=root/"shared";shared.mkdir();main=root/"MoonStation14";main.mkdir();receipt=root/"receipt.json"
+            config=main/"opencode.jsonc";config.write_text('{"agents":{}}')
+            receipt.write_text(json.dumps({"files":[{"target":"main","path":"opencode.jsonc","new_sha256":hashlib.sha256(config.read_bytes()).hexdigest(),"deleted":False}],"source_hashes":{},"shared_root":str(shared),"main_root":str(main)}))
+            bootstrap=root/"bootstrap";boot=package.build(bootstrap,receipt);rows=[]
+            for key,item in boot["files"].items():
+                dest=shared/key;dest.parent.mkdir(parents=True,exist_ok=True);data=(bootstrap/item["target"]).read_bytes();dest.write_bytes(data)
+                rows.append({"target":"shared","path":key,"new_sha256":hashlib.sha256(data).hexdigest(),"deleted":False})
+            rows.append({"target":"main","path":"opencode.jsonc","new_sha256":hashlib.sha256(config.read_bytes()).hexdigest(),"deleted":False})
+            receipt.write_text(json.dumps({"files":rows,"source_hashes":{},"shared_root":str(shared),"main_root":str(main)}))
+            runtime="tooling/agent_workflow/workflow_runtime.py"; cli="docs/development-workflow-redesign/package/CLI.md"
+            selected={key:hashlib.sha256((package.ROOT/key).read_bytes()).hexdigest() for key in (runtime,cli)}
+            stage=root/"stage";manifest=package.build(stage,receipt,preserve_bindings=True,reviewed_source_hashes=selected)
+            alias="tooling/agent_workflow/workflow.py"
+            self.assertIn(alias,manifest["files"])
+            self.assertEqual([alias], list(package.SOURCE_ALIASES[runtime]))
+            self.assertNotIn("tooling/agent_workflow/shared_workflow_runtime.py", manifest["files"])
+            canonical=(package.ROOT/runtime).read_bytes()
+            self.assertEqual(canonical,(stage/alias).read_bytes())
+            self.assertEqual(canonical,(stage/runtime).read_bytes())
+            installed_cli="docs/development-workflow/CLI.md"
+            self.assertIn(installed_cli,manifest["files"])
+            self.assertEqual((package.ROOT/cli).read_bytes(),(stage/manifest["files"][installed_cli]["target"]).read_bytes())
+            self.assertEqual(runtime,manifest["files"][alias]["source"])
+            self.assertEqual(cli,manifest["files"][installed_cli]["source"])
+            pointer=main/package.POINTER_RELATIVE;pointer.parent.mkdir(parents=True,exist_ok=True);pointer.write_text(json.dumps({"receipt":str(receipt)}))
+            published=package.publish(stage,receipt,root/"published.json",pointer_path=pointer,expected_pointer_sha256=hashlib.sha256(pointer.read_bytes()).hexdigest())
+            self.assertEqual("applied",published["status"])
+            self.assertEqual(canonical,(shared/alias).read_bytes())
+            self.assertEqual((package.ROOT/cli).read_bytes(),(shared/installed_cli).read_bytes())
+            result=subprocess.run([sys.executable,str(shared/alias),"--help"],capture_output=True,text=True,timeout=20)
+            self.assertEqual(0,result.returncode,result.stderr)
+            self.assertIn("usage",result.stdout.lower())
+            (shared/alias).write_bytes(b"unowned alias modification\n")
+            with self.assertRaisesRegex(ValueError,"refusing unowned/conflicting shared target"):
+                package.build(root/"reject-drift",receipt)
 
     def test_scoped_update_omits_new_unselected_catalog_member(self):
         import hashlib
@@ -191,12 +236,12 @@ class PackageTests(unittest.TestCase):
             receipt.write_text(json.dumps({"files": [], "source_hashes": {}, "shared_root": str(shared)}), encoding="utf-8")
             stage = root / "stage"
             result = package.build(stage, receipt)
-            self.assertEqual(len(package.SOURCES) + len(package.ASSETS) + len(package.ROOT_ASSETS) + len(json.loads((package.ROOT / "docs/development-workflow-redesign/package/package-docs.json").read_text())["files"]) + 1, len(result["files"]))
+            self.assertEqual(len(package.SOURCES) + len(package.ASSETS) + len(package.ROOT_ASSETS) + sum(len(v) for v in package.SOURCE_ALIASES.values()) + len(json.loads((package.ROOT / "docs/development-workflow-redesign/package/package-docs.json").read_text())["files"]) + 1, len(result["files"]))
             names = {Path(key).name for key in result["files"]}
             self.assertIn("workflow_scope.py", names)
             self.assertIn("workflow_coordinator_http_mcp.py", names)
             self.assertNotIn("workflow_observer.py", names)
-            self.assertNotIn("workflow.py", names)
+            self.assertEqual(1, sum(name == "workflow.py" for name in names))
             self.assertFalse(any(name.startswith("test_") for name in names))
             self.assertEqual("workflow-coordinator-inactive", json.loads((stage / "manifest.json").read_text())["package"])
             target = stage / "tooling/agent_workflow/workflow_coordinator.py"

@@ -92,8 +92,7 @@ class CocoaConversionCatalogCandidateTest {
         for (String family : new String[]{"produce_profile", "ingestion_profile", "extractable_profile", "item_processing_profile", "item_food_solution_profile"})
             for (String name : new String[]{"cocoa_pod", "meatwheat_bushel"}) {
                 var resource = getClass().getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/" + name + ".json");
-                if (name.equals("meatwheat_bushel")) assertNotNull(resource, family + "/" + name);
-                else assertNull(resource, family + "/" + name);
+                BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, name);
             }
     }
 

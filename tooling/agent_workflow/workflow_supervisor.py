@@ -191,7 +191,7 @@ class WorkflowSupervisor:
                         self._scope = scope
                         ready_path = Path(tempfile.mkdtemp(prefix='ms14-coordinator-ready-'))/'ready.json'
                         token = secrets.token_urlsafe(32)
-                        launch_command += ['--supervisor-ready-path', str(ready_path), '--supervisor-token', token]
+                        launch_command += ['--supervisor-ready-path', str(ready_path), f'--supervisor-token={token}']
                     kwargs = {'close_fds': True}
                     if os.name == 'nt':
                         kwargs['creationflags'] = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)

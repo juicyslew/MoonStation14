@@ -20,6 +20,27 @@ except ImportError:
 
 class WorkflowPageTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which('node') or shutil.which('node.exe'), 'Node.js unavailable')
+    def test_stage_timer_ticks_in_place_and_handles_missing_and_future_epochs(self):
+        value=sample()
+        value['columns']['Queued'][0]['stage_started_ms']=0
+        value['columns']['Checking'][0]['stage_started_ms']=0
+        value['columns']['Reviewing'][0]['stage_started_ms']=90000
+        page=gp.workflow_page(value)
+        script=re.search(r'<script>\s*(.*?)\s*</script>',page,re.S).group(1)
+        harness=NODE_DOM_HARNESS.replace('__NOW__','120')+r'''let clock=120000;Date.now=()=>clock;'''
+        observed=run_node(shutil.which('node') or shutil.which('node.exe'),harness+script+r'''
+renderWorkflow(data.workflow);const section=name=>document.getElementById('columns').children.find(x=>x.children[0].textContent===name);const text=name=>section(name).children[1].children[0].children.find(x=>x.className==='workflow-stage-time')?.textContent;const before=text('Reviewing'),card=section('Reviewing').children[1].children[0],count=section('Reviewing').children[1].children.length;clock=181000;fixtureIntervals.find(x=>x.delay===1000).fn();console.log(JSON.stringify({queued:text('Queued'),checking:text('Checking'),reviewing:text('Reviewing'),before,countAfter:section('Reviewing').children[1].children.length,sameCard:card===section('Reviewing').children[1].children[0],missing:text('Queued')}));
+''',timeout=15)
+        self.assertEqual(observed.returncode,0,observed.stderr)
+        result=json.loads(observed.stdout.strip().splitlines()[-1])
+        self.assertEqual(result['reviewing'],'In 1m 31s')
+        self.assertEqual(result['queued'],'In 3m 1s')
+        self.assertEqual(result['checking'],'In 3m 1s')
+        self.assertEqual(result['before'],'In 30s')
+        self.assertTrue(result['sameCard'])
+        self.assertEqual(result['countAfter'],1)
+
+    @unittest.skipUnless(shutil.which('node') or shutil.which('node.exe'), 'Node.js unavailable')
     def test_accepted_dismissal_is_local_keyed_and_failure_remains_visible(self):
         value = sample()
         accepted = value['columns']['Accepted'][0]

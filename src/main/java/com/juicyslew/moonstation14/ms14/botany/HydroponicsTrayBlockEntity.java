@@ -43,9 +43,12 @@ public final class HydroponicsTrayBlockEntity extends BlockEntity {
     private PlantMetabolismEvaluator.GasExchangeReport gasExchangeReport = PlantMetabolismEvaluator.GasExchangeReport.none();
     public enum AutoHarvestOutcome { NONE, SUCCESS, FAILED }
     private AutoHarvestOutcome autoHarvestOutcome = AutoHarvestOutcome.NONE;
-    private PlantInstance.Status appearanceStatus = PlantInstance.Status.EMPTY;
-    private int appearanceStage;
-    private String appearanceKey = "";
+    /** One safely-published projection consumed by both BER and chunk compilation. */
+    public record AppearanceSnapshot(String key, PlantInstance.Status status, int stage) {
+        public AppearanceSnapshot { key = key == null ? "" : key; }
+        public static AppearanceSnapshot empty() { return new AppearanceSnapshot("", PlantInstance.Status.EMPTY, 0); }
+    }
+    private volatile AppearanceSnapshot appearance = AppearanceSnapshot.empty();
     private int warningBits;
     private static final String APPEARANCE_WARNINGS = "PlantAppearanceWarnings";
     private Optional<PlantMetabolismEvaluator.Environment> appearanceEnvironment = Optional.empty();
@@ -58,9 +61,10 @@ public final class HydroponicsTrayBlockEntity extends BlockEntity {
     public PlantInstance plantState() { return plant; }
     public ReagentAttachment soilSolution() { return soil; }
     public UUID placementIdentity() { return placementIdentity; }
-    public PlantInstance.Status appearanceStatus() { return appearanceStatus; }
-    public int appearanceStage() { return appearanceStage; }
-    public String appearanceKey() { return appearanceKey; }
+    public AppearanceSnapshot appearanceSnapshot() { return appearance; }
+    public PlantInstance.Status appearanceStatus() { return appearance.status(); }
+    public int appearanceStage() { return appearance.stage(); }
+    public String appearanceKey() { return appearance.key(); }
     public int warningBits() { return warningBits; }
     /** Last sampled exposure; read-only and empty until an ordinary tray poll has sampled it. */
     public Optional<PlantMetabolismEvaluator.Environment> cachedAppearanceEnvironment() { return appearanceEnvironment; }
@@ -254,8 +258,8 @@ public final class HydroponicsTrayBlockEntity extends BlockEntity {
                     PlantMutationTable mutations = tables == null ? null : tables.get(ModPlantMutations.tableId("random_plant_mutations"));
                     if (mutations == null) return;
                     tray.mutationResult = PlantMutationSystem.cycle(instance, mutations, cycleRandom,
-                            server.random::nextFloat, PrototypeRuntime.serverWeightedRandomFillSolutions(), reagents,
-                            PrototypeRuntime.serverSeedProfiles());
+                             server.random::nextFloat, PrototypeRuntime.serverWeightedRandomFillSolutions(), reagents,
+                             PrototypeRuntime.serverSeedProfiles(), BotanySpeciesAvailability.live());
                  }, gasExchange, (source, sourceSeed, cycleAge, sourceCommit) -> {
                      long revision = source.revision();
                      var genetics = source.genetics();
@@ -407,27 +411,32 @@ public final class HydroponicsTrayBlockEntity extends BlockEntity {
         var appearance = plant == null
                 ? new PlantMetabolismEvaluator.Appearance(PlantInstance.Status.EMPTY, 0)
                 : PlantMetabolismEvaluator.appearance(plant, seed);
-        appearanceStatus = appearance.status(); appearanceStage = appearance.stage();
-        appearanceKey = seed == null ? "" : seed.visualKey();
+        this.appearance = new AppearanceSnapshot(seed == null ? "" : seed.visualKey(), appearance.status(), appearance.stage());
         TrayProfile profile = resolvedTrayProfile();
         warningBits = PlantMetabolismEvaluator.warningBits(plant, seed, profile != null && profile.drawWarnings(), appearanceEnvironment);
     }
     @Override protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         tag.putBoolean(INIT, initialized); tag.putUUID(PLACEMENT, placementIdentity);
-        tag.putString(APPEARANCE_STATUS, appearanceStatus.name()); tag.putInt(APPEARANCE_STAGE, appearanceStage); tag.putString(APPEARANCE_KEY, appearanceKey);
+        tag.putString(APPEARANCE_STATUS, appearance.status().name()); tag.putInt(APPEARANCE_STAGE, appearance.stage()); tag.putString(APPEARANCE_KEY, appearance.key());
         tag.putInt(APPEARANCE_WARNINGS, warningBits);
         if (plant != null) PlantInstance.CODEC.encodeStart(NbtOps.INSTANCE, plant).result().ifPresent(nbt -> tag.put(PLANT, (net.minecraft.nbt.Tag) nbt));
         tag.put(SOIL, (net.minecraft.nbt.Tag) ReagentAttachment.CODEC.encodeStart(NbtOps.INSTANCE, soil).getOrThrow());
     }
     @Override protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries); initialized = tag.getBoolean(INIT);
-        try { appearanceStatus = PlantInstance.Status.valueOf(tag.getString(APPEARANCE_STATUS)); } catch (IllegalArgumentException ignored) { appearanceStatus = PlantInstance.Status.EMPTY; }
-        appearanceStage = Math.max(0, tag.getInt(APPEARANCE_STAGE)); appearanceKey = tag.getString(APPEARANCE_KEY);
+        AppearanceSnapshot previousAppearance = appearance;
+        PlantInstance.Status loadedStatus;
+        try { loadedStatus = PlantInstance.Status.valueOf(tag.getString(APPEARANCE_STATUS)); } catch (IllegalArgumentException ignored) { loadedStatus = PlantInstance.Status.EMPTY; }
+        appearance = new AppearanceSnapshot(tag.getString(APPEARANCE_KEY), loadedStatus, Math.max(0, tag.getInt(APPEARANCE_STAGE)));
         warningBits = tag.getInt(APPEARANCE_WARNINGS);
         if (tag.hasUUID(PLACEMENT)) placementIdentity = tag.getUUID(PLACEMENT);
         if (tag.contains(PLANT)) plant = PlantInstance.CODEC.parse(NbtOps.INSTANCE, tag.get(PLANT)).result().orElse(null);
         if (tag.contains(SOIL)) soil = ReagentAttachment.CODEC.parse(NbtOps.INSTANCE, tag.get(SOIL)).result().orElseGet(ReagentAttachment::new);
+        if (level != null && level.isClientSide && !previousAppearance.equals(appearance)) {
+            requestModelDataUpdate();
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
     }
     @Override public CompoundTag getUpdateTag(HolderLookup.Provider registries) { CompoundTag tag = new CompoundTag(); saveAdditional(tag, registries); return tag; }
     @Override public ClientboundBlockEntityDataPacket getUpdatePacket() { return ClientboundBlockEntityDataPacket.create(this); }

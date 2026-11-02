@@ -1,0 +1,13 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/block/botany/plants/lemoon/harvest.obj",
+  "textures": {
+    "atlas": "moonstation14:block/botany/plants/lemoon/harvest",
+    "particle": "moonstation14:block/botany/plants/lemoon/harvest"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

@@ -27,12 +27,16 @@
       ]},
       "investigate": { "permissions": [
         { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },
-        { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" }
+        { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" },
+        { "action": "external_directory", "effect": "allow", "resource": "C:/Users/William/.gradle/caches/**" },
+        { "action": "edit", "effect": "deny", "resource": "C:/Users/William/.gradle/caches/**" }
       ]},
       "orchestrate-ms14": { "permissions": [
         { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },
         { "action": "edit", "effect": "deny", "resource": "{{shared_root}}/**" },
-        { "action": "external_directory", "effect": "allow", "resource": "{{workspace_parent}}/MoonStation14-agent-05/**" }
+        { "action": "external_directory", "effect": "allow", "resource": "{{workspace_parent}}/MoonStation14-agent-05/**" },
+        { "action": "external_directory", "effect": "allow", "resource": "C:/Users/William/.gradle/caches/**" },
+        { "action": "edit", "effect": "deny", "resource": "C:/Users/William/.gradle/caches/**" }
       ]},
       "review": { "permissions": [
         { "action": "external_directory", "effect": "allow", "resource": "{{shared_root}}/**" },

@@ -7,6 +7,41 @@ import net.minecraft.core.*;
 import com.juicyslew.moonstation14.ms14.power.topology.*;
 
 class VentilationFixturePlanTest {
+    @Test void firelockScenarioTargetsAreFiniteAndPlasmaFree(){
+        for(var scenario:VentilationFixturePlan.FirelockScenario.values()){
+            var target=VentilationFixturePlan.firelockExpectation(scenario);
+            assertTrue(Double.isFinite(target.pressureKPa())&&target.pressureKPa()>0);
+            assertTrue(Double.isFinite(target.temperatureKelvin())&&target.temperatureKelvin()>0);
+            assertNotNull(target.expected());
+        }
+        assertTrue(VentilationFixturePlan.firelockExpectation(VentilationFixturePlan.FirelockScenario.PRESSURE_WARNING).pressureKPa()>85);
+        assertTrue(VentilationFixturePlan.firelockExpectation(VentilationFixturePlan.FirelockScenario.PRESSURE_WARNING).pressureKPa()<89.25);
+        assertTrue(VentilationFixturePlan.firelockExpectation(VentilationFixturePlan.FirelockScenario.PRESSURE_DANGER).pressureKPa()<85);
+        assertTrue(VentilationFixturePlan.firelockExpectation(VentilationFixturePlan.FirelockScenario.TEMPERATURE_WARNING).temperatureKelvin()>314.52);
+        assertTrue(VentilationFixturePlan.firelockExpectation(VentilationFixturePlan.FirelockScenario.TEMPERATURE_WARNING).temperatureKelvin()<393.15);
+        assertTrue(VentilationFixturePlan.firelockExpectation(VentilationFixturePlan.FirelockScenario.TEMPERATURE_DANGER).temperatureKelvin()>=393.15);
+    }
+    @Test void authoredFirelockScenarioTargetsRemainThresholdInteriorAndLegacyPlanUnchanged(){
+        var f=VentilationFixturePlan.firelockPlan(); var legacy=VentilationFixturePlan.standard();
+        assertEquals(46,f.firelockConnectedCells().size());
+        assertEquals(legacy.sourceCells(),f.sourceCells()); assertEquals(legacy.recipientCells(),f.recipientCells());
+        assertEquals(87,VentilationFixturePlan.firelockExpectation(VentilationFixturePlan.FirelockScenario.PRESSURE_WARNING).pressureKPa());
+        assertEquals(70,VentilationFixturePlan.firelockExpectation(VentilationFixturePlan.FirelockScenario.PRESSURE_DANGER).pressureKPa());
+        assertEquals(330,VentilationFixturePlan.firelockExpectation(VentilationFixturePlan.FirelockScenario.TEMPERATURE_WARNING).temperatureKelvin());
+        assertEquals(420,VentilationFixturePlan.firelockExpectation(VentilationFixturePlan.FirelockScenario.TEMPERATURE_DANGER).temperatureKelvin());
+    }
+    @Test void resolvedThresholdRulesClassifyRequestedScenarioCompositions(){
+        var pressure=new com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmThresholdData(85.0,550.0,1.05,.7,false);
+        var temperature=new com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmThresholdData(193.15,393.15,1.1,.8,false);
+        assertEquals(com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.DANGER,pressure.classify(85));
+        assertEquals(com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.DANGER,pressure.classify(550));
+        assertEquals(com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.WARNING,pressure.classify(89.25));
+        assertEquals(com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.WARNING,pressure.classify(385));
+        assertEquals(com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.DANGER,temperature.classify(193.15));
+        assertEquals(com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.DANGER,temperature.classify(393.15));
+        assertEquals(com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.WARNING,temperature.classify(212.465));
+        assertEquals(com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.WARNING,temperature.classify(314.52));
+    }
     @Test void boundedRoomsEnumerateAllAirCellsAndRemainSeparate(){
         var p=VentilationFixturePlan.standard();
         assertTrue(VentilationFixturePlan.WIDTH<=20 && VentilationFixturePlan.DEPTH<=12 && VentilationFixturePlan.HEIGHT<=5);
@@ -53,6 +88,27 @@ class VentilationFixturePlanTest {
         assertEquals(3,nearestApcDistance(p,p.vent())); assertTrue(nearestApcDistance(p,p.vent())<=3);
         assertTrue(nearestApcDistance(p,p.alarm())<=3);
         assertTrue(p.cables().stream().allMatch(c->c.host().getX()>=0&&c.host().getX()<20&&c.host().getY()>=0&&c.host().getY()<5&&c.host().getZ()>=0&&c.host().getZ()<12));
+    }
+    @Test void firelockVariantAddsStandaloneTwoCellDoorAndKeepsLegacyPlan(){
+        var ordinary=VentilationFixturePlan.standard(); var fire=VentilationFixturePlan.firelockPlan();
+        assertFalse(ordinary.isFirelockVariant()); assertTrue(fire.isFirelockVariant());
+        var fireBlocks=index(fire);
+        for(var cell:ordinary.blocks()) if(!(cell.z()==4&&cell.y()>=1&&cell.y()<=2&&cell.x()>=4&&cell.x()<=8)) {
+            var expected = (cell.x()==2||cell.x()==6||cell.x()==10)&&cell.y()==3&&cell.z()==4
+                    ? VentilationFixturePlan.BlockRole.LIGHT : cell.role();
+            assertEquals(expected,fireBlocks.get(cell.pos()));
+        }
+        assertEquals(46,fire.firelockConnectedCells().size());
+        assertTrue(fire.firelockConnectedCells().containsAll(fire.sourceCells()));
+        assertTrue(fire.firelockConnectedCells().containsAll(fire.recipientCells()));
+        assertEquals(VentilationFixturePlan.BlockRole.STEEL,fireBlocks.get(new BlockPos(6,1,3)));
+        assertEquals(VentilationFixturePlan.BlockRole.STEEL,fireBlocks.get(new BlockPos(6,1,5)));
+        assertEquals(VentilationFixturePlan.BlockRole.LIGHT,fireBlocks.get(new BlockPos(6,3,4)));
+        assertEquals(VentilationFixturePlan.BlockRole.AIR,fireBlocks.get(new BlockPos(4,1,4)));
+        assertEquals(VentilationFixturePlan.BlockRole.AIR,fireBlocks.get(new BlockPos(8,2,4)));
+        assertTrue(fire.cables().stream().anyMatch(c -> c.tier()==com.juicyslew.moonstation14.ms14.power.cable.CableTier.APC
+                && Math.abs(c.host().getX()-fire.firelock().getX())+Math.abs(c.host().getZ()-fire.firelock().getZ())<=3));
+        assertEquals(6,fire.firelock().getX()); assertEquals(4,fire.firelock().getZ());
     }
     private static int dist(BlockPos a,BlockPos b){return (int)Math.ceil(Math.sqrt(a.distSqr(b)));}
     private static int nearestApcDistance(VentilationFixturePlan p,BlockPos target){return p.cables().stream().filter(n->n.tier()==com.juicyslew.moonstation14.ms14.power.cable.CableTier.APC).mapToInt(n->dist(target,n.host())).min().orElseThrow();}

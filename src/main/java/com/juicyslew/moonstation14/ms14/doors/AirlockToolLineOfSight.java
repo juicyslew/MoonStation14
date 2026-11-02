@@ -17,6 +17,37 @@ public final class AirlockToolLineOfSight {
         return tracedControllerHalf(body,level,root,expected,identity)!=null;
     }
 
+    /** Same root/reach/outline policy for the second supported two-cell door owner. */
+    public static boolean firelockReach(LivingEntity body,ServerLevel level,BlockPos root,FirelockBlockEntity expected,UUID identity) {
+        if(body==null||level==null||root==null||expected==null||identity==null||body.level()!=level
+                ||!level.hasChunkAt(root)||!level.hasChunkAt(root.above())
+                ||!level.getWorldBorder().isWithinBounds(root)||!level.getWorldBorder().isWithinBounds(root.above())
+                ||level.getBlockEntity(root)!=expected||!expected.identity().equals(identity)
+                ||!(level.getBlockState(root).getBlock() instanceof FirelockBlock)
+                ||level.getBlockState(root).getValue(FirelockBlock.HALF)!=DoubleBlockHalf.LOWER
+                ||level.getBlockState(root.above()).getBlock()!=level.getBlockState(root).getBlock()
+                ||level.getBlockState(root.above()).getValue(FirelockBlock.HALF)!=DoubleBlockHalf.UPPER)return false;
+        Vec3 eye=body.getEyePosition(),target=Vec3.atCenterOf(root);
+        if(eye.distanceToSqr(target)>25)return false;
+        var hit=level.clip(new ClipContext(eye,target,ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,body));
+        return hit instanceof BlockHitResult blockHit&&(blockHit.getBlockPos().equals(root)||blockHit.getBlockPos().equals(root.above()))
+                &&level.getBlockEntity(root)==expected&&expected.identity().equals(identity);
+    }
+
+    /** Reach check for either controller placement, requiring the canonical target and both visible door cells. */
+    public static boolean firelockReach(LivingEntity body,ServerLevel level,BlockPos root,FirelockTargets.Target expected,UUID identity) {
+        if(body==null||level==null||root==null||expected==null||identity==null||body.level()!=level
+                ||!root.equals(expected.root())||!identity.equals(expected.identity())
+                ||!level.hasChunkAt(root)||!level.hasChunkAt(root.above())
+                ||!level.getWorldBorder().isWithinBounds(root)||!level.getWorldBorder().isWithinBounds(root.above()))return false;
+        FirelockTargets.Target current=FirelockTargets.atRoot(level,root);
+        if(current==null||current.controller()!=expected.controller()||!current.identity().equals(identity))return false;
+        Vec3 eye=body.getEyePosition(),target=Vec3.atCenterOf(root);
+        if(eye.distanceToSqr(target)>25)return false;
+        var hit=level.clip(new ClipContext(eye,target,ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,body));
+        return hit instanceof BlockHitResult blockHit&&(blockHit.getBlockPos().equals(root)||blockHit.getBlockPos().equals(root.above()));
+    }
+
     static BlockPos tracedControllerHalf(LivingEntity body,ServerLevel level,BlockPos root,AirlockBlockEntity expected,UUID identity) {
         if(body==null||level==null||root==null||expected==null||identity==null||body.level()!=level
                 ||!level.hasChunkAt(root)||!level.hasChunkAt(root.above())
@@ -37,4 +68,3 @@ public final class AirlockToolLineOfSight {
         return level.getBlockEntity(root)==expected&&expected.identity().equals(identity)?hitPos:null;
     }
 }
-

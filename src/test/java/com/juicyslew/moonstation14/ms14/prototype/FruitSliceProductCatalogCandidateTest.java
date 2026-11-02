@@ -61,16 +61,8 @@ class FruitSliceProductCatalogCandidateTest {
         assertEquals(Map.of(ModReagents.createKey("juicepineapple"), 200L), extractables.get(id("pineapple_slice")).juiceSolution().centContents());
         assertEquals(Map.of(ModReagents.createKey("juicewatermelon"), 400L), extractables.get(id("watermelon_slice")).juiceSolution().centContents());
 
-        for (String family : new String[]{"ingestion_profile", "extractable_profile", "produce_profile", "item_food_solution_profile"}) {
-            for (String name : new String[]{"pineapple_slice", "watermelon_slice"}) {
-                String path = "data/moonstation14/moonstation14/" + family + "/" + name + ".json";
-                try (var resource = getClass().getClassLoader().getResourceAsStream(path)) {
-                    assertNull(resource, "candidate data must not be registered as production data: " + path);
-                } catch (java.io.IOException e) {
-                    throw new AssertionError("Could not close resource stream: " + path, e);
-                }
-            }
-        }
+        for (String family : new String[]{"ingestion_profile", "extractable_profile", "produce_profile", "item_food_solution_profile"})
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "pineapple_slice", "watermelon_slice");
     }
 
     private static void assertEdibleDefaults(IngestionProfile.Edible edible) {

@@ -70,11 +70,16 @@ public final class SmallBotanyFixtureLayout {
     /** Complete set of cells the fixture builder may write; command preflight and pure tests share it. */
     public static java.util.List<BlockPos> plannedFootprint(BlockPos main) {
         var positions=new java.util.LinkedHashSet<BlockPos>();
-        for(BlockPos room:roomOrigins(main)) for(int x=0;x<WIDTH;x++) for(int y=0;y<HEIGHT;y++) for(int z=0;z<DEPTH;z++) positions.add(room.offset(x,y,z));
+        for(BlockPos room:roomOrigins(main)) positions.addAll(roomFootprint(room,WIDTH,DEPTH,HEIGHT));
         connectorPlan(main).forEach(cell->positions.add(cell.pos()));
         careLightingCablePlan(main).forEach(node->positions.add(node.pos()));
         for(var node:showcaseLightingCablePlan(main)) positions.add(node.pos());
         for(int x=5;x<=9;x++) for(int y=0;y<=3;y++) for(int z=-4;z<=-1;z++) positions.add(main.offset(x,y,z));
+        return java.util.List.copyOf(positions);
+    }
+    public static java.util.List<BlockPos> roomFootprint(BlockPos origin,int width,int depth,int height) {
+        var positions=new java.util.ArrayList<BlockPos>(width*depth*height);
+        for(int x=0;x<width;x++) for(int y=0;y<height;y++) for(int z=0;z<depth;z++) positions.add(origin.offset(x,y,z));
         return java.util.List.copyOf(positions);
     }
     private SmallBotanyFixtureLayout() { }

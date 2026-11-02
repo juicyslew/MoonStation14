@@ -44,4 +44,23 @@ def capture(check, repo):
         jar = Path(repo) / 'gradle' / 'wrapper' / 'gradle-wrapper.jar'
         result['gradle_wrapper_properties'] = _file(props)
         result['gradle_wrapper_jar'] = _file(jar)
+        # Keep this evidence tied to the exact launcher adaptation used for
+        # execution rather than inferring policy from the frozen plan.
+        try:
+            from workflow_runtime import execution_argv
+        except ImportError:
+            from tooling.agent_workflow.workflow_runtime import execution_argv
+        executed = execution_argv(repo, argv)
+        if 'runGameTestServer' in executed:
+            script = Path(__file__).resolve().with_name('validation-logging.gradle')
+            if not script.is_file() or script.is_symlink():
+                raise ValueError('canonical managed validation logging init script is missing or linked')
+            debug = [arg.split('=', 1)[1] for arg in executed if arg.startswith('-Pms14ValidationDebug=')]
+            if len(debug) != 1 or debug[0] not in ('true', 'false'):
+                raise ValueError('managed validation logging mode is missing or invalid')
+            result['validation_logging'] = {
+                'policy_id': 'ms14-gametest-logging-v1',
+                'mode': 'DEBUG' if debug[0] == 'true' else 'INFO',
+                'init_script': _file(script),
+            }
     return result

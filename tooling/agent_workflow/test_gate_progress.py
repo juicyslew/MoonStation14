@@ -542,31 +542,8 @@ console.log(JSON.stringify({
         dom = self.dom(page, time.time())
         self.assertIn(expected_url, dom['links'])
 
-    @unittest.skipUnless(os.name == 'nt', 'Windows PowerShell launcher compatibility test')
-    def test_launcher_noopen_with_spaced_paths_under_both_powershells(self):
-        repo = self.root.parent / 'MoonStation14 fixture'
-        shared = self.root.parent / 'MoonStation14-shared' / 'tooling' / 'agent_workflow'
-        exchange = self.root.parent / 'Asset Building Workspace' / 'work' / 'agent_exchange'
-        repo.mkdir(parents=True)
-        shared.mkdir(parents=True)
-        (exchange / 'candidates').mkdir(parents=True)
-        shutil.copy2(Path(__file__).parents[2] / 'integration-status.ps1', repo / 'integration-status.ps1')
-        shutil.copy2(Path(__file__).with_name('gate_progress.py'), shared / 'gate_progress.py')
-        (shared / 'owner_feedback.py').write_text(
-            "import argparse,json\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--exchange');g=p.add_mutually_exclusive_group(required=True);g.add_argument('--once',action='store_true');g.add_argument('--ensure-started',action='store_true');a=p.parse_args();r=Path(a.exchange);f=r/'fixture-feedback-calls.json';calls=json.loads(f.read_text()) if f.exists() else [];calls.append('once' if a.once else 'ensure-started');f.write_text(json.dumps(calls))\n",
-            encoding='utf-8')
-        for host in ('powershell', 'pwsh'):
-            executable = shutil.which(host) or shutil.which(host + '.exe')
-            if not executable:
-                self.fail(f'required PowerShell host is unavailable: {host}')
-            result = subprocess.run(
-                [executable, '-NoProfile', '-WindowStyle', 'Hidden', '-File', str(repo / 'integration-status.ps1'), '-NoOpen'],
-                capture_output=True, text=True, encoding='utf-8', timeout=30,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(Path(result.stdout.strip()), exchange / 'integration-status.html')
-        self.assertTrue((exchange / 'integration-status.html').is_file())
-        self.assertEqual(json.loads((exchange / 'fixture-feedback-calls.json').read_text()), ['once', 'ensure-started', 'once', 'ensure-started'])
+    def test_legacy_integration_status_launcher_is_retired(self):
+        self.assertFalse((Path(__file__).parents[2] / 'integration-status.ps1').exists())
 
 
 if __name__ == '__main__':

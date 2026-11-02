@@ -62,6 +62,28 @@ public final class TomatoItemDamageGameTests {
         });
     }
 
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 120)
+    public static void ordinaryWatermelonDropSurvivesGravityWithoutDamageOrReagentChange(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos floor = helper.absolutePos(new BlockPos(5, 1, 5));
+        level.setBlock(floor, Blocks.STONE.defaultBlockState(), 3);
+        var stack = ProduceFactory.createHarvest(ResourceLocation.fromNamespaceAndPath("moonstation14", "watermelon"), 10);
+        var chemistry = stack.get(ModDataComponents.REAGENT.get());
+        var item = LooseItemEntity.create(level, new Vec3(floor.getX() + .5, floor.getY() + 4, floor.getZ() + .5), stack);
+        require(level.addFreshEntity(item), "ordinary harvested watermelon enters loose world");
+        helper.runAfterDelay(90, () -> {
+            try {
+                require(!item.isRemoved() && item.getItem().is(ModItems.WATERMELON.get()), "ordinary falling watermelon remains an item");
+                require(item.getItem().get(ModDataComponents.ITEM_DAMAGE_STATE.get()) == null,
+                        "ordinary vertical watermelon drop is not an explicit throw and gains no impact damage");
+                require(item.getItem().get(ModDataComponents.REAGENT.get()).equals(chemistry),
+                        "gravity-only watermelon landing preserves exact food chemistry");
+                require(level.getBlockState(floor.above()).isAir(), "ordinary watermelon drop creates no destruction puddle");
+                helper.succeed();
+            } catch (Throwable failure) { helper.fail("ordinary watermelon drop: " + failure); }
+        });
+    }
+
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 240)
     @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining", "merge-main-stage-two"})
     public static void authenticatedThrowLandsDestroysTomatoAndSpillsOnlyCurrentChemistry(GameTestHelper helper) {

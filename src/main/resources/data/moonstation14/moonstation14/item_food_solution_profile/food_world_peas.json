@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:food_world_peas",
+  "capacity_cents": 800,
+  "contents_cents": {
+    "moonstation14:happiness": 300,
+    "moonstation14:nutriment": 300,
+    "moonstation14:pax": 200
+  },
+  "refillable": true
+}

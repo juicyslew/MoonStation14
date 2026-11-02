@@ -11,8 +11,10 @@
     "denyDurationSeconds": 0.45,
     "crushDamageBlunt": 15.0,
     "crushStunSeconds": 2.0,
-    "bumpOpen": true
+    "bumpOpen": true,
+    "pryTimeSeconds": 1.5
   },
+  "pryUnpowered": { "pryModifier": 0.1 },
   "airlock": {
     "safety": true,
     "autoClose": true,

@@ -9,13 +9,14 @@ import org.junit.jupiter.api.Test;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import com.juicyslew.moonstation14.ms14.fixture.FixtureSiteContext;
 
 class DisposalFixtureContextTest {
     private static final ResourceKey<Level> OVERWORLD=ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,ResourceLocation.withDefaultNamespace("overworld"));
     private static final ResourceKey<Level> NETHER=ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,ResourceLocation.withDefaultNamespace("the_nether"));
 
     @Test void sitesIsolateOperatorAndDimensionAndOnlySuccessfulBuildIsRemembered(){
-        var context=new DisposalFixtureSiteContext();var one=UUID.randomUUID();var two=UUID.randomUUID();
+        var context=new FixtureSiteContext();var one=UUID.randomUUID();var two=UUID.randomUUID();
         var first=new BlockPos(22,1,24);var second=new BlockPos(30,2,40);
         context.buildResult(one,OVERWORLD,first,false);
         assertNull(context.find(one,OVERWORLD));

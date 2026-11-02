@@ -1,0 +1,32 @@
+{
+  "parent": "moonstation14:generic",
+  "physical_width": 0.4,
+  "step_trigger": {
+    "active": true,
+    "intersection_ratio": 0.2,
+    "required_speed": 3.5,
+    "ignore_weightless": false
+  },
+  "slippery": {
+    "stun_seconds": 0.5,
+    "knockdown_seconds": 1.5,
+    "launch_velocity_multiplier": 1.5,
+    "friction_factor": 0.5,
+    "friction_duration_seconds": 0.5,
+    "stamina_damage": 25,
+    "affects_sliding": false,
+    "requires_contact": true,
+    "super_slippery": false,
+    "sound_event": "moonstation14:ss14/effects/slip",
+    "sound_volume_db": 0
+  },
+  "render_kind": "block_model",
+  "visual": {
+    "sprite_scale_x": 1,
+    "sprite_scale_y": 1,
+    "sprite_offset_x": 0,
+    "sprite_offset_y": 0,
+    "model_scale": 1.2,
+    "model_floor_offset": 0.6
+  }
+}

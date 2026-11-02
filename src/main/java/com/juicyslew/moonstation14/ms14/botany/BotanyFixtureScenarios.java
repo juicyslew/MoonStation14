@@ -323,6 +323,34 @@ public final class BotanyFixtureScenarios {
         prepareFixtureReadyPlant(plant,id,seed,tray.resolvedTrayProfile(),now);
         tray.commitMutation();
     }
+    /** Arranges a catalog gallery as living seedlings without advancing their growth clock. */
+    public static String arrangeCatalog(ServerLevel level,
+            com.juicyslew.moonstation14.ms14.botany.fixture.BotanyCatalogGalleryPlan plan) {
+        if (level == null || plan == null || !ModSeedProfiles.serverReady())
+            return "Scenario refused: resolved seed profiles are not ready.";
+        var targets = new java.util.ArrayList<HydroponicsTrayBlockEntity>();
+        for (var entry : plan.entries()) {
+            var resolved = ModSeedProfiles.serverLookup(entry.species());
+            var target = tray(level, entry.trayPosition());
+            if (resolved == null || !resolved.equals(entry.profile()))
+                return "Scenario refused: resolved seed profile is unavailable or changed for " + entry.species() + ".";
+            if (target == null || target.plantState() == null)
+                return "Scenario refused: catalog tray for " + entry.species() + " is not initialized.";
+            targets.add(target);
+        }
+        long now = level.getGameTime();
+        for (int i = 0; i < plan.entries().size(); i++) {
+            var entry = plan.entries().get(i);
+            var plant = targets.get(i).plantState();
+            prepareFixtureSeedling(plant, entry.species(), entry.profile(), now);
+            targets.get(i).commitMutation();
+        }
+        return "Arranged " + targets.size() + " catalog seedlings.";
+    }
+    static void prepareFixtureSeedling(PlantInstance plant, ResourceLocation id, SeedProfile resolvedSeed, long now) {
+        plant.plant(id, resolvedSeed, now);
+        plant.soil(100, 100, 0, 0);
+    }
     static void prepareEnvironmentComparison(PlantInstance plant,GeneticValue baseline,GeneticValue preset,
             TrayProfile tray,long now) {
         prepareFixtureReadyPlant(plant,baseline.species(),baseline.profile(),tray,now);

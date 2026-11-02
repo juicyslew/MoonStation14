@@ -32,9 +32,13 @@ public record AirAlarmLayout(int viewportWidth, int viewportHeight, int x, int y
     // MachineDraftField places its submit button 4px after the edit field.
     public Rect numericSubmit() { return rect(214,150,76,20); }
     public Rect gas(int index) { return rect(8+(index%2)*146,82+(index/2)*22,140,19); }
+    public Rect alarmMode(int index) { return rect(8 + index * 57,82,55,18); }
+    public Rect autoMode() { return rect(8,103,288,18); }
+    public Rect monitorStats() { return rect(8,125,288,27); }
+    public Rect gasReading(int index) { return rect(8+(index%2)*146,153+(index/2)*10,140,10); }
+    public Rect summary() { return rect(8,29,Math.max(1,width-42),16); }
     public Rect inset() { return rect(7,52,width-14,height-80); }
     public Rect footer() { return rect(8,height-18,width-16,14); }
     public Rect fallback() { return rect(8,height-34,width-16,14); }
     public List<Rect> filters() { return java.util.stream.IntStream.range(0,9).mapToObj(this::gas).toList(); }
 }
-

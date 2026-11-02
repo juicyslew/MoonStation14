@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:grape",
+  "capacity_cents": 900,
+  "contents_cents": {
+    "moonstation14:nutriment": 500,
+    "moonstation14:vitamin": 400
+  },
+  "refillable": true
+}

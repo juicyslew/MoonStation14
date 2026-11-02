@@ -28,9 +28,18 @@ public final class AirAlarmDeviceLinks {
     private final List<Link> links = new ArrayList<>();
     private boolean valid = true;
 
-    public record Link(ResourceKey<Level> dimension, BlockPos pos, VentilationDeviceConfig.Kind kind, UUID deviceId) {
+    public enum EndpointRole { VENT, SCRUBBER, FIRELOCK, AIR_ALARM;
+        public static EndpointRole ventilation(VentilationDeviceConfig.Kind kind) {
+            return kind == VentilationDeviceConfig.Kind.VENT ? VENT : SCRUBBER;
+        }
+        public java.util.Optional<VentilationDeviceConfig.Kind> ventilationKind() {
+            return switch (this) { case VENT -> java.util.Optional.of(VentilationDeviceConfig.Kind.VENT);
+                case SCRUBBER -> java.util.Optional.of(VentilationDeviceConfig.Kind.SCRUBBER); default -> java.util.Optional.empty(); };
+        }
+    }
+    public record Link(ResourceKey<Level> dimension, BlockPos pos, EndpointRole role, UUID deviceId) {
         public Link {
-            if (dimension == null || pos == null || kind == null || deviceId == null)
+            if (dimension == null || pos == null || role == null || deviceId == null)
                 throw new IllegalArgumentException("incomplete device identity");
             pos = pos.immutable();
         }
@@ -65,7 +74,7 @@ public final class AirAlarmDeviceLinks {
         links.clear(); links.addAll(replacement); return true;
     }
     public boolean replaceLinks(List<Link> replacement, int capacity) {
-        if(!valid||replacement==null||capacity<0||replacement.size()>capacity||replacement.stream().anyMatch(java.util.Objects::isNull)
+        if(!valid||replacement==null||capacity<0||capacity>HARD_LIMIT||replacement.size()>capacity||replacement.stream().anyMatch(java.util.Objects::isNull)
                 ||replacement.stream().map(Link::deviceId).distinct().count()!=replacement.size()
                 ||replacement.stream().map(link->List.of(link.dimension(),link.pos())).distinct().count()!=replacement.size())return false;
         links.clear();links.addAll(replacement);return true;
@@ -74,7 +83,7 @@ public final class AirAlarmDeviceLinks {
         if (device.getLevel()!=level || device.isRemoved() || device.deviceId()==null) return false;
         BlockPos pos=device.getBlockPos(); LevelChunk chunk=loadedChunk(level,pos);
         if(chunk==null||chunk.getBlockEntity(pos)!=device||!(chunk.getBlockState(pos).getBlock() instanceof VentilationDeviceBlock block)||block.kind()!=device.kind())return false;
-        Link link=new Link(level.dimension(),pos,block.kind(),device.deviceId());
+        Link link=new Link(level.dimension(),pos,EndpointRole.ventilation(block.kind()),device.deviceId());
         if(target.stream().anyMatch(existing->existing.deviceId().equals(link.deviceId())||existing.pos().equals(link.pos())))return false;
         target.add(link);return true;
     }
@@ -89,7 +98,7 @@ public final class AirAlarmDeviceLinks {
         if (chunk == null || chunk.getBlockEntity(pos) != device
                 || !(chunk.getBlockState(pos).getBlock() instanceof VentilationDeviceBlock block)
                 || block.kind() != device.kind()) return false;
-        Link link = new Link(level.dimension(), pos, block.kind(), device.deviceId());
+        Link link = new Link(level.dimension(), pos, EndpointRole.ventilation(block.kind()), device.deviceId());
         if (links.stream().anyMatch(existing -> existing.dimension().equals(link.dimension())
                 && existing.pos().equals(link.pos()))) return false;
         links.add(link);
@@ -103,11 +112,32 @@ public final class AirAlarmDeviceLinks {
         if (level == null) return null;
         LevelChunk chunk = loadedChunk(level, link.pos());
         if (chunk == null || !(chunk.getBlockState(link.pos()).getBlock() instanceof VentilationDeviceBlock block)
-                || block.kind() != link.kind()
+                || block.kind() != link.role().ventilationKind().orElse(null)
                 || !(chunk.getBlockEntity(link.pos()) instanceof VentilationDeviceBlockEntity device)
-                || device.isRemoved() || device.getLevel() != level || device.kind() != link.kind()
+                || device.isRemoved() || device.getLevel() != level || device.kind() != link.role().ventilationKind().orElse(null)
                 || !link.deviceId().equals(device.deviceId())) return null;
         return device;
+    }
+
+    /** Validates a loaded concrete endpoint without loading its chunk; unloaded members remain untouched. */
+    public static boolean resolvesEndpoint(ServerLevel origin, Link link) {
+        if (resolve(origin, link) != null) return link.role().ventilationKind().isPresent();
+        if (origin == null || link == null || !origin.getServer().isSameThread()) return false;
+        ServerLevel level = origin.getServer().getLevel(link.dimension());
+        if (level == null) return false;
+        LevelChunk chunk = loadedChunk(level, link.pos());
+        if (chunk == null) return false;
+        var be = chunk.getBlockEntity(link.pos());
+        return switch (link.role()) {
+            case VENT, SCRUBBER -> false;
+            case FIRELOCK -> be instanceof com.juicyslew.moonstation14.ms14.doors.FirelockBlockEntity firelock
+                    && !firelock.isRemoved() && firelock.getLevel() == level && link.deviceId().equals(firelock.identity())
+                    || be instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity airlock
+                    && !airlock.isRemoved() && airlock.getLevel() == level && airlock.firelockController()!=null
+                    && link.deviceId().equals(airlock.firelockController().identity());
+            case AIR_ALARM -> be instanceof AirAlarmBlockEntity alarm
+                    && !alarm.isRemoved() && alarm.getLevel() == level && link.deviceId().equals(alarm.controllerId());
+        };
     }
 
     private static LevelChunk loadedChunk(ServerLevel level, BlockPos pos) {
@@ -128,7 +158,7 @@ public final class AirAlarmDeviceLinks {
             item.putInt("X", link.pos().getX());
             item.putInt("Y", link.pos().getY());
             item.putInt("Z", link.pos().getZ());
-            item.putString("Kind", link.kind().name());
+            item.putString("Role", link.role().name());
             item.putUUID("DeviceId", link.deviceId());
             list.add(item);
         }
@@ -146,23 +176,23 @@ public final class AirAlarmDeviceLinks {
                 || list.size() > maxDevices || list.size() > HARD_LIMIT) return;
         List<Link> parsed = new ArrayList<>();
         HashSet<List<Object>> positions = new HashSet<>();
+        HashSet<UUID> identities = new HashSet<>();
         for (Tag tag : list) {
             if (!(tag instanceof CompoundTag item) || !item.contains("Dimension", Tag.TAG_STRING)
                     || !item.contains("X", Tag.TAG_INT) || !item.contains("Y", Tag.TAG_INT)
-                    || !item.contains("Z", Tag.TAG_INT) || !item.contains("Kind", Tag.TAG_STRING)
+                    || !item.contains("Z", Tag.TAG_INT) || !item.contains("Role", Tag.TAG_STRING)
                     || !item.hasUUID("DeviceId")) return;
             ResourceLocation id = ResourceLocation.tryParse(item.getString("Dimension"));
-            VentilationDeviceConfig.Kind kind;
-            try { kind = VentilationDeviceConfig.Kind.valueOf(item.getString("Kind")); }
+            EndpointRole role;
+            try { role = EndpointRole.valueOf(item.getString("Role")); }
             catch (IllegalArgumentException exception) { return; }
             if (id == null) return;
             Link link = new Link(ResourceKey.create(Registries.DIMENSION, id),
-                    new BlockPos(item.getInt("X"), item.getInt("Y"), item.getInt("Z")), kind, item.getUUID("DeviceId"));
-            if (!positions.add(List.of(link.dimension(), link.pos())) || parsed.contains(link)) return;
+                    new BlockPos(item.getInt("X"), item.getInt("Y"), item.getInt("Z")), role, item.getUUID("DeviceId"));
+            if (!positions.add(List.of(link.dimension(), link.pos())) || !identities.add(link.deviceId())) return;
             parsed.add(link);
         }
         links.addAll(parsed);
         valid = true;
     }
 }
-

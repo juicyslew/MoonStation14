@@ -16,6 +16,8 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDev
 import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.AirAlarmData;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.ModAirAlarms;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmThresholdData;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.ModAtmosAlarmThresholds;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfile;
 import com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles;
@@ -62,6 +64,8 @@ import com.juicyslew.moonstation14.ms14.medical.InjectorModeData;
 import com.juicyslew.moonstation14.ms14.medical.ModInjectorModes;
 import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
 import com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData;
+import com.juicyslew.moonstation14.ms14.doors.prototype.FirelockData;
+import com.juicyslew.moonstation14.ms14.doors.prototype.ModFirelocks;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
 import com.juicyslew.moonstation14.ms14.equipment.*;
 import com.juicyslew.moonstation14.ms14.puddle.PuddleData;
@@ -184,6 +188,8 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<AirAlarmData> clientAirAlarms() {
         return CLIENT_MANAGER.snapshot(ModAirAlarms.AIR_ALARM_TYPE);
     }
+    public static PrototypeCatalog<AtmosAlarmThresholdData> serverAtmosAlarmThresholds() { return SERVER_MANAGER.snapshot(ModAtmosAlarmThresholds.TYPE); }
+    public static PrototypeCatalog<AtmosAlarmThresholdData> clientAtmosAlarmThresholds() { return CLIENT_MANAGER.snapshot(ModAtmosAlarmThresholds.TYPE); }
     public static PrototypeCatalog<ExplosionData> serverExplosions() { return SERVER_MANAGER.snapshot(ModExplosions.EXPLOSION_TYPE); }
     public static PrototypeCatalog<ExplosionData> clientExplosions() { return CLIENT_MANAGER.snapshot(ModExplosions.EXPLOSION_TYPE); }
 
@@ -247,6 +253,8 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<InjectorModeData> clientInjectorModes() { return CLIENT_MANAGER.snapshot(ModInjectorModes.TYPE); }
     public static PrototypeCatalog<AirlockData> serverAirlocks() { return SERVER_MANAGER.snapshot(ModAirlocks.TYPE); }
     public static PrototypeCatalog<AirlockData> clientAirlocks() { return CLIENT_MANAGER.snapshot(ModAirlocks.TYPE); }
+    public static PrototypeCatalog<FirelockData> serverFirelocks() { return SERVER_MANAGER.snapshot(ModFirelocks.TYPE); }
+    public static PrototypeCatalog<FirelockData> clientFirelocks() { return CLIENT_MANAGER.snapshot(ModFirelocks.TYPE); }
     public static PrototypeCatalog<InventoryTemplateData> serverInventoryTemplates() { return SERVER_MANAGER.snapshot(ModInventoryTemplates.TYPE); }
     public static PrototypeCatalog<InventoryTemplateData> clientInventoryTemplates() { return CLIENT_MANAGER.snapshot(ModInventoryTemplates.TYPE); }
     public static PrototypeCatalog<EquipmentItemData> serverEquipmentItems() { return SERVER_MANAGER.snapshot(ModEquipmentItems.TYPE); }
@@ -305,6 +313,7 @@ public final class PrototypeRuntime {
         manager.register(ModGasReactions.GAS_REACTION_TYPE);
         manager.register(ModVentilationDevices.VENTILATION_DEVICE_TYPE);
         manager.register(ModAirAlarms.AIR_ALARM_TYPE);
+        manager.register(ModAtmosAlarmThresholds.TYPE);
         manager.register(ModExplosions.EXPLOSION_TYPE);
         manager.register(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE);
         manager.register(ModDisposals.DISPOSAL_TYPE);
@@ -335,7 +344,8 @@ public final class PrototypeRuntime {
         manager.register(ModDamageFeedback.TYPE);
         manager.register(ModMedicalItems.TYPE);
         manager.register(ModInjectorModes.TYPE);
-        manager.register(ModAirlocks.TYPE);
+         manager.register(ModAirlocks.TYPE);
+         manager.register(ModFirelocks.TYPE);
         manager.register(ModToolProfiles.TYPE);
         manager.register(ModInventoryTemplates.TYPE);
         manager.register(ModEquipmentItems.TYPE);

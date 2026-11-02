@@ -665,7 +665,7 @@ class ExplicitCoordinator:
         except Exception as exc:
             self._set_error(f"event {event_id}: incident persistence failed ({type(exc).__name__})")
 
-    def _author_diagnostics(self, run, log_artifact_id=None, log_offset=0):
+    def _author_diagnostics(self, run, log_artifact_id=None, log_offset=None):
         generation=run.get('current_attempt')
         tasks=self.store.list_tasks(run['run_id'],generation)
         checks=[t for t in tasks if t.get('kind')=='CHECK']
@@ -711,7 +711,7 @@ class ExplicitCoordinator:
             logs.append({'task_id':task.get('task_id'),**workflow_task_artifacts.read_log_excerpt(
                 artifact,artifact_dir=self.artifact_dir,task_id=task.get('task_id'),run_id=run['run_id'],
                 input_digest=run.get('input_digest'),secret_values=secrets,
-                **({'offset':log_offset} if log_artifact_id is not None else {}))})
+                **({'offset':log_offset} if log_artifact_id is not None and log_offset is not None else {}))})
         result={'state':'available' if completed else 'pending','checks':findings,'skipped_checks':skipped_checks,'logs':logs,
             'skipped_logs':omitted,'redaction_note':'Limited credential redaction; not a universal secret detector.'}
         # Leave room for the enclosing run/status response and use the same UTF-8
@@ -889,10 +889,10 @@ class ExplicitCoordinator:
                 return JSONResponse(_error('INVALID_QUERY','log_offset requires log_artifact_id.'),400)
             if (artifact_id is not None or offset_raw is not None) and not include_diagnostics:
                 return JSONResponse(_error('INVALID_QUERY','Log selection requires include_diagnostics=true.'),400)
-            if offset_raw is not None and (len(offset_raw)>8 or not offset_raw.isascii() or not offset_raw.isdigit()):
+            if offset_raw is not None and (not offset_raw.isascii() or not offset_raw.isdigit() or len(offset_raw)>19):
                 return JSONResponse(_error('INVALID_QUERY','log_offset must be a nonnegative byte offset.'),400)
-            log_offset=int(offset_raw or '0')
-            if log_offset>16*1024*1024: return JSONResponse(_error('INVALID_QUERY','log_offset exceeds the log size limit.'),400)
+            log_offset=int(offset_raw) if offset_raw is not None else None
+            if log_offset is not None and log_offset>2**63-1: return JSONResponse(_error('INVALID_QUERY','log_offset must be at most 9223372036854775807.'),400)
             if include_diagnostics and not (request.query_params.get('run_id') or request.query_params.get('idempotency_key')):
                 return JSONResponse(_error('INVALID_QUERY','Diagnostics require run_id or idempotency_key.'),400)
             if artifact_id is not None and not (request.query_params.get('run_id') or request.query_params.get('idempotency_key')):

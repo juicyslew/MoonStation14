@@ -223,6 +223,45 @@ class NativeInputLoaderTests(unittest.TestCase):
         self.assertEqual(result['decision'],'ERROR')
         self.assertEqual(store.get_resource_history('native_validation')[-1]['state'],'RELEASED')
 
+    def test_teardown_phase_timeout_is_typed_error_and_releases_claim(self):
+        def timed_out(_repo, plan, logdir, **_kwargs):
+            logdir=Path(logdir); logdir.mkdir(parents=True,exist_ok=True)
+            log=logdir/'timeout.log'; log.write_text('GAME_TEST_TEARDOWN_TIMEOUT\n',encoding='utf-8')
+            check=plan['checks'][0]
+            return [{'argv':check['argv'],'kind':check['kind'],'rationale':check['rationale'],
+                'covers':check['covers'],'exit_code':124,'timeout_phase':'gametest_teardown',
+                'log':str(log),'log_sha256':hashlib.sha256(log.read_bytes()).hexdigest(),
+                'evidence':{'status':'UNVERIFIED','counts':{},'artifacts':[],'findings':[]}}]
+        with patch.object(workflow_runtime,'run_finite_checks',side_effect=timed_out):
+            store,result,_root=self.run_case('gametest-teardown-timeout','pass\n')
+        self.assertEqual('ERROR',result['decision'],result)
+        self.assertEqual('RELEASED',store.get_resource_history('native_validation')[-1]['state'])
+        db=store._connect()
+        try: task_id=db.execute('select id from tasks').fetchone()[0]
+        finally: db.close()
+        incident=store.get_task_incident(task_id)
+        self.assertEqual('GAMETEST_TEARDOWN_TIMEOUT',incident['code'],incident)
+        db=store._connect()
+        try: self.assertEqual(1,db.execute('select count(*) from tasks').fetchone()[0])
+        finally: db.close()
+
+    def test_command_timeout_keeps_generic_timeout_incident(self):
+        def timed_out(_repo, plan, logdir, **_kwargs):
+            logdir=Path(logdir); logdir.mkdir(parents=True,exist_ok=True)
+            log=logdir/'timeout.log'; log.write_text('TIMEOUT\n',encoding='utf-8')
+            check=plan['checks'][0]
+            return [{'argv':check['argv'],'kind':check['kind'],'rationale':check['rationale'],
+                'covers':check['covers'],'exit_code':124,'timeout_phase':'command',
+                'log':str(log),'log_sha256':hashlib.sha256(log.read_bytes()).hexdigest(),
+                'evidence':{'status':'UNVERIFIED','counts':{},'artifacts':[],'findings':[]}}]
+        with patch.object(workflow_runtime,'run_finite_checks',side_effect=timed_out):
+            store,result,_root=self.run_case('generic-timeout','pass\n')
+        self.assertEqual('ERROR',result['decision'],result)
+        db=store._connect()
+        try: task_id=db.execute('select id from tasks').fetchone()[0]
+        finally: db.close()
+        self.assertEqual('TIMEOUT',store.get_task_incident(task_id)['code'])
+
     def test_changed_source_commits_error_without_launching_child(self):
         store,result,root=self.run_case('drift-error',"from pathlib import Path; Path('ran').write_text('yes')\n",changed=True)
         self.assertEqual(result['decision'],'ERROR'); self.assertFalse((root/'repo'/'ran').exists())

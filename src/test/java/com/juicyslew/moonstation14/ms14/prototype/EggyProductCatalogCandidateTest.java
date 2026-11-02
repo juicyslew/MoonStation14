@@ -78,14 +78,20 @@ class EggyProductCatalogCandidateTest {
         var productionManager = new PrototypeManager();
         productionManager.register(ModLooseObjectProfiles.PROFILE_TYPE);
         var productionBefore = productionManager.snapshot();
+        assertDoesNotThrow(() -> productionManager.stage(Map.of(ModLooseObjectProfiles.PROFILE_TYPE, looseRaw), ignored -> {}));
+        assertSame(productionBefore, productionManager.snapshot(), "valid candidate resolution must not publish");
+        var invalidOutput = looseRaw.entrySet().stream().collect(java.util.stream.Collectors.toMap(
+                Map.Entry::getKey, e -> e.getValue().deepCopy()));
+        var eggProfile = invalidOutput.get(id("egg"));
+        eggProfile.getAsJsonObject("item_damage").getAsJsonArray("destruction_outputs").get(0).getAsJsonObject()
+                .addProperty("output", "moonstation14:synthetic_unregistered_eggy_output");
         var rejection = assertThrows(PrototypeLoadException.class, () -> productionManager.stage(
-                Map.of(ModLooseObjectProfiles.PROFILE_TYPE, looseRaw), ignored -> {}));
-        assertTrue(rootMessages(rejection).contains("unknown item output: moonstation14:eggshells"), rootMessages(rejection));
-        assertSame(productionBefore, productionManager.snapshot(), "unregistered output must reject before publication");
+                Map.of(ModLooseObjectProfiles.PROFILE_TYPE, invalidOutput), ignored -> {}));
+        assertTrue(rootMessages(rejection).contains("synthetic_unregistered_eggy_output"), rootMessages(rejection));
+        assertSame(productionBefore, productionManager.snapshot(), "unregistered synthetic output must reject before publication");
 
         for (String family : new String[]{"produce_profile", "ingestion_profile", "item_food_solution_profile", "item_footprint", "loose_object_profile"})
-            for (String item : new String[]{"egg", "eggshells"})
-                try (var stream = getClass().getClassLoader().getResourceAsStream("data/moonstation14/moonstation14/" + family + "/" + item + ".json")) { assertNull(stream, family + "/" + item); }
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "egg", "eggshells");
     }
 
     @Test void canonicalEggProductMapsToEggySeedAndSharedGenerationChemistry() {
