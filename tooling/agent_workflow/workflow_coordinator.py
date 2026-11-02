@@ -837,7 +837,8 @@ class ExplicitCoordinator:
                 result=await anyio.to_thread.run_sync(lambda:workflow_scope.register_author_scope(self.store,binding.context,binding.caller,body['scope'],body['idempotency_key'],artifact_dir=self.artifact_dir))
                 return JSONResponse({'response':result})
             except workflow_scope.ScopeError as exc:
-                result={'status':'REJECTED','result':'FAIL','code':exc.code,'field':exc.field,'message':'Scope input does not satisfy the bound version-1 feature contract.',
+                policy_input=exc.code=='POLICY_INPUT'
+                result={'status':'REJECTED','result':'FAIL','code':exc.code,'field':exc.field,'message':(str(exc)[:500] if policy_input else 'Scope input does not satisfy the bound version-1 feature contract.'),
                         'next_action':'CORRECT_SCOPE','recovery':str(getattr(exc,'recovery',None) or 'Correct the indicated scope field using current bound status and fresh keys.')[:500],'payload_digest':request_digest}
                 try:result=await anyio.to_thread.run_sync(lambda:self.store.record_author_scope_rejection(caller=binding.caller,
                     command_key=body['idempotency_key'],payload_digest=request_digest,response=result))
@@ -915,7 +916,7 @@ class ExplicitCoordinator:
                     return JSONResponse(_error('FORBIDDEN', 'Run is outside this configured author/worktree.'), 403)
             if key and receipt is None and result is None:
                 return JSONResponse({"run":None,"attempt":None,"submission":None,"freshness":"not_checked","coordinator":self.summary(),
-                    "next_action":"CHECK_SUBMISSION_STATUS","recovery":"No receipt is visible for this caller/key. This does not prove artifact IDs are unused; replay the same request/key only if the outcome is uncertain, otherwise prepare corrected evidence with fresh artifact IDs and fresh scope/submission keys."})
+                    "next_action":"CHECK_SUBMISSION_STATUS","recovery":"Admission remains UNKNOWN: no visible receipt does not prove rejection or that admission is finished. Before ANY worktree edits, resolve this original key with status. If owner says stop/no resubmit, do not replay submit; only read status and wait for accepted work to settle/authorized recovery and cleanup before edits. Do not busy-poll or use new keys. Without owner stop, replay only the exact same request/key when needed. Corrected evidence after a settled outcome needs fresh artifact IDs and fresh scope/submission keys."})
             if receipt and receipt.get('status') == 'REJECTED' and result is None:
                 response={"run":None,"attempt":None,"submission":receipt,"freshness":"not_checked","coordinator":self.summary(),
                     "next_action":receipt.get('next_action') or 'REPORT_ERROR',"recovery":"The REJECTED receipt is immutable. Follow its finding; do not infer artifact IDs or keys are unused or overwrite this receipt."}
@@ -931,8 +932,15 @@ class ExplicitCoordinator:
             elif result and result['attempt'].get('result')=='ERROR':
                 retired=await anyio.to_thread.run_sync(lambda:self.store.is_settled_error_head_retired(run_id))
                 head=await anyio.to_thread.run_sync(lambda:self.store.is_current_feature_head(run_id))
+                replaceable=False
+                if head and same_author:
+                    replaceable=await anyio.to_thread.run_sync(lambda:self.store.can_replace_source_snapshot_error(
+                        run_id=run_id,author=binding.context.authenticated_author,worktree=owner.get('worktree')))
                 response['continuation']={'retired_head':retired,
-                    'next_action':'PREPARE_FRESH_SUBMISSION' if retired and not head else 'WAIT_FOR_RECOVERY'}
+                    'next_action':'PREPARE_REVISED_SUBMISSION' if replaceable else
+                        'PREPARE_FRESH_SUBMISSION' if retired and not head else 'HISTORY_ONLY' if not head else 'WAIT_FOR_RECOVERY',
+                    'replaces_run_id':run_id if replaceable else None,
+                    'message':('The source changed after admission. Correct the scoped source changes and prepare fresh complete evidence and a fresh submission; owner stop/no-resubmit instructions prohibit automatic resubmission.' if replaceable else None)}
             elif result and result['attempt'].get('result')=='FAIL':
                 head=await anyio.to_thread.run_sync(lambda:self.store.is_current_feature_head(run_id))
                 response['continuation']={'retired_head':False,'next_action':'FIX_FINDINGS_AND_REPLACE' if head else 'HISTORY_ONLY'}
