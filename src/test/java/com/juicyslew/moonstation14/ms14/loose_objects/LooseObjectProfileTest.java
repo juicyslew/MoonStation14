@@ -24,7 +24,8 @@ class LooseObjectProfileTest {
         try (var files = Files.list(directory)) {
             for (Path file : files.filter(candidate -> candidate.toString().endsWith(".json")).toList()) {
                 JsonObject json = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
-                profiles.put(ResourceLocation.parse(json.get("id").getAsString()), json);
+                profiles.put(ResourceLocation.fromNamespaceAndPath("moonstation14",
+                        file.getFileName().toString().replaceFirst("\\.json$", "")), json);
             }
         }
         var resolved = PrototypeResolver.resolve(profiles, ModLooseObjectProfiles.PROFILE_TYPE.mergeStrategy().orElseThrow());

@@ -115,6 +115,7 @@ public final class GhostControlClient {
                     || ownerLevel != minecraft.level || !player.isSpectator()) return;
             Entity ghost = currentBody(minecraft, ghostEntityId, harnessKind);
             if (ghost != null && minecraft.getCameraEntity() == ghost) {
+                com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechClient.clearLiveIdentity();
                 activeEpoch = pendingEpoch;
                 committed = true;
                 sentSequence = 0;
@@ -334,6 +335,7 @@ public final class GhostControlClient {
     }
 
     private static void acceptBegin(Minecraft minecraft, LocalPlayer player, GhostControlPayloads.Begin begin) {
+        com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechClient.clearLiveIdentity();
         if (begin.mindEpoch() <= highestEpoch) return;
         clearSession(minecraft, false);
         highestEpoch = begin.mindEpoch();
@@ -412,6 +414,7 @@ public final class GhostControlClient {
     }
 
     private static void clearSession(Minecraft minecraft, boolean restoreCamera) {
+        com.juicyslew.moonstation14.ms14.chat.client.LocalSpeechClient.clearLiveIdentity();
         if (com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession.activeContext() != null)
             com.juicyslew.moonstation14.ms14.player_body_control.client.MovementTraceClient.sessionChanged();
         if (pendingEpoch != 0 && !committed) {
@@ -510,6 +513,8 @@ public final class GhostControlClient {
         Entity owned = ownedHarnessForTracker(currentBody(Minecraft.getInstance(), ghostEntityId, harnessKind));
         return owned instanceof Mob mob && !(mob instanceof GhostMobHarnessEntity) ? mob : null;
     }
+
+    public static long ownedCharacterEpoch() { return ownedCharacterForHud() == null ? 0 : activeEpoch; }
 
     public static boolean isOwnedMedicalObserverGhost(Entity entity) {
         return entity instanceof GhostMobHarnessEntity && harnessKind == MobHarnessKind.GHOST

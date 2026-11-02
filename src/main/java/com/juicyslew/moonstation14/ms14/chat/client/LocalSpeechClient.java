@@ -81,12 +81,10 @@ public final class LocalSpeechClient {
             Minecraft minecraft = Minecraft.getInstance();
             ClientLevel level = minecraft.level;
             // Ready is sent only with a bound world. Never stage an identity across worlds/logins.
-            if (level == null || minecraft.player == null || !identity.inDimension(level.dimension().location())) return;
-            if (level != world) {
-                clear();
-                world = level;
-            }
-            localName = identity.name();
+            Entity ownedBody = GhostControlClient.ownedCharacterForHud();
+            if (level == null || minecraft.player == null || ownedBody == null) return;
+            receiveIdentity(identity, level.dimension().location(), ownedBody.getUUID(),
+                    GhostControlClient.ownedCharacterEpoch());
             return;
         }
         if (!(packet instanceof LocalSpeechPayload payload)) return;
@@ -232,6 +230,21 @@ public final class LocalSpeechClient {
 
     public static String localName() {
         return localName;
+    }
+
+    public static void clearLiveIdentity() { localName = null; }
+
+    static boolean identityMatches(LocalCharacterIdentityPayload identity, Object dimension,
+                                   UUID bodyUuid, long epoch) {
+        return identity != null && dimension instanceof net.minecraft.resources.ResourceLocation location
+                && identity.inDimension(location) && bodyUuid != null && identity.bodyUuid().equals(bodyUuid)
+                && epoch > 0 && identity.epoch() == epoch;
+    }
+
+    /** Actual identity-cache receive path, with owned context supplied by the existing owner. */
+    static void receiveIdentity(LocalCharacterIdentityPayload identity, Object dimension, UUID bodyUuid, long epoch) {
+        if (!identityMatches(identity, dimension, bodyUuid, epoch)) return;
+        localName = identity.name();
     }
 
     public static void render(RenderLevelStageEvent event) {

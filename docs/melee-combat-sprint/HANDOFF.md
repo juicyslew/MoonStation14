@@ -42,6 +42,9 @@ staged `docs/merge-main-capabilities/VALIDATION.md` changes.
   only for profile-harness bodies, including corpses. Native bodies use their own
   resolved/native names; explicit custom names remain highest priority. Emotes,
   examine and other shared public-name consumers reuse that resolver.
+  **Subsequent correction:** this closure-time harness-class workaround was rejected
+  in the separately authorized character-identity mini-sprint. Its current ownership
+  repair is indexed by `docs/character-identity-mini-sprint/HANDOFF.md`.
 - Separate UI fix: `GhostRoleMenuWindow` now advertises actual pointer capture, so
   registry release ends title drags and shared relayout can resize expanded rows.
 

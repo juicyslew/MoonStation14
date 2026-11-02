@@ -53,5 +53,19 @@ class AnimalSpeechPrototypeTest {
         assertTrue(nativePig.component(SpeechComponent.class).isEmpty(),
                 "native Minecraft pig must not inherit the new animal wrapper");
         assertFalse(data.get(ResourceLocation.parse("moonstation14:pig")).has("parent"));
+
+        var monkeySpeech = profiles.get(ResourceLocation.parse("moonstation14:monkey"))
+                .component(SpeechComponent.class).orElseThrow();
+        assertEquals("monkey", monkeySpeech.accent());
+        assertTrue(profiles.get(ResourceLocation.parse("moonstation14:monkey"))
+                .component(com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent.class)
+                .orElseThrow().allowSpeech());
+        assertTrue(profiles.get(ResourceLocation.parse("moonstation14:monkey")).component(
+                com.juicyslew.moonstation14.ms14.character.components.VocalComponent.class).isEmpty());
+        var koboldSpeech = profiles.get(ResourceLocation.parse("moonstation14:kobold"))
+                .component(SpeechComponent.class).orElseThrow();
+        assertEquals("kobold", koboldSpeech.accent());
+        assertTrue(profiles.get(ResourceLocation.parse("moonstation14:kobold")).component(
+                com.juicyslew.moonstation14.ms14.character.components.VocalComponent.class).isPresent());
     }
 }

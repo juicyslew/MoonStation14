@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /** Pure production-policy seams; GameTest fake players cannot claim a connected login. */
-@GameTestTags({"lifecycle", "character"})
+@GameTestTags({"lifecycle", "character", "character-identity-return"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleCreativeReconnectPolicyGameTests {
     private LifecycleCreativeReconnectPolicyGameTests() { }

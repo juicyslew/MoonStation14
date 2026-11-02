@@ -420,6 +420,51 @@ class LifecycleProfileStoreTest {
         assertEquals(continued, new LifecycleProfileStore(path).read().orElseThrow());
     }
 
+    @Test void takeoverRotationRequiresDeadClaimOrGhostNewBodyDerivedKeyAndIncreasingGeneration() throws Exception {
+        java.util.function.Function<java.util.UUID, String> keyForBody = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding::profileKeyForBody;
+        for (var priorState : List.of(SavedLifecycleProfile.State.DEAD_CLAIM, SavedLifecycleProfile.State.GHOST)) {
+            Path path = directory.resolve("rotation-valid-" + priorState + ".json");
+            var store = new LifecycleProfileStore(path);
+            var prior = takeoverRow(priorState, id(610), keyForBody.apply(id(610)), id(611), 4);
+            store.compareAndSwap(-1, EPOCH, 4, List.of(prior));
+            var rotated = takeoverRow(SavedLifecycleProfile.State.ACTIVE, id(612), keyForBody.apply(id(612)), id(611), 5);
+            assertEquals(rotated, store.compareAndSwap(0, EPOCH, 5, List.of(rotated)).profiles().get(0));
+            assertEquals(rotated, new LifecycleProfileStore(path).read().orElseThrow().profiles().get(0));
+        }
+
+        assertRotationRejected("active", SavedLifecycleProfile.State.ACTIVE, id(620), keyForBody.apply(id(620)), id(621), 5);
+        assertRotationRejected("same-body", SavedLifecycleProfile.State.DEAD_CLAIM, id(631), keyForBody.apply(id(631)), id(631), 5);
+        assertRotationRejected("wrong-key", SavedLifecycleProfile.State.DEAD_CLAIM, id(640), "not-body-derived", id(641), 5);
+        assertRotationRejected("same-generation", SavedLifecycleProfile.State.GHOST, id(650), keyForBody.apply(id(650)), id(651), 4);
+        assertRotationRejected("backwards-generation", SavedLifecycleProfile.State.GHOST, id(660), keyForBody.apply(id(660)), id(661), 3);
+        assertRotationRejected("mind-change", SavedLifecycleProfile.State.DEAD_CLAIM, id(670), keyForBody.apply(id(670)), id(671), 5, id(672));
+    }
+
+    private void assertRotationRejected(String name, SavedLifecycleProfile.State priorState, UUID newBody,
+            String newKey, UUID oldBody, long nextGeneration) throws Exception {
+        assertRotationRejected(name, priorState, newBody, newKey, oldBody, nextGeneration, id(681));
+    }
+
+    private void assertRotationRejected(String name, SavedLifecycleProfile.State priorState, UUID newBody,
+            String newKey, UUID oldBody, long nextGeneration, UUID nextMind) throws Exception {
+        Path path = directory.resolve("rotation-reject-" + name + ".json");
+        var store = new LifecycleProfileStore(path);
+        var prior = takeoverRow(priorState, oldBody, "old-profile", id(681), 4);
+        store.compareAndSwap(-1, EPOCH, 4, List.of(prior));
+        var next = takeoverRow(SavedLifecycleProfile.State.ACTIVE, newBody, newKey, nextMind, nextGeneration);
+        assertThrows(IllegalArgumentException.class, () -> store.compareAndSwap(0, EPOCH,
+                Math.max(4, nextGeneration), List.of(next)), name);
+        assertEquals(prior, new LifecycleProfileStore(path).read().orElseThrow().profiles().get(0));
+    }
+
+    private static SavedLifecycleProfile takeoverRow(SavedLifecycleProfile.State state, UUID body,
+            String key, UUID mind, long generation) {
+        return new SavedLifecycleProfile(1, id(680), key, mind, body, "minecraft:overworld",
+                new SavedLifecycleProfile.Location(1, 2, 3), Map.of(), EPOCH, generation, state, 0,
+                state == SavedLifecycleProfile.State.OFFLINE || state == SavedLifecycleProfile.State.DEAD_CLAIM
+                        || state == SavedLifecycleProfile.State.GHOST_OFFLINE ? 1L : null);
+    }
+
     private static SavedLifecycleProfile profile(long account, long mind, long body, long generation) {
         return profile(account, mind, body, generation, "main");
     }

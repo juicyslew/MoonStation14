@@ -1,5 +1,10 @@
 # Controlled-body emote attribution
 
+**Historical workaround, superseded by the character-identity mini-sprint.**
+The profile-harness class distinction below was rejected as an ownership policy.
+See `character-identity-mini-sprint/HANDOFF.md` for the accepted body-owned key,
+shared lookup, transfer cleanup and validation boundaries.
+
 Owner report: after a human died and the player took a Kobold role, screaming
 displayed the dead human's name. The owner accepted this correction and closed the
 sprint on November 1, 2026, requesting no validation submission. Native/client
