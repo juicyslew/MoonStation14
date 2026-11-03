@@ -32,6 +32,7 @@ import java.util.UUID;
 
 /** Client presentation and intent only; all hand occupancy and transfer remain server-owned. */
 public final class BodyHandClient {
+    private static final com.juicyslew.moonstation14.ms14.combat.client.HeldMeleeInputPolicy MELEE_HOLD = new com.juicyslew.moonstation14.ms14.combat.client.HeldMeleeInputPolicy();
     private static final org.slf4j.Logger DUMP_LOGGER = com.mojang.logging.LogUtils.getLogger();
     /** Existing normal E activation ray ceiling, shared with client-only body nomination. */
     public static final double NORMAL_WORLD_AIM_REACH = 6.0;
@@ -371,6 +372,7 @@ public final class BodyHandClient {
         if (suppressExaminePauseTicks > 0) suppressExaminePauseTicks--;
         clock++;
         reconcile();
+        tickHeldMelee();
         boolean toggleCombatMode = TOGGLE_COMBAT_MODE.consumeClick();
         if (toggleCombatMode && net.minecraft.client.Minecraft.getInstance().screen == null
                 && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.textFocused()
@@ -588,6 +590,47 @@ public final class BodyHandClient {
             if (!handUseRequested) request(BodyHandActionRequest.Action.THROW_ITEM);
         }
         if (POLICY.takeReadyThrow(clock) && request(BodyHandActionRequest.Action.THROW_ITEM)) POLICY.throwSent();
+    }
+
+    private static void tickHeldMelee() {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (!MELEE_HOLD.active()) return;
+        double x = mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth();
+        double y = mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight();
+        if (mc.screen != null || mc.player == null || mc.level == null || cameraBody == null || currentBody() != cameraBody
+                || GhostControlClient.committedCharacterEpoch() <= 0 || !mc.mouseHandler.isMouseGrabbed()
+                || !com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow.allowsBodyInput(mc.screen, mc.mouseHandler.isMouseGrabbed())
+                || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.textFocused()
+                || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x, y)
+                || com.juicyslew.moonstation14.ms14.player_body_control.client.ContainedCharacterClientView.isContained()
+                || controlDown() || altDown() || shiftDown()
+                || org.lwjgl.glfw.GLFW.glfwGetMouseButton(mc.getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) != GLFW.GLFW_PRESS
+                || !com.juicyslew.moonstation14.ms14.combat.CombatModeClient.projectedMode()) {
+            MELEE_HOLD.cancel(); return;
+        }
+        var gun = com.juicyslew.moonstation14.ms14.combat.ClientGunWeaponResolver.resolve().orElse(null);
+        if (gun != null && com.juicyslew.moonstation14.ms14.combat.GunInputRoute.matches(gun.profile().gun().useKey(), true)) {
+            MELEE_HOLD.cancel(); return;
+        }
+        var selection = com.juicyslew.moonstation14.ms14.combat.ClientMeleeWeaponResolver.resolve().orElse(null);
+        var context = meleeContext(selection);
+        boolean inputValid = selection != null && cameraBody != null && currentBody() == cameraBody
+                && GhostControlClient.committedCharacterEpoch() > 0
+                && com.juicyslew.moonstation14.ms14.combat.CombatModeClient.projectedMode();
+        boolean attackReady = inputValid && com.juicyslew.moonstation14.ms14.combat.client.MeleeAttackClient.canAttemptNow(
+                cameraBody, GhostControlClient.committedCharacterEpoch(), selection);
+        if (!MELEE_HOLD.eligible(true, inputValid, attackReady,
+                com.juicyslew.moonstation14.ms14.combat.CombatModeClient.projectedMode(), context, clock)) return;
+        if (com.juicyslew.moonstation14.ms14.combat.client.MeleeAttackClient.requestHeldAttack(cameraBody,
+                GhostControlClient.committedCharacterEpoch(), selection)) MELEE_HOLD.dispatched(clock);
+    }
+
+    private static com.juicyslew.moonstation14.ms14.combat.client.HeldMeleeInputPolicy.Context meleeContext(
+            com.juicyslew.moonstation14.ms14.combat.MeleeWeaponResolver.Selection selection) {
+        return selection == null ? null : new com.juicyslew.moonstation14.ms14.combat.client.HeldMeleeInputPolicy.Context(
+                selection.body(), GhostControlClient.committedCharacterEpoch(),
+                new com.juicyslew.moonstation14.ms14.combat.client.HeldMeleeInputPolicy.Source(selection.kind(),
+                        selection.activeHand(), selection.itemToken().orElse(null), selection.profile()));
     }
 
     private static ConstructionUsePlan constructionUsePlan(String sourceItem) {
@@ -1066,6 +1109,9 @@ public final class BodyHandClient {
 
     public static void mouseButton(net.neoforged.neoforge.client.event.InputEvent.MouseButton.Pre event) {
         var mc = net.minecraft.client.Minecraft.getInstance();
+        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getAction() == GLFW.GLFW_RELEASE) {
+            MELEE_HOLD.cancel();
+        }
         if(event.getAction()==GLFW.GLFW_PRESS && TARGET_ACTIONS.matchesMouse(event.getButton())) {
             reconcile();
             double actionX=mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth();
@@ -1193,7 +1239,10 @@ public final class BodyHandClient {
                 event.setCanceled(true); return;
             }
         }
-        if ((event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT && !AIM_RELEASE_DUMP.matchesMouse(event.getButton()))
+        boolean combatRight = event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT
+                && event.getAction() == GLFW.GLFW_PRESS
+                && com.juicyslew.moonstation14.ms14.combat.CombatModeClient.projectedMode();
+        if ((event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT && !AIM_RELEASE_DUMP.matchesMouse(event.getButton()) && !combatRight)
                 || event.getAction() != GLFW.GLFW_PRESS
                 || (mc.screen != null && !routeCanvas) || (!mc.mouseHandler.isMouseGrabbed() && !routeCanvas) || currentBody() == null
                 || GhostControlClient.committedCharacterEpoch() == 0) return;
@@ -1227,7 +1276,23 @@ public final class BodyHandClient {
             event.setCanceled(true); return;
         }
         if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && event.getAction() == GLFW.GLFW_PRESS) {
-            if(currentBody()!=null && cameraBody==currentBody() && com.juicyslew.moonstation14.ms14.combat.CombatModeClient.projectedMode()) { requestCombatSecondary(); event.setCanceled(true); return; }
+            double actionX=mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth();
+            double actionY=mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight();
+            boolean uiClaimed=POPUPS.topmost(actionX,actionY)!=null
+                    || com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.topmost(actionX,actionY)!=null
+                    || (com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active()!=null
+                        && com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active().contains(actionX,actionY))
+                    || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(actionX,actionY);
+            boolean admitted=targetActionAdmissionAllowed()
+                    && com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow.allowsBodyInput(null,mc.mouseHandler.isMouseGrabbed())
+                    && !com.juicyslew.moonstation14.ms14.player_body_control.client.ContainedCharacterClientView.isContained()
+                    && mc.screen==null;
+            var route=com.juicyslew.moonstation14.ms14.combat.CombatWorldPressRoute.route(admitted,uiClaimed,
+                    com.juicyslew.moonstation14.ms14.combat.CombatModeClient.projectedMode(),controlDown(),altDown(),shiftDown());
+            if(route==com.juicyslew.moonstation14.ms14.combat.CombatWorldPressRoute.Route.SECONDARY) {
+                requestCombatSecondary(); event.setCanceled(true); return;
+            }
+            return;
         }
         if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT) return;
         if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && altDown() && !shiftDown() && !controlDown()) {
@@ -1256,6 +1321,9 @@ public final class BodyHandClient {
             if (combatRoute == PrimaryWorldGesture.Route.MELEE) {
                 if (cameraBody != null) com.juicyslew.moonstation14.ms14.combat.client.MeleeAttackClient.requestAttack(cameraBody,
                         GhostControlClient.committedCharacterEpoch(), com.juicyslew.moonstation14.ms14.combat.ClientMeleeWeaponResolver.resolve().orElse(null), null);
+                var selection = com.juicyslew.moonstation14.ms14.combat.ClientMeleeWeaponResolver.resolve().orElse(null);
+                MELEE_HOLD.begin(com.juicyslew.moonstation14.Config.HOLD_TO_ATTACK_MELEE.get(),
+                        selection != null && selection.weapon().autoAttack(), true, meleeContext(selection), clock);
                 event.setCanceled(true); return;
             }
             var block = aimedWorldBlock();
@@ -1283,17 +1351,43 @@ public final class BodyHandClient {
                     GhostControlClient.committedCharacterEpoch());
             event.setCanceled(true); return;
         }
-        if (PrimaryWorldGesture.route(true, com.juicyslew.moonstation14.ms14.combat.CombatModeClient.projectedMode(),
-                false, active.token() != null, false, false) == PrimaryWorldGesture.Route.MELEE) {
+        var primaryBlock = aimedWorldBlock();
+        var primaryDecision = resolvePrimaryWorldTarget(cameraBody, active, primaryBlock != null
+                && primaryBlock.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK, true);
+        var inputProof = POLICY.confirmedSnapshot();
+        var currentProof = POLICY.snapshot();
+        boolean confirmedActive = inputProof != null && inputProof.bodyId().equals(cameraBody.getUUID())
+                && inputProof.epoch() == GhostControlClient.committedCharacterEpoch()
+                && currentProof == inputProof && inputProof.activeHand().equals(active.id())
+                && inputProof.hands().stream().anyMatch(hand -> hand.id().equals(active.id())
+                        && java.util.Objects.equals(hand.token(), active.token())
+                        && java.util.Objects.equals(hand.itemId(), active.itemId())
+                        && java.util.Objects.equals(hand.pullTarget(), active.pullTarget())
+                        && hand.pullTarget() == null);
+        var nominatedEntity = primaryDecision.target() == null ? null : cameraBody.level().getEntitiesOfClass(
+                net.minecraft.world.entity.Entity.class, cameraBody.getBoundingBox().inflate(6),
+                e -> e.getUUID().equals(primaryDecision.target())).stream().findFirst().orElse(null);
+        boolean ordinaryItem = nominatedEntity instanceof ItemEntity
+                || nominatedEntity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity;
+        var nominatedLiving = nominatedEntity instanceof net.minecraft.world.entity.LivingEntity living ? living : null;
+        boolean portableCandidate = nominatedLiving != null && resolvedPortableProfile(nominatedLiving);
+        boolean targetAllowsPickup = PrimaryWorldGesture.combatPickupTargetEligible(nominatedEntity != null,
+                ordinaryItem, portableCandidate, nominatedLiving != null
+                        && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(nominatedLiving));
+        boolean eligibleEmptyPickup = PrimaryWorldGesture.combatPickupMayRoute(confirmedActive,
+                active.token() != null || active.itemId() != null, active.pullTarget() != null, primaryDecision)
+                && targetAllowsPickup;
+        if (!eligibleEmptyPickup && PrimaryWorldGesture.route(true, com.juicyslew.moonstation14.ms14.combat.CombatModeClient.projectedMode(),
+                false, active.token() != null || active.itemId() != null || active.pullTarget() != null, false, false) == PrimaryWorldGesture.Route.MELEE) {
             com.juicyslew.moonstation14.ms14.combat.client.MeleeAttackClient.requestAttack(cameraBody,
                     GhostControlClient.committedCharacterEpoch(), com.juicyslew.moonstation14.ms14.combat.ClientMeleeWeaponResolver.resolve().orElse(null), null);
+            var selection = com.juicyslew.moonstation14.ms14.combat.ClientMeleeWeaponResolver.resolve().orElse(null);
+            MELEE_HOLD.begin(com.juicyslew.moonstation14.Config.HOLD_TO_ATTACK_MELEE.get(),
+                    selection != null && selection.weapon().autoAttack(), true, meleeContext(selection), clock);
             event.setCanceled(true); return;
         }
-        var block = aimedWorldBlock();
         if (com.juicyslew.moonstation14.ms14.player_body_control.client.ContainedCharacterClientView.isContained()) event.setCanceled(true);
-        var decision = resolvePrimaryWorldTarget(cameraBody, active, block != null
-                && block.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK, true);
-        dispatchPrimaryWorldDecision(decision, active, block);
+        dispatchPrimaryWorldDecision(primaryDecision, active, primaryBlock);
         event.setCanceled(true);
     }
 
@@ -1559,8 +1653,11 @@ public final class BodyHandClient {
         }
         var selection=com.juicyslew.moonstation14.ms14.combat.ClientMeleeWeaponResolver.resolve().orElse(null);
         if(selection==null)return;
+        var combatMode = cameraBody == null ? null : com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem
+                .projectForActor(cameraBody).flatMap(actor -> actor.component(
+                        com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.class)).orElse(null);
         var mode=com.juicyslew.moonstation14.ms14.combat.MeleeSecondaryGesture.mode(selection.kind(),selection.weapon().altDisarm(),
-                selection.kind()==com.juicyslew.moonstation14.ms14.combat.MeleeWeaponResolver.Kind.UNARMED?Boolean.TRUE:null);
+                combatMode == null ? null : combatMode.canDisarm().orElse(null));
         if(mode!=null)com.juicyslew.moonstation14.ms14.combat.client.MeleeAttackClient.requestSecondary(cameraBody,
                 GhostControlClient.committedCharacterEpoch(),selection,mode);
     }

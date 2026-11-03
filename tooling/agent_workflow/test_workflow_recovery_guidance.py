@@ -205,7 +205,7 @@ class ReviewCallbackRecoveryTests(unittest.TestCase):
         self.addCleanup(fixture.tearDown)
         with tempfile.TemporaryDirectory() as tmp:
             _,_,task,real_api,receipt=fixture.admitted(Path(tmp))
-            payload=fixture.result(task,receipt)
+            payload=fixture.result(task,receipt,decision='FAIL')
             payload['findings'][0]['message']={'secret':'SECRET_PAYLOAD_TEXT'}
             response=real_api._validate(payload,'review_result')
         self.assertEqual(response['field'],'findings.0.message')

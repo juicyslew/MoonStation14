@@ -81,8 +81,10 @@ class BotanySeedPacketExamineTest {
         var seeds = manager.snapshot(ModSeedProfiles.TYPE);
         var items = manager.snapshot(ModSeedItemProfiles.TYPE);
         try {
+            // Mutation validation resolves every outgoing edge, so stage the complete production graph.
+            // Keep item composition deliberately scoped below; the test overrides it to verify admission.
             manager.reload(ModSeedProfiles.TYPE, com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.mainResources(
-                    "seed_profile", "defaults", "wheat", "meatwheat", "tomato", "blue_tomato", "blood_tomato", "killer_tomato", "potato", "poppy", "lily", "spacemans_trumpet", "aloe"));
+                    "seed_profile", "defaults", "papercane", "towercap", "steelcap", "cotton", "pyrotton", "banana", "mimana", "lemon", "lemoon", "lime", "orange", "extradimensional_orange", "apple", "golden_apple", "carrots", "cabbage", "eggplant", "eggy", "onion", "onionred", "bloonion", "pumpkin", "blue_pumpkin", "watermelon", "holymelon", "wheat", "tomato", "potato", "poppy", "aloe", "meatwheat", "blue_tomato", "blood_tomato", "killer_tomato", "lily", "spacemans_trumpet", "oat", "sugarcane", "tea_plant", "tobacco", "cannabis", "rainbow_cannabis", "chili", "chilly", "lingzhi", "ambrosia_vulgaris", "ambrosia_deus", "galaxythistle", "death_nettle", "fake_capfruit", "real_capfruit", "gatfruit", "world_pea", "pea", "rice", "soybeans", "koibean", "corn", "cocoa", "grape", "cherry", "pineapple", "berries", "bungo", "anomaly_berry", "chanterelle", "fly_amanita", "glasstle", "garlic", "nettle", "laughin_pea"));
             manager.reload(ModSeedItemProfiles.TYPE, com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.mainResources(
                     "seed_item_profile", "aloe_seeds", "poppy_seeds", "potato_seeds", "tomato_seeds", "wheat_seeds"));
             test.run();

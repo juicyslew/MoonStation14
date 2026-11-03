@@ -58,4 +58,16 @@ class MeleeAttackComponentTest {
         assertThrows(IllegalArgumentException.class, () ->
                 com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit.auditComponent(unknownKey, "$.components[7]"));
     }
+
+    @Test void resolvedMeleeAudioAndArcDecodeWithStrictSchema() {
+        var json = com.google.gson.JsonParser.parseString("""
+                {"type":"MeleeAttack","damage":{"types":{"slash":5}},"audio":{"hit":{"event":"moonstation14:ss14/effects/alien_claw","volume_db":-3}},"arc":"moonstation14:weapon_arc_slash"}
+                """).getAsJsonObject();
+        com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit.auditComponent(json, "$.components[0]");
+        var melee = MeleeAttackComponent.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
+        assertEquals("moonstation14:ss14/effects/alien_claw", melee.audio().hit().event().toString());
+        assertEquals("moonstation14:weapon_arc_slash", melee.arc().toString());
+        assertThrows(IllegalArgumentException.class, () -> com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit.auditComponent(
+                com.google.gson.JsonParser.parseString("{\"type\":\"MeleeAttack\",\"damage\":{\"types\":{}},\"audio\":{\"bad\":1}}").getAsJsonObject(), "$.components[0]"));
+    }
 }

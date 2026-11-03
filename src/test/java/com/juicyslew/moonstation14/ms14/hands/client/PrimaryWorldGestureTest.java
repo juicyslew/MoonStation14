@@ -91,4 +91,30 @@ class PrimaryWorldGestureTest {
         assertEquals(PrimaryWorldGesture.Route.TARGET_USE, medicalMiss.route());
         assertEquals(pile, medicalMiss.target());
     }
+
+    @Test void combatPickupRequiresConfirmedEmptyNonPullingHandAndAnActualPickupDecision() {
+        UUID item = UUID.randomUUID(), portableMob = UUID.randomUUID();
+        var ordinary = PrimaryWorldGesture.resolve(false, false, item, null, false, null);
+        var portableLiving = PrimaryWorldGesture.resolve(false, false, null, portableMob, false, null);
+        var deadEligibleBody = PrimaryWorldGesture.resolve(false, false, null, portableMob, false, null);
+        var heldTarget = PrimaryWorldGesture.resolve(false, true, item, portableMob, false, null);
+        assertTrue(PrimaryWorldGesture.combatPickupMayRoute(true, false, false, ordinary));
+        assertTrue(PrimaryWorldGesture.combatPickupMayRoute(true, false, false, portableLiving));
+        assertTrue(PrimaryWorldGesture.combatPickupMayRoute(true, false, false, deadEligibleBody));
+        assertFalse(PrimaryWorldGesture.combatPickupMayRoute(true, true, false, heldTarget));
+        assertFalse(PrimaryWorldGesture.combatPickupMayRoute(true, false, true, ordinary));
+        assertFalse(PrimaryWorldGesture.combatPickupMayRoute(false, false, false, ordinary));
+        assertFalse(PrimaryWorldGesture.combatPickupMayRoute(false, false, false, null));
+        assertFalse(PrimaryWorldGesture.combatPickupMayRoute(true, false, false,
+                PrimaryWorldGesture.resolve(false, false, null, null, false, null)));
+        assertTrue(PrimaryWorldGesture.targetAllowsCombatHandInteract(false, false)); // ordinary loose item
+        assertFalse(PrimaryWorldGesture.targetAllowsCombatHandInteract(true, false)); // alive portable creature
+        assertTrue(PrimaryWorldGesture.targetAllowsCombatHandInteract(true, true)); // dead portable body
+        assertTrue(PrimaryWorldGesture.combatPickupTargetEligible(true, true, false, false));
+        assertTrue(PrimaryWorldGesture.combatPickupTargetEligible(true, false, true, true));
+        assertFalse(PrimaryWorldGesture.combatPickupTargetEligible(true, false, true, false));
+        assertFalse(PrimaryWorldGesture.combatPickupTargetEligible(false, false, false, false)); // unresolved nomination
+        assertFalse(PrimaryWorldGesture.combatPickupTargetEligible(true, false, false, false)); // unrelated entity
+        assertEquals(item, ordinary.target()); // ordinary loose item remains ahead of portable body candidate
+    }
 }

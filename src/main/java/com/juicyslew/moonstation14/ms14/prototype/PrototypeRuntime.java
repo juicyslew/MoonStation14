@@ -207,6 +207,8 @@ public final class PrototypeRuntime {
     public static ConstructionCatalog clientConstructionCatalog() { return ModConstruction.catalog(clientConstructionGraphs(),clientConstructionRecipes()); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.construction.prototype.ConstructionEntityData> serverConstructionEntities() { return SERVER_MANAGER.snapshot(ModConstruction.ENTITY_TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.construction.prototype.ConstructionEntityData> clientConstructionEntities() { return CLIENT_MANAGER.snapshot(ModConstruction.ENTITY_TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.BlockStructuralContactData> serverBlockStructuralContacts() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.BlockStructuralContactData> clientBlockStructuralContacts() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE); }
     public static PrototypeCatalog<LooseObjectProfile> serverLooseObjectProfiles() { return SERVER_MANAGER.snapshot(ModLooseObjectProfiles.PROFILE_TYPE); }
     public static PrototypeCatalog<LooseObjectProfile> clientLooseObjectProfiles() { return CLIENT_MANAGER.snapshot(ModLooseObjectProfiles.PROFILE_TYPE); }
     public static PrototypeCatalog<ItemFootprintProfile> serverItemFootprints() { return SERVER_MANAGER.snapshot(ModItemFootprints.TYPE); }
@@ -319,6 +321,7 @@ public final class PrototypeRuntime {
         manager.register(ModConstruction.GRAPH_TYPE);
         manager.register(ModConstruction.RECIPE_TYPE);
         manager.register(ModConstruction.ENTITY_TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE);
         manager.register(ModLooseObjectProfiles.PROFILE_TYPE);
         manager.register(ModItemFootprints.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.actions.prototype.ModActionPrototypes.TYPE);

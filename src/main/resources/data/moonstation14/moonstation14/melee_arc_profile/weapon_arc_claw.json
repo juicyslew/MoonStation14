@@ -1,0 +1,1 @@
+{"parent":"moonstation14:weapon_arc_static","texture":"moonstation14:textures/effects/melee/claw.png","strike_texture_glyph":true,"texture_frames":4,"texture_columns":2,"fade_out":false,"lifetime_seconds":0.399,"strike":{"duration_seconds":0.399,"extension_end_fraction":0.4,"retraction_start_fraction":0.55,"trail_width":0.1,"trail_alpha":0.5}}

@@ -1,6 +1,13 @@
 # Tank-slot and valve audio mapping
 
+## Melee impact audio
+
+* `sounds/ss14/weapons/{punchmiss,punch1,punch2,punch3,punch4,bladeslice}.ogg` and `sounds/ss14/effects/{weak_hit1,weak_hit2,thudswoosh}.ogg` use their corresponding SS14 audio files. Metal thud variants are `sounds/ss14/effects/metal_thud{1,2,3}.ogg`; the upstream collection is `Resources/Prototypes/SoundCollections/hit_impacts.yml`, id `MetalThud`. All are from pinned revision `c9df5ef5d675b0d1d226828bddf6b78c28502d91`.
+* `metal_thud{1,2,3}.ogg` are attributed by upstream `Resources/Audio/Effects/attributions.yml` to CM-SS13 at `84dc482572649ae7c2264c71ea1fe9fd169e4774`, CC-BY-SA-3.0, source `https://github.com/cmss13-devs/cmss13`.
+
 Upstream checkout verified at `c9df5ef5d675b0d1d226828bddf6b78c28502d91`.
+
+* `ss14/effects/metal_crunch` is the locally registered event for normal jug destruction. It maps the upstream `MetalCrunch` collection (`Resources/Prototypes/SoundCollections/destruction.yml`) to `sounds/ss14/effects/metal_crunch.ogg`, copied byte-for-byte from the pinned revision. Upstream attributes the clip to PNMCarrieRailfan, edited/exported by EmoGarbage404, CC-BY-NC-4.0, source `https://freesound.org/people/PNMCarrieRailfan/sounds/682439/`.
 
 * Canister valve default is `valveSqueak`, inherited from `GasMaxPressureHolderComponent` (`Content.Shared/Atmos/Components/GasMaxPressureHolderComponent.cs`). `Resources/Prototypes/SoundCollections/atmospherics.yml` declares three members: `/Audio/Effects/squeak1.ogg`, `squeak2.ogg`, and `squeak3.ogg`. These have been copied unchanged to `assets/moonstation14/sounds/ss14/atmos/`. No verified author/licensing metadata was located in the pinned checkout; attribution remains unknown.
 * Local tank internals connect/disconnect and a separately controllable gas-tank valve are absent. No such capability was added. `spray.ogg` (the atmospheric canister valve release default) is not used for the unrelated local inserted-tank-to-canister refill.

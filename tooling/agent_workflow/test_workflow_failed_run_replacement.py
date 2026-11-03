@@ -8,6 +8,25 @@ import workflow_store
 
 
 class FailedRunReplacementTests(unittest.TestCase):
+    def test_rejection_response_schema_requires_actionable_fail_findings(self):
+        import workflow_submission
+
+        finding = workflow_submission._failure_response(
+            "FAIL", "author mismatch", code="AUTHOR_MISMATCH", field="author",
+            evidence=["artifact_diagnostic"], required_change="Use the authenticated author.")
+        workflow_store.validate(finding, "submission_response")
+        with self.assertRaises(workflow_store.ProtocolError):
+            workflow_store.validate(dict(finding, findings=[]), "submission_response")
+
+        error = workflow_submission._failure_response(
+            "ERROR", "temporary outage", code="SYSTEM_ERROR", evidence={"incident_id": "incident_test"})
+        workflow_store.validate(error, "submission_response")
+        accepted = {"contract_version":1,"status":"ACCEPTED","run_id":"run_test",
+                    "generation":1,"next_action":"WAIT_FOR_RESULT"}
+        workflow_store.validate(accepted, "submission_response")
+        with self.assertRaises(workflow_store.ProtocolError):
+            workflow_store.validate(dict(accepted, findings=[{}]), "submission_response")
+
     def test_real_http_preflight_scope_and_submission_replaces_settled_failure(self):
         import copy
         import hashlib

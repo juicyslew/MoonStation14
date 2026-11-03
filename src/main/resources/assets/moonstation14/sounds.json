@@ -181,6 +181,25 @@
       "moonstation14:ss14/effects/slip"
     ]
   },
+  "ss14/effects/metal_thud": {
+    "sounds": [
+      {
+        "name": "moonstation14:ss14/effects/metal_thud1",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/effects/metal_thud2",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/effects/metal_thud3",
+        "weight": 1
+      }
+    ]
+  },
+  "ss14/effects/metal_crunch": {
+    "sounds": ["moonstation14:ss14/effects/metal_crunch"]
+  },
   "body_fall": {
     "sounds": [
       {
@@ -510,6 +529,13 @@
         "name": "moonstation14:ss14/weapons/punch4",
         "weight": 1
       }
+    ]
+  },
+  "ss14/effects/alien_claw": {
+    "sounds": [
+      { "name": "moonstation14:ss14/weapons/alien_claw_flesh1", "weight": 1 },
+      { "name": "moonstation14:ss14/weapons/alien_claw_flesh2", "weight": 1 },
+      { "name": "moonstation14:ss14/weapons/alien_claw_flesh3", "weight": 1 }
     ]
   },
   "ss14/weapons/blade_slice": {

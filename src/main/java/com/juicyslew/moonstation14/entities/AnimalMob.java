@@ -21,10 +21,21 @@ public class AnimalMob extends Mob implements CharacterVisualState, NpcMovementD
     private static final EntityDataAccessor<Boolean> NPC_MOVEMENT_DRIVEN =
             SynchedEntityData.defineId(AnimalMob.class, EntityDataSerializers.BOOLEAN);
     private static final String TAG = "MoonStation14AnimalAppearance";
+    private float resolvedEyeHeight = Float.NaN;
     private record Snapshot(String key) implements VisualSnapshot {
         @Override public void applyTo(net.minecraft.world.entity.LivingEntity detached) { ((AnimalMob) detached).setAppearanceKey(key); }
     }
     public AnimalMob(EntityType<? extends AnimalMob> type, Level level) { super(type, level); }
+    @Override public void onAddedToLevel() {
+        super.onAddedToLevel();
+        refreshPresentationDimensions();
+    }
+    @Override public net.minecraft.world.entity.EntityDimensions getDefaultDimensions(net.minecraft.world.entity.Pose pose) {
+        var anchor = resolvedAppearance();
+        var dimensions = super.getDefaultDimensions(pose);
+        return anchor == null || anchor.eyeHeight() == null ? dimensions
+                : dimensions.withEyeHeight((float) com.juicyslew.moonstation14.ms14.animals.AnimalPresentationAnchors.eyeHeight(anchor, dimensions.eyeHeight()));
+    }
     @Override protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(APPEARANCE, "");
@@ -32,15 +43,23 @@ public class AnimalMob extends Mob implements CharacterVisualState, NpcMovementD
     }
     @Override public void tick() {
         super.tick();
+        refreshPresentationDimensions();
         if (!level().isClientSide) {
             ResourceLocation host = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(getType());
-            AnimalAppearanceComponent appearance = ModCharacters.characterForHost(level(), host).map(id -> {
-                var profile = ModCharacters.require(ModCharacters.catalog(level()), id);
-                return profile.component(AnimalAppearanceComponent.class).orElseThrow(() -> new IllegalStateException("animal prototype " + id + " has no AnimalAppearance"));
-            }).orElseThrow(() -> new IllegalStateException("unbound animal host " + host));
+            AnimalAppearanceComponent appearance = resolvedAppearance();
             if (!appearance.modelIds().contains(appearanceKey()))
                 setAppearanceKey(appearance.modelIds().get(getRandom().nextInt(appearance.modelIds().size())));
         }
+    }
+    private void refreshPresentationDimensions() {
+        AnimalAppearanceComponent appearance = resolvedAppearance();
+        float eye = appearance == null || appearance.eyeHeight() == null ? Float.NaN : appearance.eyeHeight().floatValue();
+        if (Float.compare(eye, resolvedEyeHeight) != 0) { resolvedEyeHeight = eye; refreshDimensions(); }
+    }
+    private AnimalAppearanceComponent resolvedAppearance() {
+        ResourceLocation host = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(getType());
+        return ModCharacters.characterForHost(level(), host).map(id -> ModCharacters.require(ModCharacters.catalog(level()), id)
+                .component(AnimalAppearanceComponent.class).orElse(null)).orElse(null);
     }
     public String appearanceKey() { return entityData.get(APPEARANCE); }
     public void setAppearanceKey(String key) { entityData.set(APPEARANCE, java.util.Objects.requireNonNull(key)); }

@@ -59,6 +59,14 @@ public class ModSounds {
     public static final Supplier<SoundEvent> EVA_HELMET_WEAR = registerSoundEvent("equipment/eva_helmet");
     public static final Supplier<SoundEvent> JUMPSUIT_EQUIP = registerSoundEvent("equipment/jumpsuit_equip");
     // Event registry IDs must exist independently of their sounds.json sample mappings.
+    public static final Supplier<SoundEvent> MELEE_SWING = registerSoundEvent("ss14/weapons/punch_miss");
+    public static final Supplier<SoundEvent> MELEE_PUNCH = registerSoundEvent("ss14/weapons/punch");
+    public static final Supplier<SoundEvent> MELEE_ALIEN_CLAW = registerSoundEvent("ss14/effects/alien_claw");
+    public static final Supplier<SoundEvent> MELEE_BLADE_SLICE = registerSoundEvent("ss14/weapons/blade_slice");
+    public static final Supplier<SoundEvent> MELEE_METAL_THUD = registerSoundEvent("ss14/effects/metal_thud");
+    public static final Supplier<SoundEvent> JUG_NORMAL_DESTRUCTION = registerSoundEvent("ss14/effects/metal_crunch");
+    public static final Supplier<SoundEvent> MELEE_NO_DAMAGE = registerSoundEvent("ss14/effects/weak_hit");
+    public static final Supplier<SoundEvent> MELEE_DISARM_SUCCESS = registerSoundEvent("ss14/effects/thudswoosh");
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_BEGIN = registerSoundEvent("medical/ointment_begin");
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_END = registerSoundEvent("medical/ointment_end");
     public static final Supplier<SoundEvent> MEDICAL_BRUTEPACK_BEGIN = registerSoundEvent("medical/brutepack_begin");

@@ -8,6 +8,9 @@ public final class MeleeAttackClientPolicy {
         return estimatedServerTick != null && estimatedServerTick.isPresent()
                 && deadline <= estimatedServerTick.getAsDouble();
     }
+    public static boolean repeatAdmission(boolean sourceCooldownReady, boolean requestPending, long localNow, long projectedDeadline) {
+        return sourceCooldownReady && !requestPending && localNow >= projectedDeadline;
+    }
     public record Binding(MeleeWeaponResolver.Kind kind, long handRevision, String activeHand, String itemToken) { }
     private final SourceRequestTracker tracker = new SourceRequestTracker();
     private Binding binding;
@@ -20,15 +23,24 @@ public final class MeleeAttackClientPolicy {
         return submit(binding, now, duration, MeleeAttackRequest.Mode.LIGHT, target == null ? java.util.List.of() : java.util.List.of(target));
     }
     public MeleeAttackRequest submit(Binding binding, long now, long duration, MeleeAttackRequest.Mode mode, java.util.List<UUID> nominations) {
-        if (binding==null) return null;
+        if (binding==null || mode == null || nominations == null || nominations.size() > MeleeAttackRequest.MAX_WIDE_TARGETS
+                || mode != MeleeAttackRequest.Mode.WIDE && nominations.size() > 1) return null;
+        var typed = nominations.stream().map(MeleeTargetNomination.Entity::new).map(MeleeTargetNomination.class::cast).toList();
+        return submitTyped(binding, now, duration, mode, typed);
+    }
+    public MeleeAttackRequest submitTyped(Binding binding, long now, long duration, MeleeAttackRequest.Mode mode,
+                                         java.util.List<MeleeTargetNomination> nominations) {
+        if (binding==null || binding.kind()==null || mode==null || nominations==null
+                || nominations.size()>MeleeAttackRequest.MAX_WIDE_TARGETS
+                || mode != MeleeAttackRequest.Mode.WIDE && nominations.size()>1
+                || mode == MeleeAttackRequest.Mode.DISARM && nominations.stream().anyMatch(n -> !(n instanceof MeleeTargetNomination.Entity))) return null;
+        try { new MeleeAttackRequest(1,1,binding.kind(),binding.handRevision(),binding.activeHand(),binding.itemToken(),mode,nominations,false); }
+        catch (RuntimeException invalid) { return null; }
         var key = new SourceRequestTracker.SourceKey(binding.kind().name(),
                 binding.kind()==MeleeWeaponResolver.Kind.UNARMED ? "" : binding.itemToken());
         Long seq=tracker.begin(key,now,duration); if(seq==null)return null;
         this.binding=binding;
-        if (mode == null || nominations == null || nominations.size() > MeleeAttackRequest.MAX_WIDE_TARGETS) return null;
-        return new MeleeAttackRequest(tracker.epoch(),seq,binding.kind(),binding.handRevision(),binding.activeHand(),binding.itemToken(),mode,
-                mode == MeleeAttackRequest.Mode.LIGHT ? nominations.stream().findFirst().orElse(null) : null,
-                mode == MeleeAttackRequest.Mode.WIDE ? nominations : java.util.List.of());
+        return new MeleeAttackRequest(tracker.epoch(),seq,binding.kind(),binding.handRevision(),binding.activeHand(),binding.itemToken(),mode,nominations,false);
     }
     public boolean acknowledge(MeleeAttackReply reply, long now) {
         return reply!=null && tracker.acknowledge(reply.bodyUUID(),reply.epoch(),reply.sequence(),now,reply.cooldownRemainingTicks());

@@ -131,7 +131,8 @@
     {"type": "ComplexInteraction"},
     {"type": "Metabolizer", "types": ["human"]},
     {"type": "Speech"},
-    {"type": "CombatMode"},
+    {"type": "CombatMode", "can_disarm": true},
+     {"type": "MeleeWeapon", "weapon": {"damage": {"blunt": 5.0}, "attack_rate": 1.0, "range": 1.5, "angle_degrees": 120.0, "wide_origin_height_ratio": 0.6, "arc": "moonstation14:weapon_arc_fist", "wide_arc": "moonstation14:weapon_arc_slash", "alt_disarm": true, "audio": {"swing": {"event": "moonstation14:ss14/weapons/punch_miss"}, "hit": {"event": "moonstation14:ss14/weapons/punch"}, "no_damage": {"event": "moonstation14:ss14/effects/weak_hit"}}}},
     {"type": "Vocal", "screamSound": "moonstation14:vocal_human_scream", "screamPitchVariation": 0.125, "wilhelmProbability": 0.0002},
     {"type": "Mouth"},
     {"type": "DoorBumpOpener"}

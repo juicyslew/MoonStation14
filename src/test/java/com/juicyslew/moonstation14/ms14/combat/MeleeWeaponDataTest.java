@@ -18,8 +18,9 @@ class MeleeWeaponDataTest {
         assertEquals(1f, defaults.animationOffset()); assertEquals(0f, defaults.wideAnimationRotation());
         assertEquals(.5f, defaults.bluntStaminaDamageFactor());
         assertEquals(60f, defaults.angleDegrees()); assertEquals("moonstation14:weapon_arc_slash", defaults.wideArc().toString()); assertTrue(defaults.altDisarm());
+        assertEquals(.6f, defaults.wideOriginHeightRatio());
         var explicit = MeleeWeaponData.CODEC.parse(JsonOps.INSTANCE, com.google.gson.JsonParser.parseString(
-                "{\"damage\":{\"slash\":8},\"attack_rate\":2,\"range\":3,\"resistance_bypass\":true,\"auto_attack\":true,\"click_damage_modifier\":0,\"must_be_equipped_to_use\":true,\"arc\":\"moonstation14:weapon_arc_main\",\"animation_offset\":2,\"wide_animation_rotation\":60,\"blunt_stamina_damage_factor\":0,\"angle_degrees\":0,\"wide_arc\":\"moonstation14:weapon_arc_fist\",\"alt_disarm\":false}")).getOrThrow();
+                 "{\"damage\":{\"slash\":8},\"attack_rate\":2,\"range\":3,\"resistance_bypass\":true,\"auto_attack\":true,\"click_damage_modifier\":0,\"must_be_equipped_to_use\":true,\"arc\":\"moonstation14:weapon_arc_main\",\"animation_offset\":2,\"wide_animation_rotation\":60,\"blunt_stamina_damage_factor\":0,\"angle_degrees\":0,\"wide_arc\":\"moonstation14:weapon_arc_fist\",\"alt_disarm\":false,\"wide_origin_height_ratio\":0.4}")).getOrThrow();
         assertEquals(Map.of(DamageKeys.SLASH, 8f), explicit.damage()); assertEquals(2f, explicit.attackRate());
         assertEquals(3f, explicit.range()); assertTrue(explicit.resistanceBypass()); assertTrue(explicit.autoAttack());
         assertEquals(0f, explicit.clickDamageModifier()); assertTrue(explicit.mustBeEquippedToUse());
@@ -27,6 +28,16 @@ class MeleeWeaponDataTest {
         assertEquals(2f, explicit.animationOffset()); assertEquals(60f, explicit.wideAnimationRotation());
         assertEquals(0f, explicit.bluntStaminaDamageFactor());
         assertEquals(0f, explicit.angleDegrees()); assertEquals("moonstation14:weapon_arc_fist", explicit.wideArc().toString()); assertFalse(explicit.altDisarm());
+        assertEquals(.4f, explicit.wideOriginHeightRatio());
+        for (String ratio : new String[]{"-0.1", "1.1", "NaN", "Infinity"}) {
+            var parsed = assertDoesNotThrow(() -> MeleeWeaponData.CODEC.parse(JsonOps.INSTANCE,
+                    com.google.gson.JsonParser.parseString("{\"damage\":{},\"wide_origin_height_ratio\":" + ratio + "}")));
+            assertTrue(parsed.isError(), "invalid ratio rejected as codec error: " + ratio);
+        }
+        for (float ratio : new float[]{-0.1f, 1.1f, Float.NaN, Float.POSITIVE_INFINITY})
+            assertThrows(IllegalArgumentException.class, () -> new MeleeWeaponData(Map.of(), 1, 1, false, false,
+                    1, false, MeleeSoundData.DEFAULT, net.minecraft.resources.ResourceLocation.parse("moonstation14:test"),
+                    1, 0, .5f, true, 60, net.minecraft.resources.ResourceLocation.parse("moonstation14:test"), true, ratio));
     }
 
     @Test void mapIsImmutableAndInputsAreValidated() {

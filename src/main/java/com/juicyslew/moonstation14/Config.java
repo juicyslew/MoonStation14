@@ -18,6 +18,12 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 // An example config class. This is not required, but it's a good idea to have one to keep your config organized.
 // Demonstrates how to use Neo's config APIs
 public class Config {
+    private static final ModConfigSpec.Builder CLIENT_BUILDER = new ModConfigSpec.Builder();
+    public static final ModConfigSpec.BooleanValue HOLD_TO_ATTACK_MELEE = CLIENT_BUILDER
+            .comment("Repeat melee attacks while the primary mouse button is held, at the weapon's normal cooldown. Disable this option to attack only once per click.")
+            .define("holdToAttackMelee", true);
+    public static final ModConfigSpec CLIENT_SPEC = CLIENT_BUILDER.build();
+
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     public static final ModConfigSpec.BooleanValue LOG_DIRT_BLOCK = BUILDER
@@ -76,4 +82,3 @@ public class Config {
     }
 
 }
-

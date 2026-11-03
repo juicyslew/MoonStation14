@@ -164,6 +164,7 @@ class PrototypeRuntimeTest {
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.SingularityGeneratorProfile.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay.TYPE);
         expectedTypes.add(ModActionPrototypes.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
@@ -320,7 +321,12 @@ class PrototypeRuntimeTest {
                  id("base_mental_action"), fixture("character_action", "base_mental_action"),
                  id("combat_mode_toggle"), fixture("character_action", "combat_mode_toggle"),
                  id("scream"), fixture("character_action", "scream"),
-                 id("debug_pulse"), fixture("character_action", "debug_pulse")));
+                  id("debug_pulse"), fixture("character_action", "debug_pulse")));
+         var contactPolicy = new com.juicyslew.moonstation14.ms14.combat.BlockStructuralContactData(
+                 "minecraft:stone", new com.juicyslew.moonstation14.ms14.damage.DamageModifierData(
+                         Map.of("blunt", 0.5f), Map.of()));
+         server.publishDecoded(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE,
+                 Map.of(id("stone"), contactPolicy));
          Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
@@ -378,7 +384,8 @@ class PrototypeRuntimeTest {
                   com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId(),
-                  ModActionPrototypes.TYPE.typeId()), exported.keySet());
+                 ModActionPrototypes.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);
@@ -406,6 +413,10 @@ class PrototypeRuntimeTest {
         assertTrue(exported.get(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()).containsKey(id("source-test")));
 
          client.publishEncodedCatalogs(exported);
+         assertEquals(contactPolicy, PrototypeRuntime.serverBlockStructuralContacts().get(id("stone")));
+         assertEquals(contactPolicy, PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
+         assertNotSame(PrototypeRuntime.serverBlockStructuralContacts().get(id("stone")),
+                 PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
          var serverActions = ModActionPrototypes.serverCatalog();
          var clientActions = ModActionPrototypes.clientCatalog();
          var combatAction = id("combat_mode_toggle");

@@ -716,8 +716,10 @@ class WorkflowStore:
                         raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
                 oldattempt=db.execute("SELECT attempt_json FROM attempts WHERE run_id=? AND generation=?",(head[0],prior_generation)).fetchone()
                 oldjson=None if oldattempt is None else json.loads(oldattempt[0])
+                source_error=(self._source_snapshot_error_head_tx(db,head[0],prior_run,oldjson,request)
+                              if author_request_target and oldjson is not None else False)
                 if author_request_target and oldjson is not None and oldjson.get("phase") in ("DECIDED","CLOSED") and (
-                    oldjson.get("phase")!="DECIDED" or oldjson.get("result") not in ("PASS","FAIL")):
+                    oldjson.get("phase")!="DECIDED" or oldjson.get("result") not in ("PASS","FAIL") and not source_error):
                     raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
                 unsettled=db.execute("SELECT 1 FROM tasks WHERE run_id=? AND json_extract(task_json,'$.state') NOT IN ('COMPLETED','CANCELLED')",(head[0],)).fetchone() if oldattempt else True
                 held=db.execute("SELECT 1 FROM resources WHERE run_id=? AND state IN ('HELD','UNKNOWN')",(head[0],)).fetchone()
@@ -726,7 +728,9 @@ class WorkflowStore:
                 if oldjson is None or oldjson["phase"] not in allowed_phase or unsettled or held or dirty_scope:
                     raise SubmissionHeadConflict(SubmissionHeadConflict.ACTIVE_OR_UNSETTLED)
                 if author_request_target:
-                    if oldjson.get("result") not in ("PASS","FAIL") or oldjson.get("cleanup_state") not in ("NOT_REQUIRED","CONFIRMED"):
+                    if not source_error and (oldjson.get("result") not in ("PASS","FAIL") or oldjson.get("cleanup_state") not in ("NOT_REQUIRED","CONFIRMED")):
+                        raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
+                    if source_error and request["input_digest"]==prior_run.get("input_digest"):
                         raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
             elif not diagnostic and target is not None:
                 raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
@@ -3096,6 +3100,34 @@ class WorkflowStore:
                     "resolution_proof_ref":row[3],"delivery_id":row[4]}
         finally: db.close()
 
+    def _source_snapshot_error_head_tx(self, db, run_id, run, attempt, request):
+        """Validate the narrowly replaceable, settled source-drift ERROR head."""
+        if (run.get("run_kind")!="FEATURE_GATE" or attempt.get("phase")!="DECIDED" or
+            attempt.get("result")!="ERROR" or attempt.get("cleanup_state")!="CONFIRMED" or
+            run.get("author")!=request.get("author")):
+            return False
+        try:
+            self._verify_settled_feature_cleanup_tx(db,run_id,"ERROR")
+        except (StaleCommand, ProtocolError):
+            return False
+        rows=db.execute("SELECT id,generation,task_json,result_json FROM tasks WHERE run_id=? AND generation=(SELECT current_generation FROM runs WHERE id=?) AND json_extract(task_json,'$.kind')='CHECK'",(run_id,run_id)).fetchall()
+        if len(rows)!=1: return False
+        task_id,generation,task_raw,result_raw=rows[0]
+        task=json.loads(task_raw); body=json.loads(result_raw) if result_raw else None
+        claim=db.execute("SELECT process_identity,claim_token FROM native_claims WHERE task_id=?",(task_id,)).fetchone()
+        if (task.get("state")!="COMPLETED" or task.get("result",{}).get("decision")!="ERROR" or
+            generation!=attempt.get("generation") or body is None or claim is None): return False
+        binding=body.get("binding",{}); report=body.get("error_report")
+        return (binding.get("decision")=="ERROR" and isinstance(report,dict) and
+            report.get("error_code")=="SOURCE_SNAPSHOT_CHANGED" and
+            (binding.get("task_id"),binding.get("run_id"),binding.get("evaluation_generation"),binding.get("assignment_generation"),binding.get("input_digest"))==
+            (task_id,task.get("run_id"),task.get("evaluation_generation"),task.get("assignment_generation"),task.get("input_digest")) and
+            task.get("run_id")==run_id and task.get("evaluation_generation")==generation and
+            task.get("input_digest")==run.get("input_digest") and
+            (report.get("task_id"),report.get("run_id"),report.get("evaluation_generation"),report.get("assignment_generation"),report.get("input_digest"))==
+            (task_id,run_id,generation,task.get("assignment_generation"),run.get("input_digest")) and
+            body.get("process_identity")==json.loads(claim[0])==task.get("process_identity") and body.get("claim_token")==claim[1])
+
     def _verify_settled_feature_head_tx(self, db, run_id, generation, expected_sequence, worktree, terminal_kind):
         if terminal_kind not in ("ERROR", "FAIL", "CANCELLED"):
             raise ProtocolError("unsupported settled terminal kind")
@@ -3360,6 +3392,19 @@ class WorkflowStore:
         db=self._connect()
         try:
             return db.execute("SELECT 1 FROM runs r JOIN feature_heads h ON h.worktree=r.worktree AND h.sprint=r.sprint AND h.run_id=r.id WHERE r.id=?",(run_id,)).fetchone() is not None
+        finally: db.close()
+
+    def can_replace_source_snapshot_error(self, *, run_id, author, worktree):
+        """Shared read-only status predicate; submit repeats it under its write transaction."""
+        db=self._connect()
+        try:
+            db.execute("BEGIN")
+            row=db.execute("SELECT r.run_json,r.worktree,r.sprint,a.attempt_json FROM runs r JOIN attempts a ON a.run_id=r.id AND a.generation=r.current_generation JOIN feature_heads h ON h.run_id=r.id AND h.worktree=r.worktree AND h.sprint=r.sprint WHERE r.id=?",(run_id,)).fetchone()
+            if row is None or str(Path(row[1]).resolve())!=str(Path(worktree).resolve()): return False
+            run=json.loads(row[0]); attempt=json.loads(row[3])
+            if run.get('author')!=author: return False
+            request={'author':author}
+            return self._source_snapshot_error_head_tx(db,run_id,run,attempt,request)
         finally: db.close()
 
     def is_settled_error_head_retired(self, run_id):

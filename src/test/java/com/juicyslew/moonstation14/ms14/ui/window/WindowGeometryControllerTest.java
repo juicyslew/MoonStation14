@@ -106,6 +106,10 @@ class WindowGeometryControllerTest {
         GhostRoleMenuPresentation.relayout(window, 640, 400, width, 110, false);
         assertEquals(draggedX, window.x());
         assertEquals(draggedY, window.y());
+        GhostRoleMenuPresentation.relayout(window, 640, 400, width, 80, false);
+        assertEquals(80, window.height(), "collapsing content after releasing drag must shrink the menu");
+        GhostRoleMenuPresentation.relayout(window, 640, 400, width, 110, false);
+        assertEquals(110, window.height(), "re-expanding content must restore the menu height");
         GhostRoleMenuPresentation.relayout(window, 800, 500, width, 110, true);
         assertEquals(draggedX, window.x());
         assertEquals(draggedY, window.y());

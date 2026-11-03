@@ -55,6 +55,7 @@ import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualRes
 import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient;
 import com.juicyslew.moonstation14.ms14.player_body_control.client.BodyHealthHudPolicy;
+import com.juicyslew.moonstation14.ms14.player_body_control.client.BodyStaminaHudPolicy;
 import com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient;
 import com.juicyslew.moonstation14.ms14.hands.client.BodyBlockOutlineRenderer;
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSnapshot;
@@ -256,6 +257,7 @@ public class MoonStation14Client {
                 com.juicyslew.moonstation14.ms14.combat.client.GunMuzzleFlashClient::receiveObserver);
         com.juicyslew.moonstation14.ms14.combat.CombatModeNetworking.installMeleeArcHandler(
                 com.juicyslew.moonstation14.ms14.combat.client.MeleeArcClient::receiveObserver);
+        com.juicyslew.moonstation14.ms14.combat.DisarmFlightClientState.install();
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates::bootstrapClientBundled);
@@ -856,6 +858,21 @@ public class MoonStation14Client {
             if (thirst != null && Float.isFinite(thirst.thirst())) {
                 var level = com.juicyslew.moonstation14.ms14.thirst.ThirstReducer.classify(thirst.thirst(), thirstPolicy);
                 rows.add(new HudStatus("BODY THIRST " + level.displayLabel() + " " + Math.round(thirst.thirst()), 0xff3186a8));
+            }
+
+            var staminaPolicy = character.flatMap(data -> data.component(
+                    com.juicyslew.moonstation14.ms14.character.components.StaminaPrototypeComponent.class)).orElse(null);
+            if (staminaPolicy != null) {
+                var snapshot = body.getExistingDataOrNull(ModDataAttachments.STAMINA.get());
+                var stamina = BodyStaminaHudPolicy.project(staminaPolicy,
+                        snapshot == null ? com.juicyslew.moonstation14.ms14.character.stamina.StaminaState.EMPTY : snapshot.state());
+                if (stamina != null) {
+                    String label = net.minecraft.network.chat.Component.translatable("moonstation14.hud.stamina").getString()
+                            + " " + Math.round(stamina.remaining()) + "/" + Math.round(stamina.capacity());
+                    if (stamina.critical()) label += " " + net.minecraft.network.chat.Component.translatable("moonstation14.hud.stamina.critical").getString();
+                    else if (stamina.afterCritical()) label += " " + net.minecraft.network.chat.Component.translatable("moonstation14.hud.stamina.recovering").getString();
+                    rows.add(new HudStatus(label, stamina.critical() ? 0xffa83232 : 0xffb58a32));
+                }
             }
         }
         int guiWidth = event.getGuiGraphics().guiWidth();

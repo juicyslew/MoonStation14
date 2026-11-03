@@ -8,6 +8,15 @@ import java.util.Set;
 public final class ItemDamageKernel {
     private ItemDamageKernel() { }
 
+    public enum Destruction { NONE, NORMAL, OVERKILL }
+
+    /** Classifies accumulated item damage, with the optional overkill threshold taking precedence. */
+    public static Destruction classifyDestruction(float total, float normalThreshold, java.util.Optional<Float> overkillThreshold) {
+        if (overkillThreshold != null && overkillThreshold.isPresent() && total >= overkillThreshold.get()) return Destruction.OVERKILL;
+        if (total >= normalThreshold) return Destruction.NORMAL;
+        return Destruction.NONE;
+    }
+
     public record Impact(ItemDamageState state, boolean applied, boolean destructionDue) { }
 
     public static Map<String, Float> filterAllowed(Map<String, Float> raw, Set<String> allowedGroups) {

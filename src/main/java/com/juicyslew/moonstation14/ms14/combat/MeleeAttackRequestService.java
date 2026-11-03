@@ -24,10 +24,11 @@ public final class MeleeAttackRequestService {
           boolean wide=request.attackMode()==MeleeAttackRequest.Mode.WIDE;
           boolean disarm=request.attackMode()==MeleeAttackRequest.Mode.DISARM;
           var arcTarget=wide?request.wideTargets().stream().findFirst().orElse(null):request.targetUUID();
-          var frozenArc=MeleeArcObserverPublisher.capture(body,current,arcTarget,wide);
-          var result=com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.batch(() -> wide ? LiveMeleeAttackService.attackWide(player,authority,current,request.wideTargets()) : disarm ? LiveMeleeAttackService.disarm(player,authority,current,request.targetUUID()) : LiveMeleeAttackService.attack(player,authority,current,request.targetUUID()));
-         if(result.status()==LiveMeleeAttackService.Status.HIT || result.status()==LiveMeleeAttackService.Status.MISS || result.status()==LiveMeleeAttackService.Status.HANDLED || result.status()==LiveMeleeAttackService.Status.DISARM_HANDLED)
-               MeleeArcObserverPublisher.publish(player,body,request.targetUUID(),frozenArc,result.swingLeft());
+          var frozenArc=MeleeArcObserverPublisher.capture(body,current,arcTarget,request.attackMode());
+          var typed=request.typedTarget();
+          var result=com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.batch(() -> wide ? LiveMeleeAttackService.attackWideTyped(player,authority,current,request.nominations(),request.swingPredicted()) : disarm ? LiveMeleeAttackService.disarm(player,authority,current,request.targetUUID(),request.swingPredicted()) : typed instanceof MeleeTargetNomination.Block block ? LiveMeleeAttackService.attackBlock(player,authority,current,block,request.swingPredicted()) : LiveMeleeAttackService.attack(player,authority,current,request.targetUUID(),request.swingPredicted()));
+          if(result.status()==LiveMeleeAttackService.Status.HIT || result.status()==LiveMeleeAttackService.Status.MISS || result.status()==LiveMeleeAttackService.Status.HANDLED || result.status()==LiveMeleeAttackService.Status.DISARM_HANDLED)
+                MeleeArcObserverPublisher.publish(player,body,request.targetUUID(),result.validatedBlockContactPoint(),frozenArc,result.swingLeft());
          var status=switch(result.status()){case REJECTED->MeleeAttackReply.Status.REJECTED;case PRE_ATTEMPT_CANCELLED->MeleeAttackReply.Status.PRE_ATTEMPT_CANCELLED;case CONSUMED_CANCELLED->MeleeAttackReply.Status.CONSUMED_CANCELLED;case MISS->MeleeAttackReply.Status.MISS;case HIT->MeleeAttackReply.Status.HIT;case HANDLED->MeleeAttackReply.Status.HANDLED;case DISARM_FAILED->MeleeAttackReply.Status.DISARM_FAILED;case DISARM_HANDLED->MeleeAttackReply.Status.DISARM_HANDLED;};
          if (!BodyActionAuthority.revalidate(player, authority))
              return reply(body.getUUID(),epoch,request.sequence(),MeleeAttackReply.Status.NO_AUTHORITY,result.cooldownConsumed(),null,0,null,0);

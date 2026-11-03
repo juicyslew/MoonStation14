@@ -28,6 +28,28 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AnimalPrototypeTest {
+    @Test void retaliationChanceResolvesThroughParentCompositionAndRuntimePolicyReadsResolvedValue() {
+        var definitions = new LinkedHashMap<ResourceLocation, JsonObject>();
+        definitions.put(ResourceLocation.parse("test:miss_default_parent"), JsonParser.parseString(
+                "{\"abstract\":true,\"components\":[{\"type\":\"NpcRetaliation\"}]} ").getAsJsonObject());
+        definitions.put(ResourceLocation.parse("test:miss_custom_parent"), JsonParser.parseString(
+                "{\"abstract\":true,\"components\":[{\"type\":\"NpcRetaliation\",\"meleeMissChance\":0.75}]} ").getAsJsonObject());
+        definitions.put(ResourceLocation.parse("test:miss_default_child"), JsonParser.parseString(
+                "{\"parent\":\"test:miss_default_parent\",\"host_entity_types\":[\"test:default_host\"]}").getAsJsonObject());
+        definitions.put(ResourceLocation.parse("test:miss_custom_child"), JsonParser.parseString(
+                "{\"parent\":\"test:miss_custom_parent\",\"host_entity_types\":[\"test:custom_host\"]}").getAsJsonObject());
+        var manager = new PrototypeManager();
+        manager.register(ModCharacters.CHARACTER_TYPE);
+        manager.reload(ModCharacters.CHARACTER_TYPE, definitions);
+        var resolved = manager.snapshot(ModCharacters.CHARACTER_TYPE);
+        var defaultPolicy = resolved.get(ResourceLocation.parse("test:miss_default_child"))
+                .component(NpcRetaliationComponent.class).orElseThrow();
+        var customPolicy = resolved.get(ResourceLocation.parse("test:miss_custom_child"))
+                .component(NpcRetaliationComponent.class).orElseThrow();
+        assertEquals(.3, defaultPolicy.meleeMissChance());
+        assertEquals(.75, customPolicy.meleeMissChance());
+    }
+
     @Test void everyCatalogHostResolvesAppearanceIdentityThresholdsAndMovement() throws Exception {
         Path root = Path.of(System.getProperty("moonstation14.projectDir"), "src/main/resources/data/moonstation14/moonstation14/character");
         Map<ResourceLocation, JsonObject> data = new LinkedHashMap<>();
@@ -55,6 +77,15 @@ class AnimalPrototypeTest {
         assertTrue(reagents.containsKey(ResourceLocation.parse("moonstation14:copperblood")));
         PrototypeManager manager = new PrototypeManager(); manager.register(ModCharacters.CHARACTER_TYPE); manager.reload(ModCharacters.CHARACTER_TYPE,data);
         var resolved = manager.snapshot(ModCharacters.CHARACTER_TYPE);
+        var koboldMelee = resolved.get(ResourceLocation.parse("moonstation14:kobold"))
+                .component(com.juicyslew.moonstation14.ms14.character.components.MeleeAttackComponent.class).orElseThrow();
+        assertEquals(5f, koboldMelee.damage().types().get("slash"));
+        assertEquals(4f, koboldMelee.damage().types().get("piercing"));
+        assertEquals(1f, koboldMelee.attackRate()); assertEquals(1.5f, koboldMelee.range());
+        assertEquals("moonstation14:ss14/effects/alien_claw", koboldMelee.audio().hit().event().toString());
+        assertNotNull(koboldMelee.audio().swing());
+        assertEquals("moonstation14:ss14/effects/punch_miss", koboldMelee.audio().swing().event().toString());
+        assertEquals("moonstation14:weapon_arc_claw", koboldMelee.arc().toString());
         assertEquals(4.0, resolved.get(ResourceLocation.parse("moonstation14:bat"))
                 .component(FlightComponent.class).orElseThrow().npcCruiseHeight());
         var batFlight = resolved.get(ResourceLocation.parse("moonstation14:bat")).component(FlightComponent.class).orElseThrow();

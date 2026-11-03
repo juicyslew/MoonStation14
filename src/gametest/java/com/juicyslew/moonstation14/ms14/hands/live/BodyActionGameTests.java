@@ -144,6 +144,12 @@ public final class BodyActionGameTests {
                                 + expectedName + " native=" + nativeName);
                 require(com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(active.body())
                                 .getString().equals(expectedName), "shared public-name policy uses saved identity");
+                var disarmFailure = net.minecraft.network.chat.Component.translatable("moonstation14.disarm.failure",
+                        com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(active.body()));
+                var disarmSuccess = net.minecraft.network.chat.Component.translatable("moonstation14.disarm.success",
+                        com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(active.body()));
+                require(disarmName(disarmFailure).equals(expectedName) && disarmName(disarmSuccess).equals(expectedName),
+                        "disarm success/failure popup arguments use the controlled body's saved character name");
                 var screamPlan = com.juicyslew.moonstation14.ms14.effect.EmoteEffect
                         .plan("scream", true, active.body());
                 require(screamPlan != null && screamPlan.chat() != null
@@ -173,6 +179,13 @@ public final class BodyActionGameTests {
                 helper.succeed();
             } finally { fixture.close(); }
         });
+    }
+
+    private static String disarmName(net.minecraft.network.chat.Component popup) {
+        if (!(popup.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents translated)
+                || translated.getArgs().length == 0
+                || !(translated.getArgs()[0] instanceof net.minecraft.network.chat.Component name)) return "";
+        return name.getString();
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)

@@ -426,7 +426,9 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-        assertEquals(43, data.components().size(), "merged Human composition retains botany, main, Tesla, and internals component families");
+        assertEquals(44, data.components().size(), "merged Human composition retains botany, main, Tesla, internals, and melee component families");
+        assertTrue(data.component(com.juicyslew.moonstation14.ms14.character.components.InternalsComponent.class).isPresent(),
+                "Human internals composition survives the merge");
         assertTrue(data.component(StatusEffectsPrototypeComponent.class).isPresent(), "main Human status-effect configuration survives the merge");
         assertTrue(data.component(StaminaPrototypeComponent.class).isPresent(), "main Human stamina configuration survives the merge");
         var lightningTarget = data.component(LightningTargetComponent.class).orElseThrow();
@@ -455,6 +457,16 @@ class CharacterPrototypeTest {
         assertEquals(com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.DEFAULT_ACTION,
                 data.component(com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.class)
                         .orElseThrow().combatToggleAction());
+        var melee = data.component(com.juicyslew.moonstation14.ms14.character.components.MeleeWeaponComponent.class)
+                .orElseThrow(() -> new AssertionError("Human fists retain their typed melee weapon component")).weapon();
+        assertEquals(Map.of("blunt", 5.0f), melee.damage());
+        assertEquals(1.0f, melee.attackRate());
+        assertEquals(1.5f, melee.range());
+          assertEquals(120.0f, melee.angleDegrees());
+         assertEquals(.6f, melee.wideOriginHeightRatio());
+        assertEquals(ResourceLocation.parse("moonstation14:weapon_arc_fist"), melee.arc());
+        assertEquals(ResourceLocation.parse("moonstation14:weapon_arc_slash"), melee.wideArc());
+        assertEquals(ResourceLocation.parse("moonstation14:ss14/weapons/punch"), melee.audio().hit().event());
         var vocal = data.component(com.juicyslew.moonstation14.ms14.character.components.VocalComponent.class).orElseThrow();
         assertEquals(com.juicyslew.moonstation14.ms14.character.components.VocalComponent.DEFAULT_ACTION, vocal.screamAction());
         assertEquals(com.juicyslew.moonstation14.ms14.character.components.VocalComponent.DEFAULT_EMOTE, vocal.screamEmote());

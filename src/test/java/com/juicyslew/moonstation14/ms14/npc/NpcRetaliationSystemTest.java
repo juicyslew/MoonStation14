@@ -10,11 +10,24 @@ import java.util.UUID;
 class NpcRetaliationSystemTest {
     @Test void policyIsOptInAndHasUpstreamMemoryDefault() {
         assertEquals(0, NpcRetaliationComponent.DEFAULT.attackMemorySeconds());
+        assertEquals(.3, NpcRetaliationComponent.DEFAULT.meleeMissChance());
         assertTrue(NpcRetaliationComponent.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
                 com.google.gson.JsonParser.parseString("{\"type\":\"NpcRetaliation\"}")).result().isPresent());
         assertThrows(IllegalArgumentException.class, () -> NpcRetaliationComponent.CODEC.parse(
                 com.mojang.serialization.JsonOps.INSTANCE,
                 com.google.gson.JsonParser.parseString("{\"type\":\"NpcRetaliation\",\"attackMemorySeconds\":-1}")));
+        for (String chance : new String[]{"-0.01", "1.01"}) {
+            var json = com.google.gson.JsonParser.parseString("{\"type\":\"NpcRetaliation\",\"meleeMissChance\":" + chance + "}");
+            assertThrows(IllegalArgumentException.class, () -> NpcRetaliationComponent.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, json));
+        }
+        assertEquals(0, NpcRetaliationComponent.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                com.google.gson.JsonParser.parseString("{\"type\":\"NpcRetaliation\",\"meleeMissChance\":0}")).result().orElseThrow().meleeMissChance());
+        assertEquals(1, NpcRetaliationComponent.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                com.google.gson.JsonParser.parseString("{\"type\":\"NpcRetaliation\",\"meleeMissChance\":1}")).result().orElseThrow().meleeMissChance());
+        assertDoesNotThrow(() -> com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit.auditComponent(
+                com.google.gson.JsonParser.parseString("{\"type\":\"NpcRetaliation\",\"meleeMissChance\":0.3}").getAsJsonObject(), "$.components[0]"));
+        assertThrows(IllegalArgumentException.class, () -> com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit.auditComponent(
+                com.google.gson.JsonParser.parseString("{\"type\":\"NpcRetaliation\",\"meleeMissChance\":1.1}").getAsJsonObject(), "$.components[0]"));
     }
 
     @Test void onlyProvocationCreatesMemoryAndFriendlyTargetsAreIgnored() {
@@ -44,5 +57,31 @@ class NpcRetaliationSystemTest {
         assertFalse(NpcRetaliationSystem.acquireAttackCooldown(attacks, one, 29, 20));
         assertTrue(NpcRetaliationSystem.acquireAttackCooldown(attacks, two, 29, 20));
         assertTrue(NpcRetaliationSystem.acquireAttackCooldown(attacks, one, 30, 20));
+    }
+
+    @Test void movingTargetMissPolicyHasStationaryAndProbabilityBoundaries() {
+        assertFalse(NpcRetaliationSystem.movingTargetMiss(0, 1, 0));
+        assertFalse(NpcRetaliationSystem.movingTargetMiss(1, 0, 0));
+        assertFalse(NpcRetaliationSystem.movingTargetMiss(1, .3, .3));
+        assertTrue(NpcRetaliationSystem.movingTargetMiss(1, .3, .299));
+        assertTrue(NpcRetaliationSystem.movingTargetMiss(1, 1, .999));
+    }
+
+    @Test void missOffsetUsesUniformAngleAndRadiusBoundedInHorizontalPlane() {
+        var east = NpcRetaliationSystem.missOffset(0, .5);
+        assertEquals(.25, east.x, 1e-12);
+        assertEquals(0, east.y, 1e-12);
+        assertEquals(0, east.z, 1e-12);
+        var north = NpcRetaliationSystem.missOffset(.25, 1);
+        assertEquals(0, north.x, 1e-12);
+        assertEquals(0, north.y, 1e-12);
+        assertEquals(.5, north.z, 1e-12);
+        assertEquals(0, NpcRetaliationSystem.missOffset(.8, 0).length());
+        for (double angle : new double[]{0, .13, .25, .5, .77, .99})
+            for (double radius : new double[]{0, .1, .5, .9, Math.nextDown(1.0)}) {
+                var offset = NpcRetaliationSystem.missOffset(angle, radius);
+                assertEquals(0, offset.y);
+                assertTrue(offset.length() < .5);
+            }
     }
 }

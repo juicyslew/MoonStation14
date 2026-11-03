@@ -16,6 +16,15 @@ import java.nio.charset.StandardCharsets;
 class ItemDamageKernelTest {
     private static final Set<String> BIOLOGICAL = Set.of("brute", "burn", "toxin", "airloss", "genetic");
 
+    @Test void destructionClassificationPrioritizesOverkillAndKeepsThresholdsInclusive() {
+        var overkill = java.util.Optional.of(200f);
+        assertEquals(ItemDamageKernel.Destruction.NONE, ItemDamageKernel.classifyDestruction(19.99f, 20f, overkill));
+        assertEquals(ItemDamageKernel.Destruction.NORMAL, ItemDamageKernel.classifyDestruction(20f, 20f, overkill));
+        assertEquals(ItemDamageKernel.Destruction.NORMAL, ItemDamageKernel.classifyDestruction(199f, 20f, overkill));
+        assertEquals(ItemDamageKernel.Destruction.OVERKILL, ItemDamageKernel.classifyDestruction(200f, 20f, overkill));
+        assertEquals(ItemDamageKernel.Destruction.NORMAL, ItemDamageKernel.classifyDestruction(200f, 20f, java.util.Optional.empty()));
+    }
+
     @Test void horizontalOwnSpeedScalesAndUsesInclusiveCooldown() {
         var first = ItemDamageKernel.highSpeedImpact(ItemDamageState.EMPTY, Map.of("blunt", 1f), BIOLOGICAL,
                 .1f, .5f, 40, 10, .1 / 20, true, 1f);
@@ -86,6 +95,23 @@ class ItemDamageKernelTest {
         assertEquals(100, landed.nextImpactDeadline());
     }
 
+    @Test void destructionThresholdPolicyUsesInclusiveBoundariesAndOverkillPrecedence() {
+        assertFalse(destructionDue(19f, 20f, java.util.Optional.of(200f)));
+        assertTrue(destructionDue(20f, 20f, java.util.Optional.of(200f)));
+        // On a triggering hit that crosses both boundaries, overkill is selected first.
+        assertEquals(DestructionKind.OVERKILL, destructionKind(200f, 20f, java.util.Optional.of(200f)));
+        assertEquals(DestructionKind.NORMAL, destructionKind(200f, 20f, java.util.Optional.empty()));
+    }
+
+    private enum DestructionKind { NONE, NORMAL, OVERKILL }
+    private static boolean destructionDue(float total, float normal, java.util.Optional<Float> overkill) {
+        return destructionKind(total, normal, overkill) != DestructionKind.NONE;
+    }
+    private static DestructionKind destructionKind(float total, float normal, java.util.Optional<Float> overkill) {
+        if (overkill.isPresent() && total >= overkill.get()) return DestructionKind.OVERKILL;
+        return total >= normal ? DestructionKind.NORMAL : DestructionKind.NONE;
+    }
+
     @Test void unsupportedZeroAndEmptyDeltasAreNotApplicable() {
         assertFalse(ItemDamageKernel.hasApplicableDamage(Map.of("holy", 1f), BIOLOGICAL));
         assertFalse(ItemDamageKernel.hasApplicableDamage(Map.of("blunt", 0f), BIOLOGICAL));
@@ -125,12 +151,15 @@ class ItemDamageKernelTest {
         var jugId = ResourceLocation.fromNamespaceAndPath("moonstation14", "jug");
         var tomatoId = ResourceLocation.fromNamespaceAndPath("moonstation14", "tomato");
         JsonObject generic = resource("generic"), jug = resource("jug"), tomato = resource("tomato");
+        JsonObject plastic = resource("plastic_drink_container"), strongPlastic = resource("strong_plastic_drink_container");
         JsonObject override = new JsonObject();
         override.addProperty("id", "moonstation14:tomato_threshold_override");
         override.addProperty("parent", "moonstation14:tomato");
         JsonObject damage = new JsonObject(); damage.addProperty("destruction_threshold", 2f);
         override.add("item_damage", damage);
         var raw = Map.of(genericId, generic, jugId, jug, tomatoId, tomato,
+                ResourceLocation.fromNamespaceAndPath("moonstation14", "plastic_drink_container"), plastic,
+                ResourceLocation.fromNamespaceAndPath("moonstation14", "strong_plastic_drink_container"), strongPlastic,
                 ResourceLocation.fromNamespaceAndPath("moonstation14", "tomato_threshold_override"), override);
         var manager = new com.juicyslew.moonstation14.ms14.prototype.PrototypeManager();
         manager.register(ModLooseObjectProfiles.PROFILE_TYPE);
@@ -143,7 +172,11 @@ class ItemDamageKernelTest {
         assertEquals(.1f, tomatoProfile.itemDamage().minimumImpactSpeed());
         assertEquals(Map.of("blunt", 1f), tomatoProfile.itemDamage().highSpeedImpact());
         assertEquals(1f, tomatoProfile.itemDamage().destructionThreshold());
-        assertNull(genericProfile.itemDamage()); assertNull(jugProfile.itemDamage());
+         assertNull(genericProfile.itemDamage());
+         assertEquals(20f, jugProfile.itemDamage().destructionThreshold());
+         assertEquals(java.util.Optional.of(200f), jugProfile.itemDamage().overkillDestructionThreshold());
+         assertEquals(java.util.Optional.empty(), tomatoProfile.itemDamage().overkillDestructionThreshold());
+         assertEquals(java.util.Optional.empty(), overridden.itemDamage().overkillDestructionThreshold());
         assertEquals(2f, overridden.itemDamage().destructionThreshold());
         assertEquals(Map.of("blunt", 1f), overridden.itemDamage().highSpeedImpact());
         assertEquals(Set.of("brute", "burn", "toxin", "airloss", "genetic"), overridden.itemDamage().allowedGroups());

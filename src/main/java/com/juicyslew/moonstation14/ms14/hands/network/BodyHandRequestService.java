@@ -27,6 +27,7 @@ import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.util.IdentityHashMap;
@@ -658,6 +659,18 @@ public final class BodyHandRequestService {
         java.util.concurrent.atomic.AtomicReference<java.util.UUID> spawned = new java.util.concurrent.atomic.AtomicReference<>();
         if (request.action() == BodyHandActionRequest.Action.THROW_ITEM) {
             var outcome = BodyLooseThrow.throwHeld(actor, request.handId(), request.expectedToken(), request.expectedRevision(), spawned::set);
+            if (outcome == BodyLooseThrow.Result.DENIED) {
+                LivingEntity body = authority.body();
+                LiveHands current = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                ItemStack held = current == null ? ItemStack.EMPTY : current.stackCopy(request.handId()).orElse(ItemStack.EMPTY);
+                String itemId = held.isEmpty() ? "empty" : BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
+                String prototype = body instanceof net.minecraft.world.entity.Mob mob
+                        ? mob.getType().toString() : body.getType().toString();
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                        "Body THROW_ITEM denied gate={} bodyType={} item={} bodyPos={} eye={} look={} profile=unavailable",
+                        BodyLooseThrow.lastPortableThrowGateForDiagnostics(), prototype, itemId,
+                        body.position(), body.getEyePosition(), body.getLookAngle());
+            }
             BodyHandActionResult.Reason throwReason = looseThrowReason(outcome);
             if (throwReason == BodyHandActionResult.Reason.OK && spawned.get() != null)
                 BodyWorldGridService.authorizeTransferredOpen(actor, authority, spawned.get());

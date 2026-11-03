@@ -106,6 +106,63 @@ public final class BodyLooseThrowGameTests {
         helper.succeed();
     }
 
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 90)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"living-carry", "melee-disarm"})
+    public static void forcedDisarmPublishesAndReportsCommittedFlight(GameTestHelper helper) {
+        Villager body = body(helper);
+        body.setNoAi(true);
+        // Give the launched item a bounded landing surface within the template.
+        for (int x = 0; x <= 8; x++) for (int z = 0; z <= 5; z++)
+            helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 3);
+        Set<UUID> before = looseIds(helper, body);
+        ItemStack original = new ItemStack(net.minecraft.world.item.Items.DIAMOND, 3);
+        LiveHands stocked = stock(body, original, "forced-disarm-cue");
+        java.util.List<BodyLooseThrow.CommittedFlight> callbacks = new java.util.ArrayList<>();
+        require(BodyLooseThrow.throwForDisarm(body, new Vec3(1, 0, 0), callbacks::add) == BodyLooseThrow.Result.SUCCESS,
+                "forced disarm commits");
+        LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        var created = newLooseAfter(helper, body, before);
+        require(after.revision() == stocked.revision() + 1 && after.stackCopy("left").isEmpty()
+                        && created.size() == 1 && created.getFirst().getItem().getCount() == 3,
+                "one whole item committed");
+        LooseItemEntity item = created.getFirst();
+        UUID itemId = item.getUUID();
+        ItemStack published = item.getItem().copy();
+        Vec3 velocity = item.getDeltaMovement();
+        Vec3 position = item.position();
+        require(velocity.x > 0 && velocity.lengthSqr() > 0 && helper.getLevel().getEntity(itemId) == item,
+                "forced disarm publishes one registered entity with forward launch velocity");
+        require(callbacks.size() == 1 && callbacks.getFirst().entityId().equals(itemId)
+                        && callbacks.getFirst().origin().equals(position) && callbacks.getFirst().velocity().equals(velocity),
+                "exactly one callback reports the published entity origin and initial velocity");
+        require(ItemStack.isSameItemSameComponents(item.getItem(), published)
+                        && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).stackCopy("left").isEmpty(),
+                "published world entity owns the unchanged stack");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"living-carry", "melee-disarm"})
+    public static void voluntaryThrowHasNoDisarmCueAndFailedDisarmPublishesNothing(GameTestHelper helper) {
+        Villager body = body(helper);
+        Set<UUID> before = looseIds(helper, body);
+        ItemStack original = new ItemStack(net.minecraft.world.item.Items.DIAMOND);
+        LiveHands stocked = stock(body, original, "voluntary-no-cue");
+        require(BodyLooseThrow.throwOwned(body, "left", "voluntary-no-cue", stocked.revision(), () -> true, ignored -> { })
+                        == BodyLooseThrow.Result.SUCCESS, "voluntary throw commits");
+        var voluntary = newLooseAfter(helper, body, before);
+        require(voluntary.size() == 1, "voluntary throw publishes one world item without disarm flight state");
+        Set<UUID> afterVoluntary = looseIds(helper, body);
+        stock(body, original, "failed-forced-disarm");
+        java.util.List<BodyLooseThrow.CommittedFlight> callbacks = new java.util.ArrayList<>();
+        require(BodyLooseThrow.throwForDisarm(body, Vec3.ZERO, callbacks::add) == BodyLooseThrow.Result.DENIED
+                        && looseIds(helper, body).equals(afterVoluntary)
+                        && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).stackCopy("left").isPresent()
+                        && callbacks.isEmpty(),
+                "failed forced transaction preserves hand and world without committed-flight callback");
+        helper.succeed();
+    }
+
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 160)
     @com.juicyslew.moonstation14.gametest.support.GameTestTags({"living-carry", "npc-flight", "portable-throw"})
     public static void portableKeyThrowReleasesAndFliesOriginalBody(GameTestHelper helper) {

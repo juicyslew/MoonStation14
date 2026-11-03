@@ -35,6 +35,26 @@ class ChatIdentitySavedDataNpcDurabilityTest {
         assertEquals("Villager (2)", ledger.allocateNpcDurably(file(), UUID.randomUUID(), "Villager").name());
     }
 
+    @Test void reloadedNpcIdentitySurvivesNewBodyBindingWhileOldHumanIdentityRemains() throws Exception {
+        var ledger = new ChatIdentitySavedData();
+        UUID body = UUID.randomUUID(), account = UUID.randomUUID();
+        var oldHumanKey = new ChatIdentityRegistry.CharacterKey(account, "old-human-profile");
+        var newBodyKey = new ChatIdentityRegistry.CharacterKey(account, "body-" + body);
+        ledger.allocateBodyCharacterDurably(file(), oldHumanKey, "Nadia Hart");
+        var npc = ledger.allocateNpcDurably(file(), body, "Kobold");
+        var reloaded = ChatIdentitySavedData.load(
+                NbtIo.readCompressed(file(), NbtAccounter.unlimitedHeap()).getCompound("data"), null);
+
+        assertEquals(npc, reloaded.existingNpcDurably(file(), body, "Kobold"));
+        assertEquals(npc, reloaded.npc(body).orElseThrow());
+        assertTrue(reloaded.character(oldHumanKey).isPresent());
+        assertTrue(reloaded.character(newBodyKey).isEmpty());
+        assertEquals(npc, reloaded.allocateNpcDurably(file(), body, "Kobold"));
+        assertEquals(npc, ChatIdentitySavedData.load(
+                NbtIo.readCompressed(file(), NbtAccounter.unlimitedHeap()).getCompound("data"), null)
+                .npc(body).orElseThrow());
+    }
+
     @Test void alreadyConfiguredNeverCreatesMissingLedgerOrRow() {
         var ledger = new ChatIdentitySavedData();
         assertThrows(IllegalStateException.class,

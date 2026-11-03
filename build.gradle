@@ -303,6 +303,7 @@ def readinessCatalog = [
     preview: ['com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest']
 ]
 readinessCatalog.interaction.add('com.juicyslew.moonstation14.ms14.botany.BotanyInspectCommandTest')
+readinessCatalog.interaction.add('com.juicyslew.moonstation14.gametest.support.ScopedPrototypeCatalogFixtureTest')
 readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.doors.FirelockStateTest',
     'com.juicyslew.moonstation14.ms14.doors.FirelockPryServiceTest',
@@ -404,26 +405,37 @@ readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.combat.MeleeTargetEligibilityTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponResolverTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponProfileTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeRosterCompositionTest',
+    'com.juicyslew.moonstation14.ms14.combat.CombatWorldPressRouteTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponDataTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeTargetAttackedEventTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeStaminaPolicyTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeCooldownTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeAttackPolicyTest',
-    'com.juicyslew.moonstation14.ms14.combat.CombatMeleeTargetProbeTest'
+    'com.juicyslew.moonstation14.ms14.combat.CombatMeleeTargetProbeTest',
+    'com.juicyslew.moonstation14.ms14.construction.ConstructionEntityPrototypeTest'
 ])
 readinessCatalog.prediction.addAll([
+    'com.juicyslew.moonstation14.ms14.standing.ClientBodyEntityRayTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleePredictionAdmissionTest',
     'com.juicyslew.moonstation14.ms14.hands.network.BodyHandSnapshotClockTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeAttackClientPolicyTest',
     'com.juicyslew.moonstation14.ms14.combat.ClientDisarmAdmissionTest',
     'com.juicyslew.moonstation14.ms14.combat.client.MeleeArcClientPolicyTest',
-    'com.juicyslew.moonstation14.ms14.combat.MeleeArcPayloadTest'
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcPayloadTest',
+    'com.juicyslew.moonstation14.ms14.combat.HeldMeleeInputPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.TypedMeleeSubmissionTest'
 ])
 readinessCatalog.ui.addAll([
     'com.juicyslew.moonstation14.ms14.combat.MeleeArcTimelineTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeArcProfileTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeArcResourceTest',
-    'com.juicyslew.moonstation14.ms14.combat.CombatModeHudPolicyTest'
+    'com.juicyslew.moonstation14.ms14.combat.CombatModeHudPolicyTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.client.LooseItemPresentationRendererPoseTest',
+    'com.juicyslew.moonstation14.ms14.player_body_control.client.BodyStaminaHudPolicyTest',
+    'com.juicyslew.moonstation14.ms14.player_body_control.client.BodyHudSourcePolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.client.DisarmFlightRendererTest',
+    'com.juicyslew.moonstation14.ms14.combat.client.DisarmFlightHudTest'
 ])
 readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRendererAlphaTest')
 readinessCatalog.ui.addAll([

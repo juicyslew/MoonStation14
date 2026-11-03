@@ -2,12 +2,15 @@ package com.juicyslew.moonstation14.ms14.character.components;
 
 import com.juicyslew.moonstation14.component.codec.json.DamageSpecifierData;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
+import com.juicyslew.moonstation14.ms14.combat.MeleeSoundData;
+import net.minecraft.resources.ResourceLocation;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 /** Resolved native-style unarmed melee statistics; no weapon item or native MC attack attribute required. */
-public record MeleeAttackComponent(DamageSpecifierData damage, float attackRate, float range)
+public record MeleeAttackComponent(DamageSpecifierData damage, float attackRate, float range,
+                                  MeleeSoundData audio, ResourceLocation arc)
         implements CharacterComponent {
     public static final String TYPE = "MeleeAttack";
     public static final DamageSpecifierData DEFAULT_DAMAGE = new DamageSpecifierData(java.util.Map.of(DamageKeys.BLUNT, 5f));
@@ -24,11 +27,17 @@ public record MeleeAttackComponent(DamageSpecifierData damage, float attackRate,
             Codec.STRING.fieldOf("type").forGetter(MeleeAttackComponent::type),
             DAMAGE_CODEC.fieldOf("damage").forGetter(MeleeAttackComponent::damage),
             POSITIVE_FLOAT.optionalFieldOf("attackRate", DEFAULT_ATTACK_RATE).forGetter(MeleeAttackComponent::attackRate),
-            POSITIVE_FLOAT.optionalFieldOf("range", DEFAULT_RANGE).forGetter(MeleeAttackComponent::range)
-    ).apply(instance, (type, damage, rate, range) -> {
+            POSITIVE_FLOAT.optionalFieldOf("range", DEFAULT_RANGE).forGetter(MeleeAttackComponent::range),
+            MeleeSoundData.CODEC.optionalFieldOf("audio", MeleeSoundData.DEFAULT).forGetter(MeleeAttackComponent::audio),
+            ResourceLocation.CODEC.optionalFieldOf("arc", ResourceLocation.fromNamespaceAndPath("moonstation14", "weapon_arc_fist")).forGetter(MeleeAttackComponent::arc)
+    ).apply(instance, (type, damage, rate, range, audio, arc) -> {
         if (!TYPE.equals(type)) throw new IllegalArgumentException("unknown component type: " + type);
-        return new MeleeAttackComponent(damage, rate, range);
+        return new MeleeAttackComponent(damage, rate, range, audio, arc);
     }));
+
+    public MeleeAttackComponent(DamageSpecifierData damage, float attackRate, float range) {
+        this(damage, attackRate, range, MeleeSoundData.DEFAULT, ResourceLocation.fromNamespaceAndPath("moonstation14", "weapon_arc_fist"));
+    }
 
     public MeleeAttackComponent {
         // DamageSpecifierData normalizes explicit zero entries away. Empty is a valid
@@ -36,7 +45,7 @@ public record MeleeAttackComponent(DamageSpecifierData damage, float attackRate,
         if (damage == null || damage.types().values().stream()
                 .anyMatch(value -> !Float.isFinite(value) || value < 0 || value > 1_000_000)
                 || !Float.isFinite(attackRate) || attackRate <= 0 || attackRate > 1000
-                || !Float.isFinite(range) || range <= 0 || range > 1000)
+                || !Float.isFinite(range) || range <= 0 || range > 1000 || audio == null || arc == null)
             throw new IllegalArgumentException("invalid melee attack policy");
     }
     @Override public String type() { return TYPE; }

@@ -10,7 +10,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import java.util.UUID;
 
 /** Verifies the production return ticket pins its one exact saved chunk across server ticks. */
-@GameTestTags({"lifecycle", "character", "carrier"})
+@GameTestTags({"lifecycle", "character", "carrier", "character-identity-return"})
 @PrefixGameTestTemplate(false)
 public final class ExactBodyReturnChunkTicketGameTests {
     private ExactBodyReturnChunkTicketGameTests() { }

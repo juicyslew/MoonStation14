@@ -84,10 +84,7 @@ public record LocalSpeechPayload(int speakerEntityId, UUID speakerUuid, String a
         this(speakerEntityId, actualName, rgb, text, x, y, z, dimension, Mode.SAY);
     }
 
-    private static boolean validName(String name) {
-        return name != null && (name.matches("[A-Za-z]{2,24} [A-Za-z]{2,24}")
-                || name.matches("[A-Z][A-Za-z]{1,31} \\((?:[1-9][0-9]{0,5}|1000000)\\)"));
-    }
+    private static boolean validName(String name) { return ChatIdentityRegistry.validCharacterName(name); }
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
@@ -98,7 +95,7 @@ public record LocalSpeechPayload(int speakerEntityId, UUID speakerUuid, String a
     private static void write(RegistryFriendlyByteBuf buf, LocalSpeechPayload value) {
         buf.writeVarInt(value.speakerEntityId);
         buf.writeUUID(value.speakerUuid);
-        buf.writeUtf(value.actualName, 49);
+        buf.writeUtf(value.actualName, ChatIdentityRegistry.MAX_CHARACTER_NAME_LENGTH);
         buf.writeInt(value.rgb);
         buf.writeUtf(value.text, LocalSpeechPolicy.MAX_TEXT_LENGTH);
         buf.writeDouble(value.x);
@@ -115,7 +112,7 @@ public record LocalSpeechPayload(int speakerEntityId, UUID speakerUuid, String a
     private static LocalSpeechPayload read(RegistryFriendlyByteBuf buf) {
         int entityId = buf.readVarInt();
         UUID speakerUuid = buf.readUUID();
-        String name = buf.readUtf(49);
+        String name = buf.readUtf(ChatIdentityRegistry.MAX_CHARACTER_NAME_LENGTH);
         int rgb = buf.readInt();
         String text = buf.readUtf(LocalSpeechPolicy.MAX_TEXT_LENGTH);
         double x = buf.readDouble(), y = buf.readDouble(), z = buf.readDouble();
