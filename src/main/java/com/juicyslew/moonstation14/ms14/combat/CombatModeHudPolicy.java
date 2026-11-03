@@ -21,7 +21,7 @@ public final class CombatModeHudPolicy {
         if (!capable) return false;
         if (snapshot == null || bodyId == null || bodyEpoch <= 0
                 || !bodyId.equals(snapshot.bodyId()) || bodyEpoch != snapshot.bodyEpoch()) return true;
-        return com.juicyslew.moonstation14.ms14.actions.client.BodyActionSlots.at(snapshot, 1) == null;
+        return snapshot.actions().stream().noneMatch(entry -> entry.actionId().getPath().equals("combat_mode_toggle"));
     }
     public static boolean admitted(boolean ready,boolean mouseGrabbed,boolean modal,boolean storageOwnsStream) {
         return ready && !mouseGrabbed && !modal && !storageOwnsStream;

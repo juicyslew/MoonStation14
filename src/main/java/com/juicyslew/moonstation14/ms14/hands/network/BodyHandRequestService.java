@@ -598,6 +598,16 @@ public final class BodyHandRequestService {
             var ownedToken = hands.token(request.handId()).orElse(null);
             if (request.expectedToken() != null && !request.expectedToken().equals(ownedToken))
                 return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            var alternateTarget = request.pickupTarget() == null
+                    || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
+                    ? null : level.getEntity(request.pickupTarget());
+            if (alternateTarget instanceof com.juicyslew.moonstation14.entities.LooseItemEntity attached
+                    && attached.attachment().isPresent()) {
+                var started = com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.begin(
+                        actor, attached, request.sequence());
+                return result(request, started == com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionEngine.StartResult.STARTED
+                        ? BodyHandActionResult.Reason.OK : BodyHandActionResult.Reason.DENIED, authority);
+            }
             if (ownedToken != null) {
                 var held = hands.stackCopy(request.handId()).orElse(null);
                 var targetEntity = request.pickupTarget() == null || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)

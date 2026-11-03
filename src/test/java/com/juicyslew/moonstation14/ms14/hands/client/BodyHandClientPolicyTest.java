@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.hands.client;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -13,6 +14,18 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+
+    @Test
+    void attachedEmptyHandPickupUsesAlternateTargetWithoutChangingNomination() {
+        assertEquals(BodyHandActionRequest.Action.ALTERNATE_TARGET,
+                AttachedItemPickupRoute.actionFor(BodyHandActionRequest.Action.PICKUP_SELECTED, true, true));
+        assertEquals(BodyHandActionRequest.Action.PICKUP,
+                AttachedItemPickupRoute.actionFor(BodyHandActionRequest.Action.PICKUP, false, true));
+        assertEquals(BodyHandActionRequest.Action.PICKUP_SELECTED,
+                AttachedItemPickupRoute.actionFor(BodyHandActionRequest.Action.PICKUP_SELECTED, true, false));
+        assertEquals(BodyHandActionRequest.Action.ALTERNATE_TARGET,
+                AttachedItemPickupRoute.actionFor(BodyHandActionRequest.Action.ALTERNATE_TARGET, true, true));
+    }
     @Test void noCharacterReconciliationPreservesOnlyExactCommittedGhostPointerOwner() {
         var ghost = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(BODY, 12);
         var otherEpoch = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(BODY, 13);

@@ -59,6 +59,19 @@ public final class RegisteredPlayerReadyDriver {
         return new Active(active.body(), active.epoch(), snapshot);
     }
 
+    /** Waits for the deferred CHARACTER Begin once per native tick, then performs Ready/query exactly once. */
+    public static void awaitCharacterReady(net.minecraft.gametest.framework.GameTestHelper helper,
+            RegisteredServerPlayerFixture fixture, int maxWaitTicks, java.util.function.Consumer<Active> onReady) {
+        GhostControlPayloads.Begin[] captured = new GhostControlPayloads.Begin[1];
+        java.util.List<String> outboundKinds = new java.util.ArrayList<>();
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.await(helper, maxWaitTicks,
+                () -> "timed out awaiting CHARACTER Begin: " + noCharacterBeginDiagnostic(fixture, outboundKinds),
+                () -> {
+                    if (captured[0] == null) captured[0] = takeBegin(fixture, MobHarnessKind.CHARACTER, outboundKinds);
+                    return captured[0] != null;
+                }, () -> onReady.accept(readyAndQuery(fixture, captured[0])));
+    }
+
     private static String noCharacterBeginDiagnostic(RegisteredServerPlayerFixture fixture, java.util.List<String> outboundKinds) {
         var player = fixture.player();
         var server = player.getServer();

@@ -193,7 +193,9 @@
     ]
   },
   "ss14/effects/metal_crunch": {
-    "sounds": ["moonstation14:ss14/effects/metal_crunch"]
+    "sounds": [
+      "moonstation14:ss14/effects/metal_crunch"
+    ]
   },
   "body_fall": {
     "sounds": [
@@ -338,9 +340,21 @@
       "moonstation14:emote/scream/malescream_6"
     ]
   },
-  "vocal_reptilian_scream": { "sounds": ["moonstation14:voice/reptilian/reptilian_scream"] },
-  "vocal_scurret_scream": { "sounds": ["moonstation14:animals/wawa_protest"] },
-  "vocal_wilhelm": { "sounds": ["moonstation14:voice/human/wilhelm_scream"] },
+  "vocal_reptilian_scream": {
+    "sounds": [
+      "moonstation14:voice/reptilian/reptilian_scream"
+    ]
+  },
+  "vocal_scurret_scream": {
+    "sounds": [
+      "moonstation14:animals/wawa_protest"
+    ]
+  },
+  "vocal_wilhelm": {
+    "sounds": [
+      "moonstation14:voice/human/wilhelm_scream"
+    ]
+  },
   "emote/weh": {
     "sounds": [
       "moonstation14:emote/weh/weh"
@@ -528,9 +542,18 @@
   },
   "ss14/effects/alien_claw": {
     "sounds": [
-      { "name": "moonstation14:ss14/weapons/alien_claw_flesh1", "weight": 1 },
-      { "name": "moonstation14:ss14/weapons/alien_claw_flesh2", "weight": 1 },
-      { "name": "moonstation14:ss14/weapons/alien_claw_flesh3", "weight": 1 }
+      {
+        "name": "moonstation14:ss14/weapons/alien_claw_flesh1",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/weapons/alien_claw_flesh2",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/weapons/alien_claw_flesh3",
+        "weight": 1
+      }
     ]
   },
   "ss14/weapons/blade_slice": {
@@ -741,5 +764,29 @@
     "sounds": [
       "moonstation14:lightning/lightningshock"
     ]
+  },
+  "ss14/weapons/star_hit": {
+    "sounds": [
+      "moonstation14:ss14/weapons/star_hit/star_hit"
+    ]
+  },
+  "ss14/weapons/pierce": {
+    "sounds": [
+      "moonstation14:ss14/weapons/pierce/pierce"
+    ]
+  },
+  "ss14/weapons/bolathrow": {
+    "sounds": [
+      "moonstation14:ss14/weapons/bolathrow/bolathrow"
+    ]
+  },
+  "ss14/effects/snap": {
+    "sounds": [
+      "moonstation14:ss14/effects/snap/snap"
+    ]
+  }
+,
+  "ss14/effects/drop": {
+    "sounds": [ "moonstation14:ss14/effects/drop/drop" ]
   }
 }

@@ -39,6 +39,13 @@ public class ModItems {
             () -> new Item(new Item.Properties().stacksTo(1).component(
                     com.juicyslew.moonstation14.component.ModDataComponents.LOOSE_OBJECT_PROFILE.get(),
                     com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile.PORTABLE_BODY_KEY_ID)));
+    // SS14 thrown-combat item identities; each is an independent, single-item instance.
+    public static final DeferredItem<Item> THROWING_KNIFE = ITEMS.register("throwing_knife", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "throwing_knife"))));
+    public static final DeferredItem<Item> DART = ITEMS.register("dart", () -> new com.juicyslew.moonstation14.item.custom.ItemFoodSolutionItem(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "dart"))));
+    public static final DeferredItem<Item> HYPO_DART = ITEMS.register("hypo_dart", () -> new com.juicyslew.moonstation14.item.custom.ItemFoodSolutionItem(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "hypo_dart"))));
+    public static final DeferredItem<Item> BOLA = ITEMS.register("bola", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "bola"))));
+    public static final DeferredItem<Item> ARMOR_VEST = ITEMS.register("armor_vest", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "armor_vest"))));
+    public static final DeferredItem<Item> BASIC_HELMET = ITEMS.register("basic_helmet", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "basic_helmet"))));
     // Force the equipment item declarations to register on the same native item registry.
     private static final Object EQUIPMENT_ITEMS = ModEquipmentItems.GREY_CAP;
 

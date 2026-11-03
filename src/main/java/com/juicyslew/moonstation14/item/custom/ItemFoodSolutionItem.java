@@ -40,6 +40,6 @@ public class ItemFoodSolutionItem extends Item implements IReagentTrait {
     }
     public static com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy solutionTransferFromResolved(com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfile profile) {
         return profile == null || !profile.refillable() ? com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy.DISABLED
-                : new com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy(true, 5f, false, true);
+                : new com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy(true, profile.maxTransferCents() / 100f, false, true);
     }
 }

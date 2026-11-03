@@ -463,6 +463,10 @@ public final class CharacterSchemaAudit {
             checkFields(object, COMPLEX_INTERACTION_FIELDS, path);
             return;
         }
+        if (com.juicyslew.moonstation14.ms14.character.components.EnsnareableComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type"), path);
+            return;
+        }
         if (com.juicyslew.moonstation14.ms14.character.components.ExaminerComponent.TYPE.equals(type)) {
             checkFields(object, Set.of("type", "skip_checks", "check_in_range_un_occluded"), path);
             return;

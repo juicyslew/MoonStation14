@@ -6,7 +6,6 @@ import com.juicyslew.moonstation14.ms14.actions.prototype.ActionPrototype;
 import com.juicyslew.moonstation14.ms14.player_body_control.action.BodyActionAuthority;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,9 +43,7 @@ public final class BodyActionService {
                             profile.useDelayTicks(), enabled ? "" : admission.enabled() ? "COOLDOWN" : admission.reason().name(),
                             profile.priority());
                 })
-                 .sorted(Comparator.comparingInt(BodyActionSnapshot.Entry::priority)
-                        .thenComparing(entry -> entry.actionId().toString()))
-                .toList();
+                 .toList();
 
          long revision = runtime.updateSnapshotFingerprint(List.of(identity.bodyUuid(), identity.epoch(), entries,
                  com.juicyslew.moonstation14.ms14.hands.live.LiveHands.equipmentSnapshot(body).map(s -> s.slots().stream().map(x -> List.of(x.id(), x.token().orElse(""))).toList()).orElse(List.of())));
@@ -86,7 +83,7 @@ public final class BodyActionService {
         long now = body.level().getGameTime();
         if (runtime.isOnCooldown(request.actionId().toString(), request.providerId(), now))
             return denied(sequence, "COOLDOWN", query(player));
-         var effect = BodyActionEffects.prepare(player, body, grant.profile());
+          var effect = BodyActionEffects.prepare(player, body, grant.profile(), request.sequence());
          if (effect.isEmpty()) return denied(sequence, "UNSUPPORTED", query(player));
          if (!BodyActionAuthority.revalidate(player, authority)) return denied(sequence, "NO_AUTHORITY", query(player));
          // Accepted dispatches are at-most-once even if applying the prepared effect fails; this is not a cooldown.

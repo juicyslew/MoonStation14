@@ -231,6 +231,8 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.item_processing.ItemProcessingProfile> clientItemProcessingProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.MeleeWeaponProfile> serverMeleeWeaponProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.MeleeWeaponProfile> clientMeleeWeaponProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile> serverThrownItemProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.throwing.ModThrownItemProfiles.TYPE); }
+    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile> clientThrownItemProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.throwing.ModThrownItemProfiles.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.GunProfile> serverGunProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.GunProfile> clientGunProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.CartridgeProfile> serverCartridgeProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE); }
@@ -334,6 +336,7 @@ public final class PrototypeRuntime {
         manager.register(ModExtractableProfiles.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE);
+        manager.register(com.juicyslew.moonstation14.ms14.combat.throwing.ModThrownItemProfiles.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE);

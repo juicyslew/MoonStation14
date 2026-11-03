@@ -16,10 +16,12 @@ public final class BodyActionClient {
     private static final BodyActionClientState STATE = new BodyActionClientState();
     private static boolean queryRequested;
     private static long sequence;
+    private static net.minecraft.client.multiplayer.ClientLevel lastLevel;
 
     private BodyActionClient() { }
 
     public static void onSnapshot(Optional<BodyActionSnapshot> snapshot) {
+        reconcileWorldContext();
         if (snapshot == null || snapshot.isEmpty()) {
             STATE.worldChanged();
             queryRequested = false;
@@ -28,11 +30,22 @@ public final class BodyActionClient {
         STATE.accept(snapshot.get(), currentGameTime());
     }
 
-    public static void onResult(BodyActionResult result) { STATE.accept(result, currentGameTime()); }
+    public static void onResult(BodyActionResult result) { reconcileWorldContext(); STATE.accept(result, currentGameTime()); }
     private static long currentGameTime() { var mc = Minecraft.getInstance(); return mc.level == null ? 0 : mc.level.getGameTime(); }
+
+    /** Discard presentation tied to an old client world even if body UUID and epoch happen to match. */
+    private static void reconcileWorldContext() {
+        var level = Minecraft.getInstance().level;
+        if (lastLevel != level) {
+            lastLevel = level;
+            STATE.worldChanged();
+            queryRequested = false;
+        }
+    }
 
     public static void tick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
+        reconcileWorldContext();
         Mob actor = GhostControlClient.ownedCharacterForHud();
         long epoch = GhostControlClient.committedCharacterEpoch();
         if (mc.level == null || actor == null || epoch <= 0 || actor.level() != mc.level) {
@@ -47,6 +60,8 @@ public final class BodyActionClient {
     }
 
     public static BodyActionSnapshot snapshot() { return STATE.snapshot(); }
+    public static java.util.List<BodyActionSlots.Slot> slots() { return STATE.slots(); }
+    public static BodyActionSnapshot.Entry actionAt(int number) { return STATE.actionAt(number); }
     public static long remainingCooldown(BodyActionSnapshot.Entry entry) {
         return STATE.remainingCooldown(entry, currentGameTime());
     }

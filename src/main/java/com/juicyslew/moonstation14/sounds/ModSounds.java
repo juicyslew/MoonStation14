@@ -63,6 +63,11 @@ public class ModSounds {
     public static final Supplier<SoundEvent> MELEE_METAL_THUD = registerSoundEvent("ss14/effects/metal_thud");
     public static final Supplier<SoundEvent> JUG_NORMAL_DESTRUCTION = registerSoundEvent("ss14/effects/metal_crunch");
     public static final Supplier<SoundEvent> MELEE_NO_DAMAGE = registerSoundEvent("ss14/effects/weak_hit");
+    public static final Supplier<SoundEvent> THROWING_KNIFE_HIT = registerSoundEvent("ss14/weapons/star_hit");
+    public static final Supplier<SoundEvent> DART_HIT = registerSoundEvent("ss14/weapons/pierce");
+    public static final Supplier<SoundEvent> BOLA_THROW = registerSoundEvent("ss14/weapons/bolathrow");
+    public static final Supplier<SoundEvent> BOLA_LAND = registerSoundEvent("ss14/effects/snap");
+    public static final Supplier<SoundEvent> ITEM_DROP = registerSoundEvent("ss14/effects/drop");
     public static final Supplier<SoundEvent> MELEE_DISARM_SUCCESS = registerSoundEvent("ss14/effects/thudswoosh");
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_BEGIN = registerSoundEvent("medical/ointment_begin");
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_END = registerSoundEvent("medical/ointment_end");

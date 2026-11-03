@@ -1,0 +1,1 @@
+{"abstract":true,"land_sound":"moonstation14:ss14/effects/drop","land_sound_volume_db":2.0,"collision_sound":{"cue":{"event":"moonstation14:ss14/effects/weak_hit"},"minimum_velocity":3.0,"cooldown_seconds":0.2}}

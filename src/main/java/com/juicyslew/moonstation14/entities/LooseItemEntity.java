@@ -25,6 +25,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 import net.minecraft.util.Mth;
 import com.juicyslew.moonstation14.ms14.damage.ItemDamageState;
 import com.juicyslew.moonstation14.ms14.damage.ItemDamageKernel;
@@ -34,6 +35,15 @@ import com.juicyslew.moonstation14.ms14.damage.DamageReducer;
 public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonstation14.ms14.singularity.SingularityConsumable {
     private static final EntityDataAccessor<Float> ROTATION = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Boolean> SETTLED = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> THROWN_FLIGHT = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<java.util.Optional<java.util.UUID>> ATTACH_TARGET = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.OPTIONAL_UUID);
+    private static final EntityDataAccessor<Integer> ATTACH_TARGET_ID = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Vector3f> ATTACH_CONTACT = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.VECTOR3);
+    private static final EntityDataAccessor<Vector3f> ATTACH_DIRECTION = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.VECTOR3);
+    private static final EntityDataAccessor<Integer> ATTACH_KIND = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Long> ATTACH_TICK = SynchedEntityData.defineId(LooseItemEntity.class, EntityDataSerializers.LONG);
+    private static Vector3f toVector(Vec3 v) { return new Vector3f((float)v.x, (float)v.y, (float)v.z); }
+    private static Vec3 fromVector(Vector3f v) { return new Vec3(v.x, v.y, v.z); }
     private float angularVelocity;
     private float previousRotationAngle;
     private float currentRotationAngle;
@@ -42,6 +52,11 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
     private int creativePickupDelay;
     private boolean pendingThrownLandingDamage;
     private boolean damageDestructionStarted;
+    private boolean activeThrownCombat;
+    private boolean thrownLandingSoundConsumed;
+    private java.util.UUID thrownByBody;
+    private final java.util.Set<java.util.UUID> previousThrownContacts = new java.util.HashSet<>();
+    private final com.juicyslew.moonstation14.ms14.combat.throwing.LooseItemCollisionSoundPolicy collisionSoundPolicy = new com.juicyslew.moonstation14.ms14.combat.throwing.LooseItemCollisionSoundPolicy();
     private final LooseClientPositionInterpolation clientPosition = new LooseClientPositionInterpolation();
 
     public LooseItemEntity(EntityType<? extends LooseItemEntity> type, Level level) { super(type, level); }
@@ -66,6 +81,9 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         super.defineSynchedData(builder);
         builder.define(ROTATION, 0f);
         builder.define(SETTLED, false);
+        builder.define(THROWN_FLIGHT, false);
+        builder.define(ATTACH_TARGET, java.util.Optional.empty()); builder.define(ATTACH_TARGET_ID, -1);
+        builder.define(ATTACH_CONTACT, new Vector3f()); builder.define(ATTACH_DIRECTION, new Vector3f()); builder.define(ATTACH_KIND, -1); builder.define(ATTACH_TICK, 0L);
     }
 
     public static LooseItemEntity create(Level level, Vec3 position, ItemStack stack) {
@@ -88,6 +106,7 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         copy.setDeltaMovement(getDeltaMovement());
         copy.setRotationAngle(getRotationAngle());
         copy.setSettled(settled());
+        copy.entityData.set(THROWN_FLIGHT, thrownFlightPresentation());
         copy.angularVelocity = angularVelocity;
         copy.previousRotationAngle = previousRotationAngle;
         copy.currentRotationAngle = currentRotationAngle;
@@ -106,11 +125,59 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         setDeltaMovement(clamp(velocity, 2.5));
         this.angularVelocity = Float.isFinite(angularVelocity) ? Math.max(-1.0f, Math.min(1.0f, angularVelocity)) : 0;
         setSettled(false);
+        collisionSoundPolicy.resetTerrain();
     }
 
     /** Called only after BodyLooseThrow has successfully published the world-owned entity. */
     public void markExplicitThrowForLanding() {
         if (!level().isClientSide && !isRemoved() && isAddedToLevel()) pendingThrownLandingDamage = true;
+    }
+
+    /** Arms target-contact behavior only after authenticated world publication. */
+    public void armThrownCombat(java.util.UUID throwerBody) {
+        if (!level().isClientSide && throwerBody != null && !isRemoved() && isAddedToLevel()
+                && level().getEntity(getId()) == this) { previousThrownContacts.clear(); activeThrownCombat = true; entityData.set(THROWN_FLIGHT, true); thrownLandingSoundConsumed = false; thrownByBody = throwerBody;
+            com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.resolveForStack(getItem(), false)
+                    .flatMap(com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile::throwSound)
+                    .ifPresent(sound -> com.juicyslew.moonstation14.ms14.explosion.grenade.network.ControlledSoundDispatch.emit(
+                            (ServerLevel) level(), sound, getX(), getY(), getZ(), 1f, 1f, SoundSource.NEUTRAL)); }
+    }
+    public boolean activeThrownCombat() { return activeThrownCombat; }
+    /** Public synchronized presentation projection; combat authority remains server-private. */
+    public boolean thrownFlightPresentation() { return entityData.get(THROWN_FLIGHT); }
+    public java.util.Optional<java.util.UUID> thrownByBody() { return java.util.Optional.ofNullable(thrownByBody); }
+    public void stopThrownCombat() { activeThrownCombat = false; entityData.set(THROWN_FLIGHT, false); thrownByBody = null; previousThrownContacts.clear(); }
+
+    public java.util.Optional<ItemAttachment> attachment() {
+        var target=entityData.get(ATTACH_TARGET); int kind=entityData.get(ATTACH_KIND);
+        if (target.isEmpty() || kind < 0 || kind >= ItemAttachment.AttachmentKind.values().length) return java.util.Optional.empty();
+         return java.util.Optional.of(new ItemAttachment(target.get(), entityData.get(ATTACH_TARGET_ID), fromVector(entityData.get(ATTACH_CONTACT)), fromVector(entityData.get(ATTACH_DIRECTION)), ItemAttachment.AttachmentKind.values()[kind], entityData.get(ATTACH_TICK)));
+    }
+    public boolean attachTo(net.minecraft.world.entity.LivingEntity target, Vec3 worldContact, Vec3 incoming, ItemAttachment.AttachmentKind kind) {
+        if (level().isClientSide || target == null || target.level()!=level() || target.isRemoved() || attachment().isPresent() || worldContact==null || incoming==null || kind==null || !finite(worldContact) || !finite(incoming)) return false;
+        var local=AttachmentPoseGeometry.captureLocalPoint(target, worldContact);
+        var direction=AttachmentPoseGeometry.captureLocalDirection(target, incoming);
+        var thrownProfile = com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.resolveForStack(getItem(), false).orElse(null);
+        entityData.set(ATTACH_TARGET, java.util.Optional.of(target.getUUID())); entityData.set(ATTACH_TARGET_ID,target.getId());
+        entityData.set(ATTACH_CONTACT,toVector(local)); entityData.set(ATTACH_DIRECTION,toVector(direction)); entityData.set(ATTACH_KIND,kind.ordinal());
+        entityData.set(ATTACH_TICK, level().getGameTime());
+        stopThrownCombat(); setDeltaMovement(Vec3.ZERO); setNoGravity(true); setPos(worldContact);
+        if (kind == ItemAttachment.AttachmentKind.EMBEDDED && thrownProfile != null)
+            thrownProfile.embedding().flatMap(com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.EmbeddingData::hitSound)
+                    .ifPresent(sound -> com.juicyslew.moonstation14.ms14.explosion.grenade.network.ControlledSoundDispatch.emit(
+                            (ServerLevel) level(), sound, getX(), getY(), getZ(), 1f, 1f, SoundSource.NEUTRAL));
+        return true;
+    }
+    /** Detach in place, preserving the sole ItemStack owner. */
+    public boolean detachAttachment() {
+        if(level().isClientSide || attachment().isEmpty()) return false;
+        ItemAttachment old = attachment().orElseThrow();
+        var profile = com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.resolveForStack(getItem(), false).orElse(null);
+        entityData.set(ATTACH_TARGET,java.util.Optional.empty()); entityData.set(ATTACH_TARGET_ID,-1); entityData.set(ATTACH_KIND,-1); entityData.set(ATTACH_TICK,0L);
+        setNoGravity(false); setDeltaMovement(Vec3.ZERO);
+        if (old.kind() == ItemAttachment.AttachmentKind.EMBEDDED && profile != null
+                && profile.embedding().map(com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.EmbeddingData::deleteOnRemove).orElse(false)) discard();
+        return true;
     }
 
     public void applyImpulse(Vec3 impulse) {
@@ -155,7 +222,7 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
 
     public void setCreativePickupDelay(int ticks) { creativePickupDelay = Math.max(2, Math.min(40, ticks)); }
     /** Admission policy for hand pickup; specialized world fixtures may deny hand ownership. */
-    public boolean admitsBodyHandPickup() { return true; }
+    public boolean admitsBodyHandPickup() { return attachment().isEmpty(); }
 
     @Override public void playerTouch(net.minecraft.world.entity.player.Player player) {
         if (!admitsBodyHandPickup() || creativePickupDelay > 0 || !(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)
@@ -187,6 +254,18 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
             previousRotationAngle = currentRotationAngle;
             currentRotationAngle = getRotationAngle();
             return;
+        }
+        if (attachment().isPresent()) {
+            ItemAttachment a=attachment().orElseThrow();
+            var target=level().getEntity(a.targetEntityId());
+            if (!(target instanceof net.minecraft.world.entity.LivingEntity living) || !living.getUUID().equals(a.targetUUID()) || living.isRemoved()) {
+                target = level() instanceof ServerLevel server ? server.getEntity(a.targetUUID()) : null;
+            }
+            if(target instanceof net.minecraft.world.entity.LivingEntity living && living.getUUID().equals(a.targetUUID()) && !living.isRemoved()) {
+                if (living.getId() != a.targetEntityId()) entityData.set(ATTACH_TARGET_ID, living.getId());
+                setPos(AttachmentPoseGeometry.bodyToWorld(living, a.targetLocalContact())); setDeltaMovement(Vec3.ZERO); return;
+            }
+            detachAttachment();
         }
         evaluateGrenadeFuse();
         if (isRemoved()) return;
@@ -227,9 +306,21 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         }
         move(MoverType.SELF, travel);
         Vec3 actual = position().subtract(before);
+        if (dispatchThrownContacts(before, position(), travel)) return;
         boolean hitX = Math.abs(actual.x - travel.x) > 1.0e-6;
         boolean hitY = Math.abs(actual.y - travel.y) > 1.0e-6;
         boolean hitZ = Math.abs(actual.z - travel.z) > 1.0e-6;
+        var terrainProfile = com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.resolveForStack(getItem(), false).orElse(null);
+        emitCollisionCue(collisionSoundPolicy.terrain(terrainProfile, (hitX ? 1 : 0) | (hitY ? 2 : 0) | (hitZ ? 4 : 0), travel, level().getGameTime()), getX(), getY(), getZ());
+        if (hitY && travel.y < 0) {
+            boolean armedThrownLanding = activeThrownCombat;
+            boolean cueLanding = shouldCueThrownLandingSound(armedThrownLanding, thrownLandingSoundConsumed);
+            if (cueLanding) thrownLandingSoundConsumed = true;
+            var thrownSoundProfile = com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.resolveForStack(getItem(), false).orElse(null);
+            if (cueLanding && level() instanceof ServerLevel server && thrownSoundProfile != null) thrownSoundProfile.landSound().ifPresent(sound ->
+                    com.juicyslew.moonstation14.ms14.explosion.grenade.network.ControlledSoundDispatch.emit(server, sound, getX(), getY(), getZ(), new com.juicyslew.moonstation14.ms14.combat.PositionalSoundCue(sound, thrownSoundProfile.landSoundVolumeDb(), 0f).volume(), 1f, SoundSource.NEUTRAL));
+            stopThrownCombat();
+        }
         if ((hitX || hitZ) && applyHighSpeedImpact(velocity.horizontalDistance(), true)) return;
         if (hitY && travel.y < 0 && pendingThrownLandingDamage) {
             pendingThrownLandingDamage = false;
@@ -254,11 +345,77 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
             next = Vec3.ZERO;
             angularVelocity = 0;
             setSettled(true);
+            stopThrownCombat();
             nextSupportCheck = tickCount + 10;
         }
         setDeltaMovement(next);
         if ((hitX || hitY || hitZ) && profile().breakOnImpact()
                 && approachSpeed >= profile().breakThreshold()) breakJug();
+    }
+
+    static boolean shouldCueThrownLandingSound(boolean armed, boolean alreadyConsumed) {
+        return armed && !alreadyConsumed;
+    }
+
+    private boolean dispatchThrownContacts(Vec3 from, Vec3 to, Vec3 incoming) {
+        if (!activeThrownCombat || !(level() instanceof ServerLevel server)) { previousThrownContacts.clear(); return false; }
+        var hitBox = getBoundingBox();
+        // The entity has already moved; reconstruct its starting box and union both ends.
+        var endBox = hitBox.move(from.subtract(to));
+        var search = hitBox.minmax(endBox).inflate(2.0);
+        java.util.Set<java.util.UUID> contacts = new java.util.HashSet<>();
+        var profile = com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.resolveForStack(getItem(), false).orElse(null);
+        if (profile == null) { previousThrownContacts.clear(); return false; }
+        var hits = new java.util.ArrayList<ThrownBodyContact>();
+        for (var candidate : server.getEntities(this, search, e -> e instanceof net.minecraft.world.entity.LivingEntity
+                && com.juicyslew.moonstation14.ms14.combat.CommonMeleeTargetEligibility.damageable(e)
+                && !e.noPhysics)) {
+            var living = (net.minecraft.world.entity.LivingEntity) candidate;
+            if (living.getUUID().equals(thrownByBody)) continue;
+            var bounds = com.juicyslew.moonstation14.ms14.standing.BodyInteractionBounds.of(living);
+            var intersection = ThrownContactPhysics.sourceBaseSweep(bounds, getBbWidth(), getBbHeight()).clip(from, to);
+            if (intersection.isEmpty()) continue;
+            contacts.add(living.getUUID());
+            if (!previousThrownContacts.contains(living.getUUID()))
+                hits.add(new ThrownBodyContact(living, bounds, intersection.get(), from.distanceToSqr(intersection.get())));
+        }
+        hits.sort(java.util.Comparator.comparingDouble(ThrownBodyContact::distanceSqr));
+        for (var hit : hits) {
+            var living = hit.body();
+            Vec3 point = contactOnSurface(hit.intersection(), hit.bounds());
+            emitCollisionCue(collisionSoundPolicy.body(profile, incoming, level().getGameTime()), point.x, point.y, point.z);
+            if (!profile.damageOnHit().isEmpty()) com.juicyslew.moonstation14.ms14.damage.DamageSystem.applyHealthChangeDetailed(
+                    living, profile.damageOnHit(), 1f, profile.ignoreResistances(),
+                    com.juicyslew.moonstation14.ms14.damage.DamageSystem.Cause.COMBAT,
+                    java.util.Optional.ofNullable(thrownByBody).map(server::getEntity).orElse(this));
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemHitEvent(
+                    this, living, point, incoming, thrownByBody, profile));
+            if (!activeThrownCombat || isRemoved()) return true;
+            // A contact event that did not attach still blocks flight through bodies behind it.
+            // Stop at the first hard contact; terrain response is handled by the normal movement path next tick.
+            Vec3 normal = ThrownContactPhysics.normal(hit.bounds(), point, incoming);
+            setPos(ThrownContactPhysics.outside(hit.intersection(), normal, getBbWidth(), getBbHeight()));
+            setDeltaMovement(ThrownContactPhysics.reflect(incoming, normal, profile().restitution()));
+            if (normal.y > 0 && getDeltaMovement().y > 0) setOnGround(false);
+            return true;
+        }
+        previousThrownContacts.clear(); previousThrownContacts.addAll(contacts);
+        return false;
+    }
+
+    private record ThrownBodyContact(net.minecraft.world.entity.LivingEntity body,
+                                     net.minecraft.world.phys.AABB bounds, Vec3 intersection, double distanceSqr) { }
+
+    private void emitCollisionCue(java.util.Optional<com.juicyslew.moonstation14.ms14.combat.PositionalSoundCue> cue, double x, double y, double z) {
+        if (cue.isEmpty() || !(level() instanceof ServerLevel server)) return;
+        var sound = cue.get();
+        com.juicyslew.moonstation14.ms14.explosion.grenade.network.ControlledSoundDispatch.emit(server, sound.event(), x, y, z, sound.volume(), 1f, SoundSource.NEUTRAL);
+    }
+
+    static Vec3 contactOnSurface(Vec3 point, net.minecraft.world.phys.AABB bounds) {
+        return new Vec3(net.minecraft.util.Mth.clamp(point.x, bounds.minX, bounds.maxX),
+                net.minecraft.util.Mth.clamp(point.y, bounds.minY, bounds.maxY),
+                net.minecraft.util.Mth.clamp(point.z, bounds.minZ, bounds.maxZ));
     }
 
     /** Stage vanilla entity-position packets and move only the client presentation toward them. */
@@ -465,6 +622,7 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         tag.putBoolean("LooseSettled", settled());
         if (creativePickupDelay > 0) tag.putInt("LooseCreativePickupDelay", creativePickupDelay);
         if (pendingThrownLandingDamage) tag.putBoolean("LoosePendingThrownLandingDamage", true);
+        attachment().ifPresent(a -> a.writeTo(tag));
     }
     @Override public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
@@ -473,5 +631,14 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         setSettled(tag.getBoolean("LooseSettled"));
         creativePickupDelay = Math.max(0, Math.min(40, tag.getInt("LooseCreativePickupDelay")));
         pendingThrownLandingDamage = tag.getBoolean("LoosePendingThrownLandingDamage");
+        ItemAttachment.readFrom(tag).ifPresent(a -> {
+            entityData.set(ATTACH_TARGET, java.util.Optional.of(a.targetUUID()));
+            entityData.set(ATTACH_TARGET_ID, a.targetEntityId());
+            entityData.set(ATTACH_KIND, a.kind().ordinal());
+            entityData.set(ATTACH_TICK, a.attachedAtTick());
+            entityData.set(ATTACH_CONTACT, toVector(a.targetLocalContact()));
+            entityData.set(ATTACH_DIRECTION, toVector(a.targetLocalDirection()));
+            setNoGravity(true);
+        });
     }
 }

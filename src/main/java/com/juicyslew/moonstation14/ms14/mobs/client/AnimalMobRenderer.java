@@ -84,9 +84,11 @@ public final class AnimalMobRenderer extends MobRenderer<AnimalMob, Hierarchical
         }
     }
     @Override protected void scale(AnimalMob mob, com.mojang.blaze3d.vertex.PoseStack stack, float partialTick) {
-        float factor = ((AdapterModel) model).adapter.presentationScale();
+        float factor = selectedModelScale();
         stack.scale(factor, factor, factor);
     }
+    /** Scale currently selected by this renderer for the active appearance adapter. */
+    public float selectedModelScale() { return ((AdapterModel) model).adapter.presentationScale(); }
     @Override protected float getFlipDegrees(AnimalMob mob) { return 0.0F; }
 
     @Override protected void setupRotations(AnimalMob mob, com.mojang.blaze3d.vertex.PoseStack stack,

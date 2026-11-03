@@ -48,6 +48,15 @@ public final class EquipmentStepTriggerProtectionGameTests {
                 "fixture source commits through owned LiveHands gateway");
     }
 
+    public static void equipOwnedFixture(net.minecraft.world.entity.LivingEntity body, String hand,
+                                        String slot, String token, ItemStack stack) {
+        putOwnedHandFixture(body, hand, token, stack);
+        var state = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+        require(BodyEquipmentTransfer.transferOwned(body, hand, slot, token, state.revision(), true, () -> true)
+                        == BodyEquipmentTransfer.Result.SUCCESS,
+                "fixture equips through owned equipment transfer");
+    }
+
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40, batch = "catalog-equipment-step-protection-shoes")
     @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining"})
     public static void liveWornFeetProtectionQuery(GameTestHelper helper) {

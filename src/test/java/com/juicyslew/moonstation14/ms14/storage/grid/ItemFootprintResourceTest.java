@@ -61,11 +61,11 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        // Exact bundled inventory: 211 resources include five abstract templates; 206 resolve.
-        assertEquals(211, raw.size());
+        // Exact bundled inventory includes abstract geometry templates; large adds the 2x3 carrier shape.
+        assertEquals(218, raw.size());
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(206, resolved.size());
+        assertEquals(212, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -73,7 +73,8 @@ class ItemFootprintResourceTest {
                 "network_configurator", "remote_signaller", "remote_signaller_advanced", "signal_button", "signal_switch",
                 "beaker", "beaker_large", "chem_master", "black_bandana", "black_gloves", "black_shoes",
                 "blank_id_card", "earpieces", "glasses", "grey_cap", "debug_capability_cap", "grey_jumpsuit", "red_tie", "simple_coat",
-                "utility_case", "pill", "pill_canister", "mothroach_normal", "hamster_tiny", "plasma_tank", "suit_rad", "hood_rad", "meatwheat_seeds", "meatwheat_bushel"};
+                "utility_case", "pill", "pill_canister", "mothroach_normal", "hamster_tiny", "plasma_tank", "suit_rad", "hood_rad", "meatwheat_seeds", "meatwheat_bushel",
+                "throwing_knife", "dart", "hypo_dart", "bola", "armor_vest", "basic_helmet"};
         for (String name : coreItems) assertTrue(resolved.get(id(name)) != null, "missing profile " + name);
 
         assertCounts(resolved, 4, "steel", "glass", "plastic", "cloth", "wood", "jug",
@@ -86,7 +87,7 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(206, catalog.size());
+        assertEquals(212, catalog.size());
         assertEquals(catalog.get(id("grey_cap")).cells(), catalog.get(id("debug_capability_cap")).cells());
         assertEquals(catalog.get(id("grey_cap")).itemSize(), catalog.get(id("debug_capability_cap")).itemSize());
         var pocket = new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData(java.util.List.of(
@@ -150,6 +151,20 @@ class ItemFootprintResourceTest {
         assertEquals(4, catalog.get(id("chem_master")).cells().size());
         assertEquals(2, catalog.get(id("network_configurator")).cells().size());
         assertEquals(catalog.get(id("remote_signaller")).cells(), catalog.get(id("remote_signaller_advanced")).cells());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id("throwing_knife")).itemSize());
+        assertEquals(2, catalog.get(id("throwing_knife")).cells().size());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("dart")).itemSize());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Tiny), catalog.get(id("hypo_dart")).itemSize());
+        assertEquals(1, catalog.get(id("dart")).cells().size());
+        assertEquals(1, catalog.get(id("hypo_dart")).cells().size());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Normal), catalog.get(id("bola")).itemSize());
+        assertEquals(4, catalog.get(id("bola")).cells().size());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Large), catalog.get(id("armor_vest")).itemSize());
+        assertEquals(java.util.List.of(new GridGeometry.Cell(0, 0), new GridGeometry.Cell(1, 0),
+                new GridGeometry.Cell(0, 1), new GridGeometry.Cell(1, 1), new GridGeometry.Cell(0, 2),
+                new GridGeometry.Cell(1, 2)), catalog.get(id("armor_vest")).cells());
+        assertEquals(java.util.Optional.of(ItemFootprintProfile.ItemSize.Small), catalog.get(id("basic_helmet")).itemSize());
+        assertEquals(2, catalog.get(id("basic_helmet")).cells().size());
         assertEquals(2, catalog.get(id("remote_signaller_advanced")).cells().size());
         assertEquals(1, catalog.get(id("signal_button")).cells().size());
         assertEquals(1, catalog.get(id("signal_switch")).cells().size());

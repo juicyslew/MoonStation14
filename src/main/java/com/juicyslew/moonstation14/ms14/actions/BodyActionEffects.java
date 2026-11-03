@@ -20,6 +20,9 @@ public final class BodyActionEffects {
     private BodyActionEffects() { }
 
     public static Optional<PreparedEffect> prepare(ServerPlayer player, LivingEntity body, ActionPrototype action) {
+        return prepare(player, body, action, 0L);
+    }
+    public static Optional<PreparedEffect> prepare(ServerPlayer player, LivingEntity body, ActionPrototype action, long originSequence) {
         if (player == null || body == null || action == null || !(body.level() instanceof ServerLevel level))
             return Optional.empty();
         return switch (action.handler()) {
@@ -43,6 +46,11 @@ public final class BodyActionEffects {
                         body.getZ(), 6, 0.25, 0.25, 0.25, 0.0);
                 player.sendSystemMessage(Component.translatable("moonstation14.action.debug_pulse"));
                 return true;
+            });
+            case REMOVE_SELF_ATTACHMENT -> Optional.of(() -> {
+                var result = com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.beginSelf(player, originSequence);
+                return result == com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.SelfRemovalResult.STARTED
+                        || result == com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.SelfRemovalResult.IN_PROGRESS;
             });
         };
     }

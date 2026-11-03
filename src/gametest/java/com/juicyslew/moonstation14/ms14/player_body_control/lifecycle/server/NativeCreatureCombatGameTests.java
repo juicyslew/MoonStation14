@@ -246,7 +246,7 @@ public final class NativeCreatureCombatGameTests {
         });
     }
 
-    private static float typed(net.minecraft.world.entity.LivingEntity target, String key) {
+    static float typed(net.minecraft.world.entity.LivingEntity target, String key) {
         var damage = target.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.DAMAGE.get());
         return damage == null ? 0f : damage.getMap().getOrDefault(key, 0f);
     }

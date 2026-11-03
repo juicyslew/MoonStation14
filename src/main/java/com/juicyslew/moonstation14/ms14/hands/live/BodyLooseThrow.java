@@ -107,7 +107,7 @@ public final class BodyLooseThrow {
             // Aim remains eye-authoritative, but place the physical object at a conservative hand height.
             entity = LooseItemEntity.create(level, bodyPosition, stack);
             LooseObjectProfile profile = entity.profile();
-            double range = aimRange(forced, Math.min(8.0, profile.throwRange()), forcedOffset);
+            double range = aimRange(forced, Math.min(BodyItemTargetProbe.MAX_THROW_REACH, profile.throwRange()), forcedOffset);
             double minimum = Math.min(range, profile.minimumThrowRange());
             Vec3 end = eye.add(look.scale(range));
              if (!finite(end)) return denyPortableThrow("aim-end-not-finite");
@@ -155,6 +155,7 @@ public final class BodyLooseThrow {
         // Only an authenticated, voluntary throw arms the one-shot landing damage state.
         // Forced disarms share publication mechanics but are not voluntary item throws.
         if (!forced) entity.markExplicitThrowForLanding();
+        entity.armThrownCombat(body.getUUID());
         synchronized (COOLDOWN) {
             if (usesVoluntaryCooldown(forced) && entity.profile().throwCooldown() > 0)
                 COOLDOWN.put(body, now + entity.profile().throwCooldown());
@@ -184,7 +185,7 @@ public final class BodyLooseThrow {
         Vec3 eye = carrier.getEyePosition(), look = carrier.getLookAngle(), carrierPosition = carrier.position();
         if (!finite(eye) || !finite(look) || !finite(carrierPosition) || look.lengthSqr() < .99 || look.lengthSqr() > 1.01)
             return denyPortableThrow("carrier-look-or-position");
-        double range = Math.min(8.0, profile.throwRange());
+        double range = Math.min(BodyItemTargetProbe.MAX_THROW_REACH, profile.throwRange());
         Vec3 end = eye.add(look.scale(range));
         if (!finite(end)) return denyPortableThrow("aim-end");
         Vec3 aim = BodyItemTargetProbe.loadedAimPoint(level, carrier, range);

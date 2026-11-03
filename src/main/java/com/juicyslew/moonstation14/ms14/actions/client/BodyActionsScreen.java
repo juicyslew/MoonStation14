@@ -133,8 +133,12 @@ public final class BodyActionsScreen implements PointerOverlayWindow {
                     0, 0, 16, 16, 16, 16);
             int textWidth = Math.max(0, panelWidth - 58);
             String name = Component.translatable(entry.displayName()).getString();
-            graphics.drawString(font, font.plainSubstrByWidth(name, textWidth), 29, rowY + 3,
+            var boundSlot = BodyActionClient.slots().stream().filter(s -> s.entry().actionId().equals(entry.actionId()) && s.entry().providerId().equals(entry.providerId())).mapToInt(BodyActionSlots.Slot::number).findFirst().orElse(0);
+            String keyLabel = boundSlot == 0 ? "" : BodyActionKeys.compactLabelForSlot(boundSlot);
+            int keyWidth = keyLabel.isEmpty() ? 0 : font.width(keyLabel) + 4;
+            graphics.drawString(font, font.plainSubstrByWidth(name, Math.max(0, textWidth - keyWidth)), 29, rowY + 3,
                     disabled ? MachineWindowRenderer.MUTED_TEXT : MachineWindowRenderer.TEXT, false);
+            if (!keyLabel.isEmpty()) graphics.drawString(font, keyLabel, panelWidth - 10 - font.width(keyLabel), rowY + 3, MachineWindowRenderer.HIGHLIGHT, false);
             Component state = Component.translatable(entry.kind() == com.juicyslew.moonstation14.ms14.actions.prototype.ActionPrototype.Kind.TOGGLE
                     ? entry.active() ? "gui.moonstation14.actions.active" : "gui.moonstation14.actions.inactive"
                     : "gui.moonstation14.actions.use");

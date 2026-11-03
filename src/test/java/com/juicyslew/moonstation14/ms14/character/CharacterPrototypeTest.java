@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit;
 import com.juicyslew.moonstation14.ms14.character.components.BarotraumaComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent;
+import com.juicyslew.moonstation14.ms14.character.components.EnsnareableComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StandingStateComponent;
 import com.juicyslew.moonstation14.ms14.character.components.NoSlipComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StunnableComponent;
@@ -426,7 +427,8 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-         assertEquals(43, data.components().size(), "merged Human composition retains botany, main, Tesla, and melee component families");
+         assertEquals(44, data.components().size(), "merged Human composition retains botany, main, Tesla, melee, and ensnareable component families");
+         assertTrue(data.component(EnsnareableComponent.class).isPresent(), "Human explicitly supports ensnaring");
         assertTrue(data.component(StatusEffectsPrototypeComponent.class).isPresent(), "main Human status-effect configuration survives the merge");
         assertTrue(data.component(StaminaPrototypeComponent.class).isPresent(), "main Human stamina configuration survives the merge");
         var lightningTarget = data.component(LightningTargetComponent.class).orElseThrow();

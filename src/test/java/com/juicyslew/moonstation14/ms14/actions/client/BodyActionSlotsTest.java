@@ -17,20 +17,52 @@ class BodyActionSlotsTest {
         return new BodyActionSnapshot.Entry(id(action), provider, action, id("icon"), Optional.empty(),
                 ActionPrototype.Kind.INSTANT, enabled, false, 0, 0, "", 0);
     }
-    @Test void stableSlotsKeepMissingAndDisabledActionsAndIgnoreProviderRemoval() {
-        var combat = entry("combat_mode_toggle", "combat", false);
-        var debug = entry("debug_pulse", "debug", true);
-        var snapshot = new BodyActionSnapshot(UUID.randomUUID(), 4, 2, 0, List.of(combat, debug));
-        var slots = BodyActionSlots.resolve(snapshot);
-        assertEquals(3, slots.size());
-        assertEquals(combat, slots.get(0).entry());
-        assertNull(slots.get(1).entry());
-        assertEquals(debug, slots.get(2).entry());
-        assertNull(BodyActionSlots.at(snapshot, 2));
-        assertEquals(List.of(combat, debug), slots.stream().map(BodyActionSlots.Slot::entry).filter(java.util.Objects::nonNull).toList());
-        var removed = new BodyActionSnapshot(snapshot.bodyId(), 4, 3, 0, List.of(debug));
-        assertNull(BodyActionSlots.at(removed, 1));
-        assertEquals(debug, BodyActionSlots.at(removed, 3));
+    @Test void allocatorKeepsSurvivorsAndReusesHolesInGrantOrder() {
+        var a = entry("a", "p", true); var b = entry("b", "p", false); var c = entry("c", "p", true);
+        var slots = new BodyActionSlots(); var body = UUID.randomUUID();
+        slots.update(new BodyActionSnapshot(body, 5, 1, 0, List.of(a, b)));
+        var view = slots.resolve(); assertSame(view, slots.resolve());
+        assertEquals(a, slots.at(1)); assertEquals(b, slots.at(2));
+        slots.update(new BodyActionSnapshot(body, 5, 2, 0, List.of(b)));
+        assertEquals(b, slots.at(2)); assertNull(slots.at(1));
+        slots.update(new BodyActionSnapshot(body, 5, 3, 0, List.of(b, c)));
+        assertEquals(c, slots.at(1)); assertEquals(b, slots.at(2));
+        assertNotSame(view, slots.resolve());
+    }
+    @Test void allocatesTwentyUniformSlotsAndLeavesTwentyFirstPendingUntilHole() {
+        var allocator = new BodyActionSlots(); var body = UUID.randomUUID();
+        var entries = new java.util.ArrayList<BodyActionSnapshot.Entry>();
+        for (int i = 0; i < 21; i++) entries.add(entry("arbitrary_" + i, "provider", true));
+        var first = new BodyActionSnapshot(body, 1, 1, 0, entries); allocator.update(first);
+        for (int i = 0; i < 20; i++) assertEquals(entries.get(i), allocator.at(i + 1));
+        assertEquals(20, allocator.resolve().size()); assertEquals(21, first.actions().size());
+        allocator.update(new BodyActionSnapshot(body, 1, 2, 0, entries.subList(1, 21)));
+        assertEquals(entries.get(1), allocator.at(2)); assertEquals(entries.get(20), allocator.at(1));
+        assertEquals(20, allocator.resolve().size());
+    }
+    @Test void naturalGrantOrderHasNoCombatScreamOrDebugReservations() {
+        var allocator = new BodyActionSlots(); var body = UUID.randomUUID();
+        var scream = entry("scream", "voice", true); var harm = entry("harm", "hand", true);
+        var combat = entry("combat_mode_toggle", "mind", true); var debug = entry("debug_pulse", "debug", true);
+        allocator.update(new BodyActionSnapshot(body, 1, 1, 0, List.of(scream)));
+        assertEquals(scream, allocator.at(1));
+        allocator.update(new BodyActionSnapshot(body, 1, 2, 0, List.of(harm, scream)));
+        assertEquals(scream, allocator.at(1)); assertEquals(harm, allocator.at(2));
+        allocator.clear(); allocator.update(new BodyActionSnapshot(body, 1, 3, 0, List.of(harm)));
+        assertEquals(harm, allocator.at(1));
+        allocator.clear(); allocator.update(new BodyActionSnapshot(body, 1, 4, 0, List.of(debug, combat)));
+        assertEquals(debug, allocator.at(1)); assertEquals(combat, allocator.at(2));
+    }
+    @Test void identitiesIncludeProviderAndSnapshotsRefreshEntryWithoutMovingSlots() {
+        var allocator = new BodyActionSlots(); var body = UUID.randomUUID();
+        var a = entry("same", "provider-a", true); var b = entry("same", "provider-b", true);
+        allocator.update(new BodyActionSnapshot(body, 1, 1, 0, List.of(a, b)));
+        assertEquals(a, allocator.at(1)); assertEquals(b, allocator.at(2));
+        var updated = new BodyActionSnapshot.Entry(a.actionId(), a.providerId(), "Updated", a.icon(), a.iconOn(), a.kind(), false, false, 5, 0, "COOLDOWN", 0);
+        allocator.update(new BodyActionSnapshot(body, 1, 2, 0, List.of(b, updated)));
+        assertEquals(updated, allocator.at(1)); assertEquals(b, allocator.at(2));
+        allocator.update(new BodyActionSnapshot(body, 1, 3, 0, List.of(updated, b)));
+        assertEquals(updated, allocator.at(1)); assertEquals(b, allocator.at(2));
     }
     @Test void policyRejectsMissingWorldBodyScreenAndStaleBodyEpoch() {
         UUID body = UUID.randomUUID();

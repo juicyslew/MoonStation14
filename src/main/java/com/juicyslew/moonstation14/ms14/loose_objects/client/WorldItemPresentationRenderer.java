@@ -50,6 +50,10 @@ public final class WorldItemPresentationRenderer {
                                            MultiBufferSource buffers, int light, Level level, int seed, float alpha) {
         render(stack, profile, pose, buffers, light, level, seed, alpha, 0xFFFFFF, true);
     }
+    public static void renderCameraFacing(ItemStack stack, LooseObjectProfile profile, PoseStack pose,
+            MultiBufferSource buffers, int light, Level level, int seed, float alpha, int tintRgb) {
+        render(stack, profile, pose, buffers, light, level, seed, alpha, tintRgb, true);
+    }
 
     /** Same camera-facing item pipeline, returning the number of submitted vertices. */
     public static int renderCameraFacingCounted(ItemStack stack, LooseObjectProfile profile, PoseStack pose,

@@ -22,19 +22,22 @@ public final class BodyActionHud {
                 mouseGrabbed);
     }
     private static final class Bar implements PointerOverlayWindow {
-        private final java.util.Map<net.minecraft.resources.ResourceLocation, Long> previousCooldown = new java.util.HashMap<>();
-        private final java.util.Map<net.minecraft.resources.ResourceLocation, Long> blinkUntil = new java.util.HashMap<>();
         private int width, height, left, top;
         private boolean visible;
         private java.util.UUID trackedBody;
         private long trackedEpoch;
-
+        private java.util.List<BodyActionSlots.Slot> paintedSlots;
+        private BodyActionHudProjection projection;
+        private record ActionIdentity(net.minecraft.resources.ResourceLocation actionId, String providerId) { }
+        private final java.util.Map<ActionIdentity, Long> previousCooldown = new java.util.HashMap<>();
+        private final java.util.Map<ActionIdentity, Long> blinkUntil = new java.util.HashMap<>();
         void update() {
             var mc = Minecraft.getInstance();
             var body = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedCharacterForHud();
             long epoch = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedCharacterEpoch();
             if (body == null || trackedBody == null || !trackedBody.equals(body.getUUID()) || trackedEpoch != epoch) {
                 previousCooldown.clear(); blinkUntil.clear();
+                projection = null; paintedSlots = null;
                 trackedBody = body == null ? null : body.getUUID(); trackedEpoch = body == null ? 0 : epoch;
             }
             var snap = BodyActionClient.snapshot();
@@ -44,7 +47,8 @@ public final class BodyActionHud {
                     && com.juicyslew.moonstation14.ms14.ui.client.GameplayHudPolicy.visible(mc.screen);
             width = mc.getWindow().getGuiScaledWidth(); height = mc.getWindow().getGuiScaledHeight();
             left = 6; top = BodyActionLayout.actionBarTop();
-            if (visible) PointerOverlayRegistry.register(this); else PointerOverlayRegistry.unregister(this);
+            if (!visible) { projection = null; paintedSlots = null; PointerOverlayRegistry.unregister(this); }
+            else PointerOverlayRegistry.register(this);
         }
         @Override public boolean visible() { return visible; }
         @Override public boolean pointerAvailable() {
@@ -53,21 +57,24 @@ public final class BodyActionHud {
         }
         @Override public boolean contains(double x, double y) {
             if (!visible) return false;
-            var snap = BodyActionClient.snapshot();
-            int count = snap == null ? 0 : (int) BodyActionSlots.resolve(snap).stream().filter(s -> s.entry() != null).count();
             double lx = BodyActionLayout.toLogical(x, left), ly = BodyActionLayout.toLogical(y, top);
-            return lx >= 0 && lx < 28 && ly >= 0 && ly < count * 30;
+            return projection != null && projection.hit(lx, ly) != null;
         }
         @Override public void renderIntoGui(GuiGraphics g, int mx, int my, float partial, int w, int h) {
             update(); if (!visible) return;
-            var snap = BodyActionClient.snapshot(); if (snap == null) return;
+            var slots = BodyActionClient.slots();
+            if (slots != paintedSlots || projection == null) {
+                int aw = Math.max(0, (int)Math.floor((width-left)/BodyActionLayout.ACTION_UI_SCALE));
+                int ah = Math.max(0, (int)Math.floor((height-top)/BodyActionLayout.ACTION_UI_SCALE));
+                paintedSlots = slots; projection = BodyActionHudProjection.build(slots, aw, ah);
+            }
+            if (projection.cells().isEmpty()) return;
             g.pose().pushPose();
             g.pose().translate(left, top, 0);
             g.pose().scale(BodyActionLayout.ACTION_UI_SCALE, BodyActionLayout.ACTION_UI_SCALE, 1);
-            int row = 0;
-            for (var slot : BodyActionSlots.resolve(snap)) {
-                var entry = slot.entry(); if (entry == null) continue;
-                int x = 0, y = row++ * 30;
+            for (var cell : projection.cells()) {
+                var rect = cell.rect(); var entry = cell.entry();
+                int x = rect.x(), y = rect.y();
                 g.fill(x, y, x + 28, y + 28, 0xaa0d1118); g.fill(x, y, x + 28, y + 1, 0xff66717c);
                 int logicalMouseX = (int)BodyActionLayout.toLogical(mx, left), logicalMouseY = (int)BodyActionLayout.toLogical(my, top);
                 boolean hovered = logicalMouseX >= x && logicalMouseX < x + 28 && logicalMouseY >= y && logicalMouseY < y + 28;
@@ -78,21 +85,23 @@ public final class BodyActionHud {
                     if (!entry.enabled() || BodyActionClient.pending()) g.fill(x + inset, y + inset, x + inset + iconSize, y + inset + iconSize, 0x99000000);
                     long cd = BodyActionClient.remainingCooldown(entry);
                     long now = Minecraft.getInstance().level == null ? 0 : Minecraft.getInstance().level.getGameTime();
-                    long previous = previousCooldown.getOrDefault(entry.actionId(), 0L);
-                    if (previous > 0 && cd == 0) blinkUntil.put(entry.actionId(), now + 2);
-                    previousCooldown.put(entry.actionId(), cd);
+                    var identity = new ActionIdentity(entry.actionId(), entry.providerId());
+                    long previous = previousCooldown.getOrDefault(identity, 0L);
+                    if (previous > 0 && cd == 0) blinkUntil.put(identity, now + 2);
+                    previousCooldown.put(identity, cd);
                     if (cd > 0) {
                         drawCooldownWipe(g, x + inset, y + inset, BodyActionLayout.cooldownWipeProgress(cd, entry.useDelayTicks()));
                         int seconds = (int)Math.ceil(cd / 20.0);
                         String text = Integer.toString(seconds);
                         g.drawString(Minecraft.getInstance().font, text, x + 14 - Minecraft.getInstance().font.width(text)/2, y + 10, 0xffffffff, true);
                     } else {
-                        float blink = BodyActionLayout.cooldownBlinkProgress(blinkUntil.getOrDefault(entry.actionId(), 0L) - now);
+                        float blink = BodyActionLayout.cooldownBlinkProgress(blinkUntil.getOrDefault(identity, 0L) - now);
                         if (blink > 0) g.fill(x + inset, y + inset, x + inset + iconSize, y + inset + iconSize, ((int)(blink * 0x88) << 24) | 0x00ffffff);
                     }
                     if (hovered && pointerAvailable()) {
                         var tip = new java.util.ArrayList<net.minecraft.network.chat.Component>();
-                        tip.add(net.minecraft.network.chat.Component.translatable(entry.displayName()));
+                         tip.add(net.minecraft.network.chat.Component.translatable(entry.displayName()));
+                        tip.add(BodyActionKeys.labelForSlot(rect.slotNumber()));
                         if (!entry.disabledReason().isBlank()) tip.add(net.minecraft.network.chat.Component.translatable(
                                 "gui.moonstation14.actions.disabled." + entry.disabledReason().toLowerCase(java.util.Locale.ROOT)));
                         long remaining = BodyActionClient.remainingCooldown(entry);
@@ -101,7 +110,8 @@ public final class BodyActionHud {
                         if (BodyActionClient.pending()) tip.add(net.minecraft.network.chat.Component.literal("Action pending"));
                         g.renderTooltip(Minecraft.getInstance().font, tip.stream().map(net.minecraft.network.chat.Component::getVisualOrderText).toList(), mx, my);
                     }
-                g.drawString(Minecraft.getInstance().font, Integer.toString(slot.number()), x + 1, y + 20, 0xffeeeeee, false);
+                String keyLabel = BodyActionKeys.compactLabelForSlot(rect.slotNumber());
+                g.drawString(Minecraft.getInstance().font, keyLabel, x + 14 - Minecraft.getInstance().font.width(keyLabel) / 2, y + 20, 0xffeeeeee, false);
             }
             g.pose().popPose();
         }
@@ -122,10 +132,9 @@ public final class BodyActionHud {
             var snap = BodyActionClient.snapshot();
             if (body == null || mc.level == null || body.level() != mc.level || snap == null
                     || !snap.bodyId().equals(body.getUUID()) || snap.bodyEpoch() != com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedCharacterEpoch()) return true;
-            int index = BodyActionLayout.actionBarSlot((int)BodyActionLayout.toLogical(x, left), (int)BodyActionLayout.toLogical(y, top), 0, 0);
-            var actual = BodyActionSlots.resolve(snap).stream().filter(s -> s.entry() != null).toList();
-            if (index < 0 || index >= actual.size()) return true;
-            BodyActionClient.activate(actual.get(index).entry()); return true;
+            double lx = BodyActionLayout.toLogical(x, left), ly = BodyActionLayout.toLogical(y, top);
+            var target = projection == null ? null : projection.hit(lx, ly);
+            if (target != null) BodyActionClient.activate(target.entry()); return true;
         }
         @Override public boolean mouseDragged(double x,double y){return false;}
         @Override public boolean mouseReleased(int button){return false;}
@@ -134,6 +143,6 @@ public final class BodyActionHud {
         @Override public boolean charTyped(char value,int modifiers){return false;}
         @Override public boolean isSearchFocused(){return false;}
         @Override public void clearTextFocus(){}
-        @Override public void resetOwnedContext(){visible=false;}
+        @Override public void resetOwnedContext(){visible=false; projection=null; paintedSlots=null;}
     }
 }

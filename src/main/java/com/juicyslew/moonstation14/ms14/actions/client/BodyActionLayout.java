@@ -51,10 +51,27 @@ public final class BodyActionLayout {
     public static int clampScroll(int offset, int count, int visibleRows) { return Math.max(0, Math.min(Math.max(0,count-visibleRows),offset)); }
     public static float cooldownFraction(long remaining, int duration) { return Math.max(0f, Math.min(1f, remaining / (float)Math.max(1,duration))); }
     /** Top-down left-edge vertical bar; action identity is the stable numbered binding. */
-    public static int actionBarSlot(int x, int y, int left, int top) {
-        if (x < left || x >= left + 28 || y < top) return -1;
-        int offset = y - top, slot = offset / 30;
-        return slot < 3 && offset % 30 < 28 ? slot : -1;
+    /** Compact column-major bar geometry keyed by stable assigned slot number. */
+    public record BarRect(int slotNumber, int x, int y) {
+        public boolean contains(double px, double py) { return px >= x && px < x + ACTION_BAR_BUTTON && py >= y && py < y + ACTION_BAR_BUTTON; }
+    }
+    public static java.util.List<BarRect> barRects(java.util.List<BodyActionSlots.Slot> slots, int viewportWidth, int viewportHeight, int left, int top) {
+        if (slots == null || slots.isEmpty()) return java.util.List.of();
+        if (viewportHeight < ACTION_BAR_BUTTON || viewportWidth < ACTION_BAR_BUTTON) return java.util.List.of();
+        int maxRows = (viewportHeight + 2) / 30;
+        int maxCols = (viewportWidth + 2) / 30;
+        int rows = Math.min(10, maxRows);
+        if (maxRows > 0 && maxCols > 0 && maxRows * maxCols >= BodyActionSlots.MAX_SLOTS
+                && (BodyActionSlots.MAX_SLOTS + rows - 1) / rows > maxCols) {
+            rows = Math.min(maxRows, (BodyActionSlots.MAX_SLOTS + maxCols - 1) / maxCols);
+        }
+        java.util.ArrayList<BarRect> result = new java.util.ArrayList<>();
+        for (var slot : slots) {
+            int n = slot.number(); if (n < 1 || n > BodyActionSlots.MAX_SLOTS) continue;
+            int index = n - 1, x = left + index / rows * 30, y = top + index % rows * 30;
+            if (x >= 0 && y >= 0 && x + 28 <= viewportWidth && y + 28 <= viewportHeight) result.add(new BarRect(n, x, y));
+        }
+        return java.util.List.copyOf(result);
     }
     public static float cooldownWipeProgress(long remaining, int duration) { return cooldownFraction(remaining, duration); }
     public static float cooldownBlinkProgress(long elapsedTicks) { return elapsedTicks < 0 || elapsedTicks >= 2 ? 0f : 1f - elapsedTicks / 2f; }

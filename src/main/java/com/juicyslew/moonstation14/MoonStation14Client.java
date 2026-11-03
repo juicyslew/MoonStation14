@@ -808,6 +808,10 @@ public class MoonStation14Client {
         if (CharacterControlSystem.isKnockedDown(source)) {
             rows.add(new HudStatus(net.minecraft.network.chat.Component.translatable("moonstation14.hud.movement.knocked_down").getString(), 0xff67469a));
         }
+        if (com.juicyslew.moonstation14.entities.ItemAttachmentQueries.has(source,
+                com.juicyslew.moonstation14.entities.ItemAttachment.AttachmentKind.ENSNARED)) {
+            rows.add(new HudStatus(net.minecraft.network.chat.Component.translatable("moonstation14.hud.movement.ensnared").getString(), 0xffa86b16));
+        }
         if (body != null) {
             var character = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.projectForActor(body);
             var bodyObservation = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.current();

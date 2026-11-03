@@ -165,6 +165,7 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay.TYPE);
         expectedTypes.add(ModActionPrototypes.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.throwing.ModThrownItemProfiles.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
@@ -385,7 +386,8 @@ class PrototypeRuntimeTest {
                   com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId(),
                  ModActionPrototypes.TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE.typeId()), exported.keySet());
+                  com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.throwing.ModThrownItemProfiles.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);

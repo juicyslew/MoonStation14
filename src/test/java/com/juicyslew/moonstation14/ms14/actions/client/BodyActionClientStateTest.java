@@ -100,4 +100,34 @@ class BodyActionClientStateTest {
         assertEquals(200, state.remainingCooldown(state.snapshot().actions().getFirst(), 1));
         state.worldChanged(); assertNull(state.snapshot());
     }
+    @Test void allocatorChangesOnlyForAcceptedFramesAndAcceptedResultSnapshots() {
+        var state = new BodyActionClientState(); state.control(BODY, 1);
+        var a = new BodyActionSnapshot.Entry(id("a"), "p", "A", id("icon"), Optional.empty(), ActionPrototype.Kind.INSTANT, true, false, 0, 0, "", 0);
+        var b = new BodyActionSnapshot.Entry(id("b"), "p", "B", id("icon"), Optional.empty(), ActionPrototype.Kind.INSTANT, true, false, 0, 0, "", 0);
+        var c = new BodyActionSnapshot.Entry(id("c"), "p", "C", id("icon"), Optional.empty(), ActionPrototype.Kind.INSTANT, true, false, 0, 0, "", 0);
+        assertTrue(state.accept(new BodyActionSnapshot(BODY, 1, 1, 0, List.of(a, b))));
+        assertEquals(a, state.actionAt(1)); assertEquals(b, state.actionAt(2));
+        state.slots(); state.actionAt(20); // reads do not allocate or mutate
+        assertEquals(a, state.actionAt(1)); assertEquals(b, state.actionAt(2));
+        assertFalse(state.accept(new BodyActionSnapshot(UUID.randomUUID(), 1, 8, 0, List.of(c))));
+        assertFalse(state.accept(new BodyActionSnapshot(BODY, 2, 8, 0, List.of(c))));
+        assertFalse(state.accept(new BodyActionSnapshot(BODY, 1, 1, 0, List.of(c))));
+        assertEquals(a, state.actionAt(1)); assertEquals(b, state.actionAt(2)); assertNull(state.actionAt(3));
+        long seq = state.begin(a.actionId(), a.providerId());
+        assertTrue(state.accept(new BodyActionResult(BodyActionResult.Status.ACCEPTED, "", seq,
+                Optional.of(new BodyActionSnapshot(BODY, 1, 2, 1, List.of(b, c))))));
+        assertEquals(c, state.actionAt(1)); assertEquals(b, state.actionAt(2));
+        long denied = state.begin(b.actionId(), b.providerId());
+        assertTrue(state.accept(new BodyActionResult(BodyActionResult.Status.DENIED, "denied", denied, Optional.empty())));
+        assertEquals(c, state.actionAt(1)); assertEquals(b, state.actionAt(2));
+    }
+    @Test void controlEpochAndWorldResetClearAllocation() {
+        var state = new BodyActionClientState(); state.control(BODY, 1);
+        var a = snapshot(BODY, 1, 1, 0, true, false, 0).actions().getFirst();
+        assertTrue(state.accept(snapshot(BODY, 1, 1, 0, true, false, 0))); assertEquals(a, state.actionAt(1));
+        state.control(BODY, 2); assertNull(state.actionAt(1));
+        var next = snapshot(BODY, 2, 1, 0, true, false, 0); assertTrue(state.accept(next));
+        assertEquals(next.actions().getFirst(), state.actionAt(1));
+        state.worldChanged(); assertTrue(state.slots().isEmpty()); assertNull(state.actionAt(1));
+    }
 }

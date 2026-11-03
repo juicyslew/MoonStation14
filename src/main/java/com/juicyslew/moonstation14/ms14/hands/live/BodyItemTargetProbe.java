@@ -32,8 +32,8 @@ public final class BodyItemTargetProbe {
     public static final double SYRINGE_CONTAINER_REACH = 2.0;
     /** Minecraft blocks, a defensive ray ceiling, not a conversion from SS14 interaction units. */
     public static final double MAX_REACH = 5.0;
-    /** Loose throws may aim up to eight blocks; this does not widen pickup/drop reach. */
-    public static final double MAX_THROW_REACH = 8.0;
+    /** Defensive loose-throw ray ceiling in Minecraft blocks; profile range remains authoritative. */
+    public static final double MAX_THROW_REACH = 16.0;
     /** Ground placement aim distance; deliberately independent of pickup/storage reach. */
     static final double DROP_AIM_REACH = 3.5;
     public static final int MAX_CHUNKS = 16;
@@ -82,7 +82,10 @@ public final class BodyItemTargetProbe {
         AABB bounds = entity == null ? null : entity.getBoundingBox();
         if (entity == null || entity.level() != level || entity.isRemoved() || !entity.isAddedToLevel()
                 || !(entity instanceof ItemEntity || entity instanceof LivingEntity living
-                 && PortableBodyCarrying.eligibleLivingTarget(body, living))
+                  && PortableBodyCarrying.eligibleLivingTarget(body, living))
+                || entity instanceof ItemEntity item && !AttachedItemTargeting.eligible(body.getUUID(),
+                        item instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose
+                                ? loose.attachment() : java.util.Optional.empty(), false)
                 || !probeSelectedGeometry(level, body, entity, reach))
             return new SelectedProbe(null, diagnostic(ProbeFailure.BLOCKED_OR_MISSED_TARGET, level, body,
                     body.getEyePosition(), null, level.getMinBuildHeight(), level.getMaxBuildHeight(), 0, 0, 0, 0, null, null));
@@ -158,16 +161,8 @@ public final class BodyItemTargetProbe {
         if (!finite(requestedEnd) || !level.getWorldBorder().isWithinBounds(requestedEnd))
             return candidateFailure(ProbeFailure.RAY_OUTSIDE_BORDER, level, body, from, requestedEnd,
                     minBuild, maxBuild, 0, 0, 0, 0, null, null);
-        // A full reach ray may point below the build floor when an NPC faces a nearby floor-level
-        // item. Clip only its endpoint to legal Y; the target must still lie on the same ray before
-        // this endpoint, and collider occlusion remains authoritative.
-        double minRayY = minBuild + 1e-4, maxRayY = maxBuild - 1e-4;
-        Vec3 to = requestedEnd;
-        if (requestedEnd.y < minRayY || requestedEnd.y > maxRayY) {
-            double boundary = Mth.clamp(requestedEnd.y, minRayY, maxRayY);
-            double fraction = (boundary - from.y) / (requestedEnd.y - from.y);
-            to = from.add(look.scale(reach * fraction));
-        }
+        // Keep floor/ceiling clipping on the ray itself for both targeting and throwing.
+        Vec3 to = boundedRayEndpoint(from, requestedEnd, minBuild, maxBuild);
         int minX = (Math.min(BlockPos.containing(from).getX(), BlockPos.containing(to).getX()) >> 4) - 1;
         int maxX = (Math.max(BlockPos.containing(from).getX(), BlockPos.containing(to).getX()) >> 4) + 1;
         int minZ = (Math.min(BlockPos.containing(from).getZ(), BlockPos.containing(to).getZ()) >> 4) - 1;
@@ -195,6 +190,8 @@ public final class BodyItemTargetProbe {
                         ProbeFailure.BLOCKED_OR_MISSED_TARGET, level, body, from, requestedEnd,
                         minBuild, maxBuild, minX, maxX, minZ, maxZ, "candidate-overflow", to);
                 if(entity.level()!=level||entity.isRemoved()||!entity.isAddedToLevel()||level.getEntity(entity.getUUID())!=entity)continue;
+                if (entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose
+                        && !AttachedItemTargeting.eligible(body.getUUID(), loose.attachment(), false)) continue;
                 AABB box=entity.getBoundingBox(); Vec3 hit=box.inflate(TARGET_MARGIN).contains(from)?from:box.inflate(TARGET_MARGIN).clip(from,to).orElse(null);
                 if(hit==null)continue; double dist=from.distanceToSqr(hit);
                 double near=(look.x>=0?box.minX:box.maxX)*look.x+(look.y>=0?box.minY:box.maxY)*look.y+(look.z>=0?box.minZ:box.maxZ)*look.z-from.dot(look);
@@ -264,8 +261,11 @@ public final class BodyItemTargetProbe {
                 || direction.lengthSqr() < .99 || direction.lengthSqr() > 1.01) return null;
         Vec3 from = body.getEyePosition();
         if (!finite(from)) return null;
-        Vec3 to = from.add(direction.scale(reach));
-        if (!finite(to) || !inside(level, from) || !inside(level, to)) return null;
+        Vec3 requestedEnd = from.add(direction.scale(reach));
+        if (!finite(requestedEnd) || !inside(level, from)
+                || !level.getWorldBorder().isWithinBounds(requestedEnd)) return null;
+        Vec3 to = boundedRayEndpoint(from, requestedEnd, level.getMinBuildHeight(), level.getMaxBuildHeight());
+        if (!inside(level, to)) return null;
         try {
             BlockHitResult hit = loadedAlong(level, from, to).clip(
                     new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, body));
@@ -274,6 +274,21 @@ public final class BodyItemTargetProbe {
         } catch (MissingChunk ignored) {
             return null;
         }
+    }
+
+    /** Clips only the endpoint Y-boundary, preserving the original ray line and finite inputs. */
+    static Vec3 boundedRayEndpoint(Vec3 from, Vec3 requestedEnd, int minBuildHeight, int maxBuildHeight) {
+        if (from == null || requestedEnd == null || !finite(from) || !finite(requestedEnd)
+                || maxBuildHeight <= minBuildHeight) return null;
+        double minRayY = minBuildHeight + 1e-4, maxRayY = maxBuildHeight - 1e-4;
+        if (requestedEnd.y >= minRayY && requestedEnd.y <= maxRayY) return requestedEnd;
+        double deltaY = requestedEnd.y - from.y;
+        if (deltaY == 0) return null;
+        double boundary = Mth.clamp(requestedEnd.y, minRayY, maxRayY);
+        double fraction = (boundary - from.y) / deltaY;
+        if (!Double.isFinite(fraction) || fraction < 0 || fraction > 1) return null;
+        Vec3 clipped = from.lerp(requestedEnd, fraction);
+        return finite(clipped) ? clipped : null;
     }
 
     /** Immutable server placement plan; velocity is intentional, never the ItemEntity constructor's random motion. */

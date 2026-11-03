@@ -63,6 +63,17 @@ class BodyActionDiscoveryTest {
         manager.reload(ModCharacters.CHARACTER_TYPE, characters);
         assertActions(manager.snapshot(ModCharacters.CHARACTER_TYPE).get(child), actionCatalog, "scream", "scream");
 
+        var ensnaredFixture = JsonParser.parseString("""
+                {"host_entity_types":[],"components":[{"type":"Ensnareable"}]}
+                """).getAsJsonObject();
+        ResourceLocation ensnaredId = id("action_discovery_ensnareable_fixture");
+        characters.put(ensnaredId, ensnaredFixture);
+        manager.reload(ModCharacters.CHARACTER_TYPE, characters);
+        var ensnareable = manager.snapshot(ModCharacters.CHARACTER_TYPE).get(ensnaredId);
+        var breakout = BodyActionDiscovery.discoverActive(UUID.randomUUID(), ensnareable, actionCatalog, true);
+        assertTrue(breakout.isEmpty(), "Ensnareable is restraint-target capability, not an innate breakout action");
+        assertTrue(BodyActionDiscovery.discoverActive(UUID.randomUUID(), ensnareable, actionCatalog, false).isEmpty());
+
         var missing = JsonParser.parseString("""
                 {"host_entity_types":[],"components":[{"type":"CombatMode","combatToggleAction":"moonstation14:missing_action"}]}
                 """).getAsJsonObject();

@@ -1,0 +1,1 @@
+{"parent":"moonstation14:base_clothing","item":{"size":"Large","allow_suit_storage":true},"clothing":{"slot_flags":["OUTERCLOTHING"],"region":"TORSO","color":-11184811},"armor":{"coefficients":{"blunt":0.7,"slash":0.7,"piercing":0.7,"heat":0.8}}}

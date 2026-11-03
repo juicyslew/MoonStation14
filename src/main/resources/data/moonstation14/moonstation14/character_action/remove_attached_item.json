@@ -1,0 +1,1 @@
+{"parent":"base_action","display_name":"action.moonstation14.remove_attached_item","icon":"moonstation14:textures/interface/actions/break_free.png","handler":"REMOVE_SELF_ATTACHMENT","use_delay_ticks":0,"check_can_interact":true}

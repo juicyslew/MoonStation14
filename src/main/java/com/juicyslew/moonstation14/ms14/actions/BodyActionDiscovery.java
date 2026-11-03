@@ -46,7 +46,31 @@ public final class BodyActionDiscovery {
 
     /** Discover composed body grants and supported actions from currently worn, body-owned stacks only. */
     public static List<Entry> discover(LivingEntity body, UUID bodyId, CharacterData character) {
-        List<Entry> result = new ArrayList<>(discover(bodyId, character));
+        return discover(body, bodyId, character, ModActionPrototypes.serverCatalog());
+    }
+
+    /** Active-state seam; pure UUID/data discovery deliberately does not assume ensnare state. */
+    public static List<Entry> discover(LivingEntity body, UUID bodyId, CharacterData character,
+                                       PrototypeCatalog<ActionPrototype> catalog) {
+        return discoverEquipped(body, bodyId, character, catalog);
+    }
+
+    public static List<Entry> discover(UUID bodyId, CharacterData character, PrototypeCatalog<ActionPrototype> catalog,
+                                       boolean currentlyEnsnared) {
+        return discover(bodyId, character, catalog);
+    }
+
+    public static List<Entry> discoverActive(UUID bodyId, CharacterData character,
+                                             PrototypeCatalog<ActionPrototype> catalog, boolean currentlyEnsnared) {
+        return discover(bodyId, character, catalog, currentlyEnsnared);
+    }
+
+    private static List<Entry> discoverEquipped(LivingEntity body, UUID bodyId, CharacterData character,
+                                                  PrototypeCatalog<ActionPrototype> catalog) {
+        List<Entry> result = new ArrayList<>(discover(bodyId, character, catalog));
+        if (com.juicyslew.moonstation14.entities.ItemAttachmentQueries.attachedTo(body).stream()
+                .anyMatch(item -> item.attachment().filter(a -> a.targetUUID().equals(bodyId)).isPresent()))
+            add(result, bodyId.toString(), "moonstation14:remove_attached_item", catalog);
         var snapshot = LiveHands.equipmentSnapshot(body).orElse(null);
         var template = BodyEquipmentTransfer.templateForTransfer(body);
         if (snapshot == null || template == null) return List.copyOf(result);

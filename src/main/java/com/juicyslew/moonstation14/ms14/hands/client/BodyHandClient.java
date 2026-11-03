@@ -1048,6 +1048,11 @@ public final class BodyHandClient {
         var active = view.active();
         UUID aimed = lookTarget(cameraBody);
         var puddle = aimedPuddle(cameraBody);
+        var nominatedItem = aimed == null ? null : pileItems.stream()
+                .filter(item -> aimed.equals(item.getUUID())).findFirst().orElse(null);
+        if (nominatedItem instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose
+                && loose.attachment().isPresent())
+            return request(BodyHandActionRequest.Action.ALTERNATE_TARGET, aimed);
         if (active.token() == null) {
             if (aimedLooseLiquid(aimed)) return request(BodyHandActionRequest.Action.ALTERNATE_TARGET);
             var target = com.juicyslew.moonstation14.ms14.ingestion.BodyOralClientPolicy.alternateTarget(
@@ -2722,6 +2727,17 @@ public final class BodyHandClient {
             }
             default -> { return false; }
         }
+        if (action == BodyHandActionRequest.Action.PICKUP
+                || action == BodyHandActionRequest.Action.PICKUP_SELECTED) {
+            var selectedTarget = target;
+            var selected = cameraBody == null || target == null ? null
+                    : cameraBody.level().getEntitiesOfClass(com.juicyslew.moonstation14.entities.LooseItemEntity.class,
+                            cameraBody.getBoundingBox().inflate(64), item -> item.getUUID().equals(selectedTarget))
+                    .stream().findFirst().orElse(null);
+            boolean attached = selected instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose
+                    && loose.attachment().isPresent();
+            action = AttachedItemPickupRoute.actionFor(action, attached, active.token() == null);
+        }
         if ((action == BodyHandActionRequest.Action.PICKUP || action == BodyHandActionRequest.Action.PICKUP_SELECTED
                 || action == BodyHandActionRequest.Action.USE_TARGET || action == BodyHandActionRequest.Action.ALTERNATE_TARGET
                 || action == BodyHandActionRequest.Action.USE_BODY || action == BodyHandActionRequest.Action.ACTIVATE_TARGET)
@@ -2980,9 +2996,13 @@ public final class BodyHandClient {
         double blockerDistance = start.distanceTo(block.getLocation());
         double maxDistance = blockerDistance * blockerDistance;
         var candidates = new java.util.ArrayList<ItemEntity>();
+        boolean explicitRemoval = altDown();
         for (ItemEntity item : body.level().getEntitiesOfClass(ItemEntity.class,
                 new AABB(start, end).inflate(BodyItemTargetProbe.TARGET_MARGIN),
-                entity -> entity.isAlive() && !entity.getItem().isEmpty())) {
+                entity -> entity.isAlive() && !entity.getItem().isEmpty()
+                        && com.juicyslew.moonstation14.ms14.hands.live.AttachedItemTargeting.eligible(
+                        body.getUUID(), entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose
+                                ? loose.attachment() : java.util.Optional.empty(), explicitRemoval))) {
             var box = item.getBoundingBox();
             if (!BodyItemTargetProbe.withinPhysicalReach(start, box, BodyItemTargetProbe.MAX_REACH)) continue;
             Vec3 hit = LooseItemRayGeometry.entry(box, start, end);

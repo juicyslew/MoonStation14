@@ -1,0 +1,24 @@
+{
+  "sources": [
+    {
+      "type": "single",
+      "resource": "moonstation14:ss14/throwing_knife/icon"
+    },
+    {
+      "type": "single",
+      "resource": "moonstation14:ss14/dart/icon"
+    },
+    {
+      "type": "single",
+      "resource": "moonstation14:ss14/bola/icon"
+    },
+    {
+      "type": "single",
+      "resource": "moonstation14:ss14/armor_vest/icon"
+    },
+    {
+      "type": "single",
+      "resource": "moonstation14:ss14/basic_helmet/icon"
+    }
+  ]
+}

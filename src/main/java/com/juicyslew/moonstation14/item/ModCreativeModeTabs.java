@@ -40,6 +40,7 @@ public class ModCreativeModeTabs {
             ModItems.OINTMENT, ModItems.BRUTEPACK, ModItems.GAUZE, ModItems.HANDHELD_HEALTH_ANALYZER,
             ModItems.NETWORK_CONFIGURATOR, ModItems.REMOTE_SIGNALLER, ModItems.REMOTE_SIGNALLER_ADVANCED,
             ModItems.PLASMA_TANK,
+            ModItems.THROWING_KNIFE, ModItems.DART, ModItems.HYPO_DART, ModItems.BOLA, ModItems.ARMOR_VEST, ModItems.BASIC_HELMET,
             ModEquipmentItems.GREY_CAP, ModEquipmentItems.DEBUG_CAPABILITY_CAP, ModEquipmentItems.GREY_JUMPSUIT, ModEquipmentItems.SIMPLE_COAT,
             ModEquipmentItems.BLACK_GLOVES, ModEquipmentItems.BLACK_SHOES, ModEquipmentItems.GLASSES,
             ModEquipmentItems.RED_TIE, ModEquipmentItems.BLACK_BANDANA, ModEquipmentItems.EARPIECES,

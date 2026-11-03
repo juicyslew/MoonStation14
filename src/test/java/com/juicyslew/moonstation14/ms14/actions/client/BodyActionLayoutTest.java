@@ -23,28 +23,31 @@ class BodyActionLayoutTest {
         assertEquals(.5f, BodyActionLayout.cooldownFraction(5,10));
         assertEquals(0f, BodyActionLayout.cooldownFraction(0,10));
     }
-    @Test void actionBarHitTestingMatchesVerticalButtonsAndConsumesGaps() {
-        assertEquals(0, BodyActionLayout.actionBarSlot(6, 50, 6, 50));
-        assertEquals(0, BodyActionLayout.actionBarSlot(33, 77, 6, 50));
-        assertEquals(-1, BodyActionLayout.actionBarSlot(34, 60, 6, 50));
-        assertEquals(-1, BodyActionLayout.actionBarSlot(6, 78, 6, 50));
-        assertEquals(1, BodyActionLayout.actionBarSlot(10, 80, 6, 50));
-        assertEquals(2, BodyActionLayout.actionBarSlot(10, 110, 6, 50));
-        assertEquals(-1, BodyActionLayout.actionBarSlot(6, 140, 6, 50));
+    @Test void allTwentyAssignedSlotsRetainGeometryAndHitIdentityAcrossHoles() {
+        var slots = java.util.stream.IntStream.rangeClosed(1, 20).mapToObj(i -> new BodyActionSlots.Slot(i, null)).toList();
+        var rects = BodyActionLayout.barRects(slots, 640, 480, 0, 0);
+        assertEquals(20, rects.size());
+        assertEquals(2, rects.stream().map(BodyActionLayout.BarRect::x).distinct().count());
+        for (var rect : rects) {
+            assertTrue(rect.contains(rect.x() + 14, rect.y() + 14));
+            assertTrue(rect.x() + 28 <= 640 && rect.y() + 28 <= 480);
+        }
+        assertEquals(10, rects.get(9).slotNumber()); assertEquals(11, rects.get(10).slotNumber()); assertEquals(20, rects.get(19).slotNumber());
+        var hole = BodyActionLayout.barRects(java.util.List.of(slots.get(0), slots.get(10), slots.get(19)), 640, 480, 0, 0);
+        assertEquals(rects.get(10).x(), hole.get(1).x()); assertEquals(rects.get(10).y(), hole.get(1).y());
+        assertFalse(rects.get(0).contains(28, 10));
+        assertTrue(BodyActionLayout.barRects(java.util.List.of(), 640, 480, 0, 0).isEmpty());
+        assertEquals(20, BodyActionLayout.barRects(slots, 320, 180, 0, 0).size());
+        assertTrue(BodyActionLayout.barRects(slots, 40, 20, 0, 0).isEmpty());
     }
     @Test void halfScaleInverseMappingKeepsNonzeroOriginAndButtonStrideAligned() {
         int originX = 6, originY = 8;
         assertEquals(28, (int)BodyActionLayout.toLogical(originX + 14, originX));
         assertEquals(30, (int)BodyActionLayout.toLogical(originY + 15, originY));
-        assertEquals(0, BodyActionLayout.actionBarSlot(
-                (int)BodyActionLayout.toLogical(originX, originX),
-                (int)BodyActionLayout.toLogical(originY, originY), 0, 0));
-        assertEquals(1, BodyActionLayout.actionBarSlot(
-                (int)BodyActionLayout.toLogical(originX + 1, originX),
-                (int)BodyActionLayout.toLogical(originY + 15, originY), 0, 0));
-        assertEquals(-1, BodyActionLayout.actionBarSlot(
-                (int)BodyActionLayout.toLogical(originX + 1, originX),
-                (int)BodyActionLayout.toLogical(originY + 14, originY), 0, 0));
+        var all = java.util.stream.IntStream.rangeClosed(1, 20).mapToObj(i -> new BodyActionSlots.Slot(i, null)).toList();
+        var geometry = BodyActionLayout.barRects(all, 640, 480, 0, 0);
+        assertEquals(geometry.get(0).x(), (int)BodyActionLayout.toLogical(originX, originX));
+        assertEquals(geometry.get(1).y(), (int)BodyActionLayout.toLogical(originY + 15, originY));
     }
     @Test void cooldownWipeAndCompletionBlinkAreBounded() {
         assertEquals(1f, BodyActionLayout.cooldownWipeProgress(10, 10));
@@ -71,7 +74,8 @@ class BodyActionLayoutTest {
         assertEquals(14, BodyActionLayout.toScreenSize(button));
         assertEquals(12, BodyActionLayout.toScreenSize(icon));
         assertTrue(BodyActionLayout.toScreenSize(icon) < BodyActionLayout.toScreenSize(button));
-        assertEquals(0, BodyActionLayout.actionBarSlot(27, 27, 0, 0));
-        assertEquals(-1, BodyActionLayout.actionBarSlot(28, 27, 0, 0));
+        var rect = BodyActionLayout.barRects(java.util.List.of(new BodyActionSlots.Slot(1, null)), 40, 40, 0, 0).get(0);
+        assertTrue(rect.contains(27, 27));
+        assertFalse(rect.contains(28, 27));
     }
 }

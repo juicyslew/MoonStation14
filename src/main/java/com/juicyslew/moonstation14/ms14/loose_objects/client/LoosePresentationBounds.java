@@ -60,9 +60,7 @@ public final class LoosePresentationBounds {
                                                         org.joml.Matrix4f callerPose, org.joml.Vector3f axis) {
         if (axis == null || !Float.isFinite(axis.x) || !Float.isFinite(axis.y) || !Float.isFinite(axis.z)
                 || axis.lengthSquared() == 0f) return null;
-        PoseStack pose = new PoseStack();
-        pose.last().pose().set(callerPose);
-        LooseItemRenderer.applyCameraFacingFlatPose(pose, profile, appearanceScale);
+        PoseStack pose = flatSpriteModelPose(model, profile, appearanceScale, callerPose);
         model = model.applyTransform(net.minecraft.world.item.ItemDisplayContext.NONE, pose, false);
         pose.translate(-.5, -.5, -.5);
         float[] range={Float.POSITIVE_INFINITY,Float.NEGATIVE_INFINITY};
@@ -76,6 +74,44 @@ public final class LoosePresentationBounds {
     }
     /** maxPoint is an immutable snapshot of an actual transformed vertex attaining max. */
     public record ProjectionExtent(float min, float max, Vec3 maxPoint) { }
+
+    /** Finds the actual model-space point represented by normalized sprite UV metadata. */
+    public static Vector3f flatSpritePointAtUv(net.minecraft.client.resources.model.BakedModel model,
+            LooseObjectProfile profile, float appearanceScale, org.joml.Matrix4f callerPose, float u, float v) {
+        PoseStack pose = flatSpriteModelPose(model, profile, appearanceScale, callerPose);
+        model = model.applyTransform(net.minecraft.world.item.ItemDisplayContext.NONE, pose, false);
+        pose.translate(-.5, -.5, -.5);
+        Vector3f found = null;
+        var random=net.minecraft.util.RandomSource.create(0);
+        var directions=new java.util.ArrayList<net.minecraft.core.Direction>(); directions.add(null);
+        java.util.Collections.addAll(directions,net.minecraft.core.Direction.values());
+        for(var direction:directions) { random.setSeed(0); for(var quad:model.getQuads(null,direction,random)) {
+            var sprite=quad.getSprite(); if(sprite==null) continue;
+            float tu=sprite.getU0()+(sprite.getU1()-sprite.getU0())*u;
+            float tv=sprite.getV0()+(sprite.getV1()-sprite.getV0())*v;
+            int[] d=quad.getVertices(); int stride=com.mojang.blaze3d.vertex.DefaultVertexFormat.BLOCK.getVertexSize()/4;
+            float u0=Float.intBitsToFloat(d[4]),v0=Float.intBitsToFloat(d[5]);
+            float u1=Float.intBitsToFloat(d[stride+4]),v1=Float.intBitsToFloat(d[stride+5]);
+            float u3=Float.intBitsToFloat(d[3*stride+4]),v3=Float.intBitsToFloat(d[3*stride+5]);
+            float ax=u1-u0, ay=v1-v0, bx=u3-u0, by=v3-v0, det=ax*by-ay*bx;
+            if(Math.abs(det)<1e-10f) continue;
+            float du=tu-u0,dv=tv-v0, s=(du*by-dv*bx)/det,t=(ax*dv-ay*du)/det;
+            if(s<-.001f||s>1.001f||t<-.001f||t>1.001f) continue;
+            float x=Float.intBitsToFloat(d[0])+s*(Float.intBitsToFloat(d[stride])-Float.intBitsToFloat(d[0]))+t*(Float.intBitsToFloat(d[3*stride])-Float.intBitsToFloat(d[0]));
+            float y=Float.intBitsToFloat(d[1])+s*(Float.intBitsToFloat(d[stride+1])-Float.intBitsToFloat(d[1]))+t*(Float.intBitsToFloat(d[3*stride+1])-Float.intBitsToFloat(d[1]));
+            float z=Float.intBitsToFloat(d[2])+s*(Float.intBitsToFloat(d[stride+2])-Float.intBitsToFloat(d[2]))+t*(Float.intBitsToFloat(d[3*stride+2])-Float.intBitsToFloat(d[2]));
+            found=pose.last().pose().transformPosition(new Vector3f(x,y,z));
+        }}
+        return found;
+    }
+
+    private static PoseStack flatSpriteModelPose(net.minecraft.client.resources.model.BakedModel model,
+            LooseObjectProfile profile, float appearanceScale, org.joml.Matrix4f callerPose) {
+        PoseStack pose = new PoseStack();
+        pose.last().pose().set(callerPose);
+        LooseItemRenderer.applyCameraFacingFlatPose(pose, profile, appearanceScale);
+        return pose;
+    }
 
     private static void forEachTransformedModelVertex(net.minecraft.client.resources.model.BakedModel model,
                                                        org.joml.Matrix4f matrix, java.util.function.Consumer<Vector3f> consumer) {
