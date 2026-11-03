@@ -31,10 +31,10 @@ public record ActionPrototype(String displayName, ResourceLocation icon, Optiona
             Codec.BOOL.optionalFieldOf("check_consciousness", true).forGetter(ActionPrototype::checkConsciousness),
             EXACT_INT.optionalFieldOf("use_delay_ticks", 0).forGetter(ActionPrototype::useDelayTicks),
             EXACT_INT.optionalFieldOf("priority", 0).forGetter(ActionPrototype::priority)
-    ).apply(i, ActionPrototype::new));
+     ).apply(i, ActionPrototype::new));
 
     public ActionPrototype {
-        if (displayName == null || displayName.isBlank() || icon == null || iconOn == null || handler == null || kind == null)
+         if (displayName == null || displayName.isBlank() || icon == null || iconOn == null || handler == null || kind == null)
             throw new IllegalArgumentException("action fields must be present");
         if (useDelayTicks < 0) throw new IllegalArgumentException("use_delay_ticks must be nonnegative");
     }

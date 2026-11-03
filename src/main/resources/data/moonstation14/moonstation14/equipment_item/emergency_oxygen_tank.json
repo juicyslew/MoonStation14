@@ -1,0 +1,1 @@
+{"parent":"gas_tank_equipment_base","item":{"size":"Small"},"clothing":{"slot_flags":["POCKET","BELT","SUITSTORAGE"],"worn_model":{"mesh":"moonstation14:wearables/meshes/emergency_oxygen_tank.json","body_shape":"WIDE"}}}

@@ -55,6 +55,9 @@ public class ModSounds {
     public static final Supplier<SoundEvent> GUN_BULLET_MISS = registerSoundEvent("ss14/weapons/guns/miss/bullet_miss");
     public static final Supplier<SoundEvent> SLIP = registerSoundEvent("ss14/effects/slip");
     public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
+    public static final Supplier<SoundEvent> INTERNALS_TOGGLE = registerSoundEvent("internals");
+    public static final Supplier<SoundEvent> EVA_HELMET_WEAR = registerSoundEvent("equipment/eva_helmet");
+    public static final Supplier<SoundEvent> JUMPSUIT_EQUIP = registerSoundEvent("equipment/jumpsuit_equip");
     // Event registry IDs must exist independently of their sounds.json sample mappings.
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_BEGIN = registerSoundEvent("medical/ointment_begin");
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_END = registerSoundEvent("medical/ointment_end");

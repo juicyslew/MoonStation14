@@ -63,13 +63,19 @@ public final class FirelockPryService {
     }
 
     private static boolean validHand(ServerPlayer actor,HandActorAuthority.Snapshot authority,LiveHands hands,String hand,String token,long handsRevision,ServerLevel level,BlockPos root,UUID identity,long revision){
-        if(!HandActorAuthority.revalidate(actor,authority)||authority.body().level()!=level||authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())!=hands||!hands.compatible(authority.body())||!DoorPrySupport.matchesEmptyHandSnapshot(hands,hand,token,handsRevision))return false;
+        LiveHands currentHands=authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if(!HandActorAuthority.revalidate(actor,authority)||authority.body().level()!=level||currentHands==null
+                ||currentHands!=hands&&!currentHands.continuesAcrossPassiveTankDebit(authority.body(),hands)
+                ||!hands.compatible(authority.body())||!DoorPrySupport.matchesEmptyHandSnapshot(hands,hand,token,handsRevision))return false;
         FirelockTargets.Target target=FirelockTargets.atRoot(level,root);if(target==null||!target.identity().equals(identity)||target.controller().state()==null||target.controller().state().revision()!=revision)return false;
         var data=target.host().prototype();var power=PowerRuntime.firelockPowerForHost(level,target.host());
         return data!=null&&power.known()&&power.deliveredWatts()!=data.apcPowerReceiver().requestedWatts()&&AirlockToolLineOfSight.firelockReach(authority.body(),level,root,target,identity);
     }
     private static boolean validTool(ServerPlayer actor,HandActorAuthority.Snapshot authority,LiveHands hands,String hand,String token,long handRevision,ItemStack captured,ServerLevel level,BlockPos root,UUID id,long revision,boolean strong,boolean poweredPry){
-        if(!HandActorAuthority.revalidate(actor,authority)||authority.body().level()!=level||authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())!=hands||!hands.compatible(authority.body())||hands.revision()!=handRevision||!hand.equals(hands.activeHand())||!DoorPrySupport.matchesHeldHandSnapshot(hands,hand,token,captured,handRevision))return false;
+        LiveHands currentHands=authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if(!HandActorAuthority.revalidate(actor,authority)||authority.body().level()!=level||currentHands==null
+                ||currentHands!=hands&&!currentHands.continuesAcrossPassiveTankDebit(authority.body(),hands)
+                ||!hands.compatible(authority.body())||hands.revision()!=handRevision||!hand.equals(hands.activeHand())||!DoorPrySupport.matchesHeldHandSnapshot(hands,hand,token,captured,handRevision))return false;
         FirelockTargets.Target target=FirelockTargets.atRoot(level,root);if(target==null||!target.identity().equals(id)||target.controller().state()==null||target.controller().state().revision()!=revision||target.controller().state().pryVeto(poweredPry,strong)==FirelockState.Pry.VETOED)return false;
         var profile=com.juicyslew.moonstation14.ms14.tools.ToolQualities.profile(captured);if(profile==null||!com.juicyslew.moonstation14.ms14.tools.ToolQualities.has(captured,com.juicyslew.moonstation14.ms14.tools.ToolProfile.Quality.PRYING))return false;
         var data=target.host().prototype();var meter=PowerRuntime.firelockPowerForHost(level,target.host());boolean actualPower=data!=null&&meter.known()&&meter.deliveredWatts()==data.apcPowerReceiver().requestedWatts();

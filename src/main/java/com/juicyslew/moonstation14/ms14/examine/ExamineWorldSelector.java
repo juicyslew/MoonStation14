@@ -27,12 +27,13 @@ public final class ExamineWorldSelector {
     /** Resolves live outline/eligibility geometry without depending on the current camera ray. */
     public static AABB currentBounds(Level level, ExamineTarget target) {
         if (level == null || target == null) return null;
-        if (target.kind() == ExamineTarget.Kind.SCENE) return null;
+        if (!target.kind().hasWorldGeometry()) return null;
         if (target.kind() == ExamineTarget.Kind.ENTITY) {
             Entity entity = level.getEntity(target.entityId());
             return entity == null || entity.level() != level ? null
                     : liveEntityBounds(entity.getBoundingBox(), entity.getUUID(), target.entityUuid(), entity.isRemoved());
         }
+        if (target.kind() != ExamineTarget.Kind.BLOCK) return null;
         BlockPos pos = target.blockPos();
         if (!level.hasChunkAt(pos)) return null;
         BlockState state = level.getBlockState(pos);

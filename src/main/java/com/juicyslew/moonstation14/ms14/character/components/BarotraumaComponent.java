@@ -13,16 +13,17 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Map;
 import java.util.Objects;
 
-/** Upstream BarotraumaComponent damage spec and maxDamage; protectionSlots are not implemented. */
-public record BarotraumaComponent(Damage damage, double maxDamage) implements CharacterComponent {
+/** Pressure damage policy and required worn slots that protect it. */
+public record BarotraumaComponent(Damage damage, double maxDamage, java.util.List<String> protectionSlots) implements CharacterComponent {
     public static final String TYPE = "Barotrauma";
     private static final Codec<BarotraumaComponent> STRUCTURAL_CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.fieldOf("type").forGetter(BarotraumaComponent::type),
             Damage.CODEC.fieldOf("damage").forGetter(BarotraumaComponent::damage),
-            Codec.DOUBLE.fieldOf("maxDamage").forGetter(BarotraumaComponent::maxDamage)
-    ).apply(instance, (type, damage, maxDamage) -> {
+            Codec.DOUBLE.fieldOf("maxDamage").forGetter(BarotraumaComponent::maxDamage),
+            Codec.STRING.listOf().optionalFieldOf("protectionSlots", java.util.List.of("head", "outerClothing")).forGetter(BarotraumaComponent::protectionSlots)
+    ).apply(instance, (type, damage, maxDamage, slots) -> {
         if (!TYPE.equals(type)) throw new IllegalArgumentException("unknown component type: " + type);
-        return new BarotraumaComponent(damage, maxDamage);
+        return new BarotraumaComponent(damage, maxDamage, slots);
     }));
 
     /** Audit the raw value before JsonOps can convert nested nulls, and audit encoded values too. */
@@ -55,7 +56,13 @@ public record BarotraumaComponent(Damage damage, double maxDamage) implements Ch
         Objects.requireNonNull(damage, "damage");
         if (!Double.isFinite(maxDamage) || maxDamage < 0 || maxDamage > 1_000_000)
             throw new IllegalArgumentException("maxDamage must be finite and nonnegative");
+        protectionSlots = java.util.List.copyOf(Objects.requireNonNull(protectionSlots, "protectionSlots"));
+        if (protectionSlots.stream().anyMatch(Objects::isNull)
+                || new java.util.HashSet<>(protectionSlots).size() != protectionSlots.size())
+            throw new IllegalArgumentException("invalid protectionSlots");
     }
+
+    public BarotraumaComponent(Damage damage, double maxDamage) { this(damage, maxDamage, java.util.List.of("head", "outerClothing")); }
 
     @Override public String type() { return TYPE; }
 
@@ -67,4 +74,3 @@ public record BarotraumaComponent(Damage damage, double maxDamage) implements Ch
         public Damage { types = Map.copyOf(Objects.requireNonNull(types, "types")); }
     }
 }
-

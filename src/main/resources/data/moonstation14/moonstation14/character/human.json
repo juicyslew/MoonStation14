@@ -58,6 +58,9 @@
       "type": "Body"
     },
     {
+      "type": "Internals"
+    },
+    {
       "type": "InitialBody",
       "organs": {
         "Lungs": "moonstation14:organ_lungs_human"

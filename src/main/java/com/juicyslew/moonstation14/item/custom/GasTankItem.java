@@ -26,7 +26,8 @@ public final class GasTankItem extends Item {
     public static ItemStack createStack(Level level, ResourceLocation profile) { return createStack(ModGasTanks.catalog(level), profile); }
     public static ItemStack createStack(PrototypeCatalog<GasTankData> catalog, ResourceLocation profile) {
         GasTankContents contents = createContents(catalog, profile);
-        ItemStack stack = new ItemStack(com.juicyslew.moonstation14.item.ModItems.PLASMA_TANK.get());
+        GasTankData data = catalog.get(contents.prototypeId());
+        ItemStack stack = new ItemStack(com.juicyslew.moonstation14.item.ModItems.gasTankById(data.nativeItemId()));
         stack.set(ModDataComponents.GAS_TANK_CONTENTS.get(), contents);
         return stack;
     }
@@ -69,5 +70,26 @@ public final class GasTankItem extends Item {
         changed.set(ModDataComponents.GAS_TANK_CONTENTS.get(), current.withMixture(mixture));
         return changed;
     }
-}
 
+    @Override public void appendHoverText(ItemStack stack, Item.TooltipContext context,
+            java.util.List<net.minecraft.network.chat.Component> tooltip,
+            net.minecraft.world.item.TooltipFlag flag) {
+        super.appendHoverText(stack, context, tooltip, flag);
+        var catalog = context.level() == null ? com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.serverGasTanks()
+                : ModGasTanks.catalog(context.level());
+        var contents = contents(stack, catalog).orElse(null);
+        var profile = contents == null ? null : catalog.get(contents.prototypeId());
+        if (profile == null) return;
+        double pressure = contents.mixture().pressureKpa(profile.volumeCubicMeters());
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.moonstation14.gas_tank.internal_pressure",
+                formatKpa(pressure)));
+        tooltip.add(net.minecraft.network.chat.Component.translatable("item.moonstation14.gas_tank.outlet_pressure",
+                formatKpa(profile.outletPressureKpa())));
+        if (pressure <= profile.lowPressureThresholdKpa())
+            tooltip.add(net.minecraft.network.chat.Component.translatable("item.moonstation14.gas_tank.low_pressure"));
+    }
+
+    private static String formatKpa(double value) {
+        return String.format(java.util.Locale.ROOT, "%.1f kPa", value);
+    }
+}

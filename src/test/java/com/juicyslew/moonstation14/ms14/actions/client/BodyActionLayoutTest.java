@@ -4,6 +4,51 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyActionLayoutTest {
+    @Test void tooltipHoverAndAnchorStayAbsoluteGuiAcrossScalesOffsetsAndViewportEdges() {
+        // GUI-scaled viewport sizes correspond to different window GUI scales; pointer inputs
+        // and GuiGraphics tooltip anchors are already in that same absolute GUI coordinate space.
+        for (int[] viewport : new int[][]{{320, 240}, {160, 120}, {90, 70}, {640, 360}}) {
+            int width = viewport[0], height = viewport[1];
+            int barLeft = Math.min(6, Math.max(0, width - 1)), barTop = Math.min(8, Math.max(0, height - 1));
+            int px = barLeft + BodyActionLayout.logicalToScreen(12);
+            int py = barTop + BodyActionLayout.logicalToScreen(12);
+            assertTrue(BodyActionLayout.actionBarPointer(px, barLeft) >= 0);
+            assertTrue(BodyActionLayout.actionBarPointer(px, barLeft) < 28);
+            assertEquals(px, BodyActionLayout.tooltipAnchor(px));
+            assertEquals(py, BodyActionLayout.tooltipAnchor(py));
+
+            var window = BodyActionLayout.calculate((int)Math.ceil(BodyActionLayout.screenToLogical(width)),
+                    (int)Math.ceil(BodyActionLayout.screenToLogical(height)), 12, 0);
+            int rowY = BodyActionLayout.HEADER_HEIGHT;
+            int rowGuiX = BodyActionLayout.logicalToScreen(window.left() + 8);
+            int rowGuiY = BodyActionLayout.logicalToScreen(window.top() + rowY + 8);
+            assertTrue(BodyActionLayout.actionRowHovered(rowGuiX, rowGuiY, window.left(), window.top(),
+                    window.width(), rowY), "row hover at " + width + "x" + height);
+            assertEquals(rowGuiX, BodyActionLayout.tooltipAnchor(rowGuiX));
+            assertEquals(rowGuiY, BodyActionLayout.tooltipAnchor(rowGuiY));
+        }
+        assertFalse(BodyActionLayout.actionRowHovered(-1, -1, 0, 0, 190, BodyActionLayout.HEADER_HEIGHT));
+        // Nonzero HUD origin is honored both for hover-local coordinates and tooltip's absolute anchor.
+        int originX = 37, originY = 23;
+        int pointerX = originX + BodyActionLayout.logicalToScreen(5);
+        int pointerY = originY + BodyActionLayout.logicalToScreen(5);
+        assertTrue(BodyActionLayout.actionBarPointer(pointerX, originX) < 28);
+        assertEquals(pointerX, BodyActionLayout.tooltipAnchor(pointerX));
+        assertEquals(pointerY, BodyActionLayout.tooltipAnchor(pointerY));
+    }
+    @Test void activeAlternateIconCommunicatesToggleWithoutPressedStyle() {
+        var icon = net.minecraft.resources.ResourceLocation.withDefaultNamespace("test");
+        var alternate = net.minecraft.resources.ResourceLocation.withDefaultNamespace("test_on");
+        var withAlternate = new com.juicyslew.moonstation14.ms14.actions.BodyActionSnapshot.Entry(icon, "p", "name", icon,
+                java.util.Optional.of(alternate), com.juicyslew.moonstation14.ms14.actions.prototype.ActionPrototype.Kind.TOGGLE,
+                true, true, 0, 0, "", 0);
+        var withoutAlternate = new com.juicyslew.moonstation14.ms14.actions.BodyActionSnapshot.Entry(icon, "p", "name", icon,
+                java.util.Optional.empty(), com.juicyslew.moonstation14.ms14.actions.prototype.ActionPrototype.Kind.TOGGLE,
+                true, true, 0, 0, "", 0);
+        assertEquals(alternate, BodyActionPresentation.icon(withAlternate));
+        assertFalse(BodyActionPresentation.activePressedStyle(withAlternate));
+        assertTrue(BodyActionPresentation.activePressedStyle(withoutAlternate));
+    }
     @Test void smallAndScaledViewportsKeepRowsReachableAndClampScroll() {
         for (int[] viewport : new int[][]{{320,240},{160,120},{90,70}}) {
             var layout = BodyActionLayout.calculate(viewport[0], viewport[1], 3, 99);

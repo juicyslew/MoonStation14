@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EquipmentPrototypeTest {
@@ -22,7 +23,7 @@ class EquipmentPrototypeTest {
         var templates=new LinkedHashMap<ResourceLocation,JsonObject>();templates.put(ModInventoryTemplates.HUMAN_ID,resource("inventory_template","human"));
         manager.reload(ModInventoryTemplates.TYPE,templates);
         var items=new LinkedHashMap<ResourceLocation,JsonObject>();
-        for(String name:java.util.List.of("base_item","base_clothing","grey_cap","debug_capability_cap","grey_jumpsuit","simple_coat","black_gloves","black_shoes","glasses","red_tie","black_bandana","earpieces","blank_id_card","utility_case","bag","belt","suit_rad","hood_rad"))
+        for(String name:java.util.List.of("base_item","base_clothing","clothing_uniform_base","grey_cap","debug_capability_cap","grey_jumpsuit","simple_coat","black_gloves","black_shoes","glasses","red_tie","black_bandana","earpieces","blank_id_card","utility_case","bag","belt","suit_rad","hood_rad"))
             items.put(ModInventoryTemplates.id(name),resource("equipment_item",name));
         manager.reload(ModEquipmentItems.TYPE,items);
         var template=manager.snapshot(ModInventoryTemplates.TYPE).get(ModInventoryTemplates.HUMAN_ID);
@@ -72,6 +73,59 @@ class EquipmentPrototypeTest {
         var action=ResourceLocation.parse("moonstation14:debug_pulse");
         assertThrows(IllegalArgumentException.class, () -> new EquipmentItemData.SupportedActionGrant(
                 java.util.List.of(action, action), new EquipmentItemData.ItemActionGrant(true)));
+    }
+
+    @Test void inheritedEquipmentWearSoundsMatchOnlySourceCompositions() throws Exception {
+        var manager = new PrototypeManager(); manager.register(ModEquipmentItems.TYPE);
+        var items = new LinkedHashMap<ResourceLocation, JsonObject>();
+        for (String name : java.util.List.of("base_item", "base_clothing", "clothing_uniform_base", "grey_jumpsuit",
+                "clothing_head_base", "eva_helmet_base", "eva_helmet", "eva_suit_base", "eva_suit",
+                "breathing_mask_base", "breathing_mask_pullable_base", "breathing_mask"))
+            items.put(ModInventoryTemplates.id(name), resource("equipment_item", name));
+        manager.reload(ModEquipmentItems.TYPE, items);
+        var catalog = manager.snapshot(ModEquipmentItems.TYPE);
+        var helmet = catalog.get(ModInventoryTemplates.id("eva_helmet")).clothing().orElseThrow();
+        assertEquals(Optional.of("moonstation14:equipment/eva_helmet"), helmet.equipSound());
+        assertEquals(helmet.equipSound(), helmet.unequipSound());
+        var uniform = catalog.get(ModInventoryTemplates.id("grey_jumpsuit")).clothing().orElseThrow();
+        assertEquals(Optional.of("moonstation14:equipment/jumpsuit_equip"), uniform.equipSound());
+        assertTrue(uniform.unequipSound().isEmpty());
+        assertTrue(catalog.get(ModInventoryTemplates.id("eva_suit")).clothing().orElseThrow().equipSound().isEmpty());
+        assertTrue(catalog.get(ModInventoryTemplates.id("breathing_mask")).clothing().orElseThrow().equipSound().isEmpty());
+    }
+
+    @Test void breathMaskAndIngestionBlockerCodecsKeepDefaultsAndLoweredModel() {
+        var ops = com.mojang.serialization.JsonOps.INSTANCE;
+        var mask = EquipmentItemData.BREATH_MASK_CODEC.parse(ops, JsonParser.parseString("{}" )).getOrThrow();
+        assertEquals(EquipmentItemData.BreathMask.DEFAULT_ALLOWED_SLOTS, mask.allowedSlots());
+        assertTrue(mask.loweredWornModel().isEmpty());
+        var lowered = EquipmentItemData.BREATH_MASK_CODEC.parse(ops, JsonParser.parseString(
+                "{\"lowered_worn_model\":{\"mesh\":\"moonstation14:wearables/meshes/mask_lowered.json\",\"body_shape\":\"WIDE\"}}" )).getOrThrow();
+        assertEquals(ResourceLocation.parse("moonstation14:wearables/meshes/mask_lowered.json"),
+                lowered.loweredWornModel().orElseThrow().mesh());
+        assertTrue(EquipmentItemData.INGESTION_BLOCKER_CODEC.parse(ops, JsonParser.parseString("true")).result().isPresent());
+        assertTrue(EquipmentItemData.INGESTION_BLOCKER_CODEC.parse(ops, JsonParser.parseString("false")).error().isPresent());
+    }
+
+    @Test void resolvedMaskBlocksOnlyWhenWornRaisedAndPublicAppearanceSelectsLoweredModel() throws Exception {
+        var manager = new PrototypeManager(); manager.register(ModEquipmentItems.TYPE);
+        var items = new LinkedHashMap<ResourceLocation, JsonObject>();
+        for (String name : java.util.List.of("base_item", "base_clothing", "breathing_mask_base", "breathing_mask_pullable_base", "breathing_mask"))
+            items.put(ModInventoryTemplates.id(name), resource("equipment_item", name));
+        manager.reload(ModEquipmentItems.TYPE, items);
+        var mask = manager.snapshot(ModEquipmentItems.TYPE).get(ModInventoryTemplates.id("breathing_mask"));
+        assertTrue(IngestionBlockerPolicy.blocks(mask, net.minecraft.world.item.ItemStack.EMPTY, false));
+        assertFalse(IngestionBlockerPolicy.blocks(mask, net.minecraft.world.item.ItemStack.EMPTY, true),
+                "a pocketed/held mask cannot block mouth access");
+        var profile = mask.breathMask().orElseThrow();
+        assertEquals(ResourceLocation.parse("moonstation14:wearables/meshes/breathing_mask_lowered.json"),
+                profile.loweredWornModel().orElseThrow().mesh());
+        items.put(ModInventoryTemplates.id("mask_child"), JsonParser.parseString(
+                "{\"parent\":\"moonstation14:breathing_mask\",\"breath_mask\":{\"allowed_slots\":[\"MASK\"]}}" ).getAsJsonObject());
+        manager.reload(ModEquipmentItems.TYPE, items);
+        assertEquals(profile.loweredWornModel(), manager.snapshot(ModEquipmentItems.TYPE)
+                .get(ModInventoryTemplates.id("mask_child")).breathMask().orElseThrow().loweredWornModel(),
+                "child slot override inherits configured lowered appearance");
     }
 
     @Test void quickEquipDefaultAndInheritedFalseSurviveChildOverrides() throws Exception {
@@ -130,6 +184,38 @@ class EquipmentPrototypeTest {
                 JsonParser.parseString("{\"coefficients\":{\"blunt\":\"NaN\"}}" )).error().isPresent());
     }
 
+    @Test void pressureProtectionCodecAndInheritanceResolveDefaultsAndOverrides() {
+        var manager = new PrototypeManager(); manager.register(ModEquipmentItems.TYPE);
+        var items = new LinkedHashMap<ResourceLocation, JsonObject>();
+        items.put(ModInventoryTemplates.id("pressure_parent"), JsonParser.parseString(
+                "{\"item\":{\"size\":\"Small\"},\"pressure_protection\":{\"high_pressure_multiplier\":0.6,\"low_pressure_multiplier\":1000}}").getAsJsonObject());
+        items.put(ModInventoryTemplates.id("pressure_child"), JsonParser.parseString(
+                "{\"parent\":\"pressure_parent\",\"pressure_protection\":{\"high_pressure_multiplier\":0.8}}").getAsJsonObject());
+        items.put(ModInventoryTemplates.id("plain"), JsonParser.parseString("{\"item\":{\"size\":\"Small\"}}").getAsJsonObject());
+        manager.reload(ModEquipmentItems.TYPE, items);
+        var catalog = manager.snapshot(ModEquipmentItems.TYPE);
+        assertEquals(new EquipmentItemData.PressureProtection(.6, 1000, 0, 0), catalog.get(ModInventoryTemplates.id("pressure_parent")).pressureProtection().orElseThrow());
+        assertEquals(new EquipmentItemData.PressureProtection(.8, 1000, 0, 0), catalog.get(ModInventoryTemplates.id("pressure_child")).pressureProtection().orElseThrow());
+        assertTrue(catalog.get(ModInventoryTemplates.id("plain")).pressureProtection().isEmpty());
+    }
+
+    @Test void breathMaskTypedCompositionDefaultsAndInheritsAllowedSlots() {
+        var manager = new PrototypeManager(); manager.register(ModEquipmentItems.TYPE);
+        var items = new LinkedHashMap<ResourceLocation, JsonObject>();
+        items.put(ModInventoryTemplates.id("mask_parent"), JsonParser.parseString(
+                "{\"item\":{\"size\":\"Small\"},\"breath_mask\":{}}" ).getAsJsonObject());
+        items.put(ModInventoryTemplates.id("mask_child"), JsonParser.parseString(
+                "{\"parent\":\"mask_parent\"}" ).getAsJsonObject());
+        manager.reload(ModEquipmentItems.TYPE, items);
+        var expected = java.util.List.of(InventoryTemplateData.SlotFlag.MASK, InventoryTemplateData.SlotFlag.HEAD);
+        assertEquals(expected, manager.snapshot(ModEquipmentItems.TYPE).get(ModInventoryTemplates.id("mask_child"))
+                .breathMask().orElseThrow().allowedSlots());
+        assertEquals(expected, EquipmentItemData.BREATH_MASK_CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                JsonParser.parseString("{}")).getOrThrow().allowedSlots());
+        assertTrue(EquipmentItemData.BREATH_MASK_CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                JsonParser.parseString("{\"allowed_slots\":[\"NOPE\"]}")).error().isPresent());
+    }
+
     @Test void noSlipMarkerCodecAndPrototypeInheritanceArePresenceOnly() throws Exception {
         var manager = new PrototypeManager(); manager.register(ModEquipmentItems.TYPE);
         var items = new LinkedHashMap<ResourceLocation, JsonObject>();
@@ -184,6 +270,72 @@ class EquipmentPrototypeTest {
         assertTrue(EquipmentFitPolicy.fits(template,"head",hood,java.util.Set.of(),false));
         assertFalse(EquipmentFitPolicy.fits(template,"head",suit,java.util.Set.of(),false));
         assertFalse(EquipmentFitPolicy.fits(template,"outerClothing",hood,java.util.Set.of(),false));
+    }
+
+    @Test void evaMaskAndTankParentsResolveLeafOverridesThroughCatalogAndFitConsumers() throws Exception {
+        var manager=new PrototypeManager(); manager.register(ModInventoryTemplates.TYPE); manager.register(ModEquipmentItems.TYPE);
+        manager.reload(ModInventoryTemplates.TYPE,new LinkedHashMap<>(Map.of(ModInventoryTemplates.HUMAN_ID,resource("inventory_template","human"))));
+        var names=java.util.List.of("base_item","base_clothing","clothing_head_base","eva_helmet_base","eva_helmet",
+                "eva_suit_base","eva_suit","breathing_mask_base","breathing_mask_pullable_base","breathing_mask",
+                "gas_tank_equipment_base","oxygen_tank","emergency_oxygen_tank");
+        var raw=new LinkedHashMap<ResourceLocation,JsonObject>();
+        for(String name:names) raw.put(ModInventoryTemplates.id(name),resource("equipment_item",name));
+        manager.reload(ModEquipmentItems.TYPE,raw);
+        var catalog=manager.snapshot(ModEquipmentItems.TYPE); var template=manager.snapshot(ModInventoryTemplates.TYPE).get(ModInventoryTemplates.HUMAN_ID);
+        var helmet=ModEquipmentItems.require(catalog,ModInventoryTemplates.id("eva_helmet"));
+        var helmetClothing=helmet.clothing().orElseThrow();
+        assertEquals("Normal",helmet.item().size()); assertEquals(40,helmetClothing.equipDelay());
+        assertEquals(40,helmetClothing.unequipDelay());
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.HEAD),helmetClothing.slotFlags());
+        assertEquals(new EquipmentItemData.PressureProtection(.6,1000,0,0),helmet.pressureProtection().orElseThrow());
+        assertEquals(new EquipmentItemData.TemperatureProtection(.2,.2),helmet.temperatureProtection().orElseThrow());
+        assertEquals(EquipmentItemData.BreathMask.DEFAULT_ALLOWED_SLOTS,helmet.breathMask().orElseThrow().allowedSlots());
+        assertTrue(helmetClothing.wornModel().orElseThrow().mesh().getPath().endsWith("eva_helmet.json"));
+
+        var suit=ModEquipmentItems.require(catalog,ModInventoryTemplates.id("eva_suit"));
+        assertEquals("Huge",suit.item().size()); assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.OUTERCLOTHING),suit.clothing().orElseThrow().slotFlags());
+        assertTrue(suit.allowSuitStorage().isPresent());
+        assertEquals(new EquipmentItemData.PressureProtection(.6,1000,0,0),suit.pressureProtection().orElseThrow());
+        assertEquals(new EquipmentItemData.TemperatureProtection(.01,.01),suit.temperatureProtection().orElseThrow());
+
+        var mask=ModEquipmentItems.require(catalog,ModInventoryTemplates.id("breathing_mask"));
+        assertEquals("Small",mask.item().size()); assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.MASK),mask.clothing().orElseThrow().slotFlags());
+        assertEquals(EquipmentItemData.AppearanceRegion.FACE,mask.clothing().orElseThrow().region());
+        assertTrue(mask.ingestionBlocker().isPresent());
+        var maskGrant=mask.supportedActionGrant().orElseThrow();
+        assertEquals(java.util.List.of(ResourceLocation.parse("moonstation14:toggle_mask")),maskGrant.actions());
+        assertTrue(maskGrant.itemActionGrant().activeIfWorn()); assertFalse(maskGrant.itemActionGrant().activeIfCarried());
+        assertEquals(ResourceLocation.parse("moonstation14:wearables/meshes/breathing_mask_lowered.json"),mask.breathMask().orElseThrow().loweredWornModel().orElseThrow().mesh());
+        assertTrue(IngestionBlockerPolicy.blocks(mask,net.minecraft.world.item.ItemStack.EMPTY,false));
+        assertFalse(IngestionBlockerPolicy.blocks(mask,net.minecraft.world.item.ItemStack.EMPTY,true));
+
+        var tank=ModEquipmentItems.require(catalog,ModInventoryTemplates.id("oxygen_tank"));
+        var emergency=ModEquipmentItems.require(catalog,ModInventoryTemplates.id("emergency_oxygen_tank"));
+        assertEquals("Normal",tank.item().size()); assertEquals("Small",emergency.item().size());
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.BACK,InventoryTemplateData.SlotFlag.SUITSTORAGE),tank.clothing().orElseThrow().slotFlags());
+        assertEquals(java.util.List.of(InventoryTemplateData.SlotFlag.POCKET,InventoryTemplateData.SlotFlag.BELT,InventoryTemplateData.SlotFlag.SUITSTORAGE),emergency.clothing().orElseThrow().slotFlags());
+        for(var tankProfile:java.util.List.of(tank,emergency)) {
+            var grant=tankProfile.supportedActionGrant().orElseThrow();
+            assertEquals(java.util.List.of(ResourceLocation.parse("moonstation14:toggle_internals")),grant.actions());
+            assertFalse(grant.itemActionGrant().activeIfWorn()); assertTrue(grant.itemActionGrant().activeIfCarried());
+        }
+        assertTrue(EquipmentFitPolicy.fits(template,"head",helmet,java.util.Set.of(),false));
+        assertTrue(EquipmentFitPolicy.fits(template,"outerClothing",suit,java.util.Set.of(),false));
+        assertTrue(EquipmentFitPolicy.fits(template,"mask",mask,java.util.Set.of(),false));
+        assertTrue(EquipmentFitPolicy.fits(template,"back",tank,java.util.Set.of(),false));
+        assertTrue(EquipmentFitPolicy.fits(template,"belt",emergency,java.util.Set.of(),false));
+        assertTrue(EquipmentFitPolicy.fits(template,"pocket1",emergency,java.util.Set.of("jumpsuit"),false));
+        assertTrue(EquipmentFitPolicy.fits(template,"suitstorage",tank,java.util.Set.of("outerClothing"),true));
+
+        ModEquipmentItems.bootstrapClientBundled();
+        for(String id:java.util.List.of("eva_helmet","eva_suit","breathing_mask","oxygen_tank","emergency_oxygen_tank"))
+            assertNotNull(ModEquipmentItems.require(ModEquipmentItems.clientCatalog(),ModInventoryTemplates.id(id)),id);
+    }
+
+    @Test void ordinaryClothingUnequipDelayDefaultsToZero() {
+        var profile=EquipmentItemData.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,JsonParser.parseString(
+                "{\"item\":{\"size\":\"Normal\"},\"clothing\":{\"slot_flags\":[\"HEAD\"],\"region\":\"HEAD\",\"color\":-1}}" )).getOrThrow();
+        assertEquals(0,profile.clothing().orElseThrow().unequipDelay());
     }
 
 
@@ -285,7 +437,7 @@ class EquipmentPrototypeTest {
         var templates=new LinkedHashMap<ResourceLocation,JsonObject>();templates.put(ModInventoryTemplates.HUMAN_ID,resource("inventory_template","human"));
         manager.reload(ModInventoryTemplates.TYPE,templates);
         var items=new LinkedHashMap<ResourceLocation,JsonObject>();
-        for(String name:java.util.List.of("base_item","base_clothing","grey_cap","grey_jumpsuit","simple_coat","black_gloves","black_shoes","glasses","red_tie","black_bandana","earpieces","blank_id_card","utility_case","bag","belt"))
+        for(String name:java.util.List.of("base_item","base_clothing","clothing_uniform_base","grey_cap","grey_jumpsuit","simple_coat","black_gloves","black_shoes","glasses","red_tie","black_bandana","earpieces","blank_id_card","utility_case","bag","belt"))
             items.put(ModInventoryTemplates.id(name),resource("equipment_item",name));
         manager.reload(ModEquipmentItems.TYPE,items);
         var template=manager.snapshot(ModInventoryTemplates.TYPE).get(ModInventoryTemplates.HUMAN_ID);

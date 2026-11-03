@@ -1,0 +1,1 @@
+{"abstract":true,"parent":"breathing_mask_base","supported_action_grant":{"actions":["moonstation14:toggle_mask"],"item_action_grant":{"active_if_worn":true,"active_if_carried":false}}}

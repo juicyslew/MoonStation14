@@ -73,6 +73,32 @@ class BodyActionDiscoveryTest {
                 "unresolved action references fail closed");
     }
 
+    @Test void carriedProvidersKeepTokensAcrossWornPocketHeldAndMaskCases() throws Exception {
+        var equipmentJson = resources("equipment_item");
+        var actionJson = resources("character_action");
+        var manager = new PrototypeManager();
+        manager.register(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE);
+        manager.register(ModActionPrototypes.TYPE);
+        manager.reload(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE, equipmentJson);
+        manager.reload(ModActionPrototypes.TYPE, actionJson);
+        var tanks = manager.snapshot(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE);
+        var actions = manager.snapshot(ModActionPrototypes.TYPE);
+        var found = new java.util.ArrayList<BodyActionDiscovery.Entry>();
+        BodyActionDiscovery.addItemGrant(found, "equipment:back:tank-a", tanks.get(id("oxygen_tank")), true, true, actions);
+        BodyActionDiscovery.addItemGrant(found, "equipment:pocket1:tank-b", tanks.get(id("emergency_oxygen_tank")), false, true, actions);
+        BodyActionDiscovery.addItemGrant(found, "hand:left:tank-c", tanks.get(id("oxygen_tank")), false, true, actions);
+        assertEquals(java.util.List.of("equipment:back:tank-a", "equipment:pocket1:tank-b", "hand:left:tank-c"),
+                found.stream().map(BodyActionDiscovery.Entry::providerKey).toList());
+        assertEquals(java.util.List.of(id("toggle_internals"), id("toggle_internals"), id("toggle_internals")),
+                found.stream().map(BodyActionDiscovery.Entry::actionId).toList());
+        found.clear();
+        BodyActionDiscovery.addItemGrant(found, "equipment:head:cap", tanks.get(id("debug_capability_cap")), true, true, actions);
+        assertEquals("debug_pulse", found.getFirst().actionId().getPath());
+        found.clear();
+        BodyActionDiscovery.addItemGrant(found, "equipment:pocket1:mask", tanks.get(id("breathing_mask")), false, true, actions);
+        assertTrue(found.isEmpty(), "held/pocket masks with active_if_carried=false do not grant mask toggle");
+    }
+
     private static void assertActions(com.juicyslew.moonstation14.component.codec.json.CharacterData character,
                                       com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog<com.juicyslew.moonstation14.ms14.actions.prototype.ActionPrototype> catalog,
                                       String... expected) {

@@ -25,6 +25,28 @@ public final class BodyEquippedStorageTransfer {
 
     public enum Result { SUCCESS, DENIED, RECOVERY_REQUIRED }
 
+    /** Read-only exact child resolution shared with examination; returns a defensive stack copy. */
+    public static Optional<ItemStack> readGridItem(LivingEntity body, LiveHands.GridHost host,
+                                                    String childToken, long revision) {
+        if (body == null || host == null || childToken == null || childToken.isBlank()
+                || !(body.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread() || !live(body, level)) return Optional.empty();
+        LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (hands == null || hands.revision() != revision || !hands.compatible(body)) return Optional.empty();
+        if (!host.worn() && !hands.handIds().contains(host.id())) return Optional.empty();
+        var owner = LiveOwnedItemAccess.read(body, new LiveOwnedItemAccess.Binding(
+                host.worn() ? LiveOwnedItemAccess.Location.EQUIPMENT : LiveOwnedItemAccess.Location.HELD,
+                host.id(), revision, host.token())).orElse(null);
+        if (owner == null || owner.hands() != hands) return Optional.empty();
+        ItemStack copy = owner.stack();
+        var entry = GridContents.read(copy).stream().flatMap(contents -> contents.entries().stream())
+                .filter(candidate -> candidate.token().equals(childToken)).findFirst().orElse(null);
+        if (entry == null
+                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                || hands.revision() != revision || !hands.compatible(body)) return Optional.empty();
+        return Optional.of(entry.stack());
+    }
+
     /** Removes an equipped item and places it in a body-owned held or worn grid host. */
     public static Result equipmentToGrid(ServerPlayer actor, String sourceSlot, String sourceToken,
             LiveHands.GridHost destination, GridGeometry.Cell cell, GridGeometry.Rotation rotation, long revision) {
@@ -436,4 +458,3 @@ public final class BodyEquippedStorageTransfer {
                 && level.getEntity(body.getUUID()) == body;
     }
 }
-

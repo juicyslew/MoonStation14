@@ -1,0 +1,5 @@
+﻿SS14 Clothing/Head/Helmets/eva.rsi, state icon
+License: CC-BY-SA-3.0
+Copyright: Sprite edited by Flareguy for SS14, original unedited sprite can be found in https://github.com/tgstation/tgstation/commit/40d89d11ea4a5cb81d61dc1018b46f4e7d32c62a. equipped-HELMET-dog modified from equipped-HELMET in parts and collaboration by Sparlight (GitHub) and Raccoononi (GitHub). Vulpkanin and Reptilian state by TiniestShark (Github).
+Source revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Copied unchanged; Minecraft item icon adaptation only.

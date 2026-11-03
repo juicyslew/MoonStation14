@@ -1,0 +1,1 @@
+{"parent":"breathing_mask_pullable_base","clothing":{"worn_model":{"mesh":"moonstation14:wearables/meshes/breathing_mask.json","body_shape":"WIDE"}},"breath_mask":{"allowed_slots":["MASK","HEAD"],"lowered_worn_model":{"mesh":"moonstation14:wearables/meshes/breathing_mask_lowered.json","body_shape":"WIDE"}},"ingestion_blocker":true}

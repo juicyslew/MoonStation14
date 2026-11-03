@@ -7,3 +7,9 @@ Imported byte-for-byte from the pinned Space Station 14 checkout at revision `c9
 - `src/main/resources/assets/moonstation14/textures/interface/actions/scream.png` from `Resources/Textures/Interface/Actions/scream.png`
 
 All are 32×32 PNGs. Upstream `Resources/Textures/Interface/Emotes/attributions.yml` attributes `scream.png` to lzk228 (based on a sprite by Sarahon), under CC-BY-SA-3.0, source `https://github.com/lzk228`. The inspected upstream attribution metadata contains no entry for `harm.png` or `harmOff.png`; their authors and applicable license are unclear and are not inferred. Upstream lists no additional license text for these files in that metadata.
+
+Internals and mask action icons are byte-for-byte source assets at
+`textures/interface/actions/{internals_on,internals_off,internals_low,mask_on,mask_off}.png`; each
+has adjacent attribution metadata. Mask-off (`blocked.png`) carries the upstream
+CC-BY-NC-SA-3.0 restriction. `sounds/internals.ogg` is the pinned SS14 internals
+sound with adjacent provenance metadata and the upstream CC-BY-SA-3.0 attribution.

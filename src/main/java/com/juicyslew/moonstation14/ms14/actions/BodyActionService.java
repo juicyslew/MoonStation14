@@ -33,14 +33,31 @@ public final class BodyActionService {
                 .map(grant -> {
                     ActionPrototype profile = grant.profile();
                      String providerId = grant.providerKey();
-                    var admission = BodyActionAdmission.evaluate(profile, body);
-                    long cooldownEnd = runtime.cooldownEnd(grant.actionId().toString(), providerId);
-                    boolean enabled = admission.enabled() && now >= cooldownEnd;
-                    boolean active = profile.kind() == ActionPrototype.Kind.TOGGLE
-                            && profile.handler() == ActionHandler.COMBAT_TOGGLE
-                            && CombatModeSystem.isInCombatMode(body);
-                    return new BodyActionSnapshot.Entry(grant.actionId(), providerId, profile.displayName(),
-                            profile.icon(), profile.iconOn(), profile.kind(), enabled, active, cooldownEnd,
+                     var admission = BodyActionAdmission.evaluate(profile, body);
+                     long cooldownEnd = runtime.cooldownEnd(grant.actionId().toString(), providerId);
+                     boolean enabled = admission.enabled() && now >= cooldownEnd;
+                      Optional<net.minecraft.resources.ResourceLocation> iconOn = profile.iconOn();
+                      boolean active = profile.kind() == ActionPrototype.Kind.TOGGLE && switch (profile.handler()) {
+                          case COMBAT_TOGGLE -> CombatModeSystem.isInCombatMode(body);
+                          case INTERNALS_TOGGLE -> {
+                              var status = com.juicyslew.moonstation14.ms14.lung.InternalsSystem.status(body);
+                              boolean selected = status.connected() && com.juicyslew.moonstation14.ms14.lung.InternalsSystem.selectedTank(body)
+                                      .map(source -> com.juicyslew.moonstation14.ms14.lung.InternalsSystem.providerSelected(
+                                              source.token(), providerToken(providerId))).orElse(false);
+                               boolean lowPressure = selected && status.lowPressure();
+                               yield selected;
+                          }
+                          default -> false;
+                      };
+                      boolean maskLowered = profile.kind() == ActionPrototype.Kind.TOGGLE && profile.handler() == ActionHandler.MASK_TOGGLE
+                              && com.juicyslew.moonstation14.ms14.equipment.BreathMaskActions.isLowered(body, providerId);
+                       boolean lowPressure = profile.handler() == ActionHandler.INTERNALS_TOGGLE
+                               && com.juicyslew.moonstation14.ms14.lung.InternalsSystem.status(body).lowPressure();
+                       String displayName = providerPresentationName(profile, providerId, lowPressure, maskLowered);
+                      if (profile.kind() == ActionPrototype.Kind.TOGGLE && profile.handler() == ActionHandler.MASK_TOGGLE)
+                          active = maskLowered;
+                     return new BodyActionSnapshot.Entry(grant.actionId(), providerId, displayName,
+                             profile.icon(), iconOn, profile.kind(), enabled, active, cooldownEnd,
                             profile.useDelayTicks(), enabled ? "" : admission.enabled() ? "COOLDOWN" : admission.reason().name(),
                             profile.priority());
                 })
@@ -86,7 +103,7 @@ public final class BodyActionService {
         long now = body.level().getGameTime();
         if (runtime.isOnCooldown(request.actionId().toString(), request.providerId(), now))
             return denied(sequence, "COOLDOWN", query(player));
-         var effect = BodyActionEffects.prepare(player, body, grant.profile());
+          var effect = BodyActionEffects.prepare(player, body, grant.profile(), grant);
          if (effect.isEmpty()) return denied(sequence, "UNSUPPORTED", query(player));
          if (!BodyActionAuthority.revalidate(player, authority)) return denied(sequence, "NO_AUTHORITY", query(player));
          // Accepted dispatches are at-most-once even if applying the prepared effect fails; this is not a cooldown.
@@ -99,5 +116,32 @@ public final class BodyActionService {
 
     private static BodyActionResult denied(long sequence, String reason, Optional<BodyActionSnapshot> snapshot) {
         return new BodyActionResult(BodyActionResult.Status.DENIED, reason, sequence, snapshot);
+    }
+
+    private static String providerToken(String providerId) {
+        int separator = providerId.lastIndexOf(':');
+        return separator < 0 ? "" : providerId.substring(separator + 1);
+    }
+
+    static String providerPresentationName(ActionPrototype profile, String providerId, boolean lowPressure) {
+        return providerPresentationName(profile, providerId, lowPressure, false);
+    }
+
+    static String providerPresentationName(ActionPrototype profile, String providerId, boolean lowPressure, boolean maskLowered) {
+        String name = profile.displayName();
+        if (profile.handler() != ActionHandler.INTERNALS_TOGGLE && profile.handler() != ActionHandler.MASK_TOGGLE)
+            return name;
+        String slot = "";
+        if (providerId.startsWith("equipment:")) {
+            int end = providerId.indexOf(':', "equipment:".length());
+            if (end > 0) slot = providerId.substring("equipment:".length(), end);
+        } else if (providerId.startsWith("hand:")) {
+            String hand = providerId.substring("hand:".length());
+            int end = hand.indexOf(':');
+            slot = "held." + (end < 0 ? "item" : hand.substring(0, end).toLowerCase(java.util.Locale.ROOT));
+        }
+        String sourced = slot.isBlank() ? name : name + ".source." + slot.toLowerCase(java.util.Locale.ROOT);
+        if (profile.handler() == ActionHandler.MASK_TOGGLE) return sourced + (maskLowered ? ".lowered" : ".raised");
+        return lowPressure ? sourced + ".low_pressure" : sourced;
     }
 }

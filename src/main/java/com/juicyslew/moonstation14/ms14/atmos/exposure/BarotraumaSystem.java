@@ -7,6 +7,8 @@ import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.character.components.BarotraumaComponent;
 import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
+import com.juicyslew.moonstation14.ms14.equipment.EquipmentProtectionProjection;
+import com.juicyslew.moonstation14.ms14.equipment.ResolvedWornEquipment;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
@@ -48,8 +50,9 @@ public final class BarotraumaSystem {
             if (sample.isEmpty()) return false;
             pressure = sample.get().pressureKpa(1.0);
         }
+        var protection = EquipmentProtectionProjection.pressure(ResolvedWornEquipment.entries(entity), component.get());
         var damage = PressureExposure.limitMatchingDamage(
-                PressureExposure.damageAt(pressure, component.get()),
+                PressureExposure.damageAt(pressure, component.get(), protection.orElse(null)),
                 DamageSystem.existingOrVanillaBaseline(entity), component.get());
         return !damage.isEmpty() && DamageSystem.applyHealthChange(entity, damage, 1f, true, DamageSystem.Cause.RESPIRATION)
                 == DamageSystem.Result.APPLIED;
@@ -60,4 +63,3 @@ public final class BarotraumaSystem {
                 .isRetainedNonAliveBody(entity);
     }
 }
-

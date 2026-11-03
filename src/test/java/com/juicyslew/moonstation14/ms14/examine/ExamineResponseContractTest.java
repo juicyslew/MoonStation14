@@ -67,6 +67,33 @@ class ExamineResponseContractTest {
                 net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "moon")));
     }
 
+    @Test void ownedAndOpenGridItemTargetsRoundTripExactOwnerAndSessionIdentity() {
+        UUID actor = UUID.randomUUID();
+        var held = ExamineTarget.ownedItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "left", 12, "held-token");
+        var equipment = ExamineTarget.storedItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.EQUIPMENT,
+                "back", 13, "bag-token", "child-token");
+        UUID host = UUID.randomUUID(), nonce = UUID.randomUUID();
+        var world = ExamineTarget.worldStoredItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "world", 14, nonce.toString(), "nested-token", host, nonce, 5);
+        for (var target : List.of(held, equipment, world)) {
+            var decoded = roundTrip(ExamineRequest.STREAM_CODEC, new ExamineRequest(1, actor, 8, target)).target();
+            assertEquals(target, decoded);
+        }
+        UUID replacementNonce = UUID.randomUUID();
+        assertNotEquals(world, ExamineTarget.worldStoredItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "world", 14, replacementNonce.toString(), "nested-token", host, replacementNonce, 5));
+        assertThrows(IllegalArgumentException.class, () -> ExamineTarget.storedItem(
+                com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "", 0, "host", "child"));
+        assertThrows(IllegalArgumentException.class, () -> ExamineTarget.storedItem(
+                com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "h".repeat(65), 0, "host", "child"));
+        assertThrows(IllegalArgumentException.class, () -> ExamineTarget.worldStoredItem(
+                com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "world", 1, "forged-host-token", "child", host, nonce, 0));
+    }
+
     @Test void responseRoundTripPreservesNestedStyledExamineComponents() {
         var styled = Component.translatable("examine.moonstation14.puddle.physical.singular",
                 Component.translatable("reagent-physical-desc-translucent.article"),

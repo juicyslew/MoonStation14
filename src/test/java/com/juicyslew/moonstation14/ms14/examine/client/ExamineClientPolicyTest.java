@@ -15,6 +15,105 @@ import static org.junit.jupiter.api.Assertions.*;
 class ExamineClientPolicyTest {
     private final ExamineTarget target = ExamineTarget.block(new BlockPos(1, 2, 3));
 
+    @Test void directItemRefreshKeepsExactSlotTokenAndOnlyAdvancesRevision() {
+        var captured = ExamineTarget.ownedItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "left", 4, "item-a");
+        var refreshed = ExamineClientPolicy.refreshOwnedTarget(captured, 5, true);
+        assertEquals(ExamineTarget.ownedItem(captured.ownedItem().location(), "left", 5, "item-a"), refreshed);
+        assertNull(ExamineClientPolicy.refreshOwnedTarget(captured, 5, false));
+        assertNotEquals(ExamineTarget.ownedItem(captured.ownedItem().location(), "right", 5, "item-a"), refreshed);
+        assertNotEquals(ExamineTarget.ownedItem(captured.ownedItem().location(), "left", 5, "replacement-token"), refreshed);
+    }
+
+    @Test void storedOwnedHostRefreshAdvancesBodyRevisionWithoutFollowingReplacementChild() {
+        var captured = ExamineTarget.storedItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.EQUIPMENT,
+                "bag", 7, "host-token", "child-token");
+        var refreshed = ExamineClientPolicy.refreshStoredTarget(captured, 8, 0, null, null, true, true);
+        assertEquals(ExamineTarget.storedItem(captured.storedItem().location(), "bag", 8, "host-token", "child-token"), refreshed);
+        assertNull(ExamineClientPolicy.refreshStoredTarget(captured, 8, 0, null, null, false, true));
+        assertNull(ExamineClientPolicy.refreshStoredTarget(captured, 8, 0, null, null, true, false));
+        assertEquals(ExamineTarget.storedItem(captured.storedItem().location(), "bag", 8, "host-token", "child-token"),
+                ExamineClientPolicy.refreshStoredTarget(captured, 8, 0, null, null, true, true),
+                "same resolved host and child rebind to the current body revision");
+    }
+
+    @Test void worldStoredRefreshRequiresSameHostAndNonceAndUsesCurrentRevisions() {
+        var host = java.util.UUID.randomUUID(); var nonce = java.util.UUID.randomUUID();
+        var captured = ExamineTarget.worldStoredItem(host, nonce, 10, 20, "child-token");
+        assertEquals(ExamineTarget.worldStoredItem(host, nonce, 11, 21, "child-token"),
+                ExamineClientPolicy.refreshStoredTarget(captured, 11, 21, host, nonce, true, true));
+        assertNull(ExamineClientPolicy.refreshStoredTarget(captured, 11, 21, host, java.util.UUID.randomUUID(), true, true));
+        assertNull(ExamineClientPolicy.refreshStoredTarget(captured, 11, 21, java.util.UUID.randomUUID(), nonce, true, true));
+        assertNull(ExamineClientPolicy.refreshStoredTarget(captured, 11, 21, host, nonce, false, true));
+        assertNull(ExamineClientPolicy.refreshStoredTarget(captured, 11, 21, host, nonce, true, false));
+    }
+
+    @Test void storageGridExamineRequiresExactShiftPrimaryOccupiedIdleGesture() {
+        assertTrue(ExamineClientPolicy.storedGridExamineGesture(0, true, false, false, true, false));
+        assertFalse(ExamineClientPolicy.storedGridExamineGesture(1, true, false, false, true, false));
+        assertFalse(ExamineClientPolicy.storedGridExamineGesture(0, false, false, false, true, false));
+        assertFalse(ExamineClientPolicy.storedGridExamineGesture(0, true, true, false, true, false));
+        assertFalse(ExamineClientPolicy.storedGridExamineGesture(0, true, false, true, true, false));
+        assertFalse(ExamineClientPolicy.storedGridExamineGesture(0, true, false, false, false, false));
+        assertFalse(ExamineClientPolicy.storedGridExamineGesture(0, true, false, false, true, true));
+    }
+
+    @Test void productionOwnedGridBindingUsesActualSlotIdAndRejectsMovedOrReplacedOwner() {
+        var held = ownedGridSnapshot("left", "owner-token", null, 4);
+        var target = ExamineClientPolicy.resolveOwnedStoredTarget(held,
+                com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "owner-token", "child-token");
+        assertNotNull(target);
+        assertEquals("left", target.storedItem().hostId()); // grid kind remains "bag"
+        assertEquals("left", ExamineClientPolicy.refreshOwnedStoredTarget(
+                ownedGridSnapshot("left", "owner-token", null, 5), target).storedItem().hostId());
+        assertNull(ExamineClientPolicy.refreshOwnedStoredTarget(ownedGridSnapshot("right", "owner-token", null, 5), target));
+        assertNull(ExamineClientPolicy.refreshOwnedStoredTarget(ownedGridSnapshot("left", "replacement-owner", null, 5), target));
+        assertNull(ExamineClientPolicy.refreshOwnedStoredTarget(ownedGridSnapshot("left", "owner-token", "replacement-child", 5), target));
+    }
+
+    @Test void productionEquipmentGridBindingUsesActualEquipmentSlotRatherThanGridCategory() {
+        var snapshot = ownedGridSnapshot(null, null, null, 9);
+        var target = ExamineClientPolicy.resolveOwnedStoredTarget(snapshot,
+                com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.EQUIPMENT,
+                "equip-owner", "child-token");
+        assertNotNull(target);
+        assertEquals("back", target.storedItem().hostId());
+        assertNull(ExamineClientPolicy.resolveOwnedStoredTarget(snapshot,
+                com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "equip-owner", "child-token"));
+    }
+
+    @Test void refreshAuthorityGateFailsClosedOnNullActorAndBodyEpochHandoff() {
+        var body = java.util.UUID.randomUUID();
+        assertTrue(ExamineClientPolicy.sameRefreshAuthority(body, 12, body, 12));
+        assertFalse(ExamineClientPolicy.sameRefreshAuthority(null, 12, body, 12));
+        assertFalse(ExamineClientPolicy.sameRefreshAuthority(body, 12, null, 12));
+        assertFalse(ExamineClientPolicy.sameRefreshAuthority(body, 12, body, 13));
+        assertFalse(ExamineClientPolicy.sameRefreshAuthority(java.util.UUID.randomUUID(), 12, body, 12));
+    }
+
+    private static com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot ownedGridSnapshot(
+            String handId, String handToken, String childTokenOverride, long revision) {
+        var account = java.util.UUID.randomUUID(); var body = java.util.UUID.randomUUID();
+        String owner = handId == null ? "equip-owner" : handToken;
+        var child = childTokenOverride == null ? "child-token" : childTokenOverride;
+        var grid = new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.GridHost(owner,
+                "bag", 7, 4, List.of(new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.GridEntry(
+                child, "minecraft:stone", 1, 0, 0, 0)));
+        var hands = handId == null ? List.<com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.Hand>of()
+                : List.of(new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.Hand(
+                handId, handToken, "moonstation14:bag", 1));
+        if (hands.isEmpty()) hands = List.of(new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.Hand(
+                "left", null, null, 0));
+        var equipment = handId != null ? List.<com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.EquipmentSlot>of()
+                : List.of(new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.EquipmentSlot(
+                "back", owner, "moonstation14:bag", 1, null, null, 0));
+        return new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot(1, 1,
+                com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.Reason.OK,
+                account, body, 1, revision, handId == null ? "left" : handId, hands, equipment, List.of(grid), false, null, 0);
+    }
+
     @Test void transientOutsideClickDismissesAndPinnedOutsideClickDoesNot() {
         var popup = new ExamineClientPolicy.Popup();
         popup.open(target, 4);

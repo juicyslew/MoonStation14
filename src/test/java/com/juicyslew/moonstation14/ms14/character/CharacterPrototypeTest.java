@@ -426,7 +426,7 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-        assertEquals(42, data.components().size(), "merged Human composition retains botany, main, and Tesla component families");
+        assertEquals(43, data.components().size(), "merged Human composition retains botany, main, Tesla, and internals component families");
         assertTrue(data.component(StatusEffectsPrototypeComponent.class).isPresent(), "main Human status-effect configuration survives the merge");
         assertTrue(data.component(StaminaPrototypeComponent.class).isPresent(), "main Human stamina configuration survives the merge");
         var lightningTarget = data.component(LightningTargetComponent.class).orElseThrow();

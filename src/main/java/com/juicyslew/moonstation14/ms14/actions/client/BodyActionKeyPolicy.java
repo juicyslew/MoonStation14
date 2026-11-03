@@ -15,6 +15,10 @@ final class BodyActionKeyPolicy {
         for (int i = 0; i < index; i++) if (keys[i].equals(keys[index])) return i;
         return index;
     }
+    static int bindingWinner(boolean[] conflictsWithEarlier, int index) {
+        for (int i = 0; i < index; i++) if (conflictsWithEarlier[i]) return i;
+        return index;
+    }
     static boolean consumeDebugChord(boolean f3Held, Runnable discardActionClicks) {
         if (!f3Held) return false;
         discardActionClicks.run();

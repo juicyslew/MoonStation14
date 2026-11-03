@@ -650,6 +650,26 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         return layout(w).visibleCellAt((int) x, (int) y, w.width(), w.height());
     }
 
+    /** Re-resolve the exact captured child against the currently visible host snapshot. */
+    public com.juicyslew.moonstation14.ms14.examine.ExamineTarget resolveStoredItemTarget(
+            com.juicyslew.moonstation14.ms14.examine.ExamineTarget target) {
+        if (target == null || target.kind() != com.juicyslew.moonstation14.ms14.examine.ExamineTarget.Kind.STORED_ITEM) return null;
+        var binding = target.storedItem();
+        if (binding.worldSession()) {
+            var view = BodyHandClient.worldGrid(binding.hostUuid());
+            boolean child = view != null && view.entries().stream().anyMatch(e -> e.token().equals(binding.childToken()));
+            return com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.refreshStoredTarget(target,
+                    view == null ? -1 : view.handRevision(), view == null ? -1 : view.hostRevision(),
+                    view == null ? null : view.target(), view == null ? null : view.session(), view != null && !view.stale(), child);
+        }
+        var snapshot = BodyHandClient.examineSnapshot();
+        return com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.refreshOwnedStoredTarget(snapshot, target);
+    }
+
+    public boolean containsStoredItem(com.juicyslew.moonstation14.ms14.examine.ExamineTarget target) {
+        return resolveStoredItemTarget(target) != null;
+    }
+
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
         reconcileScreenLocalDrags();
         // With the native cursor grabbed this host is transparent to world input. Keep
@@ -742,6 +762,12 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             var view=BodyHandClient.inventoryView(); var proof=BodyHandClient.inventoryProof();
             if(slotId!=null&&view!=null) {
                 var observed=proof==null?null:proof.equipment().stream().filter(s->s.id().equals(slotId)).findFirst().orElse(null);
+                if (button == 0 && hasShiftDown() && !hasControlDown() && !hasAltDown()
+                        && observed != null && observed.token() != null) {
+                    if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.examineOwnedItem(
+                            com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.EQUIPMENT,
+                            slotId, proof.revision(), observed.token())) return true;
+                }
                 if(button==1&&(slotId.equals("back")||slotId.equals("belt"))&&observed!=null&&observed.token()!=null) {
                     menuTile=slotId.equals("back")?HandBarLayout.Layout.Tile.BACK:HandBarLayout.Layout.Tile.BELT;
                     menuSource=HandEquipmentGesture.begin(menuTile,view,proof);
@@ -779,6 +805,12 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                 var tile = hudTileAt((int) mouseX, (int) mouseY);
                 var view = BodyHandClient.inventoryView();
                 if (tile != null && view != null) {
+                    if (button == 0 && hasShiftDown() && !hasControlDown() && !hasAltDown()) {
+                        var proof = BodyHandClient.inventoryProof();
+                        var binding = BodyHandClientPolicy.examineHudTile(proof, tile, true, true, false, false, true, true);
+                        if (binding != null && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.examineOwnedItem(
+                                binding.location(), binding.slot(), binding.revision(), binding.token())) return true;
+                    }
                     if (button == 1) {
                         var proof = BodyHandClient.inventoryProof();
                         var candidate = HandEquipmentGesture.begin(tile, view, proof);
@@ -833,6 +865,36 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         }
         var cell = visibleCell(w, mouseX, mouseY);
         if (cell == null) return true;
+        if (w.visible()) {
+            if (w.key().kind() == StoragePopupWorkspace.HostKind.WORLD) {
+                var world = BodyHandClient.worldGrid(w.key().worldId());
+                var entry = world == null ? null : world.entryAt(cell.column(), cell.row());
+                var proof = BodyHandClient.examineSnapshot();
+                boolean examine = com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.storedGridExamineGesture(
+                        button, hasShiftDown(), hasControlDown(), hasAltDown(), entry != null,
+                        moving != null || dragging != null || handGridDrag != null || equipmentDrag != null);
+                if (examine && world != null && !world.stale() && entry != null && proof != null) {
+                    var target = com.juicyslew.moonstation14.ms14.examine.ExamineTarget.worldStoredItem(
+                            world.target(), world.session(), world.handRevision(), world.hostRevision(), entry.token());
+                    if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.examineItemTarget(target)) return true;
+                }
+            } else {
+                var grid = grid(BodyHandClient.inventoryPresentation(), w.key(), true);
+                var entry = grid == null ? null : grid.entryAt(cell.column(), cell.row());
+                var proof = BodyHandClient.examineSnapshot();
+                boolean examine = com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.storedGridExamineGesture(
+                        button, hasShiftDown(), hasControlDown(), hasAltDown(), entry != null,
+                        moving != null || dragging != null || handGridDrag != null || equipmentDrag != null);
+                if (examine && entry != null && proof != null && !w.provisional()) {
+                    var location = w.key().kind() == StoragePopupWorkspace.HostKind.HELD
+                            ? com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD
+                            : com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.EQUIPMENT;
+                    var target = com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.resolveOwnedStoredTarget(
+                            proof, location, w.key().token(), entry.token());
+                    if (com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.examineItemTarget(target)) return true;
+                }
+            }
+        }
         if (w.key().kind() == StoragePopupWorkspace.HostKind.WORLD) {
             var world = BodyHandClient.worldGrid(w.key().worldId());
             if (world == null || !BodyHandClient.worldActionable(world.target())) return true;

@@ -22,8 +22,8 @@ public final class BodyActionHud {
                 mouseGrabbed);
     }
     private static final class Bar implements PointerOverlayWindow {
-        private final java.util.Map<net.minecraft.resources.ResourceLocation, Long> previousCooldown = new java.util.HashMap<>();
-        private final java.util.Map<net.minecraft.resources.ResourceLocation, Long> blinkUntil = new java.util.HashMap<>();
+        private final java.util.Map<String, Long> previousCooldown = new java.util.HashMap<>();
+        private final java.util.Map<String, Long> blinkUntil = new java.util.HashMap<>();
         private int width, height, left, top;
         private boolean visible;
         private java.util.UUID trackedBody;
@@ -65,45 +65,48 @@ public final class BodyActionHud {
             g.pose().translate(left, top, 0);
             g.pose().scale(BodyActionLayout.ACTION_UI_SCALE, BodyActionLayout.ACTION_UI_SCALE, 1);
             int row = 0;
+            java.util.List<net.minecraft.network.chat.Component> tooltip = null;
             for (var slot : BodyActionSlots.resolve(snap)) {
                 var entry = slot.entry(); if (entry == null) continue;
                 int x = 0, y = row++ * 30;
                 g.fill(x, y, x + 28, y + 28, 0xaa0d1118); g.fill(x, y, x + 28, y + 1, 0xff66717c);
-                int logicalMouseX = (int)BodyActionLayout.toLogical(mx, left), logicalMouseY = (int)BodyActionLayout.toLogical(my, top);
+                int logicalMouseX = (int)BodyActionLayout.actionBarPointer(mx, left), logicalMouseY = (int)BodyActionLayout.actionBarPointer(my, top);
                 boolean hovered = logicalMouseX >= x && logicalMouseX < x + 28 && logicalMouseY >= y && logicalMouseY < y + 28;
                 if (hovered) g.fill(x, y, x + 28, y + 28, 0x665d7184);
-                    if (entry.active()) g.fill(x, y, x + 28, y + 28, 0x554fc777);
                     int inset = BodyActionLayout.ACTION_BAR_ICON_INSET, iconSize = BodyActionLayout.ACTION_BAR_ICON;
-                    g.blit(entry.iconOn().filter(ignored -> entry.active()).orElse(entry.icon()), x + inset, y + inset, iconSize, iconSize, 0, 0, 16, 16, 16, 16);
+                    g.blit(BodyActionPresentation.icon(entry), x + inset, y + inset, iconSize, iconSize, 0, 0, 32, 32, 32, 32);
                     if (!entry.enabled() || BodyActionClient.pending()) g.fill(x + inset, y + inset, x + inset + iconSize, y + inset + iconSize, 0x99000000);
                     long cd = BodyActionClient.remainingCooldown(entry);
                     long now = Minecraft.getInstance().level == null ? 0 : Minecraft.getInstance().level.getGameTime();
-                    long previous = previousCooldown.getOrDefault(entry.actionId(), 0L);
-                    if (previous > 0 && cd == 0) blinkUntil.put(entry.actionId(), now + 2);
-                    previousCooldown.put(entry.actionId(), cd);
+                    String providerBinding = entry.actionId() + "|" + entry.providerId();
+                    long previous = previousCooldown.getOrDefault(providerBinding, 0L);
+                    if (previous > 0 && cd == 0) blinkUntil.put(providerBinding, now + 2);
+                    previousCooldown.put(providerBinding, cd);
                     if (cd > 0) {
                         drawCooldownWipe(g, x + inset, y + inset, BodyActionLayout.cooldownWipeProgress(cd, entry.useDelayTicks()));
                         int seconds = (int)Math.ceil(cd / 20.0);
                         String text = Integer.toString(seconds);
                         g.drawString(Minecraft.getInstance().font, text, x + 14 - Minecraft.getInstance().font.width(text)/2, y + 10, 0xffffffff, true);
                     } else {
-                        float blink = BodyActionLayout.cooldownBlinkProgress(blinkUntil.getOrDefault(entry.actionId(), 0L) - now);
+                         float blink = BodyActionLayout.cooldownBlinkProgress(blinkUntil.getOrDefault(providerBinding, 0L) - now);
                         if (blink > 0) g.fill(x + inset, y + inset, x + inset + iconSize, y + inset + iconSize, ((int)(blink * 0x88) << 24) | 0x00ffffff);
                     }
                     if (hovered && pointerAvailable()) {
-                        var tip = new java.util.ArrayList<net.minecraft.network.chat.Component>();
-                        tip.add(net.minecraft.network.chat.Component.translatable(entry.displayName()));
-                        if (!entry.disabledReason().isBlank()) tip.add(net.minecraft.network.chat.Component.translatable(
+                        tooltip = new java.util.ArrayList<>();
+                        tooltip.add(net.minecraft.network.chat.Component.translatable(entry.displayName()));
+                        if (!entry.disabledReason().isBlank()) tooltip.add(net.minecraft.network.chat.Component.translatable(
                                 "gui.moonstation14.actions.disabled." + entry.disabledReason().toLowerCase(java.util.Locale.ROOT)));
                         long remaining = BodyActionClient.remainingCooldown(entry);
-                        if (remaining > 0) tip.add(net.minecraft.network.chat.Component.literal("Cooldown: "
+                        if (remaining > 0) tooltip.add(net.minecraft.network.chat.Component.literal("Cooldown: "
                                 + BodyActionLayout.cooldownSeconds(remaining)));
-                        if (BodyActionClient.pending()) tip.add(net.minecraft.network.chat.Component.literal("Action pending"));
-                        g.renderTooltip(Minecraft.getInstance().font, tip.stream().map(net.minecraft.network.chat.Component::getVisualOrderText).toList(), mx, my);
+                        if (BodyActionClient.pending()) tooltip.add(net.minecraft.network.chat.Component.literal("Action pending"));
                     }
                 g.drawString(Minecraft.getInstance().font, Integer.toString(slot.number()), x + 1, y + 20, 0xffeeeeee, false);
             }
             g.pose().popPose();
+            if (tooltip != null) g.renderTooltip(Minecraft.getInstance().font,
+                    tooltip.stream().map(net.minecraft.network.chat.Component::getVisualOrderText).toList(),
+                    BodyActionLayout.tooltipAnchor(mx), BodyActionLayout.tooltipAnchor(my));
         }
         private static void drawCooldownWipe(GuiGraphics g, int x, int y, float progress) {
             final int radius = 12;

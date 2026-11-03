@@ -74,6 +74,7 @@ public final class TimedIngestionAccess {
                 || !hands.token(hand).filter(token::equals).isPresent()) return Optional.empty();
         ItemStack stack=hands.stackCopy(hand).orElse(null);
         if (!reagent(stack) || !positive(stack, level) || !stomachRoom(body, level)) return Optional.empty();
+        if (blockedByWornIngestion(body)) return Optional.empty();
         try { new ItemToken(token); } catch (RuntimeException ex) { return Optional.empty(); }
         ResourceLocation type=BuiltInRegistries.ITEM.getKey(stack.getItem());
         if (!specialDigestionAllowed(type)) return Optional.empty();
@@ -106,6 +107,7 @@ public final class TimedIngestionAccess {
         if(!reagent(item.getItem()))return worldFailure(WorldAdmissionFailure.NOT_REAGENT, probe.diagnostic());
         if(!positive(item.getItem(),level))return worldFailure(WorldAdmissionFailure.EMPTY_SOURCE, probe.diagnostic());
         if(!stomachRoom(body,level))return worldFailure(WorldAdmissionFailure.NO_STOMACH_ROOM, probe.diagnostic());
+        if(blockedByWornIngestion(body))return worldFailure(WorldAdmissionFailure.AUTHORITY_REJECTED, probe.diagnostic());
         ResourceLocation type=BuiltInRegistries.ITEM.getKey(item.getItem().getItem());
         if (!specialDigestionAllowed(type)) return worldFailure(WorldAdmissionFailure.AUTHORITY_REJECTED, probe.diagnostic());
         if (blockedByHydration(body, type))return worldFailure(WorldAdmissionFailure.HYDRATION_BLOCKED, probe.diagnostic());
@@ -122,7 +124,7 @@ public final class TimedIngestionAccess {
         ServerLevel level=server(body,authority);
         LiveHands hands=level==null?null:liveHands(body);
         boolean handless=level!=null&&OralAccess.handless(body);
-        if(level==null||pos==null||(!handless&&(hand==null||hands==null||hands.revision()!=revision||!hands.activeHand().equals(hand)
+        if(level==null||pos==null||blockedByWornIngestion(body)||(!handless&&(hand==null||hands==null||hands.revision()!=revision||!hands.activeHand().equals(hand)
                 ||hands.stackCopy(hand).isPresent()||hands.reservation(hand).isPresent()))||!level.hasChunkAt(pos)
                 ||!PuddleTargetProbe.selected(level,body,pos)||!stomachRoom(body,level)) return Optional.empty();
         if(!(level.getBlockEntity(pos) instanceof PuddleBlockEntity puddle)||!positive(puddle,level)) return Optional.empty();
@@ -147,7 +149,7 @@ public final class TimedIngestionAccess {
         }
         if(admission.body!=body||server(body,authority)!=admission.level
                 ||!body.getUUID().equals(admission.bodyId)||!stomachRoom(body,admission.level)
-                ||!specialDigestionAllowed(admission.profileId)
+                ||!specialDigestionAllowed(admission.profileId) || blockedByWornIngestion(body)
                 ||blockedByHydration(body, admission.profileId)) return false;
         LiveHands hands=liveHands(body);
         if(hands==null&&(admission.kind==Kind.HELD||!OralAccess.handless(body))) return false;
@@ -165,6 +167,7 @@ public final class TimedIngestionAccess {
                 || !body.getUUID().equals(admission.bodyId)) return WorldAdmissionFailure.SERVER_CONTEXT;
         if (authority == null || !authority.getAsBoolean()) return WorldAdmissionFailure.AUTHORITY_REJECTED;
         if (!stomachRoom(body, admission.level)) return WorldAdmissionFailure.NO_STOMACH_ROOM;
+        if (blockedByWornIngestion(body)) return WorldAdmissionFailure.AUTHORITY_REJECTED;
         if (blockedByHydration(body, admission.profileId)) return WorldAdmissionFailure.HYDRATION_BLOCKED;
         LiveHands hands = liveHands(body);
         if (hands == null && !OralAccess.handless(body)) return WorldAdmissionFailure.HAND_UNAVAILABLE;
@@ -342,6 +345,13 @@ public final class TimedIngestionAccess {
         IngestionProfile profile = ModIngestionProfiles.serverLookup(profileId);
         boolean drink = PUDDLE_PROFILE.equals(profileId) || profile != null && profile.edible().kind() == IngestionProfile.Kind.DRINK;
         return drink && com.juicyslew.moonstation14.ms14.thirst.ThirstSystem.isOverHydrated(body);
+    }
+    public static boolean blockedByWornIngestion(LivingEntity body) {
+        if (body == null) return true;
+        return com.juicyslew.moonstation14.ms14.equipment.ResolvedWornEquipment.entries(body).stream()
+                .anyMatch(entry -> com.juicyslew.moonstation14.ms14.equipment.IngestionBlockerPolicy.blocks(
+                        entry.profile(), entry.stack(), entry.slotFlags().contains(
+                                com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.POCKET)));
     }
     private static long availableStomach(LivingEntity body,ServerLevel l){
         var map=MS14Provider.getDetached(body,MS14Bridges.STOMACH).getMap();

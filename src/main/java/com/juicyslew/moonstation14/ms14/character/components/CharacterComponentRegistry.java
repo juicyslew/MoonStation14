@@ -40,6 +40,7 @@ public final class CharacterComponentRegistry {
             Map.entry(BlindablePrototypeComponent.TYPE, new Entry<>(BlindablePrototypeComponent.class, BlindablePrototypeComponent.CODEC)),
             Map.entry(BloodstreamComponent.TYPE, new Entry<>(BloodstreamComponent.class, BloodstreamComponent.CODEC)),
             Map.entry(BodyComponent.TYPE, new Entry<>(BodyComponent.class, BodyComponent.CODEC)),
+            Map.entry(InternalsComponent.TYPE, new Entry<>(InternalsComponent.class, InternalsComponent.CODEC)),
             Map.entry(EquipmentSlotsPrototypeComponent.TYPE, new Entry<>(EquipmentSlotsPrototypeComponent.class, EquipmentSlotsPrototypeComponent.CODEC)),
             Map.entry(FlammablePrototypeComponent.TYPE, new Entry<>(FlammablePrototypeComponent.class, FlammablePrototypeComponent.CODEC)),
             Map.entry(HandsPrototypeComponent.TYPE, new Entry<>(HandsPrototypeComponent.class, HandsPrototypeComponent.CODEC)),

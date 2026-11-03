@@ -63,3 +63,16 @@ It distinguishes unknown power/samples from known readings. Opening, closing, de
 pry progress and cooldown are observed through ordinary interactions, never forced by commands.
 This room does not reproduce the Space-only emergency solver path (covered separately by native
 Space tests). Welded and bolted firelock states are not supported by this port.
+
+## EVA manual fixture
+
+`/ms14 eva_fixture build` creates a 9×6×9 sealed room adjacent to the authorized controlled body;
+then use `initialize`, `enter`, `status`, `scenario normal|vacuum|cold|hot|contaminated`,
+`reset`, and `kit [helmet|suit|mask|tank|emergency_tank]`. It remembers the last successful site
+per operator and dimension in runtime memory only. After a server restart, build a new fixture;
+no site persistence or fixture gas/tank/body-state restoration is provided. The room is self-contained
+with no APC, door, or opening; `enter` relocates the existing authorized body into its interior.
+Initialization/scenarios wait for and write only the complete bounded finite-owned interior cell set.
+Vacuum means zero actual room moles; cold/hot are finite gas setup temperatures, not forced damage.
+`kit` grants ordinary items to body hands/world for manual equipping and internals connection; status,
+reset, and scenarios never refill tanks, force equipment/connection, or alter body health.

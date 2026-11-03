@@ -14,6 +14,19 @@ public final class BodyActionLayout {
     }
     private BodyActionLayout() { }
     public static double toLogical(double screenCoordinate, double origin) { return (screenCoordinate - origin) / ACTION_UI_SCALE; }
+    /** Maps absolute GUI pointer coordinates into the transformed action bar's local space. */
+    public static double actionBarPointer(double absoluteGuiCoordinate, double origin) {
+        return toLogical(absoluteGuiCoordinate, origin);
+    }
+    /** Tooltip rendering occurs after pose restoration, so its anchor remains absolute GUI space. */
+    public static int tooltipAnchor(int absoluteGuiCoordinate) { return absoluteGuiCoordinate; }
+    /** Row hover uses the same absolute-GUI to logical conversion as window hit testing. */
+    public static boolean actionRowHovered(double absoluteGuiX, double absoluteGuiY, int windowX, int windowY,
+                                           int panelWidth, int rowY) {
+        double x = screenToLogical(absoluteGuiX) - windowX;
+        double y = screenToLogical(absoluteGuiY) - windowY;
+        return x >= 5 && x < panelWidth - 5 && y >= rowY && y < rowY + ROW_HEIGHT;
+    }
     public static double screenToLogical(double screenCoordinate) { return screenCoordinate / ACTION_UI_SCALE; }
     public static int logicalToScreen(double logicalCoordinate) { return (int)Math.round(logicalCoordinate * ACTION_UI_SCALE); }
     public static net.minecraft.client.gui.navigation.ScreenRectangle screenBounds(int x, int y, int width, int height) {

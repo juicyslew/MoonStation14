@@ -68,6 +68,7 @@ public class MoonStation14 {
         // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.fixture.VentilationFixtureCommands::registerCommands);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.eva.fixture.EvaFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.fixture.DisposalFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.animals.diagnostics.KoboldFixtureCommands::registerCommands);

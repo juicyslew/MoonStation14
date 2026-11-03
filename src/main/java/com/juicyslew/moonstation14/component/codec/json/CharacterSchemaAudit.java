@@ -40,7 +40,7 @@ public final class CharacterSchemaAudit {
              "max_saturation", "initial_saturation", "min_saturation", "saturation_loss_per_update",
              "suffocation_threshold", "suffocation_damage_per_update", "suffocation_recovery_per_update",
               "suffocation_ignore_resistances", "gasp_interval_seconds", "gasp_sound");
-    private static final Set<String> BAROTRAUMA_FIELDS = Set.of("type", "damage", "maxDamage");
+    private static final Set<String> BAROTRAUMA_FIELDS = Set.of("type", "damage", "maxDamage", "protectionSlots");
     private static final Set<String> COMPLEX_INTERACTION_FIELDS = Set.of("type");
 
     private CharacterSchemaAudit() {
@@ -481,7 +481,7 @@ public final class CharacterSchemaAudit {
               validateNutrition(object, path, com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.CODEC);
               return;
           }
-          if ("Body".equals(type) || "Stomach".equals(type)
+          if ("Body".equals(type) || "Internals".equals(type) || "Stomach".equals(type)
                   || "Mouth".equals(type)
                   || "Blindable".equals(type) || "Incorporeal".equals(type)) {
              checkFields(object, Set.of("type"), path);
@@ -774,6 +774,19 @@ public final class CharacterSchemaAudit {
             return;
         }
         checkFields(object, BAROTRAUMA_FIELDS, path);
+        if (object.has("protectionSlots")) {
+            JsonElement slots = object.get("protectionSlots");
+            if (!slots.isJsonArray()) fail(path + ".protectionSlots", "expected array");
+            Set<String> allowed = Set.copyOf(com.juicyslew.moonstation14.ms14.equipment.EquipmentSlots.SLOT_ORDER);
+            Set<String> seen = new HashSet<>();
+            for (int index = 0; index < slots.getAsJsonArray().size(); index++) {
+                JsonElement slot = slots.getAsJsonArray().get(index);
+                if (!slot.isJsonPrimitive() || !slot.getAsJsonPrimitive().isString()) fail(path + ".protectionSlots[" + index + "]", "expected string");
+                String name = slot.getAsString();
+                if (!allowed.contains(name)) fail(path + ".protectionSlots[" + index + "]", "unknown equipment slot");
+                if (!seen.add(name)) fail(path + ".protectionSlots[" + index + "]", "duplicate equipment slot");
+            }
+        }
         JsonElement max = object.get("maxDamage");
         if ((complete || object.has("maxDamage"))
                 && (!finiteNumber(max) || max.getAsDouble() < 0 || max.getAsDouble() > 1_000_000))
