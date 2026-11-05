@@ -6,8 +6,9 @@ try:
     import workflow_store
     import workflow_toolchain
     import workflow_native_fixtures
+    import workflow_task_artifacts
 except ModuleNotFoundError:
-    from tooling.agent_workflow import workflow_store, workflow_toolchain, workflow_native_fixtures
+    from tooling.agent_workflow import workflow_store, workflow_toolchain, workflow_native_fixtures, workflow_task_artifacts
 
 
 def _verify_file(path, sha256, size=None):
@@ -18,7 +19,31 @@ def _verify_file(path, sha256, size=None):
     return data
 
 
-def verified_prefix(store, task_id, request, bundle):
+def verify_registered_native_log(store, *, ref, task_id, run_id, input_digest, log_path, sha256):
+    """Verify immutable native LOG registration and bytes against producer identity."""
+    binding = store.get_artifact(ref)
+    if binding is None:
+        raise ValueError('native log artifact is not registered')
+    art = binding['artifact']
+    if (art.get('type') != 'LOG' or art.get('immutable') is not True or
+            art.get('producer_kind') != 'TASK' or art.get('producer_id') != task_id or
+            art.get('producer_task_id') != task_id or art.get('run_id') != run_id or
+            binding.get('input_digest') != input_digest or art.get('sha256') != sha256):
+        raise ValueError('native log artifact producer or input binding mismatch')
+    if Path(art['path']).resolve() != Path(log_path).resolve():
+        raise ValueError('native log artifact path mismatch')
+    _verify_file(art['path'], art['sha256'], art['size_bytes'])
+    return art
+
+
+def resolve_registered_native_log(store, *, task_id, run_id, input_digest, log_path, sha256):
+    """Resolve canonical producer LOG ID and verify its immutable registration."""
+    ref = workflow_task_artifacts.canonical_artifact_id(task_id, 'LOG', sha256)
+    return ref, verify_registered_native_log(store, ref=ref, task_id=task_id,
+        run_id=run_id, input_digest=input_digest, log_path=log_path, sha256=sha256)
+
+
+def verified_prefix(store, task_id, request, bundle, *, evidence_only=False):
     """Return contiguous PASS records, retaining their original provenance links.
 
     This function performs no writes and deliberately does not revalidate live
@@ -72,6 +97,10 @@ def verified_prefix(store, task_id, request, bundle):
         record = provenance.get('record')
         if not isinstance(record, dict):
             raise ValueError('completed prefix record is malformed')
+        # Only successful records are eligible for reuse. A failed suffix is
+        # authenticated by its provenance envelope above, not re-executed.
+        if record.get('exit_code') != 0 or not isinstance(record.get('evidence'), dict) or record['evidence'].get('status') != 'PASS':
+            break
         if not workflow_native_fixtures.verify_original_execution(
                 checks[expected_index], request['input_digest'], expected_index, record,
                 provenance.get('runtime_fixture'), request['source_worktree'], run_id=task['run_id'],
@@ -86,17 +115,20 @@ def verified_prefix(store, task_id, request, bundle):
             expected_execution_check = workflow_native_fixtures.adapt_plan({'checks':[checks[expected_index]]},
                 [dict(binding, check_index=0, check_digest=workflow_store.digest(checks[expected_index]))])['checks'][0]
         recorded_toolchain = provenance.get('toolchain')
-        expected_toolchain = workflow_toolchain.capture(expected_execution_check, Path(request['source_worktree']))
-        if recorded_toolchain is None or recorded_toolchain != expected_toolchain:
-            raise ValueError('completed prefix toolchain differs from current executable inputs')
+        if not evidence_only:
+            expected_toolchain = workflow_toolchain.capture(expected_execution_check, Path(request['source_worktree']))
+            if recorded_toolchain is None or recorded_toolchain != expected_toolchain:
+                raise ValueError('completed prefix toolchain differs from current executable inputs')
+        elif not isinstance(recorded_toolchain, dict):
+            raise ValueError('completed prefix has no recorded toolchain fingerprint')
         if (checks[expected_index].get('kind') == 'gametest' and
                 provenance.get('execution_check_digest') != workflow_store.digest(expected_execution_check)):
             raise ValueError('completed prefix execution check differs from original accepted GameTest')
-        if (record.get('exit_code') != 0 or record.get('evidence', {}).get('status') != 'PASS' or
-                any(record.get(k) != expected_execution_check.get(k, default)
+        if (any(record.get(k) != expected_execution_check.get(k, default)
                     for k, default in (('argv', None), ('kind', 'command'), ('covers', None)))):
             break
-        _verify_file(record.get('log'), record.get('log_sha256'))
+        resolve_registered_native_log(store, task_id=task_id, run_id=task['run_id'], input_digest=task['input_digest'],
+            log_path=record.get('log'), sha256=record.get('log_sha256'))
         artifacts = record.get('evidence', {}).get('artifacts', [])
         for evidence in artifacts:
             ref = evidence.get('artifact_ref')

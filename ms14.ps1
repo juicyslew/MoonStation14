@@ -303,6 +303,7 @@ try {
     $newWrappers = @()
     $monitorRecord = $null
     $sessionFile = $null
+    $lifecycleHandoffComplete = $false
     try {
         foreach ($launch in $launches) {
             if (!(Test-Path -LiteralPath $launch.WorkingDirectory -PathType Container)) { throw "ModDev working directory missing: $($launch.WorkingDirectory)" }
@@ -314,15 +315,18 @@ try {
             [IO.File]::WriteAllLines($wrapper, $wrapperLines, [Text.UTF8Encoding]::new($false))
             $startArgument = '/d /s /c ""' + $wrapper + '""'
             $process = Start-Process -FilePath $env:ComSpec -ArgumentList $startArgument -WorkingDirectory $launch.WorkingDirectory -WindowStyle Hidden -PassThru
+            # Capture identity from the returned process handle before any further
+            # CIM/state operation can be interrupted by Ctrl+C.
+            $wrapperRecord = @{ id=[int]$process.Id; created=[Management.ManagementDateTimeConverter]::ToDmtfDateTime($process.StartTime); path=$wrapper; role=$launch.Role }
+            $newWrappers += $wrapperRecord
             $wrapperRecord = $null
             for ($attempt = 0; $attempt -lt 20 -and !$wrapperRecord; $attempt++) {
                 $current = Get-CimInstance Win32_Process -Filter "ProcessId=$($process.Id)" -ErrorAction SilentlyContinue
                 if ($current -and $current.Name -ieq 'cmd.exe') {
-                    $wrapperRecord = @{ id=[int]$current.ProcessId; created=[Management.ManagementDateTimeConverter]::ToDmtfDateTime($current.CreationDate); path=$wrapper; role=$launch.Role }
+                    if ($current.CreationDate -eq [Management.ManagementDateTimeConverter]::ToDateTime([string]$newWrappers[-1].created)) { $wrapperRecord = $newWrappers[-1] }
                 } else { Start-Sleep -Milliseconds 50 }
             }
             if (!$wrapperRecord) { throw "Could not verify launcher wrapper process for $($launch.Role)." }
-            $newWrappers += $wrapperRecord
             Write-WrapperState $statePath $newWrappers $launchId
         }
 
@@ -350,24 +354,39 @@ try {
         if (!$monitorCim) { throw 'Could not verify lifecycle monitor process.' }
         $monitorRecord = @{ id=[int]$monitorCim.ProcessId; created=[Management.ManagementDateTimeConverter]::ToDmtfDateTime($monitorCim.CreationDate); sessionFile=$sessionFile; groupId=$launchId }
         Write-WrapperState $statePath $newWrappers $launchId $monitorRecord
-    } catch {
-        if ($monitorRecord) {
-            $monitorCim = Get-CimInstance Win32_Process -Filter "ProcessId=$($monitorRecord.id)" -ErrorAction SilentlyContinue
-            if (Test-OwnedMonitorIdentity $monitorCim $monitorRecord) {
-                Stop-VerifiedProcesses @([pscustomobject]@{ Id=[int]$monitorCim.ProcessId; Created=$monitorCim.CreationDate; Role='lifecycle monitor' })
+        $lifecycleHandoffComplete = $true
+    } finally {
+        if (!$lifecycleHandoffComplete) {
+            try {
+                if ($monitorRecord) {
+                    $monitorCim = Get-CimInstance Win32_Process -Filter "ProcessId=$($monitorRecord.id)" -ErrorAction SilentlyContinue
+                    if (Test-OwnedMonitorIdentity $monitorCim $monitorRecord) {
+                        Stop-VerifiedProcesses @([pscustomobject]@{ Id=[int]$monitorCim.ProcessId; Created=$monitorCim.CreationDate; Role='lifecycle monitor' })
+                    }
+                }
+                # Verify in-memory Start-Process identities as well as persisted
+                # records: cancellation may land before the state-file write.
+                $verifiedWrappers = @()
+                foreach ($record in $newWrappers) {
+                    $current = Get-CimInstance Win32_Process -Filter "ProcessId=$([int]$record.id)" -ErrorAction SilentlyContinue
+                    if (Test-OwnedWrapperIdentity $current $record) {
+                        $verifiedWrappers += [pscustomobject]@{ Id=[int]$current.ProcessId; Created=$current.CreationDate; Role="$($record.role) wrapper" }
+                    }
+                }
+                $verifiedWrappers += @(Get-OwnedWrappers $statePath $allRoots)
+                # Stop parents before scanning children to close the late-JVM race.
+                Stop-VerifiedProcesses $verifiedWrappers
+                $owned = @(Get-ManagedDevProcesses $allRoots | Where-Object {
+                    $candidate = $_
+                    !($beforeLaunch | Where-Object { $_.Id -eq $candidate.Id -and $_.Created -eq $candidate.Created })
+                })
+                Stop-VerifiedProcesses $owned
+                Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue
+                if ($sessionFile) { Remove-Item -LiteralPath $sessionFile -Force -ErrorAction SilentlyContinue }
+            } catch {
+                Write-Error "Startup cancellation cleanup failed: $_" -ErrorAction Continue
             }
         }
-        # Stop the tracked parent wrappers first so a late child cannot appear after
-        # the JVM scan; then rescan and stop only JVM identities absent beforehand.
-        Stop-VerifiedProcesses (Get-OwnedWrappers $statePath $allRoots)
-        $owned = @(Get-ManagedDevProcesses $allRoots | Where-Object {
-            $candidate = $_
-            !($beforeLaunch | Where-Object { $_.Id -eq $candidate.Id -and $_.Created -eq $candidate.Created })
-        })
-        Stop-VerifiedProcesses $owned
-        Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue
-        if ($sessionFile) { Remove-Item -LiteralPath $sessionFile -Force -ErrorAction SilentlyContinue }
-        throw
     }
     Write-Host "Started server and $Clients client(s) in '$Worktree'. Closing the last launched client stops this session's server."
 } finally {

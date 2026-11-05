@@ -6,9 +6,9 @@ import time
 from pathlib import Path
 
 try:
-    import workflow_native_worker, workflow_preflight, workflow_store, workflow_task_artifacts, workflow_review_results, workflow_runtime
+    import workflow_native_worker, workflow_preflight, workflow_store, workflow_task_artifacts, workflow_review_results, workflow_runtime, workflow_error_recovery
 except ModuleNotFoundError:
-    from tooling.agent_workflow import workflow_native_worker, workflow_preflight, workflow_store, workflow_task_artifacts, workflow_review_results, workflow_runtime
+    from tooling.agent_workflow import workflow_native_worker, workflow_preflight, workflow_store, workflow_task_artifacts, workflow_review_results, workflow_runtime, workflow_error_recovery
 
 MAX_REVIEW_SOURCE_BYTES = 8 * 1024 * 1024
 MAX_REVIEW_INPUT_PAGE_BYTES = 12 * 1024
@@ -86,13 +86,19 @@ class ReviewCoordinator:
         return self._input_access(task,input_ref,input_offset,request,bundle,assignment)
 
     def _input_access(self,task,input_ref,input_offset,request,bundle,assignment):
-        refs=assignment['body'].get('envelope',{}).get('artifact_refs',[])
+        refs=self._scoped_artifact_inventory(bundle, assignment)
         if input_ref=='review_guide':
             try: artifact=self._render_review_guide(task,request,bundle,assignment)
             except Exception as exc: raise SourceAccessError('SOURCE_UNAVAILABLE',409,'Review guide is unavailable or failed integrity verification.') from exc
             artifact_id=artifact['artifact_id']; art=artifact
         else:
-            if not isinstance(input_ref,str) or input_ref not in refs:
+            native_log = None
+            try:
+                native_logs = self.native_log_inputs(task['task_id']) if input_ref not in refs else []
+            except workflow_store.ProtocolError as exc:
+                raise SourceAccessError('SOURCE_UNAVAILABLE',409,'Verified review evidence is unavailable or failed integrity verification.') from exc
+            native_log = next((row for row in native_logs if row['artifact_id'] == input_ref), None)
+            if not isinstance(input_ref,str) or (input_ref not in refs and native_log is None):
                 raise SourceAccessError('INVALID_QUERY',400,'Input reference must be review_guide or an exact assigned artifact ID.')
             binding=self.store.get_artifact(input_ref)
             if binding is None: raise SourceAccessError('SOURCE_UNAVAILABLE',409,'Assigned artifact is unavailable.')
@@ -141,11 +147,68 @@ class ReviewCoordinator:
             encoding='base64'
             import base64
             content=base64.b64encode(page).decode('ascii')
-        return {'task_id':task['task_id'],'run_id':task['run_id'],'input_digest':task['input_digest'],
+        result={'task_id':task['task_id'],'run_id':task['run_id'],'input_digest':task['input_digest'],
             'assignment_body_sha256':assignment['body_sha256'],'artifact_id':artifact_id,'type':art.get('type'),
             **({'content_kind':'review_guide'} if input_ref == 'review_guide' else {}),
             'sha256':expected,'size_bytes':size,'encoding':encoding,'content':content,
             'offset':input_offset,'next_offset':end if end<size else None,'eof':end==size}
+        if input_ref != 'review_guide' and native_log is not None:
+            result['parent_receipt_ref']=native_log['parent_receipt_ref']
+            result['check_task_id']=native_log['task_id']
+        return result
+
+    def native_log_inputs(self, review_task_id):
+        """List only code-owned LOG artifacts referenced by verified current PASS receipts."""
+        review=self.store.get_task(review_task_id)
+        if not review or review.get('kind')!='REVIEW':
+            raise workflow_store.ProtocolError('unknown review task')
+        rows=self.verified_current_checks(review_task_id)
+        checks={t['task_id']:t for t in self.store.list_tasks(review['run_id'],review['evaluation_generation']) if t.get('kind')=='CHECK'}
+        found=[]
+        for row in rows:
+            record=row.get('evidence') if isinstance(row.get('evidence'),dict) else {}
+            # Native rows retain frozen path and digest directly in receipt checks.
+            log_path=row.get('log')
+            digest=row.get('log_sha256')
+            if log_path is None and digest is None: continue
+            if not isinstance(log_path,str) or not isinstance(digest,str) or len(digest)!=64:
+                raise workflow_store.ProtocolError('CHECK_RECEIPT native log locator is malformed')
+            check=checks.get(row['task_id'])
+            if not check or check.get('run_id')!=review['run_id'] or check.get('input_digest')!=review.get('input_digest'):
+                raise workflow_store.ProtocolError('native log check task binding failed')
+            producer=check
+            refs=(check.get('result') or {}).get('artifact_refs',[])
+            # Partial native retries preserve the original check record and its
+            # producer; resolve it through the exact applicability proof.
+            metadata=self.store.get_recovery_metadata(review['run_id'],check.get('evaluation_generation'))
+            if metadata and metadata.get('boundary')=='native:'+check.get('logical_key',''):
+                try:
+                    try: import workflow_native_retry
+                    except ModuleNotFoundError: from tooling.agent_workflow import workflow_native_retry
+                    request,bundle=self._inputs(review['run_id'])
+                    prefix=workflow_native_retry.load_recovery_prefix(self.store,check,request,bundle,evidence_only=True)
+                    index=row.get('check_index')
+                    if not isinstance(index,int) or isinstance(index,bool) or index<0: raise ValueError('invalid check index')
+                    if index<len(prefix['records']):
+                        source=prefix['source_links'][index]
+                        comparable={k:v for k,v in row.items() if k not in ('receipt_ref','task_id','check_index')}
+                        if (source.get('check_index')!=index or comparable!=prefix['records'][index]):
+                            raise ValueError('receipt differs from retained prefix record')
+                        producer=self.store.get_task(source['source_task_id'])
+                        refs=(producer.get('result') or {}).get('artifact_refs',[])
+                except Exception as exc:
+                    raise workflow_store.ProtocolError('CHECK_RECEIPT recovery prefix invalid') from exc
+            try:
+                ref,art=workflow_error_recovery.resolve_registered_native_log(self.store,
+                    task_id=producer['task_id'],run_id=review['run_id'],input_digest=review['input_digest'],
+                    log_path=log_path,sha256=digest)
+            except (OSError,ValueError,KeyError,TypeError) as exc:
+                raise workflow_store.ProtocolError('verified CHECK_RECEIPT native log has no matching registered LOG artifact') from exc
+            found.append({'artifact_id':ref,'parent_receipt_ref':row['receipt_ref'],'task_id':row['task_id'],
+                'producer_task_id':producer['task_id'],'producer_generation':producer.get('evaluation_generation'),
+                'kind':row.get('kind'),'covers':row.get('covers',[]),'sha256':art['sha256'],'size_bytes':art['size_bytes'],
+                'read_example':{'input_ref':ref,'input_offset':0}})
+        return found
 
     def prepare_review_inputs(self,task_id):
         """Verify claim inputs using one fresh frozen-source context, before claim commit."""
@@ -259,9 +322,17 @@ class ReviewCoordinator:
                 if (art.get('producer_kind')!='TASK' or art.get('producer_id')!=check['task_id'] or
                     art.get('producer_task_id')!=check['task_id'] or art.get('run_id')!=review['run_id']):
                     raise workflow_store.ProtocolError(f'CHECK_RECEIPT producer binding failed: {ref}')
-                if (check.get('run_id') != review.get('run_id') or
-                    check.get('evaluation_generation') != review.get('evaluation_generation')):
+                if check.get('run_id') != review.get('run_id'):
                     raise workflow_store.ProtocolError(f'CHECK task generation binding failed: {check["task_id"]}')
+                check_generation=check.get('evaluation_generation')
+                review_generation=review.get('evaluation_generation')
+                if check_generation != review_generation:
+                    if not check.get('reused'):
+                        raise workflow_store.ProtocolError(f'CHECK task generation binding failed: {check["task_id"]}')
+                    metadata=self.store.get_recovery_metadata(review['run_id'],review_generation)
+                    reusable=set(metadata.get('reusable_artifact_refs',[])) if isinstance(metadata,dict) else set()
+                    if ref not in reusable:
+                        raise workflow_store.ProtocolError(f'CHECK task generation binding failed: {check["task_id"]}')
                 try:
                     raw=Path(art['path']).read_bytes()
                     if len(raw)!=art['size_bytes'] or hashlib.sha256(raw).hexdigest()!=art['sha256']:
@@ -275,8 +346,8 @@ class ReviewCoordinator:
                     raise workflow_store.ProtocolError(f'CHECK_RECEIPT inner binding failed: {ref}')
                 if receipt.get('input_digest') != review.get('input_digest'):
                     raise workflow_store.ProtocolError(f'CHECK_RECEIPT input differs from review input: {ref}')
-                for row in receipt.get('checks',[]):
-                    if isinstance(row,dict): out.append({'receipt_ref':ref,'task_id':check['task_id'],**row})
+                for check_index,row in enumerate(receipt.get('checks',[])):
+                    if isinstance(row,dict): out.append({'receipt_ref':ref,'task_id':check['task_id'],'check_index':check_index,**row})
                 declared=bundle.get('resolved_plan',{}).get('program_checks',[])
                 program_rows=receipt.get('program_checks',[])
                 if not isinstance(declared,list) or not isinstance(program_rows,list):
@@ -323,8 +394,10 @@ class ReviewCoordinator:
                             try:
                                 try: import workflow_native_retry
                                 except ModuleNotFoundError: from tooling.agent_workflow import workflow_native_retry
-                                prefix=workflow_native_retry.load_recovery_prefix(self.store,check,request,bundle)
+                                prefix=workflow_native_retry.load_recovery_prefix(self.store,check,request,bundle,evidence_only=True)
                                 allowed_originals={link['artifact_ref'] for link in prefix['source_links']}
+                                allowed_originals.update(e.get('artifact_ref') for record in prefix['records']
+                                    for e in record.get('evidence',{}).get('artifacts',[]) if e.get('artifact_ref'))
                             except Exception as exc:
                                 raise workflow_store.ProtocolError(f'CHECK_RECEIPT recovery prefix invalid: {ref}') from exc
                         plan_checks=bundle.get('resolved_plan',{}).get('plan',{}).get('checks',[])
@@ -395,6 +468,7 @@ class ReviewCoordinator:
             raise workflow_store.ProtocolError('reviewer binding no longer matches saved assignment')
         checks = self.store.list_tasks(task['run_id'], task['evaluation_generation'])
         refs = sorted(set(a['artifact_id'] for a in bundle['verified_artifacts']))
+        native_receipt_refs = []
         for check in checks:
             if check['kind'] != 'CHECK':
                 continue
@@ -405,16 +479,21 @@ class ReviewCoordinator:
                     if len(data) != art['size_bytes'] or hashlib.sha256(data).hexdigest() != art['sha256']:
                         raise workflow_store.ProtocolError(f'CHECK_RECEIPT bytes failed verification: {ref}')
                     refs.append(ref)
+                    native_receipt_refs.append(ref)
         event_id = 'event_review_' + hashlib.sha256(task_id.encode()).hexdigest()[:24]
-        body = workflow_preflight.render_review_input(request, {
+        metadata = {
             'event_id':event_id,'run_id':task['run_id'],'evaluation_generation':task['evaluation_generation'],
             'task_id':task_id,'assignment_generation':task['assignment_generation'],'session_id':task['assigned_session_id'],
-            'worktree':binding['worktree'],'artifact_refs':sorted(set(refs)),'deadline_ms':task['deadline_ms']},
-            role,bundle['review_policy']['review_summaries'][role])
-        raw = workflow_store.canonical_json(body).encode('utf-8')
-        if len(raw) > bundle['review_policy']['review_envelope_limit_bytes']:
-            raise workflow_store.ProtocolError('fully rendered review envelope exceeds trusted policy limit')
-        return {'body':body,'body_sha256':hashlib.sha256(raw).hexdigest(),'size_bytes':len(raw)}
+            'worktree':binding['worktree'],'artifact_refs':sorted(set(refs)),
+            'native_receipt_refs':sorted(set(native_receipt_refs)),
+            'deadline_ms':task['deadline_ms']}
+        return workflow_preflight.render_bounded_review_input(request, metadata, role,
+            bundle['review_policy']['review_summaries'][role], bundle['review_policy']['review_envelope_limit_bytes'])
+
+    @staticmethod
+    def _scoped_artifact_inventory(bundle, assignment):
+        return sorted(set(assignment['body'].get('envelope', {}).get('artifact_refs', [])) |
+                      {row['artifact_id'] for row in bundle.get('verified_artifacts', [])})
 
     def review_guide(self, task_id):
         """Materialize a readable, hash-bound reviewer guide without changing assignment inputs."""
@@ -434,6 +513,7 @@ class ReviewCoordinator:
             # the immutable bytes on every page access.
             return dict(cached)
         refs = assignment['body'].get('envelope', {}).get('artifact_refs', [])
+        inventory_refs = self._scoped_artifact_inventory(bundle, assignment)
         # Only CHECK_RECEIPTs bound to an accepted CHECK task result are native
         # receipts. Submission attachments with the same label remain sources.
         checks = self.store.list_tasks(task['run_id'], task['evaluation_generation'])
@@ -441,7 +521,7 @@ class ReviewCoordinator:
         native_receipt_refs = {row['receipt_ref']: row['task_id'] for row in current_checks}
         sources = []
         receipts = []
-        for ref in refs:
+        for ref in inventory_refs:
             item = self.store.get_artifact(ref)
             if not item:
                 raise workflow_store.ProtocolError(f'missing review artifact: {ref}')
@@ -512,15 +592,16 @@ class ReviewCoordinator:
             check_overview.append(summary)
         current_validation = {'run_id':task['run_id'], 'evaluation_generation':task['evaluation_generation'],
             'input_digest':task['input_digest'], 'checks':check_overview,
+            'native_logs':self.native_log_inputs(task_id),
             'meaning':'These summaries come from verified receipts produced by completed PASS checks in this run/generation/input. They describe execution facts, not whether the checks adequately cover a criterion. Author objective text and pre-submit notes are historical plans, not current runtime facts.'}
         guide = {'document_type':'review_guide', 'task_id': task_id, 'run_id': task['run_id'],
             'evaluation_generation': task['evaluation_generation'], 'assignment_generation': task['assignment_generation'], 'input_digest': task['input_digest'],
-            'semantic_identity': 'This canonical review guide is stored as a PROVENANCE artifact; PROVENANCE is only its storage label, not its semantic content type. This document is the review guide. Read every page (follow next_offset until eof=true). Full assigned receipts remain available by their exact assignment artifact refs.',
+            'semantic_identity': 'This canonical review guide is stored as a PROVENANCE artifact; PROVENANCE is only its storage label, not its semantic content type. This document is the review guide. Read every page (follow next_offset until eof=true). All exact verified submission artifact IDs in evidence are authorized for reading and citation, including IDs omitted from the compact assignment envelope.',
             'current_validation':current_validation,
             'source_worktree': request['source_worktree'], 'assignment_body_sha256': assignment['body_sha256'],
             'review_scope': assignment['body']['review'],
             'assignment_artifact_refs': refs,
-            'instruction': 'Claim with claim_task(task_id, session_id); task_id is required. Review current_validation first: it is authoritative for what checks ran and their results; author objective/pre-submit prose is historical, not updated execution state. A PASS machine check does not by itself prove appropriate coverage. Distinguish missing execution from an inadequate check: identify the concrete missing branch/fixture and required change when coverage is insufficient despite a PASS. OWNER_READY means technically ready for owner testing, not owner acceptance; owner acceptance is a separate later decision. Every blocking finding must declare validation_stage=TECHNICAL. Pending subjective/physical owner observations belong in owner_followups. PASS has no blocking findings; FAIL requires actionable technical findings. Followups are retained for the owner testing log. A review is complete only when the SDK accepts complete_review(result=<semantic review result>, session_id=<assigned session>) or report_error(error=<semantic task error>, session_id=<assigned session>). Include task_id and semantic evidence/decision fields, but omit contract_version, run_id, evaluation_generation, assignment_generation, and input_digest; the coordinator binds those after authorization. final chat prose or stopping without an accepted receipt does not submit a result. For an actual infrastructure error call report_error. inspected_refs must cite original assignment refs; guide/source pages are not refs. FAIL findings require required_change. Read this guide and each required assigned artifact through status(task_id, session_id, input_ref="review_guide", input_offset=0), then use the exact artifact_id in assignment_artifact_refs as input_ref and returned next_offset for paging. Pages are integrity-verified and bound to this assignment. For source code use status(task_id, session_id, source_query="literal substring"), then source_path exactly as returned and source_line for paging. Never read relative MAIN-checkout files as substitutes for source_worktree. If access is unavailable or stale, report factual task_error. session_id is a separate tool argument, not a field in either JSON object.',
+            'instruction': 'Claim with claim_task(task_id, session_id); task_id is required. Review current_validation first: it is authoritative for what checks ran and their results; author objective/pre-submit prose is historical, not updated execution state. A PASS machine check does not by itself prove appropriate coverage. Distinguish missing execution from an inadequate check: identify the concrete missing branch/fixture and required change when coverage is insufficient despite a PASS. OWNER_READY means technically ready for owner testing, not owner acceptance; owner acceptance is a separate later decision. Every blocking finding must declare validation_stage=TECHNICAL. Pending subjective/physical owner observations belong in owner_followups. PASS has no blocking findings; FAIL requires actionable technical findings. Followups are retained for the owner testing log. A review is complete only when the SDK accepts complete_review(result=<semantic review result>, session_id=<assigned session>) or report_error(error=<semantic task error>, session_id=<assigned session>). Include task_id and semantic evidence/decision fields, but omit contract_version, run_id, evaluation_generation, assignment_generation, and input_digest; the coordinator binds those after authorization. final chat prose or stopping without an accepted receipt does not submit a result. For an actual infrastructure error call report_error. inspected_refs may cite original assignment refs, exact artifact IDs listed in guide.evidence, and verified current_validation.native_logs artifact_ids. Native log refs are derived from verified current CHECK receipts, not added to or substituted for the immutable assignment. Cite the corresponding parent_receipt_ref when relying on a native log. Read each relevant native log through status(task_id, session_id, input_ref=<artifact_id>, input_offset=0), follow returned next_offset until eof=true, and distinguish absent logs from inaccessible logs. Guide/source pages are not refs. FAIL findings require required_change. Read this guide and each required assigned artifact through status(task_id, session_id, input_ref="review_guide", input_offset=0), then use the exact artifact_id in assignment_artifact_refs as input_ref and returned next_offset for paging. Pages are integrity-verified and bound to this assignment. For source code use status(task_id, session_id, source_query="literal substring"), then source_path exactly as returned and source_line for paging. Never read relative MAIN-checkout files as substitutes for source_worktree. If access is unavailable or stale, report factual task_error. session_id is a separate tool argument, not a field in either JSON object.',
             'source_access': {'limits': {'maximum_file_bytes':MAX_REVIEW_SOURCE_BYTES,'maximum_lines_per_page':80,'maximum_utf8_bytes_per_page':12*1024},
                 'input_example': {'tool':'status','task_id':'<assigned task_id>','session_id':'<assigned session_id>','input_ref':'review_guide','input_offset':0},
                 'query_example': {'tool':'status','task_id':'<assigned task_id>','session_id':'<assigned session_id>','source_query':'<filename from your scoped criterion>'},

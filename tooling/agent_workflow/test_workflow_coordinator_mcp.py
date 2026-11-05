@@ -43,6 +43,10 @@ class CoordinatorMCPTests(unittest.TestCase):
         from workflow_coordinator_mcp import REVIEW_SCHEMAS
         self.assertEqual(set(REVIEW_SCHEMAS),{'claim_task','complete_review','report_error','status'})
         self.assertIn('input_ref',REVIEW_SCHEMAS['status']['properties'])
+        from workflow_coordinator_mcp import REVIEW_DESCRIPTIONS
+        self.assertIn('current_validation.native_logs', REVIEW_SCHEMAS['status']['properties']['input_ref']['description'])
+        self.assertIn('cite verified IDs', REVIEW_DESCRIPTIONS['status'])
+        self.assertIn('report_error', REVIEW_DESCRIPTIONS['status'])
         self.assertEqual(len(CoordinatorClient.encode_response('status',{'task_id':'t','input_ref':'review_guide'}, {'content':'x'*8000})),8000+len('{"content":""}'))
         client=CoordinatorClient('http://127.0.0.1:1','token','.',profile='reviewer')
         with self.assertRaises(ValueError): client.prepare_call('status',{'task_id':'t','session_id':'s','input_offset':1})

@@ -9,8 +9,9 @@ from pathlib import Path
 try:
     import gate_dispatch, workflow_store
     import workflow_review_effects
+    import workflow_preflight
 except ModuleNotFoundError:
-    from tooling.agent_workflow import gate_dispatch, workflow_store, workflow_review_effects
+    from tooling.agent_workflow import gate_dispatch, workflow_store, workflow_review_effects, workflow_preflight
 
 
 class ReviewDispatchBackend:
@@ -45,7 +46,10 @@ class ReviewDispatchBackend:
             return 'APPLIED'
         if task['state'] == 'QUEUED':
             try:
-                assignment=self.planner.build_assignment(task_id)
+                try:
+                    assignment=self.planner.build_assignment(task_id)
+                except workflow_preflight.ReviewInputPreparationError as exc:
+                    return self._fail_local_preparation(task,exc)
                 if self.has_registered_prompt_evidence(task):return 'UNKNOWN'
                 intent=self._creation_artifact(task)
                 if intent is None:return 'ABSENT'
@@ -232,7 +236,11 @@ class ReviewDispatchBackend:
             task = self.store.get_task(task_id)
             if not task or task['kind'] != 'REVIEW' or task['state'] not in ('QUEUED','DISPATCHING'):
                 return 'UNKNOWN'
-            assignment = self.planner.build_assignment(task_id)
+            try:
+                assignment = self.planner.build_assignment(task_id)
+            except Exception as exc:
+                if not isinstance(exc,workflow_preflight.ReviewInputPreparationError): raise
+                return self._fail_local_preparation(task,exc)
             envelope = assignment['body']['envelope']
             session_id = task['assigned_session_id']
             role = task['logical_key'].removeprefix('review:')
@@ -280,6 +288,20 @@ class ReviewDispatchBackend:
             finally:guard.close()
         except Exception as exc:
             raise gate_dispatch.DispatchError(f'review dispatch outcome unknown: {exc}') from exc
+
+    def _fail_local_preparation(self,task,exc):
+        """Durably settle only the typed local pre-dispatch envelope rejection."""
+        try:
+            committed=self.store.fail_review_preparation(task_id=task['task_id'],run_id=task['run_id'],
+                evaluation_generation=task['evaluation_generation'],assignment_generation=task['assignment_generation'],
+                input_digest=task['input_digest'],error_code='REVIEW_ENVELOPE_OVERSIZE',
+                message=(f'Local reviewer envelope exceeds the dispatch size limit. Role {exc.role}; '
+                    f'reviewer envelope was {exc.size_bytes} bytes; limit {exc.limit_bytes} bytes.'))
+            return 'APPLIED' if committed.get('disposition') in ('ACCEPTED','REPLAYED') else 'UNKNOWN'
+        except workflow_store.StoreError:
+            # Refusal means stale state or possible task effect/history. Never
+            # turn that ambiguity into an ERROR or claim the wake was applied.
+            return 'UNKNOWN'
 
     def _dispatch_prompt_locked(self,task,assignment,session_id,body,stable_event,body_hash):
             status, active_reply = self.request(self.server, 'GET', '/api/session/active')

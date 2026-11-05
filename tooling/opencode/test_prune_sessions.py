@@ -4,6 +4,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+import urllib.error
 from unittest import mock
 
 MODULE = pathlib.Path(__file__).with_name("prune_sessions.py")
@@ -46,6 +47,70 @@ class PrunePlanTests(unittest.TestCase):
     def test_missing_explicit_root_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "required root missing"):
             prune.descendants_by_root([], ("missing",))
+
+    def test_only_matching_native_not_found_is_typed(self):
+        import io
+        error = lambda payload: urllib.error.HTTPError("url", 404, "missing", {}, io.BytesIO(payload))
+        with self.assertRaises(prune.session_store.SessionNotFoundError):
+            prune.session_store._raise_http_error(error(b'{"_tag":"SessionNotFoundError","sessionID":"ses_x"}'), "ses_x")
+        for payload, sid in ((b"not json", "ses_x"),
+                             (b'{"_tag":"Other","sessionID":"ses_x"}', "ses_x"),
+                             (b'{"_tag":"SessionNotFoundError","sessionID":"ses_y"}', "ses_x")):
+            with self.assertRaises(urllib.error.HTTPError):
+                prune.session_store._raise_http_error(error(payload), sid)
+
+    def test_cli_accounts_for_session_disappearing_before_info(self):
+        self._run_vanished_candidate("before_info")
+
+    def test_cli_accounts_for_typed_not_found_after_info(self):
+        self._run_vanished_candidate("typed_404")
+
+    def _run_vanished_candidate(self, race):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = pathlib.Path(temp); dbpath = repo / "sessions.sqlite"
+            w = sqlite3.connect(dbpath)
+            w.executescript("CREATE TABLE session_v2(id,parent_id,time_created,time_updated,time_idle,time_viewed,time_compacting,time_suspended,idle_outcome); CREATE TABLE session_pending(session_id); CREATE TABLE session_inbox(session_id);")
+            w.execute("INSERT INTO session_v2 VALUES ('ses_root',NULL,1,100,100,NULL,NULL,NULL,'succeeded')")
+            w.execute("INSERT INTO session_v2 VALUES ('ses_gone','ses_root',1,1,1,NULL,NULL,NULL,'succeeded')")
+            w.execute("INSERT INTO session_v2 VALUES ('ses_keep','ses_root',1,90,90,NULL,NULL,NULL,'succeeded')")
+            w.commit(); w.close()
+            workdb = repo / "workflow.sqlite"; w = sqlite3.connect(workdb)
+            w.executescript("CREATE TABLE tasks(task_json); CREATE TABLE attempts(attempt_json); CREATE TABLE runs(run_json); CREATE TABLE resources(identity_proof); CREATE TABLE deliveries(recipient_json);"); w.commit(); w.close()
+            config = repo / "config.json"; config.write_text(__import__("json").dumps({"database": str(workdb)}), encoding="utf-8")
+            (repo / ".opencode/workflow").mkdir(parents=True)
+            (repo / ".opencode/workflow/current-installation.json").write_text(__import__("json").dumps({"config": str(config)}), encoding="utf-8")
+            tabs = repo / "tabs.json"; tabs.write_text('{"global":{"tabs":[]},"cwd":{}}', encoding="utf-8")
+            service = repo / "service.json"; service.write_text('{"url":"http://invalid","password":"fixture"}', encoding="utf-8")
+            class FakeAPI:
+                def __init__(self, _): self.did_race = False
+                def active(self):
+                    if race == "before_info" and not self.did_race:
+                        self.did_race = True; w = sqlite3.connect(dbpath); w.execute("DELETE FROM session_v2 WHERE id='ses_gone'"); w.commit(); w.close()
+                    return set()
+                def info(self, sid):
+                    if sid == "ses_gone" and race == "typed_404":
+                        w = sqlite3.connect(dbpath); w.execute("DELETE FROM session_v2 WHERE id=?", (sid,)); w.commit(); w.close()
+                        raise prune.session_store.SessionNotFoundError(sid)
+                    return {"id": sid, "parentID": "ses_root", "time": {"updated": 1}}
+                def forms(self, _): return []
+                def permissions(self, _): return []
+                def remove(self, sid):
+                    w = sqlite3.connect(dbpath)
+                    self.assert_leaf(w, sid)
+                    w.execute("DELETE FROM session_v2 WHERE id=?", (sid,)); w.commit(); w.close()
+                @staticmethod
+                def assert_leaf(w, sid):
+                    if w.execute("SELECT 1 FROM session_v2 WHERE parent_id=?", (sid,)).fetchone(): raise AssertionError("non-leaf removal")
+            argv = ["prune", "--root", "ses_root", "--keep", "1", "--repo", str(repo), "--db", str(dbpath), "--tabs", str(tabs), "--service", str(service), "--audit-dir", str(repo / "audit"), "--execute"]
+            with mock.patch.object(prune.session_store, "API", FakeAPI), mock.patch("sys.argv", argv), mock.patch("builtins.print") as output:
+                prune.main()
+            report = __import__("json").loads(output.call_args.args[0])
+            self.assertEqual(report["already_removed"], 1)
+            self.assertEqual(report["deleted_candidates"], 0)
+            check = sqlite3.connect(dbpath)
+            self.assertEqual(check.execute("SELECT count(*) FROM session_v2 WHERE id='ses_root'").fetchone()[0], 1)
+            self.assertEqual(check.execute("SELECT count(*) FROM session_v2 WHERE id='ses_keep'").fetchone()[0], 1)
+            check.close()
 
     def test_plan_receives_cli_roots_and_keeps_exact_top_thirty(self):
         root = "ses_root"
