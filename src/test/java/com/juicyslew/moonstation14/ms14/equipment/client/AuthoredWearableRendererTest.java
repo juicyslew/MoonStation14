@@ -52,7 +52,7 @@ class AuthoredWearableRendererTest {
         var rendered = AuthoredWearableRenderer.render(garment, .5, id -> {
             selectedLookup.add(id);
             return Optional.ofNullable(loaded.get(id));
-        }, texture -> { emittedTexture.add(texture); return capture; }, ignored -> bone, new PoseStack(), 123);
+        }, mesh -> { emittedTexture.add(mesh.texture()); return capture; }, ignored -> bone, new PoseStack(), 123);
         assertTrue(rendered);
         assertEquals(java.util.List.of(frame), selectedLookup);
         assertEquals(java.util.List.of(ResourceLocation.parse("moonstation14:textures/entity/equipment/hats/hat_holy_watermelon__f1.png")), emittedTexture);

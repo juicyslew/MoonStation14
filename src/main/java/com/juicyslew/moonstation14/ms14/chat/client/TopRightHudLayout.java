@@ -5,7 +5,7 @@ public final class TopRightHudLayout {
     public static final int BOTTOM_RESERVE = 34;
     public static final int ROW_HEIGHT = 10;
     public static final float STATUS_FONT_SCALE = 0.78f;
-    private static final int MARGIN = 6;
+    private static final int MARGIN = 1;
     private static final int STATUS_GAP = 5;
     public static final int EXAMINE_RESERVED_STATUS_ROWS = 7;
     private static final int EXAMINE_GAP = 5;
@@ -60,4 +60,3 @@ public final class TopRightHudLayout {
         public int height() { return bottom - top; }
     }
 }
-

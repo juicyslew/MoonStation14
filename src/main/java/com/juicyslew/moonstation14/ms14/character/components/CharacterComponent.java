@@ -16,6 +16,6 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         MeleeAttackComponent, ParrotListenerComponent, ParrotMemoryComponent, EggLayerComponent,
         AbsorbentCleaningComponent, CombatModeComponent, VocalComponent, LightningTargetComponent, ProtectedFromStepTriggersComponent,
         DamageOnInteractProtectionComponent, StaminaPrototypeComponent, StatusEffectsPrototypeComponent,
-        MeleeWeaponComponent, DisarmProneComponent {
+        MeleeWeaponComponent, DisarmProneComponent, InternalsComponent {
     String type();
 }

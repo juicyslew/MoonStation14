@@ -14,15 +14,20 @@ public final class AuthoredWearableMesh {
        public Quad { vertices = List.copyOf(vertices); }
     }
     private final ResourceLocation texture;
+    private final Material material;
     private final Map<EquipmentRenderPlan.Anchor, List<Quad>> bones;
 
-    private AuthoredWearableMesh(ResourceLocation texture, Map<EquipmentRenderPlan.Anchor, List<Quad>> bones) {
+    public enum Material { CUTOUT, TRANSLUCENT }
+
+    private AuthoredWearableMesh(ResourceLocation texture, Material material, Map<EquipmentRenderPlan.Anchor, List<Quad>> bones) {
         this.texture = texture;
+        this.material = material;
         var copy = new LinkedHashMap<EquipmentRenderPlan.Anchor, List<Quad>>();
         bones.forEach((anchor, quads) -> copy.put(anchor, List.copyOf(quads)));
         this.bones = Collections.unmodifiableMap(copy);
     }
     public ResourceLocation texture() { return texture; }
+    public Material material() { return material; }
     public Map<EquipmentRenderPlan.Anchor, List<Quad>> bones() { return bones; }
 
     public static AuthoredWearableMesh parse(Reader reader) {
@@ -31,6 +36,12 @@ public final class AuthoredWearableMesh {
             if (!"moonstation14.wearable_interchange.v1 (proposed, NOT existing runtime loader)".equals(str(root,"schema")))
                 throw invalid("unsupported schema");
             ResourceLocation texture = ResourceLocation.parse(str(root,"texture"));
+            String renderType = root.has("render_type") ? str(root,"render_type") : null;
+            Material material = renderType == null || renderType.equals("entityCutoutNoCull; tint WHITE")
+                    || renderType.equals("entityCutoutNoCull WHITE, opaque pass") ? Material.CUTOUT
+                    : renderType.equals("entityTranslucent WHITE, after shell, no extra opacity multiplier")
+                    || renderType.equals("WHOLE model requires entityTranslucent; do not also draw components")
+                    ? Material.TRANSLUCENT : throwInvalidRenderType(renderType);
             JsonObject anchors = root.getAsJsonObject("anchors");
             if (anchors == null || anchors.size() == 0) throw invalid("missing anchors");
         var bones = new LinkedHashMap<EquipmentRenderPlan.Anchor,List<Quad>>();
@@ -51,7 +62,7 @@ public final class AuthoredWearableMesh {
                 }
                 bones.put(anchor, quads);
             }
-            return new AuthoredWearableMesh(texture,bones);
+            return new AuthoredWearableMesh(texture,material,bones);
         } catch (IllegalArgumentException ex) { throw ex; }
         catch (RuntimeException ex) { throw new IllegalArgumentException("invalid authored wearable mesh",ex); }
     }
@@ -74,5 +85,5 @@ public final class AuthoredWearableMesh {
     private static double num(JsonArray a,int i) { double d=a.get(i).getAsDouble(); if(!Double.isFinite(d)) throw invalid("non-finite number"); return d; }
     private static String str(JsonObject o,String key) { return o.get(key).getAsString(); }
     private static IllegalArgumentException invalid(String message) { return new IllegalArgumentException(message); }
+    private static Material throwInvalidRenderType(String renderType) { throw invalid("unsupported render_type: " + renderType); }
 }
-

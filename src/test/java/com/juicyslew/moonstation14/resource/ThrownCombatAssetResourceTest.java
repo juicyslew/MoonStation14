@@ -13,6 +13,28 @@ class ThrownCombatAssetResourceTest {
     private static final String ROOT = "/assets/moonstation14/";
 
     @Test
+    void removeAttachedItemActionUsesRecognizableTemporaryIcon() {
+        var action = readMinecraftData("data/moonstation14/moonstation14/character_action/remove_attached_item.json");
+        assertEquals("moonstation14:textures/interface/actions/remove_attached_item.png", action.get("icon").getAsString());
+        try (var stream = getClass().getResourceAsStream(ROOT + "textures/interface/actions/remove_attached_item.png")) {
+            assertNotNull(stream);
+            var image = ImageIO.read(stream);
+            assertNotNull(image);
+            assertEquals(32, image.getWidth());
+            assertEquals(32, image.getHeight());
+            int minX = 32, minY = 32, maxX = -1, maxY = -1;
+            for (int y = 0; y < 32; y++) for (int x = 0; x < 32; x++) {
+                if ((image.getRGB(x, y) >>> 24) != 0) {
+                    minX = Math.min(minX, x); minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+                }
+            }
+            assertTrue(maxX - minX + 1 >= 20, "Symbol should occupy a recognizable width");
+            assertTrue(maxY - minY + 1 >= 20, "Symbol should occupy a recognizable height");
+        } catch (Exception e) { throw new AssertionError(e); }
+    }
+
+    @Test
     void allThrownCombatItemsHaveGeneratedModelsAndTheirImportedIcons() {
         var expected = java.util.Map.of(
                 "throwing_knife", "moonstation14:ss14/throwing_knife/icon",
@@ -64,6 +86,13 @@ class ThrownCombatAssetResourceTest {
     private static com.google.gson.JsonObject readMinecraft(String path) {
         try (var stream = ThrownCombatAssetResourceTest.class.getResourceAsStream("/assets/minecraft/" + path)) {
             assertNotNull(stream, "Missing active Minecraft resource " + path);
+            return JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+        } catch (Exception e) { throw new AssertionError(e); }
+    }
+
+    private static com.google.gson.JsonObject readMinecraftData(String path) {
+        try (var stream = ThrownCombatAssetResourceTest.class.getResourceAsStream("/" + path)) {
+            assertNotNull(stream, "Missing " + path);
             return JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
         } catch (Exception e) { throw new AssertionError(e); }
     }

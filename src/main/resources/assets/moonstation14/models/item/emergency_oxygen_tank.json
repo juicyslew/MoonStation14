@@ -1,0 +1,6 @@
+﻿{
+    "textures":  {
+                     "layer0":  "moonstation14:item/emergency_oxygen_tank"
+                 },
+    "parent":  "minecraft:item/generated"
+}

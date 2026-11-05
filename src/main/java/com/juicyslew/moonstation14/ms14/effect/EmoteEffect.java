@@ -53,9 +53,9 @@ public final class EmoteEffect {
             @Override public void sound(ServerLevel l, Entity source, String id, float variation) {
                 float bounded = Math.max(0f, Math.min(1f, variation));
                 float pitch = 1f + (l.getRandom().nextFloat() * 2f - 1f) * bounded;
-                com.juicyslew.moonstation14.ms14.explosion.grenade.network.ControlledSoundDispatch.emit(
-                        l, net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getKey(event),
-                        source.getX(), source.getY(), source.getZ(), 1f, pitch, SoundSource.VOICE);
+                com.juicyslew.moonstation14.ms14.audio.EntityAttachedSoundRouter.play(
+                        l, source, net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getKey(event),
+                        SoundSource.VOICE, 1f, pitch);
             }
             @Override public void chat(ServerLevel l, Entity source, Component line) { delivery.chat(l, source, line); }
         };
@@ -84,8 +84,8 @@ public final class EmoteEffect {
                     .filter(spec -> spec.sound().equals(id)).findFirst().ifPresent(spec -> {
                 float variation = Math.max(0f, Math.min(1f, pitchVariation));
                 float pitch = 1f + (level.getRandom().nextFloat() * 2f - 1f) * variation;
-                level.playSound(null, source,
-                        com.juicyslew.moonstation14.sounds.ModSounds.emote(spec.sound()).get(),
+                com.juicyslew.moonstation14.ms14.audio.EntityAttachedSoundRouter.play(level, source,
+                        com.juicyslew.moonstation14.sounds.ModSounds.emote(spec.sound()).get().getLocation(),
                         SoundSource.VOICE, 1f, pitch);
             });
         }

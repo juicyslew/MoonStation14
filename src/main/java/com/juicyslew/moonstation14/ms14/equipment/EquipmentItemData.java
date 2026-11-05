@@ -16,8 +16,11 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
                                 Optional<AllowSuitStorage> allowSuitStorage, List<EquipmentTag> tags,
                                 Optional<Armor> armor, Optional<SupportedActionGrant> supportedActionGrant,
                                 Optional<NoSlip> noSlip,
-                                Optional<ProtectedFromStepTriggers> protectedFromStepTriggers,
-                                Optional<ContactDamageProtectionData> contactDamageProtection) {
+                                 Optional<ProtectedFromStepTriggers> protectedFromStepTriggers,
+                                Optional<ContactDamageProtectionData> contactDamageProtection,
+                                Optional<PressureProtection> pressureProtection,
+                                Optional<TemperatureProtection> temperatureProtection,
+                                 Optional<BreathMask> breathMask, Optional<IngestionBlocker> ingestionBlocker) {
     public enum AppearanceRegion { HEAD, TORSO, LEGS, FEET, HANDS, EYES, EARS, NECK, FACE }
 
     public static final Codec<AppearanceRegion> REGION_CODEC = Codec.STRING.comapFlatMap(value -> {
@@ -42,6 +45,7 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
             InventoryTemplateData.SLOT_FLAG_CODEC.listOf().fieldOf("slot_flags").forGetter(Clothing::slotFlags),
             REGION_CODEC.fieldOf("region").forGetter(Clothing::region), Codec.INT.fieldOf("color").forGetter(Clothing::color),
             Codec.INT.optionalFieldOf("equip_delay", 0).forGetter(Clothing::equipDelay),
+            Codec.INT.optionalFieldOf("unequip_delay", 0).forGetter(Clothing::unequipDelay),
             Codec.STRING.optionalFieldOf("equip_sound").forGetter(Clothing::equipSound),
             Codec.STRING.optionalFieldOf("unequip_sound").forGetter(Clothing::unequipSound),
             Codec.BOOL.optionalFieldOf("quick_equip", true).forGetter(Clothing::quickEquip),
@@ -73,8 +77,33 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
             : com.mojang.serialization.DataResult.error(() -> "NoSlip is presence-only"), ignored -> true);
     public static final Codec<ProtectedFromStepTriggers> PROTECTED_FROM_STEP_TRIGGERS_CODEC = ProtectedFromStepTriggers.CODEC;
     public static final Codec<ContactDamageProtectionData> CONTACT_DAMAGE_PROTECTION_CODEC = ContactDamageProtectionData.CODEC;
+    private static final Codec<Double> FINITE_NONNEGATIVE_DOUBLE = Codec.DOUBLE.comapFlatMap(value ->
+            Double.isFinite(value) && value >= 0 ? com.mojang.serialization.DataResult.success(value)
+                    : com.mojang.serialization.DataResult.error(() -> "expected a finite nonnegative number"), value -> value);
+    private static final Codec<Double> FINITE_DOUBLE = Codec.DOUBLE.comapFlatMap(value -> Double.isFinite(value)
+            ? com.mojang.serialization.DataResult.success(value)
+            : com.mojang.serialization.DataResult.error(() -> "expected a finite number"), value -> value);
+    public static final Codec<PressureProtection> PRESSURE_PROTECTION_CODEC = RecordCodecBuilder.create(i -> i.group(
+            FINITE_NONNEGATIVE_DOUBLE.fieldOf("high_pressure_multiplier").forGetter(PressureProtection::highPressureMultiplier),
+            FINITE_NONNEGATIVE_DOUBLE.fieldOf("low_pressure_multiplier").forGetter(PressureProtection::lowPressureMultiplier),
+            FINITE_DOUBLE.optionalFieldOf("high_pressure_modifier", 0.0).forGetter(PressureProtection::highPressureModifier),
+            FINITE_DOUBLE.optionalFieldOf("low_pressure_modifier", 0.0).forGetter(PressureProtection::lowPressureModifier)
+    ).apply(i, PressureProtection::new));
+    public static final Codec<TemperatureProtection> TEMPERATURE_PROTECTION_CODEC = RecordCodecBuilder.create(i -> i.group(
+            FINITE_NONNEGATIVE_DOUBLE.fieldOf("heating_coefficient").forGetter(TemperatureProtection::heatingCoefficient),
+            FINITE_NONNEGATIVE_DOUBLE.fieldOf("cooling_coefficient").forGetter(TemperatureProtection::coolingCoefficient)
+    ).apply(i, TemperatureProtection::new));
+    public static final Codec<BreathMask> BREATH_MASK_CODEC = RecordCodecBuilder.create(i -> i.group(
+            InventoryTemplateData.SLOT_FLAG_CODEC.listOf().optionalFieldOf("allowed_slots",
+                    List.of(InventoryTemplateData.SlotFlag.MASK, InventoryTemplateData.SlotFlag.HEAD)).forGetter(BreathMask::allowedSlots),
+            WORN_MODEL_CODEC.optionalFieldOf("lowered_worn_model").forGetter(BreathMask::loweredWornModel)
+    ).apply(i, BreathMask::new));
+    public static final Codec<IngestionBlocker> INGESTION_BLOCKER_CODEC = Codec.BOOL.comapFlatMap(value -> value
+            ? com.mojang.serialization.DataResult.success(new IngestionBlocker())
+            : com.mojang.serialization.DataResult.error(() -> "IngestionBlocker is presence-only"), ignored -> true);
     public static final Codec<ItemActionGrant> ITEM_ACTION_GRANT_CODEC = RecordCodecBuilder.create(i -> i.group(
-            Codec.BOOL.fieldOf("active_if_worn").forGetter(ItemActionGrant::activeIfWorn)
+            Codec.BOOL.optionalFieldOf("active_if_worn", false).forGetter(ItemActionGrant::activeIfWorn),
+            Codec.BOOL.optionalFieldOf("active_if_carried", false).forGetter(ItemActionGrant::activeIfCarried)
     ).apply(i, ItemActionGrant::new));
     public static final Codec<SupportedActionGrant> SUPPORTED_ACTION_GRANT_CODEC = RecordCodecBuilder.create(i -> i.group(
             ResourceLocation.CODEC.listOf().fieldOf("actions").forGetter(SupportedActionGrant::actions),
@@ -89,34 +118,58 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
             SUPPORTED_ACTION_GRANT_CODEC.optionalFieldOf("supported_action_grant").forGetter(EquipmentItemData::supportedActionGrant),
             NO_SLIP_CODEC.optionalFieldOf("no_slip").forGetter(EquipmentItemData::noSlip),
             PROTECTED_FROM_STEP_TRIGGERS_CODEC.optionalFieldOf("protected_from_step_triggers").forGetter(EquipmentItemData::protectedFromStepTriggers),
-            CONTACT_DAMAGE_PROTECTION_CODEC.optionalFieldOf("damage_on_interact_protection").forGetter(EquipmentItemData::contactDamageProtection)
+            CONTACT_DAMAGE_PROTECTION_CODEC.optionalFieldOf("damage_on_interact_protection").forGetter(EquipmentItemData::contactDamageProtection),
+            PRESSURE_PROTECTION_CODEC.optionalFieldOf("pressure_protection").forGetter(EquipmentItemData::pressureProtection),
+            TEMPERATURE_PROTECTION_CODEC.optionalFieldOf("temperature_protection").forGetter(EquipmentItemData::temperatureProtection),
+            BREATH_MASK_CODEC.optionalFieldOf("breath_mask").forGetter(EquipmentItemData::breathMask),
+            INGESTION_BLOCKER_CODEC.optionalFieldOf("ingestion_blocker").forGetter(EquipmentItemData::ingestionBlocker)
     ).apply(i, EquipmentItemData::new));
 
     public EquipmentItemData {
         if (item == null || clothing == null || allowSuitStorage == null || tags == null || armor == null || supportedActionGrant == null
-                || noSlip == null || protectedFromStepTriggers == null || contactDamageProtection == null)
+                || noSlip == null || protectedFromStepTriggers == null || contactDamageProtection == null
+                 || pressureProtection == null || temperatureProtection == null || breathMask == null || ingestionBlocker == null)
             throw new IllegalArgumentException("null equipment composition");
         tags = List.copyOf(tags);
         supportedActionGrant = supportedActionGrant == null ? Optional.empty() : supportedActionGrant;
     }
     public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage,
                              List<EquipmentTag> tags, Optional<Armor> armor) {
-        this(item, clothing, storage, tags, armor, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+         this(item, clothing, storage, tags, armor, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
     public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage,
                              List<EquipmentTag> tags, Optional<Armor> armor, Optional<NoSlip> noSlip) {
-        this(item, clothing, storage, tags, armor, Optional.empty(), noSlip, Optional.empty(), Optional.empty());
+        this(item, clothing, storage, tags, armor, Optional.empty(), noSlip, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
     public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage,
                              List<EquipmentTag> tags, Optional<Armor> armor, Optional<NoSlip> noSlip,
                              Optional<ProtectedFromStepTriggers> protection) {
-        this(item, clothing, storage, tags, armor, Optional.empty(), noSlip, protection, Optional.empty());
+        this(item, clothing, storage, tags, armor, Optional.empty(), noSlip, protection, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
     public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage,
                              List<EquipmentTag> tags, Optional<Armor> armor, Optional<NoSlip> noSlip,
                              Optional<ProtectedFromStepTriggers> protection,
                              Optional<ContactDamageProtectionData> contactDamageProtection) {
-        this(item, clothing, storage, tags, armor, Optional.empty(), noSlip, protection, contactDamageProtection);
+        this(item, clothing, storage, tags, armor, Optional.empty(), noSlip, protection, contactDamageProtection, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+    public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage,
+                             List<EquipmentTag> tags, Optional<Armor> armor, Optional<SupportedActionGrant> actions,
+                             Optional<NoSlip> noSlip, Optional<ProtectedFromStepTriggers> protection,
+                             Optional<ContactDamageProtectionData> contactDamageProtection) {
+        this(item, clothing, storage, tags, armor, actions, noSlip, protection, contactDamageProtection, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+    public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage,
+                             List<EquipmentTag> tags, Optional<Armor> armor, Optional<SupportedActionGrant> actions,
+                             Optional<NoSlip> noSlip, Optional<ProtectedFromStepTriggers> protection,
+                             Optional<ContactDamageProtectionData> contactDamageProtection,
+                             Optional<PressureProtection> pressure, Optional<TemperatureProtection> temperature) {
+        this(item, clothing, storage, tags, armor, actions, noSlip, protection, contactDamageProtection, pressure, temperature, Optional.empty(), Optional.empty());
+    }
+    public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage, List<EquipmentTag> tags,
+                             Optional<Armor> armor, Optional<SupportedActionGrant> actions, Optional<NoSlip> noSlip,
+                             Optional<ProtectedFromStepTriggers> protection, Optional<ContactDamageProtectionData> contact,
+                             Optional<PressureProtection> pressure, Optional<TemperatureProtection> temperature, Optional<BreathMask> mask) {
+        this(item, clothing, storage, tags, armor, actions, noSlip, protection, contact, pressure, temperature, mask, Optional.empty());
     }
     public EquipmentItemData(Item item, Optional<Clothing> clothing, Optional<AllowSuitStorage> storage, List<EquipmentTag> tags) {
         this(item, clothing, storage, tags, Optional.empty());
@@ -163,21 +216,22 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
         public Item { try { if (size == null) throw new IllegalArgumentException(); com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintProfile.ItemSize.valueOf(size); }
             catch (IllegalArgumentException exception) { throw new IllegalArgumentException("invalid equipment size"); } }
     }
-    public record Clothing(List<InventoryTemplateData.SlotFlag> slotFlags, AppearanceRegion region, int color, int equipDelay,
+    public record Clothing(List<InventoryTemplateData.SlotFlag> slotFlags, AppearanceRegion region, int color, int equipDelay, int unequipDelay,
                            Optional<String> equipSound, Optional<String> unequipSound, boolean quickEquip,
                            Optional<WornModel> wornModel, double stripDelay, List<InventoryTemplateData.SlotFlag> quickEquipPreferredSlotFlags) {
         public Clothing {
             slotFlags = List.copyOf(slotFlags); quickEquipPreferredSlotFlags = List.copyOf(quickEquipPreferredSlotFlags);
-            if (slotFlags.isEmpty() || region == null || equipDelay < 0 || !Double.isFinite(stripDelay)
+            if (slotFlags.isEmpty() || region == null || equipDelay < 0 || unequipDelay < 0 || !Double.isFinite(stripDelay)
                     || new java.util.HashSet<>(quickEquipPreferredSlotFlags).size() != quickEquipPreferredSlotFlags.size()
                     || !slotFlags.containsAll(quickEquipPreferredSlotFlags)) throw new IllegalArgumentException("invalid clothing");
             equipSound = equipSound == null ? Optional.empty() : equipSound; unequipSound = unequipSound == null ? Optional.empty() : unequipSound;
             wornModel = wornModel == null ? Optional.empty() : wornModel;
         }
-        public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick, Optional<WornModel> model, double strip) { this(flags, region, color, delay, equip, unequip, quick, model, strip, List.of()); }
-        public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick) { this(flags, region, color, delay, equip, unequip, quick, Optional.empty(), 0, List.of()); }
+        public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick, Optional<WornModel> model, double strip, List<InventoryTemplateData.SlotFlag> preferred) { this(flags, region, color, delay, 0, equip, unequip, quick, model, strip, preferred); }
+        public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick, Optional<WornModel> model, double strip) { this(flags, region, color, delay, 0, equip, unequip, quick, model, strip, List.of()); }
+        public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick) { this(flags, region, color, delay, 0, equip, unequip, quick, Optional.empty(), 0, List.of()); }
         public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip) { this(flags, region, color, delay, equip, unequip, true); }
-        public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick, Optional<WornModel> model) { this(flags, region, color, delay, equip, unequip, quick, model, 0); }
+        public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick, Optional<WornModel> model) { this(flags, region, color, delay, 0, equip, unequip, quick, model, 0, List.of()); }
     }
     public record WornModel(ResourceLocation mesh, PlayerCharacterBodyShape bodyShape, List<Frame> frames) {
         public WornModel { if (mesh == null || bodyShape == null || frames == null || (!frames.isEmpty() && !frames.get(0).mesh().equals(mesh))) throw new IllegalArgumentException("invalid worn model"); frames = List.copyOf(frames); }
@@ -193,5 +247,36 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
             actions = List.copyOf(actions);
         }
     }
-    public record ItemActionGrant(boolean activeIfWorn) { }
+    public record ItemActionGrant(boolean activeIfWorn, boolean activeIfCarried) {
+        public ItemActionGrant(boolean activeIfWorn) { this(activeIfWorn, false); }
+    }
+    public record PressureProtection(double highPressureMultiplier, double lowPressureMultiplier,
+                                     double highPressureModifier, double lowPressureModifier) {
+        public PressureProtection {
+            if (!Double.isFinite(highPressureMultiplier) || highPressureMultiplier < 0
+                    || !Double.isFinite(lowPressureMultiplier) || lowPressureMultiplier < 0
+                    || !Double.isFinite(highPressureModifier) || !Double.isFinite(lowPressureModifier))
+                throw new IllegalArgumentException("invalid pressure protection");
+        }
+    }
+    public record TemperatureProtection(double heatingCoefficient, double coolingCoefficient) {
+        public TemperatureProtection {
+            if (!Double.isFinite(heatingCoefficient) || heatingCoefficient < 0
+                    || !Double.isFinite(coolingCoefficient) || coolingCoefficient < 0)
+                throw new IllegalArgumentException("invalid temperature protection");
+        }
+    }
+    public record BreathMask(List<InventoryTemplateData.SlotFlag> allowedSlots, Optional<WornModel> loweredWornModel) {
+        public BreathMask {
+            if (allowedSlots == null || allowedSlots.stream().anyMatch(java.util.Objects::isNull)
+                    || new java.util.HashSet<>(allowedSlots).size() != allowedSlots.size())
+                throw new IllegalArgumentException("invalid breath mask slots");
+            allowedSlots = List.copyOf(allowedSlots);
+            loweredWornModel = loweredWornModel == null ? Optional.empty() : loweredWornModel;
+        }
+        public BreathMask(List<InventoryTemplateData.SlotFlag> allowedSlots) { this(allowedSlots, Optional.empty()); }
+        public static final List<InventoryTemplateData.SlotFlag> DEFAULT_ALLOWED_SLOTS =
+                List.of(InventoryTemplateData.SlotFlag.MASK, InventoryTemplateData.SlotFlag.HEAD);
+    }
+    public record IngestionBlocker() { }
 }

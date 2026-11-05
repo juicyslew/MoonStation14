@@ -13,6 +13,8 @@ class TopRightHudLayoutTest {
                 var chat = TopRightHudLayout.chat(width, height);
                 assertTrue(chat.left() >= 0 && chat.right() <= width);
                 assertTrue(chat.top() >= 0 && chat.bottom() <= height);
+                assertEquals(1, chat.top());
+                assertEquals(width - 1, chat.right());
                 assertTrue(chat.width() <= 155 && chat.height() <= 78);
                 int top = TopRightHudLayout.statusTop(width, height);
                 int rows = TopRightHudLayout.statusRows(width, height);
@@ -26,12 +28,12 @@ class TopRightHudLayoutTest {
                     assertTrue(row.bottom() <= TopRightHudLayout.statusLimit(height));
                     if (i > 0) assertEquals(TopRightHudLayout.statusRow(width, height, i - 1).bottom(), row.top());
                 }
-                assertTrue(chat.bottom() <= Math.max(6, height - TopRightHudLayout.BOTTOM_RESERVE));
+                assertTrue(chat.bottom() <= Math.max(1, height - TopRightHudLayout.BOTTOM_RESERVE));
             }
         }
         assertEquals(3, TopRightHudLayout.statusRows(180, 140));
-        assertEquals(new TopRightHudLayout.Rect(159, 6, 314, 84), TopRightHudLayout.chat(320, 240));
-        assertEquals(new TopRightHudLayout.Rect(19, 6, 174, 71), TopRightHudLayout.chat(180, 140));
+        assertEquals(new TopRightHudLayout.Rect(164, 1, 319, 79), TopRightHudLayout.chat(320, 240));
+        assertEquals(new TopRightHudLayout.Rect(24, 1, 179, 71), TopRightHudLayout.chat(180, 140));
         assertEquals(0.78f, TopRightHudLayout.STATUS_FONT_SCALE);
     }
 

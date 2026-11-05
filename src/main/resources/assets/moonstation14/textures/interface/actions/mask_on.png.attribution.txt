@@ -1,0 +1,1 @@
+Imported byte-for-byte from pinned SS14 c9df5ef5d675b0d1d226828bddf6b78c28502d91, Resources/Textures/Clothing/Mask/gas.rsi/icon.png. RSI metadata: CC-BY-SA-3.0; source provenance and upstream attribution are recorded in that RSI meta.json.

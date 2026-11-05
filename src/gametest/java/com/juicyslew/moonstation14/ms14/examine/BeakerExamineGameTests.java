@@ -21,6 +21,7 @@ public final class BeakerExamineGameTests {
     private BeakerExamineGameTests() { }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
+    @GameTestTags("item_examine")
     public static void registeredConsumerExaminesResolvedBeakerContents(GameTestHelper helper) {
         var level = helper.getLevel();
         BuiltinExamineContributors.register();
@@ -55,6 +56,34 @@ public final class BeakerExamineGameTests {
                     null, null, null, true);
             for (var contributor : ExamineContributorRegistry.contributors()) contributor.contribute(detailContext, details);
             var rows = details.sortedEntries();
+            var heldTarget = ExamineTarget.ownedItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                    "left", 1, "fixture-held-token");
+            var heldContext = new ExamineContext(null, level, heldTarget, null, null, null, null,
+                    true, stack, true);
+            var heldRows = new ExamineCollector(true);
+            BuiltinExamineContributors.beakerSolution(heldContext, heldRows);
+            require(heldRows.sortedEntries().stream().map(e -> e.text().getString()).toList()
+                            .equals(rows.stream().map(e -> e.text().getString()).toList()),
+                    "held stack and floor entity use the same detached stack-owned solution projection");
+            var storedTarget = ExamineTarget.storedItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                    "back", 2, "fixture-bag-token", "fixture-child-token");
+            var storedRows = new ExamineCollector(true);
+            BuiltinExamineContributors.beakerSolution(new ExamineContext(null, level, storedTarget, null,
+                    null, null, null, true, stack, true), storedRows);
+            require(storedRows.sortedEntries().stream().map(e -> e.text().getString()).toList()
+                            .equals(rows.stream().map(e -> e.text().getString()).toList()),
+                    "stored stack shares floor/current component view");
+            var policy = com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.resolved(level, beaker.prototypeId()).examinableSolution();
+            require(!policy.heldOnly() && BuiltinExamineContributors.beakerExaminable(policy, detailContext)
+                            && BuiltinExamineContributors.beakerExaminable(policy, heldContext)
+                            && BuiltinExamineContributors.beakerExaminable(policy, storedRowsContext(level, storedTarget, stack)),
+                    "resolved current beaker composition allows enabled disclosure in all ordinary contexts");
+            var heldOnly = new com.juicyslew.moonstation14.ms14.chemistry.beaker.BeakerData.ExaminableSolution(
+                    policy.enabled(), policy.solutionName(), policy.exactVolume(), true, policy.examinableWhileClosed());
+            require(BuiltinExamineContributors.beakerExaminable(heldOnly, heldContext), "heldOnly policy accepts only direct held item context");
+            require(!BuiltinExamineContributors.beakerExaminable(heldOnly, detailContext), "heldOnly policy rejects floor items");
+            require(!BuiltinExamineContributors.beakerExaminable(heldOnly, storedRowsContext(level, storedTarget, stack)),
+                    "heldOnly policy rejects stored contents despite their common item projection");
             var volume = rows.stream().filter(e -> e.text().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
                     && t.getKey().equals("examine.solution.volume.exact")).findFirst()
                     .orElseThrow(() -> new GameTestAssertException("registered beaker consumer should emit exact volume"));
@@ -74,6 +103,11 @@ public final class BeakerExamineGameTests {
         } finally {
             item.discard();
         }
+    }
+
+    private static ExamineContext storedRowsContext(net.minecraft.server.level.ServerLevel level,
+            ExamineTarget target, ItemStack stack) {
+        return new ExamineContext(null, level, target, null, null, null, null, true, stack, true);
     }
 
     private static java.util.Set<String> translationKeys(net.minecraft.network.chat.Component component) {

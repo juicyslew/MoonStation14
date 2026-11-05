@@ -10,7 +10,10 @@ import net.neoforged.neoforge.client.settings.KeyModifier;
 import org.lwjgl.glfw.GLFW;
 
 public final class BodyActionKeys {
-    private static final KeyMapping OPEN = new KeyMapping("key.moonstation14.actions", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.moonstation14");
+    private static final KeyMapping OPEN = new KeyMapping("key.moonstation14.actions",
+            net.neoforged.neoforge.client.settings.KeyConflictContext.IN_GAME,
+            KeyModifier.CONTROL, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.moonstation14");
+    private static boolean legacyBindingChecked;
     private static final KeyMapping[] SLOTS = createSlots();
     private static KeyMapping[] createSlots() {
         KeyMapping[] result = new KeyMapping[BodyActionHotkeyDefaults.MAX_SLOTS];
@@ -29,7 +32,24 @@ public final class BodyActionKeys {
     }
     private BodyActionKeys() { }
     public static void register(RegisterKeyMappingsEvent event) { event.register(OPEN); for (var slot : SLOTS) event.register(slot); }
+    /** Repairs the legacy plain-K binding saved before the Actions chord moved to Ctrl+K. */
+    public static void normalizeLegacyOpenBinding() {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (legacyBindingChecked || mc.options == null || !java.util.Arrays.asList(mc.options.keyMappings).contains(OPEN)) return;
+        legacyBindingChecked = true;
+        if (OPEN.getKey().getType() == InputConstants.Type.KEYSYM
+                && OPEN.getKey().getValue() == GLFW.GLFW_KEY_K
+                && OPEN.getKeyModifier() == KeyModifier.NONE) {
+            OPEN.setKeyModifierAndCode(KeyModifier.CONTROL, InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_K));
+            KeyMapping.resetMapping();
+            drain(new KeyMapping[]{OPEN});
+            mc.options.save();
+        }
+    }
     public static boolean matches(int keyCode, int scanCode) { return OPEN.matches(keyCode, scanCode); }
+    public static boolean matches(int keyCode, int scanCode, int modifiers) {
+        return OPEN.matches(keyCode, scanCode) && BodyActionKeyPolicy.exactModifiers(modifiers, OPEN.getKeyModifier());
+    }
     public static net.minecraft.network.chat.Component labelForSlot(int slot) {
         return slot < 1 || slot > SLOTS.length ? net.minecraft.network.chat.Component.empty() : SLOTS[slot - 1].getTranslatedKeyMessage();
     }
@@ -41,6 +61,7 @@ public final class BodyActionKeys {
     }
     public static void beforeVanillaKeybinds() {
         var mc = net.minecraft.client.Minecraft.getInstance();
+        KeyMapping[] actions = SLOTS;
         var body = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedCharacterForHud();
         long epoch = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedCharacterEpoch();
         boolean eligible = BodyActionKeyPolicy.eligible(mc.level != null, mc.screen == null, body != null, body != null && body.level() == mc.level, epoch);
@@ -69,12 +90,18 @@ public final class BodyActionKeys {
     public static final class InputGuard {
         @SubscribeEvent public static void onKey(InputEvent.Key event) {
             if (event.getAction() != GLFW.GLFW_PRESS && event.getAction() != GLFW.GLFW_REPEAT) return;
-            boolean match = java.util.Arrays.stream(SLOTS).anyMatch(k -> k.matches(event.getKey(), event.getScanCode()));
-            if (match) BodyActionKeyPolicy.consumeDebugChord(GLFW.glfwGetKey(net.minecraft.client.Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_KEY_F3) == GLFW.GLFW_PRESS, () -> drain(SLOTS));
+            boolean match = java.util.Arrays.stream(SLOTS).anyMatch(k -> k.matches(event.getKey(), event.getScanCode())
+                    && BodyActionKeyPolicy.exactModifiers(event.getModifiers(), k.getKeyModifier()));
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            boolean sameOpenKey = OPEN.matches(event.getKey(), event.getScanCode());
+            if (BodyActionKeyPolicy.shouldDrainInvalidChord(sameOpenKey, event.getModifiers(), OPEN.getKeyModifier()))
+                drain(new KeyMapping[]{OPEN});
+            if (match) BodyActionKeyPolicy.consumeDebugChord(GLFW.glfwGetKey(mc.getWindow().getWindow(), GLFW.GLFW_KEY_F3) == GLFW.GLFW_PRESS, () -> drain(SLOTS));
         }
     }
     public static void tick() {
         var mc = net.minecraft.client.Minecraft.getInstance();
+        normalizeLegacyOpenBinding();
         while (OPEN.consumeClick()) {
             var body = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedCharacterForHud();
             if (body == null || mc.level == null || body.level() != mc.level || com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedCharacterEpoch() <= 0 || mc.screen != null && !(mc.screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen)) continue;

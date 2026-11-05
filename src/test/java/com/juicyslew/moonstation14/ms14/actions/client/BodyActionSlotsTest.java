@@ -64,6 +64,21 @@ class BodyActionSlotsTest {
         allocator.update(new BodyActionSnapshot(body, 1, 3, 0, List.of(updated, b)));
         assertEquals(updated, allocator.at(1)); assertEquals(b, allocator.at(2));
     }
+    @Test void incomingInternalsAndMaskActionsUseUniformArrivalOrderAndProviderIdentity() {
+        var combat = entry("combat_mode_toggle", "mind", true);
+        var scream = entry("scream", "voice", true);
+        var internals = entry("toggle_internals", "equipment:back:tank", true);
+        var mask = entry("toggle_mask", "equipment:mask:mask", true);
+        var replacement = entry("toggle_mask", "equipment:mask:replacement", true);
+        var body = UUID.randomUUID(); var slots = new BodyActionSlots();
+        slots.update(new BodyActionSnapshot(body, 4, 1, 0, List.of(combat, scream, internals, mask)));
+        assertEquals(combat, slots.at(1)); assertEquals(scream, slots.at(2));
+        assertEquals(internals, slots.at(3)); assertEquals(mask, slots.at(4));
+        slots.update(new BodyActionSnapshot(body, 4, 2, 0, List.of(combat, scream, internals)));
+        assertEquals(internals, slots.at(3));
+        slots.update(new BodyActionSnapshot(body, 4, 3, 0, List.of(combat, scream, internals, replacement)));
+        assertEquals(replacement, slots.at(4)); assertEquals(internals, slots.at(3));
+    }
     @Test void policyRejectsMissingWorldBodyScreenAndStaleBodyEpoch() {
         UUID body = UUID.randomUUID();
         assertTrue(BodyActionKeyPolicy.eligible(true, true, true, true, 1));
@@ -77,6 +92,25 @@ class BodyActionSlotsTest {
     @Test void duplicateBindingsChooseLowestIndex() {
         assertEquals(0, BodyActionKeyPolicy.bindingWinner(new String[]{"same", "same", "other"}, 1));
         assertEquals(2, BodyActionKeyPolicy.bindingWinner(new String[]{"same", "same", "other"}, 2));
+    }
+    @Test void configuredTwentySlotConflictsChooseEarliestMappingAtEveryIndex() {
+        boolean[] conflicts = new boolean[20];
+        for (int i = 0; i < 20; i++) {
+            java.util.Arrays.fill(conflicts, false);
+            for (int j = 0; j < i; j++) conflicts[j] = j == 1;
+            assertEquals(i > 1 ? 1 : i, BodyActionKeyPolicy.bindingWinner(conflicts, i));
+        }
+        java.util.Arrays.fill(conflicts, false);
+        conflicts[3] = true;
+        assertEquals(3, BodyActionKeyPolicy.bindingWinner(conflicts, 19));
+    }
+    @Test void routingEligibilityRequiresCommittedCharacterAndRejectsUiOrStaleSnapshot() {
+        UUID body = UUID.randomUUID();
+        assertTrue(BodyActionKeyPolicy.eligible(true, true, true, true, 7));
+        assertFalse(BodyActionKeyPolicy.eligible(true, true, false, false, 0)); // ghost/spectator: leave native bindings alone
+        assertFalse(BodyActionKeyPolicy.eligible(true, false, true, true, 7)); // UI capture
+        assertFalse(BodyActionKeyPolicy.snapshotMatches(body, 7, body, 6)); // stale committed epoch
+        assertTrue(BodyActionKeyPolicy.snapshotMatches(body, 7, body, 7));
     }
     @Test void debugChordBlocksOnlyBodyActionAdmission() {
         var modClicks = new java.util.ArrayDeque<>(java.util.List.of(1, 2, 3));

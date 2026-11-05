@@ -24,6 +24,26 @@ class ThrownContactPhysicsTest {
         assertEquals(2,sweep.maxY,1e-9);
     }
 
+    @Test void initiallyOverlappingThrownItemContactsEvenWhenClipEntryIsEmpty() {
+        AABB target = new AABB(0, 0, 0, .6, 1.8, .6);
+        AABB expanded = ThrownContactPhysics.sourceBaseSweep(target, .65, .08);
+        Vec3 from = new Vec3(.3, .9, .25);
+        Vec3 to = from.add(0, 0, .75);
+        assertTrue(expanded.contains(from));
+        assertTrue(expanded.clip(from, to).isEmpty(), "baseline AABB entry clip misses a source already inside");
+        assertEquals(from, ThrownContactPhysics.firstContact(target, .65, .08, from, to).orElseThrow());
+    }
+
+    @Test void firstContactPreservesStationaryEntryAndRejectsClearMiss() {
+        AABB target = new AABB(0, 0, 0, .6, 1.8, .6);
+        assertTrue(ThrownContactPhysics.firstContact(target, .65, .08,
+                new Vec3(.3, .9, -.8), new Vec3(.3, .9, 0)).isPresent());
+        assertTrue(ThrownContactPhysics.firstContact(target, .65, .08,
+                new Vec3(2, .9, -.8), new Vec3(2, .9, 0)).isEmpty());
+        Vec3 inside = new Vec3(.3, .9, .25);
+        assertEquals(inside, ThrownContactPhysics.firstContact(target, .65, .08, inside, inside).orElseThrow());
+    }
+
     @Test void verticalBouncePositionsBaseOutsideCorrectFace() {
         Vec3 top=ThrownContactPhysics.outside(new Vec3(.5,2,.5),new Vec3(0,1,0),.65,.08);
         assertEquals(2.0001,top.y,1e-8);

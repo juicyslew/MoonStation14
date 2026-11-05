@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
+import com.juicyslew.moonstation14.ms14.lung.InternalsSystem;
 
 import java.util.Optional;
 
@@ -20,9 +21,16 @@ public final class BodyActionEffects {
     private BodyActionEffects() { }
 
     public static Optional<PreparedEffect> prepare(ServerPlayer player, LivingEntity body, ActionPrototype action) {
-        return prepare(player, body, action, 0L);
+        return prepare(player, body, action, null, 0L);
     }
-    public static Optional<PreparedEffect> prepare(ServerPlayer player, LivingEntity body, ActionPrototype action, long originSequence) {
+
+    public static Optional<PreparedEffect> prepare(ServerPlayer player, LivingEntity body, ActionPrototype action,
+                                                   BodyActionDiscovery.Entry verifiedGrant) {
+        return prepare(player, body, action, verifiedGrant, 0L);
+    }
+
+    public static Optional<PreparedEffect> prepare(ServerPlayer player, LivingEntity body, ActionPrototype action,
+                                                   BodyActionDiscovery.Entry verifiedGrant, long originSequence) {
         if (player == null || body == null || action == null || !(body.level() instanceof ServerLevel level))
             return Optional.empty();
         return switch (action.handler()) {
@@ -52,7 +60,35 @@ public final class BodyActionEffects {
                 return result == com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.SelfRemovalResult.STARTED
                         || result == com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.SelfRemovalResult.IN_PROGRESS;
             });
+            case INTERNALS_TOGGLE -> {
+                if (verifiedGrant == null || !grantStillCurrent(body, verifiedGrant)
+                        || !verifiedGrant.providerKey().contains(":")) yield Optional.empty();
+                String token = verifiedGrant.providerKey().substring(verifiedGrant.providerKey().lastIndexOf(':') + 1);
+                 yield Optional.of(() -> {
+                     if (!grantStillCurrent(body, verifiedGrant)) return false;
+                     if (!InternalsSystem.toggle(body, token)) return false;
+                    // SS14 GasTankComponent.ConnectSound default: internals.ogg at +5 dB;
+                    // disconnect is intentionally silent. Only cue a successfully selected source.
+                    if (InternalsSystem.selectedTank(body).map(source -> source.token().equals(token)).orElse(false))
+                        com.juicyslew.moonstation14.ms14.audio.EntityAttachedSoundRouter.play(level, body,
+                                net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getKey(
+                                        com.juicyslew.moonstation14.sounds.ModSounds.INTERNALS_TOGGLE.get()),
+                                net.minecraft.sounds.SoundSource.PLAYERS,
+                                com.juicyslew.moonstation14.ms14.hands.live.ItemSlotAudio.decibels(5f), 1.0f);
+                    return true;
+                });
+            }
+            case MASK_TOGGLE -> verifiedGrant == null || !grantStillCurrent(body, verifiedGrant)
+                    ? Optional.empty() : Optional.of(() -> grantStillCurrent(body, verifiedGrant)
+                    && com.juicyslew.moonstation14.ms14.equipment.BreathMaskActions.toggleMask(body, verifiedGrant.providerKey()));
         };
+    }
+
+    private static boolean grantStillCurrent(LivingEntity body, BodyActionDiscovery.Entry grant) {
+        var character = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(body).orElse(null);
+        return character != null && BodyActionDiscovery.discover(body, body.getUUID(), character).stream()
+                .anyMatch(current -> current.actionId().equals(grant.actionId())
+                        && current.providerKey().equals(grant.providerKey()) && current.profile().equals(grant.profile()));
     }
 
     @FunctionalInterface

@@ -1,0 +1,1 @@
+{"abstract":true,"parent":"base_clothing","item":{"size":"Normal"},"clothing":{"slot_flags":["BACK","SUITSTORAGE"],"region":"TORSO","color":-1},"supported_action_grant":{"actions":["moonstation14:toggle_internals"],"item_action_grant":{"active_if_worn":false,"active_if_carried":true}}}

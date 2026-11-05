@@ -16,6 +16,24 @@ import com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ExamineWorldSelectorBoundTest {
+    @Test void itemKindsNeverRequestWorldBoundsEvenWithARealLevelArgument() {
+        var level = org.mockito.Mockito.mock(net.minecraft.world.level.Level.class);
+        var location = com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD;
+        var held = ExamineTarget.ownedItem(location, "left", 1, "held-token");
+        var stored = ExamineTarget.storedItem(location, "bag", 1, "host", "child");
+        var worldStored = ExamineTarget.worldStoredItem(UUID.randomUUID(), UUID.randomUUID(), 1, 1, "child");
+        var scene = ExamineTarget.scene(com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.SUN);
+        for (var target : List.of(held, stored, worldStored, scene)) {
+            assertNull(ExamineWorldSelector.currentBounds(level, target));
+            org.mockito.Mockito.verifyNoInteractions(level);
+            org.mockito.Mockito.clearInvocations(level);
+        }
+        assertTrue(ExamineTarget.Kind.BLOCK.hasWorldGeometry());
+        assertTrue(ExamineTarget.Kind.ENTITY.hasWorldGeometry());
+        for (var target : List.of(held, stored, worldStored, scene))
+            assertFalse(target.kind().hasWorldGeometry());
+    }
+
     private static ExamineWorldSelector.Candidate entity(int n, double distance) {
         return new ExamineWorldSelector.Candidate(ExamineTarget.entity(n + 1, UUID.nameUUIDFromBytes(("e" + n).getBytes())),
                 Vec3.ZERO, distance, "item", new AABB(0, 0, 0, 1, 1, 1));

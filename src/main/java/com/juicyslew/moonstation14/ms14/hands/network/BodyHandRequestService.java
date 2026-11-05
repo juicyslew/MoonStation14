@@ -426,6 +426,10 @@ public final class BodyHandRequestService {
             default -> null;
         };
         if (request.action() == BodyHandActionRequest.Action.QUICK_EQUIP) {
+            var quickItem = hands.stackCopy(request.handId()).orElse(null);
+            int quickDelay = EquipmentTimedInteraction.delay(quickItem, true);
+            if (quickDelay > 0) return result(request, EquipmentTimedInteraction.startQuick(actor, authority, hands,
+                    request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence(), quickDelay), authority);
             var outcome = reason(BodyEquipmentTransfer.quickEquip(actor, request.handId(), request.expectedToken(), request.expectedRevision()));
             BodyHandActionResult response = result(request, outcome, authority);
             if (outcome == BodyHandActionResult.Reason.OK) BodyHandStateService.requireFreshQuery(actor);
@@ -534,6 +538,15 @@ public final class BodyHandRequestService {
                     || hands.revision() != request.expectedRevision()
                     || !equipment.equals(BodyHandStateService.equipment(hands, authority.body(), handSlots)))
                 return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+            if (request.action() == BodyHandActionRequest.Action.EQUIP_SLOT
+                    || request.action() == BodyHandActionRequest.Action.UNEQUIP_SLOT) {
+                boolean puttingOn = equipping;
+                var delayStack = puttingOn ? hands.stackCopy(request.handId()).orElse(null)
+                        : liveSlot == null ? null : liveSlot.stack().orElse(null);
+                int delay = EquipmentTimedInteraction.delay(delayStack, puttingOn);
+                if (delay > 0) return result(request, EquipmentTimedInteraction.start(actor, authority, hands,
+                        request.handId(), equipmentSlot, request.expectedToken(), request.expectedRevision(), request.sequence(), puttingOn, delay), authority);
+            }
             BodyHandActionResult.Reason outcome;
             if (equipping) outcome = reason(BodyEquipmentTransfer.equip(actor, request.handId(), equipmentSlot,
                     request.expectedToken(), request.expectedRevision()));

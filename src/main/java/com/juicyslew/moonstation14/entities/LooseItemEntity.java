@@ -55,6 +55,7 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
     private boolean activeThrownCombat;
     private boolean thrownLandingSoundConsumed;
     private java.util.UUID thrownByBody;
+    private final ThrowerClearance throwerClearance = new ThrowerClearance();
     private final java.util.Set<java.util.UUID> previousThrownContacts = new java.util.HashSet<>();
     private final com.juicyslew.moonstation14.ms14.combat.throwing.LooseItemCollisionSoundPolicy collisionSoundPolicy = new com.juicyslew.moonstation14.ms14.combat.throwing.LooseItemCollisionSoundPolicy();
     private final LooseClientPositionInterpolation clientPosition = new LooseClientPositionInterpolation();
@@ -136,7 +137,7 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
     /** Arms target-contact behavior only after authenticated world publication. */
     public void armThrownCombat(java.util.UUID throwerBody) {
         if (!level().isClientSide && throwerBody != null && !isRemoved() && isAddedToLevel()
-                && level().getEntity(getId()) == this) { previousThrownContacts.clear(); activeThrownCombat = true; entityData.set(THROWN_FLIGHT, true); thrownLandingSoundConsumed = false; thrownByBody = throwerBody;
+                && level().getEntity(getId()) == this) { previousThrownContacts.clear(); throwerClearance.reset(); activeThrownCombat = true; entityData.set(THROWN_FLIGHT, true); thrownLandingSoundConsumed = false; thrownByBody = throwerBody;
             com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.resolveForStack(getItem(), false)
                     .flatMap(com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile::throwSound)
                     .ifPresent(sound -> com.juicyslew.moonstation14.ms14.explosion.grenade.network.ControlledSoundDispatch.emit(
@@ -146,7 +147,7 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
     /** Public synchronized presentation projection; combat authority remains server-private. */
     public boolean thrownFlightPresentation() { return entityData.get(THROWN_FLIGHT); }
     public java.util.Optional<java.util.UUID> thrownByBody() { return java.util.Optional.ofNullable(thrownByBody); }
-    public void stopThrownCombat() { activeThrownCombat = false; entityData.set(THROWN_FLIGHT, false); thrownByBody = null; previousThrownContacts.clear(); }
+    public void stopThrownCombat() { activeThrownCombat = false; entityData.set(THROWN_FLIGHT, false); thrownByBody = null; throwerClearance.reset(); previousThrownContacts.clear(); }
 
     public java.util.Optional<ItemAttachment> attachment() {
         var target=entityData.get(ATTACH_TARGET); int kind=entityData.get(ATTACH_KIND);
@@ -366,14 +367,20 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         java.util.Set<java.util.UUID> contacts = new java.util.HashSet<>();
         var profile = com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.resolveForStack(getItem(), false).orElse(null);
         if (profile == null) { previousThrownContacts.clear(); return false; }
+        var thrower = thrownByBody == null ? null : server.getEntity(thrownByBody);
+        boolean suppressThrowerThisSweep = false;
+        if (thrower instanceof net.minecraft.world.entity.LivingEntity livingThrower) {
+            var bounds = com.juicyslew.moonstation14.ms14.standing.BodyInteractionBounds.of(livingThrower);
+            suppressThrowerThisSweep = throwerClearance.suppress(bounds.intersects(getBoundingBox()));
+        }
         var hits = new java.util.ArrayList<ThrownBodyContact>();
         for (var candidate : server.getEntities(this, search, e -> e instanceof net.minecraft.world.entity.LivingEntity
                 && com.juicyslew.moonstation14.ms14.combat.CommonMeleeTargetEligibility.damageable(e)
                 && !e.noPhysics)) {
             var living = (net.minecraft.world.entity.LivingEntity) candidate;
-            if (living.getUUID().equals(thrownByBody)) continue;
             var bounds = com.juicyslew.moonstation14.ms14.standing.BodyInteractionBounds.of(living);
-            var intersection = ThrownContactPhysics.sourceBaseSweep(bounds, getBbWidth(), getBbHeight()).clip(from, to);
+            var intersection = ThrownContactPhysics.firstContact(bounds, getBbWidth(), getBbHeight(), from, to);
+            if (living.getUUID().equals(thrownByBody) && suppressThrowerThisSweep) continue;
             if (intersection.isEmpty()) continue;
             contacts.add(living.getUUID());
             if (!previousThrownContacts.contains(living.getUUID()))

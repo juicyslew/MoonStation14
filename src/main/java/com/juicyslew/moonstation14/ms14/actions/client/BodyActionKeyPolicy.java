@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.actions.client;
 
 import java.util.UUID;
+import org.lwjgl.glfw.GLFW;
 
 /** Pure guards and stable binding ownership for the numbered action-key path. */
 final class BodyActionKeyPolicy {
@@ -14,6 +15,21 @@ final class BodyActionKeyPolicy {
     static int bindingWinner(String[] keys, int index) {
         for (int i = 0; i < index; i++) if (keys[i].equals(keys[index])) return i;
         return index;
+    }
+    static int bindingWinner(boolean[] conflictsWithEarlier, int index) {
+        for (int i = 0; i < index; i++) if (conflictsWithEarlier[i]) return i;
+        return index;
+    }
+    static boolean exactModifiers(int modifiers, net.neoforged.neoforge.client.settings.KeyModifier binding) {
+        int expected = binding == net.neoforged.neoforge.client.settings.KeyModifier.SHIFT ? GLFW.GLFW_MOD_SHIFT
+                : binding == net.neoforged.neoforge.client.settings.KeyModifier.CONTROL ? GLFW.GLFW_MOD_CONTROL
+                : binding == net.neoforged.neoforge.client.settings.KeyModifier.ALT ? GLFW.GLFW_MOD_ALT : 0;
+        int actual = modifiers & (GLFW.GLFW_MOD_SHIFT | GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_ALT);
+        return actual == expected;
+    }
+    static boolean shouldDrainInvalidChord(boolean sameKey, int modifiers,
+                                           net.neoforged.neoforge.client.settings.KeyModifier binding) {
+        return sameKey && !exactModifiers(modifiers, binding);
     }
     static boolean consumeDebugChord(boolean f3Held, Runnable discardActionClicks) {
         if (!f3Held) return false;

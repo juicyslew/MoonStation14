@@ -10,7 +10,7 @@ import net.minecraft.world.entity.LivingEntity;
 /** Server-thread commit point for live hands. Scoped batches publish only their final committed value. */
 public final class LiveHandsCommitGateway {
     private static final ThreadLocal<java.util.IdentityHashMap<LivingEntity, Pending>> BATCH = new ThreadLocal<>();
-    private record Pending(LivingEntity body, ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands state) { }
+    private record Pending(LivingEntity body, ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands before, LiveHands state) { }
     private LiveHandsCommitGateway() { }
 
     public static boolean commit(ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands value) {
@@ -27,7 +27,7 @@ public final class LiveHandsCommitGateway {
             restoreAttachment(body, value, previous);
             return false;
         }
-        deferOrPublish(actor, authority, value);
+        deferOrPublish(actor, authority, previous, value);
         return true;
     }
 
@@ -90,7 +90,7 @@ public final class LiveHandsCommitGateway {
                 var authority = HandActorAuthority.resolve(player).orElse(null);
                 if (authority != null && authority.body() == body) { owner=player; ownerAuthority=authority; break; }
             }
-            deferOrPublish(owner, ownerAuthority, value, body);
+            deferOrPublish(owner, ownerAuthority, previous, value, body);
         }
         return true;
     }
@@ -106,11 +106,11 @@ public final class LiveHandsCommitGateway {
         else body.setData(ModDataAttachments.LIVE_HANDS.get(), previous);
     }
 
-    private static void deferOrPublish(ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands value) { deferOrPublish(actor,authority,value,authority.body()); }
-    private static void deferOrPublish(ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands value, LivingEntity body) {
+    private static void deferOrPublish(ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands before, LiveHands value) { deferOrPublish(actor,authority,before,value,authority.body()); }
+    private static void deferOrPublish(ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands before, LiveHands value, LivingEntity body) {
         var batch = BATCH.get();
-        if (batch == null) { BodyHandNetworking.publish(body,value); if(actor!=null&&authority!=null) BodyHandStateService.publishOwnerCommitted(actor, authority); }
-        else batch.put(body, new Pending(body, actor, authority, value));
+        if (batch == null) { BodyHandNetworking.publish(body,value); if(actor!=null&&authority!=null) BodyHandStateService.publishOwnerCommitted(actor, authority); com.juicyslew.moonstation14.ms14.equipment.EquipmentWearAudio.afterCommitted(body,before,value); }
+        else batch.compute(body, (ignored, existing) -> new Pending(body, actor, authority, existing == null ? before : existing.before(), value));
     }
 
     /** Run a short synchronous mutation batch; callers invoke commit once with the final state. */
@@ -124,8 +124,8 @@ public final class LiveHandsCommitGateway {
             for (var value : pending.values()) {
                 BodyHandNetworking.publish(value.body(),value.state());
                 if(value.actor()!=null&&value.authority()!=null) BodyHandStateService.publishOwnerCommitted(value.actor(), value.authority());
+                com.juicyslew.moonstation14.ms14.equipment.EquipmentWearAudio.afterCommitted(value.body(),value.before(),value.state());
             }
         }
     }
 }
-

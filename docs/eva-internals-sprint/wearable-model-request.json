@@ -1,0 +1,11 @@
+{
+  "id": "eva-wearable-replacement-20261102-r1",
+  "title": "SS14-faithful 3D EVA suit, helmet, masks and oxygen tanks",
+  "scope": "art-only; replace the rejected, unaccepted wearable placeholders/adaptations; no gameplay/code or unrelated wearables",
+  "target_runtime": "Minecraft Java 1.21.1 / NeoForge 21.1.224; authored worn meshes consumed by the existing AuthoredWearableMesh/EquipmentRenderPlan contracts",
+  "source_pin": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "asset_ids": ["eva_helmet", "eva_suit", "breathing_mask", "breathing_mask_lowered", "oxygen_tank", "emergency_oxygen_tank"],
+  "dependencies": ["Existing runtime wearable IDs, AuthoredWearableMesh/EquipmentRenderPlan renderer and canonical humanoid anchors; do not add slots/framework or alter inventory icons."],
+  "brief": "Create professional, source-faithful replacements for all six listed worn visuals as one cohesive family. The current models are rejected/unaccepted placeholders, not approved artwork. Follow the pinned SS14 EVA helmet/suit, breathing mask and oxygen-tank designs; see docs/eva-internals-sprint/WEARABLE-MODEL-BRIEF.md for visual and review requirements. Helmet attaches to HEAD with shell depth and clear visor; raised breathing mask reads distinctly on HEAD/mouth and lowered state sits at lower neck/TORSO; suit follows TORSO plus paired articulated arms and legs, with clean seams, broad WIDE-body fit, no Minecraft armor-cube chunks or clipping/occlusion; tanks are recognizable faceted SS14 oxygen forms, placed only in body-worn/back, suit-storage or belt positions supported by current contracts. Preserve separation between held/inventory icons and worn meshes; icons are unchanged and are not proof of 3D completion. Provide modeler previews front/side/back plus walking and arm/leg articulation, showing both mask states. Deliver editable source, complete runtime asset group and per-file provenance/license through the canonical asset workflow; do not place models/previews in docs. Cite pinned upstream source in attribution. Delivery is not acceptance/import."
+  ,"context": ["docs/eva-internals-sprint/WEARABLE-MODEL-BRIEF.md", "docs/equipment-sprint/MODELLER.md", "docs/equipment-sprint/ASSETS.md", "docs/equipment-sprint/authored-wearables/binding_contract.json"]
+}

@@ -52,8 +52,9 @@ public final class AirlockPryService {
         return true;
     }
     private static boolean valid(ServerPlayer actor,HandActorAuthority.Snapshot authority,LiveHands hands,String hand,String token,long handRevision,ItemStack held,ServerLevel level,BlockPos pos,UUID identity,long revision) {
-        if(!HandActorAuthority.revalidate(actor,authority)||authority.body().level()!=level
-                ||authority.body().getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get())!=hands
+        LiveHands currentHands=authority.body().getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+        if(!HandActorAuthority.revalidate(actor,authority)||authority.body().level()!=level||currentHands==null
+                ||currentHands!=hands&&!currentHands.continuesAcrossPassiveTankDebit(authority.body(),hands)
                 ||!hands.compatible(authority.body())||!level.hasChunkAt(pos))return false;
         boolean handValid=held==null?DoorPrySupport.matchesEmptyHandSnapshot(hands,hand,token,handRevision)
                 :DoorPrySupport.matchesHeldHandSnapshot(hands,hand,token,held,handRevision)&&ToolQualities.has(held,ToolProfile.Quality.PRYING);

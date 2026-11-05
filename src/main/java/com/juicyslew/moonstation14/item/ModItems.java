@@ -334,6 +334,14 @@ public class ModItems {
     public static final DeferredItem<BeakerItem> BEAKER_LARGE = ITEMS.register("beaker_large", () -> new BeakerItem(new Item.Properties().stacksTo(1)
             .component(ModDataComponents.REAGENT.get(), new com.juicyslew.moonstation14.ms14.reagent.ReagentComponent()), ModBeakers.LARGE_ID));
     public static final DeferredItem<GasTankItem> PLASMA_TANK = ITEMS.register("plasma_tank", () -> new GasTankItem(new Item.Properties()));
+    public static final DeferredItem<GasTankItem> OXYGEN_TANK = ITEMS.register("oxygen_tank", () -> new GasTankItem(new Item.Properties(), com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.OXYGEN_ID));
+    public static final DeferredItem<GasTankItem> EMERGENCY_OXYGEN_TANK = ITEMS.register("emergency_oxygen_tank", () -> new GasTankItem(new Item.Properties(), com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.EMERGENCY_OXYGEN_ID));
+    public static Item gasTankById(ResourceLocation id) {
+        if (id.equals(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.id("plasma_tank"))) return PLASMA_TANK.get();
+        if (id.equals(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.id("oxygen_tank"))) return OXYGEN_TANK.get();
+        if (id.equals(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.id("emergency_oxygen_tank"))) return EMERGENCY_OXYGEN_TANK.get();
+        throw new IllegalArgumentException("Unknown gas tank item " + id);
+    }
     public static final DeferredItem<BlockItem> CHEM_MASTER = ITEMS.register("chem_master",
             () -> new BlockItem(com.juicyslew.moonstation14.block.ModBlocks.CHEM_MASTER.get(), new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> NETWORK_CONFIGURATOR = ITEMS.register("network_configurator", () -> new Item(new Item.Properties().stacksTo(1)

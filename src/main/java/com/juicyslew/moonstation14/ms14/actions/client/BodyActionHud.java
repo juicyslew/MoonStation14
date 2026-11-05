@@ -23,6 +23,7 @@ public final class BodyActionHud {
     }
     private static final class Bar implements PointerOverlayWindow {
         private int width, height, left, top;
+        private int projectionWidth = -1, projectionHeight = -1;
         private boolean visible;
         private java.util.UUID trackedBody;
         private long trackedEpoch;
@@ -46,7 +47,7 @@ public final class BodyActionHud {
                     && snap.bodyEpoch() == com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedCharacterEpoch()
                     && com.juicyslew.moonstation14.ms14.ui.client.GameplayHudPolicy.visible(mc.screen);
             width = mc.getWindow().getGuiScaledWidth(); height = mc.getWindow().getGuiScaledHeight();
-            left = 6; top = BodyActionLayout.actionBarTop();
+            left = BodyActionLayout.actionBarLeft(); top = BodyActionLayout.actionBarTop();
             if (!visible) { projection = null; paintedSlots = null; PointerOverlayRegistry.unregister(this); }
             else PointerOverlayRegistry.register(this);
         }
@@ -63,25 +64,28 @@ public final class BodyActionHud {
         @Override public void renderIntoGui(GuiGraphics g, int mx, int my, float partial, int w, int h) {
             update(); if (!visible) return;
             var slots = BodyActionClient.slots();
-            if (slots != paintedSlots || projection == null) {
+            if (slots != paintedSlots || projection == null
+                    || projectionWidth != width || projectionHeight != height) {
                 int aw = Math.max(0, (int)Math.floor((width-left)/BodyActionLayout.ACTION_UI_SCALE));
                 int ah = Math.max(0, (int)Math.floor((height-top)/BodyActionLayout.ACTION_UI_SCALE));
-                paintedSlots = slots; projection = BodyActionHudProjection.build(slots, aw, ah);
+                paintedSlots = slots; projectionWidth = width; projectionHeight = height;
+                projection = BodyActionHudProjection.build(slots, aw, ah);
             }
             if (projection.cells().isEmpty()) return;
             g.pose().pushPose();
             g.pose().translate(left, top, 0);
             g.pose().scale(BodyActionLayout.ACTION_UI_SCALE, BodyActionLayout.ACTION_UI_SCALE, 1);
+            java.util.List<net.minecraft.network.chat.Component> tooltip = null;
             for (var cell : projection.cells()) {
                 var rect = cell.rect(); var entry = cell.entry();
                 int x = rect.x(), y = rect.y();
-                g.fill(x, y, x + 28, y + 28, 0xaa0d1118); g.fill(x, y, x + 28, y + 1, 0xff66717c);
-                int logicalMouseX = (int)BodyActionLayout.toLogical(mx, left), logicalMouseY = (int)BodyActionLayout.toLogical(my, top);
-                boolean hovered = logicalMouseX >= x && logicalMouseX < x + 28 && logicalMouseY >= y && logicalMouseY < y + 28;
-                if (hovered) g.fill(x, y, x + 28, y + 28, 0x665d7184);
-                    if (entry.active()) g.fill(x, y, x + 28, y + 28, 0x554fc777);
+                g.fill(x, y, x + 28, y + BodyActionLayout.ACTION_BAR_CELL_HEIGHT, 0xaa0d1118); g.fill(x, y, x + 28, y + 1, 0xff66717c);
+                int logicalMouseX = (int)BodyActionLayout.actionBarPointer(mx, left), logicalMouseY = (int)BodyActionLayout.actionBarPointer(my, top);
+                boolean hovered = rect.contains(logicalMouseX, logicalMouseY);
+                if (hovered) g.fill(x, y, x + 28, y + BodyActionLayout.ACTION_BAR_CELL_HEIGHT, 0x665d7184);
+                if (BodyActionPresentation.activePressedStyle(entry)) g.fill(x, y, x + BodyActionLayout.ACTION_BAR_CELL_WIDTH, y + BodyActionLayout.ACTION_BAR_CELL_HEIGHT, 0x554fc777);
                     int inset = BodyActionLayout.ACTION_BAR_ICON_INSET, iconSize = BodyActionLayout.ACTION_BAR_ICON;
-                    g.blit(entry.iconOn().filter(ignored -> entry.active()).orElse(entry.icon()), x + inset, y + inset, iconSize, iconSize, 0, 0, 16, 16, 16, 16);
+                    g.blit(BodyActionPresentation.icon(entry), x + inset, y + inset, iconSize, iconSize, 0, 0, 32, 32, 32, 32);
                     if (!entry.enabled() || BodyActionClient.pending()) g.fill(x + inset, y + inset, x + inset + iconSize, y + inset + iconSize, 0x99000000);
                     long cd = BodyActionClient.remainingCooldown(entry);
                     long now = Minecraft.getInstance().level == null ? 0 : Minecraft.getInstance().level.getGameTime();
@@ -99,21 +103,28 @@ public final class BodyActionHud {
                         if (blink > 0) g.fill(x + inset, y + inset, x + inset + iconSize, y + inset + iconSize, ((int)(blink * 0x88) << 24) | 0x00ffffff);
                     }
                     if (hovered && pointerAvailable()) {
-                        var tip = new java.util.ArrayList<net.minecraft.network.chat.Component>();
-                         tip.add(net.minecraft.network.chat.Component.translatable(entry.displayName()));
-                        tip.add(BodyActionKeys.labelForSlot(rect.slotNumber()));
-                        if (!entry.disabledReason().isBlank()) tip.add(net.minecraft.network.chat.Component.translatable(
+                        tooltip = new java.util.ArrayList<>();
+                        tooltip.add(net.minecraft.network.chat.Component.translatable(entry.displayName()));
+                        tooltip.add(BodyActionKeys.labelForSlot(rect.slotNumber()));
+                        if (!entry.disabledReason().isBlank()) tooltip.add(net.minecraft.network.chat.Component.translatable(
                                 "gui.moonstation14.actions.disabled." + entry.disabledReason().toLowerCase(java.util.Locale.ROOT)));
                         long remaining = BodyActionClient.remainingCooldown(entry);
-                        if (remaining > 0) tip.add(net.minecraft.network.chat.Component.literal("Cooldown: "
+                        if (remaining > 0) tooltip.add(net.minecraft.network.chat.Component.literal("Cooldown: "
                                 + BodyActionLayout.cooldownSeconds(remaining)));
-                        if (BodyActionClient.pending()) tip.add(net.minecraft.network.chat.Component.literal("Action pending"));
-                        g.renderTooltip(Minecraft.getInstance().font, tip.stream().map(net.minecraft.network.chat.Component::getVisualOrderText).toList(), mx, my);
+                        if (BodyActionClient.pending()) tooltip.add(net.minecraft.network.chat.Component.literal("Action pending"));
                     }
                 String keyLabel = BodyActionKeys.compactLabelForSlot(rect.slotNumber());
-                g.drawString(Minecraft.getInstance().font, keyLabel, x + 14 - Minecraft.getInstance().font.width(keyLabel) / 2, y + 20, 0xffeeeeee, false);
+                int maxLabelWidth = rect.labelWidth();
+                while (!keyLabel.isEmpty() && Minecraft.getInstance().font.width(keyLabel) > maxLabelWidth)
+                    keyLabel = keyLabel.substring(0, keyLabel.length() - 1);
+                if (!keyLabel.isEmpty()) g.drawString(Minecraft.getInstance().font, keyLabel,
+                        rect.labelX() + (rect.labelWidth() - Minecraft.getInstance().font.width(keyLabel)) / 2,
+                        rect.labelY(), 0xffeeeeee, false);
             }
             g.pose().popPose();
+            if (tooltip != null) g.renderTooltip(Minecraft.getInstance().font,
+                    tooltip.stream().map(net.minecraft.network.chat.Component::getVisualOrderText).toList(),
+                    BodyActionLayout.tooltipAnchor(mx), BodyActionLayout.tooltipAnchor(my));
         }
         private static void drawCooldownWipe(GuiGraphics g, int x, int y, float progress) {
             final int radius = 12;

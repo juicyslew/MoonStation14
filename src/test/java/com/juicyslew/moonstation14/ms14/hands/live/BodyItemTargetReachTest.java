@@ -35,6 +35,18 @@ class BodyItemTargetReachTest {
                 new AABB(1, -.1, -.1, 1.1, .1, .1), Double.NaN));
     }
 
+    @Test void attachedSelectionToleranceExtendsOnlyTheTopFace() {
+        AABB anchor = new AABB(1, -.1, 2, 1.2, .05, 2.2);
+        AABB attached = BodyItemTargetProbe.selectionBounds(anchor, true);
+        assertEquals(anchor.minX, attached.minX);
+        assertEquals(anchor.maxX, attached.maxX);
+        assertEquals(anchor.minZ, attached.minZ);
+        assertEquals(anchor.maxZ, attached.maxZ);
+        assertEquals(anchor.minY, attached.minY);
+        assertEquals(anchor.maxY + BodyItemTargetProbe.TARGET_MARGIN, attached.maxY);
+        assertEquals(anchor, BodyItemTargetProbe.selectionBounds(anchor, false));
+    }
+
     @Test void nonFiniteEyeAndNullInputsAreRejected() {
         AABB bounds = new AABB(1, -.1, -.1, 1.1, .1, .1);
         assertFalse(BodyItemTargetProbe.withinPhysicalReach(new Vec3(Double.NaN, 0, 0), bounds, 5));

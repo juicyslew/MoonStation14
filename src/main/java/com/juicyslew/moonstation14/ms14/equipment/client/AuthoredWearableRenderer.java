@@ -31,20 +31,21 @@ final class AuthoredWearableRenderer {
     static boolean render(EquipmentRenderPlan.Garment garment, PlayerModel<?> model, PoseStack pose,
                            MultiBufferSource buffers, int light, double elapsedSeconds) {
         return render(garment, elapsedSeconds, AuthoredWearableMeshes::get,
-                texture -> buffers.getBuffer(RenderType.entityCutoutNoCull(texture)),
+                mesh -> buffers.getBuffer(mesh.material() == AuthoredWearableMesh.Material.TRANSLUCENT
+                        ? RenderType.entityTranslucent(mesh.texture()) : RenderType.entityCutoutNoCull(mesh.texture())),
                 anchor -> EquipmentPlaceholderGeometry.boneFor(model, anchor), pose, light);
     }
 
     static boolean render(EquipmentRenderPlan.Garment garment, double elapsedSeconds,
                           java.util.function.Function<net.minecraft.resources.ResourceLocation, java.util.Optional<AuthoredWearableMesh>> lookup,
-                          java.util.function.Function<net.minecraft.resources.ResourceLocation, VertexConsumer> consumers,
+                           java.util.function.Function<AuthoredWearableMesh, VertexConsumer> consumers,
                           java.util.function.Function<EquipmentRenderPlan.Anchor, net.minecraft.client.model.geom.ModelPart> bones,
                           PoseStack pose, int light) {
         if (garment.wornModel().isEmpty()) return false;
         var selected = selectedMesh(garment.wornModel().get(), elapsedSeconds);
         var mesh = lookup.apply(selected).orElse(null);
         if (mesh == null) return false;
-        VertexConsumer consumer = consumers.apply(mesh.texture());
+        VertexConsumer consumer = consumers.apply(mesh);
         emit(mesh, bones, pose, consumer, light);
         return true;
     }

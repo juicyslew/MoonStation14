@@ -1,5 +1,23 @@
 # Verified thrown-item composition
 
+Current owner-feedback revision: `FEEDBACK.md` records the movement and returning-
+throw decisions. `ASSETS.md` records the approved basic armor import and runtime
+bindings; it supersedes the historical claim-only/draft artwork notes below.
+Native and GPU checks must be reported for the current revision, not inferred
+from earlier sprint validation.
+
+### Rejected additional bola
+
+Pinned `SharedEnsnareableSystem.cs:226–235,243–270` rejects another ensnare at
+`maxEnsnares: 1` before container insertion or success sound. It does not consume,
+delete, land or stop the second bola. `ThrownItemSystem.cs:62–71,137–147` raises
+the throw-hit event against a hard target fixture without an ensnare-result stop
+branch; ordinary landing/sleep/timer handling ends the throw later. The normal
+physics collision response determines post-impact motion. A rebound is possible,
+but the port's deterministic reflection is its existing physics adaptation, not
+an SS14 rule saying a failed ensnare must bounce. Returning self-ensnare is the
+separately owner-requested thrower-immunity departure.
+
 Reference checkout verified at `c9df5ef5d675b0d1d226828bddf6b78c28502d91`.
 Values below are upstream facts; local resolved composition and live wiring are documented and covered by focused tests. Serialized gate validation remains pending.
 
@@ -15,6 +33,15 @@ Values below are upstream facts; local resolved composition and live wiring are 
 thrower attribution. Default universal thrown modifier is 1. Repeated qualifying
 collision entries may hit again while thrown; there is no universal once-per-flight
 damage rule. The existing port's accepted fixed flight remains an adaptation.
+
+### Thrower re-entry adaptation
+
+Upstream `Content.Shared/Projectiles/Systems/ThrownItemSystem.cs:62–79,93–115,149–169`
+always ignores the thrower while `ThrownItem` is active. The owner explicitly
+requests a different Minecraft 3D behavior: suppress the initial spawn overlap and
+outward sweep until the item is physically clear of the thrower's body, then allow
+ordinary contact-entry damage on a genuine return/re-entry. This is a deliberate
+Minecraft adaptation, not a parity fix; attribution remains the original thrower.
 
 Local presentation maps upstream knife throwing angle 225° and dart angle 315°
 through resolved item metadata; upstream knife embedding offset (-.15, 0) is

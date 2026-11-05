@@ -44,7 +44,7 @@ public final class BodyActionDiscovery {
         return List.copyOf(result);
     }
 
-    /** Discover composed body grants and supported actions from currently worn, body-owned stacks only. */
+    /** Discover composed grants from worn equipment and directly carried body-owned stacks. */
     public static List<Entry> discover(LivingEntity body, UUID bodyId, CharacterData character) {
         return discover(body, bodyId, character, ModActionPrototypes.serverCatalog());
     }
@@ -75,17 +75,35 @@ public final class BodyActionDiscovery {
         var template = BodyEquipmentTransfer.templateForTransfer(body);
         if (snapshot == null || template == null) return List.copyOf(result);
         var equipment = ModEquipmentItems.catalog(body.level());
+        var actionCatalog = ModActionPrototypes.serverCatalog();
         for (var slot : snapshot.slots()) {
             if (slot.token().isEmpty() || slot.stack().isEmpty()) continue;
             var slotData = template.slot(slot.id()).orElse(null);
-            if (slotData == null || slotData.flags().contains(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.POCKET)) continue;
+            if (slotData == null) continue;
             var stack = slot.stack().orElseThrow();
             var data = equipment.get(BuiltInRegistries.ITEM.getKey(stack.getItem()));
             if (data == null) continue;
-            data.supportedActionGrant().filter(grant -> grant.itemActionGrant().activeIfWorn())
-                    .ifPresent(grant -> grant.actions().forEach(id -> add(result, "equipment:" + slot.id() + ":" + slot.token().orElseThrow(), id.toString(), ModActionPrototypes.serverCatalog())));
+            boolean worn = !slotData.flags().contains(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.POCKET);
+            addItemGrant(result, "equipment:" + slot.id() + ":" + slot.token().orElseThrow(), data, worn, true, actionCatalog);
+        }
+        var hands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+        if (hands != null && hands.compatible(body)) for (String hand : hands.handIds()) {
+            String token = hands.token(hand).orElse(null);
+            var stack = hands.stackCopy(hand).orElse(net.minecraft.world.item.ItemStack.EMPTY);
+            if (token == null || stack.isEmpty()) continue;
+            var data = equipment.get(BuiltInRegistries.ITEM.getKey(stack.getItem()));
+            if (data != null) addItemGrant(result, "hand:" + hand + ":" + token, data, false, true, actionCatalog);
         }
         return List.copyOf(result);
+    }
+
+    /** Pure provider grant resolver shared by equipment and held-item discovery. */
+    static void addItemGrant(List<Entry> result, String providerKey, EquipmentItemData data,
+                             boolean worn, boolean carried, PrototypeCatalog<ActionPrototype> catalog) {
+        if (data == null || data.supportedActionGrant().isEmpty()) return;
+        var grant = data.supportedActionGrant().orElseThrow();
+        if (!(worn && grant.itemActionGrant().activeIfWorn()) && !(carried && grant.itemActionGrant().activeIfCarried())) return;
+        grant.actions().forEach(id -> add(result, providerKey, id.toString(), catalog));
     }
 
     private static void add(List<Entry> result, String providerKey, String reference,

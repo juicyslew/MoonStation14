@@ -1,4 +1,9 @@
 {
+  "equipment/eva_helmet": { "sounds": ["moonstation14:equipment/mechmove03"] },
+  "equipment/jumpsuit_equip": { "sounds": ["moonstation14:equipment/jumpsuit_equip"] },
+  "internals": {
+    "sounds": ["moonstation14:internals"]
+  },
   "ss14/weapons/guns/hits/bullet_hit": {
     "sounds": [
       "moonstation14:ss14/weapons/guns/hits/bullet_hit"

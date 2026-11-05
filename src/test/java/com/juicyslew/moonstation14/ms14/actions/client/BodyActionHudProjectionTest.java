@@ -27,10 +27,11 @@ class BodyActionHudProjectionTest {
     @Test void holesKeepTheirNumberedGeometryAndTallNarrowViewportFitsTwenty() {
         var one = entry("one"); var three = entry("three");
         var p = BodyActionHudProjection.build(List.of(new BodyActionSlots.Slot(1, one), new BodyActionSlots.Slot(3, three)), 90, 320);
-        assertSame(one, p.hit(1, 1).entry()); assertNull(p.hit(1, 30));
-        assertSame(three, p.hit(1, 61).entry());
+        assertSame(one, p.hit(1, 1).entry()); assertNull(p.hit(1, 40));
+        assertSame(three, p.hit(1, 85).entry());
         var many = new java.util.ArrayList<BodyActionSlots.Slot>();
         for (int i=1;i<=20;i++) many.add(new BodyActionSlots.Slot(i, one));
-        assertEquals(20, BodyActionHudProjection.build(many, 56, 640).cells().size());
+        assertEquals(20, BodyActionHudProjection.build(many, 28, 840).cells().size());
+        assertTrue(BodyActionHudProjection.build(many, 28, 640).cells().size() < 20);
     }
 }

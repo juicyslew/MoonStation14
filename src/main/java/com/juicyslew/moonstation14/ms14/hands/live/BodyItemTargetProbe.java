@@ -79,7 +79,7 @@ public final class BodyItemTargetProbe {
                     level == null ? 0 : level.getMinBuildHeight(), level == null ? 0 : level.getMaxBuildHeight(),
                     0, 0, 0, 0, null, null));
         Entity entity = level.getEntity(nominated);
-        AABB bounds = entity == null ? null : entity.getBoundingBox();
+        AABB bounds = entity == null ? null : selectionBounds(entity);
         if (entity == null || entity.level() != level || entity.isRemoved() || !entity.isAddedToLevel()
                 || !(entity instanceof ItemEntity || entity instanceof LivingEntity living
                   && PortableBodyCarrying.eligibleLivingTarget(body, living))
@@ -104,9 +104,22 @@ public final class BodyItemTargetProbe {
                 || level.getEntity(entity.getUUID()) != entity || !Double.isFinite(reach) || reach <= 0
                 || reach > MAX_REACH) return false;
         Vec3 eye = body.getEyePosition();
-        AABB bounds = entity.getBoundingBox();
+        AABB bounds = selectionBounds(entity);
         return inside(level, eye) && inside(level, entity.position()) && withinReach(body, bounds, reach)
                 && clearLine(level, body, eye, bounds);
+    }
+
+    /** Attached sprites can expose a small region beyond their physical anchor box. */
+    public static AABB selectionBounds(Entity entity) {
+        AABB bounds = entity.getBoundingBox();
+        return selectionBounds(bounds, entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose
+                && loose.attachment().isPresent());
+    }
+
+    /** Upward-only tolerance accommodates attached sprites while preserving walls and floor barriers. */
+    public static AABB selectionBounds(AABB bounds, boolean attached) {
+        return attached ? new AABB(bounds.minX, bounds.minY, bounds.minZ, bounds.maxX,
+                bounds.maxY + TARGET_MARGIN, bounds.maxZ) : bounds;
     }
 
     private static boolean withinReach(LivingEntity body, AABB bounds, double reach) {
@@ -192,7 +205,11 @@ public final class BodyItemTargetProbe {
                 if(entity.level()!=level||entity.isRemoved()||!entity.isAddedToLevel()||level.getEntity(entity.getUUID())!=entity)continue;
                 if (entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose
                         && !AttachedItemTargeting.eligible(body.getUUID(), loose.attachment(), false)) continue;
-                AABB box=entity.getBoundingBox(); Vec3 hit=box.inflate(TARGET_MARGIN).contains(from)?from:box.inflate(TARGET_MARGIN).clip(from,to).orElse(null);
+                boolean attached=entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose
+                        && loose.attachment().isPresent();
+                AABB box=selectionBounds(entity);
+                AABB nomination=attached?box:box.inflate(TARGET_MARGIN);
+                Vec3 hit=nomination.contains(from)?from:nomination.clip(from,to).orElse(null);
                 if(hit==null)continue; double dist=from.distanceToSqr(hit);
                 double near=(look.x>=0?box.minX:box.maxX)*look.x+(look.y>=0?box.minY:box.maxY)*look.y+(look.z>=0?box.minZ:box.maxZ)*look.z-from.dot(look);
                 boolean overlap=box.contains(from);

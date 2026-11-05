@@ -13,6 +13,13 @@ final class ThrownContactPhysics {
                 target.maxX + half, target.maxY, target.maxZ + half);
     }
 
+    static java.util.Optional<Vec3> firstContact(AABB target, double itemWidth, double itemHeight,
+                                                  Vec3 from, Vec3 to) {
+        AABB expanded = sourceBaseSweep(target, itemWidth, itemHeight);
+        return expanded.contains(from) ? java.util.Optional.of(from) : expanded.clip(from, to);
+    }
+
+
     static Vec3 normal(AABB bounds, Vec3 point, Vec3 incoming) {
         double[] distances = {Math.abs(point.x - bounds.minX), Math.abs(point.x - bounds.maxX),
                 Math.abs(point.y - bounds.minY), Math.abs(point.y - bounds.maxY),

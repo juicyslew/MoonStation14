@@ -107,6 +107,7 @@ public final class BodyActionsScreen implements PointerOverlayWindow {
         int x = geometry.x(), y = geometry.y(), panelWidth = geometry.width(), panelHeight = geometry.height();
         var font = Minecraft.getInstance().font;
         graphics.enableScissor(0, 0, width, height);
+        java.util.List<Component> tooltip = null;
         graphics.pose().pushPose();
         graphics.pose().translate(x * BodyActionLayout.ACTION_UI_SCALE, y * BodyActionLayout.ACTION_UI_SCALE, 0);
         graphics.pose().scale(BodyActionLayout.ACTION_UI_SCALE, BodyActionLayout.ACTION_UI_SCALE, 1);
@@ -128,9 +129,18 @@ public final class BodyActionsScreen implements PointerOverlayWindow {
             var entry = snapshot.actions().get(scrollOffset + i);
             int rowY = BodyActionLayout.HEADER_HEIGHT + i * BodyActionLayout.ROW_HEIGHT;
             boolean disabled = !entry.enabled() || BodyActionClient.pending();
+            if (pointerAvailable() && BodyActionLayout.actionRowHovered(mouseX, mouseY, x, y, panelWidth, rowY)) {
+                tooltip = new java.util.ArrayList<>();
+                tooltip.add(Component.translatable(entry.displayName()));
+                if (!entry.disabledReason().isBlank()) tooltip.add(Component.translatable(
+                        "gui.moonstation14.actions.disabled." + entry.disabledReason().toLowerCase(java.util.Locale.ROOT)));
+                long remaining = BodyActionClient.remainingCooldown(entry);
+                if (remaining > 0) tooltip.add(Component.literal("Cooldown: " + BodyActionLayout.cooldownSeconds(remaining)));
+                if (BodyActionClient.pending()) tooltip.add(Component.literal("Action pending"));
+            }
             MachineWindowRenderer.insetPanel(graphics, 5, rowY, panelWidth - 10, BodyActionLayout.ROW_HEIGHT - 2);
-            graphics.blit(entry.iconOn().filter(ignored -> entry.active()).orElse(entry.icon()), 9, rowY + 7,
-                    0, 0, 16, 16, 16, 16);
+            graphics.blit(BodyActionPresentation.icon(entry), 9, rowY + 7,
+                    16, 16, 0, 0, 32, 32, 32, 32);
             int textWidth = Math.max(0, panelWidth - 58);
             String name = Component.translatable(entry.displayName()).getString();
             var boundSlot = BodyActionClient.slots().stream().filter(s -> s.entry().actionId().equals(entry.actionId()) && s.entry().providerId().equals(entry.providerId())).mapToInt(BodyActionSlots.Slot::number).findFirst().orElse(0);
@@ -152,6 +162,9 @@ public final class BodyActionsScreen implements PointerOverlayWindow {
         }
         graphics.pose().popPose();
         graphics.disableScissor();
+        if (tooltip != null) graphics.renderTooltip(font,
+                tooltip.stream().map(Component::getVisualOrderText).toList(),
+                BodyActionLayout.tooltipAnchor(mouseX), BodyActionLayout.tooltipAnchor(mouseY));
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -184,7 +197,7 @@ public final class BodyActionsScreen implements PointerOverlayWindow {
         return true;
     }
     @Override public boolean keyPressed(int key, int scan, int modifiers) {
-        if (key == GLFW.GLFW_KEY_ESCAPE || BodyActionKeys.matches(key, scan)) { close(); return true; }
+        if (key == GLFW.GLFW_KEY_ESCAPE || BodyActionKeys.matches(key, scan, modifiers)) { close(); return true; }
         return false;
     }
     @Override public boolean charTyped(char value, int modifiers) { return false; }

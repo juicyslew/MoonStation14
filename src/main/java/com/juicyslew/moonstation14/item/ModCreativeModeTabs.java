@@ -45,7 +45,8 @@ public class ModCreativeModeTabs {
             ModEquipmentItems.BLACK_GLOVES, ModEquipmentItems.BLACK_SHOES, ModEquipmentItems.GLASSES,
             ModEquipmentItems.RED_TIE, ModEquipmentItems.BLACK_BANDANA, ModEquipmentItems.EARPIECES,
             ModEquipmentItems.BLANK_ID_CARD, ModEquipmentItems.UTILITY_CASE, ModEquipmentItems.SUIT_RAD,
-            ModEquipmentItems.HOOD_RAD);
+            ModEquipmentItems.HOOD_RAD, ModEquipmentItems.EVA_HELMET, ModEquipmentItems.EVA_SUIT,
+            ModEquipmentItems.BREATHING_MASK);
     public static final List<Supplier<? extends ItemLike>> MOONSTATION_BLOCK_ENTRIES = List.of(
             ModBlocks.STEEL_WALL_BLOCK, ModBlocks.PLASTIC_WALL, ModBlocks.STEEL_WALL_GIRDER_BLOCK, ModBlocks.STATION_FLOOR, ModBlocks.AIRLOCK, ModBlocks.FIRELOCK,
             ModBlocks.HV_SOURCE, ModBlocks.HV_MV_SUBSTATION, ModBlocks.APC, ModBlocks.POWER_LAMP,
@@ -77,8 +78,12 @@ public class ModCreativeModeTabs {
                             var tanks = com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.clientGasTanks();
                             output.accept(com.juicyslew.moonstation14.item.custom.GasTankItem.createStack(tanks,
                                     com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.PLASMA_ID));
-                            output.accept(com.juicyslew.moonstation14.item.custom.GasTankItem.createStack(tanks,
-                                    com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.PLASMA_FILLED_ID));
+                             output.accept(com.juicyslew.moonstation14.item.custom.GasTankItem.createStack(tanks,
+                                     com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.PLASMA_FILLED_ID));
+                            output.accept(com.juicyslew.moonstation14.item.custom.GasTankItem.createStack(tanks, com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.OXYGEN_ID));
+                            output.accept(com.juicyslew.moonstation14.item.custom.GasTankItem.createStack(tanks, com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.OXYGEN_FILLED_ID));
+                            output.accept(com.juicyslew.moonstation14.item.custom.GasTankItem.createStack(tanks, com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.EMERGENCY_OXYGEN_ID));
+                            output.accept(com.juicyslew.moonstation14.item.custom.GasTankItem.createStack(tanks, com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.EMERGENCY_OXYGEN_FILLED_ID));
                     }).build());
     public static final Supplier<CreativeModeTab> MOONSTATION_BLOCKS_TAB = CREATIVE_MODE_TAB.register("moonstation_blocks_tab",
             () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModBlocks.STEEL_WALL_GIRDER_BLOCK.get()))

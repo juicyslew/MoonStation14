@@ -76,3 +76,45 @@ inherits `screwdriver`. Other ordinary items without an explicit resolved
 physical size are denied pocket admission; this is intentionally not a claim of
 full SS14 item-catalog parity. Medical stack maxima remain MedicalItem-owned and
 are intersected with native stack limits.
+
+## EVA, breathing mask, and tank equipment parent closures
+
+The new `eva_helmet_base` resolves `clothing_head_base` defaults and adds only
+the supported EVA parent composition: Normal item size, 0.6/1000 pressure
+protection, 0.2/0.2 temperature coefficients, and default `BreathMask` slots.
+The SS14 `ClothingHeadEVAHelmetBase` source has 2-second equip and unequip
+delays; local `equip_delay` and `unequip_delay` store each conversion as 40
+Minecraft ticks at 20 TPS. The local runtime currently has no `equipDelay`
+consumer, so these profile values do not yet implement timed equipment
+interaction.
+Pinned sources: `Resources/Prototypes/Entities/Clothing/Head/base_clothinghead.yml`
+and `eva-helmets.yml`.
+
+`eva_suit_base` contains the supported projection of SS14
+`ClothingOuterEVASuitBase` plus `AllowSuitStorageClothing`: Huge item size,
+outer-clothing/TORSO presentation, suit-storage permission, 0.6/1000 pressure
+protection, and 0.01/0.01 temperature coefficients. SS14 expresses this parent
+with multiple component parents; this local parent intentionally collapses that
+composition into one supported typed prototype. Unsupported slowdown, heat
+interaction protection, tags, and slot blocking are not fabricated. The leaf
+`eva_suit` is only its authored model override.
+Pinned sources: `Resources/Prototypes/Entities/Clothing/OuterClothing/base_clothingouter.yml`
+and `softsuits.yml`.
+
+`breathing_mask_base` and `breathing_mask_pullable_base` mirror the supported
+ClothingMaskBase/PullableBase inheritance: Small/MASK/FACE defaults, then the
+local carried/worn toggle-mask grant. SS14 `ClothingMaskBreath` owns
+`BreathMask` and `IngestionBlocker`, so those remain on the leaf alongside its
+raised/lowered visuals. The upstream `Mask` behavior component itself has no
+local parallel component.
+Pinned sources: `Resources/Prototypes/Entities/Clothing/Masks/base_clothingmask.yml`
+and `masks.yml`.
+
+`gas_tank_equipment_base` is deliberately separate from the already-existing
+`gas_tank` state/fill prototype family. It carries only shared Normal size,
+BACK/SUITSTORAGE clothing flags, and carried toggle-internals grant. Oxygen
+inherits those defaults; emergency oxygen overrides size and actual
+POCKET/BELT/SUITSTORAGE flags. SS14's mixed GasTankBase/Item/Clothing parents
+collapse to this supported equipment projection; gas identity, fill state, and
+factories remain owned by the existing gas-tank family.
+Pinned source: `Resources/Prototypes/Entities/Objects/Tools/gas_tanks.yml`.

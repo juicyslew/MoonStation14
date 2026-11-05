@@ -427,8 +427,10 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-         assertEquals(44, data.components().size(), "merged Human composition retains botany, main, Tesla, melee, and ensnareable component families");
-         assertTrue(data.component(EnsnareableComponent.class).isPresent(), "Human explicitly supports ensnaring");
+        assertEquals(45, data.components().size(), "merged Human composition retains botany, main, Tesla, internals, melee, and ensnareable component families");
+        assertTrue(data.component(EnsnareableComponent.class).isPresent(), "Human explicitly supports ensnaring");
+        assertTrue(data.component(com.juicyslew.moonstation14.ms14.character.components.InternalsComponent.class).isPresent(),
+                "Human internals composition survives the merge");
         assertTrue(data.component(StatusEffectsPrototypeComponent.class).isPresent(), "main Human status-effect configuration survives the merge");
         assertTrue(data.component(StaminaPrototypeComponent.class).isPresent(), "main Human stamina configuration survives the merge");
         var lightningTarget = data.component(LightningTargetComponent.class).orElseThrow();

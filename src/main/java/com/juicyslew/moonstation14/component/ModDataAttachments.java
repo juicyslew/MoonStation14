@@ -21,6 +21,7 @@ import com.juicyslew.moonstation14.ms14.organ.BodyAttachment;
 import com.juicyslew.moonstation14.ms14.organ.BodyState;
 import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
 import com.juicyslew.moonstation14.ms14.lung.GaspCooldownAttachment;
+import com.juicyslew.moonstation14.ms14.lung.InternalsState;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
@@ -41,9 +42,11 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import java.util.function.Supplier;
 
 public class ModDataAttachments {
-    // Create the DeferredRegister for attachment types
+    // Create the DeferredRegister for attachment types before registering feature attachments.
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, MoonStation14.MOD_ID);
-
+    public static final Supplier<AttachmentType<InternalsState>> INTERNALS = ATTACHMENT_TYPES.register(
+            "internals", () -> AttachmentType.builder(() -> InternalsState.DISCONNECTED)
+                    .serialize(InternalsState.CODEC).build());
     public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.loose_objects.ItemContactTimer>> ITEM_CONTACT_TIMER = ATTACHMENT_TYPES.register(
             "item_contact_timer", () -> AttachmentType.builder(com.juicyslew.moonstation14.ms14.loose_objects.ItemContactTimer::new).build());
 

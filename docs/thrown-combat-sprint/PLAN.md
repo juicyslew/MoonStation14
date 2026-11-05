@@ -1,5 +1,9 @@
 # Thrown-object combat
 
+Current follow-up: `FEEDBACK.md` defines the active owner-feedback revision.
+Approved armor is imported and wired (`ASSETS.md`); the older development-state
+counts and claim-only artwork notes below are historical, not current gate proof.
+
 ## Development state (implementation/reviews complete; gate and artwork approval pending)
 
 Current focused validation covers 44 exact source-verified JVM classes and 240

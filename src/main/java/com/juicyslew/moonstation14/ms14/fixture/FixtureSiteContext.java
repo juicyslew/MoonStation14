@@ -14,5 +14,6 @@ public final class FixtureSiteContext {
     public void buildResult(UUID operator, ResourceKey<Level> dimension, BlockPos site, boolean successful) { if (successful) remember(operator, dimension, site); }
     public BlockPos find(UUID operator, ResourceKey<Level> dimension) { return sites.get(new Key(operator, dimension)); }
     public void clear() { sites.clear(); }
+    public void forget(UUID operator, ResourceKey<Level> dimension) { sites.remove(new Key(operator, dimension)); }
     private record Key(UUID operator, ResourceKey<Level> dimension) { }
 }

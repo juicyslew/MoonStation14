@@ -4,6 +4,7 @@ package com.juicyslew.moonstation14.ms14.actions.client;
 public final class BodyActionLayout {
     public static final float ACTION_UI_SCALE = 0.5f;
     public static final int ACTION_BAR_BUTTON = 28, ACTION_BAR_ICON = 24, ACTION_BAR_ICON_INSET = 2;
+    public static final int ACTION_BAR_CELL_WIDTH = 28, ACTION_BAR_CELL_HEIGHT = 40, ACTION_BAR_CELL_STRIDE_X = 30, ACTION_BAR_CELL_STRIDE_Y = 42;
     public static final int ROW_HEIGHT = 34, HEADER_HEIGHT = 29, WIDTH = 190;
     public record Layout(int left, int top, int width, int height, int visibleRows, int scrollOffset) {
         public int rowAt(double x, double y, int actionCount) {
@@ -14,6 +15,19 @@ public final class BodyActionLayout {
     }
     private BodyActionLayout() { }
     public static double toLogical(double screenCoordinate, double origin) { return (screenCoordinate - origin) / ACTION_UI_SCALE; }
+    /** Maps absolute GUI pointer coordinates into the transformed action bar's local space. */
+    public static double actionBarPointer(double absoluteGuiCoordinate, double origin) {
+        return toLogical(absoluteGuiCoordinate, origin);
+    }
+    /** Tooltip rendering occurs after pose restoration, so its anchor remains absolute GUI space. */
+    public static int tooltipAnchor(int absoluteGuiCoordinate) { return absoluteGuiCoordinate; }
+    /** Row hover uses the same absolute-GUI to logical conversion as window hit testing. */
+    public static boolean actionRowHovered(double absoluteGuiX, double absoluteGuiY, int windowX, int windowY,
+                                           int panelWidth, int rowY) {
+        double x = screenToLogical(absoluteGuiX) - windowX;
+        double y = screenToLogical(absoluteGuiY) - windowY;
+        return x >= 5 && x < panelWidth - 5 && y >= rowY && y < rowY + ROW_HEIGHT;
+    }
     public static double screenToLogical(double screenCoordinate) { return screenCoordinate / ACTION_UI_SCALE; }
     public static int logicalToScreen(double logicalCoordinate) { return (int)Math.round(logicalCoordinate * ACTION_UI_SCALE); }
     public static net.minecraft.client.gui.navigation.ScreenRectangle screenBounds(int x, int y, int width, int height) {
@@ -53,13 +67,16 @@ public final class BodyActionLayout {
     /** Top-down left-edge vertical bar; action identity is the stable numbered binding. */
     /** Compact column-major bar geometry keyed by stable assigned slot number. */
     public record BarRect(int slotNumber, int x, int y) {
-        public boolean contains(double px, double py) { return px >= x && px < x + ACTION_BAR_BUTTON && py >= y && py < y + ACTION_BAR_BUTTON; }
+        public boolean contains(double px, double py) { return px >= x && px < x + ACTION_BAR_CELL_WIDTH && py >= y && py < y + ACTION_BAR_CELL_HEIGHT; }
+        public int labelX() { return x; }
+        public int labelY() { return y + ACTION_BAR_BUTTON + 1; }
+        public int labelWidth() { return ACTION_BAR_CELL_WIDTH; }
     }
     public static java.util.List<BarRect> barRects(java.util.List<BodyActionSlots.Slot> slots, int viewportWidth, int viewportHeight, int left, int top) {
         if (slots == null || slots.isEmpty()) return java.util.List.of();
-        if (viewportHeight < ACTION_BAR_BUTTON || viewportWidth < ACTION_BAR_BUTTON) return java.util.List.of();
-        int maxRows = (viewportHeight + 2) / 30;
-        int maxCols = (viewportWidth + 2) / 30;
+        if (viewportHeight < ACTION_BAR_CELL_HEIGHT || viewportWidth < ACTION_BAR_CELL_WIDTH) return java.util.List.of();
+        int maxRows = (viewportHeight + 2) / ACTION_BAR_CELL_STRIDE_Y;
+        int maxCols = (viewportWidth + 2) / ACTION_BAR_CELL_STRIDE_X;
         int rows = Math.min(10, maxRows);
         if (maxRows > 0 && maxCols > 0 && maxRows * maxCols >= BodyActionSlots.MAX_SLOTS
                 && (BodyActionSlots.MAX_SLOTS + rows - 1) / rows > maxCols) {
@@ -68,8 +85,8 @@ public final class BodyActionLayout {
         java.util.ArrayList<BarRect> result = new java.util.ArrayList<>();
         for (var slot : slots) {
             int n = slot.number(); if (n < 1 || n > BodyActionSlots.MAX_SLOTS) continue;
-            int index = n - 1, x = left + index / rows * 30, y = top + index % rows * 30;
-            if (x >= 0 && y >= 0 && x + 28 <= viewportWidth && y + 28 <= viewportHeight) result.add(new BarRect(n, x, y));
+            int index = n - 1, x = left + index / rows * ACTION_BAR_CELL_STRIDE_X, y = top + index % rows * ACTION_BAR_CELL_STRIDE_Y;
+            if (x >= 0 && y >= 0 && x + ACTION_BAR_CELL_WIDTH <= viewportWidth && y + ACTION_BAR_CELL_HEIGHT <= viewportHeight) result.add(new BarRect(n, x, y));
         }
         return java.util.List.copyOf(result);
     }
@@ -78,7 +95,8 @@ public final class BodyActionLayout {
     public static String cooldownSeconds(long remainingTicks) {
         return String.format(java.util.Locale.ROOT, "%.1f s", Math.max(0, remainingTicks) / 20.0);
     }
-    public static int actionBarTop() { return 8; }
+    public static int actionBarTop() { return 1; }
+    public static int actionBarLeft() { return 1; }
     /** Shared host admission for visible, ungrabbed HUD/pointer-workspace input. */
     public static boolean pointerHostAllowed(boolean visible, boolean allowedHost, boolean mouseGrabbed) {
         return visible && allowedHost && !mouseGrabbed;

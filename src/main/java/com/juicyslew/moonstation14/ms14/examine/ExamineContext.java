@@ -5,9 +5,16 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.ItemStack;
 
 /** Request-scoped, server-resolved provider context. No client ray, body carrier or arbitrary chunk lookup. */
 public record ExamineContext(Entity actor, ServerLevel level, ExamineTarget target, Entity targetEntity,
-                             BlockPos rootBlock, BlockState blockState, BlockEntity blockEntity,
-                             boolean detailsAllowed) { }
-
+                              BlockPos rootBlock, BlockState blockState, BlockEntity blockEntity,
+                              boolean detailsAllowed, ItemStack itemStack, boolean ownedItem) {
+    public ExamineContext(Entity actor, ServerLevel level, ExamineTarget target, Entity targetEntity,
+                          BlockPos rootBlock, BlockState blockState, BlockEntity blockEntity, boolean detailsAllowed) {
+        this(actor, level, target, targetEntity, rootBlock, blockState, blockEntity, detailsAllowed, ItemStack.EMPTY, false);
+    }
+    public ExamineContext { itemStack = itemStack == null ? ItemStack.EMPTY : itemStack.copy(); }
+    @Override public ItemStack itemStack() { return itemStack.copy(); }
+}
