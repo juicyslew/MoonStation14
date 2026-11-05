@@ -121,7 +121,7 @@ def main():
     db = session_store.open_db(args.db)
     api = None
     audit_path = None
-    state = {"deleted": 0, "roots": {root: {"before": 0, "kept_top30": 0, "safety_extras": 0, "after": 0} for root in roots}}
+    state = {"deleted": 0, "already_removed": 0, "roots": {root: {"before": 0, "kept_top30": 0, "safety_extras": 0, "after": 0} for root in roots}}
 
     def log(event, **fields):
         if audit_path is not None:
@@ -145,13 +145,20 @@ def main():
         log("started", mode="execute" if args.execute else "dry-run", roots=len(roots), target_count=len(targets),
             top30_counts={root: len(top30[root]) for root in roots})
         deleted = set()
+        externally_removed = set()
         skipped = {}
 
         def skip(sid, reason):
             skipped.setdefault(sid, reason)
 
+        def mark_removed(sid):
+            externally_removed.add(sid)
+            state["already_removed"] = len(externally_removed)
+            children.get(by_id[sid][1], set()).discard(sid)
+            log("already_removed", session_id=sid)
+
         while True:
-            leaves = [sid for sid in targets if sid not in deleted and not (children.get(sid, set()) - deleted)]
+            leaves = [sid for sid in targets if sid not in deleted and sid not in externally_removed and not (children.get(sid, set()) - deleted - externally_removed)]
             if not leaves:
                 break
             progressed = False
@@ -167,16 +174,36 @@ def main():
                     skip(sid, "newly_protected_or_active")
                     keepers.add(sid)
                     continue
-                info = api.info(sid)
+                # A concurrent native deletion is accepted only with the API's
+                # typed identity-bearing response and a confirming read-only DB miss.
+                if db.execute("SELECT 1 FROM session_v2 WHERE id=?", (sid,)).fetchone() is None:
+                    mark_removed(sid)
+                    progressed = True
+                    continue
+                try:
+                    info = api.info(sid)
+                except session_store.SessionNotFoundError:
+                    if db.execute("SELECT 1 FROM session_v2 WHERE id=?", (sid,)).fetchone() is not None:
+                        raise RuntimeError(f"API reports missing session while DB row remains: {sid}") from None
+                    mark_removed(sid)
+                    progressed = True
+                    continue
                 if info.get("id") != sid or info.get("parentID") != by_id[sid][1]:
                     raise RuntimeError(f"API/DB identity mismatch for {sid}")
-                if api.forms(sid) or api.permissions(sid):
+                try:
+                    unsettled = api.forms(sid) or api.permissions(sid)
+                except session_store.SessionNotFoundError:
+                    if db.execute("SELECT 1 FROM session_v2 WHERE id=?", (sid,)).fetchone() is not None:
+                        raise RuntimeError(f"API reports missing session while DB row remains: {sid}") from None
+                    mark_removed(sid); progressed = True
+                    continue
+                if unsettled:
                     skip(sid, "unsettled_form_or_permission")
                     keepers.add(sid)
                     continue
                 current = db.execute("SELECT id,parent_id,time_created,time_updated,time_idle,time_viewed,time_compacting,time_suspended,idle_outcome FROM session_v2 WHERE id=?", (sid,)).fetchone()
                 db_children = {item[0] for item in db.execute("SELECT id FROM session_v2 WHERE parent_id=?", (sid,))}
-                if current is None or session_store.has_unremoved_children(db_children, deleted, args.execute):
+                if current is None or session_store.has_unremoved_children(db_children, deleted | externally_removed, args.execute):
                     skip(sid, "missing_or_has_children")
                     keepers.add(sid)
                     continue
@@ -198,13 +225,19 @@ def main():
                 # native route recursively removes descendants, so only zero-child
                 # candidates may be sent to it.
                 db_children = {item[0] for item in db.execute("SELECT id FROM session_v2 WHERE parent_id=?", (sid,))}
-                if session_store.has_unremoved_children(db_children, deleted, args.execute):
+                if session_store.has_unremoved_children(db_children, deleted | externally_removed, args.execute):
                     skip(sid, "child_at_delete_boundary")
                     keepers.add(sid)
                     continue
                 if args.execute:
                     log("delete_before", session_id=sid, root=next(root for root, tree in descendants.items() if sid in tree), parent_id=by_id[sid][1])
-                    api.remove(sid)
+                    try:
+                        api.remove(sid)
+                    except session_store.SessionNotFoundError:
+                        if db.execute("SELECT 1 FROM session_v2 WHERE id=?", (sid,)).fetchone() is not None:
+                            raise RuntimeError(f"API reports missing session while DB row remains: {sid}") from None
+                        mark_removed(sid); progressed = True
+                        continue
                     log("delete_after", session_id=sid, root=next(root for root, tree in descendants.items() if sid in tree), parent_id=by_id[sid][1])
                     if db.execute("SELECT 1 FROM session_v2 WHERE id=?", (sid,)).fetchone():
                         raise RuntimeError(f"API reported success but row remains for {sid}")
@@ -218,12 +251,15 @@ def main():
                 break
 
         for root, ids in descendants.items():
-            state["roots"][root]["after"] = len(ids - deleted) if not args.execute else db.execute(
+            if db.execute("SELECT 1 FROM session_v2 WHERE id=?", (root,)).fetchone() is None:
+                raise RuntimeError(f"required root missing after pruning: {root}")
+            state["roots"][root]["after"] = len(ids - deleted - externally_removed) if not args.execute else db.execute(
                 "WITH RECURSIVE tree(id) AS (SELECT id FROM session_v2 WHERE parent_id=? UNION ALL SELECT s.id FROM session_v2 s JOIN tree t ON s.parent_id=t.id) SELECT COUNT(*) FROM tree", (root,)
             ).fetchone()[0]
         report = {"mode": "execute" if args.execute else "dry-run", "roots": state["roots"],
                   "deleted_candidates": len(deleted) if args.execute else 0,
                   "planned_candidates": len(deleted) if not args.execute else None,
+                  "already_removed": len(externally_removed),
                   "skipped_by_reason": {reason: list(skipped.values()).count(reason) for reason in set(skipped.values())}}
         log("completed", **report)
         print(json.dumps({**report, "audit": str(audit_path)}, indent=2))

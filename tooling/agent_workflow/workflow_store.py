@@ -1576,7 +1576,13 @@ class WorkflowStore:
             current = db.execute("SELECT current_generation FROM runs WHERE id=?", (report["run_id"],)).fetchone()
             if (task["run_id"], task["evaluation_generation"], task["assignment_generation"], task["input_digest"], task["assigned_session_id"]) != (report["run_id"], report["evaluation_generation"], report["assignment_generation"], report["input_digest"], session_id) or task["state"] not in ("DISPATCHING", "CLAIMED", "RUNNING") or current is None or current[0] != report["evaluation_generation"]:
                 raise StaleCommand("stale task generation, assignment, session, input or admission")
-            self._require_artifacts(db, report["artifact_refs"], report["run_id"], input_digest=report["input_digest"])
+            for index, ref in enumerate(report["artifact_refs"]):
+                try:
+                    self._require_artifacts(db, [ref], report["run_id"], input_digest=report["input_digest"])
+                except ProtocolError as exc:
+                    field=f"artifact_refs[{index}]"
+                    raise ProtocolError(f"{field}: {ref!r} is not an accepted artifact reference ({exc}).", field=field,
+                        recovery="Use an actual registered artifact ID. 'review_guide' is a tool alias, not an artifact; use artifact_refs=[] when the input or guide could not be read.") from exc
             self._commit_task_result(db, task, {"decision":"ERROR","findings":[],"artifact_refs":report["artifact_refs"]}, body, digest)
             incident_id = "incident_" + hashlib.sha256((report["task_id"] + digest).encode()).hexdigest()[:24]
             self._record_incident_tx(db, {"contract_version":1,"incident_id":incident_id,"run_id":report["run_id"],"evaluation_generation":report["evaluation_generation"],"task_id":report["task_id"],"code":report["error_code"],"message":report["message"],"recovery_owner":"SYSTEM","state":"OPEN","owner_action_required":False,"artifact_refs":report["artifact_refs"]})
@@ -3299,6 +3305,60 @@ class WorkflowStore:
             receipt.update({'historical_result':terminal_kind} if terminal_kind in ("ERROR","FAIL") else {'historical_closure':'CANCELLED','historical_result':None})
             db.execute("INSERT INTO command_receipts(operation,caller,command_key,request_digest,response_json) VALUES(?,?,?,?,?)",(operation,caller,command_id,request_digest,canonical_json(receipt)))
             db.commit(); return receipt
+        except BaseException:
+            if db.in_transaction: db.rollback()
+            raise
+        finally: db.close()
+
+    def fail_review_preparation(self, *, task_id, run_id, evaluation_generation,
+                                 assignment_generation, input_digest, error_code, message):
+        """Commit a deterministic local REVIEW preparation failure only before dispatch."""
+        report=validate({"contract_version":1,"task_id":task_id,"run_id":run_id,
+            "evaluation_generation":evaluation_generation,"assignment_generation":assignment_generation,
+            "input_digest":input_digest,"error_code":error_code,"message":message,"artifact_refs":[]},"task_error")
+        body=canonical_json(report); result_hash=hashlib.sha256(body.encode()).hexdigest()
+        db=self._connect()
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            row=db.execute("SELECT task_json,result_digest FROM tasks WHERE id=?",(task_id,)).fetchone()
+            if row is None: raise StaleCommand("unknown task")
+            task=json.loads(row[0])
+            binding=(task.get("kind"),task.get("run_id"),task.get("evaluation_generation"),
+                task.get("assignment_generation"),task.get("input_digest"))
+            if binding != ("REVIEW",run_id,evaluation_generation,assignment_generation,input_digest):
+                raise StaleCommand("review preparation task binding mismatch")
+            if row[1] is not None:
+                if row[1]==result_hash:
+                    db.commit(); return {"disposition":"REPLAYED","result_digest":result_hash,
+                        "result_id":self._task_result_event_id(task_id,result_hash)}
+                raise IdempotencyConflict("task result is immutable")
+            current=db.execute("SELECT current_generation FROM runs WHERE id=?",(run_id,)).fetchone()
+            attempt=db.execute("SELECT attempt_json FROM attempts WHERE run_id=? AND generation=?",(run_id,evaluation_generation)).fetchone()
+            if ((task.get("state"),task.get("run_id"),task.get("evaluation_generation"),
+                 task.get("assignment_generation"),task.get("input_digest")) != ("QUEUED",run_id,evaluation_generation,assignment_generation,input_digest) or
+                current is None or current[0]!=evaluation_generation or attempt is None or
+                json.loads(attempt[0]).get("phase")!="REVIEWING"):
+                raise StaleCommand("review preparation task is stale or not queued")
+            # Any durable dispatch intent, reservation, or task-produced artifact is
+            # evidence the task may have crossed the external-effect boundary.
+            if db.execute("SELECT 1 FROM events WHERE run_id=? AND generation=? AND json_extract(payload,'$.task_id')=? AND kind IN ('DISPATCH','TASK_ASSIGNMENT')",(run_id,evaluation_generation,task_id)).fetchone():
+                raise StaleCommand("review task has saved dispatch intent")
+            if db.execute("SELECT 1 FROM resources WHERE task_id=?",(task_id,)).fetchone():
+                raise StaleCommand("review task has resource history")
+            if db.execute("SELECT 1 FROM artifacts WHERE run_id=? AND json_extract(artifact_json,'$.artifact.producer_task_id')=?",(run_id,task_id)).fetchone():
+                raise StaleCommand("review task has task-produced artifact history")
+            if db.execute("SELECT 1 FROM task_dependency_pauses WHERE task_id=?",(task_id,)).fetchone():
+                raise StaleCommand("review task has dependency pause history")
+            saved={"decision":"ERROR","findings":[],"artifact_refs":[]}
+            self._commit_task_result(db,task,saved,body,result_hash)
+            incident_id="incident_"+hashlib.sha256((task_id+result_hash).encode()).hexdigest()[:24]
+            self._record_incident_tx(db,{"contract_version":1,"incident_id":incident_id,"run_id":run_id,
+                "evaluation_generation":evaluation_generation,"task_id":task_id,"code":error_code,
+                "message":message,"recovery_owner":"SYSTEM","state":"OPEN",
+                "owner_action_required":False,"artifact_refs":[]})
+            db.commit()
+            return {"disposition":"ACCEPTED","result_digest":result_hash,
+                "result_id":self._task_result_event_id(task_id,result_hash),"incident_id":incident_id}
         except BaseException:
             if db.in_transaction: db.rollback()
             raise

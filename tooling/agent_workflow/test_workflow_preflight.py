@@ -30,6 +30,43 @@ class PreflightTests(unittest.TestCase):
 
     def tearDown(self): self.tmp.cleanup()
 
+    def test_bounded_review_render_keeps_native_reservation_and_counts_utf8_bytes(self):
+        from workflow_store import canonical_json
+        request={'input_digest':'d'*64,'feature_label':'ü','manual_steps':['m'],
+                 'criteria':[{'criterion_id':'c','evidence_refs':['cited']} ]}
+        metadata={'event_id':'event_x','run_id':'run_x','task_id':'task_x','evaluation_generation':1,
+                  'assignment_generation':1,'session_id':'session_x','worktree':'/repo',
+                  'artifact_refs':['cited','reserved','uncited'],'native_receipt_refs':['reserved'],'deadline_ms':1}
+        raw=preflight.render_review_input(request,metadata,'implementation','objective')
+        size=len(canonical_json(raw).encode('utf-8'))
+        rendered=preflight.render_bounded_review_input(request,metadata,'implementation','objective',size)
+        self.assertEqual(rendered['body'],raw)
+        self.assertEqual(rendered['size_bytes'],len(canonical_json(raw).encode('utf-8')))
+        compact=preflight.render_bounded_review_input(request,metadata,'implementation','objective',size-1)
+        self.assertEqual(compact['body']['envelope']['artifact_refs'],['cited','reserved'])
+        self.assertEqual(compact['size_bytes'],len(canonical_json(compact['body']).encode('utf-8')))
+        without_receipt=dict(metadata,artifact_refs=['cited'],native_receipt_refs=[])
+        receipt_size=len(canonical_json(preflight.render_review_input(request,without_receipt,'implementation','objective')).encode('utf-8'))
+        with self.assertRaises(preflight.ReviewInputPreparationError):
+            preflight.render_bounded_review_input(request,metadata,'implementation','objective',receipt_size)
+
+    def test_bounded_render_oversized_text_is_typed_failure(self):
+        request={'input_digest':'d'*64,'feature_label':'x'*4000,'manual_steps':['m'],
+                 'criteria':[{'criterion_id':'c','evidence_refs':['cited']}]}
+        metadata={'event_id':'event_x','run_id':'run_x','task_id':'task_x','evaluation_generation':1,'assignment_generation':1,
+                  'session_id':'s','worktree':'/repo','artifact_refs':['cited','receipt'],
+                  'native_receipt_refs':['receipt'],'deadline_ms':1}
+        with self.assertRaises(preflight.ReviewInputPreparationError):
+            preflight.render_bounded_review_input(request,metadata,'implementation','o',1024)
+
+    def test_bounded_render_rejects_missing_cited_or_native_refs(self):
+        request={'input_digest':'d'*64,'feature_label':'x','manual_steps':['m'],
+                 'criteria':[{'criterion_id':'c','evidence_refs':['missing']}]}
+        metadata={'event_id':'e','run_id':'r','task_id':'t','evaluation_generation':1,'assignment_generation':1,
+                  'session_id':'s','worktree':'/repo','artifact_refs':[],'native_receipt_refs':[],'deadline_ms':1}
+        with self.assertRaises(ValueError):
+            preflight.render_bounded_review_input(request,metadata,'implementation','o',16000)
+
     def test_capture_includes_untracked_and_deleted_tracked(self):
         (self.repo/'tracked.txt').unlink()
         m = preflight.capture_source(self.repo)

@@ -44,7 +44,7 @@ class NativeInputLoaderTests(unittest.TestCase):
 
     def test_changed_live_source_fails_applicability(self):
         (self.case.repo/'dirty.txt').write_text('changed after admission')
-        with self.assertRaisesRegex(ValueError,'current source'):
+        with self.assertRaisesRegex(workflow_native_worker.SourceSnapshotChanged,'current source'):
             workflow_native_worker.load_native_inputs(self.store,self.run_id)
 
     def test_readonly_frozen_load_skips_only_current_tree_capture(self):

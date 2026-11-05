@@ -1148,7 +1148,7 @@ class ExplicitCoordinator:
                         planner.prepare_review_inputs,payload['task_id'])
                 except Exception:
                     return JSONResponse(_error('REVIEW_INPUT_UNAVAILABLE',
-                        'Assigned review inputs could not be verified; no claim was accepted. Retry this claim after repair.',
+                        "Assigned review inputs could not be verified; no claim was accepted. Retry this claim after repair. If an input or guide remains unreadable, use report_error with error_code REVIEW_INPUT_UNAVAILABLE and artifact_refs=[]; review_guide is a status tool alias, not an artifact.",
                         'RETRY_CLAIM'),409)
                 payload["session_id"] = session_id
             elif operation_name == "complete":
@@ -1168,7 +1168,7 @@ class ExplicitCoordinator:
                     self.notify_committed()
                     if operation_name == 'claim':
                         result = {**result, 'review_guide': prepared_guide,
-                                  'review_instruction': "Read guide and assigned artifacts with status(task_id, session_id, input_ref='review_guide', input_offset=0); page using next_offset."}
+                                  'review_instruction': "Page the guide with status(input_ref='review_guide', input_offset=0). Use exact evidence IDs from assignment or guide verified evidence inventory/read_example, plus verified current_validation.native_logs locators; page with input_offset/next_offset. Never use arbitrary paths or other-run refs."}
                 return JSONResponse(result)
             except Exception:
                 return JSONResponse(_error("REVIEW_UNAVAILABLE", "Review result service could not persist the request."), 503)
@@ -1268,7 +1268,7 @@ class ExplicitCoordinator:
                                  "path":artifact.get("path"),"sha256":artifact.get("sha256"),"size_bytes":artifact.get("size_bytes")})
             task_view={k:task.get(k) for k in ("task_id","run_id","state","kind","logical_key","decision","deadline_ms","assigned_session_id")}
             result={"task":task_view,"freshness":"not_checked","artifacts":refs,"inputs":inputs,
-                    "review_instruction":"Read review_guide and assigned artifacts using status(task_id, session_id, input_ref='review_guide', input_offset=0); continue with returned next_offset. Then use each exact assigned artifact_id as input_ref."}
+                     "review_instruction":"Page review_guide using input_offset/next_offset. Use exact evidence IDs from the assignment or guide verified evidence inventory/read_example, and receipt-bound verified native log IDs in current_validation.native_logs using the same input_ref paging. Never use arbitrary paths or other-run refs. Cite verified log IDs for runtime-proof findings; if authorized input access fails, report_error instead of asserting execution is missing."}
             encoded=json.dumps(result,separators=(",",":"),ensure_ascii=False).encode("utf-8")
             if len(encoded)>4096:
                 # Never discard registered evidence locators. The immutable guide is
@@ -1282,7 +1282,7 @@ class ExplicitCoordinator:
                         "inputs":{"source_worktree":inputs["source_worktree"],
                                   "input_digest":inputs["input_digest"],"guide":guide},
                         "artifacts_externalized":True,
-                        "review_instruction":"Read review_guide and assigned artifacts using status(task_id, session_id, input_ref='review_guide', input_offset=0); continue with returned next_offset. Then use each exact assigned artifact_id as input_ref."}
+                         "review_instruction":"Page review_guide using input_offset/next_offset. Use exact evidence IDs from the assignment or guide verified evidence inventory/read_example, and receipt-bound verified native log IDs in current_validation.native_logs using the same input_ref paging. Never use arbitrary paths or other-run refs. Cite verified log IDs for runtime-proof findings; if authorized input access fails, report_error instead of asserting execution is missing."}
                 encoded=json.dumps(result,separators=(",",":"),ensure_ascii=False).encode("utf-8")
                 if len(encoded)>4096:
                     return JSONResponse(_error("FROZEN_INPUTS_UNAVAILABLE", "Frozen review guide locator exceeds the safe status response size; report an ERROR for this task."), 409)

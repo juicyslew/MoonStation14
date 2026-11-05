@@ -131,6 +131,33 @@ def render_review_input(request, bundle_metadata, role, objective):
             'instructions':'Claim this exact task, inspect the bound source and references, then complete_review with PASS or concrete FAIL findings; use report_error for system/input faults. Never run native checks or report pending evidence.'}
 
 
+class ReviewInputPreparationError(store.ProtocolError):
+    """Trusted local assignment cannot fit even after evidence is scoped."""
+    def __init__(self, role, size_bytes, limit_bytes):
+        self.role, self.size_bytes, self.limit_bytes = role, size_bytes, limit_bytes
+        super().__init__(f'{role} scoped review envelope is {size_bytes} bytes; limit is {limit_bytes}')
+
+
+def render_bounded_review_input(request, bundle_metadata, role, objective, limit_bytes):
+    """Render full inputs first; on overflow retain only criterion and native receipt refs."""
+    def render(refs):
+        meta = dict(bundle_metadata, artifact_refs=refs)
+        body = render_review_input(request, meta, role, objective)
+        raw = store.canonical_json(body).encode('utf-8')
+        return body, raw
+    refs = sorted(set(bundle_metadata['artifact_refs']))
+    cited = {ref for criterion in request['criteria'] for ref in criterion['evidence_refs']}
+    native = set(bundle_metadata.get('native_receipt_refs', []))
+    if not (cited | native) <= set(refs):
+        raise ValueError('review envelope construction omitted required evidence references')
+    body, raw = render(refs)
+    if len(raw) > limit_bytes:
+        body, raw = render(sorted(cited | native))
+    if len(raw) > limit_bytes:
+        raise ReviewInputPreparationError(role, len(raw), limit_bytes)
+    return {'body':body, 'body_sha256':hashlib.sha256(raw).hexdigest(), 'size_bytes':len(raw)}
+
+
 def preflight(request, *, caller, context):
     try:
         with runtime.operation_deadline(240):
@@ -244,15 +271,19 @@ def preflight(request, *, caller, context):
             roles = policy['review_roles']; summaries = policy['review_summaries']; limit = policy['review_envelope_limit_bytes']
             if not isinstance(roles,list) or len(set(roles)) != len(roles) or not roles or set(roles)-{'implementation','parity','coverage','fidelity'} or not isinstance(summaries,dict) or set(summaries) != set(roles) or any(not isinstance(summaries[r],str) or not summaries[r].strip() for r in roles) or not isinstance(limit,int) or isinstance(limit,bool) or not 1024 <= limit <= 16000:
                 _error('REVIEW_POLICY','review_policy','Review roles/summaries/limit are invalid.')
+            receipt_placeholder='artifact_'+'x'*247
             meta = {'event_id':'event_'+'x'*250,'run_id':'run_'+'x'*252,'task_id':'task_'+'x'*251,
                     'evaluation_generation':2147483647,'assignment_generation':2147483647,'session_id':'session_'+'x'*248,
-                    'worktree':str(repo),'artifact_refs':refs+['artifact_'+'x'*247],
+                    'worktree':str(repo),'artifact_refs':sorted(set(a['artifact_id'] for a in artifacts)|set(refs)|{receipt_placeholder}),
+                    'native_receipt_refs':[receipt_placeholder],
                     'deadline_ms':9999999999999}
             review_inputs=[]
             for role in ([] if diagnostic else roles):
-                body=render_review_input(req,meta,role,summaries[role]); size=len(store.canonical_json(body).encode('utf-8'))
-                if size > limit: _error('REVIEW_ENVELOPE_OVERSIZE',f'review_inputs.{role}',f'{role} rendered envelope is {size} bytes; limit is {limit}.','FAIL',f'Reduce {role} objective or submission context to at most {limit} rendered bytes.')
-                review_inputs.append({'role':role,'body':body,'size_bytes':size,'body_sha256':hashlib.sha256(store.canonical_json(body).encode('utf-8')).hexdigest()})
+                try:
+                    rendered=render_bounded_review_input(req,meta,role,summaries[role],limit)
+                except ReviewInputPreparationError as exc:
+                    _error('REVIEW_ENVELOPE_OVERSIZE',f'review_inputs.{role}',f'{role} scoped rendered envelope is {exc.size_bytes} bytes; limit is {limit}.','FAIL',f'Reduce {role} objective or submission context to at most {limit} rendered bytes.')
+                review_inputs.append({'role':role,**rendered})
             final_manifest=capture_source(repo)
             if final_manifest != manifest: _error('SOURCE_DRIFT','source_manifest','Worktree changed during preflight.')
             if hashlib.sha256(receipt_path.read_bytes()).hexdigest()!=actual_receipt_hash: _error('RECEIPT_DRIFT','publication_receipt','Publication receipt changed during preflight.')

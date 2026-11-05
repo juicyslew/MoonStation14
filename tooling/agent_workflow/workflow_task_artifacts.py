@@ -11,12 +11,17 @@ except ModuleNotFoundError:
     from tooling.agent_workflow import workflow_submission
 
 
+def canonical_artifact_id(task_id, kind, sha256):
+    """Canonical ID for immutable TASK artifact kind/content digest."""
+    return 'artifact_' + task_id + '_' + kind.lower() + '_' + hashlib.sha256((kind + sha256).encode()).hexdigest()[:20]
+
+
 def register_bytes(store, task, artifact_dir, kind, data):
     data = bytes(data)
     sha = hashlib.sha256(data).hexdigest()
     path = workflow_submission._write_immutable(
         artifact_dir / 'immutable' / task['task_id'] / (kind.lower() + '-' + sha), data)
-    artifact_id = 'artifact_' + task['task_id'] + '_' + kind.lower() + '_' + hashlib.sha256((kind + sha).encode()).hexdigest()[:20]
+    artifact_id = canonical_artifact_id(task['task_id'], kind, sha)
     artifact = {'contract_version': 1, 'artifact_id': artifact_id, 'run_id': task['run_id'],
         'producer_task_id': task['task_id'], 'type': kind, 'path': str(path), 'sha256': sha,
         'size_bytes': len(data), 'immutable': True, 'producer_kind': 'TASK', 'producer_id': task['task_id']}

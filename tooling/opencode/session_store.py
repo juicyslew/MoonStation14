@@ -9,6 +9,23 @@ import re
 import sqlite3
 import urllib.parse
 import urllib.request
+import urllib.error
+
+
+class SessionNotFoundError(Exception):
+    """OpenCode's typed, identity-bearing session-not-found response."""
+
+
+def _raise_http_error(error, sid):
+    if error.code == 404:
+        try:
+            value = json.loads(error.read())
+        except (ValueError, OSError):
+            value = None
+        if (isinstance(value, dict) and value.get("_tag") == "SessionNotFoundError"
+                and value.get("sessionID") == sid):
+            raise SessionNotFoundError(sid) from None
+    raise error
 
 
 def tab_session_ids(tabs):
@@ -123,8 +140,12 @@ class API:
         req = urllib.request.Request(self.base + path)
         req.add_header("Authorization", "Basic " + base64.b64encode(("opencode:" + self.password).encode()).decode())
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(req, timeout=10) as response:
-            return response.status, response.read()
+        try:
+            with opener.open(req, timeout=10) as response:
+                return response.status, response.read()
+        except urllib.error.HTTPError as error:
+            parts = path.split("?")[0].split("/")
+            _raise_http_error(error, urllib.parse.unquote(parts[3]) if len(parts) > 3 else "")
 
     def active(self):
         status, body = self.get("/api/session/active")
@@ -155,6 +176,9 @@ class API:
         req = urllib.request.Request(self.base + "/api/session/" + urllib.parse.quote(sid, safe=""), method="DELETE")
         req.add_header("Authorization", "Basic " + base64.b64encode(("opencode:" + self.password).encode()).decode())
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(req, timeout=20) as response:
-            if response.status != 204:
-                raise RuntimeError(f"DELETE returned {response.status}, expected 204")
+        try:
+            with opener.open(req, timeout=20) as response:
+                if response.status != 204:
+                    raise RuntimeError(f"DELETE returned {response.status}, expected 204")
+        except urllib.error.HTTPError as error:
+            _raise_http_error(error, sid)

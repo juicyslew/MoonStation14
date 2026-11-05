@@ -122,6 +122,27 @@ class ReviewResultTests(unittest.TestCase):
             result=dict(self.result(task,ref,'FAIL'),findings=[finding])
             self.assertTrue(api.complete(result,session_id=task['assigned_session_id'])['accepted'])
 
+    def test_insufficient_coverage_with_current_log_requires_citation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store,run,task,api,receipt=self.admitted(Path(tmp))
+            criterion=api.planner.build_assignment(task['task_id'])['body']['review']['criteria'][0]['criterion_id']
+            log=api.planner.native_log_inputs(task['task_id'])[0]['artifact_id']
+            checks=api.planner.verified_current_checks(task['task_id'])
+            matching=next(check for check in checks if criterion in check.get('covers',[]))
+            api.planner.verified_current_checks=lambda _task:[matching]
+            finding={'criterion_id':criterion,'category':'COVERAGE','message':'Concrete branch is not covered.',
+                'validation_stage':'TECHNICAL','location':'branch','evidence_refs':[receipt],
+                'required_change':'Add branch check.','coverage_basis':'INSUFFICIENT_CHECK_COVERAGE','check_kind':matching['kind']}
+            result=dict(self.result(task,receipt,'FAIL'),findings=[finding])
+            rejected=api.complete(result,session_id=task['assigned_session_id'])
+            self.assertEqual('findings[0].evidence_refs',rejected['field'])
+            self.assertEqual('CLAIMED',store.get_task(task['task_id'])['state'])
+            finding['evidence_refs']=[log]
+            result['inspected_refs']=[receipt,log]
+            accepted=api.complete(result,session_id=task['assigned_session_id'])
+            self.assertTrue(accepted['accepted'],accepted)
+            self.assertEqual('FAIL',store.get_task(task['task_id'])['result']['decision'])
+
     def test_error_commits_incident_and_replays(self):
         with tempfile.TemporaryDirectory() as tmp:
             store,run,task,api,ref=self.admitted(Path(tmp))
