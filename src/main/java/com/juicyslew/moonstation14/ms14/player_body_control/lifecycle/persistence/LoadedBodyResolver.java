@@ -16,6 +16,23 @@ public final class LoadedBodyResolver {
         Objects.requireNonNull(eligibleCharacter, "eligibleCharacter");
         if (profile.state() != SavedLifecycleProfile.State.OFFLINE) return recovery();
 
+        return resolveLoadedIdentity(profile, lookup, eligibleCharacter);
+    }
+
+    /** Explicit proof path for reclaiming an abandoned ACTIVE row; ordinary OFFLINE resolution stays narrow. */
+    public static Resolution resolveAbandonedActive(SavedLifecycleProfile profile,
+                                      ReadOnlyLookup lookup, Predicate<Candidate> eligibleCharacter) {
+        Objects.requireNonNull(profile, "profile");
+        Objects.requireNonNull(lookup, "lookup");
+        Objects.requireNonNull(eligibleCharacter, "eligibleCharacter");
+        if (profile.state() != SavedLifecycleProfile.State.ACTIVE || profile.offlineSinceMillis() != null)
+            return recovery();
+        return resolveLoadedIdentity(profile, lookup, eligibleCharacter);
+    }
+
+    private static Resolution resolveLoadedIdentity(SavedLifecycleProfile profile,
+                                      ReadOnlyLookup lookup, Predicate<Candidate> eligibleCharacter) {
+
         LookupResult result = lookup.findExact(profile.bodyId());
         if (result == null) return recovery();
         return switch (result.kind()) {

@@ -56,7 +56,7 @@ class LifecycleStartupRuntimeTest {
         assertEquals(LifecycleStartupRuntime.State.UNINITIALIZED, missing.state());
     }
 
-    @Test void unsupportedStatesAndMixedBatchesRequireRecoveryWithoutOverwritingEvidence() throws Exception {
+    @Test void unsupportedStatesAndInvalidMixedBatchesRequireRecoveryWithoutOverwritingEvidence() throws Exception {
         var states = SavedLifecycleProfile.State.values();
         var offline = SavedLifecycleProfile.State.OFFLINE;
         Path evidence = directory.resolve("existing-evidence");
@@ -64,7 +64,8 @@ class LifecycleStartupRuntimeTest {
 
         for (var state : states) {
             var result = LifecycleStartupRuntime.inspect(() -> Optional.of(List.of(state)));
-            if (state == offline || state == SavedLifecycleProfile.State.DEAD_CLAIM) {
+            if (state == offline || state == SavedLifecycleProfile.State.DEAD_CLAIM
+                    || state == SavedLifecycleProfile.State.ACTIVE) {
                 assertEquals(LifecycleStartupRuntime.State.DEFERRED, result.state(), state.name());
             } else {
                 assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, result.state(), state.name());
@@ -78,12 +79,61 @@ class LifecycleStartupRuntimeTest {
         assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, mixed.state());
         var activeMixed = LifecycleStartupRuntime.inspect(() -> Optional.of(List.of(offline,
                 SavedLifecycleProfile.State.ACTIVE, SavedLifecycleProfile.State.DEAD_CLAIM)));
-        assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, activeMixed.state());
+        assertEquals(LifecycleStartupRuntime.State.DEFERRED, activeMixed.state());
         var corrupt = LifecycleStartupRuntime.inspect(() -> {
             throw new IOException("corrupt primary");
         });
         assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, corrupt.state());
         assertEquals("do not overwrite", Files.readString(evidence));
+    }
+
+    @Test void actualActivePrimaryStartsDeferredAndOnlyLoadedIdentityProofParksItOffline() throws Exception {
+        UUID account = UUID.randomUUID(), mind = UUID.randomUUID(), bodyId = UUID.randomUUID(), epoch = UUID.randomUUID();
+        var active = new SavedLifecycleProfile(1, account, "main", mind, bodyId, "minecraft:overworld",
+                new SavedLifecycleProfile.Location(900, 64, 900), java.util.Map.of(), epoch, 4,
+                SavedLifecycleProfile.State.ACTIVE, 8, null);
+        var store = new LifecycleProfileStore(directory.resolve("active-primary.json"));
+        store.compareAndSwap(-1, epoch, 4, List.of(active));
+        var startup = LifecycleStartupRuntime.start(store, store::read);
+        assertEquals(LifecycleStartupRuntime.State.DEFERRED, startup.snapshot().state());
+        assertNotNull(startup.context());
+        assertTrue(startup.context().hasReservedClaim(account));
+        assertTrue(startup.context().ownership().mind(account).isEmpty(), "startup never hydrates an ACTIVE Mind");
+
+        var body = new MobHarness(new MobHarnessId(bodyId), MobHarnessKind.CHARACTER);
+        var unreserved = new SavedLifecycleProfile(1, UUID.randomUUID(), active.profileKey(), mind, bodyId,
+                active.dimension(), active.location(), active.appearance(), epoch, 4,
+                SavedLifecycleProfile.State.ACTIVE, 8, null);
+        assertTrue(startup.context().parkAbandonedActive(unreserved,
+                new SavedLifecycleProfile.Location(1, 65, 2), "minecraft:overworld", 99,
+                body, ignored -> true).isEmpty(), "unreserved account cannot enter the facade's CAS route");
+        assertEquals(active, store.read().orElseThrow().profiles().get(0), "denial must not rewrite the ACTIVE row");
+        var parked = startup.context().parkAbandonedActive(active,
+                new SavedLifecycleProfile.Location(1, 65, 2), "minecraft:overworld", 99,
+                body, ignored -> true).orElseThrow();
+        assertEquals(SavedLifecycleProfile.State.OFFLINE, parked.state());
+        assertEquals(new SavedLifecycleProfile.Location(1, 65, 2), parked.location());
+        var restoredMind = startup.context().ownership().mind(account).orElseThrow();
+        assertEquals(mind, restoredMind.id().value());
+        assertEquals(body.id(), restoredMind.harnessId());
+        assertTrue(restoredMind.epoch() > active.connectionGeneration(), "restore advances beyond the saved generation floor");
+        assertEquals(SavedLifecycleProfile.State.OFFLINE, store.read().orElseThrow().profiles().get(0).state());
+        var activeAgain = startup.context().reconnectOffline(parked, body).orElseThrow();
+        assertTrue(activeAgain.connectionGeneration() > parked.connectionGeneration(),
+                "normal reconnect performs its own generation bump after the park/restore step");
+        assertEquals(mind, activeAgain.mindId().value());
+        assertEquals(body.id(), activeAgain.bodyId());
+    }
+
+    @Test void duplicateOwnershipEvidenceStillBlocksStartupContext() {
+        UUID account = UUID.randomUUID(), epoch = UUID.randomUUID();
+        var row = new SavedLifecycleProfile(1, account, "main", UUID.randomUUID(), UUID.randomUUID(),
+                "minecraft:overworld", new SavedLifecycleProfile.Location(0, 64, 0), java.util.Map.of(),
+                epoch, 0, SavedLifecycleProfile.State.ACTIVE, 0, null);
+        var result = LifecycleStartupRuntime.start(new LifecycleProfileStore(directory.resolve("ambiguous.json")),
+                () -> Optional.of(new LifecycleStoreEnvelope(1, 0, epoch, 0, List.of(row, row))));
+        assertEquals(LifecycleStartupRuntime.State.RECOVERY_REQUIRED, result.snapshot().state());
+        assertNull(result.context());
     }
 
     @Test void mixedOfflineAndDeadClaimBatchIsDeferredAndReservesExactPersistedAccounts() throws Exception {

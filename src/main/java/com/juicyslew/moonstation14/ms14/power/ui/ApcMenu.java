@@ -34,6 +34,7 @@ public final class ApcMenu extends AbstractContainerMenu {
     private final PowerDeviceBlockEntity serverDevice;
     private final HandActorAuthority.Snapshot bodyAuthority;
     private final BodyBlockUseRequest bodyRequest;
+    private final UUID expectedFrameId;
     private BreakerSnapshot committedSnapshot;
     private boolean receivedVisualState;
 
@@ -42,22 +43,28 @@ public final class ApcMenu extends AbstractContainerMenu {
     /** Client-side constructor used by vanilla's menu-open handshake; the client registers the Screen separately. */
     public ApcMenu(int containerId, Inventory inventory, FriendlyByteBuf extraData) {
         this(containerId, inventory, extraData.readBlockPos(), extraData.readUUID(), null, null,
-                 null, null, new SimpleContainerData(9));
+                 null, null, null, new SimpleContainerData(9));
     }
 
     public ApcMenu(int containerId, Inventory inventory, BlockPos pos, UUID session,
                    ServerLevel level, PowerDeviceBlockEntity device) {
-        this(containerId, inventory, pos, session, level, device, null, null, serverData(device));
+        this(containerId, inventory, pos, session, level, device, null, null, null, serverData(device));
     }
 
     public ApcMenu(int containerId, Inventory inventory, BlockPos pos, UUID session, ServerLevel level,
                    PowerDeviceBlockEntity device, HandActorAuthority.Snapshot authority, BodyBlockUseRequest request) {
-        this(containerId, inventory, pos, session, level, device, authority, request, serverData(device));
+        this(containerId, inventory, pos, session, level, device, authority, request, null, serverData(device));
+    }
+
+    public ApcMenu(int containerId, Inventory inventory, BlockPos pos, UUID session, ServerLevel level,
+                   PowerDeviceBlockEntity device, HandActorAuthority.Snapshot authority,
+                   BodyBlockUseRequest request, UUID expectedFrameId) {
+        this(containerId, inventory, pos, session, level, device, authority, request, expectedFrameId, serverData(device));
     }
 
     private ApcMenu(int containerId, Inventory inventory, BlockPos pos, UUID session,
                     ServerLevel level, PowerDeviceBlockEntity device, HandActorAuthority.Snapshot authority,
-                    BodyBlockUseRequest request, ContainerData data) {
+                     BodyBlockUseRequest request, UUID expectedFrameId, ContainerData data) {
         super(ModMenus.APC.get(), containerId);
         this.pos = pos.immutable();
         this.session = session;
@@ -65,6 +72,7 @@ public final class ApcMenu extends AbstractContainerMenu {
         this.serverDevice = device;
         this.bodyAuthority = authority;
         this.bodyRequest = request;
+        this.expectedFrameId = expectedFrameId;
         this.data = data;
         if (device == null) data.set(VISUAL_STATE_SLOT, -1);
         addDataSlots(data);
@@ -99,6 +107,7 @@ public final class ApcMenu extends AbstractContainerMenu {
     }
 
     public BlockPos devicePos() { return pos; }
+    public ServerLevel serverLevel() { return serverLevel; }
     public UUID session() { return session; }
     public int displayedBreaker() {
         return serverDevice != null ? data.get(0) : committedSnapshot == null ? 0 : committedSnapshot.breaker();
@@ -152,6 +161,7 @@ public final class ApcMenu extends AbstractContainerMenu {
     public PowerDeviceBlockEntity boundDevice() { return serverDevice; }
     public HandActorAuthority.Snapshot bodyAuthority() { return bodyAuthority; }
     public BodyBlockUseRequest bodyRequest() { return bodyRequest; }
+    public UUID expectedFrameId() { return expectedFrameId; }
 
     @Override public boolean stillValid(Player player) {
         return serverLevel != null && validContext(player);

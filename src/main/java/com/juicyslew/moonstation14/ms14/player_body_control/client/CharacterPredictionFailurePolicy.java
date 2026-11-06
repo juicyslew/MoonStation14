@@ -23,7 +23,7 @@ final class CharacterPredictionFailurePolicy {
             if (!(exception instanceof NonfinitePostMoveDisplacement)
                     && !"collision resolution must be finite and bounded by requested displacement".equals(exception.getMessage()))
                 throw exception;
-            history.onAuthorityBarrier();
+            history.onPredictionFailureBarrier();
             return null;
         }
     }

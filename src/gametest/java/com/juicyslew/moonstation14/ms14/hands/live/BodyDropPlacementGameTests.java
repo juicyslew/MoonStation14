@@ -9,6 +9,8 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
@@ -38,6 +40,28 @@ public final class BodyDropPlacementGameTests {
                 "air drop has deterministic forward motion and retains natural gravity");
         require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left").isEmpty(),
                 "body hand no longer owns dropped stack");
+        helper.succeed();
+    }
+
+    @GameTestTags("hands-release-kinematics")
+    public static void handDropInheritsBodyWorldVelocity(GameTestHelper helper) {
+        Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 2, 2));
+        body.setDeltaMovement(.08, .03, -.04);
+        require(LiveHands.initialize(body).isPresent(), "body hands initialized");
+        LiveHands initial = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        var stored = initial.putWhole(initial.revision(), "left", new ItemToken("release-motion"), new ItemStack(Items.STICK));
+        body.setData(ModDataAttachments.LIVE_HANDS.get(), stored.state());
+        var placement = BodyItemTargetProbe.resolveDrop((ServerLevel) helper.getLevel(), body);
+        require(placement != null && !placement.surfacePlacement(), "AIR release resolves a nonsurface placement");
+        Vec3 bodyOwnAtRelease = body.getDeltaMovement();
+        Vec3 expectedMotion = bodyOwnAtRelease.add(placement.velocity());
+        require(BodyHandItemTransfer.dropOwned(body, "left", "release-motion", stored.state().revision(), () -> true)
+                == BodyHandItemTransfer.Result.SUCCESS, "release commits");
+        var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(3),
+                item -> item.getItem().is(Items.STICK));
+        require(items.size() == 1 && items.getFirst().getDeltaMovement().distanceTo(expectedMotion) < 1e-8,
+                "AIR drop preserves release-time body velocity plus plan intent exactly once: expected=" + expectedMotion
+                        + " actual=" + (items.isEmpty() ? null : items.getFirst().getDeltaMovement()));
         helper.succeed();
     }
 
@@ -203,45 +227,80 @@ public final class BodyDropPlacementGameTests {
         helper.succeed();
     }
 
-    /** Exercises the trusted carrier-exclusion seam with a real spawned entity, not the authenticated player route. */
-    public static void crowdingFallsBackWithoutDenyingPlacement(GameTestHelper helper) {
+    /** Carrier exclusion is exact: no implicit mob exemption and no unrelated-occupant exemption. */
+    public static void crowdingHonorsExactCarrierExclusion(GameTestHelper helper) {
         var level = helper.getLevel();
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
         Villager carrier = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
         body.setYRot(-90);
-        require(BodyItemTargetProbe.resolveDrop(level, body) != null,
-                "overlapping entity cannot deny a loaded-body fallback");
+        require(BodyItemTargetProbe.resolveDrop(level, body) == null,
+                "overlapping carrier blocks placement when not explicitly excluded");
         require(BodyItemTargetProbe.resolveDrop(level, body, carrier) != null,
-                "designated carrier still permits an aimed placement");
+                "explicitly excluded carrier permits a clear candidate");
         Villager unrelated = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
-        require(BodyItemTargetProbe.resolveDrop(level, body, carrier) != null,
-                "unrelated crowding cannot deny a loaded-body fallback");
+        require(BodyItemTargetProbe.resolveDrop(level, body, carrier) == null,
+                "unrelated overlapping entity still blocks placement");
         unrelated.discard();
+        require(BodyItemTargetProbe.resolveDrop(level, body, carrier) != null,
+                "placement becomes clear after only unrelated blocker is removed");
+        carrier.discard();
+        body.discard();
         helper.succeed();
     }
 
-    /** Trusted fixture seam only; no authenticated ServerPlayer/controller is synthesized here. */
-    public static void crowdedCarrierDropUsesFallback(GameTestHelper helper) {
+    /** Trusted fixture seam: blocked ownership remains in hand, then transfers once the unrelated blocker clears. */
+    public static void crowdedDropRetainsHandUntilUnrelatedBlockerClears(GameTestHelper helper) {
+        var level = helper.getLevel();
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
         Villager carrier = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
+        Villager unrelated = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 1, 2));
         body.setYRot(-90);
         require(LiveHands.initialize(body).isPresent(), "body hands initialized");
         LiveHands initial = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        var stored = initial.putWhole(initial.revision(), "left", new ItemToken("carrier-drop"),
-                new ItemStack(Items.STICK));
+        ItemStack fixtureStack = new ItemStack(Items.STICK, 4);
+        fixtureStack.set(DataComponents.CUSTOM_NAME, Component.literal("named carrier drop"));
+        var stored = initial.putWhole(initial.revision(), "left", new ItemToken("carrier-drop"), fixtureStack);
         require(stored.succeeded(), "fixture item stored");
         body.setData(ModDataAttachments.LIVE_HANDS.get(), stored.state());
-        require(BodyHandItemTransfer.dropOwned(body, "left", "carrier-drop", stored.state().revision(), () -> true)
-                        == BodyHandItemTransfer.Result.SUCCESS,
-                "crowding cannot deny an authorized drop");
+        var query = body.getBoundingBox().inflate(5);
+        var before = level.getEntitiesOfClass(ItemEntity.class, query).stream()
+                .map(ItemEntity::getUUID).collect(java.util.stream.Collectors.toSet());
+        long revision = stored.state().revision();
+        require(BodyHandItemTransfer.dropOwned(body, carrier, "left", "carrier-drop", revision, () -> true)
+                        == BodyHandItemTransfer.Result.DENIED,
+                "explicit carrier exclusion does not bypass unrelated blocker");
         LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        require(after.token("left").isEmpty(), "successful drop clears the hand");
-        var items = helper.getLevel().getEntitiesOfClass(ItemEntity.class, body.getBoundingBox().inflate(3),
-                item -> item.getItem().is(Items.STICK));
-        require(items.size() == 1 && items.getFirst().getItem().getCount() == 1,
-                "exactly one unchanged stack is spawned despite overlap");
+        require(after == stored.state(), "denied attempt retains the exact pre-attempt hand-state object");
+        require(retainsDropOwner(after, revision, "carrier-drop", stored.state().stackCopy("left").orElseThrow()),
+                "denied attempt preserves hand owner, token, revision and whole stack");
+        require(level.getEntitiesOfClass(ItemEntity.class, query).stream().map(ItemEntity::getUUID)
+                        .noneMatch(id -> !before.contains(id)),
+                "denied attempt publishes no item entity");
+        unrelated.discard();
+        var placement = BodyItemTargetProbe.resolveDrop(level, body, carrier);
+        require(placement != null, "candidate clears after unrelated blocker alone is removed");
+        require(BodyHandItemTransfer.dropOwned(body, carrier, "left", "carrier-drop", revision, () -> true)
+                        == BodyHandItemTransfer.Result.SUCCESS,
+                "same revision and token succeeds with only designated carrier excluded");
+        after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(after.token("left").isEmpty() && after.revision() == revision + 1,
+                "success clears hand and advances revision exactly once");
+        var created = level.getEntitiesOfClass(ItemEntity.class, query, item -> !before.contains(item.getUUID()));
+        require(created.size() == 1 && created.getFirst().getItem().getCount() == fixtureStack.getCount()
+                        && ItemStack.isSameItemSameComponents(created.getFirst().getItem(), fixtureStack),
+                "exactly one newly published whole-stack owner");
+        require(created.getFirst().position().distanceToSqr(placement.position()) < .001,
+                "created owner uses the resolved clear placement candidate");
         carrier.discard();
+        body.discard();
         helper.succeed();
+    }
+
+    static boolean retainsDropOwner(LiveHands state, long revision, String token, ItemStack expectedStack) {
+        var actualStack = state.stackCopy("left");
+        return state.revision() == revision && state.token("left").filter(token::equals).isPresent()
+                && actualStack.isPresent() && actualStack.orElseThrow().getCount() == expectedStack.getCount()
+                && ItemStack.isSameItemSameComponents(actualStack.orElseThrow(), expectedStack);
     }
 
     public static void enclosedDropUsesLoadedBodyFallback(GameTestHelper helper) {

@@ -304,6 +304,27 @@ public final class CharacterSchemaAudit {
             auditRespirator(object, path, complete);
             return;
         }
+          if ("AngularRecovery".equals(type)) {
+              checkFields(object, Set.of("type", "grace_seconds", "recovery_seconds", "bad_landing_tilt_degrees",
+                      "bad_landing_angular_speed", "comfort_tilt_degrees", "comfort_angular_speed",
+                      "knockdown_seconds", "comfort_return_enabled"), path);
+              auditOptionalNumber(object, "grace_seconds", 0, Double.MAX_VALUE, false, path);
+              auditOptionalNumber(object, "recovery_seconds", 0, Double.MAX_VALUE, true, path);
+              auditOptionalNumber(object, "bad_landing_tilt_degrees", 0, 180, true, path);
+              auditOptionalNumber(object, "bad_landing_angular_speed", 0, Double.MAX_VALUE, false, path);
+              auditOptionalNumber(object, "comfort_tilt_degrees", 0, 180, false, path);
+              auditOptionalNumber(object, "comfort_angular_speed", 0, Double.MAX_VALUE, false, path);
+              auditOptionalNumber(object, "knockdown_seconds", 0, Double.MAX_VALUE, false, path);
+              JsonElement comfort = object.get("comfort_return_enabled");
+              if (comfort != null && (!comfort.isJsonPrimitive() || !comfort.getAsJsonPrimitive().isBoolean()))
+                  fail(path + ".comfort_return_enabled", "expected boolean");
+              if (complete) {
+                  var decoded = com.juicyslew.moonstation14.ms14.character.components.AngularRecoveryComponent.CODEC
+                          .parse(com.mojang.serialization.JsonOps.INSTANCE, object);
+                  if (decoded.error().isPresent()) fail(path, "invalid complete AngularRecovery policy");
+              }
+              return;
+          }
           if ("Body".equals(type) || "Hunger".equals(type) || "Thirst".equals(type) || "Stomach".equals(type)
                   || "Mouth".equals(type)
                   || "Blindable".equals(type) || "Incorporeal".equals(type)) {
@@ -609,6 +630,16 @@ public final class CharacterSchemaAudit {
         if (!Double.isFinite(number) || (exclusiveMin ? number <= min : number < min) || number > max) {
             fail(path, "expected finite number in " + (exclusiveMin ? "(" : "[") + min + ", " + max + "]");
         }
+    }
+
+    private static void auditOptionalNumber(JsonObject object, String field, double min, double max, boolean exclusiveMin, String parentPath) {
+        JsonElement value = object.get(field);
+        if (value == null) return;
+        String path = parentPath + "." + field;
+        if (!finiteNumber(value)) fail(path, "expected finite number");
+        double number = value.getAsDouble();
+        if ((exclusiveMin ? number <= min : number < min) || number > max)
+            fail(path, "expected finite number in " + (exclusiveMin ? "(" : "[") + min + ", " + max + "]");
     }
 
     private static void auditBloodMap(JsonObject blood, String field, boolean allowSigned, String parentPath) {

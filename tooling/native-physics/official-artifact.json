@@ -1,0 +1,10 @@
+{
+  "coordinate": "maven.modrinth:sable:fg9dTRz9",
+  "sha256": "9c199157843bf953a47dff625fc5bb41c01a90538d35ad18e6996bbcb8a617c2",
+  "sable_source_pin": "ad8b4d377741fbd923f4d863b2cf9e462daff9a6",
+  "provenance_json_dependency": {
+    "coordinate": "com.google.code.gson:gson:2.10.1",
+    "sha256": "4241c14a7727c34feea6507ec801318a3d4a90f070e4525681079fb94ee4c593",
+    "scope": "build-time verification only; not packaged"
+  }
+}

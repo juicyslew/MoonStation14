@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.client;
 
 import net.minecraft.client.CameraType;
+import com.juicyslew.moonstation14.ms14.eye.client.PerspectiveOverridePolicy;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -9,7 +10,7 @@ import java.util.UUID;
 public final class ContainedCameraPolicy {
     private UUID body;
     private long epoch;
-    private CameraType previous;
+    private final PerspectiveOverridePolicy<CameraType> override = new PerspectiveOverridePolicy<>();
 
     public boolean active() { return body != null; }
 
@@ -19,21 +20,23 @@ public final class ContainedCameraPolicy {
                 && body.equals(nextBody) && epoch == nextEpoch;
         if (!contained || nextBody == null || nextEpoch <= 0) {
             if (body == null) return current;
-            CameraType restore = previous;
+            CameraType restore = override.restore();
             clear();
             return restore;
         }
         if (!sameLease) {
-            CameraType baseline = body != null && current == CameraType.THIRD_PERSON_BACK ? previous : current;
+            CameraType baseline = body != null && current == CameraType.THIRD_PERSON_BACK
+                    ? override.baseline() : current;
             body = nextBody;
             epoch = nextEpoch;
-            previous = baseline;
+            override.clear();
+            override.enter(baseline);
         }
         return CameraType.THIRD_PERSON_BACK;
     }
 
     /** The saved perspective belongs to the lease, not an individual owner view transfer. */
-    public void clear() { body = null; epoch = 0; previous = null; }
+    public void clear() { body = null; epoch = 0; override.clear(); }
 
     public boolean matches(UUID cameraBody, UUID ownedBody, long ownedEpoch, boolean contained) {
         return contained && body != null && body.equals(cameraBody) && body.equals(ownedBody)

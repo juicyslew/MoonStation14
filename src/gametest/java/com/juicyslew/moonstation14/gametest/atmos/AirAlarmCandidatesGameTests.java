@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.gametest.atmos;
 
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
+import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig;
@@ -13,6 +14,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 @GameTestTags({"air-alarm", "ventilation"})
@@ -22,22 +24,47 @@ public final class AirAlarmCandidatesGameTests {
 
     // The query is level-wide; nearby concurrent fixtures must not contribute indexed vents.
 @GameTest(templateNamespace = "moonstation14", template = "empty", batch = "air_alarm_candidates_isolated")
-    public static void queryIsSortedBoundedAndDoesNotPair(GameTestHelper helper) {
+public static void queryIsSortedBoundedAndDoesNotPair(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
-        BlockPos origin = helper.absolutePos(new BlockPos(2, 2, 2));
+        // Explicitly owned external region, separated from test templates and Sable scenes.
+        BlockPos origin = new BlockPos(360, 300, 360);
+        BlockPos near = origin.east();
+        BlockPos farther = origin.east(2);
+        BlockPos outside = origin.east(17);
+        var lease = FixtureChunkTickets.acquire(helper, new AABB(origin.getX() - 18, origin.getY() - 18,
+                origin.getZ() - 18, origin.getX() + 19, origin.getY() + 19, origin.getZ() + 19));
+        preflightOwnedEmpty(level, origin);
+        helper.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener() {
+            @Override public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo ignored) { }
+            @Override public void testPassed(net.minecraft.gametest.framework.GameTestInfo ignored, net.minecraft.gametest.framework.GameTestRunner runner) { cleanup(); }
+            @Override public void testFailed(net.minecraft.gametest.framework.GameTestInfo ignored, net.minecraft.gametest.framework.GameTestRunner runner) { cleanup(); }
+            @Override public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo oldTest, net.minecraft.gametest.framework.GameTestInfo newTest, net.minecraft.gametest.framework.GameTestRunner runner) { cleanup(); }
+            private void cleanup() {
+                for (BlockPos pos : new BlockPos[]{origin, origin.north(), near, farther, outside})
+                    if (level.hasChunkAt(pos)) level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+            }
+        });
         level.setBlock(origin.north(), Blocks.IRON_BLOCK.defaultBlockState(), 3);
         level.setBlock(origin, ModBlocks.AIR_ALARM.get().defaultBlockState(), 3);
         AirAlarmBlockEntity alarm = (AirAlarmBlockEntity) level.getBlockEntity(origin);
         if (alarm == null || alarm.prototype() == null || alarm.prototype().deviceList().maxDevices() != 32)
             throw new AssertionError("resolved alarm DeviceList must limit results to 32");
-        BlockPos near = origin.east();
-        BlockPos farther = origin.east(2);
-        BlockPos outside = origin.east(17);
         level.setBlock(farther, ModBlocks.GAS_SCRUBBER.get().defaultBlockState(), 3);
         level.setBlock(near, ModBlocks.GAS_VENT.get().defaultBlockState(), 3);
         level.setBlock(outside, ModBlocks.GAS_VENT.get().defaultBlockState(), 3);
         // The first query must discover identities even before the placement tick's onLoad.
         checkCandidates(helper, level, alarm, origin, near, farther, outside);
+    }
+
+    private static void preflightOwnedEmpty(ServerLevel level, BlockPos origin) {
+        for (int x = -17; x <= 17; x++) for (int y = -17; y <= 17; y++) for (int z = -17; z <= 17; z++) {
+            BlockPos pos = origin.offset(x, y, z);
+            if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()
+                    || !level.getWorldBorder().isWithinBounds(pos) || !level.hasChunkAt(pos)
+                    || !level.getBlockState(pos).isAir() || !level.getFluidState(pos).isEmpty()
+                    || level.getBlockEntity(pos) != null)
+                throw new AssertionError("owned air-alarm query volume must be loaded, in bounds, and empty: " + pos);
+        }
     }
 
     private static void checkCandidates(GameTestHelper helper, ServerLevel level, AirAlarmBlockEntity alarm,

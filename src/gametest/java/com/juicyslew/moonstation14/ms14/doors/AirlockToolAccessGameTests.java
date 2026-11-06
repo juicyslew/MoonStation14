@@ -13,7 +13,7 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Geometry-only tool reach proof; it deliberately does not synthesize player authority. */
-@GameTestTags({"airlock"})
+@GameTestTags({"airlock", "shuttle-airlock-access"})
 @PrefixGameTestTemplate(false)
 public final class AirlockToolAccessGameTests {
     private AirlockToolAccessGameTests() { }

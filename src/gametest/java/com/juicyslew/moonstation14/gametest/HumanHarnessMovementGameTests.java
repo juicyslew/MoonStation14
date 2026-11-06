@@ -131,6 +131,7 @@ public final class HumanHarnessMovementGameTests {
         });
     }
 
+    @GameTestTags("shuttle-owner-regression")
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void realHumanVillagerMovesAndJumpsThroughHarnessMotor(GameTestHelper helper) {
         for (int x = 1; x <= 9; x++) {
@@ -175,6 +176,7 @@ public final class HumanHarnessMovementGameTests {
         helper.succeed();
     }
 
+    @GameTestTags("shuttle-owner-regression")
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
     public static void sharedWorldStepAppliesHumanAndPigProfiles(GameTestHelper helper) {
         for (int x = 1; x <= 20; x++) {
@@ -194,13 +196,7 @@ public final class HumanHarnessMovementGameTests {
         var humanLease = GroundedHarnessLease.tryAcquire(human).orElseThrow();
         var pigLease = GroundedHarnessLease.tryAcquire(pig).orElseThrow();
         GroundedHarnessWorldStep sharedStep = new GroundedHarnessWorldStep();
-        // Keep the probe centered and before any test-structure boundary; acceleration reaches cap quickly.
-        for (int tick = 0; tick < 5; tick++) {
-            require(sharedStep.step(human, 0, 1000, false, false, 0f).isPresent(),
-                    "shared world step accepts owned HUMAN Villager");
-            require(sharedStep.step(pig, 0, 1000, false, false, 0f).isPresent(),
-                    "same shared world step accepts owned Pig");
-        }
+        // Keep the probe centered and before any test-structure boundary; one real physics step per tick.
         var resolvedHuman = ModCharacters.require(helper.getLevel(), ModCharacters.HUMAN_ID);
         var humanPolicy = com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy.fromCharacterData(resolvedHuman);
         require(resolvedHuman.component(com.juicyslew.moonstation14.ms14.character.components.MovementSpeedModifierComponent.class)
@@ -210,23 +206,44 @@ public final class HumanHarnessMovementGameTests {
                 "resolved prototype retains the raw SS14 human walk/sprint values");
         require(humanPolicy.walkSpeedPerSecond() == 3.125d && humanPolicy.sprintSpeedPerSecond() == 5.625d,
                 "shared live policy applies the grounded Minecraft speed scale once to both speeds");
-        require(Math.abs(human.getDeltaMovement().z * 20d - 3.125d) < 1e-8,
-                "shared world step resolves HUMAN walk policy at 3.125 blocks/second");
-        // Exercise the production world step's sprint cap using the same enrolled human and lease.
-        human.setDeltaMovement(Vec3.ZERO);
-        for (int tick = 0; tick < 8; tick++) {
+        final int[] phaseTicks = {0};
+        final boolean[] walkPhaseCompleted = {false};
+        Runnable[] advance = new Runnable[1];
+        advance[0] = () -> {
+            if (!walkPhaseCompleted[0]) {
+                require(sharedStep.step(human, 0, 1000, false, false, 0f).isPresent(),
+                        "shared world step accepts owned HUMAN Villager");
+                require(sharedStep.step(pig, 0, 1000, false, false, 0f).isPresent(),
+                        "same shared world step accepts owned Pig");
+                if (++phaseTicks[0] < 5) {
+                    com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, advance[0]);
+                    return;
+                }
+                require(Math.abs(human.getDeltaMovement().z * 20d - 3.125d) < 1e-8,
+                        "shared world step resolves HUMAN walk policy at 3.125 blocks/second");
+                require(Math.abs(pig.getDeltaMovement().z * 20d - 5d) < .02d,
+                        "shared adapter resolves Pig walk policy at 5 blocks/second; actual="
+                                + pig.getDeltaMovement().z * 20d + ", position=" + pig.position()
+                                + ", grounded=" + pig.onGround());
+                human.setDeltaMovement(Vec3.ZERO);
+                phaseTicks[0] = 0;
+                walkPhaseCompleted[0] = true;
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, advance[0]);
+                return;
+            }
             require(sharedStep.step(human, 0, 1000, false, true, 0f).isPresent(),
                     "shared world step accepts sprinting owned HUMAN Villager");
-        }
-        require(Math.abs(human.getDeltaMovement().z * 20d - 5.625d) < 1e-8,
-                "shared world step applies converted HUMAN sprint cap without repeated scaling");
-        require(Math.abs(pig.getDeltaMovement().z * 20d - 5d) < .02d,
-                "shared adapter resolves Pig walk policy at 5 blocks/second; actual="
-                        + pig.getDeltaMovement().z * 20d + ", position=" + pig.position()
-                        + ", grounded=" + pig.onGround());
-        humanLease.close();
-        pigLease.close();
-        helper.succeed();
+            if (++phaseTicks[0] < 8) {
+                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, advance[0]);
+                return;
+            }
+            require(Math.abs(human.getDeltaMovement().z * 20d - 5.625d) < 1e-8,
+                    "shared world step applies converted HUMAN sprint cap without repeated scaling");
+            humanLease.close();
+            pigLease.close();
+            helper.succeed();
+        };
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, advance[0]);
     }
 
 

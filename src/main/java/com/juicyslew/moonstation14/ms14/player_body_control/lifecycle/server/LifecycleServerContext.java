@@ -189,6 +189,21 @@ final class LifecycleServerContext {
         }).map(java.util.Optional::ofNullable).orElse(java.util.Optional.empty());
     }
 
+    /** CAS-parks the uniquely proven exact abandoned ACTIVE claim at its observed live pose. */
+    synchronized java.util.Optional<SavedLifecycleProfile> parkAbandonedActive(
+            SavedLifecycleProfile saved, SavedLifecycleProfile.Location actualLocation, String dimension,
+            long offlineSinceMillis, com.juicyslew.moonstation14.ms14.player_body_control.MobHarness provenHarness,
+            java.util.function.Predicate<com.juicyslew.moonstation14.ms14.player_body_control.MobHarness> eligibility)
+            throws IOException {
+        if (saved == null || saved.state() != SavedLifecycleProfile.State.ACTIVE || eligibility == null
+                || !reservedAccounts.contains(saved.accountId())) return java.util.Optional.empty();
+        return primaryStore.<SavedLifecycleProfile>withCurrentPrimary(lease -> {
+            if (lease.envelope().profiles().stream().filter(saved::equals).count() != 1) return null;
+            return lifecycle.parkAbandonedActiveDurably(lease, saved, actualLocation, dimension,
+                    offlineSinceMillis, provenHarness, eligibility::test).orElse(null);
+        }).map(java.util.Optional::ofNullable).orElse(java.util.Optional.empty());
+    }
+
     /** Restore only the exact persisted offline owner for a world-proven dead corpse, then claim its death. */
     synchronized boolean claimOfflineDeath(SavedLifecycleProfile saved,
             com.juicyslew.moonstation14.ms14.player_body_control.MobHarness corpse,

@@ -46,6 +46,7 @@ public final class GameTestTagRegistrar {
 
         Set<String> requested = GameTestTagSelector.parse(System.getProperty("moonstation14.gameTestTags"));
         RegistrationSummary summary = registerMethods(methods, requested, callbacks, event::register);
+        LogManager.getLogger().info("GameTest tag preflight: {}/{} fixtures selected", summary.selected(), methods.size());
         LogManager.getLogger().info("GameTests {}: requested tags={}, available tags={}, selected/discovered={}, untagged={}",
                 requested.isEmpty() ? "FULL" : "FILTERED", requested.isEmpty() ? "<all>" : requested, summary.availableTags(),
                 summary.selected() + "/" + methods.size(), summary.untagged());

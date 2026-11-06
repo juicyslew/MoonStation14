@@ -1,0 +1,25 @@
+{
+  "title": "Hull setup causal control; corrected translation-test data",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": [
+    "Are stock-assembly and direct-plot physical inputs matched under unchanged stock Sable/two substeps, and if so does the 80 m/s outcome differ without any Sable internals or owner-state changes?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*HullPhysicalSnapshotTest", "--tests", "*HullTerrainGeometryTest", "--tests", "*HullImpactTraceStateTest", "--tests", "*HullStateMismatchEvidenceTest", "--tests", "*HullImpactSubstepsExpectationTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-stock-assembly-r14-jvm.log",
+      "rationale": "Preparation for the lead-owned native causal experiment, not readiness. R13 compiled all sources and passed20/21 JVM; translated-origin test erroneously included duplicate relative cells in one snapshot. R14 fixes only that test data using two distinct relative coordinates per snapshot. Actual duplicate rejection stays intact. Same five test classes/21 methods, one JUnit stage; stop on failure. Preserve R12/R13 artifacts, no author compile retry after shell denial. Fresh workflow snapshot binds current sources; historical scope-r11 is not identity.",
+      "covers": ["Are stock-assembly and direct-plot physical inputs matched under unchanged stock Sable/two substeps, and if so does the 80 m/s outcome differ without any Sable internals or owner-state changes?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-hull-impact-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-stock-assembly-r14", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-stock-assembly-r14-native.log",
+      "rationale": "Same R13 focused experiment, expected4/890: unchanged direct-plot20/40/80 plus stock-assembly80 in one invocation. Finish started batch despite genuine required failures; never expected-failure-pass. Inspect raw aggregate and saves/stop even when parser lacks all-passed marker. Compare shape/material-state fingerprints, actual mass/COM, pivot, projected initial bounds/orientation/rest and admitted velocities BEFORE interpreting. Require effectiveSDK2. Unmatched/unproven inputs or setup mismatch means inconclusive, never engine blame. Physical-only control: external atmosphere/power owners not migrated; baseline powered readiness unchanged; control registration/natural rest only. Public assembly helper only, no Sable source/binary/native/privateaccess/newhooks; no corrective post-assembly teleport, pause, gravity/rotationfreeze/cap/config or owner-state changes. Matched divergence implicates creation/placement seam; matched failures do not prove Sable fault. Report selected/completed/pass/fail and actual cleanup/shutdown. R11 completed889/886pass/3fail with normal saves/stop; missing all-passed is not timeout. No full rerun, no M1 acceptance/M2-M6 advancement. Return diagnostic receipt/findings even if failed, no readiness finalization.",
+      "covers": ["Are stock-assembly and direct-plot physical inputs matched under unchanged stock Sable/two substeps, and if so does the 80 m/s outcome differ without any Sable internals or owner-state changes?"]
+    }
+  ]
+}

@@ -42,7 +42,9 @@ public final class ChemMasterWorldDumpGameTests {
         h.assertTrue(ChemMasterDumpService.nominatesChemMaster(level,target),
                 "client target nomination is not gaze/LOS authority; shared transaction validates access");
         BlockPos unloaded=null;
-        for (int chunkOffset=32;chunkOffset<256&&unloaded==null;chunkOffset+=16) {
+        // Other GameTests may have loaded the nearby chunks in this shared server.
+        // Probe a bounded deterministic ray and never request a chunk load here.
+        for (int chunkOffset=32;chunkOffset<4096&&unloaded==null;chunkOffset+=16) {
             BlockPos candidate=target.offset(chunkOffset,0,0);
             if (level.getChunkSource().getChunkNow(candidate.getX()>>4,candidate.getZ()>>4)==null) unloaded=candidate;
         }

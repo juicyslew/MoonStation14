@@ -1,0 +1,30 @@
+{
+  "title": "Evaluate supported ten-substep bandage on matched shell pair",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": ["With unchanged shell-test and production Java code, does the supported ten-substep setting mitigate the matched direct/stock-assembly shell penetration observed at two substeps?"],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "-m", "unittest", "discover", "-s", "tooling/shuttle", "-p", "test_prepare_impact_substeps_comparison.py"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-shell-substeps10-r17-preparation-tests.log",
+      "rationale": "Tooling-only allowlist extension reuses existing fresh-directory config writer; expected12 focused tests. Check exact new target/count, all existing approvals, refusal of existing/empty/owner/unapproved targets and sentinel preservation. Source review passed. Python-B prevents bytecode freshness changes. R16 JVM22/22passed on unchanged Java; do not duplicate that valid admitted check merely because tooling/docs changed. No production/mod-code changes in R17.",
+      "covers": ["With unchanged shell-test and production Java code, does the supported ten-substep setting mitigate the matched direct/stock-assembly shell penetration observed at two substeps?"]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-shell-placement-substeps10-r17", "--substeps", "10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-shell-substeps10-r17-preparation.log",
+      "rationale": "Create this one exact unused disposable fixture once. Existing helper writes only config/sable-server.toml sub_level_substeps_per_tick=10. Refuse any existing target, copy no owner data and never modify owner configuration. Supported server-wide stock setting, not an engine patch or per-ship override. Stop on failure; preserve artifacts.",
+      "covers": ["With unchanged shell-test and production Java code, does the supported ten-substep setting mitigate the matched direct/stock-assembly shell penetration observed at two substeps?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-hull-shell-placement-control", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-shell-placement-substeps10-r17", "-Pms14HullImpactExpectedSubsteps=10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-shell-substeps10-r17-native.log",
+      "rationale": "Expected2/891, same canonical452cell direct/stock80m/s shells and all R16 impact/state/geometry/latch assertions. R16 actualSDK2 both penetrated~.990153 at247/248 with matching SHA934122934f05162dfe6052f4eda2b94c547b68787443e3f5f02f9d6d37382405, mass452/cells452/hullparts452 and same orientation/rest/launch; normalbatch2failed/save/stop. Compare actual currentprelaunchinputs and require effectiveSDK10 beforebothlaunches; mismatched inputs remain inconclusive. Finish started batch, retain genuine failure, report selected/completed/pass/fail plus maxpenetration, recovery and verified saves/stop from raw log even absent all-passed marker. This tests a BANDAGE, not CCD correctness, engine bug proof, unlimited speed safety or M1 acceptance. LoadedMS14remains; bare shell not furnished477cabin. Prior furnished10regression and single-cabin cost results remain historical context, not capacity certification; no repeat expensive fullsuite/costtest here. No Sable source/binary/native/privateaccess/newhooks/mixins/interception or ownerconfig/world/process/installation changes, cap/gravity/rotationfreeze/recoveryteleport. Setting remains isolated, NOT production adoption. Return bound diagnostic receipt/findings even failed; no readiness/report/finalization or advancementM2-M6.",
+      "covers": ["With unchanged shell-test and production Java code, does the supported ten-substep setting mitigate the matched direct/stock-assembly shell penetration observed at two substeps?"]
+    }
+  ]
+}

@@ -101,19 +101,31 @@ public final class GhostControlPayloads {
     }
 
     /** Quantized wishes contain no client-authored position or entity/body target. */
+    public record SupportedMovementReference(java.util.UUID frameId, float localMovementYaw) {
+        public SupportedMovementReference {
+            java.util.Objects.requireNonNull(frameId, "frameId");
+            if (!Float.isFinite(localMovementYaw) || localMovementYaw < -180f || localMovementYaw > 180f)
+                throw new IllegalArgumentException("local movement yaw must be finite and within [-180,180]");
+        }
+    }
+
     public record Intent(long epoch, long sequence, short wishX, short wishZ, byte verticalWish,
-                         int buttons, float yaw, float pitch) implements CustomPacketPayload {
+                         int buttons, float yaw, float pitch,
+                         java.util.Optional<SupportedMovementReference> supportedMovementReference) implements CustomPacketPayload {
         public static final Type<Intent> TYPE = GhostControlPayloads.type("ghost_control_intent");
         public static final StreamCodec<RegistryFriendlyByteBuf, Intent> STREAM_CODEC = StreamCodec.of(
                 (buf, value) -> {
                     buf.writeLong(value.epoch); buf.writeLong(value.sequence);
                     buf.writeShort(value.wishX); buf.writeShort(value.wishZ); buf.writeByte(value.verticalWish);
                     buf.writeByte(value.buttons); buf.writeFloat(value.yaw); buf.writeFloat(value.pitch);
+                    buf.writeBoolean(value.supportedMovementReference.isPresent());
+                    value.supportedMovementReference.ifPresent(reference -> { buf.writeUUID(reference.frameId()); buf.writeFloat(reference.localMovementYaw()); });
                 }, buf -> new Intent(readEpoch(buf), readPositive(buf, "sequence"), buf.readShort(), buf.readShort(),
-                        buf.readByte(), buf.readUnsignedByte(), buf.readFloat(), buf.readFloat()));
+                        buf.readByte(), buf.readUnsignedByte(), buf.readFloat(), buf.readFloat(), readSupportedMovementReference(buf)));
         public Intent {
             requireEpoch(epoch);
             if (sequence <= 0) throw new IllegalArgumentException("sequence must be positive");
+            supportedMovementReference = java.util.Objects.requireNonNull(supportedMovementReference, "supportedMovementReference");
             if (Math.abs((int) wishX) > 1000 || Math.abs((int) wishZ) > 1000)
                 throw new IllegalArgumentException("wish axes out of range");
             if (verticalWish < -1 || verticalWish > 1)
@@ -123,6 +135,9 @@ public final class GhostControlPayloads {
                 throw new IllegalArgumentException("yaw must be finite and within [-180,180]");
             if (!Float.isFinite(pitch) || pitch < -90.0f || pitch > 90.0f)
                 throw new IllegalArgumentException("pitch must be finite and within [-90,90]");
+        }
+        public Intent(long epoch, long sequence, short wishX, short wishZ, byte verticalWish, int buttons, float yaw, float pitch) {
+            this(epoch, sequence, wishX, wishZ, verticalWish, buttons, yaw, pitch, java.util.Optional.empty());
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
@@ -147,9 +162,22 @@ public final class GhostControlPayloads {
                            double x, double y, double z, float yaw, float pitch,
                            double velocityX, double velocityY, double velocityZ, boolean onGround,
                               float surfaceFactor, float voluntarySpeedFactor, boolean movementBlocked,
-                              int externalFlightTicks,
-                              MovementMode movementMode, java.util.Optional<ContainedBodyView> containedView) implements CustomPacketPayload {
+                               int externalFlightTicks,
+                               MovementMode movementMode, java.util.Optional<ContainedBodyView> containedView,
+                                 java.util.Optional<FrameState> frameState,
+                                 long movementRebaseRevision,
+                                  java.util.Optional<com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State> angularRecoveryState,
+                                  java.util.OptionalLong completedSableSimulationStep,
+                                  java.util.Optional<com.juicyslew.moonstation14.ms14.movement.AirMotionReference> airMotionReference) implements CustomPacketPayload {
         public enum MovementMode { GROUNDED, UNIT, TRANSIT }
+        /** Validated current native-frame identity and storage-space body point (not an authority grant). */
+        public record FrameState(java.util.UUID frameId, double x, double y, double z) {
+            public FrameState {
+                java.util.Objects.requireNonNull(frameId, "frameId");
+                if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z))
+                    throw new IllegalArgumentException("frame storage point must be finite");
+            }
+        }
         public static final Type<Snapshot> TYPE = GhostControlPayloads.type("ghost_control_snapshot");
         public static final StreamCodec<RegistryFriendlyByteBuf, Snapshot> STREAM_CODEC = StreamCodec.of(
                 (buf, value) -> {
@@ -162,15 +190,31 @@ public final class GhostControlPayloads {
                      buf.writeFloat(value.voluntarySpeedFactor); buf.writeBoolean(value.movementBlocked); buf.writeVarInt(value.externalFlightTicks); buf.writeEnum(value.movementMode);
                      buf.writeBoolean(value.containedView.isPresent());
                      value.containedView.ifPresent(view -> { buf.writeUUID(view.ownerIdentity()); buf.writeBoolean(view.worldTarget().isPresent());
-                         view.worldTarget().ifPresent(pos -> buf.writeBlockPos(pos)); buf.writeBoolean(view.cameraCollision()); });
-                }, buf -> new Snapshot(readEpoch(buf), readNonNegativeEntityId(buf), readHarnessKind(buf),
+                          view.worldTarget().ifPresent(pos -> buf.writeBlockPos(pos)); buf.writeBoolean(view.cameraCollision()); });
+                     buf.writeBoolean(value.frameState.isPresent());
+                       value.frameState.ifPresent(frame -> { buf.writeUUID(frame.frameId()); buf.writeDouble(frame.x()); buf.writeDouble(frame.y()); buf.writeDouble(frame.z()); });
+                       buf.writeLong(value.movementRebaseRevision);
+                        buf.writeBoolean(value.angularRecoveryState.isPresent()); value.angularRecoveryState.ifPresent(s -> writeAngular(buf, s));
+                        buf.writeBoolean(value.completedSableSimulationStep.isPresent());
+                        if (value.completedSableSimulationStep.isPresent()) buf.writeLong(value.completedSableSimulationStep.getAsLong());
+                        buf.writeBoolean(value.airMotionReference.isPresent());
+                        value.airMotionReference.ifPresent(r -> { buf.writeUUID(r.frameId()); buf.writeDouble(r.pointVelocity().x()); buf.writeDouble(r.pointVelocity().y()); buf.writeDouble(r.pointVelocity().z()); });
+                   }, buf -> new Snapshot(readEpoch(buf), readNonNegativeEntityId(buf), readHarnessKind(buf),
                         readNonNegative(buf, "server game tick"), readNonNegative(buf, "acknowledged applied sequence"),
                         buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readFloat(), buf.readFloat(),
                         buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readBoolean(),
-                           buf.readFloat(), buf.readFloat(), buf.readBoolean(), readExternalFlightTicks(buf), buf.readEnum(MovementMode.class), readContainedView(buf)));
+                         buf.readFloat(), buf.readFloat(), buf.readBoolean(), readExternalFlightTicks(buf), buf.readEnum(MovementMode.class), readContainedView(buf), readFrameState(buf), readNonNegative(buf, "movement rebase revision"), readAngular(buf), readSableStep(buf), readAirMotionReference(buf)));
         public Snapshot {
             requireEpoch(epoch);
             containedView = java.util.Objects.requireNonNull(containedView);
+            frameState = java.util.Objects.requireNonNull(frameState);
+            angularRecoveryState = java.util.Objects.requireNonNull(angularRecoveryState);
+            completedSableSimulationStep = java.util.Objects.requireNonNull(completedSableSimulationStep);
+            airMotionReference = java.util.Objects.requireNonNull(airMotionReference);
+            if (completedSableSimulationStep.isPresent() && completedSableSimulationStep.getAsLong() <= 0) throw new IllegalArgumentException("completed Sable simulation step must be positive");
+            if (angularRecoveryState.isPresent() && (harnessKind == MobHarnessKind.GHOST || movementMode != MovementMode.GROUNDED))
+                throw new IllegalArgumentException("angular recovery requires a grounded character harness");
+            if (harnessKind == MobHarnessKind.GHOST && frameState.isPresent()) throw new IllegalArgumentException("ghost cannot have frame state");
             if (harnessKind == MobHarnessKind.GHOST && containedView.isPresent()) throw new IllegalArgumentException("ghost cannot have contained view");
             if (harnessEntityId < 0) throw new IllegalArgumentException("harness entity id must be nonnegative");
             if (harnessKind == null) throw new IllegalArgumentException("harness kind must be specified");
@@ -178,6 +222,7 @@ public final class GhostControlPayloads {
                 throw new IllegalArgumentException("invalid movement mode for harness kind");
             requireNonNegative(serverGameTick, "server game tick");
             requireNonNegative(acknowledgedAppliedSequence, "acknowledged applied sequence");
+            requireNonNegative(movementRebaseRevision, "movement rebase revision");
             if (externalFlightTicks < 0 || externalFlightTicks > 6) throw new IllegalArgumentException("external flight ticks must be within [0,6]");
             if ((harnessKind == MobHarnessKind.GHOST || movementMode != MovementMode.GROUNDED) && externalFlightTicks != 0)
                 throw new IllegalArgumentException("external flight requires a grounded character harness");
@@ -193,6 +238,50 @@ public final class GhostControlPayloads {
             requireVelocity(velocityZ, "velocity z");
             requireFactor(surfaceFactor, "surface factor", MAX_SURFACE_FACTOR);
             requireFactor(voluntarySpeedFactor, "voluntary speed factor", MAX_VOLUNTARY_SPEED_FACTOR);
+        }
+        public Snapshot(long epoch, int harnessEntityId, MobHarnessKind harnessKind, long serverGameTick,
+                        long acknowledgedAppliedSequence, double x, double y, double z, float yaw, float pitch,
+                        double velocityX, double velocityY, double velocityZ, boolean onGround, float surfaceFactor,
+                        float voluntarySpeedFactor, boolean movementBlocked, int externalFlightTicks, MovementMode movementMode,
+                        java.util.Optional<ContainedBodyView> containedView, java.util.Optional<FrameState> frameState,
+                        long movementRebaseRevision) {
+            this(epoch, harnessEntityId, harnessKind, serverGameTick, acknowledgedAppliedSequence, x, y, z, yaw, pitch,
+                    velocityX, velocityY, velocityZ, onGround, surfaceFactor, voluntarySpeedFactor, movementBlocked,
+                    externalFlightTicks, movementMode, containedView, frameState, movementRebaseRevision, java.util.Optional.empty(), java.util.OptionalLong.empty(), java.util.Optional.empty());
+        }
+        public Snapshot(long epoch, int harnessEntityId, MobHarnessKind harnessKind, long serverGameTick, long acknowledgedAppliedSequence, double x, double y, double z, float yaw, float pitch, double velocityX, double velocityY, double velocityZ, boolean onGround, float surfaceFactor, float voluntarySpeedFactor, boolean movementBlocked, int externalFlightTicks, MovementMode movementMode, java.util.Optional<ContainedBodyView> containedView, java.util.Optional<FrameState> frameState, long movementRebaseRevision, java.util.Optional<com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State> angularRecoveryState) {
+            this(epoch, harnessEntityId, harnessKind, serverGameTick, acknowledgedAppliedSequence, x, y, z, yaw, pitch, velocityX, velocityY, velocityZ, onGround, surfaceFactor, voluntarySpeedFactor, movementBlocked, externalFlightTicks, movementMode, containedView, frameState, movementRebaseRevision, angularRecoveryState, java.util.OptionalLong.empty(), java.util.Optional.empty());
+        }
+        public Snapshot withAngularRecoveryState(java.util.Optional<com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State> state) {
+            return new Snapshot(epoch, harnessEntityId, harnessKind, serverGameTick, acknowledgedAppliedSequence, x, y, z,
+                    yaw, pitch, velocityX, velocityY, velocityZ, onGround, surfaceFactor, voluntarySpeedFactor, movementBlocked,
+                    externalFlightTicks, movementMode, containedView, frameState, movementRebaseRevision, state, completedSableSimulationStep, airMotionReference);
+        }
+        public Snapshot withServerTemporalMetadata(java.util.OptionalLong completedStep,
+                java.util.Optional<com.juicyslew.moonstation14.ms14.movement.AirMotionReference> airReference) {
+            return new Snapshot(epoch, harnessEntityId, harnessKind, serverGameTick, acknowledgedAppliedSequence, x, y, z,
+                    yaw, pitch, velocityX, velocityY, velocityZ, onGround, surfaceFactor, voluntarySpeedFactor,
+                    movementBlocked, externalFlightTicks, movementMode, containedView, frameState, movementRebaseRevision,
+                    angularRecoveryState, completedStep, airReference);
+        }
+        public Snapshot(long epoch, int harnessEntityId, MobHarnessKind harnessKind, long serverGameTick,
+                        long acknowledgedAppliedSequence, double x, double y, double z, float yaw, float pitch,
+                        double velocityX, double velocityY, double velocityZ, boolean onGround,
+                        float surfaceFactor, float voluntarySpeedFactor, boolean movementBlocked, int externalFlightTicks,
+                        MovementMode movementMode, java.util.Optional<ContainedBodyView> containedView,
+                        java.util.Optional<FrameState> frameState) {
+            this(epoch, harnessEntityId, harnessKind, serverGameTick, acknowledgedAppliedSequence, x, y, z, yaw, pitch,
+                    velocityX, velocityY, velocityZ, onGround, surfaceFactor, voluntarySpeedFactor, movementBlocked,
+                    externalFlightTicks, movementMode, containedView, frameState, 0);
+        }
+        public Snapshot(long epoch, int harnessEntityId, MobHarnessKind harnessKind, long serverGameTick,
+                        long acknowledgedAppliedSequence, double x, double y, double z, float yaw, float pitch,
+                        double velocityX, double velocityY, double velocityZ, boolean onGround,
+                        float surfaceFactor, float voluntarySpeedFactor, boolean movementBlocked, int externalFlightTicks,
+                        MovementMode movementMode, java.util.Optional<ContainedBodyView> containedView) {
+            this(epoch, harnessEntityId, harnessKind, serverGameTick, acknowledgedAppliedSequence, x, y, z, yaw, pitch,
+                    velocityX, velocityY, velocityZ, onGround, surfaceFactor, voluntarySpeedFactor, movementBlocked,
+                    externalFlightTicks, movementMode, containedView, java.util.Optional.empty());
         }
         /** Compatibility constructor preserving the former ghost snapshot defaults. */
         public Snapshot(long epoch, int ghostEntityId, long serverGameTick, long acknowledgedAppliedSequence,
@@ -236,6 +325,40 @@ public final class GhostControlPayloads {
         java.util.UUID owner = buf.readUUID();
         java.util.Optional<BlockPos> target = buf.readBoolean() ? java.util.Optional.of(buf.readBlockPos().immutable()) : java.util.Optional.empty();
         return java.util.Optional.of(new ContainedBodyView(owner, target, buf.readBoolean()));
+    }
+
+    private static java.util.Optional<SupportedMovementReference> readSupportedMovementReference(RegistryFriendlyByteBuf buf) {
+        return buf.readBoolean() ? java.util.Optional.of(new SupportedMovementReference(buf.readUUID(), buf.readFloat())) : java.util.Optional.empty();
+    }
+
+    private static java.util.Optional<Snapshot.FrameState> readFrameState(RegistryFriendlyByteBuf buf) {
+        return buf.readBoolean() ? java.util.Optional.of(new Snapshot.FrameState(buf.readUUID(), buf.readDouble(), buf.readDouble(), buf.readDouble())) : java.util.Optional.empty();
+    }
+
+    private static java.util.OptionalLong readSableStep(RegistryFriendlyByteBuf buf) {
+        if (!buf.readBoolean()) return java.util.OptionalLong.empty();
+        long step = readNonNegative(buf, "completed Sable simulation step");
+        if (step == 0) throw new IllegalArgumentException("completed Sable simulation step must be positive");
+        return java.util.OptionalLong.of(step);
+    }
+
+    private static java.util.Optional<com.juicyslew.moonstation14.ms14.movement.AirMotionReference> readAirMotionReference(RegistryFriendlyByteBuf buf) {
+        if (!buf.readBoolean()) return java.util.Optional.empty();
+        return java.util.Optional.of(new com.juicyslew.moonstation14.ms14.movement.AirMotionReference(buf.readUUID(),
+                new com.juicyslew.moonstation14.ms14.movement.MovementVector(buf.readDouble(), buf.readDouble(), buf.readDouble())));
+    }
+
+    private static void writeAngular(RegistryFriendlyByteBuf buf, com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State s) {
+        var q = s.orientation(); var w = s.worldAngularVelocity();
+        buf.writeDouble(q.w()); buf.writeDouble(q.x()); buf.writeDouble(q.y()); buf.writeDouble(q.z());
+        buf.writeDouble(w.x()); buf.writeDouble(w.y()); buf.writeDouble(w.z()); buf.writeDouble(s.airborneSeconds()); buf.writeBoolean(s.recoveryActive());
+    }
+    private static java.util.Optional<com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State> readAngular(RegistryFriendlyByteBuf buf) {
+        if (!buf.readBoolean()) return java.util.Optional.empty();
+        return java.util.Optional.of(new com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State(
+                new com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.Quat(buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readDouble()),
+                new com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()),
+                buf.readDouble(), buf.readBoolean()));
     }
 
     private static int readExternalFlightTicks(RegistryFriendlyByteBuf buf) {

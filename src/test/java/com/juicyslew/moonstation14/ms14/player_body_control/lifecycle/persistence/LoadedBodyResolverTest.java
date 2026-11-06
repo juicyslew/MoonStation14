@@ -60,6 +60,19 @@ class LoadedBodyResolverTest {
         assertSame(expected, result.candidate());
     }
 
+    @Test void abandonedActiveResolutionIsExplicitAndStillRequiresExactLoadedProof() {
+        var active = profile(SavedLifecycleProfile.State.ACTIVE);
+        Candidate exact = candidate(BODY, id(3), "minecraft:overworld", ACCOUNT, "main", true, new Object());
+        assertEquals(Outcome.RECOVERY_REQUIRED,
+                resolve(active, ignored -> LookupResult.loaded(exact), c -> true).outcome());
+        assertEquals(Outcome.SAME_BODY_AVAILABLE, resolveAbandonedActive(active,
+                ignored -> LookupResult.loaded(exact), c -> true).outcome());
+        assertEquals(Outcome.RECOVERY_REQUIRED, resolveAbandonedActive(active,
+                ignored -> LookupResult.ambiguous(List.of(exact, exact)), c -> true).outcome());
+        assertEquals(Outcome.RECOVERY_REQUIRED, resolveAbandonedActive(
+                profile(SavedLifecycleProfile.State.OFFLINE), ignored -> LookupResult.loaded(exact), c -> true).outcome());
+    }
+
     @Test void onlyOfflineProfilesReachLookup() {
         for (SavedLifecycleProfile.State state : SavedLifecycleProfile.State.values()) {
             if (state == SavedLifecycleProfile.State.OFFLINE) continue;
@@ -107,6 +120,11 @@ class LoadedBodyResolverTest {
     private static Resolution resolve(ReadOnlyLookup lookup,
                                       java.util.function.Predicate<Candidate> eligible) {
         return LoadedBodyResolver.resolve(profile(SavedLifecycleProfile.State.OFFLINE), lookup, eligible);
+    }
+
+    private static Resolution resolve(SavedLifecycleProfile profile, ReadOnlyLookup lookup,
+                                      java.util.function.Predicate<Candidate> eligible) {
+        return LoadedBodyResolver.resolve(profile, lookup, eligible);
     }
 
     private static Candidate candidate(UUID entityId, UUID mindId, String dimension, UUID owner, String profile,

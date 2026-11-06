@@ -1,0 +1,47 @@
+{
+  "title": "Six-substep follow-up: existing owner regressions, then single-cabin tick envelope",
+  "kind": "diagnostic",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/ShuttleServerCostGameTests.java",
+  "acceptance_criteria": [
+    "At actual SDK substeps 6, do the existing selected wall/body/input/reconnect/airlock/ventilation/cargo regressions pass with unchanged gameplay assertions and clean save/shutdown?",
+    "After regression success, what parked and flight whole-server tick-envelope distributions does the existing single-cabin workload measure at actual SDK substeps 6?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileGameTestJava", "compileTestJava", "test", "--tests", "*HullImpactSubstepsExpectationTest", "--tests", "*ServerTickCostRecorderTest"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r32-jvm.log",
+      "rationale": "Compile the test-only cost adapter's minimal explicit-setting whitelist extension (2/6/10) and run focused actual-versus-expected six mismatch checks plus the reused recorder's bounded pairing/statistics/lifecycle checks. Java compilation/tests have NOT yet run for this revision. Python preparation14/14 and diff check passed at author; independent source review is required before submission, and those cheap checks are not duplicated. No production, engine, workload, sampling, natural-rest, probe, observer or threshold changes. Stop before native preparation if compilation/tests fail.",
+      "covers": ["At actual SDK substeps 6, do the existing selected wall/body/input/reconnect/airlock/ventilation/cargo regressions pass with unchanged gameplay assertions and clean save/shutdown?", "After regression success, what parked and flight whole-server tick-envelope distributions does the existing single-cabin workload measure at actual SDK substeps 6?"]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-substeps6-regression-r32", "--substeps", "6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r32-regression-preparation.log",
+      "rationale": "Reuse the existing strict allowlisted writer to create this one exact never-used regression fixture with minimal Sable config6. Refuse any existing target; copy/delete no run data or owner settings. Preserve all used/abandoned fixtures including R25-R31. No actual native directory was prepared at author.",
+      "covers": ["At actual SDK substeps 6, do the existing selected wall/body/input/reconnect/airlock/ventilation/cargo regressions pass with unchanged gameplay assertions and clean save/shutdown?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-owner-regression,shuttle-step-probe,shuttle-cargo-orientation,shuttle-passive-body,shuttle-active-input,shuttle-airlock-safety,shuttle-moving-reconnect,shuttle-falling-reconnect,shuttle-strong-impulse,shuttle-cabin-ventilation,shuttle-cargo-motion,shuttle-cargo-transition,shuttle-exterior-jump-reproduction,shuttle-cargo-query,shuttle-cargo-drop", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-substeps6-regression-r32", "-Pms14HullImpactExpectedSubsteps=6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r32-regression-native.log",
+      "rationale": "One focused filtered batch, not the full suite. Current preflight is authoritative for selected/discovered counts (893 total at R31); do not infer count from historical51/881. Reuse prior ten-substep regression selectors excluding all five R31 impact cases, which already passed at six; add current cargo query/drop and explicitly document the accepted sustained exterior jump tag (also covered by owner-regression). Existing moving-cabin yaw/drop readiness must report actual=expected6; file contents alone are not SDK evidence. Preserve accepted wall correction, actual own-walk pry0.3/full-power/UNKNOWN rules, native body/cargo carry, prediction/authority and character identity assertions. No changes to gameplay checks. Do not select cargo-reconnect-reproduction or cargo-chunk-persistence: their separate baseline fixtures explicitly require2 and are not six-substep evidence. Finish the started batch to collect all failures; capture raw named outcomes, actual totals and dimension saves/orderly exit. Fixture-premise/setup failure is inconclusive for six's gameplay effect but remains a failure and blocks unstarted cost checks; do not green it, alter power scheduling, retry, or weaken assertions. Clean shutdown is not a diagnosis of prior hangs.",
+      "covers": ["At actual SDK substeps 6, do the existing selected wall/body/input/reconnect/airlock/ventilation/cargo regressions pass with unchanged gameplay assertions and clean save/shutdown?"]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-cost-substeps6-r32", "--substeps", "6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r32-cost-preparation.log",
+      "rationale": "Only after regression success, prepare the separate never-used six-substep cost fixture once through the same strict writer. Refuse an existing target. Historical used R7 two/ten cost worlds remain untouched; no baseline rerun or owner config copy.",
+      "covers": ["After regression success, what parked and flight whole-server tick-envelope distributions does the existing single-cabin workload measure at actual SDK substeps 6?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cost-diagnostic", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cost-substeps6-r32", "-Pms14HullImpactExpectedSubsteps=6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r32-cost-native.log",
+      "rationale": "Run serially after regression. Expected1/893, report actual selected/discovered/completed/pass/fail. Require SDK actual=expected6, valid furnished hull/workload, 200 warmup ticks, exactly300 parked and600 flight full Pre/Post pairs, and six additive20m/s nudges with natural rest before each. Preserve existing boundary probes, workload timing, listener cleanup and distributions; report min/mean/p50/p95/p99/max milliseconds plus pair bounds, launch count, actual hull parts, dimensions saved and orderly stop. Any setup/hull/workload/timing or shutdown failure invalidates cost interpretation and remains failed. This measures one headless cabin's whole-server tick envelope, NOT isolated Sable CPU, multi-ship capacity, 20TPS assurance or a causal cost multiplier against historical R7. No performance threshold, contemporary baseline rerun, broad/full suite, client, GUI, packaging, installation, owner-state edits, engine source/binary/native/hooks, velocity cap, forced correction, gravity or rotation freeze. No automatic rerun. Diagnostic receipt/findings only, even on failure; no production adoption, owner readiness/acceptance, M1 acceptance or M2-M6 advancement.",
+      "covers": ["After regression success, what parked and flight whole-server tick-envelope distributions does the existing single-cabin workload measure at actual SDK substeps 6?"]
+    }
+  ]
+}

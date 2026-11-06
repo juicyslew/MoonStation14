@@ -1,0 +1,47 @@
+{
+  "title": "Feedback-08 complete cargo orientation and owner setup",
+  "kind": "bugfix",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": [
+    "Resolved oriented geometry drives examination, pickup/revalidation and both outlines; collision, authority, tolerance and production physics are preserved.",
+    "Replacement drops preserve contents/ownership and use the admitted actor frame world basis without false membership or new stack state.",
+    "Permission-2 yaw/cargo setup uses loaded-only identity checks, one world-Y velocity pulse and the existing five-unit jug grant path; refusals do not mutate state.",
+    "Fresh focused JVM/native and full regressions have verified counts and clean shutdown; every genuine failure remains a failure."
+  ],
+  "manual_steps": [
+    "After technical readiness, use this worktree's normal development launch and a disposable world. As a permission-2 operator with a live controlled body and loaded clear space, run /ms14 shuttle_fixture build; retain its ship ID.",
+    "Enter through the front airlock using normal movement/jumping. Run /ms14 shuttle_fixture cargo <ship-id> aboard: one five-unit water jug should appear near the body without overwriting hands or carrier inventory.",
+    "Use configured examine/pickup controls on the jug, then Drop active hand (default Q). Selection/outlines should agree with the oriented physical-profile proxy, and the jug should retain five units and normal ownership. The proxy is not the exact mesh.",
+    "Run /ms14 shuttle_fixture yaw <ship-id> 0.4 once; repeat query, pickup and drop as the cabin turns. Replacement drops should use the current actor-frame world basis without loss. This is a rad/s velocity delta, not an angle or piloting. Do not test high-speed impacts or pitch/roll."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*LooseItemQueryGeometryTest", "--tests", "*LooseItemQueryExtentTest", "--tests", "*LooseFrameOrientationTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r6-focused-jvm.log",
+      "rationale": "Fresh compile and expected 16 focused tests: resolved inheritance/extents, rotated geometry/inflation/projection and authoritative orientation fallback. Stop on failure; report actual counts.",
+      "covers": ["Resolved oriented geometry drives examination, pickup/revalidation and both outlines; collision, authority, tolerance and production physics are preserved.", "Fresh focused JVM/native and full regressions have verified counts and clean shutdown; every genuine failure remains a failure."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cargo-query,shuttle-cargo-drop,shuttle-cargo-setup", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-orientation-r5-focused", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r6-focused-native.log",
+      "rationale": "Expected 5/888: actual examination, pickup, hand-drop and two command cases. Require SDK=2 readiness, nonidentity frames, whole ownership/content checks, Y-only pulse and mutation-free refusals. Pickup tests request-time, not mid-transaction pose changes. R5 ran no checks; use its fresh native target once. Never repeat R4 orientation-r1 worlds or bypass prior-process safety, quarantine, serialization or freshness.",
+      "covers": ["Resolved oriented geometry drives examination, pickup/revalidation and both outlines; collision, authority, tolerance and production physics are preserved.", "Replacement drops preserve contents/ownership and use the admitted actor frame world basis without false membership or new stack state.", "Permission-2 yaw/cargo setup uses loaded-only identity checks, one world-Y velocity pulse and the existing five-unit jug grant path; refusals do not mutate state.", "Fresh focused JVM/native and full regressions have verified counts and clean shutdown; every genuine failure remains a failure."]
+    },
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r6-full-jvm.log",
+      "rationale": "Full shared-consumer/transfer/registration regression. Normal hand/world ownership is not universal optional-ledger registration; preserve existing contracts. Stop on prior failure.",
+      "covers": ["Resolved oriented geometry drives examination, pickup/revalidation and both outlines; collision, authority, tolerance and production physics are preserved.", "Replacement drops preserve contents/ownership and use the admitted actor frame world basis without false membership or new stack state.", "Permission-2 yaw/cargo setup uses loaded-only identity checks, one world-Y velocity pulse and the existing five-unit jug grant path; refusals do not mutate state.", "Fresh focused JVM/native and full regressions have verified counts and clean shutdown; every genuine failure remains a failure."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-orientation-r5-full", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r6-full-native.log",
+      "rationale": "Unfiltered, expected 888 discovered: R10 movement, throws/native/Creative drops, containment, reconnect and impact probes. Known default-two 40/80 burial remains unresolved: retain failed assertions and fail the gate if reproduced, never suppress/expected-failure-pass. Require actual aggregate/save/stop. Full-run cost data is not the isolated comparison. No client, installation, owner-world/config/process changes or production physics adoption. M1 unaccepted; M2-M6 paused.",
+      "covers": ["Resolved oriented geometry drives examination, pickup/revalidation and both outlines; collision, authority, tolerance and production physics are preserved.", "Replacement drops preserve contents/ownership and use the admitted actor frame world basis without false membership or new stack state.", "Permission-2 yaw/cargo setup uses loaded-only identity checks, one world-Y velocity pulse and the existing five-unit jug grant path; refusals do not mutate state.", "Fresh focused JVM/native and full regressions have verified counts and clean shutdown; every genuine failure remains a failure."]
+    }
+  ]
+}

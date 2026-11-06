@@ -208,9 +208,23 @@ public class MoonStation14Client {
         TimedInteractionSnapshot.setClientHandler(snapshot -> Minecraft.getInstance().execute(() -> TimedInteractionClient.accept(snapshot)));
         NeoForge.EVENT_BUS.register(MoonStation14ClientNetworkEvents.class);
         NeoForge.EVENT_BUS.addListener(MachineUiGalleryCommands::register);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.player_body_control.client.ConnectedWallDiagnosticCommand::register);
+        com.juicyslew.moonstation14.ms14.loose_objects.client.LooseCargoCaptureClient.registerClientEvents(NeoForge.EVENT_BUS);
     }
 
     static void onClientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> {
+            if (Boolean.getBoolean("ms14.debug.loadCargoPacketTarget")) {
+                try {
+                    Class<?> target = Class.forName("net.minecraft.client.multiplayer.ClientPacketListener", false,
+                            MoonStation14Client.class.getClassLoader());
+                    MoonStation14.LOGGER.info("Cargo packet target loaded for diagnostics: {} (loader {})",
+                            target.getName(), target.getClassLoader());
+                } catch (ClassNotFoundException | LinkageError | SecurityException exception) {
+                    throw new IllegalStateException("Could not load ClientPacketListener for cargo packet diagnostics", exception);
+                }
+            }
+        });
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates::bootstrapClientBundled);
@@ -260,6 +274,8 @@ public class MoonStation14Client {
 
     @SubscribeEvent
     public static void renderBodyBlockOutline(RenderLevelStageEvent event) {
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY)
+            BodyHandClient.beginOutlineRenderFrame();
         com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.renderWorld(event);
         BodyBlockOutlineRenderer.render(event);
     }
@@ -339,6 +355,7 @@ public class MoonStation14Client {
     public static void renderAtmosphere(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
         Minecraft minecraft = Minecraft.getInstance();
+        GhostControlClient.connectedWallRenderSample(event.getCamera().getPosition(), event.getPartialTick().getGameTimeDeltaPartialTick(false));
         if (minecraft.level == null || minecraft.player == null) return;
         var dimension = minecraft.level.dimension().location();
         if (!dimension.equals(atmosphereDimension)) {

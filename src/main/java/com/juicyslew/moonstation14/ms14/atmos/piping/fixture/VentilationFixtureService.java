@@ -57,15 +57,10 @@ public final class VentilationFixtureService {
         for (VentilationFixturePlan.PipeNode node : PLAN.pipes()) {
             BlockPos pos = origin.offset(node.position());
             if (node.concealed()) {
-                if (LoadedSealedWallSegment.prepareOne(level, pos, Direction.NORTH, PipeTopology.Layer.PRIMARY, UUID.randomUUID()).isEmpty())
-                    return "Partial placement: concealed pipe admission failed; manual recovery required.";
-                if (LoadedSealedWallGasOwner.createVacuumOwnerForTrustedAdmission(level, pos, PipeTopology.Layer.PRIMARY) == false)
-                    return "Partial placement: concealed pipe ownership failed; manual recovery required.";
+                if (!FixturePipeAdmission.concealed(level, pos, Direction.NORTH, PipeTopology.Layer.PRIMARY))
+                    return "Partial placement: concealed pipe admission/ownership failed; manual recovery required.";
             } else {
-                level.setBlock(pos, ModBlocks.GAS_PIPE_VISUAL.get().defaultBlockState(), 3);
-                if (!(level.getBlockEntity(pos) instanceof VisualPipeBlockEntity visual) || !visual.setLayersForPlacement(VisualPipeBlockEntity.PRIMARY))
-                    return "Partial placement: exposed pipe setup failed; manual recovery required.";
-                if (LoadedPipeGasOwner.createVacuumLane(level, pos, VisualPipeBlockEntity.PRIMARY).isEmpty())
+                if (FixturePipeAdmission.exposed(level, pos, VisualPipeBlockEntity.PRIMARY).isEmpty())
                     return "Partial placement: exposed pipe ownership failed; manual recovery required.";
             }
         }

@@ -18,6 +18,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
+import com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery;
+import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
+import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 
 /** Resolves stable request identity and performs bounded loaded-world visibility checks. */
 public final class ExamineTargetResolver {
@@ -55,13 +58,70 @@ public final class ExamineTargetResolver {
             Entity entity = level.getEntity(target.entityId());
             if (entity == null || entity.isRemoved() || !entity.getUUID().equals(target.entityUuid())
                     || entity.level() != level) return Optional.empty();
-            AABB box = entity.getBoundingBox();
             Vec3 eye = actor.getEyePosition();
-            Vec3 point = closestPoint(box, eye);
+            Vec3 point;
+            if (entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose) {
+                var geometry = com.juicyslew.moonstation14.ms14.loose_objects.LooseItemQueryGeometry.forEntity(loose, 1.0f);
+                if (geometry == null) return Optional.empty();
+                point = geometry.nearestPoint(eye);
+            } else point = closestPoint(entity.getBoundingBox(), eye);
             return Optional.of(new Resolved(target, entity, BlockPos.containing(point), null, null,
                     point, eye.distanceTo(point), null));
         }
         BlockPos pos = target.blockPos();
+        if (target.frameId() != null) {
+            var sub = SubLevelContainer.getContainer(level).getSubLevel(target.frameId());
+            if (!(sub instanceof ServerSubLevel frame) || frame.isRemoved() || frame.getLevel() != level
+                    || SubLevelContainer.getContainer(level).getSubLevel(target.frameId()) != frame
+                    || frame.getPlot() == null || !frame.getPlot().contains(new net.minecraft.world.level.ChunkPos(pos)))
+                return Optional.empty();
+            var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+            if (chunk == null || !chunk.getFullStatus().isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL)) return Optional.empty();
+            BlockState state = chunk.getBlockState(pos);
+            if (state.isAir()) return Optional.empty();
+            var pose = level instanceof dev.ryanhcode.sable.mixinterface.clip_overwrite.LevelPoseProviderExtension provider
+                    ? provider.sable$getPose(frame) : frame.logicalPose();
+            BlockPos root = pos;
+            if (state.getBlock() instanceof AirlockBlock) {
+                root = state.getValue(AirlockBlock.HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos;
+                if (!frame.getPlot().contains(new net.minecraft.world.level.ChunkPos(root))) return Optional.empty();
+                var rootChunk = level.getChunkSource().getChunkNow(root.getX() >> 4, root.getZ() >> 4);
+                if (rootChunk == null || !rootChunk.getFullStatus().isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL)) return Optional.empty();
+                state = rootChunk.getBlockState(root);
+                BlockPos upper = root.above();
+                if (!frame.getPlot().contains(new net.minecraft.world.level.ChunkPos(upper))) return Optional.empty();
+                var upperChunk = level.getChunkSource().getChunkNow(upper.getX() >> 4, upper.getZ() >> 4);
+                if (upperChunk == null || !upperChunk.getFullStatus().isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL))
+                    return Optional.empty();
+                BlockState upperState = upperChunk.getBlockState(upper);
+                if (!(state.getBlock() instanceof AirlockBlock) || !(upperState.getBlock() instanceof AirlockBlock)
+                        || state.getValue(AirlockBlock.HALF) != DoubleBlockHalf.LOWER
+                        || upperState.getValue(AirlockBlock.HALF) != DoubleBlockHalf.UPPER) return Optional.empty();
+            }
+            Vec3 localEye = pose.transformPositionInverse(actor.getEyePosition());
+            BlockEntity blockEntity = LoadedFrameRayQuery.knownBlockEntity(level, frame, root);
+            Vec3 localPoint;
+            if (state.getBlock() instanceof AirlockBlock) {
+                localPoint = null;
+                double nearest = Double.POSITIVE_INFINITY;
+                for (var piece : com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.worldBounds(root,
+                        state.getValue(AirlockBlock.FACING), ExamineWorldSelector.airlockOpenness(level, root, state, blockEntity),
+                        ExamineWorldSelector.airlockPanelOpen(level, root, blockEntity))) {
+                    Vec3 candidate = closestPoint(piece, localEye);
+                    double distanceSqr = candidate.distanceToSqr(localEye);
+                    if (distanceSqr < nearest) { nearest = distanceSqr; localPoint = candidate; }
+                }
+                if (localPoint == null) localPoint = Vec3.atCenterOf(root);
+            } else {
+                var shape = state.getShape(level, root);
+                var localBounds = shape.isEmpty() ? new net.minecraft.world.phys.AABB(root) : shape.bounds().move(root);
+                localPoint = closestPoint(localBounds, localEye);
+            }
+            Vec3 point = pose.transformPosition(localPoint);
+            UUID incarnation = controllerIncarnation(level, blockEntity);
+            return Optional.of(new Resolved(target, null, root, state, blockEntity,
+                    point, actor.getEyePosition().distanceTo(point), incarnation));
+        }
         if (!level.hasChunkAt(pos)) return Optional.empty();
         BlockState state = level.getBlockState(pos);
         if (state.isAir()) return Optional.empty();
@@ -86,6 +146,7 @@ public final class ExamineTargetResolver {
         return Optional.of(new Resolved(target, null, root, state, blockEntity,
                 point, eye.distanceTo(point), incarnation));
     }
+
 
     private static BlockEntity existingBlockEntity(ServerLevel level, BlockPos pos) {
         if (!level.hasChunkAt(pos)) return null;
@@ -112,7 +173,7 @@ public final class ExamineTargetResolver {
 
     public record VisibilityResult(boolean visible, BlockPos blocker, String reason) { }
 
-    /** LOS tests collision geometry only. Explicit transparent tags affect examination, not physical use. */
+    /** Examination-specific obstruction policy; transparent classification is not physical interaction policy. */
     public static boolean visible(ServerLevel level, Entity actor, Resolved target) {
         return visibility(level, actor, target).visible();
     }
@@ -123,7 +184,25 @@ public final class ExamineTargetResolver {
         double distance = from.distanceTo(to);
         if (!Double.isFinite(distance) || distance > ExaminationPolicy.NORMAL_RANGE + 2)
             return new VisibilityResult(false, null, "out_of_range");
-        return visibilityAlongRay(level, from, to);
+        // World and frame blockers share examination's explicit visibility policy; collision shapes
+        // alone are insufficient because tagged windows collide physically but are non-occluding.
+        var world = visibilityAlongRay(level, from, to);
+        if (!world.visible()) return world;
+        return frameVisibility(level, from, to);
+    }
+
+    private static VisibilityResult frameVisibility(ServerLevel level, Vec3 from, Vec3 to) {
+        for (var frameRay : LoadedFrameRayQuery.frameRayContexts(level, from, to, 1.0f)) {
+            Vec3 localFrom = frameRay.localFrom(), localTo = frameRay.localTo();
+            var result = visibilityCells(level, localFrom, localTo,
+                    frameRay.traversalFrom(), frameRay.traversalTo(), true, true, pos -> {
+                var read = frameRay.read(pos);
+                if (!read.owned()) return new VisibilityCell(true, null);
+                return new VisibilityCell(read.known(), read.state());
+            });
+            if (!result.visible()) return result;
+        }
+        return new VisibilityResult(true, null, "visible");
     }
 
     /** Shared loaded-only shape LOS for virtual sky directions. Never forces chunks and has no examine-range cap. */
@@ -139,10 +218,26 @@ public final class ExamineTargetResolver {
         double distance = from.distanceTo(to);
         if (!Double.isFinite(distance) || distance <= 0 || distance > ExamineWorldSelector.MAX_VISIBLE_RANGE)
             return new VisibilityResult(false, null, "invalid_distance");
-        for (BlockPos pos : crossedCells(from, to)) {
-            if (!level.hasChunkAt(pos)) return new VisibilityResult(false, pos, "unloaded");
-            BlockState state = level.getBlockState(pos);
-            if (ExamineVision.isTransparent(state)) continue;
+        return visibilityCells(level, from, to, from, to, ignoreOriginContainingShape, ignoreTargetContainingShape,
+                pos -> level.hasChunkAt(pos) ? new VisibilityCell(true, level.getBlockState(pos))
+                        : new VisibilityCell(false, null));
+    }
+
+    private record VisibilityCell(boolean known, BlockState state) { }
+    @FunctionalInterface private interface VisibilityCellReader { VisibilityCell read(BlockPos pos); }
+
+    /** One examination-specific shape and transparency policy serves world and projected frame cells. */
+    private static VisibilityResult visibilityCells(net.minecraft.world.level.Level level, Vec3 from, Vec3 to,
+            Vec3 traversalFrom, Vec3 traversalTo, boolean ignoreOriginContainingShape,
+            boolean ignoreTargetContainingShape, VisibilityCellReader reader) {
+        double distance = from.distanceTo(to);
+        List<BlockPos> cells = crossedCells(traversalFrom, traversalTo);
+        if (cells.size() > 1024) return new VisibilityResult(false, null, "invalid_distance");
+        for (BlockPos pos : cells) {
+            VisibilityCell cell = reader.read(pos);
+            if (!cell.known()) return new VisibilityResult(false, pos, "unloaded");
+            BlockState state = cell.state();
+            if (state == null || state.isAir() || ExamineVision.isTransparent(state)) continue;
             // AirlockBlock's collision override probes getBlockEntity() for actor-specific crush
             // exemptions. Examination deliberately uses closed/open block geometry without
             // materializing a missing controller during this read-only query.

@@ -180,6 +180,26 @@ class BodyHandClientPolicyTest {
         assertEquals(5, policy.snapshot().revision());
     }
 
+    @Test void ownerPushAfterCommittedEpochRebindAcceptsNewEpochAndRejectsPriorEpoch() {
+        var policy = new BodyHandClientPolicy();
+        policy.bind(ACCOUNT, BODY, 36);
+        var oldPush = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 36, 9, "left", List.of(new BodyHandStateSnapshot.Hand("left", null, null, 0)),
+                List.of(), List.of(), true);
+        assertTrue(policy.accept(oldPush));
+
+        // GhostControlClient Commit updates the committed epoch first; BodyHandClient's
+        // owner-snapshot handler reconciles that binding before strict push acceptance.
+        policy.bind(ACCOUNT, BODY, 37);
+        assertNull(policy.snapshot());
+        var newPush = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK,
+                ACCOUNT, BODY, 37, 9, "left", oldPush.hands(), List.of(), List.of(), true);
+        assertTrue(policy.accept(newPush));
+        assertSame(newPush, policy.snapshot());
+        assertFalse(policy.accept(oldPush), "a late previous-session owner push must fail closed");
+        assertSame(newPush, policy.snapshot());
+    }
+
     private static BodyHandActionResult result(long epoch, long sequence, BodyHandActionResult.Reason reason) {
         return new BodyHandActionResult(epoch, sequence, reason == BodyHandActionResult.Reason.OK,
                 reason, false, 0, null, null, null, 0);

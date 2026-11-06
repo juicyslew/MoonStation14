@@ -1,0 +1,16 @@
+{
+  "title": "Bounded wire-carry to pry-walk power context diagnostic",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": ["Does the evidenced wire-fixture-before-pry context reproduce premature unknown-power cancellation, and if so which existing power-meter acceptance reason rejects it?"],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-pry-power-context", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-pry-context-r19"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-pry-context-r19-native.log",
+      "rationale": "Expected2/891, existing registeredWireSessionQueriesAndActsDuringNativeFrameCarry and crowbarPryCancelsOnOwnWalkOnSameFrame. Annotation-only selection delta, normal Gradle run compiles changed GameTest sources; production/fixture behavior and R18diagnostics unchanged. R18compilation/JVM21/21/native3/3passed; no duplicate JVM/fullsuite. This changes experiment context, not routine repetition: R11wire completed/ownerclosed9526 immediately before walk started9526/admitted9589/powerunknown9590. FIRST verify observed wire completion/ownerclose precedes own-walk fixture start/admission. Batch order is NOT guaranteed; reverse/simultaneous/unclear order means contextual experiment INCONCLUSIVE, never proof context harmless. Do not alter batch names/order mechanisms mid-run or rerun valid fixtures. If correct order, capture exact existing admission topology-ready/generation/sample-age/revision and terminal power diagnostic; exact service reason=power-unknown log includes existing meter acceptance reason. Compare to R18accepted-known-zero walk cancellation at0.312394>0.3. If no failure, NONREPRO notfix/cause. Preserve safe UNKNOWN/full-power rejection, ownmotion0.3 threshold, all authority/LOS/revision/frame/tool/duration checks and normal readiness timing. Finish started batch, report selected/completed/pass/fail and raw save/stop even without all-passed parser marker. Fresh isolated default2config; no ten-substep preparation/adoption/ownerconfig changes or forced meters/retries. No Sable internals/source/binary/native/privateaccess/newhooks/mixins/interception, ownerworld/process/installation changes, cap/freeze/gravity/recoveryteleport. No fullsuite/readiness/report/finalization/M1 acceptance/M2-M6 advancement. Return bound diagnostic receipt/findings even failed.",
+      "covers": ["Does the evidenced wire-fixture-before-pry context reproduce premature unknown-power cancellation, and if so which existing power-meter acceptance reason rejects it?"]
+    }
+  ]
+}

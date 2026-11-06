@@ -21,28 +21,29 @@ public final class GameTestTagPreflight {
     public static void main(String[] args) throws IOException {
         if (args.length != 2) throw new IllegalArgumentException("Expected compiled fixture directory and filter");
         Catalogue catalogue = validate(Path.of(args[0]), args[1]);
-        System.out.printf("GameTest tag preflight: %d/%d fixtures selected; available tags=%s%n", catalogue.selected(), catalogue.tests(), catalogue.availableTags());
+        System.out.printf("GameTest tag preflight: %d/%d fixtures selected; selected methods=%s; available tags=%s%n", catalogue.selected(), catalogue.tests(), catalogue.selectedMethods(), catalogue.availableTags());
     }
 
     public static Catalogue validate(Path root, String filter) throws IOException {
         Set<String> requested = GameTestTagSelector.parse(filter);
         Set<String> available = new HashSet<>();
+        Set<String> selectedMethods = new java.util.TreeSet<>();
         int[] counts = {0, 0};
         try (var files = Files.walk(root)) {
             for (Path file : files.filter(path -> path.toString().endsWith(".class")).toList())
-                scan(file, available, counts, requested);
+                scan(file, available, counts, requested, selectedMethods);
         }
         if (counts[0] == 0) throw new IllegalStateException("No compiled GameTest fixtures found at " + root);
         Set<String> unknown = GameTestTagSelector.unknownTags(requested, available);
         if (!unknown.isEmpty()) throw new IllegalStateException("Unknown GameTest tags " + unknown + "; available tags: " + available);
         int selected = requested.isEmpty() ? counts[0] : counts[1];
         if (!requested.isEmpty() && selected == 0) throw new IllegalStateException("GameTest tag filter selected zero tests: " + requested);
-        return new Catalogue(Set.copyOf(available), counts[0], selected);
+        return new Catalogue(Set.copyOf(available), counts[0], selected, Set.copyOf(selectedMethods));
     }
 
-    public record Catalogue(Set<String> availableTags, int tests, int selected) { }
+    public record Catalogue(Set<String> availableTags, int tests, int selected, Set<String> selectedMethods) { }
 
-    private static void scan(Path file, Set<String> available, int[] counts, Set<String> requested) throws IOException {
+    private static void scan(Path file, Set<String> available, int[] counts, Set<String> requested, Set<String> selectedMethods) throws IOException {
         ClassReader reader = new ClassReader(Files.readAllBytes(file));
         if (!reader.getClassName().startsWith("com/juicyslew/moonstation14/")) return;
         Set<String> classTags = new HashSet<>();
@@ -64,7 +65,10 @@ public final class GameTestTagPreflight {
                         counts[0]++;
                         available.addAll(classTags);
                         available.addAll(methodTags);
-                        if (classTags.stream().anyMatch(requested::contains) || methodTags.stream().anyMatch(requested::contains)) counts[1]++;
+                        if (requested.isEmpty() || classTags.stream().anyMatch(requested::contains) || methodTags.stream().anyMatch(requested::contains)) {
+                            counts[1]++;
+                            selectedMethods.add(reader.getClassName().replace('/', '.') + "." + name);
+                        }
                     }
                 };
             }

@@ -15,7 +15,7 @@ import net.minecraft.world.level.Level;
 import java.util.UUID;
 
 /** Persistent, ordinary-physics Mob type reserved for future player characters. */
-public final class PlayerCharacterHarnessEntity extends Mob {
+public final class PlayerCharacterHarnessEntity extends Mob implements com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchorPending {
     private static final String BINDING_KEY = "Moonstation14PlayerCharacterBinding";
     private static final String APPEARANCE_KEY = "Moonstation14PlayerCharacterAppearance";
     private static final String BODY_SHAPE_KEY = "Moonstation14PlayerCharacterBodyShape";
@@ -30,6 +30,10 @@ public final class PlayerCharacterHarnessEntity extends Mob {
             PlayerCharacterHarnessEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> CONFIRMED_DEATH = SynchedEntityData.defineId(
             PlayerCharacterHarnessEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<CompoundTag> ANGULAR_RECOVERY = SynchedEntityData.defineId(
+            PlayerCharacterHarnessEntity.class, EntityDataSerializers.COMPOUND_TAG);
+    private com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State predictedAngularRecoveryState;
+    private boolean hasPredictedAngularRecoveryState;
     private Long offlineSinceMillis;
     // Display-only observation: parked OFFLINE/DEAD_CLAIM time is not time spent disconnected.
     private Long disconnectedSinceMillis;
@@ -39,6 +43,16 @@ public final class PlayerCharacterHarnessEntity extends Mob {
     private Tag invalidBindingEvidence;
     private Tag invalidAppearanceEvidence;
     private Tag invalidBodyShapeEvidence;
+    private final com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchorState frameAnchorState = new com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchorState();
+    private com.juicyslew.moonstation14.ms14.movement.AirMotionReference airMotionReference;
+    /** Transient physics reference; deliberately not persisted or synchronized. */
+    public java.util.Optional<com.juicyslew.moonstation14.ms14.movement.AirMotionReference> airMotionReference() {
+        return java.util.Optional.ofNullable(airMotionReference);
+    }
+    public void setAirMotionReference(com.juicyslew.moonstation14.ms14.movement.AirMotionReference reference) {
+        airMotionReference = reference;
+    }
+    @Override public com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchorState sable$frameAnchorState() { return frameAnchorState; }
 
     public PlayerCharacterHarnessEntity(EntityType<? extends PlayerCharacterHarnessEntity> type, Level level) {
         super(type, level);
@@ -68,6 +82,7 @@ public final class PlayerCharacterHarnessEntity extends Mob {
     public void die(net.minecraft.world.damagesource.DamageSource source) {
         boolean wasDead = dead;
         super.die(source);
+        if (!level().isClientSide) setAngularRecoveryState(java.util.Optional.empty());
         if (!wasDead && dead && !level().isClientSide) {
             entityData.set(CONFIRMED_DEATH, true);
             com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleCharacterDeathHandler
@@ -101,6 +116,58 @@ public final class PlayerCharacterHarnessEntity extends Mob {
         builder.define(BODY_SHAPE, PlayerCharacterBodyShape.WIDE.index());
         builder.define(OFFLINE_BADGE, false);
         builder.define(CONFIRMED_DEATH, false);
+        builder.define(ANGULAR_RECOVERY, new CompoundTag());
+    }
+
+    public java.util.Optional<com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State> angularRecoveryState() {
+        return hasPredictedAngularRecoveryState ? java.util.Optional.ofNullable(predictedAngularRecoveryState)
+                : authoritativeAngularRecoveryState();
+    }
+
+    public java.util.Optional<com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State> authoritativeAngularRecoveryState() {
+        CompoundTag tag = entityData.get(ANGULAR_RECOVERY);
+        if (!tag.contains("state", Tag.TAG_COMPOUND)) return java.util.Optional.empty();
+        CompoundTag state = tag.getCompound("state");
+        var q = new com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.Quat(
+                state.getDouble("qw"), state.getDouble("qx"), state.getDouble("qy"), state.getDouble("qz"));
+        var w = new com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.Vec3(
+                state.getDouble("wx"), state.getDouble("wy"), state.getDouble("wz"));
+        return java.util.Optional.of(new com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State(
+                q, w, state.getDouble("airborne"), state.getBoolean("active")));
+    }
+
+    public void setAngularRecoveryState(java.util.Optional<com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State> value) {
+        java.util.Objects.requireNonNull(value, "value");
+        CompoundTag tag = new CompoundTag();
+        value.ifPresent(state -> {
+            CompoundTag data = new CompoundTag(); var q = state.orientation(); var w = state.worldAngularVelocity();
+            data.putDouble("qw", q.w()); data.putDouble("qx", q.x()); data.putDouble("qy", q.y()); data.putDouble("qz", q.z());
+            data.putDouble("wx", w.x()); data.putDouble("wy", w.y()); data.putDouble("wz", w.z());
+            data.putDouble("airborne", state.airborneSeconds()); data.putBoolean("active", state.recoveryActive()); tag.put("state", data);
+        });
+        entityData.set(ANGULAR_RECOVERY, tag);
+    }
+
+    public void setPredictedAngularRecoveryState(java.util.Optional<com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.State> value) {
+        hasPredictedAngularRecoveryState = true;
+        predictedAngularRecoveryState = java.util.Objects.requireNonNull(value, "value").orElse(null);
+    }
+    public void clearPredictedAngularRecoveryState() { hasPredictedAngularRecoveryState = false; predictedAngularRecoveryState = null; }
+
+    /** Apply inertial body orientation once to logical head look; yaw/pitch remain player input. */
+    @Override
+    public net.minecraft.world.phys.Vec3 getLookAngle() {
+        var look = com.juicyslew.moonstation14.ms14.character.AngularRecoveryLook.worldLook(
+                angularRecoveryState().orElse(null), getYRot(), getXRot());
+        return new net.minecraft.world.phys.Vec3(look.x(), look.y(), look.z());
+    }
+
+    /** A same-entity teleport starts a fresh inertial recovery basis. */
+    @Override
+    public void teleportTo(double x, double y, double z) {
+        if (!level().isClientSide) setAngularRecoveryState(java.util.Optional.empty());
+        clearPredictedAngularRecoveryState();
+        super.teleportTo(x, y, z);
     }
 
     public PlayerCharacterAppearance appearance() {
@@ -174,7 +241,14 @@ public final class PlayerCharacterHarnessEntity extends Mob {
 
     @Override
     public void tick() {
+        if (!level().isClientSide)
+            com.juicyslew.moonstation14.ms14.character.CharacterAngularRecoverySystem.clearIfSuperseded(this);
+        if (!level().isClientSide) frameAnchorState.traceLifecycle((ServerLevel) level(), this,
+                com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchorState.DiagnosticPhase.BEFORE_BODY_SUPER);
+        if (!level().isClientSide && frameAnchorState.pending()) return;
         super.tick();
+        if (!level().isClientSide) frameAnchorState.traceLifecycle((ServerLevel) level(), this,
+                com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchorState.DiagnosticPhase.AFTER_BODY_SUPER);
         if (!level().isClientSide) refreshOfflineBadge(System.currentTimeMillis());
     }
 
@@ -210,6 +284,7 @@ public final class PlayerCharacterHarnessEntity extends Mob {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
+        if (level() instanceof ServerLevel server) frameAnchorState.write(tag, server, this);
         if (invalidUnbindable) tag.put(BINDING_KEY, invalidBindingEvidence.copy());
         else if (playerCharacterBinding != null) tag.put(BINDING_KEY, playerCharacterBinding.save());
         if (invalidAppearanceEvidence != null) tag.put(APPEARANCE_KEY, invalidAppearanceEvidence.copy());
@@ -224,6 +299,7 @@ public final class PlayerCharacterHarnessEntity extends Mob {
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        frameAnchorState.read(tag);
         // Vanilla saves Health and DeathTime, but neither proves that die() was accepted.
         // Never infer confirmation from them, including on old saves without this key.
         entityData.set(CONFIRMED_DEATH, tag.contains(CONFIRMED_DEATH_KEY, Tag.TAG_BYTE)

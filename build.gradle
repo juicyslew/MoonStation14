@@ -54,6 +54,20 @@ sourceSets.main.resources {
 
 repositories {
     // Add here additional repositories if required by some of the dependencies below.
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content {
+            includeGroup 'maven.modrinth'
+        }
+    }
+    maven {
+        name = 'RyanHcode'
+        url = 'https://maven.ryanhcode.dev/releases'
+        content {
+            includeGroup 'dev.ryanhcode.sable-companion'
+        }
+    }
 }
 
 base {
@@ -88,6 +102,12 @@ neoForge {
             if (project.hasProperty('ms14ClientRunDir')) {
                 gameDirectory = project.file(project.property('ms14ClientRunDir'))
             }
+            if (project.hasProperty('ms14DebugLoadCargoPacketTarget')) {
+                systemProperty 'ms14.debug.loadCargoPacketTarget', project.property('ms14DebugLoadCargoPacketTarget').toString()
+            }
+            if (project.hasProperty('ms14MixinDebugExport')) {
+                systemProperty 'mixin.debug.export', project.property('ms14MixinDebugExport').toString()
+            }
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
@@ -113,6 +133,8 @@ neoForge {
         gameTestServer {
             type = "gameTestServer"
             sourceSet = sourceSets.gametest
+            // Load the fixture-only progress observer before mixin bootstrap begins.
+            programArguments.addAll('--mixin', 'moonstation14.gametest.mixins.json')
             // Optional isolated directory for GameTests: -Pms14GameTestDir=build/gametest-run
             if (project.hasProperty('ms14GameTestDir')) {
                 gameDirectory = project.file(project.property('ms14GameTestDir'))
@@ -120,6 +142,10 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.findProperty('ms14GameTestNamespaces') ?: "${project.mod_id},moonstation14_camera_tour"
             if (project.hasProperty('ms14GameTestTags')) {
                 systemProperty 'moonstation14.gameTestTags', project.property('ms14GameTestTags').toString()
+            }
+            if (project.hasProperty('ms14HullImpactExpectedSubsteps')) {
+                systemProperty 'moonstation14.hullImpactExpectedSubsteps',
+                        project.property('ms14HullImpactExpectedSubsteps').toString()
             }
         }
 
@@ -174,6 +200,44 @@ configurations {
 }
 
 dependencies {
+    // Sable is mandatory; candidate selection is explicit validation-only. The default remains
+    // the pinned official release and never resolves both outer JARs into the classpath.
+    def nativeCandidateProperty = providers.gradleProperty('ms14SableNativeCandidate').orNull
+    if (nativeCandidateProperty == null) {
+        implementation('maven.modrinth:sable:fg9dTRz9') { transitive = false }
+    } else {
+        if (!System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows') ||
+                !System.getProperty('os.arch').toLowerCase(Locale.ROOT).contains('amd64') &&
+                !System.getProperty('os.arch').toLowerCase(Locale.ROOT).contains('x86_64')) {
+            throw new GradleException('ms14SableNativeCandidate is supported only on a Windows AMD64 host')
+        }
+        def candidate = file(nativeCandidateProperty)
+        def provenance = new File(candidate.parentFile, candidate.name.replaceFirst(/\.jar$/, '.provenance.json'))
+        if (!candidate.isFile() || !provenance.isFile()) {
+            throw new GradleException("Native candidate and paired provenance must already exist: ${candidate} / ${provenance}; run managed packaging first")
+        }
+        def json = new groovy.json.JsonSlurper().parse(provenance)
+        def sha256 = { File f -> java.security.MessageDigest.getInstance('SHA-256').digest(f.bytes).encodeHex().toString() }
+        def official = new groovy.json.JsonSlurper().parse(file('tooling/native-physics/official-artifact.json'))
+        def sable = new groovy.json.JsonSlurper().parse(file('tooling/native-physics/sable-source.json'))
+        def rapier = new groovy.json.JsonSlurper().parse(file('tooling/native-physics/rapier-source.json'))
+        def invalid = !json || json.outer_jar_sha256 != sha256(candidate) ||
+                json.official_outer_jar_sha256 != official.sha256 ||
+                json.target_native != 'sable_rapier_x86_64_windows.dll' ||
+                json.scope != 'Windows x64 only; other five official native payloads unchanged' ||
+                json.sable_source?.commit != sable.commit || json.sable_source?.patchSha256 != sable.patchSha256 ||
+                json.sable_source?.patchedSha256 != sable.patchedSha256 ||
+                json.rapier_source?.revision != rapier.revision || json.rapier_source?.patch_sha256 != rapier.patch_sha256 ||
+                json.rapier_source?.patched_source_sha256 != rapier.patched_source_sha256
+        if (invalid) throw new GradleException("Native candidate provenance/hash/source bindings are invalid: ${provenance}")
+        logger.lifecycle("Using opt-in Sable native candidate ${candidate.name} sha256=${sha256(candidate)} (validation only)")
+        implementation files(candidate)
+    }
+    // Sable exposes Pose3d in its required allocation API; the release embeds this exact MIT API jar.
+    compileOnly 'dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:1.6.0'
+    // The framed-outline geometry unit test calls the production Pose3dc helper directly.
+    testImplementation 'dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:1.6.0'
+
     gametestImplementation sourceSets.main.output
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testImplementation sourceSets.gametest.output
@@ -338,9 +402,113 @@ tasks.register('preflightServerPort', DevServerPortCheckTask) {
     propertiesPath = project.file(providers.gradleProperty('ms14PreflightProperties').orElse('run/server.properties').get()).absolutePath
 }
 
+abstract class StageSableConfigTask extends DefaultTask {
+    @org.gradle.api.tasks.InputFile
+    @org.gradle.api.tasks.PathSensitive(org.gradle.api.tasks.PathSensitivity.RELATIVE)
+    abstract org.gradle.api.file.RegularFileProperty getTemplateFile()
+
+    @org.gradle.api.tasks.Internal
+    abstract org.gradle.api.file.RegularFileProperty getConfigFile()
+
+    @org.gradle.api.tasks.Input
+    abstract org.gradle.api.provider.Property<Integer> getSubsteps()
+
+    @org.gradle.api.tasks.TaskAction
+    void stage() {
+        File sableConfigFile = configFile.get().asFile
+        Integer targetSubsteps = substeps.get()
+        File template = templateFile.get().asFile
+        // Set only the approved root key. Keep every other existing setting and byte intact.
+        if (!sableConfigFile.exists()) {
+            sableConfigFile.parentFile.mkdirs()
+            java.nio.file.Files.copy(template.toPath(), sableConfigFile.toPath())
+            def seed = sableConfigFile.getText('UTF-8').replaceFirst(/(?m)^(\s*sub_level_substeps_per_tick\s*=\s*)[+-]?\d+/, '$1' + targetSubsteps)
+            sableConfigFile.setText(seed, 'UTF-8')
+            logger.lifecycle("Created ${sableConfigFile} with Sable substeps=${targetSubsteps}.")
+        } else {
+            def original = sableConfigFile.getText('UTF-8')
+            def lines = original.split('(?<=\\n)', -1)
+            def rootTableSeen = false
+            def keyFound = false
+            def updated = new StringBuilder()
+            lines.each { line ->
+                def trimmedLine = line.trim().replaceFirst(/^\uFEFF/, '')
+                if (trimmedLine.startsWith('[') && trimmedLine.contains(']')) rootTableSeen = true
+                if (!rootTableSeen && trimmedLine.startsWith('sub_level_substeps_per_tick')) {
+                    // Replace only the scalar, retaining whitespace, line ending, and inline comment.
+                    line = line.replaceFirst(/(sub_level_substeps_per_tick\s*=\s*)[+-]?\d+/, '$1' + targetSubsteps)
+                    keyFound = true
+                }
+                updated.append(line)
+            }
+            if (!keyFound) {
+                def text = updated.toString()
+                def tableOffset = -1
+                def offset = 0
+                text.split('(?<=\\n)', -1).each { line ->
+                    def trimmedLine = line.trim().replaceFirst(/^\uFEFF/, '')
+                    if (tableOffset < 0 && trimmedLine.startsWith('[') && trimmedLine.contains(']'))
+                        tableOffset = offset
+                    offset += line.length()
+                }
+                if (tableOffset >= 0) {
+                    updated.insert(tableOffset, "sub_level_substeps_per_tick = ${targetSubsteps}\n")
+                } else {
+                    if (text && !text.endsWith('\n')) updated.append('\n')
+                    updated.append("sub_level_substeps_per_tick = ${targetSubsteps}\n")
+                }
+            }
+            if (updated.toString() != original) {
+                sableConfigFile.setText(updated.toString(), 'UTF-8')
+                logger.lifecycle("Set sub_level_substeps_per_tick=${targetSubsteps} in ${sableConfigFile}; other Sable settings were preserved.")
+            } else {
+                logger.lifecycle("Sable sublevel physics already uses ${targetSubsteps} substeps: ${sableConfigFile}")
+            }
+        }
+}
+}
+def selectedServerRunDir = providers.gradleProperty('ms14ServerRunDir').orElse('run')
+def sableConfigTemplate = project.file('config/sable-server.toml')
+tasks.register('stageSableServerConfig', StageSableConfigTask) {
+    group = 'server'
+    description = 'Ensures the selected server directory uses six Sable sublevel physics substeps.'
+    configFile = project.file("${selectedServerRunDir.get()}/config/sable-server.toml")
+    templateFile = sableConfigTemplate
+    substeps = 6
+}
+def hasExplicitGameTestSubsteps = project.hasProperty('ms14GameTestSableSubsteps')
+if (hasExplicitGameTestSubsteps && !project.hasProperty('ms14GameTestDir')) {
+    throw new GradleException('-Pms14GameTestDir=<fresh-dir> is required with -Pms14GameTestSableSubsteps.')
+}
+if (project.hasProperty('ms14GameTestDir')) {
+    def gameTestDir = project.file(project.property('ms14GameTestDir'))
+    def canonicalBuildDir = layout.buildDirectory.get().asFile.canonicalFile.toPath()
+    def canonicalGameTestDir = gameTestDir.canonicalFile.toPath()
+    // Only auto-stage for isolated directories under this checkout's build output.
+    // External profiles are left untouched unless the substep override is explicit.
+    def isManagedBuildDir = canonicalGameTestDir.startsWith(canonicalBuildDir)
+    if (hasExplicitGameTestSubsteps || isManagedBuildDir) {
+        def testSubsteps = 6
+        if (hasExplicitGameTestSubsteps) {
+            def rawSubsteps = project.property('ms14GameTestSableSubsteps').toString()
+            if (!(rawSubsteps ==~ /[1-9][0-9]*/)) throw new GradleException('ms14GameTestSableSubsteps must be a positive integer.')
+            testSubsteps = rawSubsteps.toInteger()
+        }
+    tasks.register('stageSableGameTestConfig', StageSableConfigTask) {
+        group = 'verification'
+        description = 'Stages Sable substeps for an isolated GameTest run.'
+        configFile = new File(gameTestDir, 'config/sable-server.toml')
+        templateFile = sableConfigTemplate
+        substeps = testSubsteps
+    }
+    tasks.named('runGameTestServer') { dependsOn 'stageSableGameTestConfig' }
+    }
+}
+
 tasks.named('runServer') {
-    def runDir = providers.gradleProperty('ms14ServerRunDir').orElse('run').get()
+    def runDir = selectedServerRunDir.get()
     def serverPropertiesFile = project.file("${runDir}/server.properties")
+    dependsOn 'stageSableServerConfig'
     doFirst {
         // Inspect the same configured directory the dev server will use.
         DevServerPortPreflight.check(serverPropertiesFile)

@@ -1,0 +1,18 @@
+{
+  "title": "Observe stock-only flight with supported plot residency and matched initial support",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/STOCK-ONLY-CONTROL-R30.md",
+  "acceptance_criteria": [
+    "With MS14 absent and authenticated stock Sable at two substeps, what are the 20/80 m/s vanilla-shell flight outcomes after corrected initial support and plot-owned readiness, and does shutdown finish or capture the blocked JVM path?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "-p", "tooling/stock-sable-control", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-stock-only-r30"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-stock-only-r30-native.log",
+      "rationale": "Expected complete stock-only control catalogue2/2. R28/R29 remain preserved and neither flew. R30 changes only our fixture: source at support y rather than y+1, support pad authored in same turn after assembly before async waits, unchanged near-identity guard at naturally grounded admission rather than transient startup, and virtual storage readiness through exact public Sable container/plot/chunk owners instead of vanilla forced tickets/entity-ticking. Physical-world forcing remains bounded and entity-ticking/FULL; require actual residency counts. No Sable internals/property/config/physics changes. Standalone compile/resources passed; unchanged root capture extraction already compiled in R29 and is not rerun. Require corrected freshness guard before preparation, runtime mod inventory/no MS14 integration, official jar hash, exact versions, actual substeps2, conserved state/shape/property captures and independent resolved mass versus actual tracker, then ten-sample grounded admission and actual velocity launch before interpreting trajectory. Vanilla903 composition is not R16's452-mass MS14 composition. Shared SAT/trace thresholds, first/confirmed witnesses/history and bounded follow-through remain strict: genuine penetration/slab escape must fail normally, not green expected failures. Collect both terminal results. Check normal dimension saves/exit or bounded shutdown thread/lock/frame samples separately; gameplay passes cannot override timeout. R29's two server samples were RUNNABLE in vanilla ticket-distance updates, not proof of deadlock or which ticket caused it. A clean R30 is non-reproduction, not unique causal proof or an R26 diagnosis. Stock-only penetration shows MS14 unnecessary for this analogue, not an engine defect/speed-guarantee violation; stock-only pass needs a same-vanilla MS14-present comparator before attribution. Setup/coverage failure remains inconclusive. No used-fixture retry, worker safeguard changes, owner-state changes, ten-step adoption, readiness or M1 acceptance.",
+      "covers": ["With MS14 absent and authenticated stock Sable at two substeps, what are the 20/80 m/s vanilla-shell flight outcomes after corrected initial support and plot-owned readiness, and does shutdown finish or capture the blocked JVM path?"]
+    }
+  ]
+}

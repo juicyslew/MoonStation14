@@ -4,9 +4,17 @@
 
 ## Bottom line
 
+**Owner execution decision, 2026-10-10:** no written permission has been obtained.
+The owner authorizes required Sable integration and runtime development now,
+without an opt-in gate, and declines contacting the licensor for now. Treat this
+as authorization to proceed with technical work, not legal clearance. The earlier
+runtime-development hold is superseded; public distribution readiness and the
+permitted-purpose question remain unresolved. No maintainer contact or publication
+is authorized by this decision.
+
 **Sable's PolyForm Shield noncompete clause is the material unresolved risk.** It is not MIT or a general-purpose permissive open-source license. MoonStation being free, MIT, SS14-inspired, an addon, or separately downloaded does **not** by itself settle whether the intended use is permitted. The available evidence establishes neither a prohibition nor clearance for this project.
 
-Recommendation: get **project-specific written clarification/permission from the licensor** before committing to Sable-dependent public ship gameplay/distribution. Clarify the private feasibility prototype too; the license does not contain an express blanket private-testing exemption. Treat this as an adoption gate, not proof that ordinary Sable addons are forbidden. Source/license investigation and dependency-free baselines can proceed while the question is resolved.
+Recommendation: get **project-specific written clarification/permission or qualified review before public distribution**. The license does not contain an express blanket private-testing exemption. The owner nevertheless explicitly authorizes required integration, runtime evaluation and gameplay development now. This recommendation is a distribution gate, not a technical-development hold or proof that ordinary Sable addons are forbidden.
 
 Prefer Sable alone initially. Optional Create/Aeronautics adds separate reserved-asset and dependency obligations. Their licenses do not solve Sable's permitted-purpose question.
 

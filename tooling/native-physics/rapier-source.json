@@ -1,0 +1,24 @@
+{
+  "repository": "https://github.com/ryanhcode/rapier",
+  "revision": "38e92f117590862481a53df6fc69a5d893e29186",
+  "license": "Apache-2.0",
+  "attribution": "RyanHCode Rapier fork; upstream Rapier contributors, Copyright 2020 Sebastian Crozet",
+  "patch": "patches/rapier-principal-frame.patch",
+  "patch_sha256": "95f2f7c8088226eee8a34ede619a4039dd34b81496a0cdb8b9491213c0c20c94",
+  "source_file": "src/dynamics/rigid_body.rs",
+  "source_hash_encoding": "UTF-8 with LF line endings",
+  "upstream_source_sha256": "0df8668659ea8c0fd6083b519ae09c8d4c217fc55e16c8834b001619594b7fe4",
+  "patched_source_sha256": "c066066a122dc0aea1e08f87b21c6a7af0d7581cc22e93a94b07426647343723",
+  "validation": {
+    "base_revision": "38e92f117590862481a53df6fc69a5d893e29186",
+    "patch_check": "git apply --cached --check passed against the clean index",
+    "source_diff_check": "git diff --check passed; candidate and private patched source hashes match",
+    "rust_tests": "not executed"
+  },
+  "dependency_api": {
+    "crate": "parry3d 0.26.0",
+    "source": "https://static.crates.io/crates/parry3d/parry3d-0.26.0.crate",
+    "sha256": "2e04d21bda5249438b5695e7f08f1655524a6025bcdb186c324b7a66562f2d61",
+    "api": "MassProperties::principal_inertia_local_frame; world_inv_inertia uses body_rotation * principal_inertia_local_frame"
+  }
+}

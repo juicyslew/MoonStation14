@@ -1,0 +1,81 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.141'
+}
+
+def rootProps = new Properties()
+file('../../gradle.properties').withInputStream { rootProps.load(it) }
+group = 'com.juicyslew.stockcontrol'
+version = '1.0.0'
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+repositories {
+    maven { url = 'https://api.modrinth.com/maven'; content { includeGroup 'maven.modrinth' } }
+    maven { url = 'https://maven.ryanhcode.dev/releases'; content { includeGroup 'dev.ryanhcode.sable-companion' } }
+}
+dependencies {
+    implementation('maven.modrinth:sable:fg9dTRz9') { transitive = false }
+    compileOnly 'dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:1.6.0'
+}
+def generatedObservation = layout.buildDirectory.dir('generated/sources/stockControl/java')
+def generateObservationHelpers = tasks.register('generateObservationHelpers') {
+    inputs.files('../../src/main/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullPhysicalSnapshot.java',
+            '../../src/main/java/com/juicyslew/moonstation14/ms14/examine/FrameBoundsTransform.java',
+            '../../src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullTerrainGeometry.java',
+            '../../src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullImpactTraceState.java',
+            '../../src/gametest/java/com/juicyslew/moonstation14/gametest/support/GameTestShutdownStackCapture.java')
+    outputs.dir(generatedObservation)
+    doLast {
+        def files = [
+            ['../../src/main/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullPhysicalSnapshot.java', 'HullPhysicalSnapshot.java'],
+            ['../../src/main/java/com/juicyslew/moonstation14/ms14/examine/FrameBoundsTransform.java', 'FrameBoundsTransform.java'],
+            ['../../src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullTerrainGeometry.java', 'HullTerrainGeometry.java'],
+            ['../../src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullImpactTraceState.java', 'HullImpactTraceState.java'],
+            ['../../src/gametest/java/com/juicyslew/moonstation14/gametest/support/GameTestShutdownStackCapture.java', 'GameTestShutdownStackCapture.java']
+        ]
+        def target = generatedObservation.get().dir('com/juicyslew/stockcontrol').asFile
+        target.mkdirs()
+        files.each { pair ->
+            def text = file(pair[0]).getText('UTF-8')
+            text = text.replaceFirst(/(?m)^package [^;]+;/, 'package com.juicyslew.stockcontrol;')
+            text = text.replace('import com.juicyslew.moonstation14.ms14.examine.FrameBoundsTransform;',
+                    'import com.juicyslew.stockcontrol.FrameBoundsTransform;')
+            text = text.replace('HullTerrainImpactProbe.Observation', 'StockHullImpactGameTests.Observation')
+            new File(target, pair[1]).setText(text, 'UTF-8')
+        }
+    }
+}
+sourceSets.main.java.srcDir(generatedObservation)
+tasks.named('compileJava').configure { dependsOn generateObservationHelpers }
+def generatedTemplates = layout.buildDirectory.dir('generated/resources/stockControl')
+def generateEmptyTemplate = tasks.register('generateEmptyTemplate', Copy) {
+    from('../../src/gametest/resources/data/moonstation14/structure/empty.nbt')
+    into(generatedTemplates.map { it.dir('data/sable_control/structure') })
+    rename { 'empty.nbt' }
+}
+sourceSets.main.resources.srcDir(generatedTemplates)
+tasks.named('processResources').configure { dependsOn generateEmptyTemplate }
+neoForge {
+    version = rootProps.getProperty('neo_version')
+    parchment { mappingsVersion = rootProps.getProperty('parchment_mappings_version'); minecraftVersion = rootProps.getProperty('parchment_minecraft_version') }
+    runs {
+        gameTestServer {
+            type = 'gameTestServer'
+            if (project.hasProperty('ms14GameTestDir')) gameDirectory = project.file(project.property('ms14GameTestDir'))
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'sable_control'
+        }
+    }
+    mods { sable_control { sourceSet sourceSets.main } }
+}
+def validateFreshGameDirectory = tasks.register('validateFreshGameDirectory') {
+    doLast {
+        if (!project.hasProperty('ms14GameTestDir')) throw new GradleException('Explicit -Pms14GameTestDir=build/<fresh-name> is required')
+        def requested = project.file(project.property('ms14GameTestDir')).canonicalFile
+        def buildRoot = layout.buildDirectory.get().asFile.canonicalFile
+        if (!requested.toPath().startsWith(buildRoot.toPath())) throw new GradleException('Game directory must be nested-project-relative under build/')
+        if (requested.exists() && requested.listFiles()?.length) throw new GradleException('Game directory must be fresh and empty before launch')
+        requested.mkdirs()
+        new File(requested, '.stock-control-run-claimed').text = 'claimed\n'
+    }
+}
+tasks.matching { it.name == 'prepareGameTestServerRun' }.configureEach { dependsOn validateFreshGameDirectory }

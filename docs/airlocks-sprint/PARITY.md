@@ -4,6 +4,32 @@ Reference checkout: `C:\Users\William\Documents\SS14-dev\space-station-14`,
 verified at `c9df5ef5d675b0d1d226828bddf6b78c28502d91`.
 This is a mapping of the implemented slice, not full-airlock acceptance.
 
+## Client bump prediction audit — 2026-10-27
+
+Pinned `SharedDoorSystem.cs:59-79,311-369,609-657` registers collision handling
+on both sides: `HandleCollide -> TryOpen -> CanOpen -> StartOpening`. The
+`predicted` argument selects audio routing; it does not make state progression
+server-only. `OnPartialOpen` changes solidity after the resolved first-half
+deadline. `AccessReaderComponent` is networked; an earlier inference from the
+`AccessComponent` TODO that client bump prediction was disallowed was incorrect.
+Server validation remains authoritative. Unsupported local access/electronics
+and welding remain unsupported, rather than adding inert components.
+
+The current client-prediction candidate reuses resolved local Door values and
+`AirlockState.open/tick`, with a transient controller overlay, authoritative
+snapshot reconciliation, and client collision consuming effective passability.
+It must not write chunk OPEN bits, predict occupied closing, or invent server
+permissions. Audio retains the existing authoritative SS14 sounds rather than
+duplicating playback; predicted-audio routing is a deliberate remaining departure.
+Production/GameTest compilation, 57 focused JVM checks and independent source
+reviews pass. Native airlock controls remain pending; this is not connected-client
+acceptance. The active-controller client index is driven by the existing owned
+character tick, not an idle ticker on every loaded door. Dynamic shapes query the
+effective component view; no client chunk OPEN-bit edits are used. The pinned
+Sable entity-collision source queries `state.getCollisionShape(level, pos)` on its
+candidate path (`SubLevelEntityCollision.java:269-272,506`), so the next applicable
+native movement query can consume the component change.
+
 ## Resolved upstream entity
 
 `Airlock -> BaseStructure`; BaseStructure has no further parent. It contributes
@@ -156,6 +182,23 @@ reschedules the configured delay for an eligible open, unbolted door. Wire-timer
 processing must remain independent of failed close attempts.
 
 ## Evidence boundary
+
+### Frame-aware timed tool continuation (implementation follow-up)
+
+Panel/pry timed operations and wire sessions bind their initially admitted
+`LoadedFrameRayQuery` frame UUID. Timed actor movement uses the exact native
+Sable `EntityMovementExtension.sable$getTrackingSubLevel()` parent and its live
+pose: same-parent motion is measured in storage coordinates; a parent change
+projects the captured old point and compares in world coordinates. Missing frame
+or unavailable actor storage chunk fails closed. This is a Minecraft support
+adaptation, not Robust Transform parenting. Pinned SS14 `DoAfterSystem` captures
+`Transform.Coordinates`; `EntityCoordinates.TryDelta` uses local coordinates for
+same entity IDs and map coordinates otherwise. It does not claim target-distance
+DoAfter parity; local timed operations retain their existing target/controller
+validity checks. The shared local movement threshold remains 0.3, with explicit
+per-operation overrides unchanged. The airlock outline clip consumes the shared
+loaded-frame winner semantics and does not trust a farther frame nomination when
+nearer ordinary terrain wins.
 
 For current results, use `VALIDATION.md`; the interim gates below are historical.
 

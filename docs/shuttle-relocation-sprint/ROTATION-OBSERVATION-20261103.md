@@ -1,0 +1,5 @@
+# Rotation observation diagnostic (preparation only)
+
+Diagnostic-only; gameplay bugs remain unresolved. Wait for author go-ahead. Use a normal owner restart, fresh world, stock config, and clear terrain before yaw. Capture A: while supported rotation is slipping, `/ms14_connectedwall arm`; do not run `motion_stop` or reset the symptom; capture ~100 client ticks (~5 sec). If only transient Y-change reproduces, arm first, then immediately run `/ms14 shuttle_fixture motion <id> 0 .5 0 4 120` clear of terrain; note times/actions. Capture B: re-arm at a spinning inside corner, hold contact a few seconds, record clipping. Capture C: in a clear rotating bay run `/ms14_connectedwall prediction start`; use no movement keys during two scripted jumps.
+
+Preserve `run/logs/latest.log`, `run/logs/debug.log`, and `run/diagnostics/connected-prediction/*.json`, including partials. Witnesses are client-side; compact server warnings are correlated, not captured server queries. Targets expire after 120 game seconds and gravity continues. No observer, cargo, or full-checklist requests; no automatic launch.

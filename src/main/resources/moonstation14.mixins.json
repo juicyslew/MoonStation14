@@ -1,6 +1,7 @@
 {
   "required": true,
   "package": "com.juicyslew.moonstation14.mixin",
+  "plugin": "com.juicyslew.moonstation14.mixin.client.SableRemotePlotProjectionPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "FoodDataCharacterMixin",
@@ -28,7 +29,10 @@
     "MobMindHarnessOwnerMixin",
     "MobDisposalContainmentAiMixin",
     "LivingEntityMindHarnessTravelMixin",
+    "LivingEntityNativeHullResponseMixin",
+    "LivingEntityAirlockBumpTravelMixin",
     "EntityAirlockBumpMixin",
+    "LooseNativeMoveObserverMixin",
     "LivingEntityDeathStateAccessor",
     "LivingEntityMedicalCorpseMixin",
     "LivingEntityPostureMovementMixin",
@@ -41,7 +45,19 @@
     "LevelChunkConstructionHostMixin",
     "TrackedEntityObserverViewMixin",
     "ChunkMapObserverAccess",
-    "ChunkMapObserverCenterMixin"
+    "ChunkMapObserverCenterMixin",
+    "compat.SableLevelChunkBlockChangeContextMixin",
+    "compat.SableCollisionInfoAirlockContactsMixin",
+    "compat.SableNativeAirlockContactCaptureMixin",
+    "compat.SableOwnedCollisionPoseMixin",
+    "compat.SableTemporalCollisionCandidatesMixin",
+    "compat.VanillaWorldCollisionObservationMixin",
+    "compat.LooseNativePreCutoffMixin",
+    "compat.SableOwnedNativeCollisionTraceMixin",
+    "compat.SableTrackedCollisionSubstepsMixin",
+    "compat.SableRemovedHeatMapTickMixin",
+    "compat.SableSerializationFailureDiagnosticMixin",
+    "compat.SableCollisionShapeInvoker"
   ],
   "client": [
     "client.MinecraftStunInputMixin",
@@ -62,7 +78,20 @@
     "client.LivingEntityDisposalContainmentRenderMixin",
     "client.ContainedBodyCameraMixin",
     "client.ContainedPerspectiveLockMixin",
-    "client.ContainedOwnerPickMixin"
+    "client.ContainedOwnerPickMixin",
+    "client.SableOwnedRemoteFrameEntityMixin",
+    "client.SableOwnedRemoteFrameLivingMixin",
+    "client.LooseCargoPacketFrameMixin",
+    "client.SableAuthoritativeSnapshotCaptureMixin",
+    "client.SableAuthoritativeStopCaptureMixin",
+    "client.SableFrameTimelineRemovalMixin",
+    "client.SableStartTrackingTimelineSeedMixin",
+    "client.SableOwnedFramePresentationMixin",
+    "client.SableOwnedSubLevelPoseGetterMixin",
+    "client.SableOwnedCameraPresentationContextMixin",
+    "client.SableOwnedFrameEntityRenderContextMixin",
+    "client.LooseCargoRenderDispatcherObservationMixin",
+    "client.SableEntityRendererLightingMixin"
   ],
   "injectors": {
     "defaultRequire": 1

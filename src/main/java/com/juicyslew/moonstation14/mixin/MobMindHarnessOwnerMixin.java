@@ -20,6 +20,10 @@ public abstract class MobMindHarnessOwnerMixin implements MindControlledMob, Con
     @Unique
     private static final EntityDataAccessor<Boolean> moonstation14$DISPOSAL_CONTAINED =
             SynchedEntityData.defineId(Mob.class, EntityDataSerializers.BOOLEAN);
+    @Unique
+    private net.minecraft.world.level.Level moonstation14$physicalStepLevel;
+    @Unique
+    private long moonstation14$physicalStepTick = Long.MIN_VALUE;
 
     @Inject(method = "defineSynchedData", at = @At("TAIL"), require = 1)
     private void moonstation14$defineMovementOwner(SynchedEntityData.Builder builder, CallbackInfo callback) {
@@ -36,6 +40,17 @@ public abstract class MobMindHarnessOwnerMixin implements MindControlledMob, Con
     public void moonstation14$setMovementOwned(boolean owned) {
         Mob mob = (Mob) (Object) this;
         if (!mob.level().isClientSide) mob.getEntityData().set(moonstation14$MOVEMENT_OWNED, owned);
+    }
+
+    @Override
+    public boolean moonstation14$physicalStepConsumed(net.minecraft.world.level.Level level, long serverTick) {
+        return moonstation14$physicalStepLevel == level && moonstation14$physicalStepTick == serverTick;
+    }
+
+    @Override
+    public void moonstation14$markPhysicalStep(net.minecraft.world.level.Level level, long serverTick) {
+        moonstation14$physicalStepLevel = level;
+        moonstation14$physicalStepTick = serverTick;
     }
 
     @Override

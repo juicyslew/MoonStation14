@@ -34,7 +34,8 @@ public final class BodyHandItemTransferGameTestAccess {
         return BodyHandItemTransfer.pickupSelectedOwned(body, target, handId, expectedRevision, () -> true);
     }
 
-    public static BodyLooseThrow.Result throwOwned(LivingEntity body, String handId, String token, long revision) {
-        return BodyLooseThrow.throwOwned(body, handId, token, revision, () -> true, ignored -> { });
+    public static BodyLooseThrow.Result throwOwned(LivingEntity body, String handId, String token, long revision,
+            com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget target) {
+        return BodyLooseThrow.throwOwned(body, handId, token, revision, target, () -> true, ignored -> { });
     }
 }

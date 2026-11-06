@@ -1,0 +1,53 @@
+{
+  "title": "Feedback-07: certified side residual and observed terrain-floor clipping",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/ExteriorWallSustainedJumpGameTests.java",
+  "acceptance_criteria": [
+    "Complete pure-side native geometry proof preserves requested own Y only for trace-accounted residuals within the existing 1e-6 budget; correction remains position-only and true floor/ceiling contacts remain authoritative.",
+    "Exterior world-floor plus shuttle-wall contacts use the same-attempt vanilla clip witness and complete native side replay; floor clipping cannot authorize unrelated horizontal motion or fabricate support.",
+    "The previously failing registered-input sustained exterior jump matches its unobstructed vertical baseline through straight and diagonal arcs without premature vertical-velocity cancellation or unsupported grounding; per-step and cumulative tangent checks reject motion unexplained by captured own requests without suppressing legitimate steering.",
+    "Fresh full JVM, focused shuttle integration and unfiltered native regressions pass with selected/discovered and pass/failure counts, aggregate completion and clean save/shutdown."
+  ],
+  "manual_steps": [
+    "After identifying current client/server code, build the shuttle fixture and hold movement into a solid exterior wall while jumping; repeat slightly diagonally. Check full ascent and normal descent without head-bonking or hanging when there is no overhead obstruction.",
+    "Check a real ceiling still stops ascent and normal floor support still works. No automated client launch or artifact installation is part of this gate.",
+    "M1 remains unaccepted; cargo highlight/drop orientation and offline impact/body loss reports remain separate unresolved work."
+  ],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/side-y-r10-compile.log",
+      "rationale": "Compile the scoped runtime fix, trajectory fixture and request-accounted tangent regression tests; no packaging.",
+      "covers": ["Complete pure-side native geometry proof preserves requested own Y only for trace-accounted residuals within the existing 1e-6 budget; correction remains position-only and true floor/ceiling contacts remain authoritative."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-exterior-jump-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-07-side-y-r10-reproduction"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/side-y-r10-reproduction.log",
+      "rationale": "First rerun the trajectory that failed in R4 with wall velocity zero versus free velocity .3332. Vertical/support assertions and .02/.10 tangent limits remain unchanged. R5 exposed an invalid diagonal free-tangent oracle: projection-based acceleration legitimately differs after normal velocity is clipped. R6 checks wall tangent against raw own requests per step and cumulatively, retaining free motion diagnostics and strict rejection of unexplained glide. Record full native traces on failure; use this unused world once, without client or owner-world changes.",
+      "covers": ["The previously failing registered-input sustained exterior jump matches its unobstructed vertical baseline through straight and diagonal arcs without premature vertical-velocity cancellation or unsupported grounding; per-step and cumulative tangent checks reject motion unexplained by captured own requests without suppressing legitimate steering."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-owner-regression,shuttle-step-probe,shuttle-cargo-orientation,shuttle-passive-body,shuttle-active-input,shuttle-airlock-safety,shuttle-moving-reconnect,shuttle-falling-reconnect,shuttle-strong-impulse,shuttle-cabin-ventilation", "-Pms14GameTestDir=build/gametest-shuttle-feedback-07-side-y-r10-integration"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/side-y-r10-integration.log",
+      "rationale": "Rerun R9 WEST grounded-parallel separation, R8 partial landing and prior NORTH/world-floor controls before full suites. A false aggregate sublevel-horizontal flag must not block fully witnessed side separation: Sable can record the contact while accepting tryStepUp because motion is already outward. Same-attempt world clipping, complete side geometry/budget and matching first contact remain mandatory; measured partial/zero descent is bounded own Y with no Y correction. Existing controls/assertions remain unchanged. Fresh world, one invocation; report actual counts and clean shutdown.",
+      "covers": ["Complete pure-side native geometry proof preserves requested own Y only for trace-accounted residuals within the existing 1e-6 budget; correction remains position-only and true floor/ceiling contacts remain authoritative.", "Exterior world-floor plus shuttle-wall contacts use the same-attempt vanilla clip witness and complete native side replay; floor clipping cannot authorize unrelated horizontal motion or fabricate support.", "Fresh full JVM, focused shuttle integration and unfiltered native regressions pass with selected/discovered and pass/failure counts, aggregate completion and clean save/shutdown."]
+    },
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/side-y-r10-junit.log",
+      "rationale": "Fresh full JVM regression after both focused native checks pass, including exact-entity vanilla clip capture, complete side response accounting, true vertical contact rejection, input factory and unchanged motor bounds.",
+      "covers": ["Complete pure-side native geometry proof preserves requested own Y only for trace-accounted residuals within the existing 1e-6 budget; correction remains position-only and true floor/ceiling contacts remain authoritative.", "Exterior world-floor plus shuttle-wall contacts use the same-attempt vanilla clip witness and complete native side replay; floor clipping cannot authorize unrelated horizontal motion or fabricate support.", "Fresh full JVM, focused shuttle integration and unfiltered native regressions pass with selected/discovered and pass/failure counts, aggregate completion and clean save/shutdown."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-07-side-y-r10-full"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/side-y-r10-full.log",
+      "rationale": "Unfiltered native regression after focused checks pass. Require aggregate completion, actual selected/discovered and pass/failure counts and clean save/shutdown; never rerun a saved single-use directory or clean old reports.",
+      "covers": ["Fresh full JVM, focused shuttle integration and unfiltered native regressions pass with selected/discovered and pass/failure counts, aggregate completion and clean save/shutdown."]
+    }
+  ]
+}

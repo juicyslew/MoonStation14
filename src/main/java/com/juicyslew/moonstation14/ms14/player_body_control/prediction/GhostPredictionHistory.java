@@ -2,17 +2,26 @@ package com.juicyslew.moonstation14.ms14.player_body_control.prediction;
 
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
+import com.juicyslew.moonstation14.ms14.shuttle.sable.NativeNormalContactPolicy;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
-/** Bounded, session-local history of quantized ghost inputs for future prediction replay. */
+/**
+ * Bounded, session-local history of quantized ghost inputs for future prediction replay.
+ * ACKs must reflect applied authority; never bridge discarded gaps. See
+ * docs/shuttle-relocation-sprint/CHARACTER-INPUT-CADENCE.md.
+ */
 public final class GhostPredictionHistory {
     public static final int CAPACITY = 64;
 
     private final ArrayDeque<GhostControlPayloads.Intent> pending = new ArrayDeque<>(CAPACITY);
+    private final Map<Long, PredictionEvidence> evidence = new HashMap<>();
     private long epoch;
     private int harnessEntityId;
     private MobHarnessKind harnessKind;
@@ -35,10 +44,56 @@ public final class GhostPredictionHistory {
             return RecordResult.REJECTED;
 
         lastRecordedSequence = intent.sequence();
-        if (pending.size() == CAPACITY)
-            pending.removeFirst();
+        if (pending.size() == CAPACITY) {
+            GhostControlPayloads.Intent evicted = pending.removeFirst();
+            evidence.remove(evicted.sequence());
+        }
         pending.addLast(intent);
         return RecordResult.RECORDED;
+    }
+
+    /** Binds valid contact evidence only to an intent still pending in this exact history. */
+    public boolean recordNormalTarget(long sequence, NativeNormalContactPolicy.Target target) {
+        if (target == null || !target.valid() || pending.stream().noneMatch(intent -> intent.sequence() == sequence))
+            return false;
+        PredictionEvidence existing = evidence.get(sequence);
+        evidence.put(sequence, new PredictionEvidence(target, existing == null ? null : existing.angularSupport()));
+        return true;
+    }
+
+    /** Returns evidence only while its exact intent remains pending. */
+    public Optional<NativeNormalContactPolicy.Target> normalTarget(long sequence) {
+        return pending.stream().anyMatch(intent -> intent.sequence() == sequence)
+                ? Optional.ofNullable(evidence.get(sequence)).map(PredictionEvidence::normalTarget) : Optional.empty();
+    }
+
+    /** Captured angular support fact for this exact pending physical move; null frame means unsupported/world. */
+    public boolean recordAngularEvidence(long sequence, AngularSupportEvidence evidence) {
+        if (evidence == null || pending.stream().noneMatch(intent -> intent.sequence() == sequence)
+                || this.evidence.containsKey(sequence) && this.evidence.get(sequence).angularSupport() != null) return false;
+        PredictionEvidence existing = this.evidence.get(sequence);
+        this.evidence.put(sequence, new PredictionEvidence(existing == null ? null : existing.normalTarget(), evidence));
+        return true;
+    }
+
+    public Optional<AngularSupportEvidence> angularEvidence(long sequence) {
+        return pending.stream().anyMatch(intent -> intent.sequence() == sequence)
+                ? Optional.ofNullable(evidence.get(sequence)).map(PredictionEvidence::angularSupport) : Optional.empty();
+    }
+
+    public record AngularSupportEvidence(java.util.UUID frameId, boolean supported,
+                                         com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.Vec3 omega) {
+        public AngularSupportEvidence {
+            Objects.requireNonNull(omega, "omega");
+            if (supported ? frameId == null : frameId != null || !omega.equals(zeroOmega()))
+                throw new IllegalArgumentException("angular support fact is inconsistent");
+        }
+    }
+
+    private record PredictionEvidence(NativeNormalContactPolicy.Target normalTarget, AngularSupportEvidence angularSupport) { }
+
+    private static com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.Vec3 zeroOmega() {
+        return new com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.Vec3(0, 0, 0);
     }
 
     /** Advances the wire sequence over an intentionally unpredicted input frame. */
@@ -48,6 +103,7 @@ public final class GhostPredictionHistory {
             return RecordResult.REJECTED;
         lastRecordedSequence = intent.sequence();
         pending.clear();
+        evidence.clear();
         return RecordResult.RECORDED;
     }
 
@@ -69,12 +125,15 @@ public final class GhostPredictionHistory {
 
         lastServerGameTick = snapshot.serverGameTick();
         lastAcknowledgedSequence = acknowledged;
-        while (!pending.isEmpty() && pending.peekFirst().sequence() <= acknowledged)
-            pending.removeFirst();
+        while (!pending.isEmpty() && pending.peekFirst().sequence() <= acknowledged) {
+            long removed = pending.removeFirst().sequence();
+            evidence.remove(removed);
+        }
 
         List<GhostControlPayloads.Intent> replay = List.copyOf(pending);
         if (!isCompleteReplay(replay, acknowledged)) {
-            pending.clear();
+            // The prefix is incomplete, but facts captured for still-pending suffix intents remain valid.
+            // They stay bounded by pending and are removed by acknowledgement, eviction, or a real barrier.
             return new SnapshotResult(SnapshotStatus.HISTORY_LOST, List.of());
         }
         return new SnapshotResult(SnapshotStatus.REPLAY, replay);
@@ -83,6 +142,7 @@ public final class GhostPredictionHistory {
     /** Clears buffered inputs and sequence/tick tracking while retaining this session identity. */
     public void clear() {
         pending.clear();
+        evidence.clear();
         lastRecordedSequence = 0;
         lastAcknowledgedSequence = 0;
         lastServerGameTick = -1;
@@ -90,10 +150,13 @@ public final class GhostPredictionHistory {
 
     /** Clears buffered inputs after an authority barrier without resetting this session's tracking. */
     public void onAuthorityBarrier() {
+        onPredictionFailureBarrier();
+    }
+
+    /** Drops replay but preserves the last server acknowledgement so a post-failure correction can settle it. */
+    public void onPredictionFailureBarrier() {
         pending.clear();
-        // Inputs sent before the barrier are intentionally abandoned locally. Treat their
-        // sequence range as settled so newly-recorded intents form a replayable suffix.
-        lastAcknowledgedSequence = Math.max(lastAcknowledgedSequence, lastRecordedSequence);
+        evidence.clear();
     }
 
     /** Starts a fresh session, suitable after stop, teleport, or dimension change. */
@@ -112,6 +175,7 @@ public final class GhostPredictionHistory {
     public MobHarnessKind harnessKind() { return harnessKind; }
     public long lastRecordedSequence() { return lastRecordedSequence; }
     public long lastAcknowledgedSequence() { return lastAcknowledgedSequence; }
+    public long lastServerGameTick() { return lastServerGameTick; }
     public int pendingCount() { return pending.size(); }
 
     private boolean isCompleteReplay(List<GhostControlPayloads.Intent> replay, long acknowledged) {

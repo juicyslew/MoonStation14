@@ -1,0 +1,16 @@
+{
+  "title": "Validate rotating-departure owned support and landing premise",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": ["With its own natural support/landing corridor and exact-frame support witness, does the existing rotating-human case reach and satisfy angular point-velocity departure and actual landing assertions?"],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-rotating-departure-regression", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-rotating-support-r22"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-rotating-support-r22-native.log",
+      "rationale": "Expected1/891, existing boundHumanDeparturePreservesRotatingFramePointVelocity. R20failed setup support before any velocity assertion; default withDeck groundCorridor0 authored no floor though shared verifyDepartureAndLanding requires corridor. R22only thiscase usesexistingwithDeck corridor8 like neighboring translation fixture and existing strong fresh exact-frame stone-floor support wait; no helper/runtime changes or duplicate motor/collision logic. Native launch compiles changed fixture; valid unchanged-runtime JVM checks not repeated. Source review passed. Require actual support to matchplot/storagefloor/completefreshtrace before unchanged native(.5,0,.5)linear/(0,.8,0)angular nudge; require existing measurable angular point contribution and publicSDKvelocity sample, horizontalerror<=.02m/s, actual old→world departure and landing, samebody/Mind/hands/authoritative velocity. Preserve all assertions/timeouts/coords/oneattemptperbodytick and1e-6collision bounds. Report actual raw start/setup/transition expected/observed/error/landing evidence plus selected/completed/pass/fail and saves/stop, not command exit alone. Failure remains failure, no expected-failure-pass. Fresh default2config only; no10adoption/ownerconfig edits. No Sable internals/source/binary/native/privateaccess/newhooks/interception, actor shadows/recoveryteleport, gravity/hover/rotationfreeze/cap, ownerworld/process/installation changes. This corrects fixture premise, NOT a production velocity fix or prior R20absence of measured angular contribution. No fullsuite/readiness/report/finalization/M1 acceptance/M2-M6 advancement. Preserve all R20failed artifacts; no automaticrerun if stillfails.",
+      "covers": ["With its own natural support/landing corridor and exact-frame support witness, does the existing rotating-human case reach and satisfy angular point-velocity departure and actual landing assertions?"]
+    }
+  ]
+}

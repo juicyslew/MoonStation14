@@ -1,0 +1,16 @@
+{
+  "title": "Identify the blocked shutdown path with bounded test-only JVM stack evidence",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHUTDOWN-STACK-DIAGNOSTIC-R27.md",
+  "acceptance_criteria": ["Does the matched offline-body/cargo pair complete normal saving and shutdown, or what JVM stack evidence identifies the blocked path after its gameplay assertions?"],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-offline-body-chunk-persistence,shuttle-cargo-chunk-persistence", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-shutdown-stack-r27"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-shutdown-stack-r27-native.log",
+      "rationale": "Expected filtered2/893, same cases/context as R26. R26 gameplay2/2 passed then hung at Saving worlds and timed out, overallFAIL with no stack. R27 changes only test diagnostics: existing progress observer opt-in from combined test, exact-server stopping/stopped ownership and bounded daemon ThreadMXBean snapshots if shutdown remains incomplete; gameplay/cargo/lifecycle assertions are unchanged. Compile and independent source review passed. Require actual effective substeps2, selected/completed/pass/fail counts, normal OFFLINE/body-and-cargo unload/quiet/reload/new-object conservation and normal Begin/Ready authority as in R26. Then inspect shutdown ARM/STOPPING plus bounded SAMPLE/THREAD/FRAME evidence or normal-stop cancellation and actual per-dimension saves/normal exit. Gameplay passes do not override save/exit failure; a clean non-reproduction does not establish a fixed cause. Missing stacks remain unknown, not proof of engine fault. Fresh fixture/log are distinct from preserved R25/R26. No production/Sable/physics/config changes or new mixins/private APIs, no flight/restart/client/Creative/owner-loss repair, readiness or M1 acceptance. The existing worker retains its normal execution safeguards.",
+      "covers": ["Does the matched offline-body/cargo pair complete normal saving and shutdown, or what JVM stack evidence identifies the blocked path after its gameplay assertions?"]
+    }
+  ]
+}

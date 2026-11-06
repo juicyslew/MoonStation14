@@ -1,7 +1,7 @@
 package com.juicyslew.moonstation14.ms14.character.components;
 
 /** Immutable prototype configuration, not an entity attachment. */
-public sealed interface CharacterComponent permits BarotraumaComponent, BlindablePrototypeComponent,
+public sealed interface CharacterComponent permits AngularRecoveryComponent, BarotraumaComponent, BlindablePrototypeComponent,
         BloodstreamComponent, BodyComponent, ComplexInteractionComponent, EquipmentSlotsPrototypeComponent,
         FlammablePrototypeComponent, HandsPrototypeComponent, HungerPrototypeComponent, InitialBodyComponent,
         MetabolizerPrototypeComponent, MovementSpeedModifierComponent, NoSlipComponent, ReactiveComponent,

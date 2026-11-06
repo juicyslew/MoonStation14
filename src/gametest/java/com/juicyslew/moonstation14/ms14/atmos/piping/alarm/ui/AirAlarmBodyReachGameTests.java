@@ -14,7 +14,7 @@ import net.minecraft.world.phys.Vec3;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-@GameTestTags({"hands", "air-alarm", "ventilation"})
+@GameTestTags({"hands", "air-alarm", "ventilation", "shuttle-menu-access", "shuttle"})
 @PrefixGameTestTemplate(false)
 public final class AirAlarmBodyReachGameTests {
     private AirAlarmBodyReachGameTests() { }

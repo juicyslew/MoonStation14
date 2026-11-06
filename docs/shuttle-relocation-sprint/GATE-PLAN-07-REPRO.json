@@ -1,0 +1,33 @@
+{
+  "title": "Feedback-07: sustained exterior jump reproduction only",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/ExteriorWallSustainedJumpGameTests.java",
+  "acceptance_criteria": [
+    "The test-only production-input reproducer compiles without changing gameplay collision, gravity, ownership or prediction rules.",
+    "A registered lifecycle actor continuously presses inward during straight and diagonal exterior jump arcs against the production cabin; synchronized unobstructed baseline and exact native traces expose premature grounding, interrupted ascent or slow descent. Record actual selected/discovered counts and clean save/shutdown."
+  ],
+  "manual_steps": [
+    "This is a reproduction fixture, not a delivered exterior-wall fix or M1 acceptance.",
+    "Build the shuttle fixture, walk into a solid exterior wall, jump and keep pressing inward through the apex; repeat slightly diagonally. Connected testing is owner-operated only."
+  ],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/repro-r4-compile.log",
+      "rationale": "Compile the test-only reproduction, paired observer and actual input-factory regression. Author focused JVM checks already passed; no gameplay change or package task is submitted.",
+      "covers": [
+        "The test-only production-input reproducer compiles without changing gameplay collision, gravity, ownership or prediction rules."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-exterior-jump-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-07-repro-r4"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/repro-r4-native.log",
+      "rationale": "Run only the new sustained-input reproduction before making any runtime fix. A failure may be the desired reproduction: preserve its complete per-tick trace and report the first failing trajectory or setup assertion; do not weaken assertions to obtain readiness. A pass means this server fixture did not reproduce the reported connected failure, not that the wall is fixed. This isolated directory must be unused and run exactly once. No client launch, owner configuration changes, or unfiltered regression suite in this diagnostic stage; the full suite is required after any eventual runtime fix.",
+      "covers": [
+        "A registered lifecycle actor continuously presses inward during straight and diagonal exterior jump arcs against the production cabin; synchronized unobstructed baseline and exact native traces expose premature grounding, interrupted ascent or slow descent. Record actual selected/discovered counts and clean save/shutdown."
+      ]
+    }
+  ]
+}

@@ -5,6 +5,8 @@ import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import net.minecraft.world.phys.Vec3;
+import com.juicyslew.moonstation14.ms14.shuttle.sable.NativeNormalContactPolicy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -14,6 +16,99 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GhostPredictionHistoryTest {
     private static final long EPOCH = 7;
     private static final int BODY = 23;
+
+    @Test
+    void angularEvidenceSharesPendingIntentLifecycleAndPreservesRecordedZero() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY, MobHarnessKind.CHARACTER);
+        var zero = new com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.Vec3(0, 0, 0);
+        var fact = new GhostPredictionHistory.AngularSupportEvidence(null, false, zero);
+        NativeNormalContactPolicy.Target target = NativeNormalContactPolicy.prescribe(
+                new Vec3(1, 0, 0), Vec3.ZERO, new Vec3(1, 0, 0), 0);
+        history.record(intent(1));
+        assertTrue(history.recordAngularEvidence(1, fact));
+        assertFalse(history.recordAngularEvidence(1, fact));
+        assertFalse(history.recordAngularEvidence(99, fact));
+        assertTrue(history.recordNormalTarget(1, target));
+        assertEquals(fact, history.angularEvidence(1).orElseThrow());
+        assertEquals(target, history.normalTarget(1).orElseThrow());
+        history.record(intent(2));
+        history.recordAngularEvidence(2, fact);
+        assertTrue(history.recordNormalTarget(2, target));
+        history.reconcile(characterSnapshot(EPOCH, BODY, 2, 1));
+        assertTrue(history.angularEvidence(1).isEmpty());
+        assertTrue(history.angularEvidence(2).isPresent());
+        assertTrue(history.normalTarget(2).isPresent());
+        history.onAuthorityBarrier();
+        assertTrue(history.angularEvidence(2).isEmpty());
+        assertTrue(history.normalTarget(2).isEmpty());
+    }
+
+    @Test
+    void capturedDepartureSurvivesUnsettledPrejumpSnapshotsUntilJumpAck() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY, MobHarnessKind.CHARACTER);
+        for (long seq = 1; seq <= 8; seq++) history.record(intent(seq));
+        history.record(intent(9));
+        var captured = new GhostPredictionHistory.AngularSupportEvidence(java.util.UUID.randomUUID(), true,
+                new com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.Vec3(-1.917993, 0, 0));
+        assertTrue(history.recordAngularEvidence(8, captured));
+        for (long tick = 1; tick <= 8; tick++) {
+            var result = history.reconcile(characterSnapshot(EPOCH, BODY, tick, 7));
+            assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY, result.status());
+            assertEquals(captured, history.angularEvidence(8).orElseThrow());
+        }
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY,
+                history.reconcile(characterSnapshot(EPOCH, BODY, 9, 8)).status());
+        assertTrue(history.angularEvidence(8).isEmpty());
+    }
+
+    @Test
+    void normalContactEvidenceFollowsExactPendingIntentLifecycle() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
+        NativeNormalContactPolicy.Target evidence = NativeNormalContactPolicy.prescribe(
+                new Vec3(1, 0, 0), Vec3.ZERO, new Vec3(1, 0, 0), 0);
+        assertFalse(history.recordNormalTarget(1, evidence));
+        history.record(intent(1)); history.record(intent(2));
+        assertTrue(history.recordNormalTarget(1, evidence));
+        assertTrue(history.recordNormalTarget(2, evidence));
+        assertEquals(evidence, history.normalTarget(1).orElseThrow());
+        assertFalse(history.recordNormalTarget(2, new NativeNormalContactPolicy.Target(null, null, Double.NaN)));
+        assertFalse(history.recordNormalTarget(99, evidence));
+
+        assertRejected(history, snapshot(EPOCH, BODY, 1, 3));
+        assertEquals(evidence, history.normalTarget(1).orElseThrow());
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY,
+                history.reconcile(snapshot(EPOCH, BODY, 2, 1)).status());
+        assertTrue(history.normalTarget(1).isEmpty());
+        assertEquals(evidence, history.normalTarget(2).orElse(null));
+
+        history.onAuthorityBarrier();
+        assertTrue(history.normalTarget(2).isEmpty());
+        history.record(intent(3)); history.recordNormalTarget(3, evidence);
+        history.skip(intent(4));
+        assertTrue(history.normalTarget(3).isEmpty());
+        history.record(intent(5)); history.recordNormalTarget(5, evidence);
+        history.clear();
+        assertTrue(history.normalTarget(5).isEmpty());
+        history.record(intent(1)); history.recordNormalTarget(1, evidence);
+        history.reset(EPOCH + 1, BODY);
+        assertTrue(history.normalTarget(1).isEmpty());
+    }
+
+    @Test
+    void contactEvidenceIsEvictedWithCapacityAndHistoryLoss() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
+        NativeNormalContactPolicy.Target evidence = NativeNormalContactPolicy.prescribe(
+                new Vec3(1, 0, 0), Vec3.ZERO, new Vec3(1, 0, 0), 0);
+        for (long sequence = 1; sequence <= GhostPredictionHistory.CAPACITY; sequence++) {
+            history.record(intent(sequence));
+            history.recordNormalTarget(sequence, evidence);
+        }
+        history.record(intent(GhostPredictionHistory.CAPACITY + 1));
+        assertTrue(history.normalTarget(1).isEmpty());
+        assertEquals(GhostPredictionHistory.SnapshotStatus.HISTORY_LOST,
+                history.reconcile(snapshot(EPOCH, BODY, 1, 0)).status());
+        assertEquals(evidence, history.normalTarget(2).orElseThrow());
+    }
 
     @Test
     void acknowledgesAndReturnsOrderedImmutableReplayFrames() {
@@ -30,6 +125,63 @@ class GhostPredictionHistoryTest {
         assertEquals(List.of(second, third), result.replayFrames());
         assertThrows(UnsupportedOperationException.class, () -> result.replayFrames().clear());
         assertEquals(2, history.pendingCount());
+    }
+
+    @Test
+    void predictionFailureBarrierKeepsFailureUnacknowledgedUntilServerCorrection() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
+        history.record(intent(1));
+        history.onPredictionFailureBarrier();
+        assertEquals(0, history.lastAcknowledgedSequence());
+        assertEquals(0, history.pendingCount());
+        var correction = history.reconcile(snapshot(EPOCH, BODY, 10, 1));
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY, correction.status());
+        assertTrue(correction.replayFrames().isEmpty());
+        assertEquals(1, history.lastAcknowledgedSequence());
+    }
+
+    @Test
+    void authorityBarrierDoesNotCounterfeitServerAcknowledgement() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
+        history.record(intent(1));
+        history.onAuthorityBarrier();
+        assertEquals(0, history.lastAcknowledgedSequence());
+        assertEquals(GhostPredictionHistory.SnapshotStatus.HISTORY_LOST,
+                history.reconcile(snapshot(EPOCH, BODY, 10, 0)).status());
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY,
+                history.reconcile(snapshot(EPOCH, BODY, 11, 1)).status());
+    }
+
+    @Test
+    void incompleteSnapshotRetainsSuffixUntilDelayedAckCoversGap() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
+        NativeNormalContactPolicy.Target target = NativeNormalContactPolicy.prescribe(
+                new Vec3(1, 0, 0), Vec3.ZERO, new Vec3(1, 0, 0), 0);
+        var angular = new GhostPredictionHistory.AngularSupportEvidence(java.util.UUID.randomUUID(), true,
+                new com.juicyslew.moonstation14.ms14.character.AngularRecoveryModel.Vec3(0, 2, 0));
+        for (long sequence = 1; sequence <= 8; sequence++) history.record(intent(sequence));
+        history.skip(intent(9));
+        for (long sequence = 10; sequence <= 14; sequence++) history.record(intent(sequence));
+        assertTrue(history.recordNormalTarget(10, target));
+        assertTrue(history.recordAngularEvidence(10, angular));
+
+        assertEquals(GhostPredictionHistory.SnapshotStatus.HISTORY_LOST,
+                history.reconcile(snapshot(EPOCH, BODY, 1, 0)).status());
+        assertEquals(5, history.pendingCount());
+        assertEquals(GhostPredictionHistory.SnapshotStatus.HISTORY_LOST,
+                history.reconcile(snapshot(EPOCH, BODY, 2, 8)).status());
+        assertEquals(5, history.pendingCount());
+        assertEquals(target, history.normalTarget(10).orElseThrow());
+        assertEquals(angular, history.angularEvidence(10).orElseThrow());
+        assertRejected(history, snapshot(EPOCH, BODY, 2, 8));
+        assertEquals(angular, history.angularEvidence(10).orElseThrow());
+        for (long sequence = 15; sequence <= 17; sequence++) history.record(intent(sequence));
+        var recovered = history.reconcile(snapshot(EPOCH, BODY, 3, 9));
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY, recovered.status());
+        assertEquals(target, history.normalTarget(10).orElseThrow());
+        assertEquals(angular, history.angularEvidence(10).orElseThrow());
+        assertEquals(List.of(intent(10), intent(11), intent(12), intent(13), intent(14),
+                intent(15), intent(16), intent(17)), recovered.replayFrames());
     }
 
     @Test
@@ -62,12 +214,24 @@ class GhostPredictionHistoryTest {
     }
 
     @Test
+    void higherServerTickMayRepeatSameAcknowledgementForHeldInputTicks() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
+        assertEquals(GhostPredictionHistory.RecordResult.RECORDED, history.record(intent(1)));
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY,
+                history.reconcile(snapshot(EPOCH, BODY, 10, 1)).status());
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY,
+                history.reconcile(snapshot(EPOCH, BODY, 11, 1)).status());
+        assertEquals(1, history.lastAcknowledgedSequence(), "quiet server ticks do not fabricate an input sequence");
+        assertEquals(0, history.pendingCount());
+    }
+
+    @Test
     void detectsSequenceGapThatWasNotAcknowledged() {
         GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);
         history.record(intent(2));
         GhostPredictionHistory.SnapshotResult result = history.reconcile(snapshot(EPOCH, BODY, 1, 0));
         assertEquals(GhostPredictionHistory.SnapshotStatus.HISTORY_LOST, result.status());
-        assertEquals(0, history.pendingCount());
+        assertEquals(1, history.pendingCount());
     }
 
     @Test
@@ -138,7 +302,7 @@ class GhostPredictionHistoryTest {
         GhostPredictionHistory.SnapshotResult result = history.reconcile(snapshot(EPOCH, BODY, 1, 0));
         assertEquals(GhostPredictionHistory.SnapshotStatus.HISTORY_LOST, result.status());
         assertTrue(result.replayFrames().isEmpty());
-        assertEquals(0, history.pendingCount());
+        assertEquals(GhostPredictionHistory.CAPACITY, history.pendingCount());
     }
 
     @Test
@@ -169,7 +333,7 @@ class GhostPredictionHistoryTest {
         assertEquals(EPOCH, history.epoch());
         assertEquals(BODY, history.ghostEntityId());
         assertEquals(10, history.lastRecordedSequence());
-        assertEquals(10, history.lastAcknowledgedSequence());
+        assertEquals(0, history.lastAcknowledgedSequence());
         assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY,
                 history.reconcile(snapshot(EPOCH, BODY, 11, 10)).status());
         GhostControlPayloads.Intent resumed = intent(11);
@@ -209,5 +373,10 @@ class GhostPredictionHistoryTest {
     private static GhostControlPayloads.Snapshot snapshot(long epoch, int body, long tick, long acknowledged,
                                                           double x, double y, double z) {
         return new GhostControlPayloads.Snapshot(epoch, body, tick, acknowledged, x, y, z, 0, 0);
+    }
+
+    private static GhostControlPayloads.Snapshot characterSnapshot(long epoch, int body, long tick, long acknowledged) {
+        return new GhostControlPayloads.Snapshot(epoch, body, MobHarnessKind.CHARACTER, tick, acknowledged,
+                0, 0, 0, 0, 0, 0, 0, 0, false, 1, 1, false);
     }
 }

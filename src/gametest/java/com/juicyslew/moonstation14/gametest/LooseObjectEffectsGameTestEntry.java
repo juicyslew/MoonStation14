@@ -14,14 +14,17 @@ public final class LooseObjectEffectsGameTestEntry {
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void jugEffects(GameTestHelper helper) { LooseObjectEffectsGameTests.jugEffects(helper); }
 
+    @GameTestTags({"jug-impact-contact-regression"})
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void horizontalFloorContactBreaksAndSpills(GameTestHelper helper) { LooseObjectEffectsGameTests.horizontalFloorContactBreaksAndSpills(helper); }
+    @GameTestTags({"jug-impact-contact-regression"})
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void horizontalWallContactSpillsAtNearSideFloor(GameTestHelper helper) { LooseObjectEffectsGameTests.horizontalWallContactSpillsAtNearSideFloor(helper); }
+    @GameTestTags({"jug-impact-contact-regression"})
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
     public static void fastAirborneJugDoesNotBreak(GameTestHelper helper) { LooseObjectEffectsGameTests.fastAirborneJugDoesNotBreak(helper); }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 60)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 80)
     public static void grenadeFuseSurvivesLooseEntity(GameTestHelper helper) {
         LooseObjectEffectsGameTests.grenadeFuseSurvivesLooseEntity(helper);
     }

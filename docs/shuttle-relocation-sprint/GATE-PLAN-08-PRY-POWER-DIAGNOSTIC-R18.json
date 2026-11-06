@@ -1,0 +1,23 @@
+{
+  "title": "Classify moving-airlock pry unknown-power cancellation",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": ["Which existing power-meter validity condition causes premature pry cancellation, or does the focused run fail to reproduce it with exact admission/rejection/terminal evidence?"],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*AirlockFeedbackPolicyTest", "--tests", "*AirlockElectrificationSystemTest", "--tests", "*AirlockStateTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-pry-power-r18-jvm.log",
+      "rationale": "Preparation for genuinely lead-owned native diagnostic, not readiness or standalone cheap checks. Compile all source sets and focused unchanged airlock state/electrification/feedback regressions; report actual counts and stop on failure. Diagnostic-only delta reuses PowerRuntime.airlockPowerDiagnostic at exact unknown-power rejection under debug gate, plus bounded fixture admission and immutable terminal observations. No power, timed-operation, authority, prototype, reach, duration or movement rule changes. Independent source review passed after admission-witness correction. Fresh binding required; prior22shellJVMpass does not cover this logger delta.",
+      "covers": ["Which existing power-meter validity condition causes premature pry cancellation, or does the focused run fail to reproduce it with exact admission/rejection/terminal evidence?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-pry-power-diagnostic", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-pry-power-r18"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-pry-power-r18-native.log",
+      "rationale": "Expected3/891 existing MovingAirlockPry cases: carry completion, own-walk cancellation and freefall completion. Setup/coords/readiness/timing/assertions unchanged. Fresh default-stock fixture, no ten-substep preparation/adoption or ownerconfig changes; verify default two in generated fixture config. Finish started batch despite genuine failure; report actual selected/completed/pass/fail and raw saves/stop even if parser lacks all-passed marker. Require admission tick/root/body/frame/revision, power diagnostic/topology generation and immutable terminal walk evidence. A power-unknown rejection must include existing PowerRuntime acceptance reason, retaining reason=power-unknown. Identify actual condition, not speculation. If all pass, report non-reproduction, NOT a fix/cause. R11 admission9589/reject9590 before own movement(delta0), LOStrue/revision2/2. Preserve safe UNKNOWN/full-power rejection and own-motion0.3 threshold; no retry/forced meter/readiness delay to hide failures. No Sable source/binary/native/privateaccess/newhooks/mixins/interception or ownerconfig/world/process/installation changes, cap/freeze/gravity/recoveryteleport. R17 shell ten-substep bandage passed in isolation, not production adoption or permission to accept unknown power. No fullsuite repetition, readiness/report/finalization or M1 acceptance/M2-M6 advancement.",
+      "covers": ["Which existing power-meter validity condition causes premature pry cancellation, or does the focused run fail to reproduce it with exact admission/rejection/terminal evidence?"]
+    }
+  ]
+}

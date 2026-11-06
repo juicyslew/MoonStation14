@@ -1,0 +1,45 @@
+{
+  "title": "Feedback-08: isolated ten-substep carry and accepted-wall regression gate",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullTerrainImpactGameTests.java",
+  "acceptance_criteria": [
+    "Extend the existing fresh-directory preparation helper for the one additional regression target without changing production physics, default configuration, owner data, dependencies, the accepted wall fix or any existing physical assertions.",
+    "The fresh regression directory uses only the supported ten-substep Sable setting; all three impact probes confirm effective SDK substepsPerTick equals expected 10 before launch. Existing or unapproved preparation targets remain refused.",
+    "All selected existing owner-regression, step, active/passive body, cargo orientation/motion/transition, moving/falling reconnect, strong-impulse, airlock, ventilation and impact fixtures pass their existing assertions at ten substeps. Record actual selected/discovered and pass/failure totals, aggregate completion and clean save/shutdown."
+  ],
+  "manual_steps": [
+    "No owner testing or configuration action is required. Continue isolated validation autonomously; do not launch a client, package, install or alter owner worlds, processes, launch settings or configuration.",
+    "This remains diagnostic configuration validation, not production adoption, performance acceptance, M1 acceptance or permission to advance M2-M6.",
+    "If the regression gate passes, the next task is a controlled headless server-cost comparison before proposing any production setting change. Preserve default-two failure evidence."
+  ],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["python", "-m", "unittest", "discover", "-s", "tooling/shuttle", "-p", "test_*.py"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps10-regression-r1-preparation-tests.log",
+      "rationale": "Cheap preparation-helper regressions for its two current approved targets, non-overwrite and refusal of unrelated paths. No actual native directory is prepared by these tests.",
+      "covers": ["Extend the existing fresh-directory preparation helper for the one additional regression target without changing production physics, default configuration, owner data, dependencies, the accepted wall fix or any existing physical assertions.", "The fresh regression directory uses only the supported ten-substep Sable setting; all three impact probes confirm effective SDK substepsPerTick equals expected 10 before launch. Existing or unapproved preparation targets remain refused."]
+    },
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*HullTerrainGeometryTest", "--tests", "*HullImpactTraceStateTest", "--tests", "*HullImpactSubstepsExpectationTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps10-regression-r1-jvm.log",
+      "rationale": "Fresh focused compilation and geometry/failure-latch/effective-setting checks. The regression fixtures themselves are unchanged from prior candidates; no full author or gate JVM suite is needed for this isolated configuration check.",
+      "covers": ["Extend the existing fresh-directory preparation helper for the one additional regression target without changing production physics, default configuration, owner data, dependencies, the accepted wall fix or any existing physical assertions."]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-substeps10-regression-r1", "--substeps", "10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps10-regression-r1-preparation.log",
+      "rationale": "Prepare this unused isolated target exactly once; never overwrite an existing directory or copy owner configuration/worlds.",
+      "covers": ["The fresh regression directory uses only the supported ten-substep Sable setting; all three impact probes confirm effective SDK substepsPerTick equals expected 10 before launch. Existing or unapproved preparation targets remain refused."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-owner-regression,shuttle-step-probe,shuttle-cargo-orientation,shuttle-passive-body,shuttle-active-input,shuttle-airlock-safety,shuttle-moving-reconnect,shuttle-falling-reconnect,shuttle-strong-impulse,shuttle-cabin-ventilation,shuttle-cargo-motion,shuttle-cargo-transition,shuttle-hull-impact-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-substeps10-regression-r1", "-Pms14HullImpactExpectedSubsteps=10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps10-regression-r1-native.log",
+      "rationale": "One focused native invocation, reusing accepted R10 regression selectors plus existing cargo motion/transition and impact coverage. Inventory is expected to discover 881 fixtures, but report actual selected/discovered and pass/fail totals rather than assuming selection count. Verify all three SDK setting markers equal 10. Every selected assertion must actually pass; preserve any failure and do not rerun the same world, relax thresholds or broaden suites. These server fixtures do not establish connected-client behavior or every Creative/logged-out scenario. No performance inference from aggregate GameTest elapsed time.",
+      "covers": ["The fresh regression directory uses only the supported ten-substep Sable setting; all three impact probes confirm effective SDK substepsPerTick equals expected 10 before launch. Existing or unapproved preparation targets remain refused.", "All selected existing owner-regression, step, active/passive body, cargo orientation/motion/transition, moving/falling reconnect, strong-impulse, airlock, ventilation and impact fixtures pass their existing assertions at ten substeps. Record actual selected/discovered and pass/failure totals, aggregate completion and clean save/shutdown."]
+    }
+  ]
+}

@@ -62,9 +62,6 @@ public final class SlipSystem {
     private static final int MAX_LEVEL_CONTACTS = 8192;
     // Fail closed for malformed/custom entity AABBs. A normal .6x1.8 body overlaps
     // at most 2x2x3 cells; 16 permits boundary rounding without unbounded traversal.
-    private static final int MAX_ENDPOINT_CELLS = 16;
-    private static final double MAX_BODY_WIDTH = 1.5d;
-    private static final double MAX_BODY_HEIGHT = 3d;
 
     private SlipSystem() { }
 
@@ -104,7 +101,12 @@ public final class SlipSystem {
                 || !level.getBlockState(position).is(ModBlocks.PUDDLE.get())
                 || !(level.getBlockEntity(position) instanceof PuddleBlockEntity puddle)) return;
         Vec3 velocity = target.getDeltaMovement();
-        admitContact(level, position, target, velocity, velocity.length() * 20d, target.getBoundingBox(), puddle);
+        SharedPuddleContactQuery.Result result = SharedPuddleContactQuery.query(target, target.getBoundingBox());
+        if (!result.available()) return;
+        for (SharedPuddleContactQuery.Contact contact : result.contacts()) {
+            if (contact.sourcePosition().equals(position))
+                admitContact(level, contact, target, velocity, velocity.length() * 20d);
+        }
     }
 
     /**
@@ -133,39 +135,24 @@ public final class SlipSystem {
 
     private static void admitEndpointContacts(ServerLevel level, LivingEntity body,
                                               Vec3 acceptedDisplacement, Vec3 launchVelocity, double lengthSqr) {
-        AABB bounds = body.getBoundingBox();
-        int minX = net.minecraft.util.Mth.floor(bounds.minX);
-        int minY = net.minecraft.util.Mth.floor(bounds.minY);
-        int minZ = net.minecraft.util.Mth.floor(bounds.minZ);
-        int maxX = net.minecraft.util.Mth.floor(Math.nextDown(bounds.maxX));
-        int maxY = net.minecraft.util.Mth.floor(Math.nextDown(bounds.maxY));
-        int maxZ = net.minecraft.util.Mth.floor(Math.nextDown(bounds.maxZ));
-        long cells = (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
-        if (!finite(bounds) || bounds.getXsize() > MAX_BODY_WIDTH || bounds.getZsize() > MAX_BODY_WIDTH
-                || bounds.getYsize() > MAX_BODY_HEIGHT || cells <= 0 || cells > MAX_ENDPOINT_CELLS) return;
-        reconcileContacts(level, body, bounds);
-        for (BlockPos position : BlockPos.betweenClosed(minX, minY, minZ, maxX, maxY, maxZ)) {
-            if (level.hasChunkAt(position) && level.getBlockState(position).is(ModBlocks.PUDDLE.get())
-                    && level.getBlockEntity(position) instanceof PuddleBlockEntity puddle) {
-                admitContact(level, position.immutable(), body, launchVelocity,
-                        Math.sqrt(lengthSqr) * 20d, bounds, puddle);
-            }
-        }
+        SharedPuddleContactQuery.Result result = SharedPuddleContactQuery.query(body, body.getBoundingBox());
+        if (!result.available()) return;
+        reconcileContacts(level, body, result);
+        for (SharedPuddleContactQuery.Contact contact : result.contacts())
+            admitContact(level, contact, body, launchVelocity, Math.sqrt(lengthSqr) * 20d);
     }
 
-    private static boolean finite(AABB bounds) {
-        return Double.isFinite(bounds.minX) && Double.isFinite(bounds.minY) && Double.isFinite(bounds.minZ)
-                && Double.isFinite(bounds.maxX) && Double.isFinite(bounds.maxY) && Double.isFinite(bounds.maxZ);
-    }
-
-    private static void admitContact(ServerLevel level, BlockPos position, LivingEntity target,
-                                     Vec3 velocity, double speed, AABB bounds, PuddleBlockEntity puddle) {
+    private static void admitContact(ServerLevel level, SharedPuddleContactQuery.Contact contact, LivingEntity target,
+                                     Vec3 velocity, double speed) {
         if (level.isClientSide || !target.isAlive() || target.level() != level) return;
-        BlockPos sourcePosition = position.immutable();
+        BlockPos sourcePosition = contact.sourcePosition();
+        BlockPos position = sourcePosition;
+        PuddleBlockEntity puddle = contact.source();
+        SourceKey sourceKey = new SourceKey(contact.frameId(), sourcePosition);
         UUID actorId = target.getUUID();
         synchronized (CONTACTS) {
             ActorContacts contacts = actorContacts(level, actorId, false);
-            if (contacts != null && contacts.sources.containsKey(sourcePosition)) return;
+            if (contacts != null && contacts.sources.containsKey(sourceKey)) return;
         }
 
         CharacterData character = ActiveCharacterPolicy.resolveActor(target).orElse(null);
@@ -187,12 +174,11 @@ public final class SlipSystem {
         }
         if (!profile.slippery() || profile.slipperyCents() <= SlipperySolution.LOW_VOLUME_CUTOFF_CENTS
                 || speed < profile.requiredSlipSpeedBlocksPerSecond()
-                || intersectionRatio(bounds, puddle.getBlockState().getShape(level, position,
-                CollisionContext.empty()).bounds().move(position), position) < MIN_INTERSECTION_RATIO) return;
+                || contact.triggerRatio() < MIN_INTERSECTION_RATIO) return;
 
         // StepTriggerSystem latches once speed/contact/CanSlip are satisfied. The later
         // slippery attempt, target NoSlip, and knockdown checks do not undo that latch.
-        if (!latch(level, actorId, sourcePosition)) return;
+        if (!latch(level, actorId, sourceKey)) return;
         if (character.component(NoSlipComponent.class).isPresent()) return;
         boolean knockedDown = StatusEffectSystem.hasStatus(statusTrait.toHandleSelf(), level, KNOCKDOWN);
         if (knockedDown && !profile.superSlippery()) return;
@@ -258,7 +244,10 @@ public final class SlipSystem {
                     && StatusEffectSystem.hasStatus(trait.toHandleSelf(), level, KNOCKDOWN);
             if (!knockedDown || !SlidingFrictionSystem.hasQualifyingContact(living)) clearSliding(entity);
         }
-        reconcileContacts(level, entity, entity.getBoundingBox());
+        if (entity instanceof LivingEntity living) {
+            SharedPuddleContactQuery.Result query = SharedPuddleContactQuery.query(living, entity.getBoundingBox());
+            reconcileEpisodeContacts(level, entity, query);
+        }
     }
 
     private static ActorContacts actorContacts(ServerLevel level, UUID actorId, boolean create) {
@@ -276,7 +265,7 @@ public final class SlipSystem {
         return result;
     }
 
-    private static boolean latch(ServerLevel level, UUID actorId, BlockPos position) {
+    private static boolean latch(ServerLevel level, UUID actorId, SourceKey position) {
         synchronized (CONTACTS) {
             LevelContacts state = CONTACTS.get(level);
             ActorContacts contacts = actorContacts(level, actorId, false);
@@ -300,20 +289,14 @@ public final class SlipSystem {
 
     private static boolean contactsCapLogged;
 
-    private static void reconcileContacts(ServerLevel level, Entity entity, AABB bounds) {
+    private static void reconcileContacts(ServerLevel level, Entity entity, SharedPuddleContactQuery.Result query) {
         synchronized (CONTACTS) {
             LevelContacts state = CONTACTS.get(level);
             if (state == null) return;
             ActorContacts contacts = state.actors.get(entity.getUUID());
             if (contacts == null) return;
             int previousCount = contacts.sources.size();
-            contacts.sources.entrySet().removeIf(entry -> {
-                BlockPos position = entry.getKey();
-                if (!level.hasChunkAt(position) || !level.getBlockState(position).is(ModBlocks.PUDDLE.get())) return true;
-                AABB shape = level.getBlockState(position).getShape(level, position, CollisionContext.empty())
-                        .bounds().move(position);
-                return !bounds.intersects(shape);
-            });
+            reconcileEpisodeKeys(contacts.sources.keySet(), query);
             state.latchCount -= previousCount - contacts.sources.size();
             if (contacts.sources.isEmpty()) state.actors.remove(entity.getUUID());
             if (state.actors.isEmpty()) CONTACTS.remove(level);
@@ -383,7 +366,25 @@ public final class SlipSystem {
                               boolean alreadyKnockedDown) { }
 
     private static final class ActorContacts {
-        private final Map<BlockPos, Long> sources = new java.util.HashMap<>();
+        private final Map<SourceKey, Long> sources = new java.util.HashMap<>();
+    }
+
+    /** Unknown lookup is not evidence of exit; only a known result reconciles episodes. */
+    static void reconcileEpisodeContacts(ServerLevel level, Entity entity, SharedPuddleContactQuery.Result query) {
+        if (query != null && query.available()) reconcileContacts(level, entity, query);
+    }
+
+    static int reconcileEpisodeKeys(java.util.Set<SourceKey> episodes, SharedPuddleContactQuery.Result query) {
+        if (query == null || !query.available()) return episodes.size();
+        java.util.Set<SourceKey> present = new java.util.HashSet<>();
+        for (SharedPuddleContactQuery.Contact contact : query.contacts())
+            present.add(new SourceKey(contact.frameId(), contact.sourcePosition()));
+        episodes.removeIf(key -> !present.contains(key));
+        return episodes.size();
+    }
+
+    record SourceKey(UUID frameId, BlockPos position) {
+        SourceKey { position = position.immutable(); }
     }
 
     private static final class LevelContacts {

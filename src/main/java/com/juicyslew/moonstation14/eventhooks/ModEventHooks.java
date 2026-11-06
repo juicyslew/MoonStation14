@@ -33,6 +33,9 @@ public class ModEventHooks {
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onAppliedTypedDamage);
         NeoForge.EVENT_BUS.addListener(TickHooks::onLivingEntityTick);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onPostServerTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.mobs.MedicalMovementTrace::onPostTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.mobs.MedicalMovementTrace::onServerStopped);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.mobs.MedicalMovementTrace::onEntityLeave);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onEntityLeave);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onStartTracking);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem::onServerStopped);
@@ -40,6 +43,8 @@ public class ModEventHooks {
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onEntityLeaveLevel);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onPlayerClone);
         NeoForge.EVENT_BUS.addListener(ModEventHooks::onPlayerLoggedOut);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.shuttle.fixture.ShuttleFixtureMotionService::onPostPhysics);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.shuttle.fixture.ShuttleFixtureMotionService::onLevelUnload);
     }
 
     private static void onEntityJoinLevel(EntityJoinLevelEvent event) {
@@ -88,7 +93,7 @@ public class ModEventHooks {
                 || player.level() != level || original.getItem().isEmpty()
                 || original.getItem().getItem().builtInRegistryHolder().unwrapKey()
                     .map(key -> !"moonstation14".equals(key.location().getNamespace())).orElse(true)) return;
-        var loose = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level, original.position(), original.getItem());
+        var loose = com.juicyslew.moonstation14.entities.LooseItemEntity.createForActor(player, original.position(), original.getItem());
         loose.setUUID(original.getUUID());
         loose.setYRot(original.getYRot());
         loose.setXRot(original.getXRot());

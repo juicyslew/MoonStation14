@@ -11,6 +11,7 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
@@ -212,7 +213,8 @@ public final class PowerGraphService {
         noteBlockChange(event.getLevel(), event.getPos());
     }
 
-    @net.neoforged.bus.api.SubscribeEvent
+    // Publish topology work before PowerRuntime samples this post-tick phase.
+    @net.neoforged.bus.api.SubscribeEvent(priority = EventPriority.HIGH)
     public static void onPostServerTick(ServerTickEvent.Post event) {
         for (ServerLevel level : event.getServer().getAllLevels()) {
             LevelState state = STATES.get(level);

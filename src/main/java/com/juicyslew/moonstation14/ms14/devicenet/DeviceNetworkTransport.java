@@ -110,47 +110,78 @@ public final class DeviceNetworkTransport {
             DeviceEndpoint sender;
             List<DeviceEndpoint> candidates;
             synchronized (this) { sender = loaded.get(packet.sender()); candidates = List.copyOf(loaded.values()); }
-            if (sender == null || !sender.available()) continue;
+            if (sender == null) { trace(packet,null,"sender-missing",null); continue; }
+            if (!sender.available()) { trace(packet,null,"sender-unavailable",null); continue; }
             var tx = sender.composition().network().orElse(null);
             // A queued packet belongs to the sender configuration observed at enqueue time.
             // Address/network/frequency edits invalidate it instead of transmitting stale data.
-            if (tx == null || !tx.transmit() || tx.networkId() != packet.senderNetworkId()
-                    || tx.transmitFrequency() != packet.senderTransmitFrequency()
-                    || !tx.address().equals(packet.senderAddress()) || tx.address().isBlank()
-                    || !isConnected(sender.identity(),packet.senderNetworkId())) continue;
+            if (tx == null) { trace(packet,null,"sender-network-missing",null); continue; }
+            if (!tx.transmit()) { trace(packet,null,"sender-transmit-disabled",tx); continue; }
+            if (tx.networkId() != packet.senderNetworkId()) { trace(packet,null,"sender-network-id",tx); continue; }
+            if (tx.transmitFrequency() != packet.senderTransmitFrequency()) { trace(packet,null,"sender-frequency",tx); continue; }
+            if (!tx.address().equals(packet.senderAddress())) { trace(packet,null,"sender-address-changed",tx); continue; }
+            if (tx.address().isBlank()) { trace(packet,null,"sender-address-blank",tx); continue; }
+            if (!isConnected(sender.identity(),packet.senderNetworkId())) { trace(packet,null,"sender-connection",tx); continue; }
             for (DeviceEndpoint target : candidates) {
-                if (target.identity().equals(sender.identity()) || !target.available()) continue;
+                if (target.identity().equals(sender.identity())) continue;
+                if (!target.available()) { trace(packet,target,"target-unavailable",tx); continue; }
                 var rx = target.composition().network().orElse(null);
-                if (rx == null || !rx.receive() || rx.networkId()!=packet.networkId()
-                        || rx.receiveFrequency() != packet.frequency() || !isConnected(target.identity(),packet.networkId())) continue;
-                if(rx.requiresPower() && !target.powered()) continue;
+                if (rx == null) { trace(packet,target,"target-network-missing",tx); continue; }
+                if (!rx.receive()) { trace(packet,target,"target-receive-disabled",tx); continue; }
+                if (rx.networkId()!=packet.networkId()) { trace(packet,target,"target-network-id",tx); continue; }
+                if (rx.receiveFrequency() != packet.frequency()) { trace(packet,target,"target-frequency",tx); continue; }
+                if (!isConnected(target.identity(),packet.networkId())) { trace(packet,target,"target-connection",tx); continue; }
+                if(rx.requiresPower()) {
+                    boolean powered = target.powered();
+                    if(!powered) { trace(packet,target,"target-power-required",tx); continue; }
+                }
                 var txConnection = sender.composition().connection().orElse(null);
                 var rxConnection = target.composition().connection().orElse(null);
                 boolean addressed = !packet.broadcast() && rx.address().equals(packet.destinationAddress());
-                if (!packet.broadcast() && !rx.receiveAll() && !addressed) continue;
+                if (!packet.broadcast() && !rx.receiveAll() && !addressed) { trace(packet,target,"destination-address",tx); continue; }
                 if (target.deviceList()!=null && target.deviceList().filterIncoming()
-                        && !target.deviceList().permits(packet.sender().value().toString(), true)) continue;
+                        && !target.deviceList().permits(packet.sender().value().toString(), true)) { trace(packet,target,"target-device-list",tx); continue; }
                 if (packet.broadcast() && tx.sendBroadcastAttempt()) {
                     DeviceList list=sender.deviceList();
                     if (list!=null && ((list.allowList() && list.addresses().isEmpty())
-                            || !list.permits(target.identity().value().toString(), false))) continue;
+                             || !list.permits(target.identity().value().toString(), false))) { trace(packet,target,"sender-device-list",tx); continue; }
                 }
                 boolean sameDimension=sender.dimension().equals(target.dimension());
                 // SS14 connection components are independent veto hooks, not matching transport modes.
                 // A wired receiver rejects a different grid even if its sender has no wired component.
-                if(rxConnection!=null&&rxConnection.wired()&&!sameDimension) continue;
+                if(rxConnection!=null&&rxConnection.wired()&&!sameDimension) { trace(packet,target,"wired-dimension",tx); continue; }
                 // Wireless checks only apply when both endpoints opt into wireless; a failed wireless
                 // path cannot be rescued by a second wired connection on the same receiver.
-                if(rxConnection!=null&&rxConnection.wireless()&&txConnection!=null&&txConnection.wireless()
-                        &&(!sameDimension||sender.position().distSqr(target.position())
-                        >txConnection.wirelessRange()*txConnection.wirelessRange())) continue;
-                if(!target.beforePacketReceived(sender,packet)) continue;
-                target.receive(packet.payload(), packet.senderAddress()); delivered++;
+                if(rxConnection!=null&&rxConnection.wireless()&&txConnection!=null&&txConnection.wireless()) {
+                    if(!sameDimension) { trace(packet,target,"wireless-dimension",tx); continue; }
+                    if(sender.position().distSqr(target.position())
+                            >txConnection.wirelessRange()*txConnection.wirelessRange()) {
+                        trace(packet,target,"wireless-range",tx); continue;
+                    }
+                }
+                if(!target.beforePacketReceived(sender,packet)) { trace(packet,target,"before-packet-received",tx); continue; }
+                trace(packet,target,"endpoint-receive",tx);
+                target.receive(packet.payload(), packet.senderAddress(),
+                        Integer.toUnsignedString(System.identityHashCode(packet))); delivered++;
             }
         }
         return delivered;
     }
     public synchronized int queuedPackets() { return pending.size(); }
+
+    /** Bounded diagnostic for actual momentary control transactions; never participates in admission. */
+    private static void trace(DeviceNetworkPacket packet,DeviceEndpoint target,String stage,
+                              DeviceComposition.NetworkInterface tx) {
+        if (!(packet.payload() instanceof SignalPayload signal) || signal.signal()!=DeviceSignal.MOMENTARY
+                || !com.juicyslew.moonstation14.MoonStation14.LOGGER.isDebugEnabled()) return;
+        String power = target!=null && "target-power-required".equals(stage)
+                ? target.diagnosticPowerState() : "n/a";
+        com.juicyslew.moonstation14.MoonStation14.LOGGER.debug(
+                "[device-signal-transaction] tx={} signal={}:{} source={} sourceAddress={} sourceNetwork={} target={} targetAddress={} targetNetwork={} stage={} targetPower={}",
+                Integer.toUnsignedString(System.identityHashCode(packet)),signal.portId(),signal.signal(),packet.sender(),
+                packet.senderAddress(),tx==null?packet.senderNetworkId():tx.networkId(),
+                target==null?null:target.identity(),packet.destinationAddress(),packet.networkId(),stage,power);
+    }
 
     private record BoundEndpoint(DeviceEndpoint delegate,String address,String initialAddress) implements DeviceEndpoint {
         @Override public DeviceIdentity identity(){return delegate.identity();}
@@ -161,6 +192,7 @@ public final class DeviceNetworkTransport {
         @Override public boolean ownsAddressOutsideWorldSavedData(){return delegate.ownsAddressOutsideWorldSavedData();}
         @Override public boolean available(){return delegate.available();}
         @Override public boolean powered(){return delegate.powered();}
+        @Override public String diagnosticPowerState(){return delegate.diagnosticPowerState();}
         @Override public String displayName(){return delegate.displayName();}
         @Override public DeviceList deviceList(){return delegate.deviceList();}
         @Override public boolean mutateDeviceListMembers(DeviceList replacement){return delegate.mutateDeviceListMembers(replacement);}
@@ -169,5 +201,6 @@ public final class DeviceNetworkTransport {
         @Override public void onOverload(){delegate.onOverload();}
         @Override public boolean beforePacketReceived(DeviceEndpoint sender,DeviceNetworkPacket packet){return delegate.beforePacketReceived(sender,packet);}
         @Override public void receive(DevicePayload payload,String sourceAddress){delegate.receive(payload,sourceAddress);}
+        @Override public void receive(DevicePayload payload,String sourceAddress,String transactionId){delegate.receive(payload,sourceAddress,transactionId);}
     }
 }

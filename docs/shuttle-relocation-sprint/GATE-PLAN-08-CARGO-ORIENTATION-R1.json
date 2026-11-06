@@ -1,0 +1,50 @@
+{
+  "title": "Feedback-08 cargo targeting, outlines and replacement drops; nearest-point oracle R4",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/examine/CargoExamineGeometryGameTests.java",
+  "acceptance_criteria": [
+    "Resolved profile dimensions, authoritative or render basis and existing synchronized spin feed one shared query proxy without changing physical collision, movement, networking or production substeps.",
+    "Examination, pickup selection/revalidation and both outline paths use coherent oriented geometry while retaining range, LOS, pickup tolerance, candidate bounds and non-loose behavior.",
+    "Actor-context replacement materializers seed the admitted frame world basis without false native membership or new stack/hand state, preserving exact ownership and contents through existing transfer services.",
+    "Fresh focused JVM and three live consumer cases pass at measured SDK two substeps, proving oriented hits, false-positive rejection, current-pose request validation and nonidentity hand-drop materialization.",
+    "Run and report full JVM and unfiltered native regressions, actual counts and clean saves/shutdown; retain every genuine failure and distinguish known baseline hull failures from new regressions."
+  ],
+  "manual_steps": [
+    "Continue autonomously. No owner testing/input, connected client, installation, owner world/configuration/process changes, or production physics adoption.",
+    "R3 compiled and passed 15/16 focused JVM tests; the rotated width-two square's nearest Z was incorrectly expected as 1/sqrt(2). R4 expects the analytically correct (0,.5,sqrt(2)) at unchanged tolerance. Native/full checks were not reached. Author execution remains prohibited. Run all four checks afresh, stopping on earlier failures.",
+    "Use each fresh orientation-r1 native directory once. Do not rerun cost, reconnect or impact directories, modify the restricted preparation helper, delete old evidence or bypass freshness checks.",
+    "Full native registration includes known default-two 40/80 hull-impact failures. Preserve their physical failures and report a failed gate if they recur; do not suppress them, convert expected failures into passes, or claim this query fix repairs burial.",
+    "Source reviews passed, but connected rendering and client timing remain unverified. The query box is a physical-profile proxy, not exact mesh geometry. Ship-aligned replacement creation is a deliberate 3D stack-adapter choice, not SS14 same-entity rotation preservation.",
+    "Normal hand/world transfers do not globally opt into LevelItemLocationLedgers: tests preserve actual LiveHands/world ownership and leave the optional ledger unchanged. Do not add an unrelated ledger regime. M1 remains unaccepted and M2-M6 paused."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*LooseItemQueryGeometryTest", "--tests", "*LooseItemQueryExtentTest", "--tests", "*LooseFrameOrientationTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r4-focused-jvm.log",
+      "rationale": "Fresh compile/API validation and expected 16 focused tests: geometry/inflation/projection, resolved prototype extent/defaults and authoritative current/departing/safe-pose composition. Report actual counts; no author execution evidence exists.",
+      "covers": ["Resolved profile dimensions, authoritative or render basis and existing synchronized spin feed one shared query proxy without changing physical collision, movement, networking or production substeps.", "Examination, pickup selection/revalidation and both outline paths use coherent oriented geometry while retaining range, LOS, pickup tolerance, candidate bounds and non-loose behavior.", "Fresh focused JVM and three live consumer cases pass at measured SDK two substeps, proving oriented hits, false-positive rejection, current-pose request validation and nonidentity hand-drop materialization."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cargo-query,shuttle-cargo-drop", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-orientation-r1-focused", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r4-focused-native.log",
+      "rationale": "Expected filtered 3/886: examination selector/resolver/LOS, selected pickup and request-time pose change, actor-authorized hand drop after real native yaw. Require SDK readiness rows effectiveSubsteps=2, nonidentity admitted frames, whole contents/ownership and unchanged physical bounds; clean aggregate/saves/stop. This is not mid-transaction mutation or connected-client visual proof.",
+      "covers": ["Examination, pickup selection/revalidation and both outline paths use coherent oriented geometry while retaining range, LOS, pickup tolerance, candidate bounds and non-loose behavior.", "Actor-context replacement materializers seed the admitted frame world basis without false native membership or new stack/hand state, preserving exact ownership and contents through existing transfer services.", "Fresh focused JVM and three live consumer cases pass at measured SDK two substeps, proving oriented hits, false-positive rejection, current-pose request validation and nonidentity hand-drop materialization."]
+    },
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r4-full-jvm.log",
+      "rationale": "Full fresh JVM regression is required for shared examination/hand/geometry/materialization changes, including metadata registration, existing transfer compensation and orientation persistence/interpolation contracts.",
+      "covers": ["Resolved profile dimensions, authoritative or render basis and existing synchronized spin feed one shared query proxy without changing physical collision, movement, networking or production substeps.", "Actor-context replacement materializers seed the admitted frame world basis without false native membership or new stack/hand state, preserving exact ownership and contents through existing transfer services.", "Run and report full JVM and unfiltered native regressions, actual counts and clean saves/shutdown; retain every genuine failure and distinguish known baseline hull failures from new regressions."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-orientation-r1-full", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r4-full-native.log",
+      "rationale": "Unfiltered broad regression includes accepted R10 movement, normal drop/throw/Creative/native-hand, containment, examination, cargo and reconnect paths. Expected 886 discovered; report actual full counts and every failure with aggregate and clean saves/stop. Known isolated default-two 40/80 penetration remains unresolved and may fail this run: retain failure, no expected-failure pass or suppression. Full-run cost timing is not the isolated matched cost comparison and must not replace its evidence.",
+      "covers": ["Resolved profile dimensions, authoritative or render basis and existing synchronized spin feed one shared query proxy without changing physical collision, movement, networking or production substeps.", "Examination, pickup selection/revalidation and both outline paths use coherent oriented geometry while retaining range, LOS, pickup tolerance, candidate bounds and non-loose behavior.", "Actor-context replacement materializers seed the admitted frame world basis without false native membership or new stack/hand state, preserving exact ownership and contents through existing transfer services.", "Run and report full JVM and unfiltered native regressions, actual counts and clean saves/shutdown; retain every genuine failure and distinguish known baseline hull failures from new regressions."]
+    }
+  ]
+}

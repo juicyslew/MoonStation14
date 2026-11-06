@@ -7,6 +7,7 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery;
 import java.util.UUID;
 
 /** Shared reach/occlusion check for tools targeting either half of one root airlock. */
@@ -26,14 +27,29 @@ public final class AirlockToolLineOfSight {
                 ||level.getBlockState(root).getValue(AirlockBlock.HALF)!=DoubleBlockHalf.LOWER
                 ||level.getBlockState(root.above()).getBlock()!=level.getBlockState(root).getBlock()
                 ||level.getBlockState(root.above()).getValue(AirlockBlock.HALF)!=DoubleBlockHalf.UPPER)return null;
-        Vec3 eye=body.getEyePosition(),target=Vec3.atCenterOf(root);
+        var targetPoint=LoadedFrameRayQuery.currentTargetPoint(level,root);
+        var upperPoint=LoadedFrameRayQuery.currentTargetPoint(level,root.above());
+        if(targetPoint==null||upperPoint==null||!java.util.Objects.equals(targetPoint.frameId(),upperPoint.frameId()))return null;
+        Vec3 eye=body.getEyePosition(),target=targetPoint.worldPoint();
         if(eye.distanceToSqr(target)>25)return null;
         // OUTLINE (not COLLIDER) retains the target outline when the door is open
         // and physically passable; opaque blocks before it still occlude the ray.
-        var hit=level.clip(new ClipContext(eye,target,ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,body));
-        if(!(hit instanceof BlockHitResult blockHit))return null;
-        BlockPos hitPos=blockHit.getBlockPos();
-        if(!hitPos.equals(root)&&!hitPos.equals(root.above()))return null;
+        var result=LoadedFrameRayQuery.clip(level,eye,target,16,.125,1,
+                (getter,from,to)->new ClipContext(from,to,ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,body));
+        if(result.state()==LoadedFrameRayQuery.State.UNKNOWN)return null;
+        // The query retains both nominations when terrain wins; never trust a farther frame hit.
+        if(result.frameHit()!=null&&result.worldHit()!=null
+                &&result.worldHit().getType()==net.minecraft.world.phys.HitResult.Type.BLOCK)return null;
+        var frame=result.frameHit();
+        if(frame!=null){
+            if(!java.util.Objects.equals(targetPoint.frameId(),frame.frameId())
+                    ||!frame.storagePos().equals(root)&&!frame.storagePos().equals(root.above())
+                    ||!LoadedFrameRayQuery.revalidate(level,frame))return null;
+            return frame.storagePos();
+        }
+        if(result.worldHit()==null||result.worldHit().getType()!=net.minecraft.world.phys.HitResult.Type.BLOCK)return null;
+        BlockPos hitPos=result.worldHit().getBlockPos();
+        if(!java.util.Objects.equals(targetPoint.frameId(),null)||!hitPos.equals(root)&&!hitPos.equals(root.above()))return null;
         return level.getBlockEntity(root)==expected&&expected.identity().equals(identity)?hitPos:null;
     }
 }

@@ -59,6 +59,8 @@ public class MoonStation14 {
     // The constructor for the mod class is the first code that is run when your mod is loaded.
     // FML will recognize some parameter types like IEventBus or ModContainer and pass them in automatically.
     public MoonStation14(IEventBus modEventBus, ModContainer modContainer) {
+        // Force-load ticket codecs must exist before Sable deserializes saved ticket metadata.
+        com.juicyslew.moonstation14.ms14.shuttle.sable.ShuttleSimulationResidency.registerTicketType();
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
 
@@ -69,6 +71,7 @@ public class MoonStation14 {
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.fixture.VentilationFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.fixture.DisposalFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.fixture.ChemMasterFixtureCommands::registerCommands);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.shuttle.fixture.ShuttleFixtureCommands::registerCommands);
         LocalSpeechServerHooks.register(NeoForge.EVENT_BUS);
         AtmosphereEventHooks.register(NeoForge.EVENT_BUS);
         AtmosphereVisualServerHooks.register(NeoForge.EVENT_BUS);
@@ -139,6 +142,7 @@ public class MoonStation14 {
 
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        modContainer.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
@@ -237,6 +241,20 @@ public class MoonStation14 {
         }
     }
 
+    @SubscribeEvent(priority = net.neoforged.bus.api.EventPriority.HIGHEST)
+    public void onServerTickPost(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
+        net.minecraft.server.MinecraftServer server = event.getServer();
+        for (var candidate : server.getAllLevels()) {
+            net.minecraft.server.level.ServerLevel level = candidate;
+            // Native bodies enter ServerLevel.tick at HEAD; PlayerTickPost runs later. This server-post
+            // fallback therefore consumes only bodies not already advanced by fresh player input.
+            com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedLivingPhysics.tick(level);
+        }
+        // Publish once, after every level's fallback, from the same authoritative server phase.
+        com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleCharacterSessionControl
+                .publishAfterPhysicalTick(server);
+    }
+
     @SubscribeEvent
     public void onLevelTickPost(net.neoforged.neoforge.event.tick.LevelTickEvent.Post event) {
         if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
@@ -247,8 +265,20 @@ public class MoonStation14 {
     }
 
     @SubscribeEvent
+    public void onLevelLoad(net.neoforged.neoforge.event.level.LevelEvent.Load event) {
+        if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+            com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchorCaptureService.install(level);
+            com.juicyslew.moonstation14.ms14.shuttle.sable.ShuttleSimulationResidency.install(level);
+        }
+    }
+
+    @SubscribeEvent
     public void onLevelUnload(net.neoforged.neoforge.event.level.LevelEvent.Unload event) {
         if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)
+        {
+            com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchorCaptureService.close(level);
+            com.juicyslew.moonstation14.ms14.shuttle.sable.ShuttleSimulationResidency.close(level);
             com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.closeLevel(level);
+        }
     }
 }

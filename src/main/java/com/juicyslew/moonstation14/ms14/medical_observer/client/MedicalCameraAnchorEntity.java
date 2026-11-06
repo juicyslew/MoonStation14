@@ -19,6 +19,9 @@ public final class MedicalCameraAnchorEntity extends Entity {
         yo = yOld = previous.y;
         zo = zOld = previous.z;
         setPos(current.x, current.y, current.z);
+        var snapshot = ObserverClient.current();
+        com.juicyslew.moonstation14.ms14.mobs.client.MedicalMovementClientTrace.cameraFollow(body,
+                previous, current, this, snapshot == null ? null : snapshot.mode(), snapshot == null ? -1 : snapshot.epoch());
         // Keep the anchor's independently controlled look stable without collapsing position samples.
         yRotO = getYRot();
         xRotO = getXRot();

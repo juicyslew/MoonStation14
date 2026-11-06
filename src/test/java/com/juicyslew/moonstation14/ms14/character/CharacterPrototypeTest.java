@@ -277,7 +277,8 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-        assertEquals(35, data.components().size(), "merged Human composition retains stripping policy alongside existing component families");
+        assertEquals(36, data.components().size(), "merged Human composition retains stripping and angular recovery policies");
+        assertTrue(data.angularRecoveryPolicy().isPresent(), "Human resolves its typed angular recovery policy");
         assertTrue(data.component(ExaminerComponent.class).isPresent());
         assertTrue(data.component(StunnableComponent.class).isPresent());
         assertEquals(Optional.of("Biological"), data.component(DamageableComponent.class).orElseThrow().damageContainer());

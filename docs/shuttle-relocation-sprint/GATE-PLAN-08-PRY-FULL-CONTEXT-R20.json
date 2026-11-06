@@ -1,0 +1,16 @@
+{
+  "title": "One instrumented full-context reproduction for unexplained pry power rejection",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": ["In the broader current fixture context, does the premature pry power rejection recur, and which exact existing power-meter validity condition rejects it?"],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-pry-full-context-r20"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-pry-full-context-r20-native.log",
+      "rationale": "ONE genuinely needed full-context diagnostic, NOT routine broad validation/readiness: R11 full889 exposed powerunknown one tick after own-walk pry admission with delta0, but lacked exact meter reason. New existing-meter instrumentation is now compiled and verified; R18isolated3cases and R19correctlyorderedwire→walk2casecontext both passed with knownzero/accepted power and proper0.312394>.3 walk cancellation. Thus isolated and immediate-predecessor contexts are not sufficient to reproduce the only known failure. No production cause/fix is established. Use one current full context to capture exact service rejection reason and admission/terminal topology-generation/sample-age evidence; do not invent random subset sequences, new ordering infrastructure, or rerun automatically if nonreproducing. Source/runtime unchanged from R19, only plan/docs changed; retain valid R18JVM21 and R19compilation instead of duplicate JVM. Current expected891unfiltered (R11 had889 before two shell controls); this is not exact historical ordering/context equivalence. Fresh default-stock2configuration only, verify generated isolated config; no ten-substep preparation/adoption. Known original40/80 and new80shell penetration failures are genuine required failures: preserve them, NEVER expected-failure-pass; they are not this power-diagnostic question. Let all started native batches finish despite failures and explicitly verify admission/completion/raw aggregate actual selected/discovered/pass/fail, per-case power outcome, all-dimension saves and normal stop. Missing parser all-passed marker is expected for a failed batch and is NOT an admission timeout: read raw aggregate. If pry fails powerunknown, use exact existing PowerRuntime diagnostic reason, no speculation; if it passes, report nonreproduction and leave R11 unexplained. No safeUNKNOWN/full-power rejection, ownmove0.3, readiness timing/retries/forced meter, authority/LOS/frame/revision/tool/duration changes. No Sable source/binary/native/privateaccess/newhooks/mixins/interception, ownerworld/config/process/installation changes, cap/gravity/freeze/recoveryteleport. Lead alone owns serialized expensive validation. Diagnostic receipt/findings only even with failures, no readiness/report/finalization/M1 acceptance/M2-M6 advancement. Preserve all prior failed artifacts; do not edit source mid-check.",
+      "covers": ["In the broader current fixture context, does the premature pry power rejection recur, and which exact existing power-meter validity condition rejects it?"]
+    }
+  ]
+}

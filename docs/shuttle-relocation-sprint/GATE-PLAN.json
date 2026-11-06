@@ -1,0 +1,52 @@
+{
+  "title": "Shuttle feedback-05: synchronous fixture retirement and clean native saves",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/SableOwnedBodyCarryGameTests.java",
+  "acceptance_criteria": [
+    "Certified native position correction is separate from bounded own movement, velocity, animation and carrier application; existing movement limits and floor grounding rules remain unchanged.",
+    "All four exterior wall faces, supported strong cargo, passive/active bodies, moving/falling reconnect, airlock safety and finite cabin ventilation pass their native regression fixtures.",
+    "The current source compiles and passes fresh full JUnit and unfiltered native GameTests without changing owner configuration or launching a client.",
+    "Serialization diagnostics preserve the original operation/result/exception and identify a failing owner without suppressing saves or changing physics lifecycle.",
+    "Fixture close synchronously retires only its exact registered owner, preserving gas archives and replacements; combined and full native runs save/shut down without removed-owner exceptions."
+  ],
+  "manual_steps": [
+    "Review the source-only gate evidence and unresolved boundaries. Private packaging and connected retesting remain on hold; no client launch or installation is requested.",
+    "Only after explicit authorization and identification of the installed artifact: walk diagonally and jump against each cabin wall, then check Creative/logout and falling-cabin rejoin preserve the same body, Mind and items."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "test", "--rerun-tasks"],
+      "rationale": "Fresh full JVM evidence for the shared movement contract, SDK geometry and exception-preserving serialization diagnostics; compilation includes current native fixtures. No packaging task.",
+      "covers": [
+        "Certified native position correction is separate from bounded own movement, velocity, animation and carrier application; existing movement limits and floor grounding rules remain unchanged.",
+        "The current source compiles and passes fresh full JUnit and unfiltered native GameTests without changing owner configuration or launching a client.",
+        "Serialization diagnostics preserve the original operation/result/exception and identify a failing owner without suppressing saves or changing physics lifecycle."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-owner-regression,shuttle-passive-body,shuttle-active-input,shuttle-airlock-safety,shuttle-moving-reconnect,shuttle-falling-reconnect,shuttle-strong-impulse,shuttle-cabin-ventilation", "-Pms14GameTestDir=build/gametest-shuttle-feedback-05-gate-r5-integration"],
+      "log": "build/shuttle-feedback-05-gate-r5-integration.log",
+      "rationale": "Combined native integration before broad validation; expected 33/868, verify actual selection. R2 had 33 passing assertions but a removed-owner shutdown exception despite exit 0: inspect SDK save/shutdown and owner-identity diagnostics separately from counts. Separate disposable directory protects owner configuration; tags do not isolate fixtures.",
+      "covers": [
+        "Certified native position correction is separate from bounded own movement, velocity, animation and carrier application; existing movement limits and floor grounding rules remain unchanged.",
+        "All four exterior wall faces, supported strong cargo, passive/active bodies, moving/falling reconnect, airlock safety and finite cabin ventilation pass their native regression fixtures.",
+        "Serialization diagnostics preserve the original operation/result/exception and identify a failing owner without suppressing saves or changing physics lifecycle.",
+        "Fixture close synchronously retires only its exact registered owner, preserving gas archives and replacements; combined and full native runs save/shut down without removed-owner exceptions."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-05-gate-r5-full"],
+      "log": "build/shuttle-feedback-05-gate-r5-full.log",
+      "rationale": "Fresh unfiltered native regressions after combined integration passes. The standard preflight now reports actual registrar selected/discovered counts without changing selection. Require clean save/shutdown separately from all-required-passed and exit markers; correlate any remaining failure by exact owner UUID and preserve artifacts. No exception is suppressed or save skipped.",
+      "covers": [
+        "All four exterior wall faces, supported strong cargo, passive/active bodies, moving/falling reconnect, airlock safety and finite cabin ventilation pass their native regression fixtures.",
+        "The current source compiles and passes fresh full JUnit and unfiltered native GameTests without changing owner configuration or launching a client.",
+        "Serialization diagnostics preserve the original operation/result/exception and identify a failing owner without suppressing saves or changing physics lifecycle.",
+        "Fixture close synchronously retires only its exact registered owner, preserving gas archives and replacements; combined and full native runs save/shut down without removed-owner exceptions."
+      ]
+    }
+  ]
+}

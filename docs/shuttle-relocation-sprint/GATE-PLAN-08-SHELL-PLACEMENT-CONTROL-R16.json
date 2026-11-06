@@ -1,0 +1,23 @@
+{
+  "title": "Bare-shell placement comparison; native-noise orientation guard correction",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": ["Does the direct shell reproduce penetration, and do physically matched direct and public-stock-assembled shells differ at 80 m/s with stock Sable/two substeps?"],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*HullPhysicalSnapshotTest", "--tests", "*HullTerrainGeometryTest", "--tests", "*HullImpactTraceStateTest", "--tests", "*HullStateMismatchEvidenceTest", "--tests", "*HullImpactSubstepsExpectationTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-shell-placement-r16-jvm.log",
+      "rationale": "Preparation for genuinely lead-owned native diagnostic, not readiness or standalone cheap checks. R15 compiled/JVM21passed but both native shell cases failed an overstrict1e-8 orientation guard before flight. R16 accepts finite near-identity quaternion vector norm<=1e-6 and |abs(w)-1|<=1e-6 through a shared pure helper tested against observed noise, q/-q identity, material rotation and nonfinite input. One new JVM method, expected22total. Placement log moved before this guard; launch stays after it. No pose/orientation mutation or change to original impact/support/state/penetration criteria. Source review passed, fresh compilation/runtime still required. Stop on preparation failure, preserve prior receipts, fresh workflow binds sources.",
+      "covers": ["Does the direct shell reproduce penetration, and do physically matched direct and public-stock-assembled shells differ at 80 m/s with stock Sable/two substeps?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-hull-shell-placement-control", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-shell-placement-r16", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-shell-placement-r16-native.log",
+      "rationale": "Exact R15 shell pair after local guard correction: expected2/891, 80m/s direct x4200 and public-stock-assembled x4400,z3600. Finish started batch despite genuine required failures; failures remain failures. Require actual effectiveSDK2, raw completed/pass/fail and verified saves/stop, not missing all-passed parser marker. FIRST compare actual state/shape canonicalSHA256, cells/hullpieces, actual mass/COM, pivot mapping/logicalpose/orientation, normalized projected bounds/rest and admitted velocity. Different raw storage pivots normal; physical mapping must match. Stock full pre/post snapshot guard retained. Matching/hash alone does not prove native voxel upload. If direct shell does not reproduce penetration or inputs unmatched, inconclusive for furnished-cabin failure. Same failures only rule out custom direct placement as necessary for shell symptom, NOT prove Sable bug. Both canonical buildHull shells452cells omit machinery/gas owners, not furnished477cell cabin; existing furnished20/40/80 unchanged, no repeat full suite. No Sable source/binary/native changes or new hooks/mixins/interception/privateaccess; no owner/config changes, corrective teleport, orientation reset/freeze, pause, gravity change or cap. Loaded MS14 still present, not Sable-only runtime. R14 furnishedstock mismatch external concealedgas owners not migrated; do not revive it or migrate owners. R15 both setupfailed tiny native residual, neither flew; preserve evidence. Return diagnostic bound receipt/findings even failed; no readiness/report/finalization or owner acceptance/M2-M6 advancement.",
+      "covers": ["Does the direct shell reproduce penetration, and do physically matched direct and public-stock-assembled shells differ at 80 m/s with stock Sable/two substeps?"]
+    }
+  ]
+}

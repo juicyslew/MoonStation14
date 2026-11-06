@@ -13,14 +13,15 @@ public final class BodyPickupRouteGameTestEntry {
     private BodyPickupRouteGameTestEntry() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
-    @GameTestTags({"hands", "suite-stabilization"})
+    @GameTestTags({"hands", "suite-stabilization", "hands-nominated-pickup-regression"})
     public static void firstHitDenialsAndWorldToHandConservation(GameTestHelper helper) {
         BodyPickupRouteGameTests.firstHitDenialsAndWorldToHandConservation(helper);
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
-    public static void nearestOverridesHintAndStaleState(GameTestHelper helper) {
-        BodyPickupRouteGameTests.nearestOverridesHintAndStaleState(helper);
+    @GameTestTags({"hands-nominated-pickup-regression"})
+    public static void nominatedTargetAndStaleState(GameTestHelper helper) {
+        BodyPickupRouteGameTests.nominatedTargetAndStaleState(helper);
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)

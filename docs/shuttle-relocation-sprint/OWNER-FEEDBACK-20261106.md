@@ -1,0 +1,19 @@
+# Owner follow-up — 2026-11-06
+
+After technical PASS `run_fd466ddca59c7d4036551983`, the owner reports almost everything works and cargo no longer flickers. The remaining cursor-placement offset is acceptable; do not reopen it in this follow-up.
+
+## Active scope
+
+1. Correct client orientation flicker when rotation coincides with upward/downward acceleration. It settles when velocity becomes constant. Source investigation found that a same-tick authoritative restore can replace the angular/frame publication while leaving a zero-offset departure/landing bridge active. Correct that stale bridge without resetting live heading, changing body render origins, smoothing the camera, or changing physics. This is a reproducible source counterexample, not confirmation of the exact owner episode.
+2. Add an easy, repeatable heavy-freight flight command using the existing native fixture controller. Motion should combine turns, translation and vertical changes with low acceleration and gradual changes in commanded acceleration. Real collisions remain active; do not fake bumps with velocity changes or silently place untracked obstacles. This is a diagnostic handling profile, not gameplay thruster/piloting parity.
+3. Light the manual cargo bay. The owner explicitly permits ordinary Minecraft torches, sea lanterns or glowstone; use a normal sea lantern in the ceiling, retaining headroom and normal light propagation. Existing ships need a bounded, loaded-only retrofit path.
+
+Preserve the confirmed lighting correction, actor/scene publication separation, outlines, viewport edges and initial cargo stability. Stock Sable, six substeps, world-down gravity, ordinary damage and frozen XYZ/once-only point-velocity inheritance remain unchanged.
+
+Current work still requires focused checks, independent review and a fresh complete readiness gate. The old session04 logs do not establish orientation telemetry for this new episode. No recording, copied UUID or upload is requested. M1 remains open; no merge or M2 authorization follows. Critical/Dead drift and two-client acceptance remain unverified.
+
+The first executed follow-up gate (`run_7d8fdb1c58d92e9793d8021f`) selected 123/1006 native cases: 122 passed, including the bay-light case. Freight failed its initial contact check before the long profile. That check sampled the latest mutable SDK collision record from a GameTest callback rather than a completed owned-movement boundary. The evidence does not yet distinguish sampling error from real support loss. The fixture must capture completed-move proof with tick/frame identity and retain strict rejection of genuinely unsupported steps; another gate is required.
+
+The completed-step follow-up (`run_8b111863136525a882e86f6f`) captured fresh below-contact on the exact frame and an accepted, grounded result. Its remaining rejection was an oracle mismatch: ordinary `IDLE_FLOOR` contact does not require a position-correction certificate, and `PositionStage.NOT_EVALUATED` is normal when no correction runs. Correct only that branch interpretation; retain strict freshness, frame identity, below-contact, accepted-step and rejection checks. This record does not show lost support, but the full freight trajectory still needs execution.
+
+The full admission contract also distinguishes primary native contact from **optional** correction diagnostics: `NativeContactProofDiagnostic.none()` is a legitimate unpopulated sentinel, not a failed floor test. A later accepted move again had fresh exact-frame below-contact and grounding, but no specialized diagnostic ran. The test must admit that direct contact while still rejecting stale/missing contact, wrong frames, failed steps and applicable negative correction evidence. Do not change production physics to satisfy optional diagnostic fields.

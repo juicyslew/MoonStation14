@@ -811,6 +811,31 @@ public final class BodyControlRegistry {
         return state == null ? Optional.empty() : Optional.of(state.snapshot());
     }
 
+    /** Side-effect-free preflight for the facade's persisted-claim restoration transaction. */
+    public synchronized boolean canRestoreOfflineCharacterMind(UUID accountId, MindId mindId,
+            MobHarnessId bodyId, MobHarness expectedHarness, TargetEligibility eligibility,
+            LifecycleCapability capability) {
+        if (!isLifecycleCapability(capability) || accountId == null || mindId == null || bodyId == null
+                || expectedHarness == null || eligibility == null || !expectedHarness.id().equals(bodyId)
+                || expectedHarness.kind() != MobHarnessKind.CHARACTER || mindsBySession.containsKey(accountId)
+                || minds.containsKey(mindId) || minds.values().stream().anyMatch(m -> m.id.equals(mindId))
+                || ownersByHarness.containsKey(bodyId)) return false;
+        MobHarness registered = harnesses.get(bodyId);
+        return (registered == null || registered.equals(expectedHarness)) && eligibility.isEligible(expectedHarness);
+    }
+
+    /** Read-only proof for exact retained, disconnected lifecycle ownership; never rebinds a Mind. */
+    public synchronized boolean isSuspendedLifecycle(UUID account, MindId mindId, MobHarnessId bodyId,
+            long epoch, LifecycleCapability capability) {
+        if (!isLifecycleCapability(capability) || account == null || mindId == null || bodyId == null) return false;
+        MindState mind = minds.get(mindId);
+        MobHarness body = harnesses.get(bodyId);
+        return mind != null && mind.lifecycleOwned && !mind.connected && !mind.deadClaim
+                && mind.epoch == epoch && bodyId.equals(mind.harnessId)
+                && mindId.equals(mindsBySession.get(account)) && mindId.equals(ownersByHarness.get(bodyId))
+                && body != null && body.kind() == MobHarnessKind.CHARACTER;
+    }
+
     /** Checks current target eligibility; an invalid owned target is revoked fail-closed. */
     public synchronized boolean authorizes(UUID sessionId, MobHarnessId harnessId, long epoch,
                                            TargetEligibility eligibility) {

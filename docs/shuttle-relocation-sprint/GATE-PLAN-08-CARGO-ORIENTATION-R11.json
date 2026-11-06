@@ -1,0 +1,40 @@
+{
+  "title": "Cargo orientation/setup with native-phase reconnect completion",
+  "kind": "bugfix",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": [
+    "Resolved oriented queries and replacement drops preserve collision, authority, ownership, contents and production physics.",
+    "Permission-2 cargo/yaw commands provide complete documented setup through existing loaded-frame and transfer services.",
+    "Fixture progress and reconnect termination use native lifecycle callbacks without changing observations, assertions or latched outcomes.",
+    "Fresh full JVM, focused native and full native evidence has actual counts and safe shutdown; genuine failures remain failed."
+  ],
+  "manual_steps": [
+    "After technical readiness, use the normal development launch and a disposable world. As a permission-2 operator with a live controlled body and loaded clear space, run /ms14 shuttle_fixture build; retain its ship ID.",
+    "Enter through the front airlock using normal movement/jumping. Run /ms14 shuttle_fixture cargo <ship-id> aboard: one five-unit water jug should appear near the body without overwriting hands or carrier inventory.",
+    "Examine and pick up the jug using configured controls, then Drop active hand (default Q). Selection/outlines should agree with the oriented physical-profile proxy, and contents should remain five units. The proxy is not the exact mesh.",
+    "Run /ms14 shuttle_fixture yaw <ship-id> 0.4 once; repeat query, pickup and drop as the cabin turns. Replacements should use the current actor-frame world basis without loss. This is a rad/s velocity delta, not an angle or pilot control. Do not test high-speed impacts or pitch/roll."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r11-full-jvm.log",
+      "rationale": "Single full JVM run retains all16 geometry/profile/orientation and six progress-state cases; expected3314, report actual. Compile all fixtures; one stage avoids XML self-overwrite. Stop on failure. Current attribution scope-r11/SUMMARY.md is submission-bound; prior full3314 pass is history only. Lead produces fresh logs.",
+      "covers": ["Resolved oriented queries and replacement drops preserve collision, authority, ownership, contents and production physics.", "Permission-2 cargo/yaw commands provide complete documented setup through existing loaded-frame and transfer services.", "Fixture progress and reconnect termination use native lifecycle callbacks without changing observations, assertions or latched outcomes.", "Fresh full JVM, focused native and full native evidence has actual counts and safe shutdown; genuine failures remain failed."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cargo-query,shuttle-cargo-drop,shuttle-cargo-setup,gametest-progress,shuttle-cargo-reconnect-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-orientation-r11-focused", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r11-focused-native.log",
+      "rationale": "Expected7/889: prior six plus existing three-jug reconnect. Require SDK2, 160 offline/60 post-rejoin observations, unchanged identity/content/flight assertions, and ordinary listener-driven observer PASS for threenormaljugssurvivelogoutflightandrejoin, NOT DONE_FALLBACK. Early GameTest-only mixin remains proven but fresh execution required. Reconnect only defers terminal emission through existing succeedAfterObservation/safeDelay; observations and latches unchanged. Missing hook/failure/unknown is not pass. Complete batch; stop before full on failure. Require aggregate/save/stop; fresh R11 world only.",
+      "covers": ["Resolved oriented queries and replacement drops preserve collision, authority, ownership, contents and production physics.", "Permission-2 cargo/yaw commands provide complete documented setup through existing loaded-frame and transfer services.", "Fixture progress and reconnect termination use native lifecycle callbacks without changing observations, assertions or latched outcomes.", "Fresh full JVM, focused native and full native evidence has actual counts and safe shutdown; genuine failures remain failed."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-orientation-r11-full", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r11-full-native.log",
+      "rationale": "Unfiltered expected889; no exclusions. R10 admitted/finished749, then IDLE with140 unadmitted: final reconnect used DONE_FALLBACK_PASS. Verify ordinary reconnect terminal callback, subsequent batch admission beyond prior defaultBatch11, and complete889 aggregate. Do not assume terminal-phase fix proves full-run causality until observed. Preserve genuine SDK2 40/80 impact failures and fail gate if reproduced; never expected-failure-pass. Complete started batch under existing timeout/process/quarantine/freshness safeguards. Require aggregate and verified save/stop; timeout/unknown not pass. No owner-state/launch/client/install changes or production physics workaround. M1 unaccepted; M2-M6 paused.",
+      "covers": ["Resolved oriented queries and replacement drops preserve collision, authority, ownership, contents and production physics.", "Permission-2 cargo/yaw commands provide complete documented setup through existing loaded-frame and transfer services.", "Fixture progress and reconnect termination use native lifecycle callbacks without changing observations, assertions or latched outcomes.", "Fresh full JVM, focused native and full native evidence has actual counts and safe shutdown; genuine failures remain failed."]
+    }
+  ]
+}

@@ -46,10 +46,110 @@ public final class LifecycleExistingBodyReconnect {
     private static final Map<MinecraftServer, Map<UUID, Pending>> PENDING = new HashMap<>();
     private static final int MAX_RETURN_WAIT_TICKS = 200;
     private static final Map<MinecraftServer, Map<UUID, ReturnWait>> RETURN_WAITS = new HashMap<>();
+    private static final Map<MinecraftServer, Map<UUID, Waiting>> WAITING = new HashMap<>();
     enum ReturnResult { RETURNED, CHUNK_LOADING, BLOCKED }
     private record ReturnWait(ServerPlayer player, SavedLifecycleProfile saved, int deadline) { }
+    private record Waiting(ServerPlayer player, SavedLifecycleProfile saved, GameType originalMode,
+                           boolean readOnlyCreativeParkDenial) { }
 
     private LifecycleExistingBodyReconnect() { }
+
+    /** Saved-body admission failures are recoverable: retain the authenticated vanilla carrier and claim. */
+    static void reportDeferredAdmission(ServerPlayer player, String reason) {
+        reportDeferredAdmission(player, reason, null, false);
+    }
+
+    private static void reportDeferredAdmission(ServerPlayer player, String reason,
+                                                SavedLifecycleProfile saved, boolean creativeParkDenial) {
+        if (player == null || player.connection == null || !player.connection.isAcceptingMessages()) return;
+        MinecraftServer server = player.getServer();
+        String phase = reason == null ? "unknown" : reason;
+        rememberWaiting(server, player, saved, creativeParkDenial);
+        // A vanilla carrier is never character authority. Spectator removes movement/item use
+        // without mutating carrier inventory or the saved character/Mind.
+        boolean spectator = player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR;
+        if (server != null && server.isSameThread() && !spectator) {
+            try { spectator = safeWaitAdmission(() -> LifecycleDevelopmentMode.switchWaitingSpectator(player, server),
+                    () -> player.gameMode.getGameModeForPlayer()); }
+            catch (RuntimeException | Error failure) {
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.error("Saved-character safe-carrier spectator switch failed account={}", player.getUUID(), failure);
+            }
+        }
+        com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                "Saved-character reconnect deferred phase={} account={} actualMode={} dimension={} position=({}, {}, {})",
+                phase, player.getUUID(), player.gameMode.getGameModeForPlayer(),
+                player.level().dimension().location(), player.getX(), player.getY(), player.getZ());
+        player.sendSystemMessage(Component.literal("Character reconnect is waiting for safe proof of your saved body. Your saved character and items are unchanged. "
+                + (spectator ? "You remain in safe spectator mode; use /ms14_return to retry."
+                        : "Safe spectator switch could not be verified; character control was not granted. Retry /ms14_return.")));
+    }
+
+    private static void rememberWaiting(MinecraftServer server, ServerPlayer player,
+                                        SavedLifecycleProfile saved, boolean creativeParkDenial) {
+        if (server == null || player == null) return;
+        Map<UUID, Waiting> waiting = WAITING.computeIfAbsent(server, ignored -> new HashMap<>());
+        Waiting previous = waiting.get(player.getUUID());
+        if (previous != null && previous.player() == player) {
+            waiting.put(player.getUUID(), new Waiting(player, saved != null ? saved : previous.saved(),
+                    previous.originalMode(), creativeParkDenial || previous.readOnlyCreativeParkDenial()));
+        } else waiting.put(player.getUUID(), new Waiting(player, saved, player.gameMode.getGameModeForPlayer(), creativeParkDenial));
+    }
+
+    static boolean safeWaitAdmission(Supplier<Boolean> switchSpectator, Supplier<GameType> actualMode) {
+        try {
+            switchSpectator.get();
+            return actualMode.get() == GameType.SPECTATOR;
+        } catch (RuntimeException | Error failure) { return false; }
+    }
+
+    static boolean isWaiting(MinecraftServer server, ServerPlayer player) {
+        Waiting waiting = server == null || player == null ? null : WAITING.getOrDefault(server, Map.of()).get(player.getUUID());
+        return waiting != null && waiting.player() == player;
+    }
+
+    static boolean waitingCreativeRepairEvidence(MinecraftServer server, ServerPlayer player,
+                                                 SavedLifecycleProfile saved) {
+        Waiting waiting = server == null || player == null ? null : WAITING.getOrDefault(server, Map.of()).get(player.getUUID());
+        return waiting != null && waiting.player() == player && waiting.saved() != null
+                && waiting.saved().equals(saved) && waiting.originalMode() == GameType.CREATIVE
+                && waiting.readOnlyCreativeParkDenial();
+    }
+
+    static boolean creativeRepairEligible(GameType originalMode, boolean readOnlyParkDenial,
+                                          boolean unchangedOfflineClaim, boolean noConflictingSession) {
+        return originalMode == GameType.CREATIVE && readOnlyParkDenial && unchangedOfflineClaim && noConflictingSession;
+    }
+
+    static void retryWaiting(ServerPlayer player, MinecraftServer server) {
+        if (!isWaiting(server, player) || !server.isSameThread() || player.connection == null
+                || !player.connection.isAcceptingMessages() || player.isRemoved()
+                || server.getPlayerList().getPlayer(player.getUUID()) != player) return;
+        Waiting waiting = WAITING.getOrDefault(server, Map.of()).get(player.getUUID());
+        if (waiting != null && waiting.player() == player
+                && player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR
+                && !player.hasData(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get())
+                && !CarrierHandInventoryGate.allows(player)) {
+            // The original park attempt was read-only denied (for example, unsupported Ender/cursor
+            // contents). Only that exact admission path may enter the original Creative mode to repair.
+            LifecycleServerContext repairContext = LifecycleStartupRuntime.contextFor(server).orElse(null);
+            boolean unchanged = false, noConflict = false;
+            if (repairContext != null && waiting.saved() != null) try {
+                unchanged = waiting.saved().equals(repairContext.currentAccountProfile(player.getUUID()).orElse(null));
+                var memory = repairContext.lifecycle().profile(player.getUUID()).orElse(null);
+                noConflict = (memory == null || !memory.active()) && !LifecycleCharacterSessionControl.ownsAny(player)
+                        && !LifecycleGhostSessionControl.ownsAny(player)
+                        && !GhostMobHarnessControl.ownsDebugSession(player);
+            } catch (IOException | RuntimeException ignored) { }
+            if (creativeRepairEligible(waiting.originalMode(), waiting.readOnlyCreativeParkDenial(), unchanged, noConflict)
+                    && LifecycleDevelopmentMode.enterWaitingCreativeForRepair(player, server, waiting.saved())) {
+                player.sendSystemMessage(Component.literal("Your items were left untouched. Repair the unsupported carrier compartments, then run /ms14_return again."));
+                return;
+            }
+        }
+        LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
+        if (context == null) { player.sendSystemMessage(Component.literal("Reconnect is still waiting for lifecycle recovery; retry shortly.")); return; }
+        handle(player, server, context, reason -> reportDeferredAdmission(player, reason));
+    }
 
     /** Same-connection return loads only the saved chunk, without parking Creative until body proof. */
     static ReturnResult returnDevelopmentDetached(ServerPlayer player, MinecraftServer server) {
@@ -236,23 +336,66 @@ public final class LifecycleExistingBodyReconnect {
                 || player.connection == null || !player.connection.isAcceptingMessages()
                 || player.isRemoved() || server.getPlayerList().getPlayer(player.getUUID()) != player
                 || GhostMobHarnessControl.ownsDebugSession(player)) {
-            disconnect.accept(RECOVERY);
+            disconnect.accept("entry.authenticated-player-or-session-conflict");
             return;
         }
-        SavedLifecycleProfile saved;
+        SavedLifecycleProfile loadedSaved;
         try {
-            saved = context.primaryStore().withCurrentPrimary(lease -> {
+            loadedSaved = context.primaryStore().withCurrentPrimary(lease -> {
                 var matches = lease.envelope().profiles().stream()
                         .filter(row -> row.accountId().equals(player.getUUID())).toList();
-                return matches.size() == 1 && matches.get(0).state() == SavedLifecycleProfile.State.OFFLINE
+                return matches.size() == 1 && (matches.get(0).state() == SavedLifecycleProfile.State.OFFLINE
+                        || matches.get(0).state() == SavedLifecycleProfile.State.ACTIVE)
                         ? matches.get(0) : null;
             }).orElse(null);
         } catch (IOException | RuntimeException failure) {
-            disconnect.accept(RECOVERY);
+            disconnect.accept("primary.read-current-row-exception=" + failure.getClass().getSimpleName());
             return;
         }
-        if (saved == null) { disconnect.accept(RECOVERY); return; }
-        if (hasPending(server, player.getUUID())) { disconnect.accept(RECOVERY); return; }
+        if (loadedSaved == null) { disconnect.accept("primary.no-unique-offline-or-active-row"); return; }
+        rememberWaiting(server, player, loadedSaved, false);
+        SavedLifecycleProfile resolvedSaved = loadedSaved;
+        if (resolvedSaved.state() == SavedLifecycleProfile.State.ACTIVE) {
+            // This is not a reason-based bypass: only the unique loaded exact body may establish
+            // that the previous controller was abandoned while retaining its original Mind.
+            var abandoned = MinecraftLoadedBodyAdapter.observeAbandonedActive(server, resolvedSaved);
+            if (abandoned.outcome() == LoadedBodyResolver.Outcome.DEFER_KNOWN_BODY) {
+                ServerLevel savedLevel = recordedLevel(server, resolvedSaved);
+                Integer cx = MinecraftLoadedBodyAdapter.savedChunkCoordinate(resolvedSaved.location().x());
+                Integer cz = MinecraftLoadedBodyAdapter.savedChunkCoordinate(resolvedSaved.location().z());
+                if (savedLevel != null && cx != null && cz != null) try {
+                    // Availability hint only; the subsequent observer still proves live identity/ownership.
+                    savedLevel.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, true);
+                    abandoned = MinecraftLoadedBodyAdapter.observeAbandonedActive(server, resolvedSaved);
+                } catch (RuntimeException | Error failure) {
+                    logReconnectFailure("active-exact-chunk-load", player, "exception=" + failure.getClass().getSimpleName());
+                }
+            }
+            if (abandoned.outcome() != LoadedBodyResolver.Outcome.SAME_BODY_AVAILABLE
+                    || !(abandoned.candidate().entity() instanceof PlayerCharacterHarnessEntity abandonedBody)
+                    || !abandonedBody.isNoAi() || abandonedBody.hasInvalidSavedBinding()
+                    || abandonedBody.playerCharacterBinding() == null) {
+                logReconnectFailure("active-body-proof", player, "outcome=" + abandoned.outcome());
+                disconnect.accept("active.exact-body-binding-noai-outcome=" + abandoned.outcome()); return;
+            }
+            var actorPoint = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                    .currentActorPoint(abandonedBody.level(), abandonedBody);
+            if (actorPoint == null || !Double.isFinite(abandonedBody.getX())
+                    || !Double.isFinite(abandonedBody.getY()) || !Double.isFinite(abandonedBody.getZ())) {
+                disconnect.accept("active.actual-pose-frame-proof"); return;
+            }
+            try {
+                resolvedSaved = context.parkAbandonedActive(resolvedSaved,
+                        new SavedLifecycleProfile.Location(abandonedBody.getX(), abandonedBody.getY(), abandonedBody.getZ()),
+                        abandonedBody.level().dimension().location().toString(), Math.max(0L, System.currentTimeMillis()),
+                        new MobHarness(new MobHarnessId(abandonedBody.getUUID()), MobHarnessKind.CHARACTER),
+                        harness -> harness.id().value().equals(abandonedBody.getUUID())
+                                && harness.kind() == MobHarnessKind.CHARACTER).orElse(null);
+            } catch (IOException | RuntimeException failure) { resolvedSaved = null; }
+            if (resolvedSaved == null) { disconnect.accept("active.park-abandoned-cas-or-ownership"); return; }
+        }
+        final SavedLifecycleProfile saved = resolvedSaved;
+        if (hasPending(server, player.getUUID())) { disconnect.accept("pending.duplicate-owner"); return; }
         CreativeCarrierTransition.Attempt[] attempt = {null};
         Admission admission = admitCarrier(player.gameMode.getGameModeForPlayer(),
                 player.hasData(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get()),
@@ -275,8 +418,10 @@ public final class LifecycleExistingBodyReconnect {
                 if (offlineCreativeAdmission(server, player, context, saved)) {
                     player.sendSystemMessage(Component.literal("Creative inventory was not parked (" + reason
                             + "). Your items remain unchanged. Resolve the unsupported compartment, then retry /ms14dev return."));
-                } else disconnect.accept(DIRTY_CARRIER);
-            } else disconnect.accept(DIRTY_CARRIER);
+                } else reportDeferredAdmission(player, "carrier.park-readonly-denied", saved,
+                        offlineCreativeRefusalEligible(admission, attempt[0], observedMode, markerPresent));
+            } else reportDeferredAdmission(player, "carrier.admission-denied", saved,
+                    offlineCreativeRefusalEligible(admission, attempt[0], observedMode, markerPresent));
             return;
         }
         if (admission == Admission.RECOVERY) {
@@ -287,7 +432,8 @@ public final class LifecycleExistingBodyReconnect {
                     server instanceof net.minecraft.server.dedicated.DedicatedServer dedicated
                             && dedicated.getProperties().forceGameMode,
                     attempt[0] == null ? CreativeCarrierSnapshotProbe.reason(player) : attempt[0].reason());
-            disconnect.accept(RECOVERY); return;
+            disconnect.accept("carrier.park-transaction-recovery-required reason="
+                    + (attempt[0] == null ? CreativeCarrierSnapshotProbe.reason(player) : attempt[0].reason())); return;
         }
         boolean newlyParked = admission == Admission.NEWLY_PARKED;
         Consumer<String> beforeActivation = reason -> {
@@ -386,7 +532,9 @@ public final class LifecycleExistingBodyReconnect {
                                      SavedLifecycleProfile saved, Consumer<String> disconnect, boolean newlyParked) {
         if (!CarrierHandInventoryGate.allows(player) || !makeCarrierInert(player, newlyParked)
                 || !retryOwnerValid(server, player, context, saved)) {
-            disconnect.accept(RECOVERY);
+            disconnect.accept(!CarrierHandInventoryGate.allows(player) ? "carrier.inert-inventory-gate"
+                    : !retryOwnerValid(server, player, context, saved) ? "owner.current-primary-or-session-mismatch"
+                    : "carrier.spectator-transition");
             return;
         }
         putPending(server, player, context, saved, disconnect, newlyParked);
@@ -404,12 +552,16 @@ public final class LifecycleExistingBodyReconnect {
         if (observed.outcome() != LoadedBodyResolver.Outcome.SAME_BODY_AVAILABLE
                 || !(observed.candidate().entity() instanceof PlayerCharacterHarnessEntity body)
                 || !body.isNoAi()) {
-            disconnect.accept(observed.outcome() == LoadedBodyResolver.Outcome.DEFER_KNOWN_BODY ? DEFER : RECOVERY);
+            disconnect.accept("body.proof-or-noai outcome=" + observed.outcome()
+                    + " entity=" + (observed.candidate() == null ? "none" : observed.candidate().entity() == null
+                    ? "null" : observed.candidate().entity().getClass().getSimpleName())
+                    + " noAi=" + (observed.candidate() != null
+                    && observed.candidate().entity() instanceof PlayerCharacterHarnessEntity candidate && candidate.isNoAi()));
             return;
         }
         ServerLevel bodyLevel = recordedLevel(server, saved);
         if (bodyLevel == null || body.level() != bodyLevel || bodyLevel.getEntity(body.getUUID()) != body) {
-            disconnect.accept(RECOVERY);
+            disconnect.accept("body.recorded-level-or-exact-entity-mismatch");
             return;
         }
         var binding = body.playerCharacterBinding();
@@ -418,20 +570,20 @@ public final class LifecycleExistingBodyReconnect {
                 || !binding.profileKey().equals(saved.profileKey())
                 || !binding.mindId().equals(saved.mindId())
                 || !body.getUUID().equals(saved.bodyId()) || saved.offlineSinceMillis() == null) {
-            disconnect.accept(RECOVERY);
+            disconnect.accept("body.binding-or-offline-timestamp-mismatch");
             return;
         }
-        if (!CarrierHandInventoryGate.allows(player)) { disconnect.accept(DIRTY_CARRIER); return; }
+        if (!CarrierHandInventoryGate.allows(player)) { disconnect.accept("carrier.inventory-gate-before-inert"); return; }
         // Durable OFFLINE data is authoritative over a stale/missing entity timestamp after restart.
         body.setOfflineSinceMillis(saved.offlineSinceMillis());
         // Place the carrier using the saved dimension as authority before any durable activation.
         if (!makeCarrierInert(player, newlyParked)) {
-            disconnect.accept(RECOVERY);
+            disconnect.accept("carrier.spectator-transition-or-inventory-gate");
             return;
         }
         double x = saved.location().x(), y = saved.location().y(), z = saved.location().z();
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) {
-            disconnect.accept(RECOVERY);
+            disconnect.accept("carrier.teleport-level-or-connection-check");
             return;
         }
         player.teleportTo(bodyLevel, x, y, z, player.getYRot(), player.getXRot());
@@ -439,7 +591,7 @@ public final class LifecycleExistingBodyReconnect {
             disconnect.accept(RECOVERY);
             return;
         }
-        if (!CarrierHandInventoryGate.allows(player)) { disconnect.accept(DIRTY_CARRIER); return; }
+        if (!CarrierHandInventoryGate.allows(player)) { disconnect.accept("carrier.inventory-gate-before-cas"); return; }
         com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry.Snapshot active;
         try {
             active = context.reconnectOffline(saved,
@@ -449,7 +601,7 @@ public final class LifecycleExistingBodyReconnect {
         }
         if (active == null || active.state() != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry.LifecycleState.ACTIVE
                 || !active.active() || active.connectionGeneration() <= saved.connectionGeneration()) {
-            disconnect.accept(RECOVERY);
+            disconnect.accept("durable.offline-reconnect-cas-or-generation-check");
             return;
         }
         // The marker remains if the durable CAS failed or returned ambiguous evidence.
@@ -458,10 +610,28 @@ public final class LifecycleExistingBodyReconnect {
             var result = LifecycleCharacterSessionControl.beginPrepared(player, body, context.lifecycle(), active.connectionGeneration());
             if (result != LifecycleCharacterSessionControl.StartResult.PREPARED) throw new IllegalStateException("session was not prepared");
         } catch (RuntimeException | Error failure) {
+            logReconnectFailure("controller-start", player, "exception=" + failure.getClass().getSimpleName());
             context.lifecycle().suspendActiveSessionForRecovery(player.getUUID(),
                     new com.juicyslew.moonstation14.ms14.player_body_control.MindId(saved.mindId()),
                     new MobHarnessId(saved.bodyId()), active.connectionGeneration());
-            disconnect.accept("Character authority was durably reconnected but controller startup failed. Reconnect is deferred; contact an administrator.");
+            disconnect.accept("session.begin-prepared-failed");
+        }
+        clearWaiting(server, player);
+    }
+
+    private static void logReconnectFailure(String phase, ServerPlayer player, String detail) {
+        com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                "Saved-character reconnect failed phase={} account={} mode={} detail={}",
+                phase, player == null ? null : player.getUUID(),
+                player == null ? null : player.gameMode.getGameModeForPlayer(), detail);
+    }
+
+    private static void clearWaiting(MinecraftServer server, ServerPlayer player) {
+        Map<UUID, Waiting> waiting = WAITING.get(server);
+        if (waiting != null) {
+            Waiting current = waiting.get(player.getUUID());
+            if (current != null && current.player() == player) waiting.remove(player.getUUID());
+            if (waiting.isEmpty()) WAITING.remove(server);
         }
     }
 
@@ -475,9 +645,11 @@ public final class LifecycleExistingBodyReconnect {
                                BooleanSupplier clean, Supplier<CreativeCarrierTransition.Result> restore,
                                Runnable sync) {
         try {
-            boolean switched = switchMode.getAsBoolean();
+            switchMode.getAsBoolean();
             GameType mode = actual.get();
-            if (switched && mode == GameType.SPECTATOR && clean.getAsBoolean()) return true;
+            // setGameMode returns false when already in the requested mode. An exact, clean
+            // Spectator carrier is therefore a valid idempotent no-op, including safe retries.
+            if (mode == GameType.SPECTATOR && clean.getAsBoolean()) return true;
             if (newlyParked && mode == GameType.CREATIVE && clean.getAsBoolean()
                     && restore.get() == CreativeCarrierTransition.Result.RESTORED) sync.run();
         } catch (RuntimeException | Error failure) {
@@ -528,7 +700,7 @@ public final class LifecycleExistingBodyReconnect {
             boolean ownerValid = retryOwnerValid(server, pending.player, pending.context, pending.saved);
             if (!ownerValid) {
                 removePending(server, entry.getKey(), pending);
-                pending.disconnect.accept(RECOVERY);
+                pending.disconnect.accept("pending.owner-current-primary-or-session-mismatch");
                 continue;
             }
             LoadedBodyResolver.Resolution observed = MinecraftLoadedBodyAdapter.observe(server, pending.saved);
@@ -543,10 +715,10 @@ public final class LifecycleExistingBodyReconnect {
                         inboxAbsence);
                 if (decision == PendingDecision.FAIL_CLOSED) {
                     removePending(server, entry.getKey(), pending);
-                    pending.disconnect.accept(RECOVERY);
+                    pending.disconnect.accept("pending.visible-body-conflict outcome=" + observed.outcome());
                 } else if (decision == PendingDecision.TIMEOUT) {
                     removePending(server, entry.getKey(), pending);
-                    pending.disconnect.accept(DEFER);
+                    pending.disconnect.accept("pending.exact-body-not-available-after-ticks=" + pending.elapsedTicks);
                 } else {
                     entries.put(entry.getKey(), pending.tick());
                 }
@@ -560,6 +732,12 @@ public final class LifecycleExistingBodyReconnect {
         MinecraftServer server = player.level() instanceof ServerLevel level ? level.getServer() : player.getServer();
         if (server != null) {
             removePending(server, player.getUUID(), null);
+            Map<UUID, Waiting> waiting = WAITING.get(server);
+            if (waiting != null) {
+                Waiting current = waiting.get(player.getUUID());
+                if (current != null && current.player() == player) waiting.remove(player.getUUID());
+                if (waiting.isEmpty()) WAITING.remove(server);
+            }
             Map<UUID, ReturnWait> waits = RETURN_WAITS.get(server);
             if (waits != null) {
                 ReturnWait wait = waits.get(player.getUUID());
@@ -573,6 +751,7 @@ public final class LifecycleExistingBodyReconnect {
     public static void serverStopped(ServerStoppedEvent event) {
         PENDING.remove(event.getServer());
         RETURN_WAITS.remove(event.getServer());
+        WAITING.remove(event.getServer());
     }
 
     private static void removePending(MinecraftServer server, UUID account, Pending expected) {

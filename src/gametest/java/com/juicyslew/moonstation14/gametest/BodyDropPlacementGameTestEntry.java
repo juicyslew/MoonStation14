@@ -7,13 +7,19 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
-@GameTestTags({"hands"})
+@GameTestTags({"hands", "hands-drop-placement-regression"})
 public final class BodyDropPlacementGameTestEntry {
     private BodyDropPlacementGameTestEntry() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty")
     public static void bodyDropSpawnsForwardWithNaturalGravity(GameTestHelper helper) {
         BodyDropPlacementGameTests.bodyDropSpawnsForwardWithNaturalGravity(helper);
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
+    @GameTestTags("hands-release-kinematics")
+    public static void handDropInheritsBodyWorldVelocity(GameTestHelper helper) {
+        BodyDropPlacementGameTests.handDropInheritsBodyWorldVelocity(helper);
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty")
@@ -43,13 +49,13 @@ public final class BodyDropPlacementGameTestEntry {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty")
-    public static void crowdingFallsBackWithoutDenyingPlacement(GameTestHelper helper) {
-        BodyDropPlacementGameTests.crowdingFallsBackWithoutDenyingPlacement(helper);
+    public static void crowdingHonorsExactCarrierExclusion(GameTestHelper helper) {
+        BodyDropPlacementGameTests.crowdingHonorsExactCarrierExclusion(helper);
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty")
-    public static void crowdedCarrierDropUsesFallback(GameTestHelper helper) {
-        BodyDropPlacementGameTests.crowdedCarrierDropUsesFallback(helper);
+    public static void crowdedDropRetainsHandUntilUnrelatedBlockerClears(GameTestHelper helper) {
+        BodyDropPlacementGameTests.crowdedDropRetainsHandUntilUnrelatedBlockerClears(helper);
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty")

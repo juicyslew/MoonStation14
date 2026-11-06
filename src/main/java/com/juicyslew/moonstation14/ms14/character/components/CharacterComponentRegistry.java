@@ -27,6 +27,7 @@ public final class CharacterComponentRegistry {
     }
 
     private static final Map<String, Entry<?>> TYPES = Map.ofEntries(
+            Map.entry(AngularRecoveryComponent.TYPE, new Entry<>(AngularRecoveryComponent.class, AngularRecoveryComponent.CODEC)),
             Map.entry(DamageableComponent.TYPE, new Entry<>(DamageableComponent.class, DamageableComponent.CODEC)),
             Map.entry(HumanoidProfileComponent.TYPE, new Entry<>(HumanoidProfileComponent.class, HumanoidProfileComponent.CODEC)),
             Map.entry(BarotraumaComponent.TYPE, new Entry<>(BarotraumaComponent.class, BarotraumaComponent.CODEC)),

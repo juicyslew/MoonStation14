@@ -1,0 +1,40 @@
+{
+  "jars": [
+    {
+      "identifier": {
+        "group": "dev.ryanhcode.sable-companion",
+        "artifact": "sable-companion-common-1.21.1"
+      },
+      "version": {
+        "range": "[1.6.0,)",
+        "artifactVersion": "1.6.0"
+      },
+      "path": "META-INF/jarjar/sable-companion-common-1.21.1-1.6.0.jar",
+      "isObfuscated": false
+    },
+    {
+      "identifier": {
+        "group": "dev.ryanhcode.sable",
+        "artifact": "sable_rapier"
+      },
+      "version": {
+        "range": "[2.0.6,)",
+        "artifactVersion": "2.0.6"
+      },
+      "path": "META-INF/jarjar/dev.ryanhcode.sable.sable-sable_rapier-1.21.1-2.0.6.jar",
+      "isObfuscated": false
+    },
+    {
+      "identifier": {
+        "group": "foundry.veil",
+        "artifact": "veil-neoforge-1.21.1"
+      },
+      "version": {
+        "range": "[4.3.2,)",
+        "artifactVersion": "4.3.2"
+      },
+      "path": "META-INF/jarjar/veil-neoforge-1.21.1-4.3.2.jar",
+      "isObfuscated": false
+    }
+  ]
+}

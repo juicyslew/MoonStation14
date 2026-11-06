@@ -1,0 +1,33 @@
+{
+  "title": "Classify interrupted six-substep regressions with safe cargo witnesses",
+  "kind": "diagnostic",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/SableOwnedBodyCarryGameTests.java",
+  "acceptance_criteria": [
+    "After nullable cargo sampling prevents the known observer dereference, can the unchanged selected regression batch complete, and what named failures or missing-item/component witnesses occur?",
+    "For the strict cargo-departure floor-removal assertion, what exact selected coordinates, before/after states, write results and plot-liveness witnesses explain any failure at six substeps?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileGameTestJava"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r33-compile.log",
+      "rationale": "Compile current test-only cargo observer safety and bounded floor-write diagnostics before any native preparation. No production or engine changes. Reuse the existing CargoSupportMonitor nullable-content sampling policy; missing contents must still fail exact positive-cents/root assertions on the ordinary GameTest path, never be silently skipped, replaced or accepted. R32 already passed unchanged expected-substep/recorder JVM8/8; do not duplicate them. Author Python14/14 passed for the one new exact fresh R33 approval. Independent source review must precede submission.",
+      "covers": ["After nullable cargo sampling prevents the known observer dereference, can the unchanged selected regression batch complete, and what named failures or missing-item/component witnesses occur?", "For the strict cargo-departure floor-removal assertion, what exact selected coordinates, before/after states, write results and plot-liveness witnesses explain any failure at six substeps?"]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-substeps6-regression-r33", "--substeps", "6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r33-preparation.log",
+      "rationale": "Create this exact never-used isolated fixture once through the existing strict name/count allowlist, minimal Sable config6 only. Refuse any existing target. Preserve used R32 world/logs/crash report and every prior failure/receipt; no copy, delete or overwrite of owner state. R32 cost fixture was not prepared and remains unrun, but cost is deliberately not in this diagnostic plan.",
+      "covers": ["After nullable cargo sampling prevents the known observer dereference, can the unchanged selected regression batch complete, and what named failures or missing-item/component witnesses occur?", "For the strict cargo-departure floor-removal assertion, what exact selected coordinates, before/after states, write results and plot-liveness witnesses explain any failure at six substeps?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-owner-regression,shuttle-step-probe,shuttle-cargo-orientation,shuttle-passive-body,shuttle-active-input,shuttle-airlock-safety,shuttle-moving-reconnect,shuttle-falling-reconnect,shuttle-strong-impulse,shuttle-cabin-ventilation,shuttle-cargo-motion,shuttle-cargo-transition,shuttle-exterior-jump-reproduction,shuttle-cargo-query,shuttle-cargo-drop", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-substeps6-regression-r33", "-Pms14HullImpactExpectedSubsteps=6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r33-native.log",
+      "rationale": "Fresh diagnostic after concrete fixture safety/witness changes, not an automatic retry of R32. Expected filtered51/893 from unchanged tags; report actual selection and completed/pass/fail/unfinished separately. Finish the started batch, preserve every genuine failure, and distinguish normal test assertions from another server crash. R32 stopped with25pass/1fail/25unfinished, so this completes classification, not a carried-forward green result. Require existing cargo-drop/yaw readiness SDKactual=expected6; a single marker is world-setting evidence, not proof every fixture has an individual guard. Capture JugOwnImpactProbe immutable item type/count/empty/removed/reagent-present/water-cents/root evidence and native move sequence/request/own delta, plus precise floor-removal before/after/return/liveness witness. Keep the exact four selected floor cells, stimulus and strict successful-write requirement; no already-air-as-success or coordinate/premise repair before evidence. Missing contents must fail on the ordinary test path rather than crash a tick listener. Existing own-travel, carrier, velocity continuity, accepted exterior wall, .3 own-walk pry, UNKNOWN/full-power rejection and identity assertions remain unchanged. Record all named outcomes and raw aggregate; record dimension saves/orderly stop or crash evidence separately. Null parser counts do not erase raw terminal evidence, and tree_cleanup=not_needed is not clean-shutdown proof. No repeated R31 impacts, baseline-two-only unload fixtures, cost/full-suite run, client/GUI/package/install, owner-state changes, physics hooks/native edits, cap/gravity/rotation freeze/teleport, automatic rerun or failed-world reuse. This cannot attribute either R32 failure to six, diagnose older shutdown hangs, establish cost/capacity or grant readiness/production adoption/M1 acceptance/M2-M6 advancement. Return bound diagnostic findings even on failure.",
+      "covers": ["After nullable cargo sampling prevents the known observer dereference, can the unchanged selected regression batch complete, and what named failures or missing-item/component witnesses occur?", "For the strict cargo-departure floor-removal assertion, what exact selected coordinates, before/after states, write results and plot-liveness witnesses explain any failure at six substeps?"]
+    }
+  ]
+}

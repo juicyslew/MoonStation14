@@ -33,6 +33,57 @@ import java.util.UUID;
 public final class OwnedCorpsePhysicsGameTests {
     private OwnedCorpsePhysicsGameTests() { }
 
+    @GameTestTags("shuttle-owner-regression")
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 40)
+    public static void criticalCorpsePhysicsConsumesSharedTickBudget(GameTestHelper helper) {
+        BlockPos spawn = helper.absolutePos(new BlockPos(3, 8, 3));
+        var tickets = FixtureChunkTickets.around(helper, spawn, spawn.below(8), 1);
+        PlayerCharacterHarnessEntity body = PlayerCharacterHarnessRegistration.getEntityType().create(helper.getLevel());
+        require(body != null, "registered harness is created");
+        body.setPos(spawn.getX() + .5, spawn.getY(), spawn.getZ() + .5);
+        body.setNoAi(true);
+        body.setNoGravity(false);
+        require(helper.getLevel().addFreshEntity(body), "harness joins world");
+        require(PlayerCharacterHarnessBinder.bind(body, UUID.randomUUID(), "shared-corpse-budget",
+                UUID.randomUUID(), ModCharacters.HUMAN_ID), "harness binds as human");
+        bootstrapHands(body);
+        ((MindControlledMob) (Object) body).moonstation14$setMovementOwned(true);
+        require(DamageSystem.applyHealthChange(body, Map.of(DamageKeys.BLUNT, 100f), 1f, true)
+                == DamageSystem.Result.APPLIED && MobStateSystem.isCritical(body), "typed damage enters Critical");
+        FixtureChunkTickets.awaitEntityTicking(helper, tickets, 8,
+                () -> tickets.entityTicking(body.blockPosition()) && body.tickCount > 0,
+                "Critical body begins entity ticking", () -> {
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
+            long tick = helper.getLevel().getServer().getTickCount();
+            var marker = (MindControlledMob) (Object) body;
+            require(marker.moonstation14$physicalStepConsumed(helper.getLevel(), tick),
+                    "ordinary medical-body tick consumes current server tick budget");
+            var position = body.position();
+            var velocity = body.getDeltaMovement();
+            var result = new com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep()
+                    .step(body, 0, 0, false, false, body.getYRot());
+            require(result.isPresent() && body.position().equals(position) && body.getDeltaMovement().equals(velocity),
+                    "grounded consumer reports current state without moving corpse twice");
+            double firstTickY = body.getY();
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
+                long nextTick = helper.getLevel().getServer().getTickCount();
+                require(nextTick > tick && marker.moonstation14$physicalStepConsumed(helper.getLevel(), nextTick),
+                        "next real entity tick receives a fresh physical-step budget");
+                require(body.getY() < firstTickY, "next native Critical tick advances gravity again");
+                var nextPosition = body.position();
+                var nextVelocity = body.getDeltaMovement();
+                var nextResult = new com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep()
+                        .step(body, 0, 0, false, false, body.getYRot());
+                require(nextResult.isPresent() && body.position().equals(nextPosition)
+                                && body.getDeltaMovement().equals(nextVelocity),
+                        "common grounded retry on next tick also leaves native result unchanged");
+                tickets.close();
+                helper.succeed();
+            });
+        });
+        }, body.blockPosition());
+    }
+
     @GameTest(templateNamespace = "moonstation14", template = "power_receiver_tall_clear", timeoutTicks = 80)
     public static void ownedMedicalCorpseFallsAndSettlesWithNativeTicks(GameTestHelper helper) {
         BlockPos floor = helper.absolutePos(new BlockPos(1, 0, 1));

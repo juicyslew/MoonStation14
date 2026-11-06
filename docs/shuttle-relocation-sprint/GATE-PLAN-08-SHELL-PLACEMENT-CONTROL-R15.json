@@ -1,0 +1,25 @@
+{
+  "title": "Bare-shell direct versus stock-assembly placement control",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": [
+    "Under unchanged stock Sable and two substeps, does the direct bare shell reproduce penetration, and with matching physical inputs does the stock-assembled shell differ?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*HullPhysicalSnapshotTest", "--tests", "*HullTerrainGeometryTest", "--tests", "*HullImpactTraceStateTest", "--tests", "*HullStateMismatchEvidenceTest", "--tests", "*HullImpactSubstepsExpectationTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-shell-placement-r15-jvm.log",
+      "rationale": "Preparation for lead-owned native causal experiment, not readiness or standalone cheap checks. Compile all source sets and run actual immutable snapshot/SHA256 guards plus existing shared impact geometry/latch/state/substep regressions. One JUnit stage, report actual counts, stop on failure. R14 historical21JVMpass does not carry forward. Source changes replace permanently unmatched furnished-stock test with two canonical buildHull shell cases sharing the original impact harness; original furnished20/40/80 criteria/readiness/coords remain. Preserve prior receipts. Fresh workflow snapshot binds all current paths; scope-r11 is historical only. No author compile retry after prior shell denial.",
+      "covers": ["Under unchanged stock Sable and two substeps, does the direct bare shell reproduce penetration, and with matching physical inputs does the stock-assembled shell differ?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-hull-shell-placement-control", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-shell-placement-r15", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-shell-placement-r15-native.log",
+      "rationale": "Expected2/891: 80m/s direct shell x4200 and stock-public-assembly shell x4400 z3600. Reuse production buildHull for both; shell is NOT original477cell furnished cabin. Do not rerun known furnished cases or full suite. Finish started batch despite genuine required failures; never expected-failure-pass. Inspect raw aggregate/save/stop even absent all-passed parser marker. Require direct-shell penetration reproduction BEFORE inferring anything about original cabin symptom. If direct shell passes or any setup/input match fails, control is inconclusive for original failure. Compare actual canonical physical SHA256 snapshots/fullstate-shape equality, nonair cells/hullparts, mass/COM, pivot/logicalpose/projected hull geometry/orientation/rest and admitted velocities before trajectory interpretation. Raw COM/pivot live in different storage coordinates; compare physical mappings, not raw storage-coordinate equality. Stock pre/post full snapshot guard unchanged; no forcecopy expectedstates. Both shells have no machinery/gas owners and skip powered readiness; full-cabin baseline unchanged. Public stock assembly alone; no Sable source/binary/native edits, new hooks/mixins/interception/privateaccess, config/ownerstate changes, corrective post-assembly teleport, pause, gravity change, rotation freeze or cap. Loaded MS14 remains, not a Sable-only runtime. Matched divergent outcome implicates creation/placement seam; matching failures only show custom fixture placement is not necessary for that shell symptom, NOT proof of Sable bug. Report selected/completed/pass/fail, effectiveSDK2 and actual cleanup/save/stop. R14completed4/890 onepass3fail normally; stock furnished case SETUP_MISMATCH due external concealedgas ownership not transferred, not neighbor-notification absence. No owner migration for this control. Return bound diagnostic findings even on failure; no readiness/report/finalization or M1 acceptance/M2-M6 advancement.",
+      "covers": ["Under unchanged stock Sable and two substeps, does the direct bare shell reproduce penetration, and with matching physical inputs does the stock-assembled shell differ?"]
+    }
+  ]
+}

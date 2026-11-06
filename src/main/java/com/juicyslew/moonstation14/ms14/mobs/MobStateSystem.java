@@ -35,6 +35,7 @@ public final class MobStateSystem {
         if (!hasLedger && saved == null && (body.getHealth() <= 0 || body.isDeadOrDying())) {
             body.setData(ModDataAttachments.MOB_STATE.get(), new MobStateAttachment(new MobStateData(MobStateComponent.State.DEAD, 0)));
             logTransition(body, MobStateComponent.State.ALIVE, MobStateComponent.State.DEAD, 0);
+            MedicalMovementTrace.transition(body, MobStateComponent.State.ALIVE, MobStateComponent.State.DEAD);
             return true;
         }
         // Import old vanilla deficit while its original maximum is still intact.
@@ -67,6 +68,7 @@ public final class MobStateSystem {
             resetNativeDeath(body);
         body.setData(ModDataAttachments.MOB_STATE.get(), new MobStateAttachment(new MobStateData(next.value(), next.revision())));
         logTransition(body, previous.state(), next.value(), total);
+        MedicalMovementTrace.transition(body, previous.state(), next.value());
         NeoForge.EVENT_BUS.post(new MobStateChangedEvent(body, previous.state(), next.value()));
     }
 
@@ -99,6 +101,7 @@ public final class MobStateSystem {
         DamageData damage = body.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
         double total = damage == null ? 0 : damage.getMap().values().stream().mapToDouble(Float::doubleValue).sum();
         logTransition(body, previous.state(), next.state(), total);
+        MedicalMovementTrace.transition(body, previous.state(), next.state());
         NeoForge.EVENT_BUS.post(new MobStateChangedEvent(body, previous.state(), next.state()));
     }
 
@@ -122,6 +125,7 @@ public final class MobStateSystem {
         if (body instanceof com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity characterBody
                 && !characterBody.clearConfirmedDeathForRevival()) return false;
         logTransition(body, MobStateComponent.State.DEAD, transition.state().value(), total);
+        MedicalMovementTrace.transition(body, MobStateComponent.State.DEAD, transition.state().value());
         NeoForge.EVENT_BUS.post(new MobStateChangedEvent(body, MobStateComponent.State.DEAD, transition.state().value()));
         return true;
     }

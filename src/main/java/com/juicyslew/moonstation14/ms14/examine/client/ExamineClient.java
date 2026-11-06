@@ -208,6 +208,10 @@ public final class ExamineClient {
 
     public static void refreshSelection(boolean updatePointer) {
         Minecraft mc = Minecraft.getInstance();
+        refreshSelection(updatePointer, mc.getTimer().getGameTimeDeltaPartialTick(false));
+    }
+    private static void refreshSelection(boolean updatePointer, float partialTick) {
+        Minecraft mc = Minecraft.getInstance();
         Authority actor = authority();
         if (mc.level == null || actor == null) { clear(); return; }
         if (mc.screen != null && !(mc.screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen)) {
@@ -232,7 +236,7 @@ public final class ExamineClient {
         ignored.add(actor.body().getId()); ignored.add(mc.player.getId());
         Entity cameraEntity = mc.getCameraEntity(); if (cameraEntity != null) ignored.add(cameraEntity.getId());
         List<ExamineSelector.Candidate> next = ExamineSelector.select(mc.level, origin, direction,
-                ExamineSelector.MAX_VISIBLE_RANGE, ignored).stream().filter(ExamineClient::candidateEligible).toList();
+                ExamineSelector.MAX_VISIBLE_RANGE, ignored, partialTick).stream().filter(ExamineClient::candidateEligible).toList();
         // Scene fallback is deliberately considered only after the eligible world query has no result.
         if (ExamineClientPolicy.sceneFallbackAllowed(next)) {
             var catalog = com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.catalog(mc.level);
@@ -427,7 +431,7 @@ public final class ExamineClient {
     }
 
     public static void renderGui(RenderGuiEvent.Post event) {
-        refreshSelection(true);
+        refreshSelection(true, event.getPartialTick().getGameTimeDeltaPartialTick(false));
         if (Minecraft.getInstance().options.hideGui) return;
         Minecraft mc = Minecraft.getInstance();
         var g = event.getGuiGraphics();
@@ -518,7 +522,7 @@ public final class ExamineClient {
     public static void renderWorld(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
         if (event.getProjectionMatrix() != null) frameProjection = new org.joml.Matrix4f(event.getProjectionMatrix());
-        refreshSelection(false);
+        refreshSelection(false, event.getPartialTick().getGameTimeDeltaPartialTick(false));
         ExamineTarget outlineTarget = !popupDismissed ? POPUP.target() : null;
         ExamineTarget previewTarget = selected != null && intent ? selected.target() : null;
         var mc = Minecraft.getInstance();
@@ -529,8 +533,48 @@ public final class ExamineClient {
     }
     private static void drawOutline(RenderLevelStageEvent event, Minecraft mc, ExamineTarget target, float red, float green, float blue) {
         if (target.kind() == ExamineTarget.Kind.SCENE) return; // Sky silhouettes have no world-space outline.
+        if (target.frameId() != null) {
+            if (mc.level == null) return;
+            float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
+            var local = com.juicyslew.moonstation14.ms14.examine.FrameExamineGeometry.localBounds(mc.level, target);
+            var nativePose = com.juicyslew.moonstation14.ms14.examine.FrameExamineGeometry.renderPose(mc.level, target, partialTick);
+            if (local == null || nativePose == null) return;
+            var outline = com.juicyslew.moonstation14.ms14.examine.FrameExamineGeometry.cameraRelativeOutline(
+                    local.inflate(0.01), nativePose, event.getCamera().getPosition());
+            var buffers = mc.renderBuffers().bufferSource();
+            var lines = buffers.getBuffer(net.minecraft.client.renderer.RenderType.lines());
+            PoseStack pose = event.getPoseStack();
+            pose.pushPose();
+            pose.last().pose().mul(outline.matrix());
+            net.minecraft.client.renderer.LevelRenderer.renderLineBox(pose, lines, outline.localBounds(), red, green, blue, 0.9f);
+            pose.popPose();
+            buffers.endBatch(net.minecraft.client.renderer.RenderType.lines());
+            return;
+        }
         net.minecraft.world.phys.AABB outlineBox = targetBounds(target);
         if (outlineBox == null) return;
+        if (target.kind() == ExamineTarget.Kind.ENTITY) {
+            Entity entity = mc.level.getEntity(target.entityId());
+            if (entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose) {
+                if (entity.isRemoved() || !entity.getUUID().equals(target.entityUuid())) return;
+                float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
+                var geometry = com.juicyslew.moonstation14.ms14.loose_objects.LooseItemQueryGeometry.forEntity(loose, partialTick);
+                if (geometry == null) return;
+                Vec3 delta = entity.getPosition(partialTick).subtract(entity.position());
+                var q = geometry.orientation();
+                var matrix = new org.joml.Matrix4f().translation(
+                        (float)(geometry.pivot().x + delta.x - event.getCamera().getPosition().x),
+                        (float)(geometry.pivot().y + delta.y - event.getCamera().getPosition().y),
+                        (float)(geometry.pivot().z + delta.z - event.getCamera().getPosition().z))
+                        .rotate(new org.joml.Quaternionf((float)q.x, (float)q.y, (float)q.z, (float)q.w));
+                var buffers = mc.renderBuffers().bufferSource();
+                var lines = buffers.getBuffer(net.minecraft.client.renderer.RenderType.lines());
+                PoseStack pose = event.getPoseStack(); pose.pushPose(); pose.last().pose().mul(matrix);
+                net.minecraft.client.renderer.LevelRenderer.renderLineBox(pose, lines, geometry.localBounds().inflate(0.01), red, green, blue, 0.9f);
+                pose.popPose(); buffers.endBatch(net.minecraft.client.renderer.RenderType.lines());
+                return;
+            }
+        }
         if (target.kind() == ExamineTarget.Kind.ENTITY) {
             Entity entity = mc.level.getEntity(target.entityId());
             if (entity == null || entity.isRemoved() || !entity.getUUID().equals(target.entityUuid())) return;
@@ -552,11 +596,22 @@ public final class ExamineClient {
         Authority actor = authority();
         var bounds = targetBounds(target);
         if (actor == null || bounds == null) return new Vec3(Double.MAX_VALUE, 0, 0);
+        if (target.kind() == ExamineTarget.Kind.ENTITY && mc.level != null) {
+            var entity = mc.level.getEntity(target.entityId());
+            if (entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose) {
+                float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
+                var geometry = com.juicyslew.moonstation14.ms14.loose_objects.LooseItemQueryGeometry.forEntity(loose, partial);
+                if (geometry == null) return new Vec3(Double.MAX_VALUE, 0, 0);
+                return geometry.translated(entity.getPosition(partial).subtract(entity.position()))
+                        .nearestPoint(actor.body().getEyePosition());
+            }
+        }
         return ExamineTargetResolver.closestPoint(bounds, actor.body().getEyePosition());
     }
     private static net.minecraft.world.phys.AABB targetBounds(ExamineTarget target) {
         var mc = Minecraft.getInstance();
-        return com.juicyslew.moonstation14.ms14.examine.ExamineWorldSelector.currentBounds(mc.level, target);
+        return com.juicyslew.moonstation14.ms14.examine.ExamineWorldSelector.currentBounds(mc.level, target,
+                mc.getTimer().getGameTimeDeltaPartialTick(false));
     }
     private static ExamineControllerIdentity.Binding captureIdentity(ExamineTarget target) {
         Minecraft mc = Minecraft.getInstance();
@@ -569,6 +624,17 @@ public final class ExamineClient {
                     ? new ExamineControllerIdentity.Binding(target, null, null, null) : null;
         }
         var pos = target.blockPos();
+        if (target.frameId() != null) {
+            if (mc.level == null) return null;
+            var sub = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(mc.level).getSubLevel(target.frameId());
+            var state = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.knownClientBlock(mc.level, sub, pos);
+            if (state == null || state.isAir()) return null;
+            var blockId = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock());
+            var blockEntity = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                    .knownClientBlockEntity(mc.level, sub, pos);
+            return new ExamineControllerIdentity.Binding(target, blockEntity, blockId,
+                    blockEntity == null ? state.toString() : null);
+        }
         if (mc.level == null || !mc.level.hasChunkAt(pos)) return null;
         var state = mc.level.getBlockState(pos);
         if (state.isAir()) return null;

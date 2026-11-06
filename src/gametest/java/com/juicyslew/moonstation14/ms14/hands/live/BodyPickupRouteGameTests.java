@@ -33,14 +33,16 @@ public final class BodyPickupRouteGameTests {
         ItemEntity target = item(level, origin, 3);
         ItemEntity nearer = item(level, origin, 2);
         nearer.setPickUpDelay(30);
-        require(denied(body, target, before), "delayed first item blocks farther item");
+        require(denied(body, nearer, before), "nominated delayed item denied");
         nearer.setNoPickUpDelay();
         nearer.setTarget(java.util.UUID.randomUUID());
-        require(denied(body, target, before), "reserved first item blocks farther item");
-        nearer.discard();
+        require(denied(body, nearer, before), "nominated reserved item denied");
+        nearer.setTarget(null);
         body.setYRot(90);
         body.setYHeadRot(90);
-        require(denied(body, target, before), "off-axis target denied");
+        require(BodyItemTargetProbe.probeNominatedPickup(level, body, target.getUUID(), BodyItemTargetProbe.MAX_REACH) != null,
+                "nominated nearby target remains eligible despite look direction");
+        nearer.discard();
         body.setYRot(-90);
         body.setYHeadRot(-90);
         BlockPos barrier = origin.offset(1, 1, 0);
@@ -59,6 +61,11 @@ public final class BodyPickupRouteGameTests {
         require(BodyHandItemTransfer.pickupOwned(body, target.getUUID(), "left", before.revision(), () -> false)
                 == BodyHandItemTransfer.Result.DENIED, "invalid authority denied");
         var canonicalHit = BodyItemTargetProbe.probeSelected(level, body, target.getUUID(), 5);
+        body.setYRot(90);
+        body.setYHeadRot(90);
+        var eyeToTarget = target.position().subtract(body.getEyePosition());
+        require(eyeToTarget.dot(body.getLookAngle()) < 0,
+                "successful vanilla pickup target is behind the body look direction");
         long startGameTime = level.getGameTime();
         int startTickCount = body.tickCount;
         var pickup = BodyHandItemTransfer.pickupOwned(body, target.getUUID(), "left", before.revision(), () -> true);
@@ -91,7 +98,7 @@ public final class BodyPickupRouteGameTests {
         helper.succeed();
     }
 
-    public static void nearestOverridesHintAndStaleState(GameTestHelper helper) {
+    public static void nominatedTargetAndStaleState(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
         Villager body = fixtureBody(level, origin);
@@ -102,13 +109,14 @@ public final class BodyPickupRouteGameTests {
         require(!near.isRemoved() && !far.isRemoved() && near.getItem().getCount() == 3
                 && far.getItem().getCount() == 3, "stale request retains both items");
         require(BodyHandItemTransfer.pickupOwned(body, far.getUUID(), "left", before.revision(), () -> true)
-                == BodyHandItemTransfer.Result.SUCCESS, "server chooses nearer source despite farther hint");
+                == BodyHandItemTransfer.Result.SUCCESS, "server transfers exact nominated target after current validation");
         LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        require(near.isRemoved() && !far.isRemoved() && far.getItem().getCount() == 3
+        require(!near.isRemoved() && far.isRemoved() && near.getItem().getCount() == 3
                 && after != null && after.stackCopy("left").orElseThrow().getCount() == 3,
-                "only nearest source transferred");
-        require(BodyHandItemTransfer.pickupOwned(body, far.getUUID(), "left", after.revision(), () -> true)
-                == BodyHandItemTransfer.Result.DENIED && !far.isRemoved(), "occupied hand retains farther item");
+                "only explicitly nominated source transferred");
+        require(BodyHandItemTransfer.pickupOwned(body, near.getUUID(), "left", after.revision(), () -> true)
+                == BodyHandItemTransfer.Result.DENIED && !near.isRemoved() && far.isRemoved()
+                && near.getItem().getCount() == 3, "occupied hand retains nominated live item");
         far.discard();
         body.discard();
         helper.succeed();
@@ -128,11 +136,11 @@ public final class BodyPickupRouteGameTests {
         require(level.addFreshEntity(lowFirst ? low : high), "first spawned");
         require(level.addFreshEntity(lowFirst ? high : low), "second spawned");
         require(BodyHandItemTransfer.pickupOwned(body, high.getUUID(), "left", before.revision(), () -> true)
-                == BodyHandItemTransfer.Result.SUCCESS, "exact tie cannot deny pickup despite higher UUID hint");
-        require(low.isRemoved() && !high.isRemoved() && high.getItem().is(Items.EMERALD)
+                == BodyHandItemTransfer.Result.SUCCESS, "explicit higher UUID target remains authoritative selection");
+        require(!low.isRemoved() && high.isRemoved() && low.getItem().is(Items.DIAMOND)
                 && body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())
-                        .stackCopy("left").orElseThrow().is(Items.DIAMOND), "lower UUID owns hand, other remains world-owned");
-        high.discard();
+                        .stackCopy("left").orElseThrow().is(Items.EMERALD), "nominated UUID stack transferred; other remains world-owned");
+        low.discard();
         body.discard();
         helper.succeed();
     }

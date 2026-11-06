@@ -28,6 +28,14 @@ public final class MinecraftLoadedBodyAdapter {
                 id -> find(server, profile, id), MinecraftLoadedBodyAdapter::eligible);
     }
 
+    /** Loaded-only exact ownership observation for the narrowly authorized ACTIVE recovery route. */
+    public static LoadedBodyResolver.Resolution observeAbandonedActive(MinecraftServer server,
+                                                                        SavedLifecycleProfile profile) {
+        if (server == null || profile == null || !server.isSameThread()) return recovery();
+        return LoadedBodyResolver.resolveAbandonedActive(profile,
+                id -> find(server, profile, id), MinecraftLoadedBodyAdapter::eligible);
+    }
+
     static LoadedBodyResolver.Resolution observe(SavedLifecycleProfile profile, boolean mainThread,
                                                 LoadedBodyResolver.ReadOnlyLookup lookup,
                                                 java.util.function.Predicate<LoadedBodyResolver.Candidate> eligible) {

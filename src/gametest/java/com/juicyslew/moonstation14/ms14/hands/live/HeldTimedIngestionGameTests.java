@@ -25,6 +25,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -59,12 +61,42 @@ public final class HeldTimedIngestionGameTests {
         Fixture f = fixtureWithItem(h, new ItemStack(ModItems.BEAKER.get()), 6);
         require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 90, () -> true).name().equals("OK"),
                 "resolved drink policy starts the existing timed ingestion operation");
+        TimedOperation originalOperation = state(f).operations().stream().filter(op -> op.kind().equals("ingestion")
+                && op.sourceKey().equals("held:" + f.token)).findFirst().orElseThrow();
+        require(originalOperation.durationTicks() == 20, "resolved beaker operation retains its 20-tick duration");
+        AtomicReference<ServingCommit> committedServing = new AtomicReference<>();
+        java.util.function.Consumer<ServerTickEvent.Post> observer = event -> {
+            if (event.getServer() != f.body.getServer() || committedServing.get() != null) return;
+            TimedOperationState operations = state(f);
+            if (operations == null || operations.operations().stream().noneMatch(op -> op.id() == originalOperation.id()
+                    && op.kind().equals("ingestion") && op.sourceKey().equals("held:" + f.token))) return;
+            long sourceAtCommit = source(f);
+            if (sourceAtCommit != 100) return;
+            var stomachAtCommit = com.juicyslew.moonstation14.ms14.MS14Provider
+                    .get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap();
+            committedServing.compareAndSet(null, new ServingCommit(sourceAtCommit,
+                    ReagentUnits.fromFloat(stomachAtCommit.getOrDefault(WATER, 0f)),
+                    event.getServer().overworld().getGameTime(), originalOperation.id(), originalOperation.startTick()));
+        };
+        h.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener() {
+            @Override public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo ignored) { }
+            @Override public void testPassed(net.minecraft.gametest.framework.GameTestInfo ignored, net.minecraft.gametest.framework.GameTestRunner runner) { NeoForge.EVENT_BUS.unregister(observer); }
+            @Override public void testFailed(net.minecraft.gametest.framework.GameTestInfo ignored, net.minecraft.gametest.framework.GameTestRunner runner) { NeoForge.EVENT_BUS.unregister(observer); }
+            @Override public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo oldTest, net.minecraft.gametest.framework.GameTestInfo newTest, net.minecraft.gametest.framework.GameTestRunner runner) { NeoForge.EVENT_BUS.unregister(observer); }
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, observer);
         h.runAfterDelay(10, () -> require(source(f) == 600, "beaker remains unchanged before its 20-tick deadline"));
         h.runAfterDelay(23, () -> {
+            NeoForge.EVENT_BUS.unregister(observer);
+            ServingCommit sample = committedServing.get();
+            require(sample != null, "serving observed at the timed-operation commit boundary");
+            require(sample.operationId() == originalOperation.id(), "commit sample belongs to original ingestion operation");
+            require(sample.gameTime() - sample.startTick() == 20,
+                    "commit sample is exactly at the original 20-tick deadline: start=" + sample.startTick() + ", commit=" + sample.gameTime());
+            require(sample.sourceCents() == 100 && sample.stomachCents() == 500,
+                    "normal server-post commit transfers exactly 5u before later metabolism; source="
+                            + sample.sourceCents() + ", stomach=" + sample.stomachCents() + ", gameTime=" + sample.gameTime());
             require(source(f) == 100, "resolved 5u serving leaves 1u from 6u source");
-            require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider
-                    .get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(WATER, 0f)) == 500,
-                    "exact serving reaches the actual body stomach");
             h.succeed();
         });
     }
@@ -90,7 +122,9 @@ public final class HeldTimedIngestionGameTests {
         Fixture f = fixture(h, 10); start(f, 3, () -> true);
         ItemStack droppedStack = hands(f).stackCopy("left").orElseThrow().copy();
         AtomicReference<java.util.UUID> droppedId = new AtomicReference<>();
-        require(BodyLooseThrow.throwOwned(f.body, "left", f.token, hands(f).revision(), () -> true, droppedId::set).name().equals("SUCCESS"), "whole held item dropped through owner transfer seam");
+        var throwTarget = com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget.world(
+                f.body.getEyePosition().add(f.body.getLookAngle().scale(4)));
+        require(BodyLooseThrow.throwOwned(f.body, "left", f.token, hands(f).revision(), throwTarget, () -> true, droppedId::set).name().equals("SUCCESS"), "whole held item dropped through owner transfer seam");
         require(hands(f).stackCopy("left").isEmpty(), "owner hand emptied by throw");
         h.runAfterDelay(2, () -> {
             var dropped = h.getLevel().getEntity(droppedId.get());
@@ -138,5 +172,6 @@ public final class HeldTimedIngestionGameTests {
     private static boolean active(Fixture f) { return state(f).operations().stream().anyMatch(o -> o.phase()==TimedOperation.Phase.ACTIVE); }
     private static boolean cancelled(Fixture f) { return state(f).operations().stream().anyMatch(o -> o.phase()==TimedOperation.Phase.CANCELLED); }
     private record Fixture(Villager body, String token, long revision) { }
+    private record ServingCommit(long sourceCents, long stomachCents, long gameTime, long operationId, long startTick) { }
     private static void require(boolean b,String m) { if(!b) throw new GameTestAssertException(m); }
 }

@@ -1,0 +1,16 @@
+{
+  "title": "Validate authentic disconnected-receiver own-movement pry premise",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": ["Does the own-walk fixture prove movement cancellation with both power wires genuinely cut, while the unchanged APC-powered cases and meter invalidation/refresh contract still pass?"],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-pry-power-diagnostic", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-pry-premise-r21"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-pry-premise-r21-native.log",
+      "rationale": "Expected4/891: same three MovingAirlockPry cases plus existing AirlockCore inheritedThirtyFiveWattOverrideInvalidatesAndRefreshesLiveMeter method via added tag. Runtime/main Java unchanged, focused R18JVM21 valid; normal native Gradle launch compiles changed fixture sources, no duplicate JVM/fullsuite. R20 generation3878→3879 correctly rejected old cached meter; safe transitional UNKNOWN is documented, not proved production defect. Own-walk premise now uses guarded public rootUUID/current-revision applyWire POWER_ONE CUT then POWER_TWO CUT, resolved prototype and live domain semantics, not direct field/receiver-disable injection/fake meter or copied wire UI. Assert both cut/receiver disabled and knownzero before pry and at terminal, normal cancelled phase/duration, ownlocaldelta>0.3, sameauthority/bodyMind/hands/tool/frame/LOS/rootrevision and closeddoor. Baseline revision must be after wire cuts. Other carry/freefall cases retain APC-breaker-zero setup. Core invalidation/refresh asserts old meter fails closed and refreshes normally; it is NOT a dedicated active-pry-UNKNOWN regression. R20 remains actual safe cancellation evidence, not a production fix. Report raw exact selection/completion/pass/fail, admission/terminal diag receiver=disabled for walk, knownzero APC observations for others, core refresh result and actual saves/stop. Finish started batch despite genuine failure; no expected-failure-pass. Fresh default2config only, no ten-substep setup/adoption/ownerconfig edits. No production power/solver/cadence/billing/UNKNOWN/0.3rule change, retry/delay to hide invalidity, privateaccess, Sable internals/source/binary/native/newhooks/interception, ownerworld/process/installation changes, cap/freeze/gravity/recoveryteleport. Fixture premise changed honestly: does not prove original APC-only own-walk scenario, actor wire-UI path, generation mutation caller or production power fix. No fullrerun/readiness/report/finalization/M1 acceptance/M2-M6 advancement; preserve R20 sevenfailures incl genuine rotatingdeparture and cost-plan missing expected-substeps property, not silently fixed here.",
+      "covers": ["Does the own-walk fixture prove movement cancellation with both power wires genuinely cut, while the unchanged APC-powered cases and meter invalidation/refresh contract still pass?"]
+    }
+  ]
+}

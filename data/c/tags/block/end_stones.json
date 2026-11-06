@@ -1,9 +1,6 @@
 {
+  "replace": false,
   "values": [
-    "minecraft:end_stone",
-    {
-      "id": "#forge:end_stones",
-      "required": false
-    }
+    "minecraft:end_stone"
   ]
 }

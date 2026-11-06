@@ -1,0 +1,16 @@
+{
+  "title": "Fresh combined offline body and cargo persistence diagnostic",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/OFFLINE-BODY-CHUNK-R26.md",
+  "acceptance_criteria": ["Does ordinary OFFLINE body/cargo/ship chunk unload and normal reconnect preserve original body UUID, Mind, hands, held token/stack and cargo state on reconstructed objects, while the shared cargo-only case still passes?"],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-offline-body-chunk-persistence,shuttle-cargo-chunk-persistence", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-offline-unload-r26"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-offline-unload-r26-native.log",
+      "rationale": "Owner-authorized fresh candidate/fixture after interrupted R25; implementation and diagnostic question unchanged. Expected filtered2/893: offlineBodyAndCargoSurviveOrdinaryChunkReload and ordinaryCargoSurvivesNormalWorldChunkUnloadReload. Shared-flow regression remains necessary; R24 validates its earlier source, not the optional offline-body path. Focused compile and independent source review passed; no production/JVM behavior changed. Fixture effective substeps2. Require normal player logout and saved OFFLINE body/Mind identity; actual old body and all cargo UNLOADED_TO_CHUNK, UUID absence and old ship absence with below-FULL world chunks during quiet observations; separate world and global plot-storage domains. After explicit reload require same ship/cargo UUIDs on new objects, exact validated storage ownership, admitted cargo ItemStack count/components, normal token-ledger ownership and settled replacement-frame tracking/storage points. Normal reconnect must restore the original body UUID/Mind/hand roots, account/profile binding, held token/full stack, ACTIVE profile and actual living physical body grounded on the replacement ship. A new same-UUID body may already be loaded after explicit reload, before login. No fixture-created replacements, rebinds, profile writes or ledger repair. Require raw phase and identity evidence, actual selected/completed/pass/fail counts and normal saves/stop. Resident, partial-unload, destructive-removal, quiet-interruption or reconstruction failures are not continuity passes. Numeric jug amounts are source setup unless separately observed; full-component snapshot conservation is asserted. Cargo-only and combined results must be interpreted separately. Stationary same-process proof only: not flight, process restart, client/Creative coverage, owner-loss explanation/fix, full-suite readiness or M1 acceptance. R25 evidence remains unchanged; R26 uses distinct fixture/log paths. No production/Sable internals/configuration changes; default-two hull penetration remains unresolved and ten substeps remains a separate candidate bandage.",
+      "covers": ["Does ordinary OFFLINE body/cargo/ship chunk unload and normal reconnect preserve original body UUID, Mind, hands, held token/stack and cargo state on reconstructed objects, while the shared cargo-only case still passes?"]
+    }
+  ]
+}

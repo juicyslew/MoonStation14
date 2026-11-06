@@ -11,6 +11,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.neoforged.bus.api.EventPriority;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.minecraft.world.level.block.Blocks;
@@ -21,6 +22,7 @@ import net.minecraft.world.level.block.Blocks;
 public final class DeviceButtonAirlockWorkflowGameTests {
     private DeviceButtonAirlockWorkflowGameTests() { }
 
+    @GameTestTags("shuttle-owner-regression")
     @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=300)
     public static void buttonPressOpensLinkedPoweredAirlock(GameTestHelper helper) {
         var fixture=AirlockCoreGameTests.poweredAirlock(helper);
@@ -31,47 +33,74 @@ public final class DeviceButtonAirlockWorkflowGameTests {
         helper.runAfterDelay(1,()->{
             if(!(level.getBlockEntity(buttonPos) instanceof WallSignalControlBlockEntity button))
                 throw new GameTestAssertException("placed button creates native endpoint");
-            AirlockBlockEntity door=fixture.door();
-            AirlockCoreGameTests.waitForFullPower(helper, fixture, 120, () -> waitForButtonReady(helper,fixture,buttonPos,20));
+            waitForButtonReady(helper,fixture,buttonPos,120);
         });
     }
 
-    private static void waitForButtonReady(GameTestHelper helper,AirlockCoreGameTests.Fixture fixture,BlockPos buttonPos,int remaining){
-        AirlockBlockEntity door=fixture.door();
-        var runtime=DeviceNetworkRuntime.forLevel(helper.getLevel());
-        var endpoint=runtime.transport().lookup(new DeviceIdentity(door.identity()));
-        var network=endpoint==null?null:endpoint.composition().network().orElse(null);
-        boolean connected=network!=null&&runtime.transport().isConnected(endpoint.identity(),network.networkId());
-        if(door.state().powerAvailable()&&connected){runPoweredButtonWorkflow(helper,fixture,buttonPos);return;}
-        if(remaining<=0)throw new GameTestAssertException("button readiness timeout: fresh="+com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPowerDiagnostic(helper.getLevel(),door)
-                +" doorPhase="+door.state().phase()+" cachedPower="+door.state().powerAvailable()+" targetNetworkConnected="+connected
-                +" targetNetwork="+(network==null?"missing":network.networkId())+" queued="+runtime.transport().queuedPackets());
-        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,()->waitForButtonReady(helper,fixture,buttonPos,remaining-1));
-    }
-
-    private static void runPoweredButtonWorkflow(GameTestHelper helper, AirlockCoreGameTests.Fixture fixture,
-                                                  BlockPos buttonPos) {
+    private static void waitForButtonReady(GameTestHelper helper,AirlockCoreGameTests.Fixture fixture,BlockPos buttonPos,int maxTicks){
         ServerLevel level=helper.getLevel();
-        if (!(level.getBlockEntity(buttonPos) instanceof WallSignalControlBlockEntity button))
-            throw new GameTestAssertException("placed button creates native endpoint");
         AirlockBlockEntity door=fixture.door();
         DeviceNetworkRuntime runtime=DeviceNetworkRuntime.forLevel(level);
-        DeviceEndpoint doorEndpoint=runtime.transport().lookup(new DeviceIdentity(door.identity()));
-        if(doorEndpoint==null||!runtime.links().link(runtime.graph(),button,"Pressed",doorEndpoint,"Toggle"))
-            throw new GameTestAssertException("actual button source links to airlock Toggle sink");
-        if(door.state().phase()!=AirlockState.DoorPhase.CLOSED)
-            throw new GameTestAssertException("powered airlock starts closed");
-        var player=FakePlayerFactory.getMinecraft(level);
-        if(!button.activate(player))throw new GameTestAssertException("actual button accepts activation");
-        if(door.state().phase()!=AirlockState.DoorPhase.CLOSED)
-            throw new GameTestAssertException("button delivery is queued, not synchronous");
-        awaitNativeOpen(helper,door,runtime,5);
+        final String[] latest={"not-yet-sampled"};
+        final boolean[] submitted={false};
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.observeServerTicksUntil(
+                helper,maxTicks,EventPriority.LOW,event->{
+            var meter=com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPower(level,door);
+            DeviceEndpoint buttonEndpoint=level.getBlockEntity(buttonPos) instanceof WallSignalControlBlockEntity buttonEntity
+                    ?runtime.transport().lookup(buttonEntity.identity()):null;
+            DeviceEndpoint doorEndpoint=runtime.transport().lookup(new DeviceIdentity(door.identity()));
+            var buttonNetwork=buttonEndpoint==null?null:buttonEndpoint.composition().network().orElse(null);
+            var doorNetwork=doorEndpoint==null?null:doorEndpoint.composition().network().orElse(null);
+            boolean endpointsAvailable=buttonEndpoint!=null&&doorEndpoint!=null
+                    &&buttonEndpoint.available()&&doorEndpoint.available();
+            boolean connected=endpointsAvailable&&buttonNetwork!=null&&doorNetwork!=null
+                    &&buttonNetwork.networkId()==doorNetwork.networkId()
+                    &&runtime.transport().isConnected(buttonEndpoint.identity(),buttonNetwork.networkId())
+                    &&runtime.transport().isConnected(doorEndpoint.identity(),doorNetwork.networkId());
+            String meterGate=!meter.known()||meter.deliveredWatts()!=door.prototype().apcPowerReceiver().requestedWatts()
+                    ?com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPowerDiagnostic(level,door):"accepted";
+            latest[0]="serverTick="+level.getServer().getTickCount()+" meter="+meter
+                    +" gate="+meterGate
+                    +" phase="+door.state().phase()+" cachedPower="+door.state().powerAvailable()
+                    +" button="+(buttonEndpoint==null?"missing":buttonEndpoint.identity())
+                    +" receiver="+(doorEndpoint==null?"missing":doorEndpoint.identity())
+                    +" endpointsAvailable="+endpointsAvailable+" connected="+connected
+                    +" queued="+runtime.transport().queuedPackets();
+            if(!meter.known()||meter.deliveredWatts()!=door.prototype().apcPowerReceiver().requestedWatts()
+                    ||!connected||door.state().phase()!=AirlockState.DoorPhase.CLOSED)return;
+            if(!(level.getBlockEntity(buttonPos) instanceof WallSignalControlBlockEntity button))
+                throw new GameTestAssertException("real button endpoint disappeared at paid LOW post phase");
+            if(!runtime.links().link(runtime.graph(),button,"Pressed",doorEndpoint,"Toggle"))
+                throw new GameTestAssertException("actual button source failed to link to airlock Toggle at paid phase");
+            int queuedBefore=runtime.transport().queuedPackets();
+            if(!button.activate(FakePlayerFactory.getMinecraft(level)))
+                throw new GameTestAssertException("actual button rejected its single eligible activation");
+            if(door.state().phase()!=AirlockState.DoorPhase.CLOSED
+                    ||runtime.transport().queuedPackets()<=queuedBefore)
+                throw new GameTestAssertException("button must queue one deferred signal while door remains closed: "+latest[0]);
+            submitted[0]=true;
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.debug(
+                    "[button-airlock-submit] queuedCountAfterLowPhase={} serverTick={} source={} target={} power={}",
+                    runtime.transport().queuedPackets(),level.getServer().getTickCount(),button.identity(),doorEndpoint.identity(),meter);
+        },()->submitted[0],()->{
+            DeviceEndpoint endpoint=runtime.transport().lookup(new DeviceIdentity(door.identity()));
+            if(!(level.getBlockEntity(buttonPos) instanceof WallSignalControlBlockEntity button))
+                throw new GameTestAssertException("button endpoint disappeared after one-shot paid-phase submit");
+            if(!submitted[0])throw new GameTestAssertException("button paid-phase enqueue timeout: "+latest[0]);
+            awaitNativeOpen(helper,door,runtime,5,button,endpoint);
+        },()->{
+            if(!submitted[0])throw new GameTestAssertException("button paid-phase enqueue timeout: "+latest[0]);
+        });
     }
 
-    private static void awaitNativeOpen(GameTestHelper helper,AirlockBlockEntity door,DeviceNetworkRuntime runtime,int remaining){
+    private static void awaitNativeOpen(GameTestHelper helper,AirlockBlockEntity door,DeviceNetworkRuntime runtime,int remaining,
+                                        WallSignalControlBlockEntity button,DeviceEndpoint doorEndpoint){
         if(door.state().phase()==AirlockState.DoorPhase.OPENING||door.state().phase()==AirlockState.DoorPhase.OPEN){helper.succeed();return;}
-        if(remaining<=0)throw new GameTestAssertException("native button delivery not accepted: doorPhase="+door.state().phase()
-                +" cachedPower="+door.state().powerAvailable()+" queued="+runtime.transport().queuedPackets());
-        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,()->awaitNativeOpen(helper,door,runtime,remaining-1));
+        if(remaining<=0)throw new GameTestAssertException("native button delivery not accepted: serverTick="+helper.getLevel().getServer().getTickCount()
+                +" doorPhase="+door.state().phase()
+                +" cachedPower="+door.state().powerAvailable()+" airlockPower="+com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPowerDiagnostic(helper.getLevel(),door)
+                +" queued="+runtime.transport().queuedPackets()+" buttonIdentity="+button.identity()+" buttonConnected="+runtime.transport().isConnected(button.identity(),doorEndpoint.composition().network().map(DeviceComposition.NetworkInterface::networkId).orElse(-1))
+                +" receiverIdentity="+doorEndpoint.identity()+" receiverNetwork="+doorEndpoint.composition().network().map(DeviceComposition.NetworkInterface::networkId).orElse(-1));
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,()->awaitNativeOpen(helper,door,runtime,remaining-1,button,doorEndpoint));
     }
 }

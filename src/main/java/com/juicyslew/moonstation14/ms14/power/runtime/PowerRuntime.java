@@ -32,6 +32,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
@@ -577,7 +578,8 @@ public final class PowerRuntime {
         if (samples != null) samples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
     }
 
-    @net.neoforged.bus.api.SubscribeEvent
+    // Solve and publish after the HIGH topology pass, before deferred device delivery.
+    @net.neoforged.bus.api.SubscribeEvent(priority = EventPriority.NORMAL)
     public static void onTick(ServerTickEvent.Post event) {
                 long now = ++serverTickSequence;
         for (ServerLevel level : event.getServer().getAllLevels()) {

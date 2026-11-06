@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.juicyslew.moonstation14.gametest.support.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "GameTestTickerProgressMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

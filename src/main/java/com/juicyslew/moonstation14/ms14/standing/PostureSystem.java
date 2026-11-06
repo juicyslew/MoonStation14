@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.mobs.MobStateChangedEvent;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSystem;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -77,12 +78,28 @@ public final class PostureSystem {
     private static void save(LivingEntity body, PostureData data, BiConsumer<LivingEntity, net.minecraft.resources.ResourceLocation> soundSink) {
         boolean wasDown = posture(body).down();
         if (!data.ownCrawling()) OWN_CRAWL_EXPIRY.remove(body.getUUID());
-        body.setData(ModDataAttachments.POSTURE.get(), new PostureAttachment(data));
+        var movement = body instanceof dev.ryanhcode.sable.mixinterface.entity.entity_sublevel_collision.EntityMovementExtension ext
+                ? ext : null;
+        var beforeFrame = movement == null ? null : movement.sable$getTrackingSubLevel();
+        var beforePosition = body.position();
+        PostureAttachment replacement = new PostureAttachment(data);
+        PostureAttachment prior = body.getExistingDataOrNull(ModDataAttachments.POSTURE.get());
+        PostureAttachment.carrySupportAcrossPostureUpdate(prior, replacement);
+        body.setData(ModDataAttachments.POSTURE.get(), replacement);
         PhysicalPosture.apply(body);
         if (data.down()) DOWN_BODIES.put(body.getUUID(), body);
         else DOWN_BODIES.remove(body.getUUID(), body);
         // refreshDimensions updates the server AABB; the attachment sync triggers the client bridge.
         body.refreshDimensions();
+        // Vanilla's server growth path recentres non-Player entities and searches for a
+        // free position. That world-only search can choose a point below Sable frame floors.
+        // Posture dimensions are feet-anchored; retain the exact position when native frame
+        // identity remains the same. Standing clearance is checked before get-up separately.
+        if (beforeFrame != null && !beforeFrame.isRemoved() && beforeFrame.getLevel() == body.level()
+                && dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(body.level())
+                .getSubLevel(beforeFrame.getUniqueId()) == beforeFrame && movement.sable$getTrackingSubLevel() == beforeFrame) {
+            body.setPos(beforePosition);
+        }
         if (soundSink != null && !wasDown && data.down() && body.level() instanceof ServerLevel level
                 && body.isAddedToLevel() && level.getEntity(body.getUUID()) == body) {
             var actor = ActiveCharacterPolicy.resolveActor(body).orElse(null);
@@ -191,7 +208,56 @@ public final class PostureSystem {
         // Uses the entity's standing pose dimensions, independent of its current prone dimensions.
         var dimensions = body.getDimensions(net.minecraft.world.entity.Pose.STANDING);
         var box = dimensions.makeBoundingBox(body.position());
-        return body.level().noCollision(body, box);
+        if (!body.level().noCollision(body, box)) return false;
+        var point = body.level() instanceof ServerLevel
+                ? com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentActorPoint(body.level(), body) : null;
+        if (point == null) return false;
+        // Ordinary-world collision omits native frame hulls. Use the shared loaded-only
+        // frame candidate/read boundary and exact world-AABB-vs-oriented-storage-box SAT.
+        var prone = body.getBoundingBox();
+        var frameFitBox = Float.compare(dimensions.width(), body.getBbWidth()) == 0
+                ? new net.minecraft.world.phys.AABB(box.minX, Math.max(box.minY, prone.maxY), box.minZ,
+                        box.maxX, box.maxY, box.maxZ)
+                : box;
+        if (frameFitBox.getYsize() <= 0) return true;
+        var query = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.frameBoxContexts(
+                body.level(), frameFitBox, 0);
+        // A tracked frame absent from this growth-volume candidate set is a known empty
+        // intersection, not an unknown read: currentActorPoint already proved its live identity.
+        for (var context : query) {
+            var localBounds = inverseBounds(frameFitBox, context.pose());
+            if (localBounds == null) return false;
+            BlockPos low = BlockPos.containing(localBounds.minX, localBounds.minY, localBounds.minZ);
+            BlockPos high = BlockPos.containing(Math.nextDown(localBounds.maxX), Math.nextDown(localBounds.maxY),
+                    Math.nextDown(localBounds.maxZ));
+            long cells = (long) (high.getX() - low.getX() + 1) * (high.getY() - low.getY() + 1)
+                    * (high.getZ() - low.getZ() + 1);
+            if (cells <= 0 || cells > 256) return false;
+            for (BlockPos pos : BlockPos.betweenClosed(low, high)) {
+                if (!context.owns(pos)) return false;
+                var read = context.read(pos);
+                if (!read.known() || read.state() == null) return false;
+                var shape = read.state().getCollisionShape(body.level(), pos);
+                for (var localShape : shape.toAabbs()) {
+                    if (com.juicyslew.moonstation14.ms14.shuttle.sable.FrameBoxIntersection.intersects(
+                            frameFitBox, localShape.move(pos), context.pose())) return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static net.minecraft.world.phys.AABB inverseBounds(net.minecraft.world.phys.AABB box,
+            dev.ryanhcode.sable.companion.math.Pose3dc pose) {
+        net.minecraft.world.phys.AABB result = null;
+        for (int mask = 0; mask < 8; mask++) {
+            var corner = new org.joml.Vector3d((mask & 1) == 0 ? box.minX : box.maxX,
+                    (mask & 2) == 0 ? box.minY : box.maxY, (mask & 4) == 0 ? box.minZ : box.maxZ);
+            pose.transformPositionInverse(corner);
+            var point = new net.minecraft.world.phys.AABB(corner.x, corner.y, corner.z, corner.x, corner.y, corner.z);
+            result = result == null ? point : result.minmax(point);
+        }
+        return result;
     }
     public static void forceDown(LivingEntity body, long until) {
         forceDown(body, until, PostureData.DownTransition.KNOCKDOWN);
@@ -264,6 +330,9 @@ public final class PostureSystem {
         if (!current.ownCrawling()) return;
         if (Math.abs(net.minecraft.util.Mth.wrapDegrees(yaw - current.movementFacingYaw())) > .01f)
             save(body, current.facing(yaw));
+        // Accepted owner-authored world direction wins over carrier rotation this tick.
+        PostureAttachment attachment = body.getExistingDataOrNull(ModDataAttachments.POSTURE.get());
+        if (attachment != null) attachment.support(null, null);
     }
     /** SS14 Crawler damage refresh policy: positive applied typed damage uses the resolved threshold. */
     @SubscribeEvent public static void onAppliedDamage(AppliedDamageEvent event) {
@@ -308,6 +377,8 @@ public final class PostureSystem {
             if (!posture(body).down()) { DOWN_BODIES.remove(body.getUUID(), body); continue; }
             refreshMovementAvailability(body);
             PostureData data = posture(body);
+            carrySupportedHeading(body, data);
+            data = posture(body);
             Long crawlExpiry = OWN_CRAWL_EXPIRY.get(body.getUUID());
             if (data.ownCrawling() && (crawlExpiry == null || now(level) > crawlExpiry || !conscious(body))) {
                 OWN_CRAWL_EXPIRY.remove(body.getUUID());
@@ -324,5 +395,21 @@ public final class PostureSystem {
                 if (standingFits(body)) save(body, data.completeGetUp(true));
             } else requestStand(body, body instanceof net.minecraft.server.level.ServerPlayer player ? player : null);
         }
+    }
+
+    private static void carrySupportedHeading(LivingEntity body, PostureData data) {
+        PostureAttachment attachment = body.getExistingDataOrNull(ModDataAttachments.POSTURE.get());
+        if (attachment == null) return;
+        if (!data.down() || !body.onGround() || !(body.level() instanceof ServerLevel)) {
+            attachment.support(null, null);
+            return;
+        }
+        var point = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentActorPoint(body.level(), body);
+        if (point == null || point.frameId() == null) { attachment.sampleSupport(null, null, false); return; }
+        var orientation = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.frameOrientation(
+                body.level(), point.frameId(), point.storagePoint(), false, 0f);
+        float turn = attachment.sampleSupport(point.frameId(), orientation, orientation != null);
+        if (Float.isFinite(turn) && Math.abs(turn) > .001f)
+            save(body, posture(body).facing(net.minecraft.util.Mth.wrapDegrees(posture(body).movementFacingYaw() + turn)));
     }
 }

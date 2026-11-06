@@ -1,0 +1,40 @@
+{
+  "title": "Cargo orientation/setup with early fixture-only progress hook",
+  "kind": "bugfix",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": [
+    "Resolved oriented queries and replacement drops preserve collision, authority, ownership, contents and production physics.",
+    "Permission-2 cargo/yaw commands provide complete documented setup through existing loaded-frame and transfer services.",
+    "Fixture-only progress reports actual names/tick ages with bounded state, honest outcomes, cleanup and a proven native hook.",
+    "Fresh full JVM, focused native and full native evidence has actual counts and safe shutdown; genuine failures remain failed."
+  ],
+  "manual_steps": [
+    "After technical readiness, use the normal development launch and a disposable world. As a permission-2 operator with a live controlled body and loaded clear space, run /ms14 shuttle_fixture build; retain its ship ID.",
+    "Enter through the front airlock using normal movement/jumping. Run /ms14 shuttle_fixture cargo <ship-id> aboard: one five-unit water jug should appear near the body without overwriting hands or carrier inventory.",
+    "Examine and pick up the jug using configured controls, then Drop active hand (default Q). Selection/outlines should agree with the oriented physical-profile proxy, and contents should remain five units. The proxy is not the exact mesh.",
+    "Run /ms14 shuttle_fixture yaw <ship-id> 0.4 once; repeat query, pickup and drop as the cabin turns. Replacements should use the current actor-frame world basis without loss. This is a rad/s velocity delta, not an angle or pilot control. Do not test high-speed impacts or pitch/roll."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r10-full-jvm.log",
+      "rationale": "Single full JVM run includes all16 geometry/profile/orientation and six progress-state cases; expected3314, report actual. Compile all fixtures. One JUnit stage avoids XML self-overwrite. Stop on failure. Current attribution is scope-r10/SUMMARY.md; normal submit binds packet. Prior R9 full3314 pass is history, not current readiness; lead produces fresh logs.",
+      "covers": ["Resolved oriented queries and replacement drops preserve collision, authority, ownership, contents and production physics.", "Permission-2 cargo/yaw commands provide complete documented setup through existing loaded-frame and transfer services.", "Fixture-only progress reports actual names/tick ages with bounded state, honest outcomes, cleanup and a proven native hook.", "Fresh full JVM, focused native and full native evidence has actual counts and safe shutdown; genuine failures remain failed."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cargo-query,shuttle-cargo-drop,shuttle-cargo-setup,gametest-progress", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-orientation-r10-focused", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r10-focused-native.log",
+      "rationale": "Expected6/889: five actual cargo cases plus unchanged mandatory progress-hook probe. R9 completed5 pass/1 missing-hook failure and clean shutdown. R10 loads config with supported --mixin only in automated GameTestServer launch; late common-setup bootstrap removed. Owner client/server launches untouched. Require actual early application and START/terminal rows, SDK2, contents/ownership, aggregate/save/stop. Probe must fail if hook absent; no skip/fake admission. Complete batch; skip full native on failure. Fresh R10 world only; preserve safeguards.",
+      "covers": ["Resolved oriented queries and replacement drops preserve collision, authority, ownership, contents and production physics.", "Permission-2 cargo/yaw commands provide complete documented setup through existing loaded-frame and transfer services.", "Fixture-only progress reports actual names/tick ages with bounded state, honest outcomes, cleanup and a proven native hook.", "Fresh full JVM, focused native and full native evidence has actual counts and safe shutdown; genuine failures remain failed."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-orientation-r10-full", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r10-full-native.log",
+      "rationale": "Unfiltered expected889, no exclusions. Known SDK2 40/80 impact failures remain failures if reproduced, never expected-failure-pass. R6 unfinished batch needs bounded observer names/testTick/serverTick/gameTime; do not infer prior puddle errors caused it. Let started batch finish under existing timeout/cleanup safeguards. Require aggregate and safe save/stop; timeout/unknown is not pass. No client, installation, owner-world/config/process/launch changes or production physics workaround. M1 unaccepted; M2-M6 paused.",
+      "covers": ["Resolved oriented queries and replacement drops preserve collision, authority, ownership, contents and production physics.", "Permission-2 cargo/yaw commands provide complete documented setup through existing loaded-frame and transfer services.", "Fixture-only progress reports actual names/tick ages with bounded state, honest outcomes, cleanup and a proven native hook.", "Fresh full JVM, focused native and full native evidence has actual counts and safe shutdown; genuine failures remain failed."]
+    }
+  ]
+}

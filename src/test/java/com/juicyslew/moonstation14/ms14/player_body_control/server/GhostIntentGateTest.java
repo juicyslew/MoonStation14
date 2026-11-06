@@ -41,6 +41,36 @@ class GhostIntentGateTest {
     }
 
     @Test
+    void boundedFifoKeepsOrderAndSequenceAcrossBarrierDiscard() {
+        GhostIntentGate<String> gate = new GhostIntentGate<>();
+        assertTrue(gate.offerQueued(1, "forward", 2));
+        assertTrue(gate.offerQueued(2, "release", 2));
+        assertFalse(gate.offerQueued(2, "duplicate", 2));
+        assertFalse(gate.offerQueued(1, "stale", 2));
+        assertEquals("forward", gate.takeQueued());
+        assertEquals(2, gate.discardQueuedThroughSequence());
+        assertFalse(gate.offerQueued(2, "duplicate after discard", 2));
+        assertTrue(gate.offerQueued(3, "fresh after barrier", 2));
+        assertEquals("fresh after barrier", gate.takeQueued());
+        assertEquals(-1, gate.discardQueuedThroughSequence());
+    }
+
+    @Test
+    void boundedFifoOverflowAndSequenceExhaustionFailClosed() {
+        GhostIntentGate<String> gate = new GhostIntentGate<>();
+        assertTrue(gate.offerQueued(1, "first", 1));
+        assertFalse(gate.offerQueued(2, "overflow", 1));
+        assertTrue(gate.exhausted());
+        assertEquals("first", gate.takeQueued());
+        assertFalse(gate.offerQueued(3, "after overflow", 1));
+
+        gate.reset();
+        assertFalse(gate.offerQueued(Long.MAX_VALUE, "exhaust", 1));
+        assertTrue(gate.exhausted());
+        assertFalse(gate.offerQueued(1, "wrap", 1));
+    }
+
+    @Test
     void sequenceExhaustionIsExplicitAndDoesNotWrap() {
         GhostIntentGate<String> gate = new GhostIntentGate<>();
         assertFalse(gate.offer(Long.MAX_VALUE, 10, "exhausted"));

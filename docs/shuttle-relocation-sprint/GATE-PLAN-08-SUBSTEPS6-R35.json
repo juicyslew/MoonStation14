@@ -1,0 +1,33 @@
+{
+  "title": "Default-path six-step idle-probe floor repair and accepted exterior-wall regression",
+  "kind": "diagnostic",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/SableOwnedBodyCarryGameTests.java",
+  "acceptance_criteria": [
+    "Do both original default-observation strong native impulse body cases preserve body continuity at actual six SDK substeps after explicit idle-probe/local-floor certification, without a diagnostic observation opt-in or changed physical oracle?",
+    "Do all four accepted exterior-wall jump cases still reject false floor support and preserve finite movement after the narrowly extended native geometry observation and correction proof?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileGameTestJava"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r35-compile.log",
+      "rationale": "Compile the frozen candidate's native fixtures. Author focused JVM78/78 passed (motor52, witness4, existing side proof18, captured idle proof4; no failures/errors/skips), preparer Python14/14 passed, and independent source/reuse review passed. Author compileGameTestJava passed after the final metadata-only provenance fields; the78-test result preceded those diagnostic fields. No duplicate admitted JVM run is requested here. Preserve the existing collision tolerance, movement/prototype values, genuine-fall and own-walk rules, one physical own move/carrier application and accepted R10 exterior-wall route. This repair is a Minecraft/Sable adapter correction, not exact SS14 Robust solver parity.",
+      "covers": ["Do both original default-observation strong native impulse body cases preserve body continuity at actual six SDK substeps after explicit idle-probe/local-floor certification, without a diagnostic observation opt-in or changed physical oracle?", "Do all four accepted exterior-wall jump cases still reject false floor support and preserve finite movement after the narrowly extended native geometry observation and correction proof?"]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-substeps6-idle-probe-r35", "--substeps", "6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r35-preparation.log",
+      "rationale": "Prepare only this never-used isolated six-step directory through the existing strict name/count allowlist. Refuse an existing target, preserve all abandoned/used R25-R34 worlds and failure/crash/log/receipt artifacts, and do not touch owner worlds/configuration/processes/launch settings. Production/default remains two substeps; no engine/native source or binary changes.",
+      "covers": ["Do both original default-observation strong native impulse body cases preserve body continuity at actual six SDK substeps after explicit idle-probe/local-floor certification, without a diagnostic observation opt-in or changed physical oracle?", "Do all four accepted exterior-wall jump cases still reject false floor support and preserve finite movement after the narrowly extended native geometry observation and correction proof?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-strong-impulse,shuttle-exterior-wall-faces", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-substeps6-idle-probe-r35", "-Pms14HullImpactExpectedSubsteps=6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r35-native.log",
+      "rationale": "One fresh focused diagnostic selection, expected6/894: original default-path negative-X and positive-Y strong impulse cases plus four accepted exterior-wall jump faces. Do not select the geometry-observed duplicate at the same origin. Require actual SDK effectiveSubsteps6/expected6 and observeGeometry=false markers before interpreting outcomes. Report actual selected/discovered/completed/pass/fail/unfinished counts and named outcomes. Preserve original physical continuity, finite movement, native contact and wall-not-floor assertions; do not convert a failure to expected success or weaken tolerances. For any failure retain full OwnedNativeMoveDiagnostic/trace with geometry/accounting and the exact tick, request, native/measured/bounded own, position correction and native carry. Inspect strong-impulse completion idleProbeCertifiedTicks and angledFloorCorrectionTicks plus the first actual certified full native diagnostic: require idleSupportProbeAttested=true and idleSupportProbeCertified=true alongside zero boundedOwn and geometryCorrection. The attestation comes from the actual motor branch; certification is set only when the new proof and supported-floor certificate actually succeed. A zero certified counter cannot establish new-route coverage, and an angled correction from the old axis-floor route is insufficient. SAT replay alone is not live admission; observation-mode diagnostic success is not default-path repair. Do not infer provenance merely from requestY=-0.001. Finish all started batches; a failed assertion remains FAIL. Record saving and orderly shutdown independently from gameplay. No cost test, unchanged R31 impact repeat, broad/full suite, client/GUI/package/install, owner-state edits, native engine/hook changes, rotation freeze, cap, artificial gravity, recovery teleport, automatic retry or used-world rerun. Return bound diagnostic receipt even on failure. This is not readiness, six-step production adoption, M1 acceptance or M2-M6 advancement.",
+      "covers": ["Do both original default-observation strong native impulse body cases preserve body continuity at actual six SDK substeps after explicit idle-probe/local-floor certification, without a diagnostic observation opt-in or changed physical oracle?", "Do all four accepted exterior-wall jump cases still reject false floor support and preserve finite movement after the narrowly extended native geometry observation and correction proof?"]
+    }
+  ]
+}

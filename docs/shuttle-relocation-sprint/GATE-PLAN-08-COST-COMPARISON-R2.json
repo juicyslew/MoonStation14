@@ -1,0 +1,66 @@
+{
+  "title": "Feedback-08 matched 2/10 tick-cost comparison; recorder and natural-rest fixes R7",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/ShuttleServerCostGameTests.java",
+  "acceptance_criteria": [
+    "Test-only recorder and adapter compile and pass focused checks; production physics and owner data remain unchanged.",
+    "Prepare fresh isolated 2/10 targets and verify actual SDK settings; never overwrite prior runs.",
+    "Matched cabin: 200 warmup, 300 parked, 600 flight ticks, six additive 20 m/s launches and natural landings.",
+    "Use bounded full Pre/Post pairs, correct statistics, unmeasured validation and terminal cleanup.",
+    "Both native cases pass hull/workload checks; report actual counts, clean stop and phase distributions."
+  ],
+  "manual_steps": [
+    "Continue autonomously; no owner testing/input, client, installation, owner configuration/world/process changes or production adoption.",
+    "Initial dispatch failed before admission, then a stale snapshot blocked validation. Both designated r1 cost directories remain unused; use them once with this revision's fresh evidence logs.",
+    "R3 validation stopped at an obsolete preparation-test expectation before compilation or native preparation. R4 corrects only that test and uses new r4 logs; both designated native directories are still unused.",
+    "R4 became stale solely because an untracked Python test bytecode file changed. Preserve it and all owner state; use -B for every Python check to prevent cache writes. Freshness checks remain unchanged and mandatory.",
+    "R5 passed preparation checks but compilation stopped on a missing readiness diagnostic supplier. R6 adds that argument only; no native target has been prepared or run.",
+    "R6 compiled but passed only 19/20 JVM checks. R7 rejects recorder re-arming after finish and reserves the strict initial-placement terrain check for setup, retaining natural-rest and phase-boundary probes after landings. Both native targets remain unused.",
+    "Author execution is prohibited: new source/tests remain uncompiled/unrun. Authorized lead must compile/test first and stop on failure before native runs.",
+    "Measure single-cabin headless server-tick envelopes only, not Sable-only CPU, TPS or capacity. No performance threshold, M1 acceptance or M2-M6 advancement. Keep baseline burial and intermittent hull-state findings unresolved."
+  ],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "-m", "unittest", "discover", "-s", "tooling/shuttle", "-p", "test_*.py"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r7-preparation-tests.log",
+      "rationale": "Check approved target/count mapping and non-overwrite; do not prepare native targets here.",
+      "covers": ["Prepare fresh isolated 2/10 targets and verify actual SDK settings; never overwrite prior runs."]
+    },
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*ServerTickCostRecorderTest", "--tests", "*HullTerrainGeometryTest", "--tests", "*HullImpactTraceStateTest", "--tests", "*HullImpactSubstepsExpectationTest", "--tests", "*HullStateMismatchEvidenceTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r7-jvm.log",
+      "rationale": "Fresh compilation and focused checks are mandatory before native runs; author shell execution was denied.",
+      "covers": ["Test-only recorder and adapter compile and pass focused checks; production physics and owner data remain unchanged.", "Use bounded full Pre/Post pairs, correct statistics, unmeasured validation and terminal cleanup."]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-cost-substeps2-r1", "--substeps", "2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r7-substeps2-preparation.log",
+      "rationale": "Prepare the still-unused two-step target once; minimal fixture config only.",
+      "covers": ["Prepare fresh isolated 2/10 targets and verify actual SDK settings; never overwrite prior runs."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cost-diagnostic", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cost-substeps2-r1", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r7-substeps2-native.log",
+      "rationale": "One default-two case, expected 1/882: report actual counts, SDK 2, 300/600 samples, six launches, phase ms distributions, aggregate and clean saves/stop. Any workload/hull failure fails the gate.",
+      "covers": ["Prepare fresh isolated 2/10 targets and verify actual SDK settings; never overwrite prior runs.", "Matched cabin: 200 warmup, 300 parked, 600 flight ticks, six additive 20 m/s launches and natural landings.", "Use bounded full Pre/Post pairs, correct statistics, unmeasured validation and terminal cleanup.", "Both native cases pass hull/workload checks; report actual counts, clean stop and phase distributions."]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-cost-substeps10-r1", "--substeps", "10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r7-substeps10-preparation.log",
+      "rationale": "Prepare the still-unused ten-step target once; preserve all earlier worlds.",
+      "covers": ["Prepare fresh isolated 2/10 targets and verify actual SDK settings; never overwrite prior runs."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cost-diagnostic", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cost-substeps10-r1", "-Pms14HullImpactExpectedSubsteps=10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r7-substeps10-native.log",
+      "rationale": "Run serially after two-step case. Same checks at SDK 10; expected 1/882, record actual. Compare valid parked/flight ms distributions with fixed-order/single-cabin limitations. Incomplete cases cannot yield a valid comparison or readiness.",
+      "covers": ["Prepare fresh isolated 2/10 targets and verify actual SDK settings; never overwrite prior runs.", "Matched cabin: 200 warmup, 300 parked, 600 flight ticks, six additive 20 m/s launches and natural landings.", "Use bounded full Pre/Post pairs, correct statistics, unmeasured validation and terminal cleanup.", "Both native cases pass hull/workload checks; report actual counts, clean stop and phase distributions."]
+    }
+  ]
+}

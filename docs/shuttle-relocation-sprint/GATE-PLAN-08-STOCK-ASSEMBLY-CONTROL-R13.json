@@ -1,0 +1,27 @@
+{
+  "title": "Hull setup causal control; corrected fixture compilation",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": [
+    "Does the control preserve the no-Sable-internals boundary and use only existing public APIs without settings or owner-state changes?",
+    "Does the control retain baseline impact criteria, share the existing probe and failure latch, guard physical transfer and clean up every returned owner?",
+    "Are direct-plot and stock-assembly physical inputs actually matched, and if so does the 80 m/s collision outcome differ?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*HullPhysicalSnapshotTest", "--tests", "*HullTerrainGeometryTest", "--tests", "*HullImpactTraceStateTest", "--tests", "*HullStateMismatchEvidenceTest", "--tests", "*HullImpactSubstepsExpectationTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-stock-assembly-r13-jvm.log",
+      "rationale": "Diagnostic preparation for genuinely lead-owned native causal experiment, not readiness or standalone cheap checks. R12 failed compileGameTestJava because a lambda parameter shadowed the new enclosing plot variable; no tests/native ran. R13 only renames that lambda parameter/references. Compile all source sets and run actual snapshot guards (five methods) plus existing impact geometry/latch/state/substep tests. One JUnit stage, report actual selected counts, stop on failure. Fresh workflow snapshot binds all current paths; scope-r11 is historical only. Retain R12 failure artifacts; no author compile retry after prior shell denial.",
+      "covers": ["Does the control preserve the no-Sable-internals boundary and use only existing public APIs without settings or owner-state changes?", "Does the control retain baseline impact criteria, share the existing probe and failure latch, guard physical transfer and clean up every returned owner?", "Are direct-plot and stock-assembly physical inputs actually matched, and if so does the 80 m/s collision outcome differ?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-hull-impact-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-stock-assembly-r13", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-stock-assembly-r13-native.log",
+      "rationale": "Focused causal experiment expected4/890: unchanged direct-plot20/40/80 plus stock-assembly80, one invocation. Let the started batch finish despite genuine required failures; do not convert known failures to passes. Preserve failures and read actual raw aggregate/save/stop even without an all-passed parser marker. Compare direct80 and stock80 shape/material-state fingerprints, mass/COM, pivot, projected initial bounds/orientation/rest and admitted velocity before causal interpretation. Require effective two substeps. Missing physical equivalence or setup mismatch means inconclusive, never engine blame. External atmosphere/power records are not migrated; baseline powered readiness remains, control is physical-only and uses native registration/natural rest. No post-assembly corrective teleport, pause, gravity change, rotation freeze, velocity cap, engine patch/new hook or owner-state changes. A physically matched divergent result implicates creation/placement seam; matching failures do not prove Sable fault. Report selected/completed/pass/fail counts and actual shutdown. R11 already completed889/886pass/3fail with normal saves/stop; do not treat missing all-passed marker as timeout. No full-suite rerun; M1 unaccepted/M2-M6 paused. Return diagnostic bound findings even if failed; no readiness/report/finalization.",
+      "covers": ["Does the control preserve the no-Sable-internals boundary and use only existing public APIs without settings or owner-state changes?", "Does the control retain baseline impact criteria, share the existing probe and failure latch, guard physical transfer and clean up every returned owner?", "Are direct-plot and stock-assembly physical inputs actually matched, and if so does the 80 m/s collision outcome differ?"]
+    }
+  ]
+}

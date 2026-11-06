@@ -3,6 +3,9 @@ package com.juicyslew.moonstation14.ms14.examine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
+import com.juicyslew.moonstation14.block.ModBlocks;
+import com.juicyslew.moonstation14.ms14.doors.AirlockBlock;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -70,5 +73,21 @@ class ExamineCellTraversalTest {
         Vec3 clearFrom = new Vec3(-1, .5, .5), clearTo = new Vec3(2, .5, .5);
         assertTrue(ExamineTargetResolver.shapeOccludes(wall, clearFrom, clearTo, BlockPos.ZERO,
                 clearFrom.distanceTo(clearTo)), "opaque intermediate collision remains blocking");
+    }
+
+    @Test void canonicalUpperRootUsesSuppliedKnownStateAndMissingControllerUsesStateFallback() {
+        BlockPos upperPos = new BlockPos(4, 8, 2), lowerPos = upperPos.below();
+        var lower = ModBlocks.AIRLOCK.get().defaultBlockState().setValue(AirlockBlock.HALF, DoubleBlockHalf.LOWER);
+        var upper = lower.setValue(AirlockBlock.HALF, DoubleBlockHalf.UPPER);
+        assertEquals(lowerPos, ExamineWorldSelector.canonicalRoot(upper, upperPos,
+                pos -> pos.equals(lowerPos) ? lower : null),
+                "frame root resolution consumes its known plot getter rather than Level's ordinary chunk cache");
+        assertEquals(upperPos, ExamineWorldSelector.canonicalRoot(upper, upperPos, pos -> null),
+                "an unknown lower cell is not guessed to be a valid canonical root");
+        var open = lower.setValue(AirlockBlock.OPEN, true);
+        assertEquals(1.0, ExamineWorldSelector.airlockOpenness(null, lowerPos, open, null), 0.0,
+                "missing existing controller falls back to already-known block state without materialization");
+        assertFalse(ExamineWorldSelector.airlockPanelOpen(null, lowerPos, null),
+                "missing controller has no panel read side effect");
     }
 }

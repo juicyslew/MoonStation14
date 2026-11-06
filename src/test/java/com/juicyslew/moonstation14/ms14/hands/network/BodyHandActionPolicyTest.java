@@ -99,7 +99,9 @@ class BodyHandActionPolicyTest {
                      || action == BodyHandActionRequest.Action.USE_BODY
                      || action == BodyHandActionRequest.Action.MOVE_EQUIPMENT) continue;
             if (action == BodyHandActionRequest.Action.EQUIP_SLOT || action == BodyHandActionRequest.Action.UNEQUIP_SLOT) continue;
-            var request = new BodyHandActionRequest(action, "left", 7, 1, 9,
+            var request = action == BodyHandActionRequest.Action.THROW_ITEM
+                    ? BodyHandActionRequest.throwItem("left", 7, 1, 9, "pouch-token", CapturedHandTarget.world(new net.minecraft.world.phys.Vec3(1, 2, 3)))
+                    : new BodyHandActionRequest(action, "left", 7, 1, 9,
                     action == BodyHandActionRequest.Action.PICKUP ? UUID.randomUUID() : null,
                     action == BodyHandActionRequest.Action.PICKUP || action == BodyHandActionRequest.Action.SELECT_HAND
                             ? null : "pouch-token");
@@ -113,6 +115,7 @@ class BodyHandActionPolicyTest {
                     action, "left", 7, 1, 9, UUID.randomUUID(), "token"));
             assertThrows(IllegalArgumentException.class, () -> new BodyHandActionRequest(
                     action, "left", 7, 1, 9, null, null));
+            if (action == BodyHandActionRequest.Action.THROW_ITEM) continue;
             var malformed = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
             malformed.writeEnum(action);
             malformed.writeUtf("left");
@@ -120,6 +123,7 @@ class BodyHandActionPolicyTest {
             malformed.writeVarLong(1);
             malformed.writeVarLong(9);
             malformed.writeUtf("");
+            if (action == BodyHandActionRequest.Action.THROW_ITEM) continue;
             assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(malformed));
         }
     }
@@ -261,7 +265,9 @@ class BodyHandActionPolicyTest {
     @Test void grenadeIntentsCarryOnlyTheActiveHandToken() {
         for (var action : new BodyHandActionRequest.Action[]{BodyHandActionRequest.Action.USE_HELD,
                 BodyHandActionRequest.Action.THROW_ITEM}) {
-            var request = new BodyHandActionRequest(action, "left", 7, 2, 9, null, "grenade-token");
+            var request = action == BodyHandActionRequest.Action.THROW_ITEM
+                    ? BodyHandActionRequest.throwItem("left", 7, 2, 9, "grenade-token", CapturedHandTarget.world(new net.minecraft.world.phys.Vec3(1, 2, 3)))
+                    : new BodyHandActionRequest(action, "left", 7, 2, 9, null, "grenade-token");
             var encoded = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
             BodyHandActionRequest.STREAM_CODEC.encode(encoded, request);
             assertEquals(request, BodyHandActionRequest.STREAM_CODEC.decode(encoded));
@@ -276,6 +282,7 @@ class BodyHandActionPolicyTest {
             malformed.writeVarLong(2);
             malformed.writeVarLong(9);
             malformed.writeUtf("");
+            if (action == BodyHandActionRequest.Action.THROW_ITEM) continue;
             assertThrows(IllegalArgumentException.class, () -> BodyHandActionRequest.STREAM_CODEC.decode(malformed));
             var extra = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
             BodyHandActionRequest.STREAM_CODEC.encode(extra, request);

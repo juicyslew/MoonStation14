@@ -16,7 +16,8 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                                     long expectedRevision, UUID pickupTarget, String expectedToken,
                                      String expectedChildOrSourceToken, int cellX, int cellY, int rotation,
                                       int oldCellX, int oldCellY, int oldRotation, String destinationHostToken,
-                                       String sourceHostId, String destinationHostId, BlockPos targetBlock)
+                                        String sourceHostId, String destinationHostId, BlockPos targetBlock,
+                                        CapturedHandTarget throwTarget)
         implements CustomPacketPayload {
     public enum Action { PICKUP, DROP, INSERT_POUCH, EXTRACT_POUCH, SELECT_HAND,
         EQUIP_BELT, EQUIP_BACK, UNEQUIP_BELT, UNEQUIP_BACK,
@@ -31,12 +32,26 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
         USE_TARGET, ACTIVATE_TARGET, USE_IN_HAND, USE_HELD, ALTERNATE_TARGET, TOGGLE_PULL, STOP_PULL, SIP_PUDDLE, USE_BODY,
         CYCLE_SYRINGE_AMOUNT, EQUIP_SLOT, UNEQUIP_SLOT, QUICK_EQUIP, MOVE_EQUIPMENT }
 
-    /** Compatibility constructor preserving the prior canonical signature. */
+    /** Compatibility constructor preserving the prior canonical signature for non-throw callers. */
+    public BodyHandActionRequest(Action action, String handId, long epoch, long sequence, long expectedRevision,
+            UUID pickupTarget, String expectedToken, String child, int x, int y, int rotation,
+            int oldX, int oldY, int oldRotation, String destinationHostToken, String sourceHostId, String destinationHostId,
+            BlockPos targetBlock) {
+        this(action, handId, epoch, sequence, expectedRevision, pickupTarget, expectedToken, child, x, y, rotation,
+                oldX, oldY, oldRotation, destinationHostToken, sourceHostId, destinationHostId, targetBlock, null);
+    }
+
     public BodyHandActionRequest(Action action, String handId, long epoch, long sequence, long expectedRevision,
             UUID pickupTarget, String expectedToken, String child, int x, int y, int rotation,
             int oldX, int oldY, int oldRotation, String destinationHostToken, String sourceHostId, String destinationHostId) {
         this(action, handId, epoch, sequence, expectedRevision, pickupTarget, expectedToken, child, x, y, rotation,
-                oldX, oldY, oldRotation, destinationHostToken, sourceHostId, destinationHostId, null);
+                oldX, oldY, oldRotation, destinationHostToken, sourceHostId, destinationHostId, null, null);
+    }
+
+    public static BodyHandActionRequest throwItem(String hand, long epoch, long sequence, long revision,
+                                                  String token, CapturedHandTarget target) {
+        return new BodyHandActionRequest(Action.THROW_ITEM, hand, epoch, sequence, revision,
+                null, token, null, -1, -1, -1, -1, -1, -1, null, null, null, null, target);
     }
 
     public BodyHandActionRequest(Action action, String handId, long epoch, long sequence, long expectedRevision,
@@ -78,7 +93,12 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                 if (request.action == Action.ALTERNATE_TARGET || request.action == Action.TOGGLE_PULL) {
                     buf.writeBoolean(request.expectedToken != null);
                     if (request.expectedToken != null) buf.writeUtf(request.expectedToken, ItemToken.MAX_LENGTH);
-                } else if (requiresToken(request.action)) buf.writeUtf(request.expectedToken, ItemToken.MAX_LENGTH);
+                 } else if (requiresToken(request.action)) buf.writeUtf(request.expectedToken, ItemToken.MAX_LENGTH);
+                 if (request.action == Action.THROW_ITEM) CapturedHandTarget.STREAM_CODEC.encode(buf, request.throwTarget);
+                 else if (request.action == Action.DROP) {
+                     buf.writeBoolean(request.throwTarget != null);
+                     if (request.throwTarget != null) CapturedHandTarget.STREAM_CODEC.encode(buf, request.throwTarget);
+                 }
                 if (isGrid(request.action)) {
                     buf.writeUtf(request.expectedChildOrSourceToken, ItemToken.MAX_LENGTH);
                     buf.writeVarInt(request.cellX); buf.writeVarInt(request.cellY);
@@ -127,6 +147,17 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                     return new BodyHandActionRequest(action, hand, epoch, sequence, revision, null, null);
                 }
                 String token = buf.readUtf(ItemToken.MAX_LENGTH);
+                if (action == Action.DROP) {
+                    CapturedHandTarget target = buf.readBoolean() ? CapturedHandTarget.STREAM_CODEC.decode(buf) : null;
+                    if (buf.isReadable()) throw new IllegalArgumentException("Unexpected drop action payload");
+                    return new BodyHandActionRequest(action, hand, epoch, sequence, revision, null, token,
+                            null, -1, -1, -1, -1, -1, -1, null, null, null, null, target);
+                }
+                if (action == Action.THROW_ITEM) {
+                    CapturedHandTarget target = CapturedHandTarget.STREAM_CODEC.decode(buf);
+                    if (buf.isReadable()) throw new IllegalArgumentException("Unexpected throw action payload");
+                    return throwItem(hand, epoch, sequence, revision, token, target);
+                }
                 if (action == Action.TRANSFER_HAND) {
                     String destination = buf.readUtf(HandState.MAX_ID_LENGTH);
                     if (buf.isReadable()) throw new IllegalArgumentException("Unexpected hand transfer payload");
@@ -179,8 +210,9 @@ public record BodyHandActionRequest(Action action, String handId, long epoch, lo
                    || ((action == Action.USE_TARGET) && (expectedToken == null || expectedToken.isBlank()
                             || expectedToken.length() > ItemToken.MAX_LENGTH))
                   || (action == Action.SELECT_HAND && (pickupTarget != null || expectedToken != null))
-                  || (action == Action.SIP_PUDDLE ? targetBlock == null || pickupTarget != null || expectedToken != null
-                          : targetBlock != null)
+                   || (action == Action.SIP_PUDDLE ? targetBlock == null || pickupTarget != null || expectedToken != null
+                           : targetBlock != null)
+                    || (action == Action.THROW_ITEM ? throwTarget == null : action != Action.DROP && throwTarget != null)
                   || (requiresToken(action) && !isWorldAction(action)
                            && (pickupTarget != null || expectedToken == null
                             || expectedToken.isBlank() || expectedToken.length() > ItemToken.MAX_LENGTH))

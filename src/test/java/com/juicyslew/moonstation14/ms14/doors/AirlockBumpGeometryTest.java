@@ -32,6 +32,75 @@ class AirlockBumpGeometryTest {
         assertTrue(wallTime >= 0 && wallTime < doorTime);
     }
 
+    @Test void endpointOrderingRejectsNearerOrdinaryWallAndUnknownButAllowsClearPath() {
+        assertFalse(AirlockBumpSystem.worldEndpointOrderingAllows(.4, false));
+        assertFalse(AirlockBumpSystem.worldEndpointOrderingAllows(Double.POSITIVE_INFINITY, true));
+        assertTrue(AirlockBumpSystem.worldEndpointOrderingAllows(Double.POSITIVE_INFINITY, false));
+        assertTrue(AirlockBumpSystem.worldEndpointOrderingAllows(1.0, false));
+    }
+
+    @Test void knownShapePlaneAggregationKeepsNearestWallAndUnknownEdgeWinsWhenNearer() {
+        double doorTime=AirlockBumpSystem.timeOfImpact(BODY,new Vec3(2,0,0),
+                new AABB(1.5,0,0,2.5,2,1));
+        double wallTime=AirlockBumpSystem.timeOfImpact(BODY,new Vec3(2,0,0),
+                new AABB(.9,0,0,1.1,2,1));
+        var wallFirst=AirlockBumpSystem.earliestWorldPlane(java.util.List.of(
+                AirlockBumpSystem.planeWall(wallTime),AirlockBumpSystem.planeWall(doorTime)));
+        assertEquals(wallTime,wallFirst.firstT(),1.0E-9);
+        assertTrue(wallFirst.doors().isEmpty());
+        var unknownFirst=AirlockBumpSystem.earliestWorldPlane(java.util.List.of(
+                AirlockBumpSystem.planeUnknown(wallTime),AirlockBumpSystem.planeWall(doorTime)));
+        assertTrue(unknownFirst.unknown());
+        assertEquals(wallTime,unknownFirst.firstT(),1.0E-9);
+    }
+
+    @Test void tiedUnknownPlaneFailsClosedIndependentOfHitOrderAndTolerance() {
+        double first=.3, nearTie=first+0.5E-5, outsideTie=first+2.0E-5;
+        for (var hits : java.util.List.of(
+                java.util.List.of(AirlockBumpSystem.planeDoor(first,null,null),AirlockBumpSystem.planeUnknown(first)),
+                java.util.List.of(AirlockBumpSystem.planeUnknown(first),AirlockBumpSystem.planeDoor(first,null,null)),
+                java.util.List.of(AirlockBumpSystem.planeDoor(first,null,null),AirlockBumpSystem.planeUnknown(nearTie)))) {
+            var plane=AirlockBumpSystem.earliestWorldPlane(hits);
+            assertTrue(plane.unknown());
+            assertFalse(AirlockBumpSystem.worldEndpointOrderingAllows(plane.firstT(),plane.unknown()));
+        }
+        var earlierKnown=AirlockBumpSystem.earliestWorldPlane(java.util.List.of(
+                AirlockBumpSystem.planeUnknown(first),AirlockBumpSystem.planeWall(first-2.0E-5)));
+        assertFalse(earlierKnown.unknown());
+        assertEquals(first-2.0E-5,earlierKnown.firstT(),1.0E-9);
+        var fartherUnknown=AirlockBumpSystem.earliestWorldPlane(java.util.List.of(
+                AirlockBumpSystem.planeDoor(first,null,null),AirlockBumpSystem.planeUnknown(outsideTie)));
+        assertFalse(fartherUnknown.unknown());
+        assertEquals(first,fartherUnknown.firstT(),1.0E-9);
+    }
+
+    @Test void clientWorldOrderingMatchesClientBlockShapeFallbackForOpenAndPredictedViews() {
+        var id=java.util.UUID.randomUUID();
+        var predictedPassable=new AirlockBlockEntity.ClientView(id,4,AirlockState.DoorPhase.OPENING_PASSABLE,
+                0,0,0,true,true,false,true,false,false);
+        var blocked=new AirlockBlockEntity.ClientView(id,5,AirlockState.DoorPhase.CLOSED,
+                0,0,0,false,true,false,true,false,false);
+        assertFalse(AirlockBumpSystem.clientWorldAirlockSolid(true,null),"unknown OPEN state follows collision fallback");
+        assertTrue(AirlockBumpSystem.clientWorldAirlockSolid(false,null),"unknown closed state remains opaque");
+        assertFalse(AirlockBumpSystem.clientWorldAirlockSolid(false,predictedPassable),"effective passable view wins over closed bit");
+        assertTrue(AirlockBumpSystem.clientWorldAirlockSolid(true,blocked),"known blocked view wins over open bit");
+    }
+
+    @Test void clientRootAndCapturedStateAdmissionRejectUnknownOrChangedEvidence() {
+        var id=java.util.UUID.randomUUID();
+        var view=new AirlockBlockEntity.ClientView(id,4,AirlockState.DoorPhase.CLOSED,0,0,0,
+                false,true,false,true,false,false);
+        assertTrue(AirlockBumpSystem.clientRootMatches(id,view));
+        assertFalse(AirlockBumpSystem.clientRootMatches(null,view));
+        assertFalse(AirlockBumpSystem.clientRootMatches(java.util.UUID.randomUUID(),view));
+        assertFalse(AirlockBumpSystem.clientRootMatches(id,null));
+        var closed=net.minecraft.world.level.block.Blocks.IRON_BLOCK.defaultBlockState();
+        var changed=net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        assertTrue(AirlockBumpSystem.sameCapturedBlockState(closed,closed));
+        assertFalse(AirlockBumpSystem.sameCapturedBlockState(closed,changed));
+        assertFalse(AirlockBumpSystem.sameCapturedBlockState(closed,null));
+    }
+
     @Test void staticContactIncludesEachFaceButNotCornerVerticalSupportOrRealGap(){
         AABB doorway=new AABB(0,0,0,1,2,1);
         assertTrue(AirlockGeometry.touchesDoorway(new AABB(-.6,0,.2,0,1.8,.8),doorway));

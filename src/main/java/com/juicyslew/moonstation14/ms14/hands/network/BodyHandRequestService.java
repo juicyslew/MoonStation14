@@ -21,6 +21,7 @@ import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
 import com.juicyslew.moonstation14.ms14.reagent.IReagentTrait;
 import com.juicyslew.moonstation14.ms14.loose_objects.pulling.BodyPullService;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry;
 import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
@@ -55,28 +56,78 @@ public final class BodyHandRequestService {
     public static BlockUseAdmission admitBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
         if (request == null) return null;
         var resolved = HandActorAuthority.resolve(actor);
-        if (resolved.isEmpty()) return null;
+        if (resolved.isEmpty()) { logBlockUseRejected(actor, request, "actor-authority", "resolve=absent"); return null; }
         var authority = resolved.orElseThrow();
-        if (!BodyHandStateService.hasIssued(actor, authority)) return null;
-        if (!CharacterControlSystem.canAct(authority.body())) return null;
+        if (!BodyHandStateService.hasIssued(actor, authority)) {
+            logBlockUseRejected(actor, request, "issued-hands", "issued=false"); return null;
+        }
+        if (!CharacterControlSystem.canAct(authority.body())) {
+            logBlockUseRejected(actor, request, "character-control", "canAct=false"); return null;
+        }
         var gate = BLOCK_USE_GATES.computeIfAbsent(actor, ignored -> new SequenceGate());
-        if (gate.admit(authority.epoch(), request.epoch(), request.sequence(), actor.level().getGameTime()) != null) return null;
+        BodyHandActionResult.Reason gateFailure = gate.admit(authority.epoch(), request.epoch(), request.sequence(),
+                actor.level().getGameTime());
+        if (gateFailure != null) {
+            logBlockUseRejected(actor, request, "request-gate", "gate=" + gateFailure); return null;
+        }
         LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        if (hands == null || !request.handId().equals(hands.activeHand())
-                || !hands.handIds().contains(request.handId()) || !authority.handIds().contains(request.handId())
-                || !hands.compatible(authority.body()) || hands.revision() != request.expectedRevision()) return null;
+        if (hands == null) {
+            logBlockUseRejected(actor, request, "hands-absent", "hands=null"); return null;
+        }
+        boolean activeHandMatches = request.handId().equals(hands.activeHand());
+        boolean bodyContainsHand = hands.handIds().contains(request.handId());
+        boolean authorityContainsHand = authority.handIds().contains(request.handId());
+        boolean handsCompatible = hands.compatible(authority.body());
+        boolean revisionMatches = hands.revision() == request.expectedRevision();
+        if (!activeHandMatches || !bodyContainsHand || !authorityContainsHand || !handsCompatible || !revisionMatches) {
+            logBlockUseRejected(actor, request, "hand-state",
+                    "active=" + activeHandMatches + ",bodyHas=" + bodyContainsHand + ",authorityHas="
+                            + authorityContainsHand + ",compatible=" + handsCompatible + ",revision="
+                            + hands.revision() + "/" + request.expectedRevision());
+            return null;
+        }
         var token = hands.token(request.handId());
         var stack = hands.stackCopy(request.handId());
-        if (!blockUseHandStateMatches(request.expectedToken(), token.isPresent(), stack.isPresent(), token.orElse(null)))
+        boolean tokenMatches = blockUseHandStateMatches(request.expectedToken(), token.isPresent(), stack.isPresent(), token.orElse(null));
+        if (!tokenMatches) {
+            logBlockUseRejected(actor, request, "hand-token-stack",
+                    "expectedToken=" + (request.expectedToken() != null) + ", tokenPresent=" + token.isPresent()
+                            + ", stackPresent=" + stack.isPresent() + ", tokenMatch="
+                            + (request.expectedToken() != null && token.filter(request.expectedToken()::equals).isPresent()));
             return null;
-        if (!(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
-                || !HandActorAuthority.revalidate(actor, authority)) return null;
+        }
+        if (!(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)) {
+            logBlockUseRejected(actor, request, "server-level", "bodyLevel="
+                    + authority.body().level().dimension().location()); return null;
+        }
+        if (!HandActorAuthority.revalidate(actor, authority)) {
+            logBlockUseRejected(actor, request, "actor-revalidate-before-probe", "revalidate=false"); return null;
+        }
         // No reliable controlled-body crouch authority is currently defined. The hint is intentionally ignored.
         var hit = BodyBlockUseTargetProbe.probe(level, authority.body(), request.target(), request.face());
-        return hit != null && HandActorAuthority.revalidate(actor, authority)
-                && authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands
-                && hands.revision() == request.expectedRevision()
-                ? new BlockUseAdmission(authority, hands, hit) : null;
+        if (hit == null) {
+            logBlockUseRejected(actor, request, "target-probe", "target=" + request.target()
+                    + ",face=" + request.face() + ",eye=" + authority.body().getEyePosition()
+                    + ",look=" + authority.body().getLookAngle()); return null;
+        }
+        if (!HandActorAuthority.revalidate(actor, authority)) {
+            logBlockUseRejected(actor, request, "actor-revalidate-after-probe", "revalidate=false"); return null;
+        }
+        boolean sameHands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands;
+        if (!sameHands) { logBlockUseRejected(actor, request, "hands-replaced-after-probe", "sameHands=false"); return null; }
+        boolean sameRevision = hands.revision() == request.expectedRevision();
+        if (!sameRevision) {
+            logBlockUseRejected(actor, request, "revision-after-probe",
+                    "revision=" + hands.revision() + "/" + request.expectedRevision()); return null;
+        }
+        return new BlockUseAdmission(authority, hands, hit);
+    }
+
+    private static void logBlockUseRejected(ServerPlayer actor, BodyBlockUseRequest request,
+                                             String reason, String detail) {
+        if (MoonStation14.LOGGER.isDebugEnabled())
+            MoonStation14.LOGGER.debug("[body-block-use-admission] actor={} epoch={} sequence={} hand={} reason={} detail={}",
+                    actor == null ? null : actor.getUUID(), request.epoch(), request.sequence(), request.handId(), reason, detail);
     }
 
     static boolean blockUseHandStateMatches(String expectedToken, boolean tokenPresent, boolean stackPresent,
@@ -619,7 +670,7 @@ public final class BodyHandRequestService {
 
         java.util.concurrent.atomic.AtomicReference<java.util.UUID> spawned = new java.util.concurrent.atomic.AtomicReference<>();
         if (request.action() == BodyHandActionRequest.Action.THROW_ITEM) {
-            var outcome = BodyLooseThrow.throwHeld(actor, request.handId(), request.expectedToken(), request.expectedRevision(), spawned::set);
+            var outcome = BodyLooseThrow.throwHeld(actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.throwTarget(), spawned::set);
             BodyHandActionResult.Reason throwReason = looseThrowReason(outcome);
             if (throwReason == BodyHandActionResult.Reason.OK && spawned.get() != null)
                 BodyWorldGridService.authorizeTransferredOpen(actor, authority, spawned.get());
@@ -756,7 +807,7 @@ public final class BodyHandRequestService {
         if (!isDropAction(request.action()))
             return result(request, BodyHandActionResult.Reason.DENIED, authority);
         BodyHandItemTransfer.Result outcome = BodyHandItemTransfer.drop(actor, request.handId(),
-                request.expectedToken(), request.expectedRevision(), spawned::set);
+                request.expectedToken(), request.expectedRevision(), request.throwTarget(), spawned::set);
         BodyHandActionResult.Reason dropReason = reason(outcome);
         if (dropReason == BodyHandActionResult.Reason.OK && spawned.get() != null)
             BodyWorldGridService.authorizeTransferredOpen(actor, authority, spawned.get());
@@ -938,7 +989,7 @@ public final class BodyHandRequestService {
                 }
                 return new BodyHandActionResult(request.epoch(), request.sequence(),
                         reason == BodyHandActionResult.Reason.OK, reason, true, hands.revision(),
-                        hands.activeHand(), null, null, 0, null);
+                        hands.activeHand(), null, null, 0, transition);
             }
         }
         return new BodyHandActionResult(request.epoch(), request.sequence(),

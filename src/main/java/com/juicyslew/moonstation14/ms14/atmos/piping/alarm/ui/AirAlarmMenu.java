@@ -26,21 +26,30 @@ public final class AirAlarmMenu extends AbstractContainerMenu {
     private final AirAlarmBlockEntity alarm;
     private final HandActorAuthority.Snapshot authority;
     private final BodyBlockUseRequest request;
+    private final UUID expectedFrameId;
 
     public AirAlarmMenu(int id, Inventory inventory, FriendlyByteBuf data) {
-        this(id, data.readBlockPos(), data.readUUID(), null, null, null, null);
+        this(id, data.readBlockPos(), data.readUUID(), null, null, null, null, null);
     }
 
     AirAlarmMenu(int id, BlockPos pos, UUID session, ServerLevel level, AirAlarmBlockEntity alarm,
                  HandActorAuthority.Snapshot authority, BodyBlockUseRequest request) {
+        this(id, pos, session, level, alarm, authority, request, null);
+    }
+
+    AirAlarmMenu(int id, BlockPos pos, UUID session, ServerLevel level, AirAlarmBlockEntity alarm,
+                 HandActorAuthority.Snapshot authority, BodyBlockUseRequest request, UUID expectedFrameId) {
         super(ModMenus.AIR_ALARM.get(), id);
         this.pos = pos.immutable(); this.session = session; this.level = level;
         this.alarm = alarm; this.authority = authority; this.request = request;
+        this.expectedFrameId = expectedFrameId;
     }
 
     public UUID session() { return session; }
+    public HandActorAuthority.Snapshot bodyAuthority() { return authority; }
     AirAlarmBlockEntity alarm() { return alarm; }
     ServerLevel serverLevel() { return level; }
+    public UUID expectedFrameId() { return expectedFrameId; }
 
     @Override public boolean stillValid(Player player) {
         // The client-side menu has no server capability fields; vanilla may still query it locally.

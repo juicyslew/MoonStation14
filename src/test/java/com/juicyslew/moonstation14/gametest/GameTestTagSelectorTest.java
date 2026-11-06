@@ -50,6 +50,47 @@ class GameTestTagSelectorTest {
         assertTrue(GameTestTagSelector.tags(Fixture.class, method).stream().anyMatch(Set.of("station", "air")::contains));
     }
 
+    @Test void cornerDiagnosticEntryIsIsolatedFromShuttleBodyCarrySelector() throws Exception {
+        Class<?> entry = com.juicyslew.moonstation14.ms14.shuttle.sable.ShuttleCornerCauseDiagnosticGameTests.class;
+        var method = entry.getDeclaredMethod("cornerNeighborhoodNativeProofDiagnostic", net.minecraft.gametest.framework.GameTestHelper.class);
+        assertEquals(Set.of("shuttle-corner-cause-diagnostic"), GameTestTagSelector.tags(entry, method));
+        assertFalse(GameTestTagSelector.tags(entry, method).contains("shuttle-body-carry"));
+        assertFalse(entry.isAnnotationPresent(GameTestTags.class));
+        var prefix = entry.getAnnotation(net.neoforged.neoforge.gametest.PrefixGameTestTemplate.class);
+        assertNotNull(prefix);
+        assertFalse(prefix.value(), "template lookup must use the explicit moonstation14:empty template without class prefix");
+        var template = method.getAnnotation(net.minecraft.gametest.framework.GameTest.class);
+        assertNotNull(template);
+        assertEquals("empty", template.template());
+        assertEquals("moonstation14", template.templateNamespace());
+    }
+
+    @Test void yawPerturbationEntryIsOnlyExperimentTaggedAndUsesUnprefixedEmptyTemplate() throws Exception {
+        Class<?> entry = com.juicyslew.moonstation14.ms14.shuttle.sable.ShuttleYawPerturbationCauseGameTests.class;
+        var method = entry.getDeclaredMethod("nativeYawFeedbackAfterRollPerturbation", net.minecraft.gametest.framework.GameTestHelper.class);
+        assertEquals(Set.of("shuttle-yaw-perturbation-cause-diagnostic"), GameTestTagSelector.tags(entry, method));
+        assertFalse(GameTestTagSelector.tags(entry, method).contains("shuttle-body-carry"));
+        assertFalse(entry.isAnnotationPresent(GameTestTags.class));
+        assertFalse(entry.getAnnotation(net.neoforged.neoforge.gametest.PrefixGameTestTemplate.class).value());
+        var template = method.getAnnotation(net.minecraft.gametest.framework.GameTest.class);
+        assertEquals("moonstation14", template.templateNamespace());
+        assertEquals("empty", template.template());
+        assertEquals(com.juicyslew.moonstation14.ms14.shuttle.sable.YawPerturbationDiagnosticPlan.TEST_TIMEOUT_TICKS,
+                template.timeoutTicks());
+    }
+
+    @Test void yawAngularTelemetryEntryIsExperimentIsolatedAndEmptyTemplateUnprefixed() throws Exception {
+        Class<?> entry = com.juicyslew.moonstation14.ms14.shuttle.sable.ShuttleYawPerturbationCauseGameTests.class;
+        var method = entry.getDeclaredMethod("nativeYawFeedbackAfterRollPerturbation", net.minecraft.gametest.framework.GameTestHelper.class);
+        assertEquals(Set.of("shuttle-yaw-perturbation-cause-diagnostic"), GameTestTagSelector.tags(entry, method));
+        assertFalse(GameTestTagSelector.tags(entry, method).contains("shuttle-body-carry"));
+        assertFalse(entry.isAnnotationPresent(GameTestTags.class));
+        assertFalse(entry.getAnnotation(net.neoforged.neoforge.gametest.PrefixGameTestTemplate.class).value());
+        var template = method.getAnnotation(net.minecraft.gametest.framework.GameTest.class);
+        assertEquals("moonstation14", template.templateNamespace());
+        assertEquals("empty", template.template());
+    }
+
     @Test void selectionDefaultsToAllAndFilteredOrExcludesUnmatched() throws Exception {
         var power = Fixture.class.getDeclaredMethod("test");
         var untagged = UntaggedFixture.class.getDeclaredMethod("test");

@@ -9,6 +9,7 @@ import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceRules;
 import com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph;
 import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerLiveLoop;
@@ -242,8 +243,8 @@ public final class ApcOverloadGameTests {
 
     /** Compact version of the established source -> HV -> substation -> MV -> APC -> floor-cable path. */
     private static DebugFixture debugFixture(GameTestHelper helper, boolean twoLamps) {
-        var ticket = FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(2, 0, 2)),
-                helper.absolutePos(new BlockPos(5, 1, 7)), 0);
+        var ticket = FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(1, -1, 1)),
+                helper.absolutePos(new BlockPos(6, 2, 8)), 0);
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos source = debugPos(helper, 3, 1, 2);
         BlockPos sub = debugPos(helper, 3, 1, 4);
@@ -269,6 +270,13 @@ public final class ApcOverloadGameTests {
             level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
             require(CableStorage.place(level, host, Direction.UP, CableTier.APC), "floor LV cable " + host);
         }
+        var graphHosts = new java.util.ArrayList<BlockPos>();
+        for (int z = 2; z <= 4; z++) graphHosts.add(debugPos(helper, 4, 1, z));
+        for (int z = 4; z <= 6; z++) graphHosts.add(debugPos(helper, 2, 1, z));
+        graphHosts.add(outputHost);
+        for (int x = 3; x <= 5; x++) for (int z = 6; z <= 7; z++)
+            graphHosts.add(debugPos(helper, x, 0, z));
+        requirePowerGraphNeighborChunksCovered(ticket, graphHosts);
         BlockPos first = debugPos(helper, 4, 1, 7);
         BlockPos second = debugPos(helper, 5, 1, 7);
         placeDevice(level, first, PowerDeviceKind.DEBUG_LOAD_LAMP, Direction.NORTH);
@@ -282,6 +290,17 @@ public final class ApcOverloadGameTests {
                 new CableFaceNode(debugPos(helper, 2, 1, 4), Direction.EAST, CableTier.MV),
                 new CableFaceNode(debugPos(helper, 2, 1, 6), Direction.EAST, CableTier.MV),
                 new CableFaceNode(outputHost, Direction.WEST, CableTier.APC), List.of(first, second));
+    }
+
+    /** LoadedPowerGraph potentialNeighbors inspects all host offsets in its local 3D 3x3x3 stencil. */
+    private static void requirePowerGraphNeighborChunksCovered(FixtureChunkTickets.Lease tickets,
+                                                                List<BlockPos> cableHosts) {
+        for (BlockPos host : cableHosts)
+            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++) for (int dz = -1; dz <= 1; dz++) {
+                BlockPos neighborHost = host.offset(dx, dy, dz);
+                require(tickets.covers(neighborHost), "fixture ticket lease omits cable graph neighbor host chunk: nodeHost="
+                        + host + " neighborHost=" + neighborHost + " ticket=" + tickets.diagnostic(neighborHost));
+            }
     }
 
     /** Adds a second ordinary source on the same already-connected HV cable spine. */
@@ -443,7 +462,8 @@ public final class ApcOverloadGameTests {
 
     /** Real connected HV/MV/APC graph with enough live lamps to trip the output meter. */
     @GameTestTags({"suite-stabilization", "machine-model-regression"})
-    @GameTest(template = "power_overload_clear", timeoutTicks = 1200, templateNamespace = "moonstation14")
+    @GameTest(template = "power_overload_clear", timeoutTicks = 1200, templateNamespace = "moonstation14",
+            batch = "power_connected_overload_paid")
     public static void connectedCablePathLampLoadTripsApcAndManualRecloseRestoresIt(GameTestHelper helper) {
         FixtureChunkTickets.around(helper, heavyPos(helper, 2, 0, 2),
                 heavyPos(helper, 12, 3, 15), 0);
@@ -512,23 +532,48 @@ public final class ApcOverloadGameTests {
         PowerDeviceBlockEntity apcEntity = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
         apcEntity.setEnergyJoules(0);
 
-        // Start the protection window at the first fresh, known APC output sample that
-        // actually powers this connected fixture; absolute GameTest time is unrelated.
         CableFaceNode output = new CableFaceNode(outputHost, Direction.WEST, CableTier.APC);
         BlockPos spineHost = heavyPos(helper, 3, 0, 6);
         CableFaceNode spine = new CableFaceNode(spineHost, Direction.UP, CableTier.APC);
-        scheduleConnectedOverloadSequence(helper, level, apcEntity, apc, output, spine,
-                heavyPos(helper, 3, 1, 7), fullFixtureDemandWatts);
+        BlockPos sampleLamp = heavyPos(helper, 3, 1, 7);
+        // Do not charge graph/topology startup against the native protection interval.
+        // Establish the first actual paid sample and connected component before starting
+        // the bounded overload observation window; UNKNOWN remains fail-closed.
+        PowerFixtureReadiness.await(helper, level, 600,
+                () -> {
+                    var observed = PowerRuntime.apcOutputObservation(level, apcEntity);
+                    var outputState = PowerGraphService.state(level, output);
+                    var spineState = PowerGraphService.state(level, spine);
+                    boolean connected = outputState.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                            && spineState.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                            && outputState.componentId() == spineState.componentId();
+                    return apcEntity.breakerClosed() && !apcEntity.tripLatched() && observed.known()
+                            && observed.outputWatts() > PowerDeviceRules.DEFAULT_APC_PROTECTION.maxLoadWatts()
+                            && observed.outputWatts() >= fullFixtureDemandWatts && connected
+                            && level.getBlockState(sampleLamp).getValue(PowerDeviceBlock.LIT);
+                },
+                () -> "awaiting first connected fully-paid native overload sample: "
+                        + overloadState(level, apcEntity, output, spine),
+                () -> scheduleConnectedOverloadSequence(helper, level, apcEntity, apc, output, spine,
+                        sampleLamp, fullFixtureDemandWatts));
     }
 
     private static void scheduleConnectedOverloadSequence(GameTestHelper helper, ServerLevel level,
             PowerDeviceBlockEntity apcEntity, BlockPos apcPos, CableFaceNode output, CableFaceNode spine,
             BlockPos sampleLamp, double fullFixtureDemandWatts) {
-        final int maxTripObservationTick = 200;
+        var protectionConfig = PowerDeviceRules.DEFAULT_APC_PROTECTION;
+        final long requiredNativeTicks = (long) Math.floor(protectionConfig.tripTimeSeconds()
+                * PowerDeviceRules.SERVER_TICKS_PER_SECOND) + 1;
+        final int maxTripObservationTick = Math.toIntExact(requiredNativeTicks
+                + 2L * PowerDeviceRules.APC_SOLVE_INTERVAL_TICKS);
         var tripTick = new java.util.concurrent.atomic.AtomicInteger(-1);
         var cutTick = new java.util.concurrent.atomic.AtomicInteger(-1);
-        var maxNativeTicks = new java.util.concurrent.atomic.AtomicLong();
-        var lastNativeTicks = new java.util.concurrent.atomic.AtomicLong();
+        // Read the real protection state at observation registration. Readiness may
+        // already have accumulated native overload ticks; never assume a zero baseline.
+        long initialNativeTicks = apcEntity.protectionState().overloadTicks();
+        var maxNativeTicks = new java.util.concurrent.atomic.AtomicLong(initialNativeTicks);
+        var lastNativeTicks = new java.util.concurrent.atomic.AtomicLong(initialNativeTicks);
+        var nativeTimeline = new StringBuilder();
         for (int tick = 1; tick <= 400; tick++) {
             final int checkTick = tick;
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, tick, () -> {
@@ -537,10 +582,10 @@ public final class ApcOverloadGameTests {
                 if (tripTick.get() < 0) {
                     if (!apcEntity.breakerClosed() && apcEntity.tripLatched()) {
                         tripTick.set(checkTick);
-                        require(maxNativeTicks.get() >= 60,
-                                "native overload counter reached 60 before breaker trip: max="
-                                        + maxNativeTicks.get() + ",last=" + lastNativeTicks.get() + ","
-                                        + overloadState(level, apcEntity, output, spine));
+                        requireOverloadCondition(level, apcEntity, output, spine,
+                                lastNativeTicks.get() == requiredNativeTicks - 1,
+                                "trip priorTicks=" + lastNativeTicks.get() + " required=" + requiredNativeTicks,
+                                "native breaker trip must follow the configured protection curve");
                     }
                 }
                 if (tripTick.get() < 0) {
@@ -553,18 +598,37 @@ public final class ApcOverloadGameTests {
                     boolean connected = outputState.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
                             && spineState.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
                             && outputState.componentId() == spineState.componentId();
-                    if (apcEntity.breakerClosed() && observed.known() && observed.outputWatts() > 20_000
+                    String meterReason = !observed.known()
+                            ? (!connected ? "graph-unknown-or-disconnected" : "meter-unknown-or-stale")
+                            : observed.outputWatts() <= protectionConfig.maxLoadWatts()
+                                    ? "known-at-or-below-threshold" : "known-overload-sample";
+                    if (nativeTimeline.length() < maxTripObservationTick * 320) {
+                        nativeTimeline.append("{testTick=").append(checkTick)
+                                .append(",reason=").append(meterReason)
+                                .append(",power=").append(observed)
+                                .append(",connected=").append(connected)
+                                .append(",nativeTicks=").append(protection.overloadTicks())
+                                .append(",nativeLastTick=").append(protection.lastAdvancedTick())
+                                .append(",outputState=").append(outputState.knowledge())
+                                .append("/").append(outputState.componentId())
+                                .append(",spineState=").append(spineState.knowledge())
+                                .append("/").append(spineState.componentId()).append("}");
+                    }
+                    if (apcEntity.breakerClosed() && observed.known()
+                            && observed.outputWatts() > protectionConfig.maxLoadWatts()
                             && observed.outputWatts() >= fullFixtureDemandWatts && connected) {
                         require(level.getBlockState(sampleLamp).getValue(PowerDeviceBlock.LIT),
                                 "full fixture demand " + fullFixtureDemandWatts
-                                        + " W must light connected lamp: "
+                                    + " W must light connected lamp: "
                                         + overloadState(level, apcEntity, output, spine));
                     }
                     if (checkTick >= maxTripObservationTick) {
-                        require(false, "no native protection trip within initial observation window: required="
-                                + fullFixtureDemandWatts + "W,observed=" + observed + ",connected=" + connected
-                                + ",native=" + protection + ",output=" + outputState + ",spine=" + spineState + ","
-                                + overloadState(level, apcEntity, output, spine));
+                        MoonStation14.LOGGER.error("[apc-overload-timeline] pos={} initialNativeTicks={} samples={}",
+                                apcPos, initialNativeTicks, nativeTimeline);
+                        requireOverloadCondition(level, apcEntity, output, spine, false,
+                                "no trip by tick=" + checkTick + " requiredNativeTicks=" + requiredNativeTicks
+                                        + " priorTicks=" + lastNativeTicks.get() + " demand=" + fullFixtureDemandWatts,
+                                "native protection did not trip within the bounded observation window");
                     }
                 }
                 if (tripTick.get() < 0) return;
@@ -572,7 +636,7 @@ public final class ApcOverloadGameTests {
                 int tripped = tripTick.get();
                 if (checkTick == tripped) {
                     require(!apcEntity.breakerClosed() && apcEntity.tripLatched(),
-                            "actual native protection trips after counter reaches 60: "
+                            "actual native protection trips after resolved interval " + requiredNativeTicks + ": "
                                     + overloadState(level, apcEntity, output, spine));
                 } else if (checkTick == tripped + 25) {
                     require(!level.getBlockState(sampleLamp).getValue(PowerDeviceBlock.LIT),
@@ -625,6 +689,16 @@ public final class ApcOverloadGameTests {
                 + ",tripLatched=" + apc.tripLatched()
                 + ",indexedDevices=" + PowerRuntime.indexedDeviceCount(level)
                 + ",solvePorts=" + ports + ",solveDiagnosticLength=" + solve.length();
+    }
+
+    private static void requireOverloadCondition(ServerLevel level, PowerDeviceBlockEntity apc,
+            CableFaceNode output, CableFaceNode spine, boolean condition, String concise, String failure) {
+        if (condition) return;
+        String full = overloadState(level, apc, output, spine) + ",nativeProtection=" + apc.protectionState();
+        MoonStation14.LOGGER.error("[apc-overload-fixture] pos={} failure={} detail={}",
+                apc.getBlockPos(), failure, full);
+        throw new GameTestAssertException(failure + ": " + concise
+                + "; full state logged under [apc-overload-fixture]");
     }
 
     private static void placeDevice(ServerLevel level, BlockPos pos, PowerDeviceKind kind, Direction facing) {

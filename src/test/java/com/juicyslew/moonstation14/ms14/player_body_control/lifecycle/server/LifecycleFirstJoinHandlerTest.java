@@ -31,7 +31,7 @@ class LifecycleFirstJoinHandlerTest {
         }
     }
 
-    @Test void sameServerReservationAllowsOnlyOfflineOrDeadClaimWhileStartupRemainsUninitialized() throws Exception {
+    @Test void sameServerReservationAllowsOfflineDeadClaimAndExplicitActiveRecoveryWhileStartupIsUninitialized() throws Exception {
         var store = new com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.LifecycleProfileStore(
                 directory.resolve("profiles.json"));
         var context = new LifecycleServerContext(store, null);
@@ -44,19 +44,42 @@ class LifecycleFirstJoinHandlerTest {
                 context, account, com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.OFFLINE));
         assertTrue(LifecycleFirstJoinHandler.existingAccountMayReconnect(LifecycleStartupRuntime.State.UNINITIALIZED,
                 context, account, com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.DEAD_CLAIM));
+        assertTrue(LifecycleFirstJoinHandler.existingAccountMayRecoverAbandonedActive(
+                LifecycleStartupRuntime.State.UNINITIALIZED, context, account));
         assertFalse(LifecycleFirstJoinHandler.existingAccountMayReconnect(LifecycleStartupRuntime.State.UNINITIALIZED,
                 null, account, com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.OFFLINE));
         for (var state : LifecycleStartupRuntime.State.values()) {
-            if (state != LifecycleStartupRuntime.State.DEFERRED && state != LifecycleStartupRuntime.State.UNINITIALIZED)
+            if (state == LifecycleStartupRuntime.State.EMPTY)
+                assertTrue(LifecycleFirstJoinHandler.existingAccountMayReconnect(state, context, account,
+                        com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.OFFLINE), state.name());
+            else if (state != LifecycleStartupRuntime.State.DEFERRED && state != LifecycleStartupRuntime.State.UNINITIALIZED)
                 assertFalse(LifecycleFirstJoinHandler.existingAccountMayReconnect(state, context, account,
                         com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.OFFLINE), state.name());
         }
         for (var profileState : com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.values()) {
             if (profileState != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.OFFLINE
                     && profileState != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.DEAD_CLAIM)
-                assertFalse(LifecycleFirstJoinHandler.existingAccountMayReconnect(LifecycleStartupRuntime.State.UNINITIALIZED,
+                if (profileState == com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.ACTIVE)
+                    assertTrue(LifecycleFirstJoinHandler.existingAccountMayRecoverAbandonedActive(
+                            LifecycleStartupRuntime.State.UNINITIALIZED, context, account), profileState.name());
+                else assertFalse(LifecycleFirstJoinHandler.existingAccountMayReconnect(LifecycleStartupRuntime.State.UNINITIALIZED,
                         context, account, profileState), profileState.name());
         }
+    }
+
+    @Test void abandonedActiveAdmissionSharesExistingStartupBoundaryWithoutBroadeningOrdinaryReconnect() throws Exception {
+        var store = new com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.LifecycleProfileStore(
+                directory.resolve("active-recovery.json"));
+        var context = new LifecycleServerContext(store, null);
+        var account = java.util.UUID.randomUUID();
+        assertFalse(LifecycleFirstJoinHandler.existingAccountMayRecoverAbandonedActive(
+                LifecycleStartupRuntime.State.EMPTY, context, account));
+        for (var state : LifecycleStartupRuntime.State.values()) {
+            if (state != LifecycleStartupRuntime.State.DEFERRED)
+                assertFalse(LifecycleFirstJoinHandler.existingAccountMayRecoverAbandonedActive(state, null, account), state.name());
+        }
+        assertFalse(LifecycleFirstJoinHandler.existingAccountMayReconnect(LifecycleStartupRuntime.State.DEFERRED,
+                null, account, com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.ACTIVE));
     }
 
     @Test void deferredRestartRemainsAllowedButCannotOverrideFailClosedSavedStates() {
@@ -76,9 +99,12 @@ class LifecycleFirstJoinHandlerTest {
                 LifecycleFirstJoinHandler.accountRoute(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.OFFLINE));
         assertEquals(LifecycleFirstJoinHandler.AccountRoute.GHOST_LOGIN,
                 LifecycleFirstJoinHandler.accountRoute(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.DEAD_CLAIM));
+        assertEquals(LifecycleFirstJoinHandler.AccountRoute.ABANDONED_ACTIVE_RECONNECT,
+                LifecycleFirstJoinHandler.accountRoute(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.ACTIVE));
         for (var state : com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.values()) {
             if (state != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.OFFLINE
-                    && state != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.DEAD_CLAIM)
+                    && state != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.DEAD_CLAIM
+                    && state != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.ACTIVE)
                 assertEquals(LifecycleFirstJoinHandler.AccountRoute.FAIL_CLOSED,
                         LifecycleFirstJoinHandler.accountRoute(state), state.name());
         }

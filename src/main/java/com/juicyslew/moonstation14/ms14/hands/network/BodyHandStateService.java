@@ -1,5 +1,6 @@
 package com.juicyslew.moonstation14.ms14.hands.network;
 
+import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
@@ -87,6 +88,33 @@ public final class BodyHandStateService {
                     GATES.computeIfAbsent(actor, ignored -> new QueryGate()).issue(authority.body(), authority.epoch());
             }
         } catch (RuntimeException invalid) { /* A later normal query remains authoritative. */ }
+    }
+
+    /** Publishes one full owner hand snapshot only for this exact newly committed CHARACTER Ready. */
+    public static boolean publishLifecycleReady(ServerPlayer actor, LivingEntity expectedBody, long expectedEpoch) {
+        var authority = HandActorAuthority.resolve(actor).orElse(null);
+        if (actor == null || expectedBody == null || expectedEpoch <= 0 || authority == null
+                || authority.body() != expectedBody || authority.epoch() != expectedEpoch) {
+            logLifecycleReadyPublicationFailure(actor, expectedBody, expectedEpoch, "authority-mismatch");
+            return false;
+        }
+        try {
+            publishOwnerCommitted(actor, authority);
+        } catch (RuntimeException publicationFailure) {
+            logLifecycleReadyPublicationFailure(actor, expectedBody, expectedEpoch, "publication-exception");
+            return false;
+        }
+        var current = HandActorAuthority.resolve(actor).orElse(null);
+        boolean issued = current != null && current.body() == expectedBody && current.epoch() == expectedEpoch
+                && hasIssued(actor, current);
+        if (!issued) logLifecycleReadyPublicationFailure(actor, expectedBody, expectedEpoch, "owner-snapshot-not-issued");
+        return issued;
+    }
+
+    private static void logLifecycleReadyPublicationFailure(ServerPlayer actor, LivingEntity body,
+                                                              long epoch, String reason) {
+        MoonStation14.LOGGER.warn("Lifecycle Ready owner hand snapshot not issued actor={} body={} epoch={} reason={}",
+                actor == null ? null : actor.getUUID(), body == null ? null : body.getUUID(), epoch, reason);
     }
 
     public static void ingestionCommitted(ServerPlayer actor, java.util.UUID bodyId, long controlEpoch) {

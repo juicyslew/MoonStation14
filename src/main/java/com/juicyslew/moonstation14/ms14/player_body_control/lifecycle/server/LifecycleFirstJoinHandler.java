@@ -37,33 +37,41 @@ public final class LifecycleFirstJoinHandler {
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || player instanceof FakePlayer) return;
         MinecraftServer server = player.getServer();
-        if (server == null || !server.isSameThread()) { disconnect(player, FAILED); return; }
+        if (server == null || !server.isSameThread()) { firstJoinFailure(player, "server-thread", null, null, "server=" + (server != null)); return; }
         // Login may be fired before the player list is authoritative. Never infer a fresh account then.
         if (player.isRemoved() || player.level().isClientSide || player.connection == null
                 || !player.connection.isAcceptingMessages()
                 || server.getPlayerList().getPlayer(player.getUUID()) != player
                 || !(player.level() instanceof ServerLevel)) {
-            disconnect(player, FAILED);
+            firstJoinFailure(player, "login-player-validation", null, null, "serverThread=true");
             return;
         }
         var snapshot = LifecycleStartupRuntime.snapshot(server).orElse(null);
         LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
         if (snapshot == null || context == null) {
-            disconnect(player, FAILED);
+            firstJoinFailure(player, "startup-snapshot-context", snapshot == null ? null : snapshot.state(), context != null,
+                    "snapshotPresent=" + (snapshot != null));
             return;
         }
         boolean knownAccount = context.hasReservedClaim(player.getUUID());
         if (knownAccount) {
             final com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile saved;
             try { saved = context.currentAccountProfile(player.getUUID()).orElse(null); }
-            catch (Exception failure) { disconnect(player, RECONNECT); return; }
-            if (saved == null) { disconnect(player, RECONNECT); return; }
+            catch (Exception failure) { LifecycleExistingBodyReconnect.reportDeferredAdmission(player, "primary-claim-read"); return; }
+            if (saved == null) { LifecycleExistingBodyReconnect.reportDeferredAdmission(player, "primary-claim-missing-or-corrupt"); return; }
             AccountRoute accountRoute = accountRoute(saved.state());
             if (accountRoute == AccountRoute.LIVING_RECONNECT) {
                 if (!existingAccountMayReconnect(snapshot.state(), context, player.getUUID(), saved.state())) {
-                    disconnect(player, RECONNECT); return;
+                    LifecycleExistingBodyReconnect.reportDeferredAdmission(player, "offline-startup-authority"); return;
                 }
-                LifecycleExistingBodyReconnect.handle(player, server, context, reason -> disconnect(player, reason));
+                LifecycleExistingBodyReconnect.handle(player, server, context, reason -> LifecycleExistingBodyReconnect.reportDeferredAdmission(player, reason));
+                return;
+            }
+            if (accountRoute == AccountRoute.ABANDONED_ACTIVE_RECONNECT) {
+                if (!existingAccountMayRecoverAbandonedActive(snapshot.state(), context, player.getUUID())) {
+                    LifecycleExistingBodyReconnect.reportDeferredAdmission(player, "active-startup-authority"); return;
+                }
+                LifecycleExistingBodyReconnect.handle(player, server, context, reason -> LifecycleExistingBodyReconnect.reportDeferredAdmission(player, reason));
                 return;
             }
             if (accountRoute == AccountRoute.GHOST_LOGIN) {
@@ -121,17 +129,22 @@ public final class LifecycleFirstJoinHandler {
                 }
                 return;
             }
-            disconnect(player, RECONNECT);
+            LifecycleExistingBodyReconnect.reportDeferredAdmission(player, "unsupported-or-conflicting-saved-claim");
             return;
         }
         JoinRoute route = routeDecision(true, false);
         if (snapshot.state() != LifecycleStartupRuntime.State.EMPTY
                 && snapshot.state() != LifecycleStartupRuntime.State.UNINITIALIZED) {
-            disconnect(player, FAILED);
+            firstJoinFailure(player, "startup-state-not-enrollable", snapshot.state(), true, "firstAccount=true");
             return;
         }
-        if (GhostMobHarnessControl.ownsDebugSession(player)) { disconnect(player, FAILED); return; }
-        if (!supportedVanillaMode(player.gameMode.getGameModeForPlayer())) { disconnect(player, FAILED); return; }
+        if (GhostMobHarnessControl.ownsDebugSession(player)) {
+            firstJoinFailure(player, "conflicting-debug-session", snapshot.state(), true, "debugSessionOwned=true"); return;
+        }
+        if (!supportedVanillaMode(player.gameMode.getGameModeForPlayer())) {
+            firstJoinFailure(player, "unsupported-initial-mode", snapshot.state(), true,
+                    "actualMode=" + player.gameMode.getGameModeForPlayer()); return;
+        }
         // Login fires after level insertion and inventory-menu initialization. Refuse before reserving
         // the account: an unsafe carrier must not create a durable claim or change game mode.
         if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
@@ -147,6 +160,8 @@ public final class LifecycleFirstJoinHandler {
                 && player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR);
         if (reservation[0] == null || !reservation[0].reserved() || token == null) {
             String diagnostic = reservation[0] == null ? "reservation did not return a result" : reservation[0].diagnostic();
+            MoonStation14.LOGGER.warn("First-character join failed closed phase=reservation player={} outcome={} detail={}",
+                    player.getUUID(), reservation[0] == null ? "missing" : (reservation[0].reserved() ? "reserved" : "failed"), diagnostic);
             disconnect(player, "Character enrollment reservation failed safely: " + diagnostic
                     + ". Your mode was not changed; contact an administrator before retrying.");
             return;
@@ -154,18 +169,26 @@ public final class LifecycleFirstJoinHandler {
 
         // Carrier must be inert before any Mind authority can be promoted.
         if (token == null || !spectator[0]) {
-            disconnect(player, FAILED);
+            firstJoinFailure(player, "reservation-or-spectator-mode", snapshot.state(), true,
+                    "reserved=" + (token != null) + ", reservationOutcome="
+                            + (reservation[0] == null ? "missing" : (reservation[0].reserved() ? "reserved" : "failed"))
+                            + ", spectatorSet=" + spectator[0] + ", actualMode=" + player.gameMode.getGameModeForPlayer());
             return;
         }
         if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
         FirstCharacterBodyStager.Result staged = FirstCharacterBodyStager.stageReserved(token, player, server);
         if (staged.outcome() != FirstCharacterBodyStager.Outcome.PREPARED || staged.prepared() == null) {
-            disconnect(player, FAILED);
+            firstJoinFailure(player, "body-mind-staging", snapshot.state(), true,
+                    "outcome=" + staged.outcome() + ", prepared=" + (staged.prepared() != null)
+                            + ", diagnostic=" + staged.diagnostic());
             return;
         }
         var prepared = staged.prepared();
         PlayerCharacterHarnessEntity body = prepared.body();
-        if (!validPrepared(server, player, context, prepared)) { disconnect(player, FAILED); return; }
+        if (!validPrepared(server, player, context, prepared)) {
+            firstJoinFailure(player, "prepared-body-validation", snapshot.state(), true,
+                    "preparedBody=" + prepared.bodyUUID() + ", generation=" + prepared.generation()); return;
+        }
         if (!CarrierHandInventoryGate.allows(player)) { disconnect(player, DIRTY_CARRIER); return; }
 
         // Establish the immutable speaker identity while authority remains PREPARING.
@@ -183,12 +206,15 @@ public final class LifecycleFirstJoinHandler {
         try {
             active = context.promoteFirstCharacter(prepared.accountUUID(), prepared.mindUUID(), prepared.bodyUUID()).orElse(null);
         } catch (Exception failure) {
-            disconnect(player, FAILED);
+            firstJoinFailure(player, "active-promotion-exception", snapshot.state(), true,
+                    "preparedBody=" + prepared.bodyUUID() + ", exception=" + failure.getClass().getSimpleName());
             return;
         }
         if (active == null || active.state() != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry.LifecycleState.ACTIVE
                 || !active.active() || active.connectionGeneration() <= 0) {
-            disconnect(player, FAILED);
+            firstJoinFailure(player, "active-promotion-invalid", snapshot.state(), true,
+                    "activePresent=" + (active != null) + ", state=" + (active == null ? "none" : active.state())
+                            + ", active=" + (active != null && active.active()));
             return;
         }
         final LifecycleCharacterSessionControl.StartResult result;
@@ -252,21 +278,31 @@ public final class LifecycleFirstJoinHandler {
         if (profileState != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.OFFLINE
                 && profileState != com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.DEAD_CLAIM)
             return false;
+         return state == LifecycleStartupRuntime.State.DEFERRED
+                 || (state == LifecycleStartupRuntime.State.UNINITIALIZED || state == LifecycleStartupRuntime.State.EMPTY)
+                 && context != null
+                 && context.wasCreatedOnThisServer(accountId);
+     }
+
+    static boolean existingAccountMayRecoverAbandonedActive(LifecycleStartupRuntime.State state,
+            LifecycleServerContext context, java.util.UUID accountId) {
         return state == LifecycleStartupRuntime.State.DEFERRED
-                || state == LifecycleStartupRuntime.State.UNINITIALIZED && context != null
-                && context.wasCreatedOnThisServer(accountId);
+                || (state == LifecycleStartupRuntime.State.UNINITIALIZED || state == LifecycleStartupRuntime.State.EMPTY)
+                && context != null && context.wasCreatedOnThisServer(accountId);
     }
 
     static AccountRoute accountRoute(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State state) {
         if (state == com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.OFFLINE)
             return AccountRoute.LIVING_RECONNECT;
+        if (state == com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.ACTIVE)
+            return AccountRoute.ABANDONED_ACTIVE_RECONNECT;
         if (state == com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile.State.DEAD_CLAIM)
             return AccountRoute.GHOST_LOGIN;
         return AccountRoute.FAIL_CLOSED;
     }
 
     enum JoinRoute { VANILLA, INVALID_PLAYER, EXISTING_ACCOUNT, FIRST_ACCOUNT }
-    enum AccountRoute { LIVING_RECONNECT, GHOST_LOGIN, FAIL_CLOSED }
+    enum AccountRoute { LIVING_RECONNECT, ABANDONED_ACTIVE_RECONNECT, GHOST_LOGIN, FAIL_CLOSED }
     enum DeadClaimAdmission { DENIED, RECOVERY, READY, NEWLY_PARKED }
 
     /** Value-level policy only; production callbacks enforce exact connected-player authority. */
@@ -315,5 +351,16 @@ public final class LifecycleFirstJoinHandler {
     private static void disconnect(ServerPlayer player, String reason) {
         if (player.connection != null && player.connection.isAcceptingMessages())
             player.connection.disconnect(Component.literal(reason));
+    }
+
+    private static void firstJoinFailure(ServerPlayer player, String phase,
+                                         LifecycleStartupRuntime.State snapshotState,
+                                         Boolean contextAvailable, String detail) {
+        MinecraftServer server = player.getServer();
+        boolean exactListed = server != null && server.getPlayerList().getPlayer(player.getUUID()) == player;
+        MoonStation14.LOGGER.warn("First-character join failed closed phase={} player={} mode={} removed={} level={} exactListed={} snapshotState={} contextAvailable={} detail={}",
+                phase, player.getUUID(), player.gameMode.getGameModeForPlayer(), player.isRemoved(),
+                player.level().dimension().location(), exactListed, snapshotState, contextAvailable, detail);
+        disconnect(player, FAILED);
     }
 }

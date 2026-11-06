@@ -25,13 +25,13 @@ import java.util.WeakHashMap;
 public final class AirlockWireMenuService {
     static final class WireSession {
         final int windowId; final UUID session; final HandActorAuthority.Snapshot authority;
-        final ServerLevel level; final net.minecraft.core.BlockPos root; final AirlockBlockEntity door; final UUID identity;
+        final ServerLevel level; final net.minecraft.core.BlockPos root; final AirlockBlockEntity door; final UUID identity; final UUID frameId;
         final com.juicyslew.moonstation14.ms14.hands.live.LiveHands openingHands;
         long lastRequest = -1;
         WireSession(int windowId, UUID session, HandActorAuthority.Snapshot authority, ServerLevel level,
-                    net.minecraft.core.BlockPos root, AirlockBlockEntity door, UUID identity) {
+                     net.minecraft.core.BlockPos root, AirlockBlockEntity door, UUID identity, UUID frameId) {
             this.windowId=windowId; this.session=session; this.authority=authority; this.level=level;
-            this.root=root.immutable(); this.door=door; this.identity=identity;
+            this.root=root.immutable(); this.door=door; this.identity=identity; this.frameId=frameId;
             this.openingHands=authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         }
     }
@@ -80,7 +80,9 @@ public final class AirlockWireMenuService {
         UUID id = door.identity(), session = UUID.randomUUID();
         if (!AirlockToolLineOfSight.canReachRoot(authority.body(), level, root, door, id)) return false;
         int windowId = nextWindowId++ & Integer.MAX_VALUE;
-        var wireSession = new WireSession(windowId, session, authority, level, root, door, id);
+        var point=com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentTargetPoint(level,root);
+        if(point==null||!java.util.Objects.equals(point.frameId(),admission.hit().frameId()))return false;
+        var wireSession = new WireSession(windowId, session, authority, level, root, door, id,point.frameId());
         WireSession previous = SESSIONS.get(actor);
         if (previous != null) close(actor, previous);
         SESSIONS.put(actor, wireSession);
@@ -98,7 +100,9 @@ public final class AirlockWireMenuService {
         if (door != s.door || !door.identity().equals(s.identity) || door.prototype() == null
                 || !door.panelOpen() || !door.panelVisible() || !door.prototype().wiresPanelSecurity().wiresAccessible()) return false;
         var hands = s.authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        var point=com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentTargetPoint(level,s.root);
         return hands != null && hands == s.openingHands && hands.compatible(s.authority.body())
+                &&point!=null&&java.util.Objects.equals(point.frameId(),s.frameId)
                 && AirlockToolLineOfSight.canReachRoot(s.authority.body(), level, s.root, door, s.identity);
     }
 

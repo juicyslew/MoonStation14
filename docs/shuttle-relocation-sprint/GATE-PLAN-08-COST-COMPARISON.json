@@ -1,0 +1,62 @@
+{
+  "title": "Feedback-08: isolated two-versus-ten server-tick-envelope comparison",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/ShuttleServerCostGameTests.java",
+  "acceptance_criteria": [
+    "The test-only recorder, adapter and preparation changes compile and pass focused checks without changing production physics, default configuration, existing physical assertions, dependencies or owner data.",
+    "Prepare only the two approved fresh cost targets with their respective supported settings of 2 and 10; reject existing targets and setting mismatches. Each native case verifies its effective SDK setting before measurement.",
+    "Each case measures the same single furnished powered cabin after 200 warmup ticks, with 300 complete parked tick envelopes and 600 complete flight tick envelopes. Flight applies exactly six ordinary additive 20 m/s nudges at offsets 0/100/200/300/400/500, admitted only after natural support and settling, without altered gravity, imposed orientation, caps or recovery teleports.",
+    "Record bounded paired full Pre/Post tick samples with correct units and nearest-rank distributions. Keep benchmark validation, shape sampling and per-tick logging out of measured intervals; clean up observers and scene resources on every terminal path.",
+    "Both separately selected native cases pass their workload and strict phase-boundary hull/support assertions; record each actual selected/discovered and pass/failure count, aggregate completion, clean save/shutdown and parked/flight distributions. Report observed cost, not an invented performance acceptance threshold or Sable-only/throughput/capacity claim."
+  ],
+  "manual_steps": [
+    "No owner testing or input is required. Continue diagnostics autonomously; do not launch a client, package, install, alter owner processes/worlds/configuration or adopt a production setting.",
+    "This is a matched single-cabin headless tick-work comparison, not Sable-only CPU profiling, connected-client performance, capacity certification, M1 acceptance or permission to advance M2-M6.",
+    "Source compilation and test execution are unverified by the author because shell/build commands were explicitly disallowed. The normal authorized integration gate must establish them before native runs. Do not reinterpret the default-two high-speed burial failures as repaired.",
+    "Run the two native cases sequentially once each in their designated fresh directories. Preserve all earlier artifacts; do not rerun either world, broaden suites or infer owner acceptance from diagnostic readiness."
+  ],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["python", "-m", "unittest", "discover", "-s", "tooling/shuttle", "-p", "test_*.py"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r1-preparation-tests.log",
+      "rationale": "Fresh cheap checks for the extended existing preparation helper: only concrete approved targets, matching 2/10 setting, no overwrite or owner-data copying. No actual native targets are prepared by these checks.",
+      "covers": ["Prepare only the two approved fresh cost targets with their respective supported settings of 2 and 10; reject existing targets and setting mismatches. Each native case verifies its effective SDK setting before measurement."]
+    },
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*ServerTickCostRecorderTest", "--tests", "*HullTerrainGeometryTest", "--tests", "*HullImpactTraceStateTest", "--tests", "*HullImpactSubstepsExpectationTest", "--tests", "*HullStateMismatchEvidenceTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r1-jvm.log",
+      "rationale": "Authorized fresh compilation and focused recording/statistics/cadence and existing invariant checks. Author execution was prohibited; source review is not compilation evidence. If this fails, stop before preparing or launching either native case.",
+      "covers": ["The test-only recorder, adapter and preparation changes compile and pass focused checks without changing production physics, default configuration, existing physical assertions, dependencies or owner data.", "Record bounded paired full Pre/Post tick samples with correct units and nearest-rank distributions. Keep benchmark validation, shape sampling and per-tick logging out of measured intervals; clean up observers and scene resources on every terminal path."]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-cost-substeps2-r1", "--substeps", "2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r1-substeps2-preparation.log",
+      "rationale": "One-use preparation of the fresh two-substep cost fixture only. This writes the fresh fixture's minimal Sable config, not any owner/default configuration.",
+      "covers": ["Prepare only the two approved fresh cost targets with their respective supported settings of 2 and 10; reject existing targets and setting mismatches. Each native case verifies its effective SDK setting before measurement."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cost-diagnostic", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cost-substeps2-r1", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r1-substeps2-native.log",
+      "rationale": "First matched case: supported default-two condition, one selected cost fixture (expected 1/882; report actual). Require actual SDK 2, complete 300/600 samples and six natural-flight inputs, strict boundary invariants, aggregate and clean save/shutdown. Capture parked/flight min/mean/p50/p95/p99/max milliseconds; these are server-tick envelopes, not isolated Sable work or a TPS guarantee. Never mask any workload or physical failure as expected success.",
+      "covers": ["Prepare only the two approved fresh cost targets with their respective supported settings of 2 and 10; reject existing targets and setting mismatches. Each native case verifies its effective SDK setting before measurement.", "Each case measures the same single furnished powered cabin after 200 warmup ticks, with 300 complete parked tick envelopes and 600 complete flight tick envelopes. Flight applies exactly six ordinary additive 20 m/s nudges at offsets 0/100/200/300/400/500, admitted only after natural support and settling, without altered gravity, imposed orientation, caps or recovery teleports.", "Record bounded paired full Pre/Post tick samples with correct units and nearest-rank distributions. Keep benchmark validation, shape sampling and per-tick logging out of measured intervals; clean up observers and scene resources on every terminal path.", "Both separately selected native cases pass their workload and strict phase-boundary hull/support assertions; record each actual selected/discovered and pass/failure count, aggregate completion, clean save/shutdown and parked/flight distributions. Report observed cost, not an invented performance acceptance threshold or Sable-only/throughput/capacity claim."]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-cost-substeps10-r1", "--substeps", "10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r1-substeps10-preparation.log",
+      "rationale": "One-use preparation of the separate fresh ten-substep cost fixture. Preserve the completed two-substep run and all prior worlds/reports.",
+      "covers": ["Prepare only the two approved fresh cost targets with their respective supported settings of 2 and 10; reject existing targets and setting mismatches. Each native case verifies its effective SDK setting before measurement."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cost-diagnostic", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cost-substeps10-r1", "-Pms14HullImpactExpectedSubsteps=10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cost-r1-substeps10-native.log",
+      "rationale": "Second matched case, serialized after the first: verify actual SDK 10 and the same workload/counts/invariants. Expected 1/882, but record actual counts independently for this invocation. Compare the two valid parked distributions and the two valid flight distributions; report raw values and relative change with fixed-order, single-cabin and headless limitations. This does not establish production adoption or high-speed repair at default two. If either case fails or records incomplete samples, retain a failed/incomplete comparison rather than inventing a ratio.",
+      "covers": ["Prepare only the two approved fresh cost targets with their respective supported settings of 2 and 10; reject existing targets and setting mismatches. Each native case verifies its effective SDK setting before measurement.", "Each case measures the same single furnished powered cabin after 200 warmup ticks, with 300 complete parked tick envelopes and 600 complete flight tick envelopes. Flight applies exactly six ordinary additive 20 m/s nudges at offsets 0/100/200/300/400/500, admitted only after natural support and settling, without altered gravity, imposed orientation, caps or recovery teleports.", "Record bounded paired full Pre/Post tick samples with correct units and nearest-rank distributions. Keep benchmark validation, shape sampling and per-tick logging out of measured intervals; clean up observers and scene resources on every terminal path.", "Both separately selected native cases pass their workload and strict phase-boundary hull/support assertions; record each actual selected/discovered and pass/failure count, aggregate completion, clean save/shutdown and parked/flight distributions. Report observed cost, not an invented performance acceptance threshold or Sable-only/throughput/capacity claim."]
+    }
+  ]
+}

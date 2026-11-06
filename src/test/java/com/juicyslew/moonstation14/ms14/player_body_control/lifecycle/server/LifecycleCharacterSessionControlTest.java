@@ -63,12 +63,12 @@ class LifecycleCharacterSessionControlTest {
         assertFalse(lifecycle.authorizes(account, active.connectionGeneration(), body.id()));
     }
 
-    @Test void readyDecisionAcceptsOnlyExactUncommittedEpochBeforeTimeout() {
+    @Test void readyDecisionAcceptsExactUncommittedEpochAfterRetryInterval() {
         assertTrue(LifecycleCharacterSessionControl.readyDecision(8, 8, false, 0, 100));
         assertTrue(LifecycleCharacterSessionControl.readyDecision(8, 8, false, 99, 100));
+        assertTrue(LifecycleCharacterSessionControl.readyDecision(8, 8, false, 125, 100));
         assertFalse(LifecycleCharacterSessionControl.readyDecision(7, 8, false, 1, 100));
         assertFalse(LifecycleCharacterSessionControl.readyDecision(8, 8, true, 1, 100));
-        assertFalse(LifecycleCharacterSessionControl.readyDecision(8, 8, false, 100, 100));
         assertFalse(LifecycleCharacterSessionControl.readyDecision(8, 8, false, -1, 100));
     }
 

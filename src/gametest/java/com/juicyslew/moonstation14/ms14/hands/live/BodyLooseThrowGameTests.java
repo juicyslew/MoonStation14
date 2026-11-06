@@ -27,12 +27,13 @@ public final class BodyLooseThrowGameTests {
         original.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME,
                 net.minecraft.network.chat.Component.literal("whole throw"));
         LiveHands stocked = stock(body, original, "throw-token");
-        require(BodyHandItemTransferGameTestAccess.throwOwned(body, "left", "throw-token", stocked.revision() - 1)
+        var target = throwTarget(body);
+        require(BodyHandItemTransferGameTestAccess.throwOwned(body, "left", "throw-token", stocked.revision() - 1, target)
                 == BodyLooseThrow.Result.DENIED, "stale throw denied");
         require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == stocked
                 && looseIds(helper, body).equals(looseBefore),
                 "stale denial leaves owner and world unchanged");
-        require(BodyHandItemTransferGameTestAccess.throwOwned(body, "left", "throw-token", stocked.revision())
+        require(BodyHandItemTransferGameTestAccess.throwOwned(body, "left", "throw-token", stocked.revision(), target)
                 == BodyLooseThrow.Result.SUCCESS, "fresh whole-stack throw succeeds");
         LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         var loose = newLooseAfter(helper, body, looseBefore);
@@ -50,7 +51,7 @@ public final class BodyLooseThrowGameTests {
         GrenadeFuseData fuse = new GrenadeFuseData(GrenadeFuse.Phase.ARMED, helper.getLevel().getGameTime() + 200, true, false);
         grenade.set(ModDataComponents.GRENADE_FUSE.get(), fuse);
         LiveHands stocked = stock(body, grenade, "armed-grenade");
-        require(BodyHandItemTransferGameTestAccess.throwOwned(body, "left", "armed-grenade", stocked.revision())
+        require(BodyHandItemTransferGameTestAccess.throwOwned(body, "left", "armed-grenade", stocked.revision(), throwTarget(body))
                 == BodyLooseThrow.Result.SUCCESS, "armed grenade throw succeeds");
         LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         var loose = newLooseAfter(helper, body, looseBefore);
@@ -80,7 +81,7 @@ public final class BodyLooseThrowGameTests {
         original.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME,
                 net.minecraft.network.chat.Component.literal("whole jug"));
         LiveHands stocked = stock(body, original, "ceiling-jug");
-        require(BodyHandItemTransferGameTestAccess.throwOwned(body, "left", "ceiling-jug", stocked.revision())
+        require(BodyHandItemTransferGameTestAccess.throwOwned(body, "left", "ceiling-jug", stocked.revision(), throwTarget(body))
                 == BodyLooseThrow.Result.SUCCESS, "jug throw succeeds below ceiling");
         LiveHands after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         var loose = newLooseAfter(helper, body, looseBefore);
@@ -107,6 +108,11 @@ public final class BodyLooseThrowGameTests {
         LiveHands next = before.putWhole(before.revision(), "left", new ItemToken(token), stack).state();
         body.setData(ModDataAttachments.LIVE_HANDS.get(), next);
         return next;
+    }
+
+    private static com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget throwTarget(Villager body) {
+        return com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget.world(
+                body.getEyePosition().add(body.getLookAngle().scale(4)));
     }
 
     private static Set<UUID> looseIds(GameTestHelper helper, Villager body) {

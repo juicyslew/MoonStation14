@@ -38,6 +38,19 @@ class BodyHandStatePolicyTest {
         assertFalse(gate.hasIssued(null, 7));
     }
 
+    @Test void reconnectEpochRequiresFreshIssueBeforeOwnerActionsResume() {
+        var gate = new BodyHandStateService.QueryGate();
+        net.minecraft.world.entity.LivingEntity body = null;
+        gate.issue(body, 37);
+        assertTrue(gate.hasIssued(body, 37));
+        gate.invalidateUnless(body, 38);
+        assertFalse(gate.hasIssued(body, 37), "old epoch issuance cannot authorize a reconnect");
+        assertFalse(gate.hasIssued(body, 38), "new epoch must await its full owner snapshot publication");
+        gate.issue(body, 38);
+        assertTrue(gate.hasIssued(body, 38));
+        assertFalse(gate.hasIssued(body, 37));
+    }
+
     @Test void rejectsMalformedAndUnboundedPackets() {
         assertThrows(IllegalArgumentException.class, () -> new BodyHandStateQuery(-1, 1));
         assertThrows(IllegalArgumentException.class, () -> new BodyHandStateQuery(0, 0));

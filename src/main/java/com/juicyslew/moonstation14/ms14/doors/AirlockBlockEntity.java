@@ -21,6 +21,58 @@ import java.util.function.Consumer;
 
 /** Root controller for both airlock blocks. State survives chunk unload and is never client-authored. */
 public final class AirlockBlockEntity extends BlockEntity {
+    /** Opt-in only: at most 128 records during the first 200 game ticks per controller. */
+    static final int CORRECTION_TRACE_MAX_RECORDS=128;
+    static final int CORRECTION_TRACE_WINDOW_TICKS=200;
+    static final class CorrectionTraceBudget {
+        private int records;
+        private long startedAt=Long.MIN_VALUE;
+        private boolean armed;
+        boolean arm(boolean enabled,long tick){
+            if(!enabled||armed)return false;
+            armed=true;startedAt=tick;return true;
+        }
+        boolean permit(boolean enabled,long tick){
+            if(!enabled||!armed||records>=CORRECTION_TRACE_MAX_RECORDS||tick-startedAt>=CORRECTION_TRACE_WINDOW_TICKS)return false;
+            records++;
+            return true;
+        }
+        boolean armed(){return armed;}
+    }
+    private final CorrectionTraceBudget correctionTraceBudget=new CorrectionTraceBudget();
+    private static boolean doorCorrectionTraceEnabled(){return Boolean.getBoolean("moonstation14.airlockCorrectionTrace");}
+    private boolean doorCorrectionTracePermit(){
+        try{
+            if(!doorCorrectionTraceEnabled()||!correctionTraceBudget.armed()||level==null)return false;
+            return correctionTraceBudget.permit(true,level.getGameTime());
+        }
+        catch(RuntimeException ignored){return false;}
+    }
+    private boolean armDoorCorrectionTrace(){
+        try{
+            if(level==null||!doorCorrectionTraceEnabled()||correctionTraceBudget.armed())return false;
+            return correctionTraceBudget.arm(true,level.getGameTime());
+        }
+        catch(RuntimeException ignored){return false;}
+    }
+    private void doorCorrectionTrace(String event,String details){
+        try {
+            long tick=level.getGameTime();
+            ClientView view=clientView();
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.info(
+                    "[airlock-correction] side={} tick={} root={} pos={} revision={} phase={} started={} transitionAt={} passable={} event={} {}",
+                    level.isClientSide?"client":"server",tick,view.identity(),worldPosition,
+                    view.revision(),view.phase(),view.transitionStartedAt(),view.transitionAt(),view.passable(),event,details);
+        }catch(RuntimeException ignored){ /* Optional diagnostics must never affect door state or packet handling. */ }
+    }
+    public void traceNativeBumpContact(UUID actor,UUID frame,BlockPos selected){
+        if(armDoorCorrectionTrace()||correctionTraceBudget.armed())
+            if(doorCorrectionTracePermit())doorCorrectionTrace("native-contact","bodyUUID="+actor+",inputSeq=unknown,frame="+frame+",selected="+selected);
+    }
+    public void traceClientNativeBumpContact(UUID actor,UUID frame,BlockPos root,BlockPos selected){
+        if(!hasClientSnapshot()||(!armDoorCorrectionTrace()&&!correctionTraceBudget.armed()))return;
+        if(doorCorrectionTracePermit())doorCorrectionTrace("client-native-contact","bodyUUID="+actor+",inputSeq=unknown,frame="+frame+",root="+root+",selected="+selected);
+    }
     private com.juicyslew.moonstation14.ms14.devicenet.DeviceEndpoint networkEndpoint;
     private AirlockState state;
     private long transitionStartedAt;
@@ -37,7 +89,7 @@ public final class AirlockBlockEntity extends BlockEntity {
     private boolean persistedElectrification;
     /** Server prototype defaults have been applied, or valid persisted state was decoded. */
     private boolean initialized;
-    private ClientView clientSnapshot;
+    private final AirlockOpeningPrediction clientPrediction=new AirlockOpeningPrediction();
     private AirlockElectrificationSystem.State electrification = AirlockElectrificationSystem.State.initial(
             com.juicyslew.moonstation14.ms14.doors.prototype.ElectrifiedData.AIRLOCK_DEFAULTS);
     /** Transient, root-owned exemption for actors crushed by this door only. */
@@ -48,18 +100,30 @@ public final class AirlockBlockEntity extends BlockEntity {
     private void publishDoorStatus(){if(doorStatusListener!=null)doorStatusListener.accept(AirlockSignalConsumer.doorStatus(state.phase()));}
     /** Receives an already-routed device-network input on the authoritative server thread. */
     public boolean receiveSignal(String port,com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal signal){
+        return receiveSignal(port,signal,"direct");
+    }
+    private boolean receiveSignal(String port,com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal signal,String transactionId){
         if(!(level instanceof ServerLevel server)||!server.getServer().isSameThread()||!ensureInitialized())return false;
-        var command=AirlockSignalConsumer.command(port,signal);if(command==null)return false;
+        var command=AirlockSignalConsumer.command(port,signal);if(command==null)return signalRejected(port,signal,"unknown-command",transactionId);
         switch(command){
-            case OPEN -> {if(state.phase()!=AirlockState.DoorPhase.CLOSED)return false;return activate(false);}
-            case CLOSE -> {if(state.phase()!=AirlockState.DoorPhase.OPEN)return false;return activate(false);}
-            case TOGGLE -> {return activate(false);}
+            case OPEN -> {if(state.phase()!=AirlockState.DoorPhase.CLOSED)return signalRejected(port,signal,"open-phase",transactionId);return activate(false,transactionId);}
+            case CLOSE -> {if(state.phase()!=AirlockState.DoorPhase.OPEN)return signalRejected(port,signal,"close-phase",transactionId);return activate(false,transactionId);}
+            case TOGGLE -> {return activate(false,transactionId);}
             case AUTO_CLOSE_HOLD -> {AirlockState next=state.receiveSignal(port,signal);if(next==state)return true;state=next;sync();return true;}
             case BOLT_TOGGLE, BOLT_DOWN, BOLT_UP -> {boolean down=command==AirlockSignalConsumer.Command.BOLT_TOGGLE?!state.boltsDown():command==AirlockSignalConsumer.Command.BOLT_DOWN;
                 if(!state.powerAvailable()||state.boltsDown()==down)return false;
                 state=state.receiveSignal(port,signal);play(down?com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_BOLTS_DOWN.get():com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_BOLTS_UP.get());
                 if(!down)refreshAutoCloseOnPowerChange(state.powerAvailable(),true,prototype(),server.getGameTime());sync();return true;}
-        }return false;
+        }return signalRejected(port,signal,"unsupported-command",transactionId);
+    }
+    private boolean signalRejected(String port,com.juicyslew.moonstation14.ms14.devicenet.DeviceSignal signal,String reason,String transactionId){
+        String power="not-sampled";
+        if(level instanceof ServerLevel server&&com.juicyslew.moonstation14.MoonStation14.LOGGER.isDebugEnabled())
+            power=com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPower(server,this).toString();
+        com.juicyslew.moonstation14.MoonStation14.LOGGER.debug(
+                "[airlock-signal-receive] tx={} root={} pos={} port={} signal={} accepted=false reason={} powerSample={} phase={} powered={} bolts={}",
+                transactionId,state.identity(),worldPosition,port,signal,reason,power,state.phase(),state.powerAvailable(),state.boltsDown());
+        return false;
     }
     public record ClientView(UUID identity,long revision,AirlockState.DoorPhase phase,long transitionStartedAt,long transitionAt,long autoCloseAt,
                              boolean passable,boolean powered,boolean boltsDown,boolean boltLightsVisible,boolean panelOpen,boolean panelVisible) { }
@@ -81,7 +145,7 @@ public final class AirlockBlockEntity extends BlockEntity {
         persistedElectrification=true;
         initialized=true;setChanged();return true;
     }
-    @Override public void setRemoved(){crushVictims.clear();clearDeferredContact();if(level instanceof ServerLevel server){
+     @Override public void setRemoved(){clientPrediction.reset();crushVictims.clear();clearDeferredContact();if(level instanceof ServerLevel server){
         var runtime=com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime.forLevel(server);
         var id=new com.juicyslew.moonstation14.ms14.devicenet.DeviceIdentity(state.identity());
         // Chunk teardown invokes setRemoved after the FULL cache entry is gone. Never
@@ -120,7 +184,22 @@ public final class AirlockBlockEntity extends BlockEntity {
                 }
                 public boolean available(){var chunk=server.getChunkSource().getChunkNow(worldPosition.getX()>>4,worldPosition.getZ()>>4);return !isRemoved()&&getLevel()==server&&chunk!=null&&chunk.getBlockEntity(worldPosition)==AirlockBlockEntity.this&&chunk.getBlockState(worldPosition).getBlock() instanceof AirlockBlock&&prototype()!=null;}
                 public boolean powered(){return state.powerAvailable();}
-                public void receive(com.juicyslew.moonstation14.ms14.devicenet.DevicePayload payload,String sourceAddress){if(available()&&payload instanceof com.juicyslew.moonstation14.ms14.devicenet.SignalPayload signal)receiveSignal(signal.portId(),signal.signal());}
+                public String diagnosticPowerState(){
+                    var observed=com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPower(server,AirlockBlockEntity.this);
+                    return "cached="+state.powerAvailable()+",sample="+observed;
+                }
+                public void receive(com.juicyslew.moonstation14.ms14.devicenet.DevicePayload payload,String sourceAddress){
+                    receive(payload,sourceAddress,"direct");
+                }
+                public void receive(com.juicyslew.moonstation14.ms14.devicenet.DevicePayload payload,String sourceAddress,
+                                    String transactionId){
+                    if(available()&&payload instanceof com.juicyslew.moonstation14.ms14.devicenet.SignalPayload signal){
+                        boolean accepted=receiveSignal(signal.portId(),signal.signal(),transactionId);
+                        com.juicyslew.moonstation14.MoonStation14.LOGGER.debug(
+                                "[airlock-signal-receive] tx={} root={} pos={} sourceAddress={} port={} signal={} accepted={}",
+                                transactionId,state.identity(),worldPosition,sourceAddress,signal.portId(),signal.signal(),accepted);
+                    }
+                }
             };
             var runtime=com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime.forLevel(server);runtime.loaded(networkEndpoint);
             var composition=networkEndpoint.composition();if(composition.network().isPresent()){
@@ -136,13 +215,23 @@ public final class AirlockBlockEntity extends BlockEntity {
     public AirlockState state() { return state; }
     public long crushReopenRetryAt(){return crushReopenRetryAt;}
     public AirlockElectrificationSystem.State electrificationState(){return electrification;}
-    public ClientView clientView(){return level!=null&&level.isClientSide&&clientSnapshot!=null?clientSnapshot:new ClientView(state.identity(),state.revision(),state.phase(),transitionStartedAt,state.transitionAt(),state.autoCloseAt(),state.doorPassable(),state.powerAvailable(),state.boltsDown(),state.boltLightsVisible(),panelOpen,panelVisible());}
+     private ClientView stateView(){return new ClientView(state.identity(),state.revision(),state.phase(),transitionStartedAt,state.transitionAt(),state.autoCloseAt(),state.doorPassable(),state.powerAvailable(),state.boltsDown(),state.boltLightsVisible(),panelOpen,panelVisible());}
+     public ClientView authoritativeClientView(){return level!=null&&level.isClientSide?clientPrediction.authoritative():stateView();}
+      public ClientView clientView(){if(level==null||!level.isClientSide)return stateView();ClientView effective=clientPrediction.effective();return effective!=null?effective:stateView();}
+      public boolean predictClientBump(long now){if(level==null||!level.isClientSide||clientPrediction.authoritative()==null)return false;AirlockData data=prototype();if(data==null)return false;return clientPrediction.start(now,data);}
+     public void tickClientPrediction(long now){if(level==null||!level.isClientSide)return;clientPrediction.tick(now,prototype());}
+     public void clearClientPrediction(){clientPrediction.clear();}
+     public boolean hasClientPrediction(){return level!=null&&level.isClientSide&&clientPrediction.active();}
+     public boolean hasClientSnapshot(){return level!=null&&level.isClientSide&&clientPrediction.authoritative()!=null;}
     public boolean panelOpen(){return panelOpen;}
     boolean isCrushExempt(net.minecraft.world.phys.shapes.CollisionContext context){
         if(!(context instanceof net.minecraft.world.phys.shapes.EntityCollisionContext entityContext))return false;
         net.minecraft.world.entity.Entity entity=entityContext.getEntity();
-        if(entity==null||!crushVictims.contains(entity.getUUID()))return false;
-        if(!entity.getBoundingBox().intersects(doorwayBounds())){crushVictims.remove(entity.getUUID());return false;}
+        boolean clientSnapshotKnown=level!=null&&level.isClientSide&&hasClientSnapshot();
+        Set<UUID> victims=clientSnapshotKnown
+                ?clientPrediction.authoritativeCrushVictims():crushVictims;
+        if(entity==null||!victims.contains(entity.getUUID()))return false;
+        if(!entity.getBoundingBox().intersects(doorwayBounds())){if(!clientSnapshotKnown)victims.remove(entity.getUUID());return false;}
         return true;
     }
     public boolean panelVisible(){return resolvesPanelVisible(panelOpen,state.phase(),prototype());}
@@ -240,17 +329,34 @@ public final class AirlockBlockEntity extends BlockEntity {
         return bumpActivate();
     }
     private boolean activate(boolean quiet) {
+        return activate(quiet,"direct");
+    }
+    private boolean activate(boolean quiet,String transactionId) {
         if(!(level instanceof ServerLevel server)||!ensureInitialized())return false;AirlockData data=prototype(); if(data==null)return false;
         var supply=com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPower(server,this);
-        if(!supply.known())return false;
+        if(!supply.known()){
+            String powerDiagnostic=com.juicyslew.moonstation14.MoonStation14.LOGGER.isDebugEnabled()
+                    ?com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPowerDiagnostic(server,this)
+                    :"debug-disabled";
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.debug(
+                    "[airlock-activation] tx={} root={} pos={} accepted=false reason=power-unknown quiet={} powerSample={} powerGate={} phase={} powered={} bolts={}",
+                    transactionId,state.identity(),worldPosition,quiet,supply,powerDiagnostic,state.phase(),state.powerAvailable(),state.boltsDown());return false;}
         if(!state.receiverPowerDisabled())setPowered(supply.deliveredWatts()==data.apcPowerReceiver().requestedWatts());
-        if(!state.canOpenOrClose()){if(AirlockFeedbackPolicy.deny(supply.known(),state.powerAvailable(),quiet))play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_DENY.get());return false;}
+        if(!state.canOpenOrClose()){
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.debug(
+                    "[airlock-activation] tx={} root={} pos={} accepted=false reason=power-or-bolts quiet={} powerSample={} phase={} powered={} receiverDisabled={} bolts={}",
+                    transactionId,state.identity(),worldPosition,quiet,supply,state.phase(),state.powerAvailable(),state.receiverPowerDisabled(),state.boltsDown());
+            if(AirlockFeedbackPolicy.deny(supply.known(),state.powerAvailable(),quiet))play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_DENY.get());return false;}
         if(state.phase()==AirlockState.DoorPhase.OPEN) return beginClose(server,data);
-        if(state.phase()!=AirlockState.DoorPhase.CLOSED){if(!quiet)play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_DENY.get());return false;}
+        if(state.phase()!=AirlockState.DoorPhase.CLOSED){
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.debug(
+                    "[airlock-activation] tx={} root={} pos={} accepted=false reason=phase quiet={} powerSample={} phase={} powered={} bolts={}",
+                    transactionId,state.identity(),worldPosition,quiet,supply,state.phase(),state.powerAvailable(),state.boltsDown());
+            if(!quiet)play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_DENY.get());return false;}
         // SS14 safety evaluates obstruction while closing only; a body already
         // touching a closed leaf may be reopened by the scheduled bump check.
         AirlockState next=state.open(server.getGameTime(),false,data.door().openTimeOneSeconds());
-        if(next==state){if(!quiet)play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_DENY.get());return false;} transitionStartedAt=server.getGameTime();state=next;play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_OPEN.get());sync(); schedule(server,data.door().openTimeOneSeconds()); return true;
+        if(next==state){if(!quiet)play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_DENY.get());return false;} transitionStartedAt=server.getGameTime();state=next;if(doorCorrectionTracePermit())doorCorrectionTrace("activation-start","quiet="+quiet);play(com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_OPEN.get());sync(); schedule(server,data.door().openTimeOneSeconds()); return true;
     }
     public boolean pry() {
         if(!(level instanceof ServerLevel server)||!ensureInitialized())return false;AirlockData data=prototype(); if(data==null)return false;
@@ -264,17 +370,15 @@ public final class AirlockBlockEntity extends BlockEntity {
     }
     private boolean obstructed(ServerLevel level) {
         AABB box=doorwayBounds();
-        for(LivingEntity entity:level.getEntitiesOfClass(LivingEntity.class,box,e->!e.isSpectator()&&!e.noPhysics
-                &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(e,level)))
-            if(entity.getBoundingBox().intersects(box))return true;
-        return false;
+        var actors=AirlockDoorwayActors.query(level,worldPosition,box,false);
+        return !actors.known()||!actors.actors().isEmpty();
     }
     private java.util.Map<LivingEntity,net.minecraft.world.phys.Vec3> crushOccupants(ServerLevel level,AirlockData data) {
         AABB box=doorwayBounds();
         java.util.Map<LivingEntity,net.minecraft.world.phys.Vec3> positions=new java.util.LinkedHashMap<>();
-        for(LivingEntity actor:level.getEntitiesOfClass(LivingEntity.class,box,e->!e.isSpectator()&&!e.noPhysics
-                &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(e,level))) {
-            if(!actor.getBoundingBox().intersects(box))continue;
+        var query=AirlockDoorwayActors.query(level,worldPosition,box,false);
+        if(!query.known())return positions;
+        for(LivingEntity actor:query.actors()) {
             positions.put(actor,actor.position());
             crushVictims.add(actor.getUUID());
             com.juicyslew.moonstation14.ms14.damage.DamageSystem.applyHealthChange(actor,java.util.Map.of(com.juicyslew.moonstation14.ms14.damage.DamageKeys.BLUNT,(float)data.door().crushDamageBlunt()),1f,false);
@@ -291,9 +395,7 @@ public final class AirlockBlockEntity extends BlockEntity {
     private AABB doorwayBounds(){return new AABB(worldPosition.getX(),worldPosition.getY(),worldPosition.getZ(),worldPosition.getX()+1,worldPosition.getY()+2,worldPosition.getZ()+1);}
     private java.util.List<LivingEntity> doorwayContactActors(ServerLevel server){
         AABB doorway=doorwayBounds();
-        return server.getEntitiesOfClass(LivingEntity.class,doorway.inflate(1.0E-5),actor->!actor.isSpectator()&&!actor.noPhysics
-                &&com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.isValidBody(actor,server)
-                &&AirlockGeometry.touchesDoorway(actor.getBoundingBox(),doorway));
+        return AirlockDoorwayActors.query(server,worldPosition,doorway,true).actors();
     }
     void onScheduledTick(ServerLevel server) {
         scheduledDeadline=0;
@@ -362,7 +464,8 @@ public final class AirlockBlockEntity extends BlockEntity {
             }
         }
         if(state!=before){if(state.phase()!=before.phase())transitionStartedAt=now;
-            if(passableBefore!=state.doorPassable())setOpenBlocks(state.doorPassable());sync();}
+            if(passableBefore!=state.doorPassable()){if(doorCorrectionTracePermit())doorCorrectionTrace("passability-change", "before="+passableBefore+",after="+state.doorPassable());setOpenBlocks(state.doorPassable());}
+            if(state.phase()!=before.phase()&&doorCorrectionTracePermit())doorCorrectionTrace("phase-change","before="+before.phase());sync();}
         if(!electricalBefore.equals(electrification))setChanged();
         if(electricalBefore.enabled()!=electrification.enabled()){
             play(electrification.enabled()?com.juicyslew.moonstation14.sounds.ModSounds.AIRLOCK_ELECTRIFY_ON.get()
@@ -384,6 +487,10 @@ public final class AirlockBlockEntity extends BlockEntity {
         if(level==null)return;
         if(open)crushVictims.clear();
         for(BlockPos pos:new BlockPos[]{worldPosition,worldPosition.above()}) { BlockState s=level.getBlockState(pos); if(s.getBlock() instanceof AirlockBlock&&s.getValue(AirlockBlock.OPEN)!=open)level.setBlock(pos,s.setValue(AirlockBlock.OPEN,open),3); }
+        if(doorCorrectionTracePermit()){
+            BlockState lower=level.getBlockState(worldPosition),upper=level.getBlockState(worldPosition.above());
+            doorCorrectionTrace("block-passability-written","requestedOpen="+open+",lower="+(lower.hasProperty(AirlockBlock.OPEN)?lower.getValue(AirlockBlock.OPEN):"missing")+",upper="+(upper.hasProperty(AirlockBlock.OPEN)?upper.getValue(AirlockBlock.OPEN):"missing"));
+        }
     }
     private void schedule(ServerLevel level,double seconds){scheduleAt(level.getGameTime()+Math.max(1,(long)Math.ceil(seconds*20)));}
     private void refreshAutoCloseOnPowerChange(boolean previousAvailability,boolean previousBolts,AirlockData data,long now){
@@ -405,13 +512,23 @@ public final class AirlockBlockEntity extends BlockEntity {
         if(deadline>0){int delay=(int)Math.max(1,Math.min(Integer.MAX_VALUE,deadline-now));server.scheduleTick(pos,getBlockState().getBlock(),delay);scheduledDeadline=now+delay;}
     }
     private void clearDeferredContact(){deferredContactActor=null;deferredContactAt=0;deferredContactUntil=0;}
-    private void sync(){setChanged();AirlockState.DoorPhase logical=AirlockSignalConsumer.logicalDoorState(state.phase());if(lastPublishedPhase!=logical){lastPublishedPhase=logical;publishDoorStatus();} if(level instanceof ServerLevel) { BlockState s=getBlockState(); level.sendBlockUpdated(worldPosition,s,s,3);reconcileScheduledTick(false); } }
-    @Override public net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket getUpdatePacket(){return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);}
-     @Override public CompoundTag getUpdateTag(HolderLookup.Provider registries){CompoundTag tag=new CompoundTag();ClientView v=clientView();tag.putUUID("ViewIdentity",v.identity());tag.putLong("ViewRevision",v.revision());tag.putString("ViewPhase",v.phase().name());tag.putLong("ViewStarted",v.transitionStartedAt());tag.putLong("ViewTransition",v.transitionAt());tag.putLong("ViewAutoClose",v.autoCloseAt());tag.putBoolean("ViewPassable",v.passable());tag.putBoolean("ViewPowered",v.powered());tag.putBoolean("ViewBolts",v.boltsDown());tag.putBoolean("ViewBoltLights",v.boltLightsVisible());tag.putBoolean("ViewPanelOpen",v.panelOpen());tag.putBoolean("ViewPanelVisible",v.panelVisible());net.minecraft.nbt.ListTag victims=new net.minecraft.nbt.ListTag();for(UUID id:crushVictims){CompoundTag entry=new CompoundTag();entry.putUUID("Id",id);victims.add(entry);}tag.put("CrushVictims",victims);return tag;}
-     @Override public void handleUpdateTag(CompoundTag tag,HolderLookup.Provider registries){try{clientSnapshot=new ClientView(tag.getUUID("ViewIdentity"),tag.getLong("ViewRevision"),AirlockState.DoorPhase.valueOf(tag.getString("ViewPhase")),tag.getLong("ViewStarted"),tag.getLong("ViewTransition"),tag.getLong("ViewAutoClose"),tag.getBoolean("ViewPassable"),tag.getBoolean("ViewPowered"),tag.getBoolean("ViewBolts"),tag.getBoolean("ViewBoltLights"),tag.getBoolean("ViewPanelOpen"),tag.getBoolean("ViewPanelVisible"));crushVictims.clear();net.minecraft.nbt.ListTag victims=tag.getList("CrushVictims",net.minecraft.nbt.Tag.TAG_COMPOUND);for(int i=0;i<victims.size();i++)if(victims.getCompound(i).hasUUID("Id"))crushVictims.add(victims.getCompound(i).getUUID("Id"));}catch(RuntimeException ignored){clientSnapshot=null;}}
-    @Override public void onDataPacket(Connection connection, ClientboundBlockEntityDataPacket packet, HolderLookup.Provider registries) {
-        CompoundTag tag=packet.getTag();
-        if(tag!=null) handleUpdateTag(tag,registries);
+     private void sync(){setChanged();if(level instanceof ServerLevel&&doorCorrectionTracePermit())doorCorrectionTrace("server-sync","logical="+AirlockSignalConsumer.logicalDoorState(state.phase()));AirlockState.DoorPhase logical=AirlockSignalConsumer.logicalDoorState(state.phase());if(lastPublishedPhase!=logical){lastPublishedPhase=logical;publishDoorStatus();} if(level instanceof ServerLevel) { BlockState s=getBlockState(); level.sendBlockUpdated(worldPosition,s,s,3);reconcileScheduledTick(false); } }
+     @Override public net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket getUpdatePacket(){return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);}
+      @Override public CompoundTag getUpdateTag(HolderLookup.Provider registries){CompoundTag tag=new CompoundTag();ClientView v=stateView();tag.putUUID("ViewIdentity",v.identity());tag.putLong("ViewRevision",v.revision());tag.putString("ViewPhase",v.phase().name());tag.putLong("ViewStarted",v.transitionStartedAt());tag.putLong("ViewTransition",v.transitionAt());tag.putLong("ViewAutoClose",v.autoCloseAt());tag.putBoolean("ViewPassable",v.passable());tag.putBoolean("ViewPowered",v.powered());tag.putBoolean("ViewBolts",v.boltsDown());tag.putBoolean("ViewBoltLights",v.boltLightsVisible());tag.putBoolean("ViewPanelOpen",v.panelOpen());tag.putBoolean("ViewPanelVisible",v.panelVisible());net.minecraft.nbt.ListTag victims=new net.minecraft.nbt.ListTag();for(UUID id:crushVictims){CompoundTag entry=new CompoundTag();entry.putUUID("Id",id);victims.add(entry);}tag.put("CrushVictims",victims);return tag;}
+      @Override public void handleUpdateTag(CompoundTag tag,HolderLookup.Provider registries){
+          try{
+                ClientView received=new ClientView(tag.getUUID("ViewIdentity"),tag.getLong("ViewRevision"),AirlockState.DoorPhase.valueOf(tag.getString("ViewPhase")),tag.getLong("ViewStarted"),tag.getLong("ViewTransition"),tag.getLong("ViewAutoClose"),tag.getBoolean("ViewPassable"),tag.getBoolean("ViewPowered"),tag.getBoolean("ViewBolts"),tag.getBoolean("ViewBoltLights"),tag.getBoolean("ViewPanelOpen"),tag.getBoolean("ViewPanelVisible"));
+               net.minecraft.nbt.ListTag victims=tag.getList("CrushVictims",net.minecraft.nbt.Tag.TAG_COMPOUND);
+               java.util.Set<UUID> receivedVictims=new HashSet<>();
+               for(int i=0;i<victims.size();i++)if(victims.getCompound(i).hasUUID("Id"))receivedVictims.add(victims.getCompound(i).getUUID("Id"));
+               if(!clientPrediction.accept(received,receivedVictims))return;
+           }catch(RuntimeException ignored){clientPrediction.reset();return;}
+           if(doorCorrectionTracePermit()){ClientView accepted=clientPrediction.authoritative();doorCorrectionTrace("client-update-tag","snapshotPhase="+accepted.phase()+",snapshotPassable="+accepted.passable());}
+      }
+     @Override public void onDataPacket(Connection connection, ClientboundBlockEntityDataPacket packet, HolderLookup.Provider registries) {
+         CompoundTag tag=packet.getTag();
+         if(tag!=null&&doorCorrectionTracePermit())doorCorrectionTrace("client-packet-received","packetIdentity="+(tag.hasUUID("ViewIdentity")?tag.getUUID("ViewIdentity"):"missing")+",packetRevision="+tag.getLong("ViewRevision")+",packetPhase="+tag.getString("ViewPhase")+",packetPassable="+tag.getBoolean("ViewPassable"));
+         if(tag!=null) handleUpdateTag(tag,registries);
     }
     private void play(net.minecraft.sounds.SoundEvent sound){if(level!=null)level.playSound(null,worldPosition,sound,net.minecraft.sounds.SoundSource.BLOCKS,1f,1f);}
     static void onNeighborChanged(ServerLevel level,BlockPos pos) { if(level.getBlockEntity(pos) instanceof AirlockBlockEntity be && be.state.phase()==AirlockState.DoorPhase.OPEN&&be.prototype()!=null&&be.state.autoClose()&&be.state.powerAvailable()&&!be.state.boltsDown()){be.state=be.state.scheduleAutoCloseAt(level.getGameTime()+1);be.sync();} }

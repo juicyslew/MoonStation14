@@ -22,7 +22,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.UUID;
 
-@GameTestTags({"power"})
+@GameTestTags({"power", "shuttle-menu-access", "shuttle"})
 @PrefixGameTestTemplate(false)
 public final class ApcMenuGameTests {
     private ApcMenuGameTests() { }

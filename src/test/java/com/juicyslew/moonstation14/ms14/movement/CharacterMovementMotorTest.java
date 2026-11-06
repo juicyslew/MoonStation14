@@ -20,6 +20,363 @@ class CharacterMovementMotorTest {
             new MovementCollisionResolver.CollisionResult(displacement, grounded);
 
     @Test
+    void clippedSmallUpwardRequestStillAppliesGravityAfterZeroingBlockedVelocity() {
+        MovementCollisionResolver ceiling = (position, requested, grounded) ->
+                new MovementCollisionResolver.CollisionResult(MovementVector.ZERO, false);
+        var environment = new CharacterMovementEnvironment(.05d, 32d, 0d, .98d,
+                MovementVector.ZERO, 0d, 0d, ceiling);
+        var result = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(
+                state(MovementVector.ZERO, new MovementVector(0d, .001d, 0d), false),
+                new CharacterMovementCommand(0d, 0d, false, false), environment, false);
+        assertEquals(0d, result.position().y(), 0d);
+        assertEquals(-1.568d, result.velocity().y(), 1e-12,
+                "blocked upward velocity is zeroed first, then gravity advances the next velocity");
+    }
+
+    @Test
+    void motorContextAttestsOnlyGroundedEffectiveAllowedJumpAndPreservesIdleContext() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        boolean[] idle = {false}, jump = {false};
+        int[] calls = {0};
+        MovementCollisionResolver resolver = MovementCollisionResolver.withMotorContext(
+                (position, requested, grounded, idleProbe, jumpInitiated) -> {
+                    calls[0]++;
+                    idle[0] = idleProbe;
+                    jump[0] = jumpInitiated;
+                    return new MovementCollisionResolver.CollisionResult(requested, grounded);
+                });
+        CharacterMovementEnvironment environment = env(.05d, 32d, 8.4d, MovementVector.ZERO, 0d, resolver);
+        CharacterMovementCommand jumpCommand = new CharacterMovementCommand(0d, 0d, true, false);
+
+        motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true), jumpCommand, environment, false);
+        assertTrue(jump[0]);
+        assertTrue(!idle[0]);
+        assertEquals(1, calls[0]);
+
+        motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true), jumpCommand, environment, true);
+        assertTrue(!jump[0], "stun-filtered jump is not motor-initiated");
+        motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, false), jumpCommand, environment, false);
+        assertTrue(!jump[0], "airborne jump request does not attest");
+        motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true), jumpCommand, environment, false, true);
+        assertTrue(!jump[0], "external flight suppresses motor jump");
+
+        var impulse = new CharacterMovementEnvironment(.05d, 32d, 8.4d, 1d,
+                MovementVector.ZERO, 1d, 0d, resolver, 1d, 1d, new MovementVector(0d, 1d, 0d));
+        motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, false, false), impulse, false);
+        assertTrue(!jump[0], "positive constraint impulse is not a jump");
+
+        motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, false, false), environment, false);
+        assertTrue(idle[0], "idle support-probe attestation remains intact");
+        assertTrue(!jump[0]);
+        assertEquals(6, calls[0], "each motor tick resolves exactly once");
+
+        int[] adaptedCalls = {0};
+        MovementCollisionResolver adapted = MovementCollisionResolver.withMotorContext(
+                (position, requested, grounded, idleProbe, jumpInitiated) -> {
+                    int call = ++adaptedCalls[0];
+                    if (call == 1) assertTrue(!idleProbe && !jumpInitiated, "3-argument call defaults both contexts");
+                    if (call == 2) assertTrue(idleProbe && !jumpInitiated,
+                            "4-argument call preserves supplied idle context and defaults jump");
+                    if (call == 3) assertTrue(!idleProbe && jumpInitiated,
+                            "5-argument call forwards both contexts");
+                    if (call == 4) assertTrue(idleProbe && jumpInitiated,
+                            "5-argument call forwards both true contexts");
+                    return new MovementCollisionResolver.CollisionResult(requested, grounded);
+                });
+        adapted.resolve(MovementVector.ZERO, MovementVector.ZERO, true);
+        adapted.resolve(MovementVector.ZERO, MovementVector.ZERO, true, true);
+        adapted.resolve(MovementVector.ZERO, MovementVector.ZERO, true, false, true);
+        adapted.resolve(MovementVector.ZERO, MovementVector.ZERO, true, true, true);
+        assertEquals(4, adaptedCalls[0], "each supported arity is forwarded exactly once");
+    }
+
+    @Test
+    void idleSupportProbeContextRequiresActualUnforcedZeroRequestAndLegacyCallsStayFalse() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        boolean[] observed = {false};
+        int[] calls = {0};
+        MovementCollisionResolver contextual = MovementCollisionResolver.withIdleSupportProbeContext(
+                (position, requested, grounded, idleProbe) -> {
+                    calls[0]++;
+                    observed[0] = idleProbe;
+                    if (calls[0] == 1) assertEquals(new MovementVector(0d, -.001d, 0d), requested);
+                    return new MovementCollisionResolver.CollisionResult(MovementVector.ZERO, true);
+                });
+        var idleEnvironment = env(.05d, 32d, 0d, MovementVector.ZERO, 0d, contextual);
+        motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, false, false), idleEnvironment, false);
+        assertTrue(observed[0]);
+        assertEquals(1, calls[0]);
+
+        MovementCollisionResolver legacy = (position, requested, grounded) -> {
+            calls[0]++;
+            return new MovementCollisionResolver.CollisionResult(MovementVector.ZERO, true);
+        };
+        legacy.resolve(MovementVector.ZERO, MovementVector.ZERO, true);
+        assertEquals(2, calls[0], "legacy functional resolver remains one-call compatible");
+        contextual.resolve(MovementVector.ZERO, MovementVector.ZERO, true);
+        assertEquals(3, calls[0], "factory legacy invocation is forwarded once");
+        assertTrue(!observed[0], "factory maps legacy invocation to false");
+
+        assertContextFalse(motor, contextual, state(MovementVector.ZERO, new MovementVector(0d, -1d, 0d), false),
+                new CharacterMovementCommand(0d, 0d, false, false), idleEnvironment, false);
+        assertContextFalse(motor, contextual, state(MovementVector.ZERO, new MovementVector(0d, -.02d, 0d), true),
+                new CharacterMovementCommand(0d, 0d, false, false), idleEnvironment, false);
+        assertContextFalse(motor, contextual, state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, true, false), idleEnvironment, false);
+        assertContextFalse(motor, contextual, state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(1d, 0d, false, false),
+                new CharacterMovementEnvironment(.05d, 32d, 0d, 1d, MovementVector.ZERO, 0d, 0d,
+                        contextual, 1d, 0d), false);
+        assertContextFalse(motor, contextual, state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, false, false),
+                new CharacterMovementEnvironment(.05d, 32d, 0d, 1d, new MovementVector(1d, 0d, 0d),
+                        1d, 0d, contextual), false);
+        assertContextFalse(motor, contextual, state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, false, false), idleEnvironment, true);
+        assertContextFalse(motor, contextual, state(MovementVector.ZERO, new MovementVector(-1d, 0d, 0d), true),
+                new CharacterMovementCommand(0d, 0d, false, false),
+                new CharacterMovementEnvironment(.05d, 32d, 0d, 1d, new MovementVector(1d, 0d, 0d),
+                        1d, 0d, contextual), false);
+        assertContextFalse(motor, contextual, state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, false, false),
+                new CharacterMovementEnvironment(.05d, 32d, 0d, 1d, MovementVector.ZERO, 1d, 0d,
+                        contextual, 1d, 1d, new MovementVector(1d, 0d, 0d)), false);
+        assertContextFalse(motor, contextual, state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(1d, 0d, false, false),
+                new CharacterMovementEnvironment(.05d, 32d, 0d, 1d, MovementVector.ZERO, 0d, 0d,
+                        contextual, 0d, 1d), false);
+        assertContextFalse(motor, contextual, state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0d, 0d, false, false),
+                new CharacterMovementEnvironment(.05d, 0d, 0d, 1d, MovementVector.ZERO, 0d, 0d,
+                        contextual), false);
+    }
+
+    private static void assertContextFalse(CharacterMovementMotor motor, MovementCollisionResolver ignored,
+                                           CharacterMovementState initial, CharacterMovementCommand command,
+                                           CharacterMovementEnvironment environment, boolean externalFlight) {
+        boolean[] observed = {true};
+        MovementCollisionResolver context = MovementCollisionResolver.withIdleSupportProbeContext(
+                    (position, requested, grounded, idleProbe) -> {
+                    observed[0] = idleProbe;
+                    return new MovementCollisionResolver.CollisionResult(requested, true);
+                });
+        CharacterMovementEnvironment adapted = new CharacterMovementEnvironment(environment.secondsPerTick(),
+                environment.gravityPerSecondSquared(), environment.jumpVelocityPerSecond(), environment.verticalDrag(),
+                environment.externalImpulse(), environment.maximumExternalImpulsePerTick(),
+                environment.maxUpwardStepBlocks(), context, environment.surfaceMovementFactor(),
+                environment.voluntarySpeedFactor(), environment.constraintImpulse());
+        motor.tick(initial, command, adapted, false, externalFlight);
+        assertTrue(!observed[0], "non-idle/unauthenticated support context must be false");
+    }
+
+    @Test
+    void certifiedFloorCorrectionAddsOnlyGeometryPositionAndRequiresExactBoundedRequest() {
+        MovementVector request = new MovementVector(0, -.001, 0);
+        MovementVector bounded = MovementVector.ZERO;
+        var geometry = new MovementVector(.0002, .001, -.0003);
+        var evidence = ContactPositionCorrectionEvidence.validateSupportedFloor(request, bounded, geometry).orElseThrow();
+        assertEquals(geometry, evidence.geometryCorrection());
+        assertTrue(evidence.matches(request, bounded, true));
+        assertTrue(!evidence.matches(new MovementVector(0, -.002, 0), bounded, true));
+        assertTrue(!evidence.matches(request, bounded, false), "floor correction requires resolved support");
+        assertTrue(ContactPositionCorrectionEvidence.validateSupportedFloor(request, new MovementVector(0, .001, 0), geometry).isEmpty());
+        assertTrue(ContactPositionCorrectionEvidence.validateSupportedFloor(new MovementVector(0, .001, 0), bounded, geometry).isEmpty());
+        assertTrue(ContactPositionCorrectionEvidence.validateSupportedFloor(request, bounded, MovementVector.ZERO).isEmpty());
+
+        MovementCollisionResolver floor = (position, requested, grounded) ->
+                new MovementCollisionResolver.CollisionResult(bounded, true, null, evidence);
+        CharacterMovementEnvironment environment = env(.05, 32, 0, MovementVector.ZERO, 0, floor);
+        CharacterMovementState result = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(
+                state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0, 0, false, false), environment, false);
+        assertEquals(geometry, result.position());
+        assertEquals(MovementVector.ZERO, result.velocity(), "geometry correction must not inject own velocity");
+
+        MovementCollisionResolver unbackedExcess = (position, requested, grounded) ->
+                new MovementCollisionResolver.CollisionResult(new MovementVector(0, .001, 0), true);
+        assertThrows(IllegalArgumentException.class, () -> new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(
+                state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0, 0, false, false),
+                env(.05, 32, 0, MovementVector.ZERO, 0, unbackedExcess), false));
+
+        MovementCollisionResolver mismatched = (position, requested, grounded) ->
+                new MovementCollisionResolver.CollisionResult(bounded, true, null,
+                        ContactPositionCorrectionEvidence.validateSupportedFloor(new MovementVector(0, -.002, 0), bounded,
+                                new MovementVector(0, .001, 0)).orElseThrow());
+        CharacterMovementState noCorrection = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(
+                state(MovementVector.ZERO, MovementVector.ZERO, true), new CharacterMovementCommand(0, 0, false, false),
+                env(.05, 32, 0, MovementVector.ZERO, 0, mismatched), false);
+        assertEquals(0, noCorrection.position().y(), 0);
+    }
+
+    @Test
+    void sidePositionCorrectionRequiresZeroYAndExactContactBindingWithoutGroundClaim() {
+        MovementVector request = new MovementVector(.05d, 0d, 0d);
+        MovementVector bounded = new MovementVector(.02d, 0d, 0d);
+        HorizontalContactEvidence contact = HorizontalContactEvidence.validate(request, bounded, -1d, 0d).orElseThrow();
+        MovementVector correction = new MovementVector(.001d, 0d, 0d);
+        var evidence = ContactPositionCorrectionEvidence.validateSide(request, bounded, correction, contact).orElseThrow();
+        assertTrue(evidence.matches(request, bounded, false), "side correction makes no grounding claim");
+        assertTrue(!evidence.matches(new MovementVector(.06d, 0d, 0d), bounded, false));
+        assertTrue(ContactPositionCorrectionEvidence.validateSide(request, bounded,
+                new MovementVector(0d, .001d, 0d), contact).isEmpty());
+        assertTrue(ContactPositionCorrectionEvidence.validateSide(request, bounded, correction, null).isEmpty());
+        assertTrue(ContactPositionCorrectionEvidence.validateSide(request, bounded, correction,
+                HorizontalContactEvidence.validate(request, new MovementVector(.03d, 0d, 0d), -1d, 0d).orElseThrow()).isEmpty());
+        assertTrue(ContactPositionCorrectionEvidence.validateSide(request, request, correction, null).isPresent(),
+                "unchanged horizontal own movement needs no contact certificate");
+    }
+
+    @Test
+    void boundedPureSideVerticalRemainderCorrectsPositionButNotJumpVelocity() {
+        MovementVector request = new MovementVector(0, .42, 0);
+        MovementVector bounded = request;
+        MovementVector correction = new MovementVector(0, -8.0e-8, 0);
+        var evidence = ContactPositionCorrectionEvidence.validateSide(request, bounded, correction, null)
+                .orElseThrow();
+        MovementCollisionResolver resolver = (position, requested, grounded) ->
+                new MovementCollisionResolver.CollisionResult(bounded, false, null, evidence);
+        var environment = new CharacterMovementEnvironment(1d, .08d, .42d, .98d, MovementVector.ZERO,
+                0d, 0d, resolver);
+        CharacterMovementState result = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(
+                state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0, 0, true, false), environment, false);
+        assertEquals(.42-8.0e-8, result.position().y(), 1e-15);
+        assertEquals(.3332, result.velocity().y(), 1e-15,
+                "the measured small position remainder must not become a vertical blocked-axis signal");
+    }
+
+    @Test
+    void geometryBackedAirborneSideRemainderDoesNotBecomeMotorYRejection() {
+        var correction=new MovementVector(0,9.893394e-6,0);
+        MovementCollisionResolver resolver=(position,asked,grounded)->{
+            MovementVector bounded=new MovementVector(asked.x(),asked.y(),asked.z()*.01);
+            var contact=HorizontalContactEvidence.validate(asked,bounded,0,0,-1).orElseThrow();
+            var evidence=ContactPositionCorrectionEvidence.validateAirborneSideGeometry(asked,bounded,correction,contact).orElseThrow();
+            return new MovementCollisionResolver.CollisionResult(bounded,false,contact,evidence);
+        };
+        var result=new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(state(MovementVector.ZERO,new MovementVector(0,0,.15625),false),
+                new CharacterMovementCommand(0,0,false,false),env(.05,.08,0,MovementVector.ZERO,0,resolver),false);
+        assertTrue(result.position().z()>0);
+        assertEquals(correction.y(),result.position().y(),0d);
+        assertTrue(result.velocity().y()<0,"airborne gravity proceeds; geometry correction does not zero vertical velocity");
+        MovementVector rawRequest=new MovementVector(0,0,.1), rawBounded=new MovementVector(0,0,.001);
+        var rawContact=HorizontalContactEvidence.validate(rawRequest,rawBounded,0,0,-1).orElseThrow();
+        assertTrue(ContactPositionCorrectionEvidence.validateAirborneSideGeometry(rawRequest,
+                new MovementVector(0,9e-6,.001),correction,rawContact).isEmpty(),"raw unbounded Y remains rejected");
+        MovementCollisionResolver rawNativeY=(position,asked,grounded)->new MovementCollisionResolver.CollisionResult(
+                new MovementVector(asked.x(),asked.y()+9.893394e-6,asked.z()),false);
+        assertThrows(IllegalArgumentException.class,()->new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(
+                state(MovementVector.ZERO,new MovementVector(0,0,.15625),false),new CharacterMovementCommand(0,0,false,false),
+                env(.05,.08,0,MovementVector.ZERO,0,rawNativeY),false),"motor still rejects unproved raw native Y");
+    }
+
+    @Test
+    void diagonalAirControlCanDifferAfterWallNormalVelocityIsRemoved() {
+        double length = Math.sqrt(1d + .25d*.25d);
+        double wishX = 1d/length, wishZ = .25d/length;
+        MovementVector freeAtWishSpeed = new MovementVector(2.5d*wishX, 0, 2.5d*wishZ);
+        MovementVector wallAfterNormalClip = new MovementVector(0, 0, freeAtWishSpeed.z());
+        var command = new CharacterMovementCommand(1d, .25d, false, false);
+        var environment = env(.05, 0, 0, MovementVector.ZERO, 0, OPEN);
+        var motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        var free = motor.tick(state(MovementVector.ZERO, freeAtWishSpeed, false), command, environment, false);
+        var wall = motor.tick(state(MovementVector.ZERO, wallAfterNormalClip, false), command, environment, false);
+        assertEquals(freeAtWishSpeed.z(), free.velocity().z(), 1e-12,
+                "free actor already at requested wish speed receives no further acceleration");
+        assertTrue(wall.velocity().z() > free.velocity().z(),
+                "normal clipping changes wish-direction dot product, so legitimate air control changes tangent motion");
+        assertEquals(wall.velocity().z()*.05, wall.position().z(), 1e-12);
+    }
+
+    @Test
+    void certifiedWorldFloorClipDoesNotRestoreTheDownwardWishAsPositionCorrection() {
+        MovementVector request=new MovementVector(.1,-.001,0);
+        MovementVector bounded=MovementVector.ZERO;
+        var contact=HorizontalContactEvidence.validate(request,bounded,-1,0).orElseThrow();
+        var positionCorrection=ContactPositionCorrectionEvidence.validateSide(request,bounded,
+                MovementVector.ZERO,contact).orElseThrow();
+        MovementCollisionResolver resolver=(position,requested,grounded)->{
+            assertEquals(request,requested);
+            return new MovementCollisionResolver.CollisionResult(bounded,true,contact,positionCorrection);
+        };
+        var result=new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(
+                state(MovementVector.ZERO,request,false),new CharacterMovementCommand(0,0,false,false),
+                env(1d,.08d,0,MovementVector.ZERO,0,resolver),false);
+        assertEquals(MovementVector.ZERO,result.position(),"authentic world-floor clipping keeps the body on the floor");
+        assertEquals(0d,result.velocity().y(),0d,"ground clipping cannot resume an unbounded downward own wish");
+        assertTrue(result.onGround());
+    }
+
+    @Test
+    void certifiedWorldFloorPartialDescentRetainsActualPositionAndStopsNextDownwardVelocity() {
+        MovementVector request=new MovementVector(.1,-.426909648,0);
+        MovementVector bounded=new MovementVector(0,-.0443874444,0);
+        var contact=HorizontalContactEvidence.validate(request,bounded,-1,0).orElseThrow();
+        var positionCorrection=ContactPositionCorrectionEvidence.validateSide(request,bounded,
+                MovementVector.ZERO,contact).orElseThrow();
+        MovementCollisionResolver resolver=(position,requested,grounded)->
+                new MovementCollisionResolver.CollisionResult(bounded,true,contact,positionCorrection);
+        var result=new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(
+                state(MovementVector.ZERO,request,false),new CharacterMovementCommand(0,0,false,false),
+                env(1d,.08d,0,MovementVector.ZERO,0,resolver),false);
+        assertEquals(bounded,result.position());
+        assertEquals(0d,result.velocity().y(),0d,"ground contact stops subsequent downward velocity");
+        assertTrue(result.onGround());
+    }
+
+    @Test
+    void outwardOwnNormalVelocitySurvivesWorldFloorSidePositionCorrection() {
+        MovementVector request=new MovementVector(-7.97017e-7,-.001,.15625);
+        MovementVector bounded=new MovementVector(request.x(),0,request.z());
+        MovementVector geometry=new MovementVector(-1.051449999e-6,0,0);
+        var positionCorrection=ContactPositionCorrectionEvidence.validateSide(request,bounded,geometry,null)
+                .orElseThrow();
+        MovementCollisionResolver resolver=(position,requested,grounded)->
+                new MovementCollisionResolver.CollisionResult(bounded,true,null,positionCorrection);
+        var result=new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(
+                state(MovementVector.ZERO,request,false),new CharacterMovementCommand(0,0,false,false),
+                env(1d,.08d,0,MovementVector.ZERO,0,resolver),false);
+        assertEquals(bounded.x()+geometry.x(),result.position().x(),1e-15);
+        assertEquals(request.x(),result.velocity().x(),0d,
+                "same-direction own wish remains velocity; native separation only moves position");
+        assertEquals(request.z(),result.velocity().z(),0d);
+        assertEquals(0d,result.velocity().y(),0d);
+        assertTrue(result.onGround());
+    }
+
+    @Test
+    void supportedMixedGeometryOnlyCorrectionMovesPositionWithoutOwnMotion() {
+        MovementVector request = new MovementVector(0, -.001, 0);
+        MovementVector bounded = MovementVector.ZERO;
+        MovementVector correction = new MovementVector(.002, .00002, -.003);
+        var evidence = ContactPositionCorrectionEvidence.validateSupportedFloorAndSide(
+                request, bounded, correction, null).orElseThrow();
+        assertTrue(evidence.matches(request, bounded, true));
+        assertTrue(!evidence.matches(request, bounded, false), "mixed correction requires resolved floor support");
+        assertTrue(ContactPositionCorrectionEvidence.validateSupportedFloorAndSide(request,
+                new MovementVector(.001, 0, 0), correction, null).isEmpty(),
+                "unproved horizontal own clipping cannot use contact-free mixed correction");
+
+        int[] resolverCalls = {0};
+        MovementCollisionResolver resolver = (position, requested, grounded) -> {
+            resolverCalls[0]++;
+            assertEquals(request, requested);
+            return new MovementCollisionResolver.CollisionResult(bounded, true, null, evidence);
+        };
+        CharacterMovementState result = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN).tick(
+                state(MovementVector.ZERO, MovementVector.ZERO, true),
+                new CharacterMovementCommand(0, 0, false, false), env(.05, 32, 0,
+                        MovementVector.ZERO, 0, resolver), false);
+        assertEquals(correction, result.position(), "certified native geometry adjusts position only");
+        assertEquals(MovementVector.ZERO, result.velocity(), "geometry-only response must not create own velocity");
+        assertEquals(1, resolverCalls[0], "motor does not repeat the physical collision move");
+    }
+
+    @Test
     void tetherConstraintActsAfterStandingFrictionAndVoluntaryWish() {
         CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
         CharacterMovementEnvironment environment = new CharacterMovementEnvironment(.05d, 32d, 8.4d,
@@ -366,7 +723,73 @@ class CharacterMovementMotorTest {
     }
 
     @Test
-    void airbornePerpendicularImpulseRetainsResultantSpeedBeyondDeclaredWishSpeed() throws IOException {
+    void gravityAirSteeringCannotBuildResultantSpeedByRotatingWish() throws IOException {
+        for (String prototype : new String[]{"human.json", "pig.json"}) {
+            CharacterMovementPolicy policy = CharacterMovementPolicy.fromCharacterData(readCharacter(prototype));
+            CharacterMovementMotor motor = new CharacterMovementMotor(policy);
+            for (boolean sprint : new boolean[]{false, true}) {
+                double target = sprint ? policy.sprintSpeedPerSecond() : policy.walkSpeedPerSecond();
+                MovementCollisionResolver takeoffResolver = (position, displacement, grounded) ->
+                        new MovementCollisionResolver.CollisionResult(displacement, false);
+                CharacterMovementEnvironment environment = env(.05d, 32d, 8.4d, MovementVector.ZERO, 0d,
+                        takeoffResolver);
+                CharacterMovementCommand takeoff = new CharacterMovementCommand(Math.sqrt(.5d), Math.sqrt(.5d), true, sprint);
+                CharacterMovementState current = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true),
+                        takeoff, environment, false);
+                assertTrue(current.velocity().horizontalLength() <= target + 1e-9,
+                        prototype + " grounded takeoff exceeded declared speed");
+                for (int tick = 0; tick < 1000; tick++) {
+                    // Unit-length wishes rotate rapidly through cardinal and diagonal headings.
+                    double angle = tick * Math.PI / 4d;
+                    double x = Math.cos(angle);
+                    double z = Math.sin(angle);
+                    double before = current.velocity().horizontalLength();
+                    current = motor.tick(current, new CharacterMovementCommand(x, z, false, sprint),
+                            environment, false);
+                    assertTrue(current.velocity().horizontalLength() <= Math.max(before, target) + 1e-9,
+                            prototype + " gravity-air resultant grew beyond prior/target speed at tick " + tick);
+                }
+            }
+        }
+    }
+
+    @Test
+    void gravityAirBoundPreservesMomentumWithoutInputAndIncludesImpulseBeforeSteering() {
+        CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
+        CharacterMovementEnvironment gravity = env(.05d, 32d, 0d, MovementVector.ZERO, 0d, OPEN);
+        CharacterMovementState fast = state(MovementVector.ZERO, new MovementVector(6d, 0d, 0d), false);
+        CharacterMovementState coast = motor.tick(fast, new CharacterMovementCommand(0d, 0d, false, false), gravity, false);
+        assertEquals(fast.velocity().x(), coast.velocity().x(), 0d);
+        assertEquals(fast.velocity().z(), coast.velocity().z(), 0d,
+                "no-input must not change airborne horizontal momentum");
+        CharacterMovementState steered = motor.tick(fast,
+                new CharacterMovementCommand(0d, 1d, false, true), gravity, false);
+        assertTrue(steered.velocity().horizontalLength() <= 6d + 1e-12,
+                "active steering may redirect but not add speed above carried momentum");
+
+        CharacterMovementEnvironment impulse = env(.05d, 32d, 0d, new MovementVector(0d, 2d, 9d),
+                10d, OPEN);
+        CharacterMovementState fromImpulse = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, false),
+                new CharacterMovementCommand(1d, 0d, false, true), impulse, false);
+        assertEquals(9d, fromImpulse.velocity().horizontalLength(), 1e-12,
+                "same-tick above-cap impulse is preserved as the air-steering envelope");
+        assertEquals(2d - 32d * .05d, fromImpulse.velocity().y(), 1e-12,
+                "horizontal bound preserves vertical impulse/gravity result");
+
+        CharacterMovementEnvironment constrained = new CharacterMovementEnvironment(.05d, 32d, 0d, 1d,
+                MovementVector.ZERO, 8d, 0d, OPEN, 1d, 1d, new MovementVector(8d, 0d, 0d));
+        CharacterMovementState externalFlight = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, false),
+                new CharacterMovementCommand(1d, 0d, false, true), constrained, false, true);
+        assertEquals(8d, externalFlight.velocity().x(), 1e-12,
+                "external flight bypasses voluntary steering bound");
+        CharacterMovementState constrainedVoluntary = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, false),
+                new CharacterMovementCommand(1d, 0d, false, true), constrained, false, false);
+        assertEquals(12.5d, constrainedVoluntary.velocity().x(), 1e-12,
+                "constraint impulse remains outside active voluntary gravity-air bound");
+    }
+
+    @Test
+    void weightlessAirbornePerpendicularImpulseRetainsProjectedWishSnaking() throws IOException {
         CharacterMovementCommand forwardFast = new CharacterMovementCommand(1d, 0d, false, true);
         for (String prototype : new String[]{"human.json", "pig.json"}) {
             CharacterMovementPolicy policy = CharacterMovementPolicy.fromCharacterData(readCharacter(prototype));
@@ -413,19 +836,18 @@ class CharacterMovementMotorTest {
                         tick == 0 ? environment : midairImpulse, false);
                 assertEquals(0d, current.position().x(), 0d, prototype + " wall blocks horizontal request");
                 assertEquals(0d, current.velocity().x(), 0d, prototype + " blocked velocity cleared");
-                assertEquals(tick == 0 ? 0d : 3d, current.velocity().z(), 1e-12,
-                        prototype + " airborne perpendicular impulse survives the wall");
+                assertEquals(tick == 0 ? 0d : 3d * wish / Math.hypot(wish, 3d), current.velocity().z(), 1e-12,
+                        prototype + " blocked-axis momentum remains within gravity-air bound");
             }
             assertEquals(.7532d, current.position().y(), 1e-12);
             current = motor.tick(current, new CharacterMovementCommand(1d, 0d, false, true), environment, false);
             assertEquals(1.001336d, current.position().y(), 1e-12,
                     "third jump displacement crosses fixture clearance");
-            assertEquals(wish, current.velocity().x(), 1e-12, prototype + " projected wish after wall");
-            assertEquals(3d, current.velocity().z(), 1e-12);
-            assertEquals(Math.hypot(wish, 3d), current.velocity().horizontalLength(), 1e-12,
-                    prototype + " resultant after clearance");
-            assertEquals(wish * .05d, current.position().x(), 1e-12);
-            assertEquals(.3d, current.position().z(), 1e-12);
+            assertTrue(current.velocity().x() > 0d, prototype + " clears wall with voluntary acceleration");
+            assertTrue(current.velocity().horizontalLength() <= wish + 1e-12,
+                    prototype + " gravity-air resultant is bounded after clearance");
+            assertTrue(current.position().x() > 0d, prototype + " wall clearance permits movement");
+            assertTrue(current.position().z() > 0d, prototype + " lateral movement remains");
         }
     }
 

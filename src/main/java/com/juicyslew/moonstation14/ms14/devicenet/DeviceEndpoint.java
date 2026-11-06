@@ -6,11 +6,15 @@ import net.minecraft.world.level.Level;
 public interface DeviceEndpoint {
  DeviceIdentity identity(); ResourceKey<Level> dimension(); BlockPos position();
  DeviceComposition composition(); boolean available(); void receive(DevicePayload payload, String sourceAddress);
+ /** Transport-only in-process diagnostic correlation; payload and delivery semantics are unchanged. */
+ default void receive(DevicePayload payload, String sourceAddress, String transactionId) { receive(payload,sourceAddress); }
  /** False when the authoritative address is stored by a non-world owner (for example, an item stack). */
  default boolean ownsAddressOutsideWorldSavedData() { return false; }
  /** Whether a clicked block position names this endpoint (including owned multiblock aliases). */
  default boolean acceptsBlockTarget(BlockPos target) { return position().equals(target); }
- default boolean powered() { return true; }
+  default boolean powered() { return true; }
+  /** Read-only diagnostic sampled only after a required-power delivery gate rejects a packet. */
+  default String diagnosticPowerState() { return "unavailable"; }
  /** Human-readable prototype/item name for configurator rows; addresses are shown separately. */
  default String displayName() { return "Device"; }
  default DeviceList deviceList() { return null; }

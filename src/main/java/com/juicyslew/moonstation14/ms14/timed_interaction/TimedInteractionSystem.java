@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.timed_interaction;
 
 import com.juicyslew.moonstation14.component.ModDataAttachments;
+import com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -17,9 +18,11 @@ import java.util.function.IntSupplier;
 
 /** Server-authoritative callback runtime; callbacks never enter entity attachment data. */
 public final class TimedInteractionSystem {
+    /** Shared default for break-on-move operations unless an explicit threshold is supplied. */
+    public static final double DEFAULT_MOVE_BREAK_DISTANCE = 0.3d;
     public enum Completion { REPEAT, STOP, DENIED, RECOVERY_REQUIRED }
     private record Key(UUID body, long id) { }
-    private record Context(IntSupplier repeatDuration, double damageThreshold, double movementThreshold, BooleanSupplier valid, Supplier<Completion> completion, Runnable cancelled, ServerLevel level, net.minecraft.world.phys.Vec3 start) { }
+    private record Context(IntSupplier repeatDuration, double damageThreshold, double movementThreshold, BooleanSupplier valid, Supplier<Completion> completion, Runnable cancelled, ServerLevel level, LoadedFrameRayQuery.ActorPoint start) { }
     private record Presentation(long origin, ServerPlayer owner, Optional<net.minecraft.core.BlockPos> worldTarget) { }
     private static final Map<Key, Context> CALLBACKS = new HashMap<>();
     private static final Map<Key, Presentation> PRESENTATION = new HashMap<>();
@@ -82,7 +85,7 @@ public final class TimedInteractionSystem {
             double damageThreshold, BooleanSupplier valid, Supplier<Completion> completion,
             Optional<net.minecraft.core.BlockPos> worldTarget, Runnable cancelled) {
         return startInternal(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove,
-                damageThreshold, 0.3, () -> durationTicks, valid, completion, worldTarget, cancelled);
+                damageThreshold, DEFAULT_MOVE_BREAK_DISTANCE, () -> durationTicks, valid, completion, worldTarget, cancelled);
     }
     private static TimedInteractionEngine.StartResult startInternal(LivingEntity body, ServerPlayer owner, long originSequence,
             String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
@@ -94,6 +97,8 @@ public final class TimedInteractionSystem {
         if (!(body.level() instanceof ServerLevel level)) return TimedInteractionEngine.StartResult.DENIED;
         checkThread(level);
         if (body.isRemoved() || !body.isAlive() || durationTicks < 1) return TimedInteractionEngine.StartResult.DENIED;
+        LoadedFrameRayQuery.ActorPoint startPoint=LoadedFrameRayQuery.currentActorPoint(level,body);
+        if(startPoint==null)return TimedInteractionEngine.StartResult.DENIED;
         TimedOperationState state = body.getData(ModDataAttachments.TIMED_OPERATIONS.get());
         long current = now(level);
         TimedInteractionEngine.Start result = TimedInteractionEngine.start(state, kind, sourceKey, current, durationTicks, breakDamage, breakMove);
@@ -102,7 +107,7 @@ public final class TimedInteractionSystem {
         UUID uuid = body.getUUID(); ACTORS.put(uuid, body);
         if (result.result() == TimedInteractionEngine.StartResult.STARTED) {
             Key key = new Key(uuid, result.operation().id());
-            CALLBACKS.put(key, new Context(repeatDuration, damageThreshold, movementThreshold, valid, completion, cancelled, level, body.position()));
+            CALLBACKS.put(key, new Context(repeatDuration, damageThreshold, movementThreshold, valid, completion, cancelled, level, startPoint));
             PRESENTATION.put(key, new Presentation(originSequence, owner, worldTarget == null ? Optional.empty() : worldTarget));
         }
         cleanupCallbacks(body, result.state());
@@ -136,10 +141,22 @@ public final class TimedInteractionSystem {
             long current=now(level); TimedOperationState next=state;
             for (TimedOperation op : state.operations()) if(op.phase()==TimedOperation.Phase.ACTIVE) {
                 Key key=new Key(body.getUUID(),op.id()); Context c=CALLBACKS.get(key);
-                boolean invalid=c==null || c.level()!=level || body.isRemoved() || !body.isAlive();
-                try { if (!invalid) invalid=!c.valid().getAsBoolean(); } catch (RuntimeException ex) { invalid=true; }
-                if (!invalid && op.breakOnMove() && c.start().distanceTo(body.position()) > c.movementThreshold()) invalid=true;
-                if(invalid) next=TimedInteractionEngine.cancel(next,op.id(),current);
+                String invalidReason = c==null ? "callback-missing" : c.level()!=level ? "level-changed"
+                        : body.isRemoved() ? "body-removed" : !body.isAlive() ? "body-dead" : null;
+                try { if (invalidReason == null && !c.valid().getAsBoolean()) invalidReason="operation-invalid"; }
+                catch (RuntimeException ex) { invalidReason="validity-exception:"+ex.getClass().getSimpleName(); }
+                if (invalidReason == null && op.breakOnMove()) {
+                    double distance = movementDistance(level,body,c.start());
+                    if (distance > c.movementThreshold()) invalidReason="movement(distance="+distance
+                            +",threshold="+c.movementThreshold()+")";
+                }
+                if(invalidReason != null) {
+                    if ("airlock-pry".equals(op.kind()))
+                        com.juicyslew.moonstation14.MoonStation14.LOGGER.debug(
+                                "[timed-interaction-cancel] body={} operation={} kind={} source={} now={} reason={}",
+                                body.getUUID(), op.id(), op.kind(), op.sourceKey(), current, invalidReason);
+                    next=TimedInteractionEngine.cancel(next,op.id(),current);
+                }
             }
             var advanced=TimedInteractionEngine.advance(next,current); next=advanced.state();
             for(TimedOperation due:advanced.completed()) {
@@ -156,7 +173,9 @@ public final class TimedInteractionSystem {
                     }
                     else {
                         next=TimedInteractionEngine.repeat(next,due.id(),current,duration);
-                        CALLBACKS.put(key, new Context(c.repeatDuration(), c.damageThreshold(), c.movementThreshold(), c.valid(), c.completion(), c.cancelled(), c.level(), body.position()));
+                        var repeated=LoadedFrameRayQuery.currentActorPoint(level,body);
+                        if(repeated==null){next=TimedInteractionEngine.cancel(next,due.id(),current);CALLBACKS.remove(key);try{c.cancelled().run();}catch(RuntimeException ignored){}}
+                        else CALLBACKS.put(key, new Context(c.repeatDuration(), c.damageThreshold(), c.movementThreshold(), c.valid(), c.completion(), c.cancelled(), c.level(), repeated));
                     }
                 }
                 else {
@@ -167,6 +186,14 @@ public final class TimedInteractionSystem {
             next=TimedInteractionEngine.prune(next,current);
              if(next!=state){body.setData(ModDataAttachments.TIMED_OPERATIONS.get(),next);publish(body);cleanupCallbacks(body,next);cleanupActor(body,next);}
         }
+    }
+    private static double movementDistance(ServerLevel level,LivingEntity body,LoadedFrameRayQuery.ActorPoint start){
+        var current=LoadedFrameRayQuery.currentActorPoint(level,body);
+        if(current==null)return Double.POSITIVE_INFINITY;
+        if(start.frameId()!=null&&start.frameId().equals(current.frameId()))
+            return start.storagePoint().distanceTo(current.storagePoint());
+        var origin=start.frameId()==null?start.worldPoint():LoadedFrameRayQuery.projectActorPoint(level,start.frameId(),start.storagePoint());
+        return origin==null?Double.POSITIVE_INFINITY:origin.distanceTo(body.position());
     }
     private static void cleanupCallbacks(LivingEntity body, TimedOperationState state) {
         Set<Long> ids=new HashSet<>(); for(TimedOperation op:state.operations()) if(op.phase()==TimedOperation.Phase.ACTIVE) ids.add(op.id());

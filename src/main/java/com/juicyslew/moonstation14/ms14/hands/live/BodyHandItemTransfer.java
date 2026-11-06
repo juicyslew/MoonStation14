@@ -17,33 +17,69 @@ import com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile;
 
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
+import com.juicyslew.moonstation14.MoonStation14;
 
 /** Server-side world/attachment ownership transfer. Never touches the carrier inventory. */
 public final class BodyHandItemTransfer {
-    private static final double MAX_REACH_SQUARED = 25.0;
-
     private BodyHandItemTransfer() { }
 
     public enum Result { SUCCESS, DENIED, RECOVERY_REQUIRED }
 
     /** Shared world destination/entity path for trusted minted grants; caller retains input on failure. */
     public static LooseItemEntity spawnTrustedGrant(LivingEntity body, ItemStack stack) {
+        return spawnTrustedGrant(body, stack, null, ignored -> { });
+    }
+
+    /** Trusted grant tied to the exact currently-authorized player carrier. */
+    public static LooseItemEntity spawnAuthorizedGrant(ServerPlayer carrier, HandActorAuthority.Snapshot exactAuthority,
+                                                        ItemStack stack, java.util.function.Consumer<String> failedStage) {
+        if (carrier == null || exactAuthority == null || exactAuthority.actor() != carrier
+                || !HandActorAuthority.revalidate(carrier, exactAuthority)) {
+            if (failedStage != null) failedStage.accept("authority admission");
+            return null;
+        }
+        return spawnTrustedGrant(exactAuthority.body(), stack, carrier, failedStage,
+                () -> HandActorAuthority.revalidate(carrier, exactAuthority));
+    }
+
+    private static LooseItemEntity spawnTrustedGrant(LivingEntity body, ItemStack stack, Entity excludedCarrier,
+                                                       java.util.function.Consumer<String> failedStage) {
+        return spawnTrustedGrant(body, stack, excludedCarrier, failedStage, () -> true);
+    }
+
+    private static LooseItemEntity spawnTrustedGrant(LivingEntity body, ItemStack stack, Entity excludedCarrier,
+                                                       java.util.function.Consumer<String> failedStage,
+                                                       BooleanSupplier authorityValid) {
         if (body == null || stack == null || stack.isEmpty() || !(body.level() instanceof ServerLevel level)
                 || !level.getServer().isSameThread() || body.isRemoved() || !body.isAddedToLevel()
                 || level.getEntity(body.getUUID()) != body || !finite(body.position())
-                || !level.hasChunkAt(body.blockPosition())) return null;
+                || !level.hasChunkAt(body.blockPosition()) || !authorityValid.getAsBoolean()) {
+            failStage(failedStage, "body/admission validation"); return null;
+        }
+        String[] stage = {"candidate resolution"};
         try {
-            LooseItemEntity entity = createTrustedDropEntity(body, stack, null);
-            if (entity == null) return null;
-            if (!same(stack, entity.getItem()) || !level.addFreshEntity(entity)) {
+            LooseItemEntity entity = createTrustedDropEntity(body, stack, excludedCarrier, value -> stage[0] = value);
+            if (entity == null) { failStage(failedStage, stage[0]); return null; }
+            stage[0] = "stack validation";
+            if (!same(stack, entity.getItem()) || !authorityValid.getAsBoolean()) {
+                failStage(failedStage, stage[0]); return null;
+            }
+            stage[0] = "add/spawn";
+            if (!level.addFreshEntity(entity)) {
                 if (entity.isAddedToLevel() && level.getEntity(entity.getUUID()) == entity) entity.discard();
+                failStage(failedStage, stage[0]);
                 return null;
             }
             if (level.getEntity(entity.getUUID()) == entity && entity.isAddedToLevel()
-                    && !entity.isRemoved() && same(stack, entity.getItem())) return entity;
+                    && !entity.isRemoved() && same(stack, entity.getItem()) && authorityValid.getAsBoolean()) return entity;
             if (entity.isAddedToLevel() && level.getEntity(entity.getUUID()) == entity) entity.discard();
+            failStage(failedStage, "post-spawn publication validation");
             return null;
-        } catch (RuntimeException failure) { return null; }
+        } catch (RuntimeException failure) { failStage(failedStage, stage[0] + " exception " + failure.getClass().getSimpleName()); return null; }
+    }
+
+    private static void failStage(java.util.function.Consumer<String> callback, String stage) {
+        if (callback != null) callback.accept(stage);
     }
 
     /** Shared package-local detached drop stage for other exact-source ownership transfers. */
@@ -52,10 +88,21 @@ public final class BodyHandItemTransfer {
     }
 
     private static LooseItemEntity createStagedDrop(LivingEntity body, ItemStack stack, Entity excludedCarrier) {
-        return createTrustedDropEntity(body, stack, excludedCarrier);
+        return createTrustedDropEntity(body, stack, excludedCarrier, ignored -> { }, null);
     }
 
-    private static LooseItemEntity createTrustedDropEntity(LivingEntity body, ItemStack stack, Entity excludedCarrier) {
+    private static LooseItemEntity createStagedDrop(LivingEntity body, ItemStack stack, Entity excludedCarrier,
+            @javax.annotation.Nullable com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget target) {
+        return createTrustedDropEntity(body, stack, excludedCarrier, ignored -> { }, target);
+    }
+
+    private static LooseItemEntity createTrustedDropEntity(LivingEntity body, ItemStack stack, Entity excludedCarrier,
+                                                           java.util.function.Consumer<String> stage) {
+        return createTrustedDropEntity(body, stack, excludedCarrier, stage, null);
+    }
+    private static LooseItemEntity createTrustedDropEntity(LivingEntity body, ItemStack stack, Entity excludedCarrier,
+                                                           java.util.function.Consumer<String> stage,
+                                                           @javax.annotation.Nullable com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget target) {
         if (body == null || stack == null || stack.isEmpty() || !(body.level() instanceof ServerLevel level)) return null;
         try {
             LooseObjectProfile profile = LooseObjectProfile.resolveForStack(stack, false);
@@ -63,19 +110,43 @@ public final class BodyHandItemTransfer {
             var owner = containment.ownerOf(body).orElse(null);
             BodyItemTargetProbe.DropPlacement placement;
             if (owner != null) {
+                if (target != null) return null;
                 Vec3 root = owner.positionFor(body);
                 if (!owner.isValid() || root == null || !finite(root)
                         || !level.hasChunkAt(net.minecraft.core.BlockPos.containing(root))) return null;
                 placement = new BodyItemTargetProbe.DropPlacement(root, Vec3.ZERO);
             } else {
-                placement = BodyItemTargetProbe.resolveDrop(level, body, excludedCarrier,
-                        profile.physicalWidth(), profile.physicalHeight());
+                placement = target == null
+                        ? BodyItemTargetProbe.resolveDrop(level, body, excludedCarrier, profile.physicalWidth(), profile.physicalHeight())
+                        : BodyItemTargetProbe.resolveDrop(level, body, excludedCarrier, profile.physicalWidth(), profile.physicalHeight(), target);
             }
-            if (placement == null) return null;
-            LooseItemEntity entity = LooseItemEntity.create(level, placement.position(), stack.copy());
-            entity.launch(placement.velocity(), 0);
+            if (placement == null) { stage.accept("candidate resolution"); return null; }
+            stage.accept("anchor hydration/initial composition");
+            LooseItemEntity entity = LooseItemEntity.createForActor(body, placement.position(), stack.copy());
+            if (placement.surfacePlacement() && placement.supportFrameId() != null) {
+                var anchor = new com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchor(
+                        placement.supportFrameId(), placement.supportStoragePoint());
+                if (!com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchor.hydrate(level, entity, anchor)) return null;
+            }
+            if (owner == null && !entity.prepareInitialFrameState(level)) return null;
+            // Profile dimensions choose candidates; verify the hydrated entity's actual physical
+            // bounds at the final ownership boundary before it can be launched or committed.
+            stage.accept("final actual bounds");
+            if (!BodyItemTargetProbe.loadedItemBoxClear(level, entity)) return null;
+            stage.accept("carrier/velocity point");
+            var bodyPoint = LoadedFrameRayQuery.currentActorPoint(level, body);
+            if (bodyPoint == null) return null;
+            var velocityPoint = LoadedFrameRayQuery.pointAtWorldPosition(level,
+                    placement.surfacePlacement() ? placement.supportFrameId() : bodyPoint.frameId(), placement.position());
+            if (velocityPoint == null) return null;
+            Vec3 carrierVelocity = com.juicyslew.moonstation14.ms14.shuttle.sable.SableFrameVelocity
+                    .pointVelocityAt(level, velocityPoint);
+            Vec3 launchVelocity = HandReleaseKinematics.composePlacement(placement,
+                    body.getDeltaMovement(), carrierVelocity);
+            if (launchVelocity == null) return null;
+            entity.launch(launchVelocity, 0);
             return same(stack, entity.getItem()) ? entity : null;
-        } catch (RuntimeException failure) { return null; }
+        } catch (RuntimeException failure) { stage.accept("creation exception " + failure.getClass().getSimpleName()); return null; }
     }
 
     public static Result pickup(ServerPlayer actor, UUID itemEntityUuid, String hand, long expectedHandRevision) {
@@ -85,48 +156,41 @@ public final class BodyHandItemTransfer {
     public static Result pickup(ServerPlayer actor, UUID itemEntityUuid, String hand, long expectedHandRevision,
                                  java.util.function.Consumer<UUID> committedSource) {
         var authority = HandActorAuthority.resolve(actor);
-        if (authority.isEmpty() || itemEntityUuid == null) return Result.DENIED;
+        if (authority.isEmpty() || itemEntityUuid == null) { transferReceipt(actor, "AUTHORITY", itemEntityUuid, hand); return Result.DENIED; }
         LivingEntity body = authority.orElseThrow().body();
         return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision,
-                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedSource, false);
+                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedSource);
     }
 
-    /** Pickup a specifically selected visible pile member; unlike legacy pickup, UUID is selection, not hint. */
+    /** Pickup the specifically nominated item; UUID selects the target, but grants no reach/ownership authority. */
     public static Result pickupSelected(ServerPlayer actor, UUID itemEntityUuid, String hand, long expectedHandRevision,
                                         java.util.function.Consumer<UUID> committedSource) {
         var authority = HandActorAuthority.resolve(actor);
         if (authority.isEmpty() || itemEntityUuid == null) return Result.DENIED;
         LivingEntity body = authority.orElseThrow().body();
         return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision,
-                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedSource, true);
+                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedSource);
     }
 
     // Trusted fixture seam only: tests use a real spawned body and world item, never a fake actor authority.
     static Result pickupOwned(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
                               BooleanSupplier authorityValid) {
-        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, ignored -> { }, false);
+        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, ignored -> { });
     }
 
     static Result pickupSelectedOwned(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
                                       BooleanSupplier authorityValid) {
-        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, ignored -> { }, true);
+        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, ignored -> { });
     }
 
     private static Result pickupOwned(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
-                                       BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource) {
-        return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision, authorityValid, committedSource, false);
-    }
-
-    private static Result pickupOwned(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
-                                        BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource,
-                                        boolean selectedPolicy) {
+                                         BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource) {
         return LiveHandsCommitGateway.batch(() -> pickupTransaction(body, itemEntityUuid, hand, expectedHandRevision,
-                authorityValid, committedSource, selectedPolicy));
+                authorityValid, committedSource));
     }
 
     private static Result pickupTransaction(LivingEntity body, UUID itemEntityUuid, String hand, long expectedHandRevision,
-                                        BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource,
-                                        boolean selectedPolicy) {
+                                         BooleanSupplier authorityValid, java.util.function.Consumer<UUID> committedSource) {
         if (body == null || itemEntityUuid == null || authorityValid == null) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || !CharacterControlSystem.canAct(body)) return Result.DENIED;
         if (!level.getServer().isSameThread() || body.isRemoved() || !body.isAddedToLevel()
@@ -134,36 +198,31 @@ public final class BodyHandItemTransfer {
         LiveHands before = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (before == null || !before.compatible(body) || before.revision() != expectedHandRevision)
             return Result.DENIED;
-        // The packet UUID is only a hint. The body-eye ray selects the actual source on this tick.
-        // A reserved/delayed first item blocks a farther pickup rather than being skipped.
-        Vec3 sourceEye = body.getEyePosition(), sourceLook = body.getLookAngle();
-        BodyItemTargetProbe.Target selected = selectedPolicy
-                ? BodyItemTargetProbe.probeSelected(level, body, itemEntityUuid, BodyItemTargetProbe.MAX_REACH)
-                : BodyItemTargetProbe.nearestVisible(level, body, BodyItemTargetProbe.MAX_REACH);
-        if (selected == null) return Result.DENIED;
+        // The nominated UUID selects the item, but current reach, line of sight and ownership remain server-validated.
+        Vec3 sourceEye = body.getEyePosition();
+        BodyItemTargetProbe.Target selected = BodyItemTargetProbe.probeNominatedPickup(level, body, itemEntityUuid, BodyItemTargetProbe.MAX_REACH);
+        if (selected == null) { transferReceipt(body, "NO_CANDIDATE_UNCLASSIFIED", itemEntityUuid, hand); return Result.DENIED; }
         UUID sourceId = selected.itemId();
         Entity entity = level.getEntity(sourceId);
         if (!(entity instanceof ItemEntity item) || item.isRemoved() || !item.isAddedToLevel()
-                || item.level() != level || item.getTarget() != null || item.hasPickUpDelay()
-                 || !reachable(body, item.position())) return Result.DENIED;
+                || item.level() != level || item.getTarget() != null || item.hasPickUpDelay()) return Result.DENIED;
         ItemStack source = item.getItem().copy();
         if (!valid(source)) return Result.DENIED;
         Vec3 sourcePosition = item.position();
         ItemToken token = new ItemToken(UUID.randomUUID().toString());
         LiveHands.WholeResult transition = before.putWhole(expectedHandRevision, hand, token, source);
         BodyItemTargetProbe.Target confirmed = transition.succeeded()
-                ? (selectedPolicy ? BodyItemTargetProbe.probeSelected(level, body, sourceId, BodyItemTargetProbe.MAX_REACH)
-                : BodyItemTargetProbe.nearestVisible(level, body, BodyItemTargetProbe.MAX_REACH)) : null;
+                ? BodyItemTargetProbe.probeNominatedPickup(level, body, sourceId, BodyItemTargetProbe.MAX_REACH) : null;
         if (!transition.succeeded() || !BodyHandStateService.representable(transition.state(), body)
                 || !authorityValid.getAsBoolean()
                 || !CharacterControlSystem.canAct(body) || body.level() != level
                 || body.isRemoved() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
-                || !sourcePosition.equals(item.position()) || !reachable(body, item.position())
+                || !sourcePosition.equals(item.position())
                  || level.getEntity(sourceId) != item || item.level() != level
                 || item.isRemoved() || !item.isAddedToLevel()
                 || item.getTarget() != null || item.hasPickUpDelay() || !same(source, item.getItem())
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before || !before.compatible(body)
-                 || !sourceEye.equals(body.getEyePosition()) || !sourceLook.equals(body.getLookAngle())
+                  || !sourceEye.equals(body.getEyePosition())
                  || confirmed == null || !sourceId.equals(confirmed.itemId())
                 // Shape callbacks are not assumed pure: the checked source and attachment must still
                 // be the exact live owners immediately after the probe, before clearing the source.
@@ -173,23 +232,21 @@ public final class BodyHandItemTransfer {
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                 || !before.compatible(body) || item.level() != level || item.isRemoved()
                  || !item.isAddedToLevel() || level.getEntity(sourceId) != item
-                || !sourcePosition.equals(item.position()) || !reachable(body, item.position())
+                  || !sourcePosition.equals(item.position())
                  || item.getTarget() != null || item.hasPickUpDelay() || !same(source, item.getItem())
                  || !BodyHandStateService.representable(transition.state(), body)
-                 || !sourceEye.equals(body.getEyePosition()) || !sourceLook.equals(body.getLookAngle())
-                  || (selectedPolicy
-                  ? BodyItemTargetProbe.probeSelected(level, body, sourceId, BodyItemTargetProbe.MAX_REACH) == null
-                  : BodyItemTargetProbe.probe(level, body, item, BodyItemTargetProbe.MAX_REACH) == null)
-                 || !sourceEye.equals(body.getEyePosition()) || !sourceLook.equals(body.getLookAngle())
+                  || !sourceEye.equals(body.getEyePosition())
+                  || BodyItemTargetProbe.probeNominatedPickup(level, body, sourceId, BodyItemTargetProbe.MAX_REACH) == null
+                  || !sourceEye.equals(body.getEyePosition())
                  || !authorityValid.getAsBoolean() || !CharacterControlSystem.canAct(body)
                  || body.level() != level || body.isRemoved() || !body.isAddedToLevel()
                  || level.getEntity(body.getUUID()) != body || item.level() != level
                  || item.isRemoved() || !item.isAddedToLevel() || level.getEntity(sourceId) != item
-                 || !sourcePosition.equals(item.position()) || !reachable(body, item.position())
+                  || !sourcePosition.equals(item.position())
                  || item.getTarget() != null || item.hasPickUpDelay()
                  || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
                  || !same(source, item.getItem()))
-            return Result.DENIED;
+             { transferReceipt(body, "REVALIDATION_CHANGED", sourceId, hand); return Result.DENIED; }
 
         // The entity must stop owning the stack before the attachment starts owning it.
         try {
@@ -231,11 +288,17 @@ public final class BodyHandItemTransfer {
 
     public static Result drop(ServerPlayer actor, String hand, String expectedToken, long expectedHandRevision,
                               java.util.function.Consumer<UUID> committedWorldEntity) {
+        return drop(actor, hand, expectedToken, expectedHandRevision, null, committedWorldEntity);
+    }
+
+    public static Result drop(ServerPlayer actor, String hand, String expectedToken, long expectedHandRevision,
+                              @javax.annotation.Nullable com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget target,
+                              java.util.function.Consumer<UUID> committedWorldEntity) {
         var authority = HandActorAuthority.resolve(actor);
         if (authority.isEmpty() || expectedToken == null) return Result.DENIED;
         LivingEntity body = authority.orElseThrow().body();
         return dropOwned(body, actor, hand, expectedToken, expectedHandRevision,
-                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedWorldEntity);
+                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedWorldEntity, target);
     }
 
     /**
@@ -294,21 +357,35 @@ public final class BodyHandItemTransfer {
     }
 
     private static Result dropOwned(LivingEntity body, Entity excludedCarrier, String hand, String expectedToken,
-                             long expectedHandRevision, BooleanSupplier authorityValid,
-                             java.util.function.Consumer<UUID> committedWorldEntity) {
-        return dropOwned(body, excludedCarrier, hand, expectedToken, expectedHandRevision, authorityValid, committedWorldEntity, false);
+                              long expectedHandRevision, BooleanSupplier authorityValid,
+                              java.util.function.Consumer<UUID> committedWorldEntity) {
+        return dropOwned(body, excludedCarrier, hand, expectedToken, expectedHandRevision, authorityValid, committedWorldEntity, false, null);
+    }
+
+    private static Result dropOwned(LivingEntity body, Entity excludedCarrier, String hand, String expectedToken,
+                              long expectedHandRevision, BooleanSupplier authorityValid,
+                              java.util.function.Consumer<UUID> committedWorldEntity,
+                              @javax.annotation.Nullable com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget target) {
+        return dropOwned(body, excludedCarrier, hand, expectedToken, expectedHandRevision, authorityValid, committedWorldEntity, false, target);
     }
 
     private static Result dropOwned(LivingEntity body, Entity excludedCarrier, String hand, String expectedToken,
                               long expectedHandRevision, BooleanSupplier authorityValid,
                               java.util.function.Consumer<UUID> committedWorldEntity, boolean forced) {
+        return dropOwned(body, excludedCarrier, hand, expectedToken, expectedHandRevision, authorityValid, committedWorldEntity, forced, null);
+    }
+    private static Result dropOwned(LivingEntity body, Entity excludedCarrier, String hand, String expectedToken,
+                              long expectedHandRevision, BooleanSupplier authorityValid,
+                              java.util.function.Consumer<UUID> committedWorldEntity, boolean forced,
+                              @javax.annotation.Nullable com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget target) {
         return LiveHandsCommitGateway.batch(() -> dropTransaction(body, excludedCarrier, hand, expectedToken,
-                expectedHandRevision, authorityValid, committedWorldEntity, forced));
+                expectedHandRevision, authorityValid, committedWorldEntity, forced, target));
     }
 
     private static Result dropTransaction(LivingEntity body, Entity excludedCarrier, String hand, String expectedToken,
                               long expectedHandRevision, BooleanSupplier authorityValid,
-                              java.util.function.Consumer<UUID> committedWorldEntity, boolean forced) {
+                              java.util.function.Consumer<UUID> committedWorldEntity, boolean forced,
+                              @javax.annotation.Nullable com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget target) {
         if (expectedToken == null || body == null || body.isRemoved() || !body.isAddedToLevel()) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || (!forced && !CharacterControlSystem.canAct(body))
                 || level.getEntity(body.getUUID()) != body
@@ -332,6 +409,7 @@ public final class BodyHandItemTransfer {
         var containment = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level);
         var containedOwner = containment.ownerOf(body).orElse(null);
         if (containedOwner != null) {
+            if (target != null) return Result.DENIED;
             UUID ownerIdentity = containedOwner.identity();
             LiveHands cleared = transition.state();
             if (!authorityValid.getAsBoolean() || containment.ownerOf(body).orElse(null) != containedOwner)
@@ -366,9 +444,12 @@ public final class BodyHandItemTransfer {
                     before, cleared, hand, token, stack, ownerPosition, committedWorldEntity);
         }
         Vec3 sourceEye = body.getEyePosition(), sourceLook = body.getLookAngle();
-        LooseItemEntity dropped = createStagedDrop(body, stack, excludedCarrier);
+        var releaseFramePoint = LoadedFrameRayQuery.currentActorPoint(level, body);
+        if (releaseFramePoint == null) return Result.DENIED;
+        LooseItemEntity dropped = createStagedDrop(body, stack, excludedCarrier, target);
         if (dropped == null || !sourceEye.equals(body.getEyePosition())
                 || !sourceLook.equals(body.getLookAngle()) || !authorityValid.getAsBoolean()
+                || !releaseFramePoint.equals(LoadedFrameRayQuery.currentActorPoint(level, body))
                 || (!forced && !CharacterControlSystem.canAct(body)) || body.level() != level || body.isRemoved()
                 || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before
@@ -504,12 +585,18 @@ public final class BodyHandItemTransfer {
         return a.getCount() == b.getCount() && ItemStack.isSameItemSameComponents(a, b);
     }
 
-    private static boolean reachable(LivingEntity body, Vec3 point) {
-        return finite(body.position()) && finite(point)
-                && body.position().distanceToSqr(point) <= MAX_REACH_SQUARED;
-    }
-
     private static boolean finite(Vec3 point) {
         return Double.isFinite(point.x) && Double.isFinite(point.y) && Double.isFinite(point.z);
+    }
+
+    private static void transferReceipt(LivingEntity actor, String stage, UUID nominated, String hand) {
+        if (!MoonStation14.LOGGER.isDebugEnabled() || !com.juicyslew.moonstation14.ms14.player_body_control.CharacterCadenceDiagnostics.allowReceipt(System.nanoTime())) return;
+        var level = actor == null ? null : actor.level();
+        MoonStation14.LOGGER.debug("[body-hand-transfer] stage={} actor={} world={} levelGameTime={} serverTick={} eye={} look={} yaw={} pitch={} bodyPosition={} actorPoint={} nominated={} hand={}",
+                stage, actor == null ? "unknown" : actor.getUUID(), actor == null ? "unknown" : actor.level().dimension(),
+                level == null ? "unknown" : level.getGameTime(), level instanceof ServerLevel server ? server.getServer().getTickCount() : "unknown",
+                actor == null ? "unknown" : actor.getEyePosition(), actor == null ? "unknown" : actor.getLookAngle(),
+                actor == null ? "unknown" : actor.getYRot(), actor == null ? "unknown" : actor.getXRot(),
+                actor == null ? "unknown" : actor.position(), "UNKNOWN", nominated, hand);
     }
 }

@@ -1,0 +1,70 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+issueTrackerURL = "https://github.com/ryanhcode/sable/issues"
+license = "PolyForm Shield License 1.0.0"
+
+[[mods]]
+modId = "sable"
+version = "2.0.6"
+displayName = "Sable"
+authors = "RyanHCode"
+credits = "Ocelot, Eriksonn, Cyvack, Bee, Kyan, Cake, Rhyguy1"
+description = '''Interactive moving block structures with physics.'''
+logoFile = "icon.png"
+logoBlur = false
+
+["lithium:options"]
+"mixin.entity.collisions.unpushable_cramming" = false
+"mixin.world.chunk_access" = false
+"mixin.world.chunk_ticking" = false
+"mixin.world.tick_scheduler" = false
+
+[[mixins]]
+config = "sable.mixins.json"
+
+[[mixins]]
+config = "sable-neoforge.mixins.json"
+
+[[dependencies.sable]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1.228,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.sable]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1]"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.sable]]
+modId = "flywheel"
+type = "optional"
+versionRange = "[1.0.6,)"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies.sable]]
+modId = "create"
+type = "optional"
+versionRange = "[6.0.10,6.1.0)"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies.sable]]
+modId = "sablecompanion"
+type = "incompatible"
+versionRange = "(1.6.0,)"
+reason = "Sable is out of date"
+
+[[dependencies.sable]]
+modId = "sodium"
+type = "incompatible"
+versionRange = "(,0.8.12-alpha.2+mc1.21.1)"
+reason = "Sable supports Sodium 0.8.12-alpha.2+mc1.21.1 and above"
+
+[[dependencies.sable]]
+modId = "scalablelux"
+type = "incompatible"

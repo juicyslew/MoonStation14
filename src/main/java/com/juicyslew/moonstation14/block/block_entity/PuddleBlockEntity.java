@@ -200,10 +200,13 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
         }
 
         // The 20-tick heartbeat (using the position offset to prevent lag spikes)
-        float ticksPerCalc = 10f;
-        if ((level.getGameTime() + pos.hashCode()) % ticksPerCalc == 0) {
+        if (shouldSlowTick(level.getGameTime(), pos)) {
             be.slowTick(level, pos, state, be);
         }
+    }
+
+    static boolean shouldSlowTick(long gameTime, BlockPos pos) {
+        return Math.floorMod(gameTime + (long) pos.hashCode(), 10L) == 0L;
     }
 
     private void slowTick(Level level, BlockPos pos, BlockState state, PuddleBlockEntity be) {
@@ -223,48 +226,254 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
         record Neighbor(
                 PuddleBlockEntity puddle,
                 float pressure,
-                BlockPos pos
+                BlockPos pos,
+                boolean crossGrid,
+                boolean downward,
+                java.util.UUID frameId,
+                java.util.UUID ownerFrameId,
+                com.juicyslew.moonstation14.ms14.puddle.PuddleOverflowSurfaceResolver.Surface surface
         ){}
         List<Neighbor> neighbors = new ArrayList<>();
         float totalDrop = 0;
-
-        // Validate all existing destinations before creating even an empty neighbor
-        // puddle, so a bad destination makes this whole flow tick a no-op.
+        java.util.Set<BlockPos> seenDestinations = new java.util.HashSet<>();
+        boolean crossGridAdmissionRejected = false;
         for (Direction dir : Direction.Plane.HORIZONTAL) {
-            BlockPos targetPos = findFlowTarget(level, pos.relative(dir));
-            if (targetPos != null && level.getBlockEntity(targetPos) instanceof PuddleBlockEntity target
-                    && (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(
-                    target.getReagentContainer().getMap(), level, "puddle flow destination " + targetPos)
-                    || !target.isWithinCapacity(target.getReagentContainer(), "puddle flow destination", targetPos))) return;
-        }
-
-        for (Direction dir : Direction.Plane.HORIZONTAL) {
-            BlockPos targetPos = findFlowTarget(level, pos.relative(dir));
-            if (targetPos == null) continue; // Puddles will avoid ledges longer than max-search dist lol.
-            BlockState targetState = level.getBlockState(targetPos);
-            if (targetState.canBeReplaced()){
-                // This works as long as PUDDLES can't be replaced.
-                level.setBlock(targetPos, ModBlocks.PUDDLE.get().defaultBlockState(), 3);
-            }
-            // Can we spread here? (Is it already a puddle or replaceable air?)
-            if (level.getBlockEntity(targetPos) instanceof PuddleBlockEntity targetPuddle) {
-                // If source is above target, pressure is based on the empty air.
-                float neighborEffectiveVol = pos.getY() > targetPos.getY() ? 0 : getTotal(targetPuddle.getReagentContainer().getMap());
-                if (volume >= neighborEffectiveVol) {
-                    float drop = volume - neighborEffectiveVol;
-                    neighbors.add(new Neighbor(targetPuddle, drop, targetPos));
-                    totalDrop += drop;
+            BlockPos edgePos = pos.relative(dir);
+            BlockPos targetPos;
+            var sourceEdge = level instanceof net.minecraft.server.level.ServerLevel serverLevel
+                    ? com.juicyslew.moonstation14.ms14.puddle.PuddleOverflowSurfaceResolver
+                    .sourceEdge(serverLevel, pos, dir) : null;
+            boolean resolveWorldEdge = sourceEdge != null && sourceEdge.frameOwned()
+                    && !sourceEdge.unknown() && !isInsideSourcePlot((net.minecraft.server.level.ServerLevel) level,
+                    sourceEdge.frameId(), edgePos);
+            if (sourceEdge != null && sourceEdge.frameOwned()) {
+                if (sourceEdge.unknown()) continue;
+                if (resolveWorldEdge) {
+                    targetPos = null;
+                } else {
+                    FrameFlowTarget local = findFrameFlowTarget((net.minecraft.server.level.ServerLevel) level,
+                            sourceEdge.frameId(), edgePos);
+                    if (local.target() != null) targetPos = local.target();
+                    else if (local.unknown()) continue;
+                    else if (local.openEdge()) {
+                        targetPos = null;
+                        resolveWorldEdge = true;
+                    } else continue;
                 }
+            } else {
+                targetPos = findFlowTarget(level, edgePos);
+            }
+            PuddleBlockEntity targetPuddle = null;
+            boolean crossGrid = false;
+            boolean downward = false;
+            java.util.UUID destinationFrameId = null;
+            com.juicyslew.moonstation14.ms14.puddle.PuddleOverflowSurfaceResolver.Surface surface = null;
+            if (targetPos == null) {
+                if (!(level instanceof net.minecraft.server.level.ServerLevel serverLevel)) continue;
+                if (!resolveWorldEdge) continue;
+                surface = com.juicyslew.moonstation14.ms14.puddle.PuddleOverflowSurfaceResolver
+                        .resolve(serverLevel, sourceEdge);
+                if (surface == null || (surface.frameId() == null
+                        ? surface.puddlePos().equals(pos) : surface.frameId().equals(sourceEdge.frameId()))) continue;
+                targetPos = surface.puddlePos();
+                destinationFrameId = surface.frameId();
+                downward = surface.worldPoint().y < sourceEdge.worldEdge().y;
+                crossGrid = true;
+                BlockState destinationState;
+                BlockEntity destinationEntity;
+                if (destinationFrameId == null) {
+                    if (!serverLevel.hasChunkAt(targetPos)) continue;
+                    destinationState = serverLevel.getBlockState(targetPos);
+                    destinationEntity = serverLevel.getBlockEntity(targetPos);
+                } else {
+                    var container = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(serverLevel);
+                    var frame = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(serverLevel)
+                            .getSubLevel(destinationFrameId);
+                    if (!(frame instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live)
+                            || live.isRemoved() || live.getLevel() != serverLevel
+                            || container.getSubLevel(destinationFrameId) != live
+                            || !com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.revalidate(
+                            serverLevel, new com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.Hit(
+                                    targetPos.below(), Direction.UP, surface.worldPoint(), destinationFrameId))) continue;
+                    destinationState = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                            .knownServerBlock(serverLevel, live, targetPos);
+                    destinationEntity = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                            .knownBlockEntity(serverLevel, live, targetPos);
+                    if (destinationState == null) continue;
+                }
+                if (destinationState == null || (destinationState.canBeReplaced()
+                        && !ModBlocks.PUDDLE.get().defaultBlockState().canSurvive(serverLevel, targetPos))) continue;
+                if (destinationEntity instanceof PuddleBlockEntity puddle) targetPuddle = puddle;
+            } else {
+                BlockEntity targetEntity;
+                if (crossGrid && destinationFrameId != null && level instanceof net.minecraft.server.level.ServerLevel server) {
+                    var frame = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(server)
+                            .getSubLevel(destinationFrameId);
+                    targetEntity = frame instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live
+                            ? com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                            .knownBlockEntity(server, live, targetPos) : null;
+                } else if (sourceEdge != null && sourceEdge.frameOwned()
+                        && level instanceof net.minecraft.server.level.ServerLevel server) {
+                    var frame = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(server)
+                            .getSubLevel(sourceEdge.frameId());
+                    targetEntity = frame instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live
+                            ? com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                            .knownBlockEntity(server, live, targetPos) : null;
+                } else targetEntity = level.getBlockEntity(targetPos);
+                if (targetEntity instanceof PuddleBlockEntity puddle) targetPuddle = puddle;
+            }
+            if (!seenDestinations.add(targetPos)) continue;
+            if (targetPuddle != null && (!ReagentCatalogValidation.hasOnlyKnownPositiveReagents(
+                    targetPuddle.getReagentContainer().getMap(), level, "puddle flow destination " + targetPos)
+                    || !targetPuddle.isWithinCapacity(targetPuddle.getReagentContainer(),
+                    "puddle flow destination", targetPos))) {
+                if (crossGrid) crossGridAdmissionRejected = true;
+                else return;
+                continue;
+            }
+            if (crossGrid && targetPuddle == null) {
+                BlockState targetState;
+                if (destinationFrameId == null) targetState = level.getBlockState(targetPos);
+                else {
+                    var server = (net.minecraft.server.level.ServerLevel) level;
+                    var frame = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(server)
+                            .getSubLevel(destinationFrameId);
+                    targetState = frame instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live
+                            ? com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                            .knownServerBlock(server, live, targetPos) : null;
+                }
+                if (targetState == null) continue;
+                if (!targetState.canBeReplaced()) continue;
+            }
+            if (targetPuddle == null && !crossGrid) {
+                BlockState stateAtTarget;
+                if (sourceEdge != null && sourceEdge.frameOwned()
+                        && level instanceof net.minecraft.server.level.ServerLevel server) {
+                    var frame = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(server)
+                            .getSubLevel(sourceEdge.frameId());
+                    stateAtTarget = frame instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live
+                            ? com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                            .knownServerBlock(server, live, targetPos) : null;
+                } else stateAtTarget = level.getBlockState(targetPos);
+                if (stateAtTarget == null || !stateAtTarget.canBeReplaced()) continue;
+                neighbors.add(new Neighbor(null, volume, targetPos, false, false, null,
+                        sourceEdge != null && sourceEdge.frameOwned() ? sourceEdge.frameId() : null, null));
+                totalDrop += volume;
+                continue;
+            }
+            if (crossGrid && targetPuddle == null) {
+                // Empty destination is admitted only after every existing destination has passed validation.
+                neighbors.add(new Neighbor(null, volume, targetPos, true, downward, destinationFrameId,
+                        destinationFrameId, surface));
+                totalDrop += volume;
+                continue;
+            }
+            float neighborEffectiveVol = !crossGrid && pos.getY() > targetPos.getY()
+                    ? 0 : getTotal(targetPuddle.getReagentContainer().getMap());
+            if (volume >= neighborEffectiveVol) {
+                float drop = volume - neighborEffectiveVol;
+                neighbors.add(new Neighbor(targetPuddle, drop, targetPos, crossGrid, downward, destinationFrameId,
+                        crossGrid ? destinationFrameId : sourceEdge != null && sourceEdge.frameOwned()
+                                ? sourceEdge.frameId() : null, crossGrid ? surface : null));
+                totalDrop += drop;
             }
         }
-
-        if (neighbors.isEmpty()) return;
+        if (crossGridAdmissionRejected) return;
+        // Revalidate every resolved cross-grid surface before making any destination block.
+        for (int i = neighbors.size() - 1; i >= 0; i--) {
+            Neighbor n = neighbors.get(i);
+            if (!n.crossGrid()) continue;
+            net.minecraft.server.level.ServerLevel server = (net.minecraft.server.level.ServerLevel) level;
+            boolean valid;
+            if (n.frameId() == null) {
+                valid = server.hasChunkAt(n.pos()) && ModBlocks.PUDDLE.get().defaultBlockState()
+                        .canSurvive(server, n.pos());
+            } else {
+                var container = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(server);
+                var frame = container.getSubLevel(n.frameId());
+                valid = frame instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live
+                        && !live.isRemoved() && live.getLevel() == server && container.getSubLevel(n.frameId()) == live
+                        && com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.revalidate(server,
+                        new com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.Hit(
+                                n.surface().puddlePos().below(), Direction.UP, n.surface().worldPoint(), n.frameId()))
+                        && ModBlocks.PUDDLE.get().defaultBlockState().canSurvive(server, n.pos());
+            }
+            if (!valid) {
+                if (n.puddle() != null) return;
+                neighbors.remove(i);
+                totalDrop -= n.pressure();
+            }
+        }
+        // Admit empty local/cross-grid puddles only after all current destinations validate.
+        for (int i = 0; i < neighbors.size(); i++) {
+            Neighbor n = neighbors.get(i);
+            if (n.puddle() != null) continue;
+            net.minecraft.server.level.ServerLevel server = (net.minecraft.server.level.ServerLevel) level;
+            if (n.frameId() == null) {
+                if (n.ownerFrameId() == null) {
+                    if (!server.hasChunkAt(n.pos()) || !ModBlocks.PUDDLE.get().defaultBlockState()
+                            .canSurvive(server, n.pos())) continue;
+                } else {
+                    var container = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(server);
+                    var owner = container.getSubLevel(n.ownerFrameId());
+                    BlockState known = owner instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live
+                            ? com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                            .knownServerBlock(server, live, n.pos()) : null;
+                    if (known == null || !known.canBeReplaced()
+                            || !ModBlocks.PUDDLE.get().defaultBlockState().canSurvive(server, n.pos())) continue;
+                }
+                if (!server.setBlock(n.pos(), ModBlocks.PUDDLE.get().defaultBlockState(), 3)) continue;
+            } else {
+                var container = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(server);
+                var frame = container.getSubLevel(n.frameId());
+                if (!(frame instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live)
+                        || live.isRemoved() || live.getLevel() != server || container.getSubLevel(n.frameId()) != live
+                        || !com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.revalidate(server,
+                        new com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.Hit(n.surface().puddlePos().below(),
+                                Direction.UP, n.surface().worldPoint(), n.frameId()))
+                        || !ModBlocks.PUDDLE.get().defaultBlockState().canSurvive(server, n.pos())) continue;
+                if (!server.setBlock(n.pos(), ModBlocks.PUDDLE.get().defaultBlockState(), 3)) continue;
+            }
+            BlockEntity createdEntity;
+            if (n.ownerFrameId() == null) createdEntity = level.getBlockEntity(n.pos());
+            else {
+                var owner = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(server)
+                        .getSubLevel(n.ownerFrameId());
+                createdEntity = owner instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live
+                        ? com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                        .knownBlockEntity(server, live, n.pos()) : null;
+            }
+            if (!(createdEntity instanceof PuddleBlockEntity created)) continue;
+            neighbors.set(i, new Neighbor(created, n.pressure(), n.pos(), n.crossGrid(), n.downward(), n.frameId(),
+                    n.ownerFrameId(), n.surface()));
+        }
 
         // 2. Determine how much total VOLUME can move
 
         // 3. The "Efficiency" Step: Combined Loop
         for (var neighbor : neighbors) {
             PuddleBlockEntity targetPuddle = neighbor.puddle;
+            if (targetPuddle == null) continue;
+            if (neighbor.crossGrid()) {
+                if (!(level instanceof net.minecraft.server.level.ServerLevel server)
+                        || neighbor.surface() == null) continue;
+                var surface = neighbor.surface();
+                if (neighbor.frameId() == null) {
+                    if (!server.hasChunkAt(targetPuddle.getBlockPos())
+                            || server.getBlockEntity(targetPuddle.getBlockPos()) != targetPuddle) continue;
+                } else {
+                    var container = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(server);
+                    var frame = container.getSubLevel(neighbor.frameId());
+                    if (!(frame instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live)
+                            || live.isRemoved() || live.getLevel() != server
+                            || container.getSubLevel(neighbor.frameId()) != live
+                            || !com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.revalidate(server,
+                            new com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.Hit(
+                                    surface.puddlePos().below(), Direction.UP, surface.worldPoint(), neighbor.frameId()))
+                            || com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                            .knownBlockEntity(server, live, targetPuddle.getBlockPos()) != targetPuddle) continue;
+                }
+            }
             float pressure = neighbor.pressure;
             BlockPos targetPos = neighbor.pos;
 
@@ -284,7 +493,9 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
             ReagentAttachment dstCont = targetPuddle.getReagentContainer();
             var dstBefore = MS14Provider.snapshot(dstCont);
             float osmosisAmount = volume * 0.1f;
-            if (targetPos.getY() < pos.getY()){
+            if (neighbor.crossGrid()) {
+                osmosisAmount = 0f;
+            } else if (targetPos.getY() < pos.getY()){
                 osmosisAmount = 0f; // Can't "osmos" up a height differential
 
                 // Fun lil' particle. TODO: Not appearing right now.
@@ -300,8 +511,9 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
                 }
 
             }
-            performCombinedTransfer(srcCont, dstCont, netVolumeToMove, osmosisAmount);
-            dstCont.recursiveReaction(level, getCapacity());
+            if (neighbor.crossGrid()) transferFlow(srcCont, dstCont, netVolumeToMove, 0f, targetPuddle.getCapacity());
+            else performCombinedTransfer(srcCont, dstCont, netVolumeToMove, osmosisAmount);
+            dstCont.recursiveReaction(level, targetPuddle.getCapacity());
             MS14Provider.updateIfChanged(targetPuddle, MS14Bridges.REAGENT, dstBefore, dstCont);
         }
         srcCont.recursiveReaction(level, getCapacity());
@@ -310,6 +522,43 @@ public class PuddleBlockEntity extends BlockEntity implements IReagentTrait {
 
     private void performCombinedTransfer(ReagentAttachment source, ReagentAttachment target, float netVol, float osmosisVol) {
         transferFlow(source, target, netVol, osmosisVol, getCapacity());
+    }
+
+    private static boolean isInsideSourcePlot(net.minecraft.server.level.ServerLevel level, java.util.UUID frameId,
+                                             BlockPos pos) {
+        var container = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(level);
+        var frame = container.getSubLevel(frameId);
+        return frame instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live && !live.isRemoved()
+                && live.getLevel() == level && container.getSubLevel(frameId) == live && live.getPlot() != null
+                && live.getPlot().contains(new net.minecraft.world.level.ChunkPos(pos));
+    }
+
+    /** Local searches stay inside the source frame's authored plot and use resident-only block reads. */
+    @Nullable
+    private record FrameFlowTarget(@Nullable BlockPos target, boolean unknown, boolean openEdge) { }
+
+    private static FrameFlowTarget findFrameFlowTarget(net.minecraft.server.level.ServerLevel level,
+                                                       java.util.UUID frameId, BlockPos neighborPos) {
+        var frame = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(level).getSubLevel(frameId);
+        if (!(frame instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel live)
+                || !isInsideSourcePlot(level, frameId, neighborPos)) return new FrameFlowTarget(null, true, false);
+        BlockState state = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                .knownServerBlock(level, live, neighborPos);
+        if (state == null) return new FrameFlowTarget(null, true, false);
+        if (state.is(ModBlocks.PUDDLE.get())) return new FrameFlowTarget(neighborPos.immutable(), false, false);
+        if (!state.canBeReplaced()) return new FrameFlowTarget(null, false, false);
+        BlockPos.MutableBlockPos cursor = neighborPos.mutable();
+        for (int i = 0; i < 30; i++) {
+            cursor.move(Direction.DOWN);
+            if (level.isOutsideBuildHeight(cursor) || !isInsideSourcePlot(level, frameId, cursor))
+                return new FrameFlowTarget(null, false, true);
+            BlockState below = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                    .knownServerBlock(level, live, cursor);
+            if (below == null) return new FrameFlowTarget(null, true, false);
+            if (below.is(ModBlocks.PUDDLE.get())) return new FrameFlowTarget(cursor.immutable(), false, false);
+            if (!below.canBeReplaced()) return new FrameFlowTarget(cursor.above().immutable(), false, false);
+        }
+        return new FrameFlowTarget(null, false, true);
     }
 
     private void removeEmptyBlock() {

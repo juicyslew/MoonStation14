@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server;
 
+import com.juicyslew.moonstation14.MoonStation14;
+
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
 import com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentityRegistry;
@@ -9,6 +11,7 @@ import com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechNetworking;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessId;
 import com.juicyslew.moonstation14.ms14.player_body_control.MindId;
+import com.juicyslew.moonstation14.ms14.player_body_control.CharacterCadenceDiagnostics;
 import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
@@ -52,6 +55,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.Objects;
 
 /** Durable-ACTIVE CHARACTER controller; production activation is limited to the first-account join transaction. */
 @EventBusSubscriber(modid = com.juicyslew.moonstation14.MoonStation14.MOD_ID)
@@ -289,6 +293,10 @@ public final class LifecycleCharacterSessionControl {
             }
             session.committed = true;
             GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Commit(session.epoch));
+            // Commit reaches the client before this full owner snapshot; its receive path reconciles
+            // the just-committed account/body/epoch before applying the strict snapshot policy.
+            com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService
+                    .publishLifecycleReady(player, session.body, session.epoch);
             sendSavedIdentity(server, session);
             com.juicyslew.moonstation14.MoonStation14.LOGGER.info(
                     "Lifecycle CHARACTER Ready committed (epoch={}, body={})", session.epoch, session.body.getId());
@@ -304,8 +312,26 @@ public final class LifecycleCharacterSessionControl {
                 session.intentTick = tick;
                 session.intentCount = 0;
             }
-            if (!intentRateAllows(++session.intentCount)) return;
-            session.gate.offer(intent.sequence(), tick, intent);
+            if (!intentRateAllows(++session.intentCount)) {
+                boolean transition = !session.traceRateRejected;
+                session.traceRateRejected = true;
+                trace(session, "INTAKE", level.getGameTime(), transition, "clientSeq=" + intent.sequence()
+                        + " wish=" + intent.wishX() + "," + intent.wishZ() + " buttons=" + intent.buttons()
+                        + " rateAccepted=false queueOfferAccepted=false queuedSize=" + session.gate.queuedSize());
+                return;
+            }
+            boolean offered = session.gate.offerQueued(intent.sequence(), intent,
+                    com.juicyslew.moonstation14.ms14.player_body_control.prediction.GhostPredictionHistory.CAPACITY);
+            boolean changed = intent.wishX() != session.traceWishX || intent.wishZ() != session.traceWishZ
+                    || intent.buttons() != session.traceButtons || (!offered && !session.traceOfferRejected)
+                    || session.traceRateRejected;
+            session.traceRateRejected = false;
+            session.traceOfferRejected = !offered;
+            session.traceWishX = intent.wishX(); session.traceWishZ = intent.wishZ(); session.traceButtons = intent.buttons();
+            trace(session, "INTAKE", level.getGameTime(), changed,
+                    "clientSeq=" + intent.sequence() + " wish=" + intent.wishX() + "," + intent.wishZ()
+                            + " buttons=" + intent.buttons() + " rateAccepted=true queueOfferAccepted=" + offered
+                            + " queuedSize=" + session.gate.queuedSize());
             if (session.gate.exhausted()) fail(server, session, FailureReason.INTENT_GATE_EXHAUSTED);
         } else if (payload instanceof GhostControlPayloads.Stop stop && stop.epoch() == session.epoch) {
             fail(server, session, FailureReason.CLIENT_STOP);
@@ -337,34 +363,248 @@ public final class LifecycleCharacterSessionControl {
         MinecraftServer server = level.getServer();
         Session session = server == null ? null : session(server, player.getUUID());
         if (session == null || session.player != player || !session.committed) return;
-        if (!connectedExact(server, player) || !authorized(session) || !shouldKeepCharacterCamera(player)
-                || !intentEligible(session, level)) {
+        if (!connectedExact(server, player) || !authorized(session) || !shouldKeepCharacterCamera(player)) {
             fail(server, session, FailureReason.RUNTIME_INELIGIBLE);
             return;
         }
-        GhostControlPayloads.Intent intent = session.gate.take();
-        Mob body = (Mob) session.body;
-        if (intent != null) {
-            try {
-                var result = CHARACTER_WORLD_STEP.step(body, intent.wishX(), intent.wishZ(),
-                        (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
-                        (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw());
-                if (result.isEmpty()) {
-                    fail(server, session, FailureReason.WORLD_STEP_REJECTED);
-                    return;
-                }
-                body.setYRot(intent.yaw());
-                body.setXRot(intent.pitch());
-                body.setYHeadRot(intent.yaw());
-                session.lastAppliedSequence = intent.sequence();
-                session.appliedSneak = (intent.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0;
-                session.appliedIntentTick = level.getGameTime();
-            } catch (RuntimeException | Error failure) {
-                fail(server, session, FailureReason.WORLD_STEP_ERROR);
+        Mob body = session.body;
+        long traceTick = level.getGameTime();
+        long serverTick = server.getTickCount();
+        session.traceCallbacks = session.traceCallbackTick == serverTick ? session.traceCallbacks + 1 : 1;
+        session.traceCallbackTick = serverTick;
+        if (session.movementSuspended) {
+            boolean exactHeldOwner = heldOwnerEligible(session, player, body, level);
+            var decision = com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterMovementHoldPolicy
+                    .evaluate(exactHeldOwner, exactHeldOwner && knownSnapshotPose(session, body, level));
+            if (decision == com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterMovementHoldPolicy.Decision.TERMINAL_GUARD) {
+                fail(server, session, FailureReason.RUNTIME_INELIGIBLE);
                 return;
             }
+            clearQueuedMovement(session);
+            if (decision == com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterMovementHoldPolicy.Decision.HOLD) {
+                body.setDeltaMovement(Vec3.ZERO);
+                boolean holdChanged = !session.traceHeld;
+                session.traceHeld = true;
+                trace(session, "PLAYER_POST_HOLD", traceTick, holdChanged, "callbacks=" + session.traceCallbacks
+                        + " queued=" + session.gate.queuedSize() + " ack=" + session.lastAppliedSequence
+                        + " pos=" + body.position() + " onGround=" + body.onGround() + " suspended=true reason=HOLD");
+                return;
+            }
+            session.movementSuspended = false;
+            session.traceHeld = false;
+            session.movementRebaseRevision++;
+            session.unsafePoseLogged = false;
+            clearQueuedMovement(session);
+            body.setDeltaMovement(Vec3.ZERO);
+                return;
         }
-        sendCharacterSnapshot(server, session, body);
+        if (!intentEligible(session, level)) {
+            fail(server, session, FailureReason.RUNTIME_INELIGIBLE);
+            return;
+        }
+        // This is callback dispatch ownership, not a physical-step test: another owner
+        // may already have advanced this actor (e.g. flight) on this tick.
+        if (session.lastInputDispatchTick == serverTick) return;
+        session.lastInputDispatchTick = serverTick; // failed/rejected attempts cannot retry this batch this tick
+        GhostControlPayloads.Intent freshIntent = session.movementInput.acceptQueued(session.gate);
+        if (freshIntent != null) session.lastAppliedSequence = freshIntent.sequence();
+        GhostControlPayloads.Intent intent = session.movementInput.held();
+        Boolean physicalConsumedBefore = observedPhysicalStepConsumed(body, level, serverTick);
+        Boolean physicalConsumedAfter = physicalConsumedBefore;
+        boolean stepAttempted = false;
+        boolean stepJump = false;
+        String traceOutcome = freshIntent == null && intent != null ? "QUEUEEMPTY_HELD" : intent == null ? "INACTIVE" : "PENDING";
+        if (intent != null) {
+            try {
+                stepAttempted = true;
+                stepJump = session.movementInput.jumpForStep();
+                var result = session.worldStep.step(body, intent.wishX(), intent.wishZ(),
+                        stepJump,
+                        (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw(),
+                        intent.supportedMovementReference());
+                if (result.isEmpty()) {
+                    traceOutcome = "REJECTED";
+                    recoverWorldStep(session, body, intent, FailureReason.WORLD_STEP_REJECTED, null);
+                } else {
+                    traceOutcome = "APPLIED";
+                    body.setYRot(intent.yaw());
+                    body.setXRot(intent.pitch());
+                    body.setYHeadRot(intent.yaw());
+                    session.appliedSneak = (intent.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0;
+                    session.appliedIntentTick = level.getGameTime();
+                }
+                session.movementInput.afterStep();
+                physicalConsumedAfter = observedPhysicalStepConsumed(body, level, serverTick);
+            } catch (RuntimeException | LinkageError failure) {
+                traceOutcome = "ERROR";
+                recoverWorldStep(session, body, intent, FailureReason.WORLD_STEP_ERROR, failure);
+            }
+        }
+        boolean changed = traceOutcome.equals("REJECTED") || traceOutcome.equals("ERROR")
+                || session.traceLastOutcome == null || !traceOutcome.equals(session.traceLastOutcome);
+        if (changed || (serverTick % 20 == 0 && session.tracePlayerPostTick != serverTick)) {
+            session.tracePlayerPostTick = serverTick;
+            trace(session, "PLAYER_POST", traceTick, changed,
+                "queued=" + session.gate.queuedSize() + " freshSeq=" + (freshIntent == null ? -1 : freshIntent.sequence())
+                        + " ack=" + session.lastAppliedSequence + " held=" + (intent == null ? "none" : intent.wishX()+","+intent.wishZ())
+                        + " jump=" + stepJump + " stepAttempted=" + stepAttempted + " physicalStepConsumed="
+                        + physicalConsumedBefore + "->" + physicalConsumedAfter
+                        + " callbacks=" + session.traceCallbacks + " pos=" + body.position() + " delta=" + body.getDeltaMovement()
+                        + " onGround=" + body.onGround() + " suspended=" + session.movementSuspended
+                        + " result=" + traceOutcome + " recovery=" + (session.movementSuspended ? "held" : "none")
+                        + " reconciliation={"+session.latestSnapshotDiagnostic+"} samplesSuppressed="+session.traceSamplesSuppressed);
+        }
+        session.traceLastOutcome = traceOutcome;
+        // Normal per-tick publication runs in the SERVER_POST fallback, after level-owned passive physics.
+    }
+
+    /** Publishes committed character state after the level's physical fallback has completed. */
+    public static void publishAfterPhysicalTick(MinecraftServer server) {
+        if (server == null || !server.isSameThread()) return;
+        Map<UUID, Session> sessions = SERVERS.get(server);
+        if (sessions == null) return;
+        for (Session session : java.util.List.copyOf(sessions.values())) {
+            ServerPlayer player = session.player;
+            if (!session.committed || player == null || !(player.level() instanceof ServerLevel level)
+                    || sessions.get(session.accountId) != session) continue;
+            if (!connectedExact(server, player) || !authorized(session) || !shouldKeepCharacterCamera(player)) continue;
+            // Always route eligible sessions through the sole snapshot producer: it owns
+            // unknown-pose suspension/rebase as well as safe snapshot admission.
+            sendCharacterSnapshot(server, session, session.body);
+        }
+    }
+
+    private static boolean heldOwnerEligible(Session session, ServerPlayer player, Mob body, ServerLevel level) {
+        var binding = session.body.playerCharacterBinding();
+        return session.player == player && player.isAlive()
+                && player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR && !player.isPassenger()
+                && session.body == body && live(session.body, level)
+                && body.isNoAi() && body instanceof MindControlledMob owner && owner.moonstation14$isMovementOwned()
+                && session.bodyId.equals(new MobHarnessId(body.getUUID()))
+                && activeBodyBindingMatches(binding, session.accountId, session.profileId, session.mindId)
+                && CharacterIdentitySystem.resolve(body).isPresent();
+    }
+
+    /** Per-session, scoped substitution for owned GameTest fault injection; production always uses the native resolver. */
+    @FunctionalInterface
+    interface WorldStep {
+        java.util.Optional<com.juicyslew.moonstation14.ms14.movement.CharacterMovementState> step(
+                Mob body, int wishX, int wishZ, boolean jump, boolean sprint, float yaw,
+                java.util.Optional<GhostControlPayloads.SupportedMovementReference> supportedMovementReference);
+    }
+
+    @FunctionalInterface
+    interface SafePoseObserver {
+        boolean hasKnownSafePoint(Mob body, ServerLevel level);
+    }
+
+    static AutoCloseable withWorldStepForTesting(ServerPlayer player, WorldStep injected) {
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(injected, "injected");
+        if (!(player.level() instanceof ServerLevel level) || level.getServer() == null || !level.getServer().isSameThread())
+            throw new IllegalStateException("world-step injection requires the server thread");
+        Session session = session(level.getServer(), player.getUUID());
+        if (session == null || session.player != player || session.worldStepInjected)
+            throw new IllegalStateException("exact lifecycle session missing or already has a scoped resolver");
+        WorldStep previous = session.worldStep;
+        session.worldStep = injected;
+        session.worldStepInjected = true;
+        return () -> {
+            if (session(level.getServer(), player.getUUID()) != session) return;
+            if (session.player != player || !session.worldStepInjected || session.worldStep != injected)
+                throw new IllegalStateException("scoped lifecycle world-step owner changed before restore");
+            session.worldStep = previous;
+            session.worldStepInjected = false;
+        };
+    }
+
+    static AutoCloseable withSafePoseObserverForTesting(ServerPlayer player, SafePoseObserver injected) {
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(injected, "injected");
+        if (!(player.level() instanceof ServerLevel level) || level.getServer() == null || !level.getServer().isSameThread())
+            throw new IllegalStateException("pose observation injection requires the server thread");
+        Session session = session(level.getServer(), player.getUUID());
+        if (session == null || session.player != player || session.safePoseInjected)
+            throw new IllegalStateException("exact lifecycle session missing or already has scoped pose observation");
+        SafePoseObserver previous = session.safePoseObserver;
+        session.safePoseObserver = injected;
+        session.safePoseInjected = true;
+        return () -> {
+            if (session(level.getServer(), player.getUUID()) != session) return;
+            if (!session.safePoseInjected || session.safePoseObserver != injected)
+                throw new IllegalStateException("scoped pose observer changed before restore");
+            session.safePoseObserver = previous;
+            session.safePoseInjected = false;
+        };
+    }
+
+    private static void recoverWorldStep(Session session, Mob body, GhostControlPayloads.Intent intent,
+                                         FailureReason reason, Throwable failure) {
+        ServerLevel level = body.level() instanceof ServerLevel serverLevel ? serverLevel : null;
+        MinecraftServer server = level == null ? null : level.getServer();
+        boolean ownerValid = server != null && connectedExact(server, session.player)
+                && session(server, session.accountId) == session && authorized(session)
+                && session.body == body && live(session.body, level);
+        var outcome = com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterWorldStepRecoveryPolicy
+                .afterStep(false, ownerValid, level != null && knownSafePose(body, level));
+        if (outcome == com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterWorldStepRecoveryPolicy.Outcome.TERMINAL) {
+            fail(server, session, FailureReason.RUNTIME_INELIGIBLE);
+            return;
+        }
+        body.setDeltaMovement(Vec3.ZERO);
+        clearQueuedMovement(session);
+        session.appliedSneak = false;
+        session.appliedIntentTick = Long.MIN_VALUE;
+        session.movementRebaseRevision++;
+        if (outcome == com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterWorldStepRecoveryPolicy.Outcome.HOLD) {
+            suspendMovement(session, body, reason, intent.sequence(), failure);
+            return;
+        }
+        long tick = level.getGameTime();
+        if (tick - session.lastMovementDiagnosticTick >= 100) {
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                    "Lifecycle CHARACTER movement rebased without ending ownership reason={} bodyEntityId={} sequence={} position={} cause={}",
+                    reason, body.getId(), intent.sequence(), body.position(), failure == null ? "bounded motor rejection" : failure.getClass().getSimpleName());
+            session.lastMovementDiagnosticTick = tick;
+        }
+    }
+
+    private static boolean knownSafePose(Mob body, ServerLevel level) {
+        return com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterMovementSafePose
+                .valid(level, body.position());
+    }
+
+    private static boolean knownSnapshotPose(Session session, Mob body, ServerLevel level) {
+        return knownSafePose(body, level) && session.safePoseObserver.hasKnownSafePoint(body, level);
+    }
+
+    private static boolean defaultSafePose(Mob body, ServerLevel level) {
+        if (!knownSafePose(body, level)) return false;
+        var point = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentActorPoint(level, body);
+        return com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterMovementSafePose
+                .snapshotAdmissible(level, body.position(), point == null ? null : point.storagePoint(), point != null);
+    }
+
+    private static void suspendMovement(Session session, Mob body, FailureReason reason, long sequence,
+                                        Throwable failure) {
+        body.setDeltaMovement(Vec3.ZERO);
+        if (!session.movementSuspended) session.movementRebaseRevision++;
+        session.movementSuspended = true;
+        clearQueuedMovement(session);
+        if (session.unsafePoseLogged) return;
+        com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                "Lifecycle CHARACTER movement held pending a known safe authority point reason={} bodyEntityId={} sequence={} cause={}",
+                reason, body.getId(), sequence, failure == null ? "unknown or invalid current pose" : failure.getClass().getSimpleName());
+        session.unsafePoseLogged = true;
+        session.player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                "Character movement is paused while its safe position is verified. Ownership and inventory are retained; movement will resume automatically when the body is safe."));
+    }
+
+    /** Discards real not-yet-applied commands at a movement authority barrier; ACK settles that real skipped range. */
+    private static void clearQueuedMovement(Session session) {
+        long discardedThrough = session.gate.discardQueuedThroughSequence();
+        if (discardedThrough >= 0) session.lastAppliedSequence = Math.max(session.lastAppliedSequence, discardedThrough);
+        session.movementInput.clear();
     }
 
     @SubscribeEvent
@@ -402,17 +642,20 @@ public final class LifecycleCharacterSessionControl {
                         && connectedExact(server, session.player) && authorized(session)
                         && session.player.level() instanceof ServerLevel currentLevel
                         && live(session.body, currentLevel) && session.body.isNoAi();
-                if (exactTimeoutOwner) com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
-                        "Lifecycle CHARACTER terminal failure reason={} phase=HANDSHAKE epoch={} expectedBodyEntityId={} cameraEntityId={} exactConnection=true authorized=true bodyLive=true",
-                        FailureReason.READY_TIMEOUT, session.epoch, session.body.getId(),
-                        session.player.getCamera() == null ? -1 : session.player.getCamera().getId());
-                timeoutCleanupDecision(exactTimeoutOwner, () -> cleanLogout(server, session),
-                        () -> fail(server, session, FailureReason.READY_TIMEOUT), parked -> {
-                    if (connectedExact(server, session.player)) session.player.connection.disconnect(
-                            net.minecraft.network.chat.Component.literal(parked
-                                    ? "Timed out waiting for character readiness. Please reconnect."
-                                    : "Character session requires explicit recovery (READY_TIMEOUT)."));
-                });
+                if (exactTimeoutOwner) {
+                    session.startedTick = session.player.level().getGameTime();
+                    com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                            "Lifecycle CHARACTER readiness remains pending; retaining exact live session epoch={} bodyEntityId={}",
+                            session.epoch, session.body.getId());
+                    try {
+                        GhostControlNetworking.sendToPlayer(session.player, new GhostControlPayloads.Begin(
+                                session.epoch, session.body.getId(), MobHarnessKind.CHARACTER));
+                    } catch (RuntimeException | LinkageError failure) {
+                        fail(server, session, FailureReason.BEGIN_SEND_ERROR);
+                    }
+                } else {
+                    fail(server, session, FailureReason.READY_TIMEOUT);
+                }
             }
         }
     }
@@ -468,6 +711,7 @@ public final class LifecycleCharacterSessionControl {
         sessions.remove(session.accountId);
         if (sessions.isEmpty()) SERVERS.remove(server);
         session.gate.reset();
+        session.movementInput.clear();
         clearOwnedMarkerForSession(session);
         if (SERVERS.isEmpty()) LifecycleSessionPacketRouter.instance().clearCharacterHandler();
         return offline;
@@ -501,6 +745,7 @@ public final class LifecycleCharacterSessionControl {
             if (sessions.isEmpty()) SERVERS.remove(server);
         }
         session.gate.reset();
+        session.movementInput.clear();
         clearOwnedMarkerForSession(session);
         if (SERVERS.isEmpty()) LifecycleSessionPacketRouter.instance().clearCharacterHandler();
         try {
@@ -546,7 +791,7 @@ public final class LifecycleCharacterSessionControl {
         PRECOMMIT_INELIGIBLE, RUNTIME_INELIGIBLE, MOVEMENT_OWNERSHIP_REJECTED,
         MOVEMENT_OWNERSHIP_ERROR, INTENT_GATE_EXHAUSTED, CLIENT_STOP,
         WORLD_STEP_REJECTED, WORLD_STEP_ERROR, BEGIN_SEND_ERROR, READY_TIMEOUT,
-        SNAPSHOT_BINDING_MISMATCH, SNAPSHOT_SEND_ERROR, APPEARANCE_FAILURE, DEATH_CLAIM_FAILURE
+        SNAPSHOT_BINDING_MISMATCH, SNAPSHOT_SEND_ERROR, POSE_UNSAFE_HOLD, APPEARANCE_FAILURE, DEATH_CLAIM_FAILURE
     }
 
     /** Priority is deterministic when more than one prerequisite is false at the failure site. */
@@ -600,6 +845,8 @@ public final class LifecycleCharacterSessionControl {
                 player.gameMode.getGameModeForPlayer(), passenger, exactConnection, authorized, bodyLive, eligible);
         sessions.remove(session.player.getUUID());
         if (sessions.isEmpty()) SERVERS.remove(server);
+        session.movementInput.clear();
+        session.gate.reset();
         clearOwnedMarkerForSession(session);
         session.lifecycle.suspendActiveSessionForRecovery(session.player.getUUID(), session.mindId,
                 session.bodyId, session.epoch);
@@ -614,6 +861,8 @@ public final class LifecycleCharacterSessionControl {
         if (sessions == null || sessions.get(session.player.getUUID()) != session) return;
         sessions.remove(session.player.getUUID());
         if (sessions.isEmpty()) SERVERS.remove(server);
+        session.movementInput.clear();
+        session.gate.reset();
         clearOwnedMarkerForSession(session);
         if (SERVERS.isEmpty()) LifecycleSessionPacketRouter.instance().clearCharacterHandler();
     }
@@ -645,6 +894,27 @@ public final class LifecycleCharacterSessionControl {
         long tick = body.level().getGameTime();
         if (tick <= session.lastSnapshotTick) return;
         Vec3 position = body.position();
+        if (!knownSafePose(body, (ServerLevel) body.level())
+                || !session.safePoseObserver.hasKnownSafePoint(body, (ServerLevel) body.level())) {
+            boolean firstDenied = !"POSE_UNSAFE_HOLD".equals(session.traceSnapshotDeniedReason);
+            session.traceSnapshotDeniedReason = "POSE_UNSAFE_HOLD";
+            trace(session, "SNAPSHOT_DENIED", tick, firstDenied, "reason=POSE_UNSAFE_HOLD ack=" + session.lastAppliedSequence
+                    + " pos=" + position + " suspended=" + session.movementSuspended);
+            suspendMovement(session, body, FailureReason.POSE_UNSAFE_HOLD, session.lastAppliedSequence, null);
+            return; // Never construct a wire snapshot from nonfinite/out-of-bounds or unknown pose data.
+        }
+        var actorPoint = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentActorPoint(
+                (ServerLevel) body.level(), body);
+        if (actorPoint == null || !com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterMovementSafePose
+                .snapshotAdmissible((ServerLevel) body.level(), position,
+                        actorPoint == null ? null : actorPoint.storagePoint(), actorPoint != null)) {
+            boolean firstDenied = !"NO_FRAME".equals(session.traceSnapshotDeniedReason);
+            session.traceSnapshotDeniedReason = "NO_FRAME";
+            trace(session, "SNAPSHOT_DENIED", tick, firstDenied, "reason=NO_FRAME ack=" + session.lastAppliedSequence
+                    + " pos=" + position + " suspended=" + session.movementSuspended);
+            suspendMovement(session, body, FailureReason.POSE_UNSAFE_HOLD, session.lastAppliedSequence, null);
+            return; // unknown tracking is never reinterpreted as a world-frame snapshot
+        }
         Vec3 velocity = body.getDeltaMovement().scale(20d);
         float yaw = (float) (body.getYRot() - 360.0 * Math.floor((body.getYRot() + 180.0) / 360.0));
         float pitch = Math.max(-90f, Math.min(90f, body.getXRot()));
@@ -662,13 +932,33 @@ public final class LifecycleCharacterSessionControl {
                     velocity.x, velocity.y, velocity.z, body.onGround(), surface, voluntary,
                     !CharacterControlSystem.canMove(body), movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
                             ? com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.remainingTicks(body) : 0,
-                    movementMode, java.util.Optional.ofNullable(owner).map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner::view));
+                     movementMode, java.util.Optional.ofNullable(owner).map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner::view),
+                     (movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED ? java.util.Optional.ofNullable(actorPoint.frameId()) : java.util.Optional.<java.util.UUID>empty()).map(id -> new GhostControlPayloads.Snapshot.FrameState(
+                             id, actorPoint.storagePoint().x, actorPoint.storagePoint().y, actorPoint.storagePoint().z)),
+                      session.movementRebaseRevision).withAngularRecoveryState(
+                               body instanceof PlayerCharacterHarnessEntity character
+                                       && movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
+                                       ? character.authoritativeAngularRecoveryState() : java.util.Optional.empty())
+                     .withServerTemporalMetadata(completedSableStep((ServerLevel) body.level()),
+                             body instanceof PlayerCharacterHarnessEntity character ? character.airMotionReference() : java.util.Optional.empty());
             if (!snapshotBoundToSession(snapshot, session.epoch, body.getId())) {
                 fail(server, session, FailureReason.SNAPSHOT_BINDING_MISMATCH);
                 return;
             }
             session.lastSnapshotTick = tick;
+            session.traceSnapshotDeniedReason = null;
             GhostControlNetworking.sendToPlayer(session.player, snapshot);
+            String diagnostic = "mode="+snapshot.movementMode()+" frame="+(snapshot.frameState().isPresent()
+                    ? "FRAME:"+snapshot.frameState().get().frameId() : "WORLD");
+            boolean snapshotTransition = !diagnostic.equals(session.traceSnapshotSignature);
+            session.traceSnapshotSignature = diagnostic;
+            session.latestSnapshotDiagnostic = diagnostic+" ack="+session.lastAppliedSequence+" pos="+position;
+            if (snapshotTransition) trace(session, "SNAPSHOT", tick, true,
+                    "epoch=" + snapshot.epoch() + " mode=" + snapshot.movementMode() + " gameTime=" + tick
+                            + " serverTick=" + tick + " ack=" + session.lastAppliedSequence + " pos=" + position
+                            + " velocity=" + velocity + " movementBlocked=" + snapshot.movementBlocked()
+                            + " frameState=" + (snapshot.frameState().isPresent()
+                                    ? "FRAME:" + snapshot.frameState().get().frameId() : "WORLD"));
         } catch (RuntimeException failure) {
             fail(server, session, FailureReason.SNAPSHOT_SEND_ERROR);
         }
@@ -690,6 +980,33 @@ public final class LifecycleCharacterSessionControl {
     private static Session session(MinecraftServer server, UUID account) {
         Map<UUID, Session> sessions = SERVERS.get(server);
         return sessions == null ? null : sessions.get(account);
+    }
+
+    private static java.util.OptionalLong completedSableStep(ServerLevel level) {
+        var container = dev.ryanhcode.sable.api.sublevel.SubLevelContainer.getContainer(level);
+        if (!(container instanceof dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer serverContainer))
+            return java.util.OptionalLong.empty();
+        return com.juicyslew.moonstation14.ms14.player_body_control.server.SableFrameClock
+                .completedStep(serverContainer.trackingSystem().getInterpolationTick());
+    }
+
+    private static void trace(Session session, String phase, long tick, boolean important, String fields) {
+        try {
+            if (session.traceDiagnostics.allow(session.epoch, System.nanoTime(), important))
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.info("{} SERVER phase={} epoch={} body={} serverTick={} gameTime={} {}",
+                        CharacterCadenceDiagnostics.MARKER, phase, session.epoch, session.body.getId(),
+                        session.player.level().getServer().getTickCount(), tick, fields);
+            else session.traceSamplesSuppressed++;
+        } catch (RuntimeException ignored) { }
+    }
+
+    private static Boolean observedPhysicalStepConsumed(Mob body, ServerLevel level, long serverTick) {
+        try {
+            return body instanceof MindControlledMob owner
+                    ? owner.moonstation14$physicalStepConsumed(level, serverTick) : null;
+        } catch (RuntimeException | LinkageError ignored) {
+            return null;
+        }
     }
 
     static boolean hasSession(ServerPlayer player) {
@@ -778,6 +1095,7 @@ public final class LifecycleCharacterSessionControl {
         sessions.remove(session.accountId);
         if (sessions.isEmpty()) SERVERS.remove(server);
         session.gate.reset();
+        session.movementInput.clear();
         clearOwnedMarkerForSession(session);
         if (SERVERS.isEmpty()) LifecycleSessionPacketRouter.instance().clearCharacterHandler();
         try {
@@ -811,7 +1129,9 @@ public final class LifecycleCharacterSessionControl {
 
     static boolean readyDecision(long readyEpoch, long sessionEpoch, boolean committed, long elapsedTicks,
                                  long timeoutTicks) {
-        return !committed && readyEpoch == sessionEpoch && elapsedTicks >= 0 && elapsedTicks < timeoutTicks;
+        // Timeout controls Begin retransmission, not the lifetime of an otherwise exact live handshake.
+        // A delayed Ready remains admissible while this session/connection/body is still authoritative.
+        return !committed && readyEpoch == sessionEpoch && elapsedTicks >= 0;
     }
 
     static boolean delayedBeginDecision(boolean exactSession, boolean exactConnectedPlayer,
@@ -840,9 +1160,28 @@ public final class LifecycleCharacterSessionControl {
         final long epoch; long startedTick = -1; final UUID accountId; final String profileId;
         final MindId mindId; final MobHarnessId bodyId; boolean committed, beginSent;
         final GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
+        final CharacterMovementInputState movementInput = new CharacterMovementInputState();
         long intentTick = Long.MIN_VALUE, lastAppliedSequence, lastSnapshotTick = Long.MIN_VALUE;
+        long movementRebaseRevision;
+        long lastMovementDiagnosticTick = Long.MIN_VALUE / 2;
+        boolean movementSuspended, unsafePoseLogged;
+        long lastInputDispatchTick = Long.MIN_VALUE;
+        WorldStep worldStep = (body, x, z, jump, sprint, yaw, reference) ->
+                CHARACTER_WORLD_STEP.step(body, x, z, jump, sprint, yaw, null, reference);
+        boolean worldStepInjected;
+        SafePoseObserver safePoseObserver = LifecycleCharacterSessionControl::defaultSafePose;
+        boolean safePoseInjected;
         long appliedIntentTick = Long.MIN_VALUE; boolean appliedSneak;
         int intentCount;
+        final CharacterCadenceDiagnostics traceDiagnostics = new CharacterCadenceDiagnostics();
+        int traceWishX = Integer.MIN_VALUE, traceWishZ = Integer.MIN_VALUE, traceButtons = Integer.MIN_VALUE;
+        long traceCallbackTick = Long.MIN_VALUE; int traceCallbacks; String traceLastOutcome;
+        long tracePlayerPostTick = Long.MIN_VALUE; int traceSamplesSuppressed; boolean traceHeld;
+        String latestSnapshotDiagnostic = "none";
+        String traceSnapshotSignature = "";
+        boolean traceRateRejected;
+        boolean traceOfferRejected;
+        String traceSnapshotDeniedReason;
         Session(ServerPlayer player, PlayerCharacterHarnessEntity body, PlayerLifecycleRegistry lifecycle,
                  long epoch) {
             this.player = player; this.body = body; this.lifecycle = lifecycle; this.epoch = epoch;

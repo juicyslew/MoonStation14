@@ -44,9 +44,16 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/chat/client/LocalSpeechReviewOverlay.java",
             "com/juicyslew/moonstation14/ms14/chat/client/DirectionalCueOverlay.java",
             "com/juicyslew/moonstation14/ms14/chat/client/DirectionalCueTintMesh.java",
+            "com/juicyslew/moonstation14/ms14/player_body_control/client/SupportedBodyCameraClient.java",
             "com/juicyslew/moonstation14/mixin/client/ContainedBodyCameraMixin.java",
             "com/juicyslew/moonstation14/mixin/client/ContainedPerspectiveLockMixin.java",
-            "com/juicyslew/moonstation14/mixin/client/ContainedOwnerPickMixin.java",
+             "com/juicyslew/moonstation14/mixin/client/ContainedOwnerPickMixin.java",
+             "com/juicyslew/moonstation14/mixin/client/LooseCargoPacketFrameMixin.java",
+             "com/juicyslew/moonstation14/mixin/client/SableAuthoritativeSnapshotCaptureMixin.java",
+             "com/juicyslew/moonstation14/mixin/client/SableAuthoritativeStopCaptureMixin.java",
+             "com/juicyslew/moonstation14/mixin/client/SableFrameTimelineRemovalMixin.java",
+             "com/juicyslew/moonstation14/mixin/client/SableStartTrackingTimelineSeedMixin.java",
+             "com/juicyslew/moonstation14/ms14/shuttle/sable/ClientFrameTimelineStore.java",
             "com/juicyslew/moonstation14/mixin/client/MouseHandlerMindGhostLookMixin.java",
             "com/juicyslew/moonstation14/ms14/medical_observer/client/MedicalCameraAnchorEntity.java",
              "com/juicyslew/moonstation14/ms14/medical/client/HealthAnalyzerRenderer.java",
@@ -57,7 +64,8 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/mixin/client/LivingEntityDisposalContainmentRenderMixin.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/ghost/client/GhostMobHarnessRenderer.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/character/client/PlayerCharacterHarnessRenderer.java",
-            "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java",
+             "com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java",
+             "com/juicyslew/moonstation14/ms14/player_body_control/client/ConnectedWallDiagnosticCommand.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCameraPolicy.java",
             "com/juicyslew/moonstation14/ms14/player_body_control/client/ContainedCharacterClientView.java",
             "com/juicyslew/moonstation14/ms14/power/cable/client/CableVisualRenderer.java",
@@ -86,7 +94,8 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/mixin/client/LevelRendererCriticalCloudsMixin.java",
             "com/juicyslew/moonstation14/ms14/damage/client/DamageFeedbackClientState.java",
             "com/juicyslew/moonstation14/ms14/eye/client/CriticalFogClient.java",
-            "com/juicyslew/moonstation14/ms14/mobs/client/MedicalPerspectiveClient.java",
+             "com/juicyslew/moonstation14/ms14/mobs/client/MedicalPerspectiveClient.java",
+             "com/juicyslew/moonstation14/ms14/mobs/client/MedicalMovementClientTrace.java",
              "com/juicyslew/moonstation14/ms14/standing/client/PostureClient.java",
              "com/juicyslew/moonstation14/ms14/doors/client/AirlockBlockEntityRenderer.java",
              "com/juicyslew/moonstation14/ms14/doors/client/AirlockFramePlanner.java",
@@ -101,12 +110,31 @@ class ServerClassloadingTest {
     private static final Pattern CLIENT_CLASS_LITERAL = Pattern.compile(
             "(?:net\\.minecraft\\.client|net\\.neoforged\\.neoforge\\.client|"
                     + "com\\.mojang\\.blaze3d)(?:\\.[A-Za-z_$][\\w$]*)+\\.class\\b");
+    private static final Pattern CLIENT_TYPE_REFERENCE = Pattern.compile(
+            "\\b(?:net\\.minecraft\\.client|net\\.neoforged\\.neoforge\\.client|"
+                    + "com\\.mojang\\.blaze3d)(?:\\.[A-Za-z_$][\\w$]*)+");
     private static final Pattern CLIENT_UI_REFERENCE = Pattern.compile(
             "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.ui\\.client\\.[A-Za-z_$][\\w$]*");
     private static final Pattern CLIENT_CHEMMASTER_REFERENCE = Pattern.compile(
             "\\bcom\\.juicyslew\\.moonstation14\\.ms14\\.chemistry\\.chemmaster\\.client\\.[A-Za-z_$][\\w$]*");
     private static final Pattern PACKAGE_DECLARATION = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)\\s*;");
     private static final Pattern COMMENTS = Pattern.compile("(?s)/\\*.*?\\*/|//[^\\r\\n]*");
+    private static final Pattern JAVA_NON_CODE = Pattern.compile(
+            "(?s)\\\"\\\"\\\".*?\\\"\\\"\\\"|\"(?:\\\\.|[^\"\\\\])*\"|"
+                    + "'(?:\\\\.|[^'\\\\])*'|/\\*.*?\\*/|//[^\\r\\n]*");
+
+    @Test
+    void qualifiedClientTypesAreRejectedOutsideStringsAndComments() {
+        assertTrue(hasClientTypeReference("if (x instanceof net.minecraft.client.multiplayer.ClientLevel level) {}"));
+        assertTrue(hasClientTypeReference("net.minecraft.client.multiplayer.ClientLevel value = (net.minecraft.client.multiplayer.ClientLevel) x;"));
+        assertTrue(hasClientTypeReference("void use(net.minecraft.client.multiplayer.ClientLevel level) {}"));
+        assertTrue(!hasClientTypeReference("if (level.isClientSide) {}"));
+        assertTrue(!hasClientTypeReference("// net.minecraft.client.multiplayer.ClientLevel\nString s = \"net.minecraft.client.multiplayer.ClientLevel\";"));
+        assertTrue(hasClientTypeReference("String s = \"/*\"; net.minecraft.client.multiplayer.ClientLevel level; String e = \"*/\";"));
+        assertTrue(hasClientTypeReference("String url = \"http://example.test\"; net.minecraft.client.multiplayer.ClientLevel level;"));
+        assertTrue(hasClientTypeReference("String escaped = \"\\\"// still string\"; net.minecraft.client.multiplayer.ClientLevel level;"));
+        assertTrue(!hasClientTypeReference("/* \" // net.minecraft.client.multiplayer.ClientLevel */ String s = \"net.minecraft.client.multiplayer.ClientLevel\";"));
+    }
 
     @Test
     void serverOwnedProductionSourcesDoNotImportOrReferenceClientClassLiterals() throws IOException {
@@ -118,6 +146,7 @@ class ServerClassloadingTest {
             for (Path source : files.filter(path -> path.toString().endsWith(".java")).toList()) {
                 String relativePath = sourceRoot.relativize(source).toString().replace('\\', '/');
                 if (CLIENT_ONLY_SOURCES.contains(relativePath) || relativePath.startsWith(CLIENT_UI_SOURCE_PREFIX)
+                        || relativePath.startsWith("com/juicyslew/moonstation14/mixin/client/")
                         || relativePath.startsWith(CLIENT_LOOSE_OBJECT_SOURCE_PREFIX)
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/medical_observer/client/")
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/examine/client/")
@@ -130,9 +159,11 @@ class ServerClassloadingTest {
                     continue;
                 }
 
-                String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+                String code = stripCommentsAndLiterals(Files.readString(source));
                 findMatches(CLIENT_IMPORT, code).forEach(match -> violations.add(relativePath + ": " + match));
                 findMatches(CLIENT_CLASS_LITERAL, code)
+                        .forEach(match -> violations.add(relativePath + ": " + match));
+                findMatches(CLIENT_TYPE_REFERENCE, code)
                         .forEach(match -> violations.add(relativePath + ": " + match));
                 findMatches(CLIENT_UI_REFERENCE, code)
                         .forEach(match -> violations.add(relativePath + ": " + match));
@@ -221,6 +252,29 @@ class ServerClassloadingTest {
         assertTrue(code.matches("(?s).*@EventBusSubscriber\\s*\\(\\s*modid\\s*=\\s*MoonStation14\\.MOD_ID\\s*,"
                         + "\\s*value\\s*=\\s*Dist\\.CLIENT\\s*\\).*"),
                 "Ghost control client must be explicitly subscribed on Dist.CLIENT");
+    }
+
+    private static boolean hasClientTypeReference(String source) {
+        return CLIENT_TYPE_REFERENCE.matcher(stripCommentsAndLiterals(source)).find();
+    }
+
+    private static String stripCommentsAndLiterals(String source) {
+        return JAVA_NON_CODE.matcher(source).replaceAll("");
+    }
+
+    @Test
+    void connectedWallDiagnosticCommandIsClientOnlyAndRegisteredByClientEntrypoint() throws IOException {
+        Path source = findProductionSourceRoot().resolve(
+                "com/juicyslew/moonstation14/ms14/player_body_control/client/ConnectedWallDiagnosticCommand.java");
+        assertTrue(Files.isRegularFile(source), "Connected wall diagnostic command source should exist");
+        String code = COMMENTS.matcher(Files.readString(source)).replaceAll("");
+        assertTrue(code.matches("(?s).*@OnlyIn\\s*\\(\\s*Dist\\.CLIENT\\s*\\).*"),
+                "Connected wall diagnostic command must be explicitly client-only");
+
+        Path clientEntrypoint = findProductionSourceRoot().resolve("com/juicyslew/moonstation14/MoonStation14Client.java");
+        String entrypointCode = COMMENTS.matcher(Files.readString(clientEntrypoint)).replaceAll("");
+        assertTrue(entrypointCode.contains("ConnectedWallDiagnosticCommand::register"),
+                "Connected wall diagnostic command must be registered by the client entrypoint");
     }
 
     @Test

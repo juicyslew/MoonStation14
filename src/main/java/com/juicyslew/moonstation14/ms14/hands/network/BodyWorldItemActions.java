@@ -160,9 +160,9 @@ public final class BodyWorldItemActions {
         }
         if (com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireMenuService
                 .dispatchToolMenu(actor, request, admission, stack)) return BodyBlockUseResult.Outcome.NO_CHANGE;
-        if (com.juicyslew.moonstation14.ms14.doors.AirlockToolInteraction.use(actor, request, admission, stack))
-            return BodyBlockUseResult.Outcome.NO_CHANGE;
         if (com.juicyslew.moonstation14.ms14.doors.AirlockPryService.start(actor, request, admission, stack))
+            return BodyBlockUseResult.Outcome.NO_CHANGE;
+        if (com.juicyslew.moonstation14.ms14.doors.AirlockToolInteraction.use(actor, request, admission, stack))
             return BodyBlockUseResult.Outcome.NO_CHANGE;
         if (stack.is(ModItems.GRENADE.get())) {
             BodyGrenadePrime.Result primed = BodyGrenadePrime.prime(actor, request.handId(),

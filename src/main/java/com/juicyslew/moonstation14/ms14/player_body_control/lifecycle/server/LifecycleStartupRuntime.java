@@ -18,7 +18,6 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.IdentityHashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -74,13 +73,15 @@ public final class LifecycleStartupRuntime {
         if (states.isEmpty()) return new StartupSnapshot(State.EMPTY, "initialized profile store is empty; first enrollment is not authorized by startup", 0);
         for (SavedLifecycleProfile.State profileState : states) {
             if (profileState != SavedLifecycleProfile.State.OFFLINE
-                    && profileState != SavedLifecycleProfile.State.DEAD_CLAIM) {
+                    && profileState != SavedLifecycleProfile.State.DEAD_CLAIM
+                    && profileState != SavedLifecycleProfile.State.ACTIVE) {
                 return new StartupSnapshot(State.RECOVERY_REQUIRED,
                         "profile state " + profileState + " requires operator recovery; startup will not hydrate or spawn", states.size());
             }
         }
         return new StartupSnapshot(State.DEFERRED,
-                "OFFLINE/DEAD_CLAIM profiles are reserved; loaded-body proof and lifecycle activation are deferred", states.size());
+                "OFFLINE/DEAD_CLAIM/ACTIVE profiles are reserved; loaded-body proof and lifecycle activation are deferred",
+                states.size());
     }
 
     static StartupSnapshot inspect(StoreReader reader) {

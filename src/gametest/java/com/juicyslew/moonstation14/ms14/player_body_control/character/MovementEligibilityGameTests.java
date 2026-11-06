@@ -21,6 +21,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class MovementEligibilityGameTests {
     private MovementEligibilityGameTests() { }
 
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags("shuttle-owner-regression")
     @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear",
             batch = "movement_eligibility", timeoutTicks = 40)
     public static void sleepingHumanCannotWalkOrJumpAndCanMoveAfterWake(GameTestHelper helper) {
@@ -51,12 +52,14 @@ public final class MovementEligibilityGameTests {
         require(step.step(body, 1000, 1000, true, false, 0f).isPresent(), "sleeping actor step is accepted");
         require(body.getX() == sleepingX && body.getZ() == sleepingZ && body.getY() <= sleepingY,
                 "sleep blocks voluntary walking and jump impulse while allowing gravity");
-        body.stopSleeping();
-        require(CharacterControlSystem.canMove(body), "waking restores shared movement eligibility");
-        double awakeZ = body.getZ();
-        require(step.step(body, 0, 1000, false, false, 0f).isPresent(), "awake actor step is accepted");
-        require(body.getZ() > awakeZ, "awake body advances under voluntary input");
-        helper.succeed();
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, () -> {
+            body.stopSleeping();
+            require(CharacterControlSystem.canMove(body), "waking restores shared movement eligibility");
+            double awakeZ = body.getZ();
+            require(step.step(body, 0, 1000, false, false, 0f).isPresent(), "awake actor step is accepted");
+            require(body.getZ() > awakeZ, "awake body advances under voluntary input");
+            helper.succeed();
+        });
     }
 
     @GameTest(templateNamespace = "moonstation14_camera_tour", template = "disposal_clear",

@@ -76,7 +76,7 @@ public final class AirAlarmMenuService {
         alarm.requestDeviceSync();
         UUID session = UUID.randomUUID();
         actor.openMenu(new SimpleMenuProvider((id, inv, player) -> new AirAlarmMenu(id, pos, session,
-                level, alarm, authority, request), Component.literal("Air Alarm")),
+                level, alarm, authority, request, hit.frameId()), Component.literal("Air Alarm")),
                 buf -> { buf.writeBlockPos(pos); buf.writeUUID(session); });
         return actor.containerMenu instanceof AirAlarmMenu menu && menu.session().equals(session);
     }
@@ -201,6 +201,9 @@ public final class AirAlarmMenuService {
         if (meter == null || !meter.known()) return Validity.POWER_UNKNOWN;
         if (meter.deliveredWatts() != 100) return Validity.POWER_INCOMPLETE;
         var pos = alarm.getBlockPos();
+        var pointTarget = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentTargetPoint(level, pos);
+        if (expectedMenu != null && (pointTarget == null
+                || !java.util.Objects.equals(pointTarget.frameId(), expectedMenu.expectedFrameId()))) return Validity.ALARM;
         var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
         if (chunk == null || !chunk.getFullStatus().isOrAfter(FullChunkStatus.FULL)
                 || chunk.getBlockEntity(pos) != alarm || chunk.getBlockState(pos).getBlock() != ModBlocks.AIR_ALARM.get()) return Validity.ALARM;
@@ -220,38 +223,11 @@ public final class AirAlarmMenuService {
         return bodyReachReason(level, body, target, point) == Validity.VALID;
     }
     static Validity bodyReachReason(ServerLevel level, LivingEntity body, net.minecraft.core.BlockPos target, Vec3 point) {
-        Vec3 from = body.getEyePosition();
-        if (from.distanceToSqr(point) > 36 || !level.getWorldBorder().isWithinBounds(point)) return Validity.OUT_OF_REACH;
-        int minX = (Math.min(net.minecraft.core.BlockPos.containing(from).getX(), target.getX()) >> 4) - 1;
-        int maxX = (Math.max(net.minecraft.core.BlockPos.containing(from).getX(), target.getX()) >> 4) + 1;
-        int minZ = (Math.min(net.minecraft.core.BlockPos.containing(from).getZ(), target.getZ()) >> 4) - 1;
-        int maxZ = (Math.max(net.minecraft.core.BlockPos.containing(from).getZ(), target.getZ()) >> 4) + 1;
-        if ((long)(maxX-minX+1)*(maxZ-minZ+1)>16) return Validity.PATH_UNLOADED;
-        for(int x=minX;x<=maxX;x++) for(int z=minZ;z<=maxZ;z++) {
-            var c=level.getChunkSource().getChunkNow(x,z);
-            if(c==null || !c.getFullStatus().isOrAfter(FullChunkStatus.FULL)) return Validity.PATH_UNLOADED;
-        }
-        try {
-            BlockHitResult hit = new LoadedLos(level,minX,maxX,minZ,maxZ).clip(new ClipContext(from,point,
-                    ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,body));
-            return hit.getType()!=HitResult.Type.BLOCK || hit.getBlockPos().equals(target) ? Validity.VALID : Validity.LOS_BLOCKED;
-        } catch (RuntimeException unavailable) { return Validity.PATH_UNLOADED; }
+        var current = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentTargetPoint(level, target);
+        if (current == null || !level.getWorldBorder().isWithinBounds(current.worldPoint())) return Validity.PATH_UNLOADED;
+        if (body.getEyePosition().distanceToSqr(current.worldPoint()) > 36) return Validity.OUT_OF_REACH;
+        return BodyBlockUseTargetProbe.lineOfSight(level, body, target) ? Validity.VALID : Validity.LOS_BLOCKED;
     }
-    private static final class LoadedLos implements BlockGetter {
-        private final ServerLevel level; private final int minX,maxX,minZ,maxZ;
-        LoadedLos(ServerLevel l,int a,int b,int c,int d){level=l;minX=a;maxX=b;minZ=c;maxZ=d;}
-        private LevelChunk chunk(net.minecraft.core.BlockPos p) {
-            int x=p.getX()>>4,z=p.getZ()>>4;
-            if(x<minX||x>maxX||z<minZ||z>maxZ||level.isOutsideBuildHeight(p)) throw new IllegalStateException();
-            var c=level.getChunkSource().getChunkNow(x,z);
-            if(c==null||!c.getFullStatus().isOrAfter(FullChunkStatus.FULL)) throw new IllegalStateException(); return c;
-        }
-        public BlockState getBlockState(net.minecraft.core.BlockPos p){return chunk(p).getBlockState(p);}
-        public FluidState getFluidState(net.minecraft.core.BlockPos p){return chunk(p).getFluidState(p);}
-        public BlockEntity getBlockEntity(net.minecraft.core.BlockPos p){return chunk(p).getBlockEntities().get(p);}
-        public int getHeight(){return level.getHeight();} public int getMinBuildHeight(){return level.getMinBuildHeight();}
-    }
-
     static boolean powered(int requestedWatts, PowerRuntime.VentMeterObservation meter) {
         return requestedWatts == 100 && meter != null && meter.known() && meter.deliveredWatts() == 100;
     }

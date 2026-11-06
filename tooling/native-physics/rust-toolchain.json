@@ -1,0 +1,8 @@
+{
+  "rustup_version": "1.28.2",
+  "rustup_url": "https://static.rust-lang.org/rustup/archive/1.28.2/x86_64-pc-windows-msvc/rustup-init.exe",
+  "rustup_sha256": "88d8258dcf6ae4f7a80c7d1088e1f36fa7025a1cfd1343731b4ee6f385121fc0",
+  "toolchain": "nightly-2026-01-29",
+  "target": "x86_64-pc-windows-msvc",
+  "profile": "minimal"
+}

@@ -75,6 +75,7 @@ public final class ExternalBodyFlight {
                 cancel(body);
                 continue;
             }
+            if (!level.isPositionEntityTicking(body.blockPosition())) continue;
             if (alreadyAdvancedThisTick(body)) {
                 if (remainingTicks(body) == 0 && settled(body)) cancel(body);
             } else {

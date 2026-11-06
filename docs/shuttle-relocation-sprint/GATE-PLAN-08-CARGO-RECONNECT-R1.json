@@ -1,0 +1,35 @@
+{
+  "title": "Feedback-08 default-two three-jug reconnect reproduction; Throwable reporting R3",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/LifecycleShuttleCargoReconnectGameTests.java",
+  "acceptance_criteria": [
+    "Compile the test-only adapter and pass its focused immutable-witness/history checks without changing production physics or owner state.",
+    "Run one isolated fixture with measured SDK substeps=2, three normal UUID/ledger-identified jugs and one additive vertical 20 m/s launch.",
+    "Observe actual disconnect, 160 offline ticks, reconnect and 60 post-rejoin ticks; preserve the same living body, Mind, held item and three cargo identities/contents aboard.",
+    "Prove natural ascent, descent and rest; retain first failures immutably, bounded server removal/sound evidence and terminal observer cleanup.",
+    "Report actual selected/discovered/pass/fail counts, lifecycle/trajectory summary, first witnesses and clean saves/shutdown without claiming client timing or a production repair."
+  ],
+  "manual_steps": [
+    "Continue autonomously; no owner testing/input, connected client, installation, owner world/configuration/process changes, or production substep changes.",
+    "R1 stopped at a missing callback closure; R2 stopped because testInfo.fail requires Throwable. R3 wraps the same bounded message in GameTestAssertException. No JVM or native test has run. Author execution remains prohibited: compile and pass focused JVM checks before native, stopping on failure.",
+    "Use the fresh cargo-reconnect-r1 directory once. Do not reuse cost or earlier impact worlds or modify the restricted comparison preparation helper.",
+    "A physical cargo failure must remain a failed test and needs_changes result. Preserve its bounded evidence through reconnect; do not mark an expected reproduction as passing or fabricate recovery.",
+    "This is a simulated server-player reconnect with the server running, not client audio delivery or server-restart persistence proof. M1 remains unaccepted and M2-M6 paused."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*CargoReconnectWitnessHistoryTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-reconnect-r3-jvm.log",
+      "rationale": "Fresh API/source compilation plus actual immutable first-witness and bounded-ring unit coverage; all new author code is uncompiled/unrun.",
+      "covers": ["Compile the test-only adapter and pass its focused immutable-witness/history checks without changing production physics or owner state.", "Prove natural ascent, descent and rest; retain first failures immutably, bounded server removal/sound evidence and terminal observer cleanup."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cargo-reconnect-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-reconnect-r1", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-reconnect-r3-native.log",
+      "rationale": "Expected filtered selection 1/883; record actual counts. Require measured SDK 2, three canonical cargo identities/contents/ledgers, ordinary 20 m/s trajectory, actual lifecycle anchors/160 offline/60 post ticks, same living body/Mind/held item and aboard cargo, bounded first witnesses and clean saves/stop. Any physical failure fails the gate; server sound emission is not client hearing or causal proof.",
+      "covers": ["Run one isolated fixture with measured SDK substeps=2, three normal UUID/ledger-identified jugs and one additive vertical 20 m/s launch.", "Observe actual disconnect, 160 offline ticks, reconnect and 60 post-rejoin ticks; preserve the same living body, Mind, held item and three cargo identities/contents aboard.", "Prove natural ascent, descent and rest; retain first failures immutably, bounded server removal/sound evidence and terminal observer cleanup.", "Report actual selected/discovered/pass/fail counts, lifecycle/trajectory summary, first witnesses and clean saves/shutdown without claiming client timing or a production repair."]
+    }
+  ]
+}

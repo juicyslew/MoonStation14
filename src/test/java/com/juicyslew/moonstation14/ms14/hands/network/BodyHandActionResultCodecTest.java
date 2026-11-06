@@ -26,6 +26,17 @@ class BodyHandActionResultCodecTest {
         }
     }
 
+    @Test void successfulEmptyHandSnapshotPreservesCommittedDropDescriptor() {
+        var transition = new BodyHandActionResult.HostTransition(BodyHandActionResult.HostTransition.Direction.DROP,
+                UUID.fromString("123e4567-e89b-12d3-a456-426614174000"), "held-host-token");
+        var result = new BodyHandActionResult(1, 2, true, BodyHandActionResult.Reason.OK,
+                true, 3, "left", null, null, 0, transition);
+        var encoded = buffer();
+        BodyHandActionResult.STREAM_CODEC.encode(encoded, result);
+        assertEquals(result, BodyHandActionResult.STREAM_CODEC.decode(encoded));
+        assertFalse(encoded.isReadable());
+    }
+
     @Test void legacyConstructorRoundTripsWithoutDescriptor() {
         var result = new BodyHandActionResult(1, 2, true, BodyHandActionResult.Reason.OK,
                 false, 0, null, null, null, 0);

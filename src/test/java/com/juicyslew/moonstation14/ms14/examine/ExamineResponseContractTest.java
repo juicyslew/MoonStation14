@@ -27,6 +27,19 @@ class ExamineResponseContractTest {
         assertNotEquals(first, ExamineTarget.entity(12, UUID.randomUUID()));
     }
 
+    @Test void frameBlockIdentitySurvivesRequestAndResponseAndDiffersFromWorldCell() {
+        UUID actor = UUID.randomUUID(), frame = UUID.randomUUID();
+        var storage = new BlockPos(3, 4, 5);
+        var target = ExamineTarget.frameBlock(frame, storage);
+        assertNotEquals(ExamineTarget.block(storage), target);
+        assertNotEquals(target, ExamineTarget.frameBlock(UUID.randomUUID(), storage));
+        assertEquals(target, roundTrip(ExamineRequest.STREAM_CODEC,
+                new ExamineRequest(7, actor, 9, target)).target());
+        var response = new ExamineResponse(7, target, actor, 9, false, Component.literal("denied"),
+                Component.empty(), List.of(), false);
+        assertEquals(target, roundTrip(ExamineResponse.STREAM_CODEC, response).target());
+    }
+
     @Test void initialAndStampedRequestsRoundTripOptionalControllerIncarnation() {
         UUID actor = UUID.randomUUID();
         var target = ExamineTarget.block(new BlockPos(3, 4, 5));

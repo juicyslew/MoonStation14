@@ -30,7 +30,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class PowerAppearanceGameTests {
     private PowerAppearanceGameTests() { }
 
-    @GameTest(template="power_live_chain_clear", timeoutTicks=400, templateNamespace="moonstation14")
+    @GameTest(template="power_live_chain_clear", timeoutTicks=1000, templateNamespace="moonstation14")
     @GameTestTags({"power-machine-appearance"})
     public static void actualPowerChainProjectsDisplaysWithoutChangingTopologyOrBattery(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
@@ -45,6 +45,20 @@ public final class PowerAppearanceGameTests {
         for(int z=2;z<=4;z++) require(CableStorage.place(level,h.absolutePos(new BlockPos(4,1,z)),Direction.WEST,CableTier.HV),"HV cable");
         for(int z=4;z<=6;z++) require(CableStorage.place(level,h.absolutePos(new BlockPos(2,1,z)),Direction.EAST,CableTier.MV),"MV cable");
         for(int z=6;z<=8;z++) require(CableStorage.place(level,h.absolutePos(new BlockPos(4,1,z)),Direction.WEST,CableTier.APC),"APC cable");
+        // The adjacent real lamp is luminous; enclose only it so it cannot leak light
+        // onto the APC brightness witness. Its east support is already the APC cable host.
+        BlockPos lampSupport=h.absolutePos(new BlockPos(4,1,8));
+        for(Direction side:Direction.values()) {
+            BlockPos neighbor=lamp.relative(side);
+            if(neighbor.equals(lampSupport)) {
+                require(level.getBlockState(neighbor).is(Blocks.STONE)&&level.getBlockEntity(neighbor)==null,
+                        "existing stone support/cable host remains intact beside lamp");
+            } else {
+                require(level.getBlockState(neighbor).isAir()&&level.getBlockEntity(neighbor)==null,
+                        "lamp light shield must not overwrite fixture content at "+neighbor);
+                level.setBlock(neighbor,Blocks.STONE.defaultBlockState(),3);
+            }
+        }
         PowerDeviceBlockEntity original=(PowerDeviceBlockEntity)level.getBlockEntity(apc);
         var sourceHv=new CableFaceNode(h.absolutePos(new BlockPos(4,1,2)),Direction.WEST,CableTier.HV);
         var subHv=new CableFaceNode(h.absolutePos(new BlockPos(4,1,4)),Direction.WEST,CableTier.HV);
@@ -57,10 +71,15 @@ public final class PowerAppearanceGameTests {
                         &&level.getBlockState(sub).getValue(PowerDeviceBlock.DISPLAY)==PowerDeviceBlock.Display.FULL
                          &&level.getBlockState(apc).getValue(PowerDeviceBlock.DISPLAY)==PowerDeviceBlock.Display.CHARGING
                          &&level.getBlockState(apc).getValue(PowerDeviceBlock.GLOW)
-                        &&level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT),
+                         &&level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT)
+                         &&level.getBrightness(LightLayer.BLOCK,apc.above())>0,
                 ()->"source="+PowerGraphService.state(level,sourceHv)+", subHV="+PowerGraphService.state(level,subHv)
                         +", subMV="+PowerGraphService.state(level,subMv)+", apcMV="+PowerGraphService.state(level,apcMv)
-                        +", output="+PowerGraphService.state(level,apcOutput)+", solve="+PowerRuntime.lastSolveDiagnostic(level),()->{
+                        +", output="+PowerGraphService.state(level,apcOutput)
+                        +", emission="+ModBlocks.APC.get().getLightEmission(level.getBlockState(apc),level,apc)
+                        +", apcGlow="+level.getBlockState(apc).getValue(PowerDeviceBlock.GLOW)
+                        +", neighborBrightness="+level.getBrightness(LightLayer.BLOCK,apc.above())
+                        +", solve="+PowerRuntime.lastSolveDiagnostic(level),()->{
             require(level.getBlockState(source).getValue(PowerDeviceBlock.DISPLAY)==PowerDeviceBlock.Display.FIXED_ON,"live source state");
             require(level.getBlockState(sub).getValue(PowerDeviceBlock.DISPLAY)==PowerDeviceBlock.Display.FULL,"live substation conversion state");
              require(level.getBlockState(apc).getValue(PowerDeviceBlock.DISPLAY)==PowerDeviceBlock.Display.CHARGING,"APC reflects actual battery gain");

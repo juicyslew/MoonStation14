@@ -45,11 +45,24 @@ public final class PowerFixtureReadiness {
         }
         long elapsed = helper.getTick() - startHelperTick;
         long elapsedLevelTicks = level.getGameTime() - startLevelGameTime;
-        if (elapsed >= maxHelperTicks || elapsedLevelTicks >= maxHelperTicks)
-            throw new GameTestAssertException("loaded power fixture did not become authoritative before bounded deadline; elapsedHelperTicks="
-                    + elapsed + "/" + maxHelperTicks + " elapsedLevelTicks=" + elapsedLevelTicks + "/" + maxHelperTicks
-                    + " levelGameTime=" + level.getGameTime() + " state=" + diagnostic.get());
+        if (elapsed >= maxHelperTicks || elapsedLevelTicks >= maxHelperTicks) {
+            String fullDiagnostic = diagnostic.get();
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                    "[power-fixture-readiness-timeout] dimension={} startHelperTick={} elapsedHelperTicks={}/{} "
+                            + "startLevelGameTime={} elapsedLevelTicks={}/{} currentLevelGameTime={} diagnostic={}",
+                    level.dimension().location(), startHelperTick, elapsed, maxHelperTicks, startLevelGameTime,
+                    elapsedLevelTicks, maxHelperTicks, level.getGameTime(), fullDiagnostic);
+            throw new GameTestAssertException(timeoutFailureMessage(elapsed, elapsedLevelTicks,
+                    maxHelperTicks, level.getGameTime()));
+        }
         BoundedGameTestWait.safeDelay(helper, 1, () -> poll(helper, level, startHelperTick, startLevelGameTime,
                 maxHelperTicks, ready, diagnostic, onReady));
+    }
+
+    static String timeoutFailureMessage(long elapsedHelperTicks,long elapsedLevelTicks,
+                                        long maxHelperTicks,long levelGameTime) {
+        return "loaded power fixture timed out: helperTicks=" + elapsedHelperTicks + "/" + maxHelperTicks
+                + " levelTicks=" + elapsedLevelTicks + "/" + maxHelperTicks + " levelGameTime=" + levelGameTime
+                + "; full diagnostic logged under [power-fixture-readiness-timeout]";
     }
 }

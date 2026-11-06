@@ -2,9 +2,26 @@
 
 ## Status, priority, and delegation
 
+### Execution clarification — 2026-10-10
+
+The owner has authorized this agent/03 worktree to execute this plan. **Sable is
+to be a required engine dependency, not opt-in.** Proceed with source/artifact
+inspection, integration, isolated runtime prototypes and cross-system work without
+waiting for project-specific license permission. The owner explicitly has no
+written permission and does not want the licensor contacted yet. This overrides
+the development/runtime license hold described below, not the license itself:
+permitted-purpose status and public distribution readiness remain unresolved.
+Throughout this document, license clearance is a **public distribution/release
+gate**, not an M0–M6 technical implementation, runtime or gameplay-development
+gate. References to waiting for permission below are superseded by this decision.
+Do not claim private work is automatically exempt or publish/distribute on that
+assumption. Technical M0–M6 gates, existing-world/config protection and independent
+review still apply. Required dependency integration is not proof of seamlessness,
+performance, docking or dimension transfer.
+
 **Revised 2026-10-10; planning only. No ship integration or performance validation delivered.** This supersedes the original discrete region-relocation plan, retained in [discrete-relocation-reference.md](discrete-relocation-reference.md) only as a historical alternative. The owner requested execution by **another agent in a worktree**; the authoring session must not finish this implementation.
 
-Read [HANDOFF.md](HANDOFF.md), [licensing-review.md](licensing-review.md), then this plan. The assignment is **first to prove Sable works seamlessly and efficiently with MoonStation's actual bodies and systems**, then, if the licensing/technical gates pass, deliver a bounded playable continuous-flight and FTL slice. Merely installing Aeronautics or flying an empty vanilla cabin is not the feasibility result requested.
+Read [HANDOFF.md](HANDOFF.md), [licensing-review.md](licensing-review.md), then this plan. The assignment is **first to prove Sable works seamlessly and efficiently with MoonStation's actual bodies and systems**, then, if the technical gates pass, deliver a bounded playable continuous-flight and FTL slice. License clearance remains a public distribution gate. Merely installing Aeronautics or flying an empty vanilla cabin is not the feasibility result requested.
 
 Follow M0–M6 in order. Work autonomously within these boundaries; escalate material licensing questions, backend changes, demonstrated infeasibility, destructive actions, or unresolved gameplay choices. Do not silently revert to region copying, maintain two competing movement backends, or treat source inspection as a measured performance guarantee.
 
@@ -49,9 +66,9 @@ Continuous flight and cross-dimension FTL are now intended work; the older docum
 
 ## 2. Licensing and dependency gate
 
-**Sable is a candidate dependency, not already approved for adoption/distribution.** Read [licensing-review.md](licensing-review.md). Its PolyForm Shield noncompete clause is the principal unresolved issue. It is not automatically safe because MoonStation is free, MIT, an addon, or a different genre; nor has this research established that MoonStation is prohibited.
+**Sable is the owner-selected required engine dependency; public distribution is not approved.** Read [licensing-review.md](licensing-review.md). Its PolyForm Shield noncompete clause is the principal unresolved issue. It is not automatically safe because MoonStation is free, MIT, an addon, or a different genre; nor has this research established that MoonStation is prohibited.
 
-M0 must record a basis for permitted use of the intended prototype and later product. Do not assume private evaluation is a blanket exemption. Because independently authored ship gameplay could overlap covered vehicle products, obtain project-specific written clarification/permission before committing to dependent public gameplay/distribution; this review does not establish competition or legal affiliation. Do not contact anyone, agree to terms for the owner, or publish artifacts without owner authority. Until resolved, source/artifact/license inventory and dependency-free baselines can proceed; flag any blocked runtime evaluation explicitly.
+M0 must record the owner-authorized development decision and unresolved permitted-purpose status. Do not assume private evaluation is a blanket exemption. Clarification/qualified review remains recommended before public distribution; this review does not establish competition or legal affiliation. Do not contact anyone, agree to terms for the owner, or publish artifacts without owner authority. Source/artifact inventory, required dependency integration, runtime evaluation and gameplay development proceed under the execution clarification above.
 
 Prefer **Sable alone** for the first cabin prototype. Evaluate Create/Aeronautics only where their actual components reduce current work; taking the engine does not require importing Create progression or aircraft recipes. Sable Companion's MIT license does not relicense Sable. Avoid copying internal Sable implementation or restricted Aeronautics/Create assets. Use separately installed pinned dependencies by default; no shading, fork, bundled installer or copied asset package without an exact-artifact compliance review.
 
@@ -61,7 +78,7 @@ Record versions, release IDs, SHA-256, source revision/tag correspondence, minim
 
 ### Sable / Aeronautics research anchors
 
-- **Sable NeoForge 2.0.6, Minecraft 1.21.1**, published 2026-10-03, Modrinth release `fg9dTRz9`: [release](https://modrinth.com/mod/sable/version/fg9dTRz9). Client and server required. The inspected source revision was **`d501fb3103c3247e20cb2151a99182ad5dd61adb`**, declaring version 2.0.6 and NeoForge 21.1.228. Exact artifact/source identity and compatibility with project 21.1.224 were **not** established.
+- **Sable NeoForge 2.0.6, Minecraft 1.21.1**, published 2026-10-03, Modrinth release `fg9dTRz9`: [release](https://modrinth.com/mod/sable/version/fg9dTRz9). Client and server required. Execution verified artifact metadata requires NeoForge **21.1.228 or newer**; the project is upgraded to 21.1.228. Release tag `mc1.21.1-2.0.6-neoforge` resolves to **`ad8b4d377741fbd923f4d863b2cf9e462daff9a6`**. Earlier inspected **`d501fb3103c3247e20cb2151a99182ad5dd61adb`** is two commits newer, not the exact release source. Use the tag/artifact for implementation; retained observations below are planning evidence from the earlier inspection. See `SABLE-INVENTORY.md` for artifact hashes, required/embedded dependencies and runtime evidence. A reproducible binary/source build match is not claimed.
 - **Create Aeronautics 1.3.2**, Minecraft 1.21.1 NeoForge, published 2026-08-29, release `44pLdPGg`: [release](https://modrinth.com/mod/create-aeronautics/version/44pLdPGg). Requires Create and Sable. Optional in this plan, not an already integrated dependency.
 - Sable plots contain normal chunks/BEs at stable storage coordinates under a parent `Level`, presented through sublevel poses. `ServerSubLevel` implements `PhysicsPipelineBody`. [Source root](https://github.com/ryanhcode/sable/tree/d501fb3103c3247e20cb2151a99182ad5dd61adb).
 
@@ -184,7 +201,7 @@ Before transition, rejection leaves authoritative state unchanged. If a target b
 
 ### M0 — License, exact artifact, composition and baseline
 
-Resolve the licensing basis for the intended work; complete exact artifact/dependency/native/API inventory and version compatibility. Finish pinned SS14 full ancestry/default/consumer mapping for controller, pilot/thrust and docking/FTL behavior; map only supported local components. Record the actual current movement owner, frame/state-owner inventory, membership/hazard policy, pilot/3D adaptations, assembly/split/dimension assumptions and small fixture bounds.
+Record the owner-authorized development decision and unresolved distribution licensing; complete exact artifact/dependency/native/API inventory and version compatibility. Finish pinned SS14 full ancestry/default/consumer mapping for controller, pilot/thrust and docking/FTL behavior; map only supported local components. Record the actual current movement owner, frame/state-owner inventory, membership/hazard policy, pilot/3D adaptations, assembly/split/dimension assumptions and small fixture bounds.
 
 Build the stationary baseline with existing helpers: supported hull/window/two-cell airlock, real powered machine/cables, finite non-default room/pipe gas, controlled body/corpse, filled container and representative settled cargo. Define repeatable performance workloads/budgets/headroom and a time-box for the feasibility gate. Read existing health/lifecycle failures before new death/dimension tests.
 
@@ -204,11 +221,31 @@ Wire atmosphere/exposure/breathing, power/cables, pipes/device links, visuals an
 
 ### M3 — Decisive seamlessness/performance adoption gate
 
+Add the owner-requested **separate shuttle-backed GameTest invocation** before
+accepting the broad aboard-systems regression gate. Reuse the existing GameTest
+server runner, registration/tag catalogue and fixture definitions; do not copy
+land tests into a competing shuttle suite. Extend existing placement/actor/query
+fixture helpers where needed so the same gameplay assertions can run on ordinary
+land, a parked native ship, and continuously translating/rotating native ships.
+Use actual Sable motion during assertions, not a one-time relocation or mocked pose.
+Reuse `SableFixtureScene`, `SableFixturePlot`, cabin construction and existing body
+fixtures/loaded frame queries rather than parallel assembly or ownership services.
+
+The target is every spatial/gameplay fixture, with an explicit coverage inventory
+for the whole catalogue. Tests inherently about startup, dimensions or engine
+lifecycle retain their appropriate environment; record every non-applicable case
+or missing adapter instead of silently excluding it. Respect separate block-storage
+and actor/world coordinates; do not blindly reinterpret all `GameTestHelper` world
+calls as plot positions. Report land/parked/moving/turning counts and failures
+separately, using disposable run directories and existing cleanup. The invocation
+is planned, **not implemented or available yet**. Its headless success complements,
+but cannot replace, connected camera/render/network acceptance.
+
 Measure the integrated stationary-versus-moving fixture, representative settled cargo, active throwing/pulling, larger within-limit hull, a second ship and dock approach, parked state, and destructive fragmentation. Inspect physics, actor, loaded-query, network and render costs—not just empty-hull FPS. Report maxima/over-budget ticks, connected control/frame-time continuity, memory and supported fleet/content/fragment limits.
 
 Independent review checks actual source/identity/service boundaries and evidence. Identify whether failures come from our adapter, engine/API, lifecycle/persistence, or intrinsic cost. If requirements/budgets fail, optimize the demonstrated bottleneck within scope or return concrete alternatives to the owner. Do not automatically implement the historical copying backend or two parallel backends.
 
-**Exit:** owner-reviewed go/no-go for Sable-based gameplay with explicit measured bounds and license gate satisfied. Passing means this **combined** fixture, not proof of 20–100 authentic clients. Do not begin the broader pilot/FTL gameplay on unsupported assumptions.
+**Exit:** owner-reviewed technical go/no-go for Sable-based gameplay with explicit measured bounds. Licensing remains separately unresolved unless evidence establishes clearance; it does not block technical development. Passing means this **combined** fixture, not proof of 20–100 authentic clients. Do not begin the broader pilot/FTL gameplay on unsupported technical assumptions.
 
 ### M4 — Playable piloting, physical moon flight and docking
 
@@ -261,7 +298,7 @@ Choose explicit provisional time/memory/network/frame budgets and headroom in M0
 
 | Criterion | Required evidence |
 | --- | --- |
-| Permission / distribution readiness | Exact-artifact license/dependency inventory and resolved permitted-purpose basis; project-specific clarification where needed, notices and asset boundaries. |
+| Permission / distribution readiness (separate release gate) | Owner-authorized technical work and unresolved licensing explicitly recorded; exact-artifact inventory/notices and permitted-purpose clarification needed before claiming public distribution readiness. Does not block M0–M6 development. |
 | Composition and parity | Full relevant pinned parent/default/consumer mapping; resolved local inheritance and live flight/controller/FTL consumer tests; configuration and adaptations distinguished. |
 | Seamless physical body/cargo | Connected actual controlled-body/camera proof, relative carried motion/settled items, frame-aware reach/LOS, possession/token/corpse/containment continuity. |
 | Live interior systems | Paid machinery, gas/pipe species/energy, vacuum claims, breathing/exhalation/temperature, breach/repair, edits/split policy, owner/cache persistence. |

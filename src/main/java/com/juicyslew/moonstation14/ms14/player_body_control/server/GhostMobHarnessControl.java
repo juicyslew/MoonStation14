@@ -619,17 +619,39 @@ public final class GhostMobHarnessControl {
             }
             // Travel is cancelled for every movement-owned character, so integrate the world
             // every server player tick. Missing fresh input means zero voluntary wish, not freeze.
-            var result = CHARACTER_WORLD_STEP.step(session.body,
-                    intent == null ? 0 : intent.wishX(), intent == null ? 0 : intent.wishZ(),
-                    intent != null && (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
-                    intent != null && (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0,
-                    intent == null ? session.body.getYRot() : intent.yaw());
+            java.util.Optional<com.juicyslew.moonstation14.ms14.movement.CharacterMovementState> result;
+            try {
+                result = CHARACTER_WORLD_STEP.step(session.body,
+                        intent == null ? 0 : intent.wishX(), intent == null ? 0 : intent.wishZ(),
+                        intent != null && (intent.buttons() & GhostControlPayloads.BUTTON_JUMP) != 0,
+                        intent != null && (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0,
+                        intent == null ? session.body.getYRot() : intent.yaw());
+            } catch (RuntimeException | LinkageError failure) {
+                MoonStation14.LOGGER.warn("[mind ghost] Character world step failed without ending exact ownership bodyEntityId={} sequence={} cause={}",
+                        session.body.getId(), intent == null ? session.lastAppliedSequence : intent.sequence(), failure.getClass().getSimpleName());
+                result = java.util.Optional.empty();
+            }
             if (result.isEmpty() && !eligibleCharacter(session, session.body, player)) {
                 MoonStation14.LOGGER.warn("[mind ghost] Character world step rejected an invalid body; ending possession player={} body={} sequence={} epoch={}",
                         player.getGameProfile().getName(), session.bodyId,
                         intent == null ? session.lastAppliedSequence : intent.sequence(), session.epoch);
                 if (!recoverLostCharacterBody(state, session)) end(state, session, true);
                 return;
+            }
+            if (result.isEmpty()) {
+                var outcome = com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterWorldStepRecoveryPolicy
+                        .afterStep(false, true, Double.isFinite(session.body.getX())
+                                && Double.isFinite(session.body.getY()) && Double.isFinite(session.body.getZ())
+                                && session.body.level().getWorldBorder().isWithinBounds(session.body.position()));
+                session.body.setDeltaMovement(Vec3.ZERO);
+                session.movementRebaseRevision++;
+                if (intent != null) session.lastAppliedSequence = intent.sequence();
+                if (outcome == com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterWorldStepRecoveryPolicy.Outcome.HOLD) {
+                    MoonStation14.LOGGER.warn("[mind ghost] Holding exact character after unsafe world step bodyEntityId={} sequence={}",
+                            session.body.getId(), intent == null ? session.lastAppliedSequence : intent.sequence());
+                    if (intent != null) session.lastAppliedSequence = intent.sequence();
+                    return;
+                }
             }
             if (intent != null) {
                 // The world step can partially move before returning empty; acknowledge it and never retry.
@@ -1442,6 +1464,13 @@ public final class GhostMobHarnessControl {
         long tick = body.level().getGameTime();
         if (tick <= session.lastSnapshotTick) return;
         Vec3 position = body.position();
+        if (!com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterMovementSafePose
+                .valid(body.level(), position)) return;
+        var actorPoint = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentActorPoint(
+                (net.minecraft.server.level.ServerLevel) body.level(), body);
+        if (!com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterMovementSafePose
+                .snapshotAdmissible(body.level(), position, actorPoint == null ? null
+                        : actorPoint.storagePoint(), actorPoint != null)) return;
         Vec3 velocity = body.getDeltaMovement().scale(20d);
         float yaw = wrapYaw(body.getYRot());
         float pitch = Math.max(-90f, Math.min(90f, body.getXRot()));
@@ -1460,7 +1489,10 @@ public final class GhostMobHarnessControl {
                     velocity.x, velocity.y, velocity.z, body.onGround(), surface, voluntary,
                     !CharacterControlSystem.canMove(body), movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
                             ? com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.remainingTicks(body) : 0,
-                    movementMode, java.util.Optional.ofNullable(owner).map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner::view));
+                    movementMode, java.util.Optional.ofNullable(owner).map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner::view),
+                    (movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED ? java.util.Optional.ofNullable(actorPoint.frameId()) : java.util.Optional.<java.util.UUID>empty()).map(id -> new GhostControlPayloads.Snapshot.FrameState(
+                            id, actorPoint.storagePoint().x, actorPoint.storagePoint().y, actorPoint.storagePoint().z)),
+                    session.movementRebaseRevision);
             session.lastSnapshotTick = tick;
             GhostControlNetworking.sendToPlayer(session.player, snapshot);
         } catch (IllegalArgumentException failure) {
@@ -1510,6 +1542,7 @@ public final class GhostMobHarnessControl {
         boolean floodLogged;
         boolean acceptedMovementLogged;
         long lastAppliedSequence;
+        long movementRebaseRevision;
         long appliedIntentTick = Long.MIN_VALUE;
         boolean appliedSneak;
         long lastSnapshotTick = Long.MIN_VALUE;

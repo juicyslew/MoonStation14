@@ -1,0 +1,47 @@
+{
+  "title": "Feedback-08: ten-substep regression R2 with immutable first hull-state mismatch evidence",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullTerrainImpactGameTests.java",
+  "acceptance_criteria": [
+    "The diagnostic additions compile and pass focused JVM checks, including immutable first-witness retention, copied collision-box evidence and canonical box comparison. Existing physics, default configuration, strict authored-state equality and physical-failure criteria remain unchanged.",
+    "Diagnostic shape inspection uses the shared bounded LoadedBlockGetter, never forces unknown neighbor chunks, and labels unavailable shape context explicitly. Authored box evidence comes from the original cached hull geometry, not recomputation in a changed context.",
+    "Prepare only the new approved fresh R2 directory at ten substeps, refuse existing targets, and confirm actual SDK substeps equals expected 10 before each impact launch without touching owner data or configuration.",
+    "All selected existing regression and impact assertions must pass for technical readiness. Capture actual selected/discovered and pass/failure totals, aggregate completion and clean save/shutdown; if strict hull-state failure recurs, preserve its first exact before/after state and shape witness and retain a failed verdict rather than treating diagnosis as repair."
+  ],
+  "manual_steps": [
+    "No owner input or testing is required; continue diagnostics autonomously. Do not launch a client, package, install, alter owner processes/worlds/configuration or adopt a production physics setting.",
+    "R1 selected 51/881 and completed 48 passes/3 failures, with clean save/shutdown. All three failures were strict authored-state mismatches at relative tick 36, before impact; the changed block/state was not recorded. R2 records that missing evidence without weakening the invariant.",
+    "New Java additions are source-reviewed but author compilation was explicitly denied by the shell tool. Do not claim author compilation or JVM success; the normal authorized integration compilation and focused tests below must establish it before the native invocation.",
+    "Pause cost validation until the hull mismatch is classified and regressions pass. No M1 acceptance or advancement of M2-M6 is implied."
+  ],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["python", "-m", "unittest", "discover", "-s", "tooling/shuttle", "-p", "test_*.py"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps10-regression-r2-preparation-tests.log",
+      "rationale": "Fresh cheap preparation-helper checks for three concrete approved targets, strict ten-substep input and non-overwrite. This does not prepare the actual native target.",
+      "covers": ["Prepare only the new approved fresh R2 directory at ten substeps, refuse existing targets, and confirm actual SDK substeps equals expected 10 before each impact launch without touching owner data or configuration."]
+    },
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*HullTerrainGeometryTest", "--tests", "*HullImpactTraceStateTest", "--tests", "*HullImpactSubstepsExpectationTest", "--tests", "*HullStateMismatchEvidenceTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps10-regression-r2-jvm.log",
+      "rationale": "The authorized gate must compile the new diagnostic Java and run its focused checks; author shell permission rejected compilation before execution. Source review alone is not compilation evidence. Stop if compilation or tests fail; do not launch native validation with broken instrumentation.",
+      "covers": ["The diagnostic additions compile and pass focused JVM checks, including immutable first-witness retention, copied collision-box evidence and canonical box comparison. Existing physics, default configuration, strict authored-state equality and physical-failure criteria remain unchanged.", "Diagnostic shape inspection uses the shared bounded LoadedBlockGetter, never forces unknown neighbor chunks, and labels unavailable shape context explicitly. Authored box evidence comes from the original cached hull geometry, not recomputation in a changed context."]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-substeps10-regression-r2", "--substeps", "10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps10-regression-r2-preparation.log",
+      "rationale": "Prepare this unused isolated directory once; refuse an existing target and preserve the R1 failure world and all owner data.",
+      "covers": ["Prepare only the new approved fresh R2 directory at ten substeps, refuse existing targets, and confirm actual SDK substeps equals expected 10 before each impact launch without touching owner data or configuration."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-owner-regression,shuttle-step-probe,shuttle-cargo-orientation,shuttle-passive-body,shuttle-active-input,shuttle-airlock-safety,shuttle-moving-reconnect,shuttle-falling-reconnect,shuttle-strong-impulse,shuttle-cabin-ventilation,shuttle-cargo-motion,shuttle-cargo-transition,shuttle-hull-impact-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-substeps10-regression-r2", "-Pms14HullImpactExpectedSubsteps=10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps10-regression-r2-native.log",
+      "rationale": "One native invocation with the unchanged R1 selection, expected 51/881 but report actual counts. Verify the three actual SDK setting markers. If a mismatch recurs, capture its first immutable storage position, authored/observed states, cached/current collision boxes and context-completeness flags without relaxing strict equality or physical assertions. It remains a failed gate. Inspect the raw aggregate and save/shutdown markers even if the evidence reader reports null failure counts; no all-required-passed marker is expected on failure, but that does not mean the aggregate is absent. Record exact pass/failure totals and distinguish state mismatch from impact penetration. Do not rerun this world or broaden suites.",
+      "covers": ["Diagnostic shape inspection uses the shared bounded LoadedBlockGetter, never forces unknown neighbor chunks, and labels unavailable shape context explicitly. Authored box evidence comes from the original cached hull geometry, not recomputation in a changed context.", "Prepare only the new approved fresh R2 directory at ten substeps, refuse existing targets, and confirm actual SDK substeps equals expected 10 before each impact launch without touching owner data or configuration.", "All selected existing regression and impact assertions must pass for technical readiness. Capture actual selected/discovered and pass/failure totals, aggregate completion and clean save/shutdown; if strict hull-state failure recurs, preserve its first exact before/after state and shape witness and retain a failed verdict rather than treating diagnosis as repair."]
+    }
+  ]
+}

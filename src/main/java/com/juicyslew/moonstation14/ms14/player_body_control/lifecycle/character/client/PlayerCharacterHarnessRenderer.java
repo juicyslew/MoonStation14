@@ -71,8 +71,20 @@ public final class PlayerCharacterHarnessRenderer
         PlayerModel<PlayerCharacterHarnessEntity> active = model;
         boolean[] visible = {active.head.visible, active.hat.visible, active.leftArm.visible, active.rightArm.visible,
                 active.leftSleeve.visible, active.rightSleeve.visible};
+        float headingOffset = ownedCameraBody
+                ? com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient
+                        .presentationYawOffset(entity, partialTick) : 0f;
         try {
-            super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
+            com.juicyslew.moonstation14.ms14.player_body_control.client.SupportedBodyCameraClient.withModelYaw(
+                    new com.juicyslew.moonstation14.ms14.player_body_control.client.SupportedBodyCameraClient.ModelYawAccess() {
+                        public float yaw(){return entity.getYRot();} public void yaw(float value){entity.setYRot(value);}
+                        public float oldYaw(){return entity.yRotO;} public void oldYaw(float value){entity.yRotO=value;}
+                        public float bodyYaw(){return entity.yBodyRot;} public void bodyYaw(float value){entity.yBodyRot=value;}
+                        public float oldBodyYaw(){return entity.yBodyRotO;} public void oldBodyYaw(float value){entity.yBodyRotO=value;}
+                        public float headYaw(){return entity.yHeadRot;} public void headYaw(float value){entity.yHeadRot=value;}
+                        public float oldHeadYaw(){return entity.yHeadRotO;} public void oldHeadYaw(float value){entity.yHeadRotO=value;}
+                    }, headingOffset,
+                    () -> super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight));
         } finally {
             active.head.visible = visible[0]; active.hat.visible = visible[1];
             active.leftArm.visible = visible[2]; active.rightArm.visible = visible[3];
@@ -86,7 +98,13 @@ public final class PlayerCharacterHarnessRenderer
                                   float yBodyRot, float partialTick, float scale) {
         if (PostureSystem.isDownPosture(entity)) {
             var posture = entity.getExistingDataOrNull(ModDataAttachments.POSTURE.get());
-            poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - (posture == null ? yBodyRot : posture.data().movementFacingYaw())));
+            float presentationOffset=posture==null?0f:
+                    com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient
+                            .presentationYawOffset(entity,partialTick);
+            poseStack.mulPose(Axis.YP.rotationDegrees(
+                    com.juicyslew.moonstation14.ms14.player_body_control.client.SupportedBodyCameraClient
+                            .modelRootRotationDegrees(yBodyRot,posture==null?0f:posture.data().movementFacingYaw(),
+                                    posture!=null,presentationOffset)));
             PronePoseMath.applySharedRootPose(poseStack, entity.getBbWidth(), 1.0F,
                     posture != null && posture.data().faceUp());
             return;
@@ -95,6 +113,7 @@ public final class PlayerCharacterHarnessRenderer
         // and zero health alone does not mean the server accepted die(). Keep the confirmed pose
         // at the vanilla flip angle independently of that transient timer.
         if (entity.deathTime == 0 && !entity.shouldRenderCorpsePose()) {
+            applyInertialOrientation(entity, poseStack, partialTick);
             super.setupRotations(entity, poseStack, bob, yBodyRot, partialTick, scale);
             return;
         }
@@ -102,7 +121,9 @@ public final class PlayerCharacterHarnessRenderer
         if (isShaking(entity))
             yBodyRot += (float) (Math.cos((double) entity.tickCount * 3.25) * Math.PI * 0.4F);
         if (!entity.hasPose(Pose.SLEEPING))
-            poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - yBodyRot));
+            poseStack.mulPose(Axis.YP.rotationDegrees(
+                    com.juicyslew.moonstation14.ms14.player_body_control.client.SupportedBodyCameraClient
+                            .modelRootRotationDegrees(yBodyRot)));
 
         if (entity.shouldRenderCorpsePose()) {
             poseStack.mulPose(Axis.ZP.rotationDegrees(getFlipDegrees(entity)));
@@ -125,6 +146,11 @@ public final class PlayerCharacterHarnessRenderer
             poseStack.translate(0.0F, (entity.getBbHeight() + 0.1F) / scale, 0.0F);
             poseStack.mulPose(Axis.ZP.rotationDegrees(180.0F));
         }
+    }
+
+    private void applyInertialOrientation(PlayerCharacterHarnessEntity entity, PoseStack poseStack, float partialTick) {
+        poseStack.mulPose(com.juicyslew.moonstation14.ms14.player_body_control.client.AngularRecoveryPresentation
+                .orientation(entity, partialTick));
     }
 
     @Override

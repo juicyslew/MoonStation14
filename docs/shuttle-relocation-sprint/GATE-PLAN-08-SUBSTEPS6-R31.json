@@ -1,0 +1,25 @@
+{
+  "title": "Trial supported six-substep Sable setting against existing impact trajectories",
+  "kind": "diagnostic",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullTerrainImpactGameTests.java",
+  "acceptance_criteria": [
+    "At effective SDK substeps 6, what are the unchanged furnished-cabin 20/40/80 upward-launch and direct/stock-assembled shell 80 upward-launch outcomes, including setup, penetration, hull conservation and save/shutdown?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-impact-substeps6-r31", "--substeps", "6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r31-preparation.log",
+      "rationale": "Reuse the strict existing fresh-directory preparer with one exact new name/count approval. Focused Python14/14 and independent source review passed; do not duplicate those checks. Create only the never-used R31 isolated fixture with config/sable-server.toml sub_level_substeps_per_tick=6. Refuse any existing target, copy no owner data, and leave owner config/worlds/processes/launch settings untouched. Preserve all prior runs, failures and receipts, including R25-R30. No mod-code, Java fixture, engine, dependency or production-default changes.",
+      "covers": ["At effective SDK substeps 6, what are the unchanged furnished-cabin 20/40/80 upward-launch and direct/stock-assembled shell 80 upward-launch outcomes, including setup, penetration, hull conservation and save/shutdown?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-hull-impact-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-impact-substeps6-r31", "-Pms14HullImpactExpectedSubsteps=6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r31-native.log",
+      "rationale": "One focused filtered batch: current tag selects FIVE cases (three furnished20/40/80 plus direct/stock shell80), expected5/893; report actual selected/discovered/completed/pass/fail. Existing actual-SDK guard supports1..10 and must report effective=expected=6 before each launch; inspect actual admission, state/shape/mass/orientation and support evidence. Retain unchanged SAT/geometry, strict hull-state conservation, thresholds, immutable first/confirmed failure and bounded post-failure observations. Furnished state/setup failures remain inconclusive for collision quality; preserve them without weakening assertions. Collect each trajectory, maximum penetration and whole-slab escape if any; genuine physical failures stay failed, not expected-failure passes. Report dimensions saved/orderly exit separately; gameplay passes cannot override shutdown failure, and clean stop cannot diagnose prior hangs. Root MS14-present cabins/shells differ from R30 vanilla903 stock-only control: do not claim an exact R30 comparator or new integration attribution. This is a six-substep trial, not minimum-count, arbitrary-speed safety, CCD, performance/capacity, owner readiness, M1 acceptance or M2-M6 advancement. No repeat cost/full-suite checks, package/install/client/GUI/owner-config changes, engine source/binary/native edits, hooks, velocity cap, gravity change, rotation freeze, forced correction or recovery teleport. No automatic rerun or used-fixture reuse. Return bound diagnostic receipt and raw findings even on failure.",
+      "covers": ["At effective SDK substeps 6, what are the unchanged furnished-cabin 20/40/80 upward-launch and direct/stock-assembled shell 80 upward-launch outcomes, including setup, penetration, hull conservation and save/shutdown?"]
+    }
+  ]
+}

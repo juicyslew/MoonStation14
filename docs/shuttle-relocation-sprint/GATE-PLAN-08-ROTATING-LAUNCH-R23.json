@@ -1,0 +1,16 @@
+{
+  "title": "Validate nonvacuous rotating-departure launch stimulus",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": ["Does the stronger one-time angular stimulus satisfy the existing measured-rotation requirement and unchanged point-velocity continuity and landing assertions?"],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-rotating-departure-regression", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-rotating-launch-r23"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-rotating-launch-r23-native.log",
+      "rationale": "Expected1/891 existing rotating-human departure case. R22 established exact native deck support and reached departure: horizontalerror0.0 but measured angularspeed~.05663<unchanged.1 minimum; pointVsCOM.09022>.05. It failed angular nonvacuity, not velocity continuity. R23 only strengthens ONE public native launch from omegaY.8 to2rad/s and logs actual immediately admitted native linear/angular/body/frame state. Linear request(.5,0,.5), owned corridor8/strongfloor and all measuredpointvelocity/publicSDK/.1omega/.05pointdiff/.02m/s horizontalcontinuity/identity/landing/timeouts unchanged. No repeated force, feedbackcontroller, threshold weakening, physics pose repair/freeze/gravity/cap or floor removal. Cause of R22angular reduction is unestablished; do not claim production fix or engine fault. Normal native Gradle launch compiles changed fixture, no duplicate runtime JVM/fullsuite. Verify actual admitted launch, fresh exact native support, departure measured omega/pointVsCOM, expected versus actual horizontalvelocity/error, actual landing andsamebody/Mind/hands/frame/authority. Require selected/completed/pass/fail/raw saves/stop; failures remain failures. Fresh default2only, no ten-substep adoption/ownerconfig edits/Sable source/binary/native/privateaccess/newhooks/interception or ownerworld/process/install changes. Source review passed; no runtime result carried forward. Diagnostic only, no readiness/report/finalization/M1 acceptance/M2-M6 advancement or automaticrerun.",
+      "covers": ["Does the stronger one-time angular stimulus satisfy the existing measured-rotation requirement and unchanged point-velocity continuity and landing assertions?"]
+    }
+  ]
+}

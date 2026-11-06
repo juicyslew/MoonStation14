@@ -54,13 +54,15 @@ public final class BodyBlockOutlineRenderer {
                 || mc.level == null || body.level() != mc.level || !body.isAlive()
                 || mc.screen != null && (!(mc.screen instanceof com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow window)
                 || window.capturesKeyboard()) || mc.options.hideGui) return;
-        var start = body.getEyePosition();
-        var end = start.add(body.getLookAngle().scale(6.0));
+        var selection = BodyHandClient.outlineSelection();
+        var ray = BodyHandClient.outlineRaySnapshot();
+        if (ray == null) return;
+        var start = ray.from();
+        var end = ray.to();
         var hit = body.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE,
                 ClipContext.Fluid.NONE, body));
         if (hit.getType() != HitResult.Type.BLOCK) return;
-        var selectedItem = BodyHandClient.selectedItemForOutline();
-        if (selectedItem != null && OutlinePriority.showItem(selectedItem.getBoundingBox(), start, end, hit)) return;
+        if (BodyHandClient.outlineItemPrecedesBlock(selection, hit.getLocation())) return;
         var pos = ((BlockHitResult) hit).getBlockPos();
         var state = body.level().getBlockState(pos);
         var shape = state.getShape(body.level(), pos, CollisionContext.of(body));

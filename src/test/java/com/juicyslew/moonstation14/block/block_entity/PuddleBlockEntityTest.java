@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.component.codec.json.ReagentData;
 import com.juicyslew.moonstation14.ms14.reagent.ModReagents;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -29,9 +30,34 @@ class PuddleBlockEntityTest {
     }
 
     @Test
+    void overflowTransferRetainsCapacityRejectedRemainderAndConservesUnits() {
+        ReagentAttachment source = new ReagentAttachment(Map.of(A, 25f));
+        ReagentAttachment target = new ReagentAttachment(Map.of(B, 999.75f));
+        long before = source.totalUnits() + target.totalUnits();
+
+        PuddleBlockEntity.transferFlow(source, target, 10f, 0f, 1000f);
+
+        assertEquals(100_000L, target.totalUnits());
+        assertEquals(2_475L, source.totalUnits());
+        assertEquals(before, source.totalUnits() + target.totalUnits());
+    }
+
+    @Test
     void puddleOverflowIsFiftyUnitsAndCapacityIsOneThousand() {
         assertEquals(50f, PuddleBlockEntity.overflowThreshold);
         assertEquals(1000f, PuddleBlockEntity.MAX_CAPACITY);
+    }
+
+    @Test
+    void heartbeatCadenceUsesLongArithmeticForLargeFrameStorageCoordinates() {
+        BlockPos frameStorage = new BlockPos(20_481_035, 128, 20_487_178);
+        boolean tickObserved = false;
+        for (long time = 0; time < 20; time++) {
+            boolean expected = Math.floorMod(time + (long) frameStorage.hashCode(), 10L) == 0L;
+            assertEquals(expected, PuddleBlockEntity.shouldSlowTick(time, frameStorage));
+            tickObserved |= PuddleBlockEntity.shouldSlowTick(time, frameStorage);
+        }
+        assertEquals(true, tickObserved);
     }
 
     @Test

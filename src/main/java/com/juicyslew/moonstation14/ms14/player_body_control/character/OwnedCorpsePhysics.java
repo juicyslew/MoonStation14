@@ -22,10 +22,16 @@ public final class OwnedCorpsePhysics {
         if (!eligible(body) || !(body.level() instanceof ServerLevel level)
                 || level.getServer() == null || !level.getServer().isSameThread()
                 ) return false;
+        long serverTick = level.getServer().getTickCount();
+        if (body instanceof MindControlledMob owner && owner.moonstation14$physicalStepConsumed(level, serverTick))
+            return true;
         boolean trackedFlight = com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.tracked(body);
         boolean externalFlight = com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.active(body);
         if (trackedFlight && com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight
-                .alreadyAdvancedThisTick(body)) return true;
+                .alreadyAdvancedThisTick(body)) {
+            if (body instanceof MindControlledMob owner) owner.moonstation14$markPhysicalStep(level, serverTick);
+            return true;
+        }
 
         var data = CharacterIdentitySystem.resolveForActor(body).orElse(null);
         if (data == null) return false;
@@ -39,13 +45,24 @@ public final class OwnedCorpsePhysics {
         Vec3 initial = body.position();
         Vec3 velocity = body.getDeltaMovement();
         if (!finite(initial) || !finite(velocity)) return false;
+        if (body instanceof com.juicyslew.moonstation14.ms14.shuttle.sable.FrameAnchorPending pending
+                && pending.sable$frameAnchorInitializationPending()
+                && !pending.sable$frameAnchorState().initializeForOwnedMovement(level, body)) return false;
+        initial = body.position();
+        velocity = body.getDeltaMovement();
+        if (!finite(initial) || !finite(velocity)) return false;
         CharacterMovementState state = new CharacterMovementState(vector(initial),
                 new MovementVector(velocity.x * 20d, velocity.y * 20d, velocity.z * 20d), body.onGround());
+        MovementVector[] frameVelocityDelta = {MovementVector.ZERO};
+        com.juicyslew.moonstation14.ms14.shuttle.sable.SableOwnedBodyMotion.MoveResult[] nativeMove = {null};
+        int[] nativeMoveCount = {0};
         MovementCollisionResolver resolver = (position, requested, wasOnGround) -> {
-            Vec3 before = body.position();
-            body.move(MoverType.SELF, new Vec3(requested.x(), requested.y(), requested.z()));
-            Vec3 accepted = body.position().subtract(before);
-            return new MovementCollisionResolver.CollisionResult(vector(accepted), body.onGround());
+            if (body instanceof MindControlledMob owner) owner.moonstation14$markPhysicalStep(level, serverTick);
+            var moved = com.juicyslew.moonstation14.ms14.shuttle.sable.SableOwnedBodyMotion.move(body, requested);
+            nativeMove[0] = moved;
+            nativeMoveCount[0]++;
+            frameVelocityDelta[0] = moved.frameVelocityDeltaPerSecond();
+            return moved.toCollisionResult(body.onGround());
         };
         CharacterMovementEnvironment environment = new CharacterMovementEnvironment(
                 GroundedHarnessPhysics.TICK_SECONDS, GroundedHarnessPhysics.GRAVITY_PER_SECOND_SQUARED,
@@ -54,8 +71,13 @@ public final class OwnedCorpsePhysics {
         try {
             CharacterMovementState result = new GroundedHarnessMotor(policy).tick(state, 0, 0,
                     false, false, 0f, environment, false, externalFlight);
-            body.setDeltaMovement(result.velocity().x() / 20d, result.velocity().y() / 20d,
-                    result.velocity().z() / 20d);
+            var target = nativeMove[0] == null ? null
+                    : com.juicyslew.moonstation14.ms14.shuttle.sable.NativeNormalContactFinalizer.targetForStep(
+                            nativeMove[0].normalTarget(), nativeMoveCount[0], nativeMove[0].beforePoint(), nativeMove[0].afterPoint());
+            MovementVector finalVelocity = com.juicyslew.moonstation14.ms14.shuttle.sable.NativeNormalContactFinalizer
+                    .finalizeWorld(result.velocity(), frameVelocityDelta[0], target);
+            body.setDeltaMovement(finalVelocity.x() / 20d, finalVelocity.y() / 20d,
+                    finalVelocity.z() / 20d);
             if (trackedFlight) {
                 com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.advanced(body);
                 if (!externalFlight && com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.settled(body))

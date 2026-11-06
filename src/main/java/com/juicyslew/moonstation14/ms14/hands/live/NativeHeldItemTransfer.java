@@ -40,7 +40,7 @@ public final class NativeHeldItemTransfer {
         Vec3 pos = body.position();
         LooseItemEntity dropped = null;
         try {
-            dropped = LooseItemEntity.create(level, pos, original);
+            dropped = LooseItemEntity.createForActor(body, pos, original);
             if (!preservesNativeStack(original, dropped.getItem())) return;
             // Extract first, publish second; restore only if publication did not admit the entity.
             if (inventory.getItem(slot) != source) return;

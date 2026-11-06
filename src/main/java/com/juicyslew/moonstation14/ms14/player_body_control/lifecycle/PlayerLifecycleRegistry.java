@@ -77,13 +77,26 @@ public final class PlayerLifecycleRegistry {
      */
     public synchronized Optional<Snapshot> restoreOffline(LifecycleProfileStore.CurrentPrimary currentPrimary,
             SavedLifecycleProfile saved, TargetEligibility eligibleLoadedCharacter) {
+        return restoreOfflineUsingEnvelope(currentPrimary, saved, eligibleLoadedCharacter,
+                currentPrimary == null ? null : currentPrimary.envelope());
+    }
+
+    /** Rehydrate only against the complete post-CAS primary returned by this same live lease. */
+    public synchronized Optional<Snapshot> restoreOfflineAfterDurableCas(
+            LifecycleProfileStore.CurrentPrimary currentPrimary, LifecycleStoreEnvelope committedEnvelope,
+            SavedLifecycleProfile saved, TargetEligibility eligibleLoadedCharacter) throws IOException {
+        if (currentPrimary == null || committedEnvelope == null || !currentPrimary.isActive()
+                || !committedEnvelope.equals(currentPrimary.readCurrentPrimary())) return Optional.empty();
+        return restoreOfflineUsingEnvelope(currentPrimary, saved, eligibleLoadedCharacter, committedEnvelope);
+    }
+
+    private Optional<Snapshot> restoreOfflineUsingEnvelope(LifecycleProfileStore.CurrentPrimary currentPrimary,
+            SavedLifecycleProfile saved, TargetEligibility eligibleLoadedCharacter, LifecycleStoreEnvelope envelope) {
         synchronized (ownership) {
             Objects.requireNonNull(currentPrimary, "currentPrimary");
             Objects.requireNonNull(saved, "saved");
             Objects.requireNonNull(eligibleLoadedCharacter, "eligibleLoadedCharacter");
-            if (!currentPrimary.isActive()) return Optional.empty();
-            LifecycleStoreEnvelope envelope = currentPrimary.envelope();
-            if (envelope.schemaVersion() != LifecycleStoreEnvelope.CURRENT_SCHEMA
+            if (!currentPrimary.isActive() || envelope == null || envelope.schemaVersion() != LifecycleStoreEnvelope.CURRENT_SCHEMA
                     || saved.schemaVersion() != SavedLifecycleProfile.CURRENT_SCHEMA
                     || saved.state() != SavedLifecycleProfile.State.OFFLINE
                     || !saved.connectionEpoch().equals(envelope.epochToken())
@@ -896,6 +909,61 @@ public final class PlayerLifecycleRegistry {
             record.active = false;
             record.state = LifecycleState.RECOVERY_REQUIRED;
             return true;
+        }
+    }
+
+    /** Convert only the exact suspended old ACTIVE session to a durable OFFLINE row after caller proof. */
+    public synchronized Optional<SavedLifecycleProfile> parkAbandonedActiveDurably(
+            LifecycleProfileStore.CurrentPrimary primary, SavedLifecycleProfile saved,
+            SavedLifecycleProfile.Location actualLocation, String actualDimension, long offlineSinceMillis,
+            MobHarness provenHarness, TargetEligibility exactLoadedBody) throws IOException {
+        synchronized (ownership) {
+            if (primary == null || !primary.isActive() || saved == null || actualLocation == null
+                    || actualDimension == null || actualDimension.isBlank() || offlineSinceMillis < 0
+                    || saved.state() != SavedLifecycleProfile.State.ACTIVE
+                    || !saved.connectionEpoch().equals(primary.envelope().epochToken())
+                    || saved.connectionGeneration() > primary.envelope().generationCounter()
+                    || primary.envelope().profiles().stream().filter(saved::equals).count() != 1
+                    || primary.envelope().profiles().stream().filter(r -> r.accountId().equals(saved.accountId())).count() != 1)
+                return Optional.empty();
+            ProfileRecord record = byAccount.get(saved.accountId());
+            MobHarnessId bodyId = new MobHarnessId(saved.bodyId());
+            MindId mindId = new MindId(saved.mindId());
+            MobHarness body = ownership.registeredHarness(bodyId).orElse(null);
+            boolean suspendedClaim = record != null && !record.active
+                    && record.state == LifecycleState.RECOVERY_REQUIRED
+                    && record.generation == saved.connectionGeneration() && record.durableActive
+                    && record.profileId.equals(saved.profileKey()) && record.mindId.equals(mindId)
+                    && record.bodyId.equals(bodyId)
+                    && ownership.isSuspendedLifecycle(saved.accountId(), mindId, bodyId,
+                            saved.connectionGeneration(), capability)
+                    && body != null && body.equals(provenHarness) && exactLoadedBody.isEligible(body);
+            boolean freshClaim = record == null && byProfile.keySet().stream().noneMatch(k -> k.accountId().equals(saved.accountId()))
+                    && !byMind.containsKey(mindId) && !byBody.containsKey(bodyId)
+                    && provenHarness != null && provenHarness.id().equals(bodyId)
+                    && provenHarness.kind() == MobHarnessKind.CHARACTER
+                    && (body == null || body.equals(provenHarness))
+                    && ownership.canRestoreOfflineCharacterMind(saved.accountId(), mindId, bodyId,
+                            provenHarness, exactLoadedBody, capability);
+            if (!suspendedClaim && !freshClaim) return Optional.empty();
+            long revision;
+            try { revision = Math.incrementExact(saved.revision()); }
+            catch (ArithmeticException overflow) { return Optional.empty(); }
+            SavedLifecycleProfile offline = new SavedLifecycleProfile(saved.schemaVersion(), saved.accountId(),
+                    saved.profileKey(), saved.mindId(), saved.bodyId(), actualDimension, actualLocation,
+                    saved.appearance(), saved.connectionEpoch(), saved.connectionGeneration(),
+                    SavedLifecycleProfile.State.OFFLINE, revision, offlineSinceMillis);
+            ArrayList<SavedLifecycleProfile> rows = new ArrayList<>(primary.envelope().profiles());
+            rows.set(rows.indexOf(saved), offline);
+            LifecycleStoreEnvelope committed = primary.compareAndSwap(primary.envelope().generationCounter(), rows);
+            if (freshClaim) {
+                if (body == null && !ownership.registerHarness(provenHarness)) return Optional.empty();
+                var restored = restoreOfflineAfterDurableCas(primary, committed, offline, exactLoadedBody);
+                return restored.isPresent() ? Optional.of(offline) : Optional.empty();
+            }
+            record.state = LifecycleState.OFFLINE;
+            record.durableActive = false;
+            return Optional.of(offline);
         }
     }
 

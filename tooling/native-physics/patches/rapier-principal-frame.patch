@@ -1,0 +1,93 @@
+diff --git a/src/dynamics/rigid_body.rs b/src/dynamics/rigid_body.rs
+index 0f4ef43..bc262f4 100644
+--- a/src/dynamics/rigid_body.rs
++++ b/src/dynamics/rigid_body.rs
+@@ -1438,7 +1438,10 @@ impl RigidBody {
+         // NOTE: integrating the gyroscopic forces implicitly are both slower and
+         //       very dissipative. Instead, we only keep the explicit term and
+         //       ensure angular momentum is preserved (similar to Jolt).
+-        let w = self.pos.position.rotation.inverse() * self.angvel();
++        // The principal inertia frame is local to the body, not necessarily aligned with it.
++        let principal_frame =
++            self.pos.position.rotation * self.mprops.local_mprops.principal_inertia_local_frame;
++        let w = principal_frame.inverse() * self.angvel();
+         let i = self.mprops.local_mprops.principal_inertia();
+         let ii = self.mprops.local_mprops.inv_principal_inertia;
+         let curr_momentum = i * w;
+@@ -1449,13 +1452,75 @@ impl RigidBody {
+         if total_momentum_sqnorm != 0.0 {
+             let capped_momentum =
+                 total_momentum * (curr_momentum.length_squared() / total_momentum_sqnorm).sqrt();
+-            self.pos.position.rotation * (ii * capped_momentum)
++            principal_frame * (ii * capped_momentum)
+         } else {
+             self.angvel()
+         }
+     }
+ }
+ 
++#[cfg(all(test, feature = "dim3"))]
++mod gyroscopic_frame_tests {
++    use super::*;
++
++    fn expected_step(body_rotation: Rotation, principal_frame: Rotation, inertia: AngVector, omega: AngVector, dt: Real) -> AngVector {
++        let frame = body_rotation * principal_frame;
++        let local_omega = frame.inverse() * omega;
++        let momentum = inertia * local_omega;
++        let updated = momentum - local_omega.cross(momentum) * dt;
++        let updated = updated * (momentum.length_squared() / updated.length_squared()).sqrt();
++        frame * (inertia.map(|v| 1.0 / v) * updated)
++    }
++
++    fn body(body_rotation: Rotation, principal_frame: Rotation, inertia: AngVector, omega: AngVector) -> RigidBody {
++        let mut body = RigidBodyBuilder::dynamic()
++            .pose(Pose::from_rotation(body_rotation))
++            .angvel(omega)
++            .additional_mass_properties(MassProperties::with_principal_inertia_frame(
++                Vector::ZERO, 1.0, inertia, principal_frame,
++            ))
++            .build();
++        body.recompute_mass_properties_from_colliders(&ColliderSet::new());
++        assert_eq!(body.mprops.local_mprops.mass(), 1.0);
++        assert_eq!(body.mprops.local_mprops.principal_inertia(), inertia);
++        assert_eq!(body.mprops.local_mprops.principal_inertia_local_frame, principal_frame);
++        body
++    }
++
++    fn assert_vector_close(actual: AngVector, expected: AngVector) {
++        let error = (actual - expected).length();
++        assert!(error <= 1.0e-5, "vector error {error}: actual={actual:?}, expected={expected:?}");
++    }
++
++    #[test]
++    fn gyroscopic_update_uses_composed_principal_frame() {
++        let body_rotation = Rotation::from_axis_angle(Vector::Y, 0.43);
++        let principal_frame = Rotation::from_axis_angle(Vector::Z, 0.61);
++        let inertia = Vector::new(1.7, 2.8, 4.2);
++        let omega = Vector::new(0.7, -1.1, 1.3);
++        let actual = body(body_rotation, principal_frame, inertia, omega)
++            .angvel_with_gyroscopic_forces(0.02);
++        let expected = expected_step(body_rotation, principal_frame, inertia, omega, 0.02);
++        assert_vector_close(actual, expected);
++    }
++
++    #[test]
++    fn gyroscopic_update_preserves_identity_frame_and_spherical_inertia() {
++        let body_rotation = Rotation::from_axis_angle(Vector::Y, 0.43);
++        let omega = Vector::new(0.7, -1.1, 1.3);
++        let dt = 0.02;
++        let identity = body(body_rotation, Rotation::IDENTITY, Vector::new(1.7, 2.8, 4.2), omega)
++            .angvel_with_gyroscopic_forces(dt);
++        assert_vector_close(identity, expected_step(body_rotation, Rotation::IDENTITY, Vector::new(1.7, 2.8, 4.2), omega, dt));
++        let spherical = body(body_rotation, Rotation::from_axis_angle(Vector::Z, 0.61), Vector::splat(2.5), omega)
++            .angvel_with_gyroscopic_forces(dt);
++        assert_vector_close(spherical, omega);
++        let zero = body(body_rotation, Rotation::from_axis_angle(Vector::Z, 0.61), Vector::new(1.7, 2.8, 4.2), Vector::ZERO)
++            .angvel_with_gyroscopic_forces(dt);
++        assert_vector_close(zero, Vector::ZERO);
++    }
++}
++
+ /// A builder for creating rigid bodies with custom properties.
+ ///
+ /// This builder lets you configure all properties of a rigid body before adding it to your world.

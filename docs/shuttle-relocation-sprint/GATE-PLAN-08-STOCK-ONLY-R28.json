@@ -1,0 +1,18 @@
+{
+  "title": "Observe stock Sable hull impacts without the MS14 integration loaded",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/STOCK-ONLY-CONTROL-R28.md",
+  "acceptance_criteria": [
+    "With the authenticated stock Sable 2.0.6 artifact, MS14 absent and actual two substeps, what are the 20/80 m/s vanilla-shell trajectory outcomes, including bounded evidence of any penetration or slab escape?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "-p", "tooling/stock-sable-control", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-stock-only-r28"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-stock-only-r28-native.log",
+      "rationale": "Run only the independent nested diagnostic project, not the MS14 root build: expected complete control catalogue 2/2, stock public assembly, upward 20/80 m/s and fresh project-local fixture. Verify actual mod inventory, no MoonStation entrypoint/mixins/root access transformer, loaded Sable artifact digest, actual substeps2, setup admission, physical cell/shape fingerprints, mass/COM/pivot/bounds and conserved hull/loaded terrain coverage before interpreting trajectory. The 452-cell vanilla shell follows the original boundary/partition coordinates but changes block states: it is not the original R16 state fingerprint or a furnished cabin. Ordinary penetration/escape assertions must genuinely fail after bounded follow-through; do not turn expected failures green or omit their evidence. Inspect both completed outcomes and normal save/exit separately. A valid stock-only symptom shows MS14 is unnecessary for that vanilla symptom, not an engine defect or guarantee violation. A pass requires a future matched vanilla fixture with MS14 loaded before drawing integration conclusions. Setup/isolation/coverage failure is inconclusive. Do not rerun used fixtures, retry a failure, adopt ten substeps, change Sable internals/owner state, or claim readiness/M1 acceptance. This new isolated runtime supplies diagnostic evidence unavailable from R16/R17, which loaded MS14.",
+      "covers": ["With the authenticated stock Sable 2.0.6 artifact, MS14 absent and actual two substeps, what are the 20/80 m/s vanilla-shell trajectory outcomes, including bounded evidence of any penetration or slab escape?"]
+    }
+  ]
+}

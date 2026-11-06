@@ -450,7 +450,7 @@ public final class AirlockCoreGameTests {
         helper.succeed();
     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_prototype_power_override",timeoutTicks=280)
-    @GameTestTags({"airlock_override"})
+     @GameTestTags({"airlock_override", "shuttle-pry-power-diagnostic"})
     public static void inheritedThirtyFiveWattOverrideInvalidatesAndRefreshesLiveMeter(GameTestHelper helper){
         Fixture f=poweredAirlock(helper,OVERRIDE_FORCED_CHUNKS);ServerLevel level=f.level();AirlockBlockEntity door=f.door();
         waitForFullPower(helper,f,120,()->{
@@ -478,24 +478,64 @@ public final class AirlockCoreGameTests {
         });
     }
     public record Fixture(ServerLevel level,BlockPos root,AirlockBlockEntity door) { }
+    /** Resolved powered airlock plus only its actual network/device/support solids. */
+    public record PoweredAssembly(Fixture fixture,int apcEndpointOffset,java.util.List<BlockPos> solidPositions) {
+        public PoweredAssembly { solidPositions=java.util.List.copyOf(solidPositions); }
+    }
     /** Shared powered two-tile airlock fixture for native cross-system GameTests. */
     public static Fixture poweredAirlock(GameTestHelper helper){ return poweredAirlock(helper,CORE_FORCED_CHUNKS); }
     private static Fixture poweredAirlock(GameTestHelper helper,java.util.Set<Long> forcedChunks){
         ServerLevel level=helper.getLevel();
         BlockPos root=helper.absolutePos(new BlockPos(3,1,9));
-        for(int z=2;z<=9;z++)level.setBlock(helper.absolutePos(new BlockPos(4,1,z)),Blocks.STONE.defaultBlockState(),3);
-        for(int z=4;z<=6;z++)level.setBlock(helper.absolutePos(new BlockPos(2,1,z)),Blocks.STONE.defaultBlockState(),3);
-        placePowerDevice(level,helper.absolutePos(new BlockPos(3,1,2)),PowerDeviceKind.HV_SOURCE,Direction.EAST);
-        placePowerDevice(level,helper.absolutePos(new BlockPos(3,1,4)),PowerDeviceKind.HV_MV_SUBSTATION,Direction.EAST);
-        placePowerDevice(level,helper.absolutePos(new BlockPos(3,1,6)),PowerDeviceKind.APC,Direction.WEST);
-        for(int z=2;z<=4;z++)require(CableStorage.place(level,helper.absolutePos(new BlockPos(4,1,z)),Direction.WEST,CableTier.HV),"HV cable");
-        for(int z=4;z<=6;z++)require(CableStorage.place(level,helper.absolutePos(new BlockPos(2,1,z)),Direction.EAST,CableTier.MV),"MV cable");
-        for(int z=6;z<=9;z++)require(CableStorage.place(level,helper.absolutePos(new BlockPos(4,1,z)),Direction.WEST,CableTier.APC),"APC cable");
-        var lower=ModBlocks.AIRLOCK.get().defaultBlockState();level.setBlock(root,lower,3);level.setBlock(root.above(),lower.setValue(AirlockBlock.HALF,DoubleBlockHalf.UPPER),3);
-        AirlockBlockEntity door=(AirlockBlockEntity)level.getBlockEntity(root);require(door!=null,"airlock BE exists");
+        PoweredAssembly assembly=authorPoweredAirlockAt(level,root,0);
         forcePowerFixtureChunks(level,root,helper.absolutePos(new BlockPos(2,1,2)),helper.absolutePos(new BlockPos(4,1,9)),
-                door.prototype().extensionCableReceiver().localReachBlocks(),forcedChunks);
-        return new Fixture(level,root,door);
+                assembly.fixture().door().prototype().extensionCableReceiver().localReachBlocks(),forcedChunks);
+        return assembly.fixture();
+    }
+    /** Build the same resolved APC/source/substation and cable recipe at a caller-owned loaded root. */
+    public static PoweredAssembly poweredAirlockAt(ServerLevel level,BlockPos root,int apcEndpointOffset){
+        return authorPoweredAirlockAt(level,root,apcEndpointOffset);
+    }
+    private static PoweredAssembly authorPoweredAirlockAt(ServerLevel level,BlockPos root,int apcEndpointOffset){
+        require(level!=null&&root!=null,"loaded world/root supplied");
+        require(apcEndpointOffset>=-3&&apcEndpointOffset<=0,"APC cable endpoint remains bounded within source recipe");
+        var solids=new java.util.LinkedHashSet<BlockPos>();
+        solids.add(root.immutable());solids.add(root.above().immutable());
+        BlockPos source=root.offset(0,0,-7),substation=root.offset(0,0,-5),apc=root.offset(0,0,-3);
+        solids.add(source.immutable());solids.add(substation.immutable());solids.add(apc.immutable());
+        for(int z=-7;z<=-5;z++)solids.add(root.offset(1,0,z).immutable());
+        for(int z=-5;z<=-3;z++)solids.add(root.offset(-1,0,z).immutable());
+        for(int z=-3;z<=apcEndpointOffset;z++)solids.add(root.offset(1,0,z).immutable());
+        for(BlockPos pos:solids){
+            require(level.getChunkSource().getChunk(pos.getX()>>4,pos.getZ()>>4,
+                    net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false)!=null,
+                    "powered fixture refuses an unloaded authored cell: "+pos);
+            require(level.getBlockState(pos).isAir()&&level.getBlockEntity(pos)==null,
+                    "powered fixture refuses to replace occupied solid cell: "+pos+" "+level.getBlockState(pos));
+        }
+        // Cable hosts are ordinary full-cube supports, using the same lanes and face/tier recipe as poweredAirlock().
+        for(int z=-7;z<=-5;z++)level.setBlock(root.offset(1,0,z),Blocks.STONE.defaultBlockState(),3);
+        for(int z=-5;z<=-3;z++)level.setBlock(root.offset(-1,0,z),Blocks.STONE.defaultBlockState(),3);
+        for(int z=-3;z<=apcEndpointOffset;z++)level.setBlock(root.offset(1,0,z),Blocks.STONE.defaultBlockState(),3);
+        placePowerDevice(level,source,PowerDeviceKind.HV_SOURCE,Direction.EAST);
+        placePowerDevice(level,substation,PowerDeviceKind.HV_MV_SUBSTATION,Direction.EAST);
+        placePowerDevice(level,apc,PowerDeviceKind.APC,Direction.WEST);
+        for(int z=-7;z<=-5;z++)require(CableStorage.place(level,root.offset(1,0,z),Direction.WEST,CableTier.HV),"HV cable");
+        for(int z=-5;z<=-3;z++)require(CableStorage.place(level,root.offset(-1,0,z),Direction.EAST,CableTier.MV),"MV cable");
+        for(int z=-3;z<=apcEndpointOffset;z++)require(CableStorage.place(level,root.offset(1,0,z),Direction.WEST,CableTier.APC),"APC cable");
+        var lower=ModBlocks.AIRLOCK.get().defaultBlockState();
+        level.setBlock(root,lower,3);
+        level.setBlock(root.above(),lower.setValue(AirlockBlock.HALF,DoubleBlockHalf.UPPER),3);
+        AirlockBlockEntity door=(AirlockBlockEntity)level.getBlockEntity(root);
+        require(door!=null&&door.prototype()!=null,"resolved world airlock BE exists");
+        return new PoweredAssembly(new Fixture(level,root,door),apcEndpointOffset,java.util.List.copyOf(solids));
+    }
+    public static void removePoweredAirlockAt(PoweredAssembly assembly){
+        ServerLevel level=assembly.fixture().level();BlockPos root=assembly.fixture().root();int end=assembly.apcEndpointOffset();
+        for(int z=-7;z<=-5;z++)CableStorage.remove(level,root.offset(1,0,z),Direction.WEST,CableTier.HV);
+        for(int z=-5;z<=-3;z++)CableStorage.remove(level,root.offset(-1,0,z),Direction.EAST,CableTier.MV);
+        for(int z=-3;z<=end;z++)CableStorage.remove(level,root.offset(1,0,z),Direction.WEST,CableTier.APC);
+        for(BlockPos pos:assembly.solidPositions())if(!level.getBlockState(pos).isAir())level.setBlock(pos,Blocks.AIR.defaultBlockState(),3);
     }
     private static void forcePowerFixtureChunks(ServerLevel level,BlockPos root,BlockPos networkMin,BlockPos networkMax,int reach,java.util.Set<Long> newlyForced){
         int minX=Math.min(root.getX()-reach,networkMin.getX())-1,maxX=Math.max(root.getX()+reach,networkMax.getX())+1;

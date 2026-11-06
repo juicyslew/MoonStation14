@@ -21,9 +21,14 @@ public final class ExamineSelector {
     private ExamineSelector() { }
     public static List<Candidate> select(Level level, Vec3 rayOrigin, Vec3 rayDirection, double range,
                                          Set<Integer> ignoredEntityIds) {
+        return select(level, rayOrigin, rayDirection, range, ignoredEntityIds,
+                net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+    }
+    public static List<Candidate> select(Level level, Vec3 rayOrigin, Vec3 rayDirection, double range,
+                                         Set<Integer> ignoredEntityIds, float partialTick) {
         int renderChunks = net.minecraft.client.Minecraft.getInstance().options.renderDistance().get();
         double limit = Math.min(range, Math.max(2, renderChunks) * 16.0);
-        return ExamineWorldSelector.select(level, rayOrigin, rayDirection, limit, ignoredEntityIds).stream()
+        return ExamineWorldSelector.select(level, rayOrigin, rayDirection, limit, ignoredEntityIds, partialTick).stream()
                 .map(c -> new Candidate(c.target(), c.hitPoint(), c.distance(), c.publicName(), c.box(), c.transparent())).toList();
     }
 }

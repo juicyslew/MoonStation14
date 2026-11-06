@@ -1,0 +1,26 @@
+{
+  "title": "Reach stock-only trajectories with resolved mass admission and bounded shutdown evidence",
+  "kind": "diagnostic",
+  "fixture": "docs/shuttle-relocation-sprint/STOCK-ONLY-CONTROL-R29.md",
+  "acceptance_criteria": [
+    "Does the shared test-only shutdown sampler extraction compile for the existing MS14 GameTest observer?",
+    "With MS14 absent and authenticated stock Sable at two substeps, what are the 20/80 m/s vanilla-shell outcomes after independent resolved-property mass admission, and does shutdown complete or identify a blocked JVM path?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileGameTestJava"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-stock-only-r29-root-compile.log",
+      "rationale": "Focused root GameTest compilation only, required for the existing observer's delegation to the extracted pure shared shutdown sampler. Author execution of this compile was permission-denied and not retried or bypassed. The standalone generated copy already compiled successfully. No full build, root native suite, client or packaging is requested. If this check fails, do not start the subsequent native check.",
+      "covers": ["Does the shared test-only shutdown sampler extraction compile for the existing MS14 GameTest observer?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "-p", "tooling/stock-sable-control", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-stock-only-r29"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-stock-only-r29-native.log",
+      "rationale": "Expected complete stock-control catalogue2/2, not MS14's suite. Fresh R29 path/log only; preserve R28's setup failures, timeout and world. R28 proved isolated official stock loading but neither case flew: hardcoded mass452 wrongly rejected actual903. R29 keeps the same451stone+1glass hull and derives expected mass through stock public resolved-property getters for each actual cell, requiring before/after capture equality and independent sum versus tracker at assembly and grounded launch. Do not simply loosen the old assertion or treat the new material composition as R16 equivalence. Verify guard task validateFreshGameDirectory executes before actual prepareGameTestServerRun; the old hook used the wrong name. A requested author dry-run was denied and not bypassed, so this order has static dependency evidence only until this log. Verify actual mod inventory/no MS14 integration, official loaded jar digest, exact versions, substeps2, cell/shape/property capture and grounded admission before interpreting trajectory. Retain the unchanged shared SAT/latch/history/20-to-80 postfailure samples, ordinary genuine failure outcomes and both test aggregates. Then inspect exact-server ARM/STOPPING plus normal-stop cancellation and per-dimension save/exit, or bounded shared sampler thread/lock/frame evidence. Capture changes no physics/worker deadline and does not itself fix shutdown. Missing data/setup/coverage is inconclusive; a failed save/exit is not overridden by gameplay passes. Stock-only penetration would show MS14 unnecessary for this vanilla symptom, not an engine defect or speed-guarantee violation. A pass requires a future matched vanilla test with MS14 present before integration attribution. No reruns, Sable internal changes, ten-step adoption, owner-state changes, readiness or M1 acceptance.",
+      "covers": ["With MS14 absent and authenticated stock Sable at two substeps, what are the 20/80 m/s vanilla-shell outcomes after independent resolved-property mass admission, and does shutdown complete or identify a blocked JVM path?"]
+    }
+  ]
+}

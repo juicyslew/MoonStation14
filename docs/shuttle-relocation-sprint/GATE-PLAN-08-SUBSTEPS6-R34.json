@@ -1,0 +1,33 @@
+{
+  "title": "Focused six-substep follow-up: real cargo contact and bound strong-impulse geometry",
+  "kind": "diagnostic",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/SableOwnedBodyCarryGameTests.java",
+  "acceptance_criteria": [
+    "At six substeps, do authored-deck removal and moving-jug own-travel cases pass after the proven support-coordinate correction and narrow clipped-own-travel impact repair, while existing real floor/wall spill and airborne-preservation cases remain correct?",
+    "What independently captured selected-contact geometry accompanies the negative-X strong-impulse response when using the existing diagnostic observation opt-in, with original default-path regression and movement proof rules unchanged?"
+  ],
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileGameTestJava"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r34-compile.log",
+      "rationale": "Compile current fixture changes before native preparation. Author compiled production/test sources and passed focused LooseImpactContactTest2/2 after correcting the independent floor-Y clipping vector; do not duplicate that unchanged cheap check. Pure helper is the single production clipping predicate using existing MOVEMENT_EPSILON. Preserve old response flags, restitution/friction, resolved prototype break flag and0.5 threshold, total pre-contact OWN speed (including horizontal speed during real floor impact), spill/identity rules and native capture. No normal-speed substitution or epsilon increase. The new geometry diagnostic shares existing setup/probe, uses observingNativeGeometry at existing callbacks, and has a separate batch; original negative-X/positive-Y default paths remain unchanged. Independent source review must precede submission.",
+      "covers": ["At six substeps, do authored-deck removal and moving-jug own-travel cases pass after the proven support-coordinate correction and narrow clipped-own-travel impact repair, while existing real floor/wall spill and airborne-preservation cases remain correct?", "What independently captured selected-contact geometry accompanies the negative-X strong-impulse response when using the existing diagnostic observation opt-in, with original default-path regression and movement proof rules unchanged?"]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "-B", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-substeps6-failure-followup-r34", "--substeps", "6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r34-preparation.log",
+      "rationale": "Prepare this exact never-used isolated six-step fixture once via the existing strict name/count allowlist. Author preparation tests14/14 passed; no native target was prepared. Refuse existing paths and preserve all used R25-R33 fixtures/logs/crash reports/receipts and owner configuration/worlds/processes/launch settings. No engine or production-default change.",
+      "covers": ["At six substeps, do authored-deck removal and moving-jug own-travel cases pass after the proven support-coordinate correction and narrow clipped-own-travel impact repair, while existing real floor/wall spill and airborne-preservation cases remain correct?", "What independently captured selected-contact geometry accompanies the negative-X strong-impulse response when using the existing diagnostic observation opt-in, with original default-path regression and movement proof rules unchanged?"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-feedback08-failure-followup,jug-impact-contact-regression,shuttle-strong-impulse-geometry-diagnostic", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-substeps6-failure-followup-r34", "-Pms14HullImpactExpectedSubsteps=6"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-substeps6-r34-native.log",
+      "rationale": "One focused diagnostic selection, expected6/894: corrected cargo-departure case, existing moving-jug case, three existing world floor/wall/airborne jug cases, and one shared-setup geometry-observed negative-X diagnostic. Report actual selected/discovered/completed/pass/fail/unfinished. This is not a repeat of the whole51-case batch or R31 impacts. Verify fresh minimal config6; the narrowed methods do not each assert SDK setting, so require actual public SDK configuration evidence in the focused fixture before interpreting six-step outcomes. Preserve successful-write/known-stone-before/known-air-after/exact-container-liveness checks and full cargo departure/velocity/content assertions. Jug survival must retain exact live root/token/contents; genuine floor/wall breaks must conserve their spill, and airborne case must preserve contents. Capture full OwnedNativeMoveDiagnostic nativeCorrectionTrace with complete geometry snapshots bound to the selected row/frame/pose/block/state and response, not an after-the-fact different pose. Existing ten entity-collision subdivisions are not the world-physics six-step count. No tolerance/proof-route/one-attempt ownership or carrier changes. Finish all started tests/batches; a diagnostic assertion failure remains a real FAIL, never an expected-failure pass. If geometry-observed case passes, that does not establish original default-path negative-X regression is repaired: observation mode and narrowed scheduling differ. Record actual failure tick/contact/accounting, named outcomes, aggregate, saves/normal shutdown or crash evidence separately. No cost/full-suite run, client/GUI/package/install, owner-state edits, engine source/binary/native/hooks, cap/gravity/freeze/teleport, automatic rerun or used-world retry. No readiness/production adoption/M1 acceptance/M2-M6 advancement. Return bound diagnostic receipt even failed.",
+      "covers": ["At six substeps, do authored-deck removal and moving-jug own-travel cases pass after the proven support-coordinate correction and narrow clipped-own-travel impact repair, while existing real floor/wall spill and airborne-preservation cases remain correct?", "What independently captured selected-contact geometry accompanies the negative-X strong-impulse response when using the existing diagnostic observation opt-in, with original default-path regression and movement proof rules unchanged?"]
+    }
+  ]
+}

@@ -36,7 +36,11 @@ public final class ContainedCharacterClientView {
         UUID bodyId = binding == null ? null : binding.body;
         long bindingEpoch = binding == null ? 0 : binding.epoch;
         boolean contained = binding != null && current().isPresent();
-        var cameraType = CAMERA_POLICY.reconcile(bodyId, bindingEpoch, contained, minecraft.options.getCameraType());
+        var currentCamera = minecraft.options.getCameraType();
+        if (contained && !CAMERA_POLICY.active())
+            currentCamera = com.juicyslew.moonstation14.ms14.mobs.client.MedicalPerspectiveClient
+                    .releaseForContainment(currentCamera);
+        var cameraType = CAMERA_POLICY.reconcile(bodyId, bindingEpoch, contained, currentCamera);
         if (minecraft.options.getCameraType() != cameraType) minecraft.options.setCameraType(cameraType);
     }
 

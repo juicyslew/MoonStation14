@@ -78,6 +78,13 @@ config="moonstation14.mixins.json"
 #    ordering="NONE"
 #    # Side this dependency is applied on - BOTH, CLIENT, or SERVER
 #    side="BOTH"
+# Sable 2.0.6 is a mandatory engine dependency (both client and dedicated server).
+[[dependencies.${mod_id}]]
+    modId="sable"
+    type="required"
+    versionRange="[2.0.6]"
+    ordering="AFTER"
+    side="BOTH"
 #
 ## Here's another dependency
 #[[dependencies.${mod_id}]]

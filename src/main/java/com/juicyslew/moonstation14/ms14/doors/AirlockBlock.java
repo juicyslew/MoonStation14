@@ -30,7 +30,7 @@ public final class AirlockBlock extends Block implements EntityBlock {
     public static final EnumProperty<DoubleBlockHalf> HALF=BlockStateProperties.DOUBLE_BLOCK_HALF;
     public static final DirectionProperty FACING=BlockStateProperties.HORIZONTAL_FACING;
     public static final BooleanProperty OPEN=BlockStateProperties.OPEN;
-    public AirlockBlock(Properties properties) { super(properties.isSuffocating((state,level,pos)->false)); registerDefaultState(stateDefinition.any().setValue(HALF,DoubleBlockHalf.LOWER).setValue(FACING,Direction.NORTH).setValue(OPEN,false)); }
+     public AirlockBlock(Properties properties) { super(properties.dynamicShape().isSuffocating((state,level,pos)->false)); registerDefaultState(stateDefinition.any().setValue(HALF,DoubleBlockHalf.LOWER).setValue(FACING,Direction.NORTH).setValue(OPEN,false)); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block,BlockState> b) { b.add(HALF,FACING,OPEN); }
     @Override public RenderShape getRenderShape(BlockState state) { return RenderShape.ENTITYBLOCK_ANIMATED; }
     @Nullable @Override public BlockState getStateForPlacement(BlockPlaceContext c) {
@@ -50,13 +50,30 @@ public final class AirlockBlock extends Block implements EntityBlock {
         if(!s.canSurvive(l,p)) return Blocks.AIR.defaultBlockState();
         if(s.getValue(HALF)==DoubleBlockHalf.LOWER&&d==Direction.UP&&n.is(this)) return s.setValue(OPEN,n.getValue(OPEN));
         return super.updateShape(s,d,n,l,p,np);
-    }
-    @Override public VoxelShape getCollisionShape(BlockState s,BlockGetter l,BlockPos p,CollisionContext c) {
-        if(s.getValue(OPEN))return Shapes.empty();
-        BlockPos root=s.getValue(HALF)==DoubleBlockHalf.UPPER?p.below():p;
-        if(l.getBlockEntity(root) instanceof AirlockBlockEntity door && door.isCrushExempt(c))return Shapes.empty();
-        return Shapes.block();
-    }
+     }
+      @Override public VoxelShape getCollisionShape(BlockState s,BlockGetter l,BlockPos p,CollisionContext c) {
+          if(!(l instanceof Level level)||!level.isClientSide){if(s.getValue(OPEN))return Shapes.empty();}
+          BlockPos root=controllerPos(s.getValue(HALF)==DoubleBlockHalf.UPPER,p);
+          BlockEntity rootEntity=l.getBlockEntity(root);
+          if(rootEntity instanceof AirlockBlockEntity door&&door.getLevel()!=null&&door.getLevel().isClientSide){
+              AirlockBlockEntity.ClientView known=door.hasClientSnapshot()?door.clientView():null;
+              return selectClientCollisionShape(s.getValue(OPEN),known,door.isCrushExempt(c));
+          }
+          if(s.getValue(OPEN))return Shapes.empty();
+          if(rootEntity instanceof AirlockBlockEntity door && door.isCrushExempt(c))return Shapes.empty();
+          return Shapes.block();
+     }
+     static BlockPos controllerPos(boolean upperHalf,BlockPos pos) {
+         return upperHalf?pos.below():pos;
+     }
+      static VoxelShape selectClientCollisionShape(boolean replicatedOpen,AirlockBlockEntity.ClientView knownView) {
+          return selectClientCollisionShape(replicatedOpen,knownView,false);
+      }
+      static VoxelShape selectClientCollisionShape(boolean replicatedOpen,AirlockBlockEntity.ClientView knownView,
+                                                   boolean crushExempt) {
+          boolean passable=crushExempt|| (knownView==null?replicatedOpen:knownView.passable());
+          return passable?Shapes.empty():Shapes.block();
+      }
     @Nullable @Override public BlockEntity newBlockEntity(BlockPos p,BlockState s) { return s.getValue(HALF)==DoubleBlockHalf.LOWER?ModBlockEntities.AIRLOCK.get().create(p,s):null; }
     @Override public void setPlacedBy(Level l,BlockPos p,BlockState s,net.minecraft.world.entity.LivingEntity placer,net.minecraft.world.item.ItemStack stack) {
         super.setPlacedBy(l,p,s,placer,stack); BlockPos upper=p.above();

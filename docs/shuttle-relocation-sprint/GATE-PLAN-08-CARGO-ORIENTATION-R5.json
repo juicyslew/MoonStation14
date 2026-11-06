@@ -1,0 +1,47 @@
+{
+  "title": "Feedback-08 complete cargo query/drop correction and owner fixture setup",
+  "kind": "bugfix",
+  "fixture": "docs/shuttle-relocation-sprint/SHIP-FIXTURE.md",
+  "acceptance_criteria": [
+    "Resolved profile dimensions and existing orientation/spin state feed examination, authoritative pickup/revalidation and both outlines through one oriented query proxy, without changing physical collision or production physics.",
+    "Actor-context replacement drops retain exact item contents and normal ownership while seeding the current admitted frame world basis without assigning false native membership or new hand/stack state.",
+    "Permission-2 fixture setup provides a single world-Y angular-velocity pulse and one five-unit water jug through the real controlled body's existing trusted world-grant path, with loaded-only identity/authority checks and refusal without mutation.",
+    "Fresh focused JVM and all five native consumer/setup cases pass at measured SDK two substeps, then full JVM and unfiltered native regressions are reported honestly with aggregate counts and clean saves/shutdown."
+  ],
+  "manual_steps": [
+    "After technical readiness, use this worktree's normal development launch and a disposable/admin-controlled world, not an existing owner world. As a permission-2 operator with a live controlled body and a loaded, clear cabin-sized site, run /ms14 shuttle_fixture build and retain the returned ship ID.",
+    "Enter through the front airlock using normal movement/jumping. While aboard, run /ms14 shuttle_fixture cargo <ship-id>. One world jug containing five units of water should appear near the body, without overwriting either hand or the carrier inventory.",
+    "Aim at the jug and use the configured examine/pickup controls. Check coherent selection and oriented outlines; pick it up and drop it with Drop active hand (default Q). It should retain the five units and normal ownership. The outline is a physical-profile proxy, not the exact jug mesh.",
+    "Run /ms14 shuttle_fixture yaw <ship-id> 0.4 once. As the cabin turns, repeat selection, pickup and drop. New replacement drops should use the actor's current frame world basis without loss. This is an angular-velocity pulse, not a rotation angle or pilot control. Do not test high-speed impacts or pitch/roll; both remain outside this correction."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*LooseItemQueryGeometryTest", "--tests", "*LooseItemQueryExtentTest", "--tests", "*LooseFrameOrientationTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r5-focused-jvm.log",
+      "rationale": "Expected 16 focused tests, subject to actual discovery. Fresh compilation includes the new command fixtures. Verify resolved inheritance/defaults, oriented geometry/inflation/projection, and current/departing/safe-pose resolution. R3 compiled and passed 15/16; the analytic nearest-point oracle was corrected afterward. R4 has no technical verdict: do not infer passes from raw logs.",
+      "covers": ["Resolved profile dimensions and existing orientation/spin state feed examination, authoritative pickup/revalidation and both outlines through one oriented query proxy, without changing physical collision or production physics.", "Fresh focused JVM and all five native consumer/setup cases pass at measured SDK two substeps, then full JVM and unfiltered native regressions are reported honestly with aggregate counts and clean saves/shutdown."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-cargo-query,shuttle-cargo-drop,shuttle-cargo-setup", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-orientation-r5-focused", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r5-focused-native.log",
+      "rationale": "Expected filtered 5/888: three actual query/drop consumers and two command-pipeline cases. Require aggregate pass/failure counts, SDK readiness rows at two, nonidentity admitted frames, exact contents/ownership, Y-only command delta, bounded enumeration and mutation-free refusals. Pickup pose change is request-time revalidation, not injected mid-transaction mutation. Use this fresh target once; R4's orientation-r1 targets are used/reserved and must not be repeated. The owner requested another attempt after setup completion. R4 has no technical verdict; this changed scope needs a fresh revision. Normal preflight, prior-process safety, shared serialization, quarantine and freshness checks remain mandatory; do not bypass an operational block.",
+      "covers": ["Resolved profile dimensions and existing orientation/spin state feed examination, authoritative pickup/revalidation and both outlines through one oriented query proxy, without changing physical collision or production physics.", "Actor-context replacement drops retain exact item contents and normal ownership while seeding the current admitted frame world basis without assigning false native membership or new hand/stack state.", "Permission-2 fixture setup provides a single world-Y angular-velocity pulse and one five-unit water jug through the real controlled body's existing trusted world-grant path, with loaded-only identity/authority checks and refusal without mutation.", "Fresh focused JVM and all five native consumer/setup cases pass at measured SDK two substeps, then full JVM and unfiltered native regressions are reported honestly with aggregate counts and clean saves/shutdown."]
+    },
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r5-full-jvm.log",
+      "rationale": "Full JVM regression for shared examination/hand/query/materialization consumers and command registration. Stop on earlier required-check failure. Normal LiveHands/world routes do not globally opt into optional item-location ledgers; preserve actual authoritative ownership and optional-ledger non-interference, not a fabricated global registration contract.",
+      "covers": ["Resolved profile dimensions and existing orientation/spin state feed examination, authoritative pickup/revalidation and both outlines through one oriented query proxy, without changing physical collision or production physics.", "Actor-context replacement drops retain exact item contents and normal ownership while seeding the current admitted frame world basis without assigning false native membership or new hand/stack state.", "Permission-2 fixture setup provides a single world-Y angular-velocity pulse and one five-unit water jug through the real controlled body's existing trusted world-grant path, with loaded-only identity/authority checks and refusal without mutation.", "Fresh focused JVM and all five native consumer/setup cases pass at measured SDK two substeps, then full JVM and unfiltered native regressions are reported honestly with aggregate counts and clean saves/shutdown."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-cargo-orientation-r5-full", "-Pms14HullImpactExpectedSubsteps=2"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-cargo-orientation-r5-full-native.log",
+      "rationale": "Unfiltered native regression, expected 888 discovered subject to actual evidence, includes accepted R10 movement, medical/Creative/throw/drop, containment, reconnect and existing impact diagnostics. Default-two 40/80 hull penetration remains unresolved: preserve every physical failure and a failed gate if reproduced; do not exclude cases or convert expected failures into passes. Full-run cost samples do not replace the isolated fixed-order comparison. Require aggregate actual counts and verified clean save/stop. Use this fresh target once, stop on earlier failures, and preserve owner worlds/configuration/processes. No connected client, packaging, installation or production substep change is authorized; M1 remains unaccepted and M2-M6 paused.",
+      "covers": ["Resolved profile dimensions and existing orientation/spin state feed examination, authoritative pickup/revalidation and both outlines through one oriented query proxy, without changing physical collision or production physics.", "Actor-context replacement drops retain exact item contents and normal ownership while seeding the current admitted frame world basis without assigning false native membership or new hand/stack state.", "Permission-2 fixture setup provides a single world-Y angular-velocity pulse and one five-unit water jug through the real controlled body's existing trusted world-grant path, with loaded-only identity/authority checks and refusal without mutation.", "Fresh focused JVM and all five native consumer/setup cases pass at measured SDK two substeps, then full JVM and unfiltered native regressions are reported honestly with aggregate counts and clean saves/shutdown."]
+    }
+  ]
+}

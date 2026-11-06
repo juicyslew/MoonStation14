@@ -43,6 +43,22 @@ public final class LoadedPipeGasOwner {
         return Optional.empty();
     }
 
+    /** Explicit fixture initialization of an already admitted lane; never used by gameplay admission. */
+    public static boolean setGasForTrustedFixture(ServerLevel level, BlockPos pos, int lane, UUID expectedId,
+                                                   com.juicyslew.moonstation14.ms14.atmos.core.GasMixture mixture) {
+        if (mixture == null || expectedId == null || !valid(level, pos, lane)) return false;
+        PipeGasInventorySavedData data = PipeGasInventorySavedData.existing(level).orElse(null);
+        if (data == null) return false;
+        PipeTopology.NodeKey key = key(pos, lane);
+        PipeGasInventory before = data.snapshot();
+        PipeGasInventory.Entry entry = before.get(key).orElse(null);
+        if (entry == null || !entry.active() || !entry.incarnation().equals(expectedId)) return false;
+        try {
+            PipeGasInventory after = before.withMixture(key, expectedId, entry.version(), mixture);
+            return after == before || data.replace(before.revision(), before, after);
+        } catch (RuntimeException failure) { return false; }
+    }
+
     /** Removes only a just-admitted, unchanged vacuum lane after follow-up admission failed. */
     static boolean rollbackFreshVacuumLane(ServerLevel level, BlockPos pos, int lane, UUID expectedId) {
         if (expectedId == null || !valid(level, pos, lane)) return false;
@@ -118,7 +134,7 @@ public final class LoadedPipeGasOwner {
 
     /** Retires every stale lane record at this position in one save commit when the loaded holder is proven AIR.
      * AIR proves the whole holder is gone; this deliberately does not touch any other position. */
-    static boolean retireOrphanAtAir(ServerLevel level, BlockPos pos, int lane) {
+    public static boolean retireOrphanAtAir(ServerLevel level, BlockPos pos, int lane) {
         if ((lane != VisualPipeBlockEntity.PRIMARY && lane != VisualPipeBlockEntity.SECONDARY
                 && lane != VisualPipeBlockEntity.TERTIARY) || !level.getServer().isSameThread() || pos.getY() < level.getMinBuildHeight()
                 || pos.getY() >= level.getMaxBuildHeight()) return false;

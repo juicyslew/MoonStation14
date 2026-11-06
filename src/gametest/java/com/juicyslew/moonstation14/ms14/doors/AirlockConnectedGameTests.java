@@ -51,6 +51,12 @@ public final class AirlockConnectedGameTests {
         FORCED_POWER_FIXTURE_CHUNKS.clear();
     }
 
+    @net.minecraft.gametest.framework.AfterBatch(batch="airlock_critical_tangent_paid")
+    public static void releaseCriticalTangentChunks(ServerLevel level){releasePowerFixtureChunks(level);}
+
+    @net.minecraft.gametest.framework.AfterBatch(batch="airlock_critical_crush_paid")
+    public static void releaseCriticalCrushChunks(ServerLevel level){releasePowerFixtureChunks(level);}
+
     @BeforeBatch(batch="airlock_gas_flow")
     public static void setupGasFlowBatch(ServerLevel level) {
         AtmosphereService service=AtmosphereService.INSTANCE;
@@ -244,7 +250,7 @@ public final class AirlockConnectedGameTests {
     }
 
     @GameTestTags({"airlock_stationary_contact", "airlock_crush", "status"})
-    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_connected",timeoutTicks=260)
+    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_critical_crush_paid",timeoutTicks=260)
     public static void stationaryCriticalCrushContactShocksOncePerSolidification(GameTestHelper helper) {
         Fixture f=poweredAirlock(helper);
         waitForPoweredAdmission(helper,f,0,()->{
@@ -270,7 +276,20 @@ public final class AirlockConnectedGameTests {
                 var pos=victim.position();
                 require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.SAFETY,AirlockState.WireAction.CUT),"safety wire enables crush");
                 require(f.door.activate(),"unsafe close begins");
-                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 9,()->{
+                var solidificationSamples=new java.util.ArrayList<String>();
+                sampleCriticalSolidification(helper,f,victim,boundary,9,solidificationSamples,()->{
+                    float victimShock=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f)-shockBefore;
+                    if(Math.abs(victimShock-7f)>=.001f){
+                        String tag="critical-solidification:"+victim.getUUID();
+                        com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                                "[{}] expectedShock=7 actualShock={} power={} powerDiagnostic={} samples={}",tag,
+                                victimShock,PowerRuntime.airlockPower(f.level,f.door),
+                                PowerRuntime.airlockPowerDiagnostic(f.level,f.door),solidificationSamples);
+                        helper.fail("critical solidification shock mismatch delta="+victimShock
+                                +" phase="+f.door.state().phase()+" actorCritical="+MobStateSystem.isCritical(victim)
+                                +" trace="+tag);
+                        return;
+                    }
                     require(DamageSystem.existingOrVanillaBaseline(nearby).getOrDefault(DamageKeys.SHOCK,0f)==nearbyShockBefore,
                             "powered closing contact does not shock an actor outside the exact doorway");
                     require(Math.abs(DamageSystem.existingOrVanillaBaseline(boundary).getOrDefault(DamageKeys.SHOCK,0f)-boundaryShock-7f)<.001f,
@@ -303,7 +322,7 @@ public final class AirlockConnectedGameTests {
     }
 
     @GameTestTags({"airlock_stationary_contact", "airlock_bump", "status"})
-    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_connected",timeoutTicks=160)
+    @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_critical_tangent_paid",timeoutTicks=160)
     public static void retainedDeadTangentBodyQuietlyReopensEachNormalClose(GameTestHelper helper){
         Fixture f=poweredAirlock(helper);
         FixtureChunkTickets.around(helper,f.root.offset(-2,0,-2),f.root.offset(2,2,2),1);
@@ -320,7 +339,7 @@ public final class AirlockConnectedGameTests {
                  Villager gap=enrolledBody(f.level,f.root.getX()+1.31,f.root.getY()+.1,f.root.getZ()+.5);
                 gap.setNoGravity(true);
                 require(!AirlockGeometry.touchesDoorway(gap.getBoundingBox(),new net.minecraft.world.phys.AABB(f.root.getX(),f.root.getY(),f.root.getZ(),f.root.getX()+1,f.root.getY()+2,f.root.getZ()+1)),"nearby body has a genuine horizontal gap");
-                require(f.door.activate(),"normal powered closing begins with stationary bodies at its boundary; corpse="+corpse.getBoundingBox()+" root="+f.root+" gap="+gap.getBoundingBox());
+                 require(f.door.activate(),"normal powered closing begins with stationary bodies at its boundary; "+criticalCloseDiagnostic(f,corpse)+" gap="+gap.getBoundingBox());
                   waitForCloseRecovery(helper,f,40,corpse,()->{
                     require(MobStateSystem.isDead(corpse)&&!corpse.isRemoved(),"dead corpse remains loaded and persistent after closed-edge reopen");
                     require(f.door.state().phase()==AirlockState.DoorPhase.OPENING,"quiet normal opening is selected at closed transition");
@@ -359,8 +378,22 @@ public final class AirlockConnectedGameTests {
                     require(f.door.activate(),"normal closing begins with a safe tangent boundary contact; "+criticalCloseDiagnostic(f,body));
                     require(f.door.state().phase()==AirlockState.DoorPhase.CLOSING,
                             "admitted normal close transitions directly to CLOSING; "+criticalCloseDiagnostic(f,body));
-                com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 9,()->{
-                    require(Math.abs(DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.SHOCK,0f)-shock-7f)<.001f,"passive partial-close contact shocks once");
+                var partialCloseSamples=new java.util.ArrayList<String>();
+                sampleCriticalPartialClose(helper,f,body,9,partialCloseSamples,()->{
+                    float shockAfterPartialClose=DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.SHOCK,0f);
+                    if(Math.abs(shockAfterPartialClose-shock-7f)>=.001f){
+                        String tag="critical-partial-close:"+body.getUUID();
+                        com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                                "[{}] before={} after={} delta={} power={} powerDiagnostic={} electrification={} doorState={} actorCritical={} alive={} bounds={} samples={}",
+                                tag,shock,shockAfterPartialClose,shockAfterPartialClose-shock,
+                                PowerRuntime.airlockPower(f.level,f.door),
+                                PowerRuntime.airlockPowerDiagnostic(f.level,f.door),f.door.electrificationState(),
+                                f.door.state(),MobStateSystem.isCritical(body),body.isAlive(),body.getBoundingBox(),partialCloseSamples);
+                        helper.fail("partial-close shock mismatch before="+shock+" after="+shockAfterPartialClose
+                                +" delta="+(shockAfterPartialClose-shock)+" phase="+f.door.state().phase()
+                                +" actorCritical="+MobStateSystem.isCritical(body)+" trace="+tag);
+                        return;
+                    }
                     require(DamageSystem.existingOrVanillaBaseline(body).getOrDefault(DamageKeys.BLUNT,0f)==blunt,"tangent actor is not a crush victim");
                     require(CharacterControlSystem.isStunned(body),"contact left Critical actor paralyzed before the normal close transition");
                      waitForCloseRecovery(helper,f,30,body,()->{
@@ -404,7 +437,7 @@ public final class AirlockConnectedGameTests {
             require(DamageSystem.applyHealthChange(corpse,java.util.Map.of(DamageKeys.BLUNT,200f),1f,true)==DamageSystem.Result.APPLIED
                             &&MobStateSystem.isDead(corpse)&&!corpse.isAlive(),"loaded body is typed medical DEAD before unsafe closing");
             require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.SAFETY,AirlockState.WireAction.CUT),"safety wire permits unsafe crush");
-            require(f.door.activate(),"unsafe close begins around the dead physical body");
+             require(f.door.activate(),"unsafe close begins around the dead physical body; "+criticalCloseDiagnostic(f,corpse));
              com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 9,()->{
                 require(f.door.state().phase()==AirlockState.DoorPhase.CLOSING_PASSABLE,"dead collider participates in unsafe partial-close capture");
                 require(f.door.getUpdateTag(f.level.registryAccess()).getList("CrushVictims",net.minecraft.nbt.Tag.TAG_COMPOUND).stream()
@@ -690,6 +723,41 @@ public final class AirlockConnectedGameTests {
     private static String criticalCloseDiagnostic(Fixture f,Villager actor) {
         return "power="+PowerRuntime.airlockPower(f.level,f.door)+", actorBBox="+actor.getBoundingBox()
                 +", doorState="+f.door.state();
+    }
+
+    private static void sampleCriticalPartialClose(GameTestHelper helper,Fixture f,Villager actor,int remaining,
+            java.util.List<String> samples,Runnable complete) {
+        var damage=DamageSystem.existingOrVanillaBaseline(actor);
+        var bounds=actor.getBoundingBox();
+        var doorway=new net.minecraft.world.phys.AABB(f.root.getX(),f.root.getY(),f.root.getZ(),
+                f.root.getX()+1,f.root.getY()+2,f.root.getZ()+1);
+        samples.add("t="+f.level.getGameTime()+" phase="+f.door.state().phase()+" shock="
+                +damage.getOrDefault(DamageKeys.SHOCK,0f)+" power="+PowerRuntime.airlockPower(f.level,f.door)
+                +" powerDiagnostic="+PowerRuntime.airlockPowerDiagnostic(f.level,f.door)
+                +" electrification="+f.door.electrificationState()+" bounds="+bounds
+                +" doorwayTouch="+AirlockGeometry.touchesDoorway(bounds,doorway)+" critical="
+                +MobStateSystem.isCritical(actor)+" alive="+actor.isAlive());
+        if(remaining<=1){complete.run();return;}
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,
+                ()->sampleCriticalPartialClose(helper,f,actor,remaining-1,samples,complete));
+    }
+
+    private static void sampleCriticalSolidification(GameTestHelper helper,Fixture f,Villager victim,
+            Villager boundary,int remaining,java.util.List<String> samples,Runnable complete) {
+        var bounds=victim.getBoundingBox();
+        var doorway=new net.minecraft.world.phys.AABB(f.root.getX(),f.root.getY(),f.root.getZ(),
+                f.root.getX()+1,f.root.getY()+2,f.root.getZ()+1);
+        samples.add("t="+f.level.getGameTime()+" phase="+f.door.state().phase()+" victimShock="
+                +DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f)
+                +" boundaryShock="+DamageSystem.existingOrVanillaBaseline(boundary).getOrDefault(DamageKeys.SHOCK,0f)
+                +" power="+PowerRuntime.airlockPower(f.level,f.door)+" powerDiagnostic="
+                +PowerRuntime.airlockPowerDiagnostic(f.level,f.door)+" electrification="+f.door.electrificationState()
+                +" victimBounds="+bounds+" boundaryBounds="+boundary.getBoundingBox()+" victimTouch="
+                +AirlockGeometry.touchesDoorway(bounds,doorway)+" victimCritical="+MobStateSystem.isCritical(victim)
+                +" victimAlive="+victim.isAlive());
+        if(remaining<=1){complete.run();return;}
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,
+                ()->sampleCriticalSolidification(helper,f,victim,boundary,remaining-1,samples,complete));
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "airlock_gas_flow", timeoutTicks = 500)

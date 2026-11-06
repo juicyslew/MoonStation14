@@ -6,12 +6,56 @@ import net.minecraft.world.level.GameType;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class LifecycleExistingBodyReconnectTest {
+    @Test void alreadySpectatorNoChangeIsAcceptedButCanceledSurvivalIsNot() {
+        AtomicInteger cleanChecks = new AtomicInteger();
+        assertEquals(true, LifecycleExistingBodyReconnect.inertPolicy(false, () -> false,
+                () -> GameType.SPECTATOR, () -> { cleanChecks.incrementAndGet(); return true; },
+                () -> CreativeCarrierTransition.Result.DENIED, () -> { }));
+        assertEquals(1, cleanChecks.get());
+        assertFalse(LifecycleExistingBodyReconnect.inertPolicy(false, () -> false,
+                () -> GameType.SURVIVAL, () -> true,
+                () -> CreativeCarrierTransition.Result.DENIED, () -> { }));
+    }
+
+    @Test void failedProofAdmitsInertSpectatorWithoutTouchingCarrierAndCanRetry() {
+        AtomicReference<GameType> mode = new AtomicReference<>(GameType.SURVIVAL);
+        AtomicInteger inventoryWrites = new AtomicInteger();
+        assertEquals(true, LifecycleExistingBodyReconnect.safeWaitAdmission(() -> {
+            mode.set(GameType.SPECTATOR);
+            return true;
+        }, mode::get));
+        assertEquals(GameType.SPECTATOR, mode.get());
+        assertEquals(0, inventoryWrites.get());
+        // Missing/unloaded body and positive conflicting evidence are all non-admission outcomes;
+        // the same offline claim remains waiting for explicit retry rather than being consumed.
+        assertEquals(LifecycleExistingBodyReconnect.PendingDecision.TIMEOUT,
+                LifecycleExistingBodyReconnect.pendingDecision(LifecycleExistingBodyReconnect.MAX_PENDING_TICKS,
+                        LoadedBodyResolver.Outcome.DEFER_KNOWN_BODY, true));
+        assertEquals(LifecycleExistingBodyReconnect.PendingDecision.FAIL_CLOSED,
+                LifecycleExistingBodyReconnect.pendingDecision(1,
+                        LoadedBodyResolver.Outcome.RECOVERY_REQUIRED, true, false));
+    }
+
+    @Test void creativeCarrierRepairRequiresOriginalCreativeReadOnlyDenialAndExactClaim() {
+        assertFalse(LifecycleExistingBodyReconnect.creativeRepairEligible(GameType.SURVIVAL,
+                true, true, true));
+        assertFalse(LifecycleExistingBodyReconnect.creativeRepairEligible(GameType.CREATIVE,
+                false, true, true));
+        assertFalse(LifecycleExistingBodyReconnect.creativeRepairEligible(GameType.CREATIVE,
+                true, false, true));
+        assertFalse(LifecycleExistingBodyReconnect.creativeRepairEligible(GameType.CREATIVE,
+                true, true, false));
+        org.junit.jupiter.api.Assertions.assertTrue(LifecycleExistingBodyReconnect.creativeRepairEligible(
+                GameType.CREATIVE, true, true, true));
+    }
+
     @Test void forcedSurvivalWithUnparkedItemsCannotTriggerCreativeParking() {
         AtomicInteger parks = new AtomicInteger();
         assertEquals(LifecycleExistingBodyReconnect.Admission.DENIED,

@@ -70,9 +70,13 @@ public final class LooseObjectEffectsGameTests {
         var level = h.getLevel();
         BlockPos floor = h.absolutePos(new BlockPos(2, 0, 2));
         level.setBlock(floor, Blocks.STONE.defaultBlockState(), 3);
-        long deadline = level.getGameTime() + 35;
+        long startTime = level.getGameTime();
+        System.out.println("LOOSE_GRENADE_FIXTURE_CLOCK gameTime=" + startTime + " normalDeadline="
+                + (startTime <= Long.MAX_VALUE - GrenadeFuse.FUSE_TICKS ? startTime + GrenadeFuse.FUSE_TICKS : "overflow"));
+        GrenadeFuseData fuse = GrenadeFuseData.fromFuse(GrenadeFuse.safe().prime(startTime));
+        long deadline = fuse.deadline();
         ItemStack stack = new ItemStack(ModItems.GRENADE.get());
-        stack.set(ModDataComponents.GRENADE_FUSE.get(), new GrenadeFuseData(GrenadeFuse.Phase.ARMED, deadline, false, false));
+        stack.set(ModDataComponents.GRENADE_FUSE.get(), fuse);
         LooseItemEntity grenade = add(h, new Vec3(floor.getX()+.5, floor.getY()+1.2, floor.getZ()+.5), stack);
         grenade.setDeltaMovement(Vec3.ZERO);
         CompoundTag saved = grenade.saveWithoutId(new CompoundTag());
@@ -90,7 +94,7 @@ public final class LooseObjectEffectsGameTests {
             require(state != null && state.phase() == GrenadeFuse.Phase.ARMED && state.deadline() == deadline,
                     "NBT reload preserves armed fuse deadline");
             require(state.beepedAtPrime() && !state.beepedAtForty(), "initial evaluation primes without forty-tick beep");
-            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 16, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(h, 40, () -> {
             loaded.tick();
             GrenadeFuseData forty = loaded.getItem().get(ModDataComponents.GRENADE_FUSE.get());
             require(forty != null && forty.beepedAtForty() && forty.deadline() == deadline,

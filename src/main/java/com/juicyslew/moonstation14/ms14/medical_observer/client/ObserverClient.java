@@ -70,6 +70,7 @@ public final class ObserverClient {
         if (current == null || current.epoch() != snapshot.epoch() || !java.util.Objects.equals(current.ghost(), snapshot.ghost()))
             resetGhostMovement();
         if (snapshot.mode() == ObserverPayloads.Mode.END) {
+            com.juicyslew.moonstation14.ms14.mobs.client.MedicalMovementClientTrace.observationEnded();
             current = null;
             resetGhostLook();
             resetGhostMovement();
@@ -103,6 +104,8 @@ public final class ObserverClient {
                 if (medicalAnchor == null || medicalAnchor.level() != mc.level)
                     medicalAnchor = new MedicalCameraAnchorEntity(mc.level);
                 LivingEntity body = resolveSnapshotBody(mc, snapshot);
+                com.juicyslew.moonstation14.ms14.mobs.client.MedicalMovementClientTrace.observeSnapshot(
+                        snapshot.mode(), snapshot.epoch(), body, null);
                 if (medicalAnchorBodyChanged(body)) {
                     Entity camera = mc.getCameraEntity() == null ? mc.player : mc.getCameraEntity();
                     medicalAnchor.setYRot(camera.getYRot());
@@ -115,6 +118,13 @@ public final class ObserverClient {
         if (snapshot.returnAvailable() && !returnHintShown) {
             returnHintShown = true;
             if (mc.player != null) mc.player.displayClientMessage(Component.translatable("message.moonstation14.observer_return_available"), true);
+        }
+        if (snapshot.mode() == ObserverPayloads.Mode.GHOST && mc.level != null) {
+            LivingEntity body = resolveSnapshotBody(mc, snapshot);
+            Entity ghost = mc.level.getEntity(snapshot.ghostEntity());
+            if (ghost != null && !ghost.getUUID().equals(snapshot.ghost())) ghost = null;
+            com.juicyslew.moonstation14.ms14.mobs.client.MedicalMovementClientTrace.observeSnapshot(
+                    snapshot.mode(), snapshot.epoch(), body, ghost);
         }
     }
 
@@ -175,6 +185,8 @@ public final class ObserverClient {
         }
         if (s.mode() == ObserverPayloads.Mode.CORPSE) {
             LivingEntity body = resolveSnapshotBody(mc, s);
+            com.juicyslew.moonstation14.ms14.mobs.client.MedicalMovementClientTrace.observeSnapshot(
+                    s.mode(), s.epoch(), body, null);
             if (medicalAnchor != null && body != null) { medicalAnchor.follow(body); mc.setCameraEntity(medicalAnchor); }
             if (mc.screen == null) {
                 int directions = directionMask(mc);
@@ -185,8 +197,12 @@ public final class ObserverClient {
             return;
         }
         if (s.mode() != ObserverPayloads.Mode.GHOST) return;
+        LivingEntity corpse = resolveSnapshotBody(mc, s);
         Entity ghost = mc.level.getEntity(s.ghostEntity());
-        if (ghost == null || !ghost.getUUID().equals(s.ghost())) return;
+        if (ghost != null && !ghost.getUUID().equals(s.ghost())) ghost = null;
+        com.juicyslew.moonstation14.ms14.mobs.client.MedicalMovementClientTrace.observeSnapshot(
+                s.mode(), s.epoch(), corpse, ghost);
+        if (ghost == null) return;
         initializeGhostLook(mc, s, ghost);
         if (mc.getCameraEntity() != ghost) mc.setCameraEntity(ghost);
         projectCameraLook(ghost);

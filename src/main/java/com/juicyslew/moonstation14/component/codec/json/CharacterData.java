@@ -15,6 +15,7 @@ import com.juicyslew.moonstation14.ms14.character.components.BarotraumaComponent
 import com.juicyslew.moonstation14.ms14.character.components.TemperatureComponent;
 import com.juicyslew.moonstation14.ms14.character.components.TemperatureDamageComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ThermalRegulatorComponent;
+import com.juicyslew.moonstation14.ms14.character.components.AngularRecoveryComponent;
 import com.juicyslew.moonstation14.ms14.character.components.BloodstreamComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StomachPrototypeComponent;
 import com.juicyslew.moonstation14.ms14.character.components.SpeechComponent;
@@ -121,6 +122,8 @@ public record CharacterData(List<ResourceLocation> hostEntityTypes,
     }
 
     public Optional<BarotraumaComponent> barotrauma() { return component(BarotraumaComponent.class); }
+    /** Missing component opts out; data must be resolved through the character prototype catalog before live use. */
+    public Optional<AngularRecoveryComponent> angularRecoveryPolicy() { return component(AngularRecoveryComponent.class); }
 
     /** Fail closed: text speech requires an explicit Speech component. */
     public boolean canSpeakText() { return component(SpeechComponent.class).isPresent(); }

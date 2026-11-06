@@ -2,7 +2,6 @@ package com.juicyslew.moonstation14.ms14.hands.live;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /** Shared physical-body reach and loaded eye-ray policy for body-target interactions. */
@@ -22,15 +21,10 @@ public final class BodyInteractionAccess {
                 || actor.level() != target.level() || !rootWithinReach(actor,target,reach)
                 || !(actor.level() instanceof ServerLevel level)) return false;
         Vec3 from=actor.getEyePosition(), to=target.getEyePosition();
-        if (!loadedRay(level,from,to)) return false;
-        return level.clip(new net.minecraft.world.level.ClipContext(from,to,
-                net.minecraft.world.level.ClipContext.Block.COLLIDER,
-                net.minecraft.world.level.ClipContext.Fluid.NONE,actor)).getType()==HitResult.Type.MISS;
-    }
-    private static boolean loadedRay(ServerLevel level,Vec3 from,Vec3 to) {
-        int steps=Math.max(1,(int)Math.ceil(from.distanceTo(to)*4));
-        if(steps>32)return false;
-        for(int i=0;i<=steps;i++)if(!level.hasChunkAt(net.minecraft.core.BlockPos.containing(from.lerp(to,(double)i/steps))))return false;
-        return true;
+        var result = LoadedFrameRayQuery.clip(level, from, to, 16, 0, 0,
+                (getter, rayFrom, rayTo) -> new net.minecraft.world.level.ClipContext(rayFrom, rayTo,
+                        net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                        net.minecraft.world.level.ClipContext.Fluid.NONE, actor));
+        return result.state() == LoadedFrameRayQuery.State.MISS;
     }
 }

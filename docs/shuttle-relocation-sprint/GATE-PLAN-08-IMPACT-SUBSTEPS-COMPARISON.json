@@ -1,0 +1,46 @@
+{
+  "title": "Feedback-08: isolated stock-Sable ten-substep impact comparison, not a production repair",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullTerrainImpactGameTests.java",
+  "acceptance_criteria": [
+    "The test-only comparison preparation and actual-setting guard compile and pass focused checks without changing production physics, dependencies, default configuration, owner data or the accepted wall fix.",
+    "Preparation creates only the designated fresh comparison directory with Sable's supported sub_level_substeps_per_tick set to 10, refuses existing targets, and never copies, deletes or overwrites owner configuration or worlds.",
+    "Each existing 20/40/80 probe confirms an effective SDK substepsPerTick value of 10 before launch; mismatch fails setup. The existing geometry, motion, penetration thresholds and immutable physical-failure criteria remain unchanged.",
+    "All three native comparison probes pass their unchanged physical assertions; record actual selected/discovered and pass/fail counts, each trajectory outcome, aggregate completion and clean save/shutdown. Any physical failure remains a failed native gate, not an expected-failure pass."
+  ],
+  "manual_steps": [
+    "No owner testing, client launch, GUI automation, packaging, installation or owner configuration changes.",
+    "This candidate compares only an isolated ten-substep condition. Baseline two-substep R3 remains 1 pass / 2 physical failures; do not reinterpret it as passed or repaired.",
+    "Even a comparison pass is not a production fix, performance acceptance, M1 acceptance or permission to advance M2-M6. Higher substeps affect global Sable physics work; production adoption requires a separate decision and evidence."
+  ],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["python", "-m", "unittest", "discover", "-s", "tooling/shuttle", "-p", "test_*.py"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-impact-substeps10-r1-preparation-tests.log",
+      "rationale": "Cheap isolated preparation-helper checks, including preservation of existing targets and refusal of owner/non-approved paths. These tests do not prepare the actual native comparison directory or launch anything.",
+      "covers": ["Preparation creates only the designated fresh comparison directory with Sable's supported sub_level_substeps_per_tick set to 10, refuses existing targets, and never copies, deletes or overwrites owner configuration or worlds."]
+    },
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*HullTerrainGeometryTest", "--tests", "*HullImpactTraceStateTest", "--tests", "*HullImpactSubstepsExpectationTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-impact-substeps10-r1-jvm.log",
+      "rationale": "Fresh compilation and focused checks for actual-setting mismatch handling, geometry and unchanged immutable physical-failure/window state. No full suite, package or native execution in this step.",
+      "covers": ["The test-only comparison preparation and actual-setting guard compile and pass focused checks without changing production physics, dependencies, default configuration, owner data or the accepted wall fix.", "Each existing 20/40/80 probe confirms an effective SDK substepsPerTick value of 10 before launch; mismatch fails setup. The existing geometry, motion, penetration thresholds and immutable physical-failure criteria remain unchanged."]
+    },
+    {
+      "kind": "command",
+      "argv": ["python", "tooling/shuttle/prepare_impact_substeps_comparison.py", "--run-dir", "build/gametest-shuttle-feedback-08-impact-substeps10-r1", "--substeps", "10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-impact-substeps10-r1-preparation.log",
+      "rationale": "Lead-only one-use preparation of this never-used isolated directory. Refuse rather than overwrite an existing target. Only the fresh fixture's Sable configuration is written; baseline fixtures and owner launch/configuration settings are untouched.",
+      "covers": ["Preparation creates only the designated fresh comparison directory with Sable's supported sub_level_substeps_per_tick set to 10, refuses existing targets, and never copies, deletes or overwrites owner configuration or worlds."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-hull-impact-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-impact-substeps10-r1", "-Pms14HullImpactExpectedSubsteps=10"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-impact-substeps10-r1-native.log",
+      "rationale": "One focused native comparison invocation only. Expect 3/881, but report actual discovery/selection and pass/failure totals. Verify all three hull-impact-config entries report SDK effective=expected=10 before interpreting results. Retain any original physical failure and bounded diagnostic trajectory; no threshold relaxation, forced pose, velocity cap, teleport or alternate gravity. Require all three actual physical probes to pass for this comparison contract. A pass says only these three trajectories passed at ten substeps, not that baseline physics or M1 is repaired. Preserve failed artifacts and do not rerun this world or broaden validation.",
+      "covers": ["Each existing 20/40/80 probe confirms an effective SDK substepsPerTick value of 10 before launch; mismatch fails setup. The existing geometry, motion, penetration thresholds and immutable physical-failure criteria remain unchanged.", "All three native comparison probes pass their unchanged physical assertions; record actual selected/discovered and pass/fail counts, each trajectory outcome, aggregate completion and clean save/shutdown. Any physical failure remains a failed native gate, not an expected-failure pass."]
+    }
+  ]
+}

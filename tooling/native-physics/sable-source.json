@@ -1,0 +1,11 @@
+{
+  "source": "https://github.com/ryanhcode/sable.git",
+  "tag": "mc1.21.1-2.0.6-neoforge",
+  "commit": "ad8b4d377741fbd923f4d863b2cf9e462daff9a6",
+  "file": "sable_rapier/src/main/rust/rapier/src/lib.rs",
+  "baseSha256": "286d165e3f4017d6bbc9baee0e1bf5e46acd511baad238ef241e6f1be902a473",
+  "patchedSha256": "f55fda0b9494732489468607b400069b6ecdb9f760aff026203d335b266dfd2f",
+  "patch": "tooling/native-physics/patches/sable-effective-mass-refresh.patch",
+  "patchSha256": "9ee1ef6af471164cba9fa63e5b5a3bb7bb0c33205e4eaf3e8a72a496ad256727",
+  "license": "PolyForm Shield 1.0.0 (LICENSE.md); observe distribution and changes/new works restrictions."
+}

@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.hands.network;
 
 import net.minecraft.server.level.ServerPlayer;
+import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.atmos.piping.FunctionalExposedPipePlacement;
 import com.juicyslew.moonstation14.ms14.atmos.piping.FunctionalVentilationDevicePlacement;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.FunctionalAirAlarmPlacement;
@@ -35,15 +36,25 @@ public final class BodyHandActionNetworking {
                     if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
                     if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor) return;
                       boolean contained = DisposalContainedActionPolicy.isContained(actor);
-                     boolean containedTarget = contained && DisposalContainedActionPolicy.permitsOwnerBlockTarget(actor, request);
-                     if (contained && !containedTarget) {
-                        PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), BodyBlockUseResult.Outcome.DENIED));
-                        return;
-                    }
-                     var admission = BodyHandRequestService.admitBlockUse(actor, request);
-                     if (contained && admission != null
-                             && !(admission.authority().body().level().getBlockEntity(admission.hit().pos())
-                                  instanceof DisposalUnitBlockEntity)) admission = null;
+                      boolean containedTarget = contained && DisposalContainedActionPolicy.permitsOwnerBlockTarget(actor, request);
+                      if (contained && !containedTarget) {
+                         if (MoonStation14.LOGGER.isDebugEnabled())
+                             MoonStation14.LOGGER.debug("[body-block-use-admission] actor={} epoch={} sequence={} hand={} reason=contained-policy target={} face={}",
+                                     actor.getUUID(), request.epoch(), request.sequence(), request.handId(), request.target(), request.face());
+                         PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), BodyBlockUseResult.Outcome.DENIED));
+                         return;
+                     }
+                      var admission = BodyHandRequestService.admitBlockUse(actor, request);
+                      if (contained && admission != null) {
+                          var targetEntity = admission.authority().body().level().getBlockEntity(admission.hit().pos());
+                          if (!(targetEntity instanceof DisposalUnitBlockEntity)) {
+                              if (MoonStation14.LOGGER.isDebugEnabled())
+                                  MoonStation14.LOGGER.debug("[body-block-use-admission] actor={} epoch={} sequence={} hand={} reason=contained-target hit={} face={} targetEntity={}",
+                                          actor.getUUID(), request.epoch(), request.sequence(), request.handId(), admission.hit().pos(),
+                                          admission.hit().face(), targetEntity == null ? "none" : targetEntity.getClass().getSimpleName());
+                              admission = null;
+                          }
+                      }
                     BodyBlockUseResult.Outcome outcome = BodyBlockUseResult.Outcome.DENIED;
                      if (admission != null && request.intent() == BodyBlockUseRequest.Intent.USE) {
                          var held = admission.hands().stackCopy(request.handId()).orElse(null);
@@ -186,9 +197,25 @@ public final class BodyHandActionNetworking {
                         else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
                                 && DisposalBuildMenuService.openEdit(actor, request, admission))
                             outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
-                        else outcome = BodyWorldItemActions.activate(actor, request, admission);
-                    }
-                    if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
+                         else outcome = BodyWorldItemActions.activate(actor, request, admission);
+                     }
+                     if (admission != null && request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                             && outcome == BodyBlockUseResult.Outcome.DENIED
+                             && MoonStation14.LOGGER.isDebugEnabled()) {
+                         var body = admission.authority().body();
+                         var level = body.level();
+                         var pos = admission.hit().pos();
+                         var block = level.getBlockState(pos).getBlock();
+                         var blockId = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(block);
+                         var targetEntity = level.getBlockEntity(pos);
+                         MoonStation14.LOGGER.debug("[body-block-use-dispatch] actor={} epoch={} sequence={} outcome=DENIED hit={} face={} block={} targetEntity={} eye={} look={} heldItem={}",
+                                 actor.getUUID(), request.epoch(), request.sequence(), pos, admission.hit().face(), blockId,
+                                 targetEntity == null ? "none" : targetEntity.getClass().getSimpleName(),
+                                 body.getEyePosition(), body.getLookAngle(),
+                                 admission.hands().stackCopy(request.handId()).map(stack ->
+                                         net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem())).orElse(null));
+                     }
+                     if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
                         PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), outcome));
                 })
                 .playToClient(BodyBlockUseResult.TYPE, BodyBlockUseResult.STREAM_CODEC,
@@ -215,7 +242,41 @@ public final class BodyHandActionNetworking {
                          var state = held == null ? null : held.get(com.juicyslew.moonstation14.component.ModDataComponents.HEALTH_ANALYZER.get());
                          if (state != null) scannerBefore = state.scannerId();
                      }
-                     BodyHandActionResult result = BodyHandRequestService.apply(actor, request);
+                       boolean aimRelevant = request.action() == BodyHandActionRequest.Action.THROW_ITEM
+                               || request.action() == BodyHandActionRequest.Action.PICKUP
+                               || request.action() == BodyHandActionRequest.Action.PICKUP_SELECTED;
+                       boolean aimTrace = aimRelevant && MoonStation14.LOGGER.isDebugEnabled()
+                               && com.juicyslew.moonstation14.ms14.player_body_control.CharacterCadenceDiagnostics
+                               .allowReceipt(System.nanoTime());
+                       java.util.UUID aimBodyId = null;
+                       net.minecraft.world.phys.Vec3 aimPosition = null, aimEye = null, aimLook = null;
+                       Float aimYaw = null, aimPitch = null;
+                       com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.ActorPoint aimPoint = null;
+                       if (aimTrace) {
+                           var aimAuthority = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(actor).orElse(null);
+                           var aimBody = aimAuthority == null ? null : aimAuthority.body();
+                           if (aimBody != null) {
+                               aimBodyId = aimBody.getUUID();
+                               aimPosition = aimBody.position();
+                               aimEye = aimBody.getEyePosition();
+                               aimLook = aimBody.getLookAngle();
+                               aimYaw = aimBody.getYRot();
+                               aimPitch = aimBody.getXRot();
+                               aimPoint = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                                       .currentActorPoint(aimBody.level(), aimBody);
+                           }
+                       }
+                       BodyHandActionResult result = BodyHandRequestService.apply(actor, request);
+                       if (aimTrace) {
+                           MoonStation14.LOGGER.debug("[HAND_AIM] side=server-result posePhase=server-before-apply epoch={} sequence={} action={} body={} bodyPosition={} eye={} look={} yaw={} pitch={} nominated={} hand={} expectedRevision={} result={} reason={} revision={} hostWorldEntity={} actorPoint={}",
+                                   request.epoch(), request.sequence(), request.action(), aimBodyId == null ? "UNKNOWN" : aimBodyId,
+                                   aimPosition == null ? "UNKNOWN" : aimPosition, aimEye == null ? "UNKNOWN" : aimEye,
+                                   aimLook == null ? "UNKNOWN" : aimLook, aimYaw == null ? "UNKNOWN" : aimYaw,
+                                   aimPitch == null ? "UNKNOWN" : aimPitch, request.pickupTarget(), request.handId(), request.expectedRevision(),
+                                   result.accepted(), result.reason(), result.revision(),
+                                   result.hostTransition() == null ? "none" : result.hostTransition().worldEntity(),
+                                   aimPoint == null ? "UNAVAILABLE" : aimPoint);
+                       }
                      if (scannerBefore == null && result.accepted() && result.hostTransition() != null
                              && result.hostTransition().direction() == BodyHandActionResult.HostTransition.Direction.PICKUP) {
                          var authority = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(actor).orElse(null);

@@ -757,6 +757,60 @@ class PlayerLifecycleRegistryTest {
         assertEquals(active.connectionGeneration(), store.read().orElseThrow().profiles().get(0).connectionGeneration());
     }
 
+    @Test void abandonedActiveParkRequiresExactSuspendedMindAndCasUsesActualPose() throws Exception {
+        UUID epoch = uuid(701), account = uuid(702), mindId = uuid(703), bodyUuid = uuid(704);
+        SavedLifecycleProfile offline = saved(account, "abandoned-active", mindId, bodyUuid, epoch, 1,
+                SavedLifecycleProfile.State.OFFLINE);
+        BodyControlRegistry shared = new BodyControlRegistry();
+        PlayerLifecycleRegistry lifecycle = new PlayerLifecycleRegistry(shared);
+        MobHarness body = harness(shared, 704, MobHarnessKind.CHARACTER);
+        var store = new LifecycleProfileStore(directory.resolve("abandoned-active.json"));
+        store.compareAndSwap(-1, epoch, 5, java.util.List.of(offline));
+        var restored = store.withCurrentPrimary(primary -> lifecycle.restoreOffline(primary, offline, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        var activeSnapshot = store.withCurrentPrimary(primary -> lifecycle.reconnectLivingDurably(
+                primary, offline, true, ELIGIBLE)).orElseThrow().orElseThrow();
+        SavedLifecycleProfile active = store.withCurrentPrimary(primary -> primary.envelope().profiles().get(0))
+                .orElseThrow();
+        assertFalse(lifecycle.parkAbandonedActiveDurably(store.withCurrentPrimary(primary -> primary).orElseThrow(),
+                active, new SavedLifecycleProfile.Location(4, 5, 6), "minecraft:overworld", 50, body, ELIGIBLE).isPresent());
+        assertTrue(lifecycle.suspendActiveSessionForRecovery(account, activeSnapshot.mindId(), body.id(),
+                activeSnapshot.connectionGeneration()));
+        var parked = store.withCurrentPrimary(primary -> lifecycle.parkAbandonedActiveDurably(primary, active,
+                new SavedLifecycleProfile.Location(4, 5, 6), "minecraft:overworld", 50, body, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        assertEquals(SavedLifecycleProfile.State.OFFLINE, parked.state());
+        assertEquals(new SavedLifecycleProfile.Location(4, 5, 6), parked.location());
+        assertTrue(store.withCurrentPrimary(primary -> primary.envelope().profiles().stream().anyMatch(parked::equals))
+                .orElseThrow());
+    }
+
+    @Test void freshRegistryCanParkCurrentActiveOnlyWhenAllRestoreIndexesAreClear() throws Exception {
+        UUID epoch = uuid(711), account = uuid(712), mind = uuid(713), bodyId = uuid(714);
+        SavedLifecycleProfile active = new SavedLifecycleProfile(1, account, "fresh-recovery", mind, bodyId,
+                "minecraft:overworld", new SavedLifecycleProfile.Location(900, 64, 900), java.util.Map.of(),
+                epoch, 3, SavedLifecycleProfile.State.ACTIVE, 7, null);
+        var store = new LifecycleProfileStore(directory.resolve("fresh-active-recovery.json"));
+        store.compareAndSwap(-1, epoch, 3, java.util.List.of(active));
+        var shared = new BodyControlRegistry();
+        var lifecycle = new PlayerLifecycleRegistry(shared);
+        MobHarness body = harness(shared, 714, MobHarnessKind.CHARACTER);
+        // A denied preflight (wrong binding identity) cannot rewrite the durable row.
+        assertTrue(store.withCurrentPrimary(primary -> lifecycle.parkAbandonedActiveDurably(primary, active,
+                new SavedLifecycleProfile.Location(1, 2, 3), "minecraft:overworld", 99,
+                new MobHarness(new MobHarnessId(uuid(715)), MobHarnessKind.CHARACTER), ELIGIBLE))
+                .orElseThrow().isEmpty());
+        assertEquals(active, store.read().orElseThrow().profiles().get(0));
+        var parked = store.withCurrentPrimary(primary -> lifecycle.parkAbandonedActiveDurably(primary, active,
+                new SavedLifecycleProfile.Location(1, 2, 3), "minecraft:overworld", 99, body, ELIGIBLE))
+                .orElseThrow().orElseThrow();
+        assertEquals(SavedLifecycleProfile.State.OFFLINE, parked.state());
+        assertEquals(new SavedLifecycleProfile.Location(1, 2, 3), parked.location());
+        assertEquals(PlayerLifecycleRegistry.LifecycleState.OFFLINE,
+                lifecycle.profile(account).orElseThrow().state());
+        assertEquals(body.id(), shared.mind(account).orElseThrow().harnessId());
+    }
+
     @Test void durableDisconnectPersistsOfflineBeforeRetiringSameMindAndBody() throws Exception {
         UUID epoch = uuid(220), account = uuid(221), mind = uuid(222), bodyUuid = uuid(223);
         SavedLifecycleProfile offline = saved(account, "durable-disconnect", mind, bodyUuid, epoch, 1,

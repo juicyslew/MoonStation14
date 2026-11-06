@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.ms14.hands.client;
 
+import com.juicyslew.moonstation14.MoonStation14;
+
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
@@ -32,6 +34,26 @@ import java.util.UUID;
 
 /** Client presentation and intent only; all hand occupancy and transfer remain server-owned. */
 public final class BodyHandClient {
+    record DropAimDecision(boolean usable, com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget target) { }
+
+    /** Classifies the one captured client ray; only determinate miss/non-floor hits may use legacy DROP. */
+    static DropAimDecision dropAimDecision(BodyHandRaySnapshot.Snapshot ray, boolean contained) {
+        if (contained) return new DropAimDecision(true, null);
+        if (ray == null || ray.result() == null) return new DropAimDecision(false, null);
+        var result = ray.result();
+        if (result.state() == com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.State.UNKNOWN)
+            return new DropAimDecision(false, null);
+        if (result.state() == com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.State.MISS)
+            return new DropAimDecision(true, null);
+        boolean up = result.frameHit() != null
+                ? result.frameHit().localFace() == net.minecraft.core.Direction.UP
+                : result.worldHit() != null && result.worldHit().getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                    && result.worldHit().getDirection() == net.minecraft.core.Direction.UP;
+        if (!up) return result.frameHit() != null || result.worldHit() != null
+                ? new DropAimDecision(true, null) : new DropAimDecision(false, null);
+        var target = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.capture(result, ray.to());
+        return new DropAimDecision(target != null, target);
+    }
     private static final org.slf4j.Logger DUMP_LOGGER = com.mojang.logging.LogUtils.getLogger();
     /** Existing normal E activation ray ceiling, shared with client-only body nomination. */
     public static final double NORMAL_WORLD_AIM_REACH = 6.0;
@@ -120,6 +142,20 @@ public final class BodyHandClient {
     private static java.util.List<ItemEntity> pileItems = java.util.List.of();
     private static long pileFrame = -1;
     private static long pileEpoch;
+    // Valid only between the two outline render stages, never used by input dispatch.
+    private static long outlineRenderSerial;
+    private static final RenderFrameSnapshotCache<OutlinePileSnapshot> OUTLINE_PILE = new RenderFrameSnapshotCache<>();
+    public record OutlineSelection(ItemEntity entity, BodyHandRaySnapshot.Snapshot ray,
+                                   com.juicyslew.moonstation14.ms14.loose_objects.LooseItemQueryGeometry geometry,
+                                   AABB ordinaryRenderBounds) { }
+    private record OutlineCandidate(OutlineSelection selection, double distanceSquared) { }
+    private record OutlinePileSnapshot(BodyHandRaySnapshot.Snapshot ray, java.util.List<OutlineCandidate> candidates,
+                                       boolean dumpSourcePriority, UUID dumpSource, OutlineSelection dumpSelection) {
+        private OutlinePileSnapshot {
+            candidates = java.util.List.copyOf(candidates);
+        }
+        java.util.List<ItemEntity> entities() { return candidates.stream().map(c -> c.selection().entity()).toList(); }
+    }
 
     private BodyHandClient() { }
     public static Component worldContextKeyMessage() { return WORLD_STORAGE.getTranslatedKeyMessage(); }
@@ -211,6 +247,7 @@ public final class BodyHandClient {
         cameraEpoch = 0;
         wasContained = false;
         PILE.clear(); pileItems = java.util.List.of(); pileFrame = -1; pileEpoch = 0;
+        invalidateOutlinePile();
         while (DROP.consumeClick()) { }
         while (SELECT_HAND.consumeClick()) { }
         while (STORAGE.consumeClick()) { }
@@ -273,6 +310,7 @@ public final class BodyHandClient {
         wasContained = contained;
         long epoch = GhostControlClient.committedCharacterEpoch();
         if (cameraBody != body || cameraEpoch != epoch) {
+            invalidateOutlinePile();
             if (DUMP_GESTURE.active()) { sendDumpCancel(); DUMP_GESTURE.contextLost(); }
             com.juicyslew.moonstation14.ms14.stripping.client.StripClient.instance().contextReset();
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.resetOwnedContext();
@@ -855,6 +893,7 @@ public final class BodyHandClient {
             var capture = DUMP_GESTURE.press(true, false, policy != null && policy.enabled(), source,
                     body == null ? null : body.getUUID(), epoch);
             if (capture == AimReleaseWorldDump.Press.CAPTURE) {
+                invalidateOutlinePile();
                 DUMP_PHYSICAL_INPUT.beginMouse(event.getButton(), event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT
                         && AIM_RELEASE_DUMP.getKeyModifier() == net.neoforged.neoforge.client.settings.KeyModifier.ALT);
                 beginDumpRequest(body, source);
@@ -1316,6 +1355,7 @@ public final class BodyHandClient {
 
     private static void sendDumpCancel() {
         boolean shouldSend = DUMP_GESTURE.active() || DUMP_FEEDBACK.pending();
+        invalidateOutlinePile();
         if (dumpGestureId != null) {
             DUMP_LOGGER.debug("ChemMaster dump client phase=CANCEL gesture={} seq={} event=LOCAL_CANCEL reason=input_cancel", dumpToken(dumpGestureId), dumpSequence);
             DUMP_FEEDBACK.cancelQueued(dumpGestureId);
@@ -1365,6 +1405,7 @@ public final class BodyHandClient {
         UUID capturedSourceId = captured == null ? null : captured.getUUID();
         var decision = DUMP_GESTURE.release(targetIdentity, machine, aimedLoose, capturedSourceId,
                 body == null ? null : body.getUUID(), GhostControlClient.committedCharacterEpoch());
+        invalidateOutlinePile();
         if (decision == AimReleaseWorldDump.Release.DUMP) {
             if (DUMP_FEEDBACK.beginAccepted()) sendDump(ChemMasterDumpRequest.Phase.RELEASE, target.getBlockPos());
             else if (DUMP_FEEDBACK.queueRelease(dumpSource, dumpBody, GhostControlClient.committedCharacterEpoch())) {
@@ -2100,6 +2141,37 @@ public final class BodyHandClient {
         BodyHandStateSnapshot.Hand active = snapshot.hands().stream()
                 .filter(hand -> hand.id().equals(snapshot.activeHand())).findFirst().orElse(null);
         if (active == null) return false;
+        com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget throwTarget = null;
+        com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget dropTarget = null;
+        BodyHandRaySnapshot.Snapshot throwRay = null;
+        if (action == BodyHandActionRequest.Action.THROW_ITEM) {
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            long committedEpoch = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedCharacterEpoch();
+            if (cameraBody == null || mc.level == null || mc.getCameraEntity() != cameraBody) return false;
+            throwRay = BodyHandRaySnapshot.capture(mc.level, cameraBody, mc.gameRenderer.getMainCamera(),
+                    snapshot.epoch(), committedEpoch,
+                    BodyItemTargetProbe.MAX_THROW_REACH, .125, 0);
+            if (throwRay == null) return false;
+            throwTarget = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                    .capture(throwRay.result(), throwRay.to());
+            if (throwTarget == null) return false;
+        }
+        if (action == BodyHandActionRequest.Action.DROP) {
+            boolean contained = com.juicyslew.moonstation14.ms14.player_body_control.client.ContainedCharacterClientView.isContained();
+            DropAimDecision decision;
+            if (contained) {
+                decision = dropAimDecision(null, true);
+            } else {
+                var mc = net.minecraft.client.Minecraft.getInstance();
+                long committedEpoch = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.committedCharacterEpoch();
+                if (cameraBody == null || mc.level == null || mc.getCameraEntity() != cameraBody) return false;
+                var ray = BodyHandRaySnapshot.capture(mc.level, cameraBody, mc.gameRenderer.getMainCamera(),
+                        snapshot.epoch(), committedEpoch, BodyItemTargetProbe.DROP_AIM_REACH, .125, 0);
+                decision = dropAimDecision(ray, false);
+            }
+            if (!decision.usable()) return false;
+            dropTarget = decision.target();
+        }
         UUID target = null;
         String expectedToken = active.token();
         switch (action) {
@@ -2144,13 +2216,33 @@ public final class BodyHandClient {
                 && target == null) { POLICY.noItemUnderCursor(clock); return false; }
         long sequence = POLICY.action(clock);
         if (sequence == 0) return false;
+        var request = action == BodyHandActionRequest.Action.THROW_ITEM
+                ? BodyHandActionRequest.throwItem(active.id(), snapshot.epoch(), sequence, snapshot.revision(), expectedToken, throwTarget)
+                : action == BodyHandActionRequest.Action.DROP && dropTarget != null
+                ? new BodyHandActionRequest(action, active.id(), snapshot.epoch(), sequence, snapshot.revision(), null,
+                        expectedToken, null, -1, -1, -1, -1, -1, -1, null, null, null, null, dropTarget)
+                : new BodyHandActionRequest(action, active.id(), snapshot.epoch(), sequence,
+                        snapshot.revision(), target, expectedToken);
+        if ((action == BodyHandActionRequest.Action.THROW_ITEM || action == BodyHandActionRequest.Action.PICKUP
+                || action == BodyHandActionRequest.Action.PICKUP_SELECTED) && cameraBody != null
+                && MoonStation14.LOGGER.isDebugEnabled()
+                && com.juicyslew.moonstation14.ms14.player_body_control.CharacterCadenceDiagnostics.allowReceipt(System.nanoTime())) {
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            var camera = mc.gameRenderer.getMainCamera();
+            MoonStation14.LOGGER.debug("[HAND_AIM] side=client-send epoch={} sequence={} action={} body={} bodyPosition={} eye={} look={} yaw={} pitch={} nominated={} hand={} expectedRevision={} cameraEntity={} cameraPosition={} cameraLook={} cameraYaw={} cameraPitch={} capturedTarget={}",
+                    request.epoch(), request.sequence(), request.action(), cameraBody.getUUID(), cameraBody.position(),
+                    cameraBody.getEyePosition(), cameraBody.getLookAngle(), cameraBody.getYRot(), cameraBody.getXRot(),
+                    request.pickupTarget(), request.handId(), request.expectedRevision(),
+                    mc.getCameraEntity() == null ? "UNKNOWN" : mc.getCameraEntity().getUUID(),
+                    throwRay == null ? camera.getPosition() : throwRay.from(),
+                    throwRay == null ? camera.getLookVector() : throwRay.direction(), camera.getYRot(), camera.getXRot(),
+                    throwTarget == null ? "NONE" : throwTarget.point());
+        }
         var ingestionDuration = predictionDuration(action, active, target);
         if (ingestionDuration > 0 && cameraBody != null)
             com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.predictStart(sequence,cameraBody.getUUID(),ingestionDuration);
         if (action == BodyHandActionRequest.Action.STOP_PULL) pullActionSequence = sequence;
-        PacketDistributor.sendToServer(new BodyHandActionRequest(action, active.id(), snapshot.epoch(),
-                sequence, snapshot.revision(), target,
-                expectedToken));
+        PacketDistributor.sendToServer(request);
         if (action == BodyHandActionRequest.Action.PRIME_GRENADE || action == BodyHandActionRequest.Action.USE_IN_HAND)
             POLICY.markUse(sequence);
         return true;
@@ -2308,59 +2400,262 @@ public final class BodyHandClient {
     }
 
     private static void refreshPile(Mob body) {
+        if (body == null) { refreshPileUnprofiled(null); return; }
+        var profiler = body.level().getProfiler();
+        profiler.push("moonstation14_pile");
+        try {
+            refreshPileUnprofiled(body);
+        } finally {
+            profiler.pop();
+        }
+    }
+
+    private static void refreshPileUnprofiled(Mob body) {
+        OutlinePileSnapshot snapshot = buildOutlineCandidates(body, false);
+        publishPileSnapshot(snapshot);
+    }
+
+    /** One shared ray+geometry builder feeds tick/action pile nomination and cached outline rendering. */
+    private static OutlinePileSnapshot buildOutlineCandidates(Mob body, boolean includeDumpSource) {
         if (body == null || body != cameraBody || GhostControlClient.committedCharacterEpoch() != cameraEpoch
-                || cameraEpoch == 0) {
-            PILE.clear(); pileItems = java.util.List.of(); pileFrame = -1; return;
-        }
-        Vec3 start = body.getEyePosition();
-        Vec3 end = start.add(body.getLookAngle().scale(5));
-        var block = body.level().clip(new ClipContext(start, end, ClipContext.Block.COLLIDER,
-                ClipContext.Fluid.NONE, body));
-        double blockerDistance = start.distanceTo(block.getLocation());
-        double maxDistance = blockerDistance * blockerDistance;
-        var candidates = new java.util.ArrayList<ItemEntity>();
-        var distances = new java.util.HashMap<UUID, Double>();
+                || cameraEpoch == 0) return null;
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (body.level() != mc.level || mc.gameRenderer == null) return null;
+        var ray = BodyHandRaySnapshot.capture(body.level(), body, mc.gameRenderer.getMainCamera(), cameraEpoch,
+                GhostControlClient.committedCharacterEpoch(), 5, 0, 1);
+        boolean dumpPriority = includeDumpSource && dumpOutlinePriority(body, mc);
+        UUID source = dumpPriority ? DUMP_GESTURE.source() : null;
+        if (ray == null) return new OutlinePileSnapshot(null, java.util.List.of(), dumpPriority, source, null);
+
+        Vec3 start = ray.from(), end = ray.to();
+        Vec3 nearestBlock = nearestOutlineBlock(ray);
+        double broadphaseRadius = BodyItemTargetProbe.TARGET_MARGIN
+                + com.juicyslew.moonstation14.ms14.loose_objects.LooseItemQueryGeometry.maximumProfileRadius(true);
+        if (!Double.isFinite(broadphaseRadius) || broadphaseRadius < BodyItemTargetProbe.TARGET_MARGIN)
+            return new OutlinePileSnapshot(ray, java.util.List.of(), dumpPriority, source, null);
+        var entitiesById = new java.util.LinkedHashMap<UUID, ItemEntity>();
         for (ItemEntity item : body.level().getEntitiesOfClass(ItemEntity.class,
-                new AABB(start, end).inflate(BodyItemTargetProbe.TARGET_MARGIN),
-                entity -> entity.isAlive() && !entity.getItem().isEmpty())) {
-            var box = item.getBoundingBox();
-            Vec3 hit = LooseItemRayGeometry.entry(box, start, end);
-            if (hit == null) continue;
-            Vec3 look = body.getLookAngle();
-            double nearFace = LooseItemRayGeometry.physicalNearFace(box, start, look);
-            if (nearFace >= blockerDistance) continue;
-            double distance = hit.distanceToSqr(start);
-            if (distance <= maxDistance) { candidates.add(item); distances.put(item.getUUID(), distance); }
+                new AABB(start, end).inflate(broadphaseRadius),
+                entity -> entity.isAlive() && !entity.getItem().isEmpty()))
+            entitiesById.putIfAbsent(item.getUUID(), item);
+        for (var context : com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.frameRayContexts(
+                body.level(), start, end, ray.partialTick())) {
+            if (context.frame().getLevel() != body.level() || context.frame().isRemoved()) continue;
+            var mapped = mappedFrameRayQueryBox(context.frame().logicalPose(), context.localFrom(),
+                    context.localTo(), broadphaseRadius);
+            if (mapped == null) continue;
+            for (ItemEntity item : body.level().getEntitiesOfClass(ItemEntity.class, mapped,
+                    entity -> entity.isAlive() && !entity.getItem().isEmpty())) {
+                if (!(item instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose)
+                        || !context.frameId().equals(loose.committedRenderFrameId(ray.partialTick()))) continue;
+                entitiesById.putIfAbsent(item.getUUID(), item);
+            }
         }
-        candidates.sort(java.util.Comparator.comparingDouble((ItemEntity i) -> distances.get(i.getUUID()))
-                .thenComparing(ItemEntity::getUUID));
+        var candidates = new java.util.ArrayList<OutlineCandidate>();
+        for (ItemEntity item : entitiesById.values()) {
+            OutlineCandidate candidate = captureOutlineCandidate(item, ray, nearestBlock);
+            if (candidate != null) candidates.add(candidate);
+        }
+        candidates.sort(java.util.Comparator.comparingDouble(OutlineCandidate::distanceSquared)
+                .thenComparing(c -> c.selection().entity().getUUID()));
+        OutlineSelection dumpSelection = null;
+        if (dumpPriority && source != null) {
+            for (OutlineCandidate candidate : candidates)
+                if (source.equals(candidate.selection().entity().getUUID())) { dumpSelection = candidate.selection(); break; }
+            if (dumpSelection == null) {
+                ItemEntity captured = looseEntity(source);
+                OutlineCandidate candidate = captured == null ? null
+                        : captureOutlineCandidate(captured, ray, nearestBlock);
+                if (candidate != null) dumpSelection = candidate.selection();
+            }
+        }
         if (candidates.size() > BodyItemTargetProbe.MAX_VISIBLE_CANDIDATES)
             candidates.subList(BodyItemTargetProbe.MAX_VISIBLE_CANDIDATES, candidates.size()).clear();
-        pileItems = java.util.List.copyOf(candidates);
+        return new OutlinePileSnapshot(ray, candidates, dumpPriority, source, dumpSelection);
+    }
+
+    /** Map only the ray endpoints through one existing frame pose; invalid transforms fail closed. */
+    static AABB mappedFrameRayQueryBox(dev.ryanhcode.sable.companion.math.Pose3dc pose,
+                                       Vec3 localFrom, Vec3 localTo, double radius) {
+        if (pose == null || localFrom == null || localTo == null || !Double.isFinite(radius) || radius < 0
+                || !finitePoint(localFrom) || !finitePoint(localTo)) return null;
+        try {
+            var orientation = pose.orientation();
+            double qNorm = orientation.x()*orientation.x()+orientation.y()*orientation.y()
+                    +orientation.z()*orientation.z()+orientation.w()*orientation.w();
+            if (!Double.isFinite(qNorm) || qNorm < 1e-24) return null;
+            var worldFrom = pose.transformPosition(new org.joml.Vector3d(localFrom.x, localFrom.y, localFrom.z));
+            var worldTo = pose.transformPosition(new org.joml.Vector3d(localTo.x, localTo.y, localTo.z));
+            if (!Double.isFinite(worldFrom.x) || !Double.isFinite(worldFrom.y) || !Double.isFinite(worldFrom.z)
+                    || !Double.isFinite(worldTo.x) || !Double.isFinite(worldTo.y) || !Double.isFinite(worldTo.z)) return null;
+            AABB result = new AABB(new Vec3(worldFrom.x, worldFrom.y, worldFrom.z),
+                    new Vec3(worldTo.x, worldTo.y, worldTo.z)).inflate(radius);
+            return Double.isFinite(result.minX) && Double.isFinite(result.minY) && Double.isFinite(result.minZ)
+                    && Double.isFinite(result.maxX) && Double.isFinite(result.maxY) && Double.isFinite(result.maxZ)
+                    ? result : null;
+        } catch (RuntimeException invalidPose) { return null; }
+    }
+
+    private static boolean finitePoint(Vec3 point) {
+        return Double.isFinite(point.x) && Double.isFinite(point.y) && Double.isFinite(point.z);
+    }
+
+    private static OutlineCandidate captureOutlineCandidate(ItemEntity item, BodyHandRaySnapshot.Snapshot ray,
+            Vec3 nearestBlock) {
+        if (item == null || !item.isAlive() || item.getItem().isEmpty()) return null;
+        if (item instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose) {
+            var geometry = com.juicyslew.moonstation14.ms14.loose_objects.LooseItemQueryGeometry.forPresentedEntity(loose, ray.partialTick());
+            if (geometry == null) return null;
+            Vec3 hit = geometry.inflated(BodyItemTargetProbe.TARGET_MARGIN).clip(ray.from(), ray.to());
+            if (hit == null) return null;
+            if (!outlineGeometryPrecedesBlock(geometry, ray, nearestBlock)) return null;
+            return new OutlineCandidate(new OutlineSelection(item, ray, geometry, null), hit.distanceToSqr(ray.from()));
+        }
+
+        Vec3 renderPosition = interpolatedItemPosition(item, ray.partialTick());
+        AABB renderBounds = ordinaryRenderedBounds(item.getBoundingBox(), item.position(), renderPosition);
+        Vec3 hit = LooseItemRayGeometry.entry(renderBounds, ray.from(), ray.to());
+        if (hit == null) return null;
+        if (nearestBlock != null && !OutlinePriority.itemPrecedesBlock(renderBounds, ray.from(), ray.to(), nearestBlock)) return null;
+        return new OutlineCandidate(new OutlineSelection(item, ray, null, renderBounds), hit.distanceToSqr(ray.from()));
+    }
+
+    private static Vec3 interpolatedItemPosition(ItemEntity item, float partialTick) {
+        return new Vec3(net.minecraft.util.Mth.lerp(partialTick, item.xOld, item.getX()),
+                net.minecraft.util.Mth.lerp(partialTick, item.yOld, item.getY()),
+                net.minecraft.util.Mth.lerp(partialTick, item.zOld, item.getZ()));
+    }
+
+    static AABB ordinaryRenderedBounds(AABB currentBounds, Vec3 currentPosition, Vec3 renderPosition) {
+        if (currentBounds == null || currentPosition == null || renderPosition == null) return null;
+        return currentBounds.move(renderPosition.subtract(currentPosition));
+    }
+
+    static Vec3 nearestOutlineBlock(BodyHandRaySnapshot.Snapshot ray) {
+        if (ray == null) return null;
+        Vec3 block = null;
+        if (ray.result().worldHit() != null
+                && ray.result().worldHit().getType() == net.minecraft.world.phys.HitResult.Type.BLOCK)
+            block = ray.result().worldHit().getLocation();
+        if (ray.result().frameHit() != null) {
+            Vec3 frameBlock = ray.result().frameHit().worldPoint();
+            if (block == null || ray.from().distanceTo(frameBlock) < ray.from().distanceTo(block)) block = frameBlock;
+        }
+        return block;
+    }
+
+    private static void invalidateOutlinePile() {
+        OUTLINE_PILE.clear();
+    }
+
+    /** AFTER_SKY is emitted once for every LevelRenderer frame, even if later outline stages skip. */
+    public static void beginOutlineRenderFrame() {
+        outlineRenderSerial++;
+        OUTLINE_PILE.beginFrame(outlineRenderSerial);
+    }
+
+    /** Read-only render-clock key shared with bounded client-only diagnostic taps. */
+    public static long outlineRenderSerial() { return outlineRenderSerial; }
+
+    private static OutlinePileSnapshot outlinePileSnapshot(Mob body) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (body == null || body != cameraBody || body.level() != mc.level || cameraEpoch == 0
+                || cameraEpoch != GhostControlClient.committedCharacterEpoch()) return null;
+        return OUTLINE_PILE.get(outlineRenderSerial, body, body.level(), cameraEpoch, () -> {
+            var snapshot = buildOutlineCandidates(body, true);
+            publishPileSnapshot(snapshot);
+            return snapshot;
+        });
+    }
+
+    private static boolean dumpOutlinePriority(Mob body, net.minecraft.client.Minecraft mc) {
+        return DUMP_GESTURE.active() && body != null && body.getUUID().equals(dumpBody)
+                && cameraEpoch == GhostControlClient.committedCharacterEpoch() && body.level() == mc.level;
+    }
+
+    private static void publishPileSnapshot(OutlinePileSnapshot snapshot) {
+        if (snapshot == null || snapshot.ray() == null) {
+            PILE.clear(); pileItems = java.util.List.of(); pileFrame = -1; return;
+        }
+        pileItems = snapshot.entities();
         PILE.update(pileItems.stream().map(ItemEntity::getUUID).toList());
         pileFrame = clock;
         pileEpoch = cameraEpoch;
     }
 
-    /** Fresh client-only outline nomination; action eligibility and pending policy never affect observation. */
-    public static ItemEntity selectedItemForOutline() {
-        var mc = net.minecraft.client.Minecraft.getInstance();
-        Mob body = currentBody();
-        if (DUMP_GESTURE.active() && body != null && body.getUUID().equals(dumpBody)
-                && cameraEpoch == GhostControlClient.committedCharacterEpoch() && body.level() == mc.level) {
-            ItemEntity captured = looseEntity(DUMP_GESTURE.source());
-            if (captured != null && captured.isAlive()) return captured;
+    private static OutlineSelection selectOutline(OutlinePileSnapshot snapshot, Mob body) {
+        if (snapshot == null || snapshot.ray() == null || body == null || body != cameraBody || !body.isAlive()) return null;
+        if (snapshot.dumpSourcePriority()) {
+            OutlineSelection selected = snapshot.dumpSelection();
+            return selected != null && selected.entity().isAlive() ? selected : null;
         }
-        if (mc.screen != null || !mc.mouseHandler.isMouseGrabbed() || body == null
-                || body != cameraBody || GhostControlClient.committedCharacterEpoch() != cameraEpoch
-                || cameraEpoch == 0 || body.level() != mc.level) return null;
-        refreshPile(body);
-        var ids = pileItems.stream().map(ItemEntity::getUUID).toList();
-        UUID selected = PILE.update(ids);
-        if (selected == null) return null;
-        for (ItemEntity item : pileItems)
-            if (item.getUUID().equals(selected) && item.isAlive()) return item;
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.screen != null || !mc.mouseHandler.isMouseGrabbed() || body.level() != mc.level
+                || GhostControlClient.committedCharacterEpoch() != cameraEpoch || cameraEpoch == 0) return null;
+        UUID selectedId = PILE.update(snapshot.entities().stream().map(ItemEntity::getUUID).toList());
+        if (selectedId == null) return null;
+        for (OutlineCandidate candidate : snapshot.candidates()) {
+            OutlineSelection selection = candidate.selection();
+            if (selectedId.equals(selection.entity().getUUID()) && selection.entity().isAlive()) return selection;
+        }
         return null;
+    }
+
+    /** Compatibility nomination delegates to the already captured render-frame selection. */
+    public static ItemEntity selectedItemForOutline() {
+        OutlineSelection selection = outlineSelection();
+        return selection == null ? null : selection.entity();
+    }
+
+    /** Exposes the same memoized camera ray used by candidate priority and outline drawing. */
+    public static BodyHandRaySnapshot.Snapshot outlineRaySnapshot() {
+        Mob body = currentBody();
+        var snapshot = outlinePileSnapshot(body);
+        return snapshot == null ? null : snapshot.ray();
+    }
+
+    /** Immutable nomination and geometry captured once for this renderer frame. */
+    public static OutlineSelection outlineSelection() {
+        Mob body = currentBody();
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        boolean dumpPriority = dumpOutlinePriority(body, mc);
+        if (body == null || body != cameraBody || body.level() != mc.level || cameraEpoch == 0
+                || cameraEpoch != GhostControlClient.committedCharacterEpoch()
+                || (!dumpPriority && (mc.screen != null || !mc.mouseHandler.isMouseGrabbed()))) return null;
+        return selectOutline(outlinePileSnapshot(body), body);
+    }
+
+    /** Read-only diagnostic aimed-item lookup; deliberately usable while chat is open. */
+    public static com.juicyslew.moonstation14.entities.LooseItemEntity diagnosticAimedLooseItem() {
+        Mob body=currentBody();
+        var snapshot=buildOutlineCandidates(body,false);
+        if (snapshot==null || snapshot.ray()==null || snapshot.candidates().isEmpty()) return null;
+        var looseCandidates=snapshot.candidates().stream()
+                .filter(candidate -> candidate.selection().entity() instanceof com.juicyslew.moonstation14.entities.LooseItemEntity)
+                .toList();
+        if (looseCandidates.isEmpty()) return null;
+        var ids=looseCandidates.stream().map(candidate -> candidate.selection().entity().getUUID()).toList();
+        int selected=PILE.index(ids);
+        int index=selected>=0&&selected<looseCandidates.size()?selected:0;
+        var entity=looseCandidates.get(index).selection().entity();
+        return entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose?loose:null;
+    }
+
+    public static boolean outlineItemPrecedesBlock(OutlineSelection selection, Vec3 blockPoint) {
+        if (selection == null || blockPoint == null) return false;
+        BodyHandRaySnapshot.Snapshot ray = selection.ray();
+        if (selection.geometry() != null)
+            return outlineGeometryPrecedesBlock(selection.geometry(), ray, blockPoint);
+        return selection.ordinaryRenderBounds() != null && OutlinePriority.itemPrecedesBlock(
+                selection.ordinaryRenderBounds(), ray.from(), ray.to(), blockPoint);
+    }
+
+    static boolean outlineGeometryPrecedesBlock(com.juicyslew.moonstation14.ms14.loose_objects.LooseItemQueryGeometry geometry,
+                                                 BodyHandRaySnapshot.Snapshot ray, Vec3 blockPoint) {
+        if (geometry == null || ray == null) return false;
+        if (blockPoint == null) return true;
+        double near = geometry.minimumProjection(ray.from(), ray.direction());
+        return Double.isFinite(near) && near < ray.from().distanceTo(blockPoint);
     }
 
     private static void onSnapshot(BodyHandStateSnapshot snapshot) {

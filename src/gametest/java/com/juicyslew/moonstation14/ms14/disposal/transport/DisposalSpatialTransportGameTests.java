@@ -104,7 +104,10 @@ public final class DisposalSpatialTransportGameTests {
         holder.readAdditionalSaveData(saved);
 
         helper.runAfterDelay(1, () -> {
-            require(holder.isRemoved(), "loaded identity mismatch exits rather than freezing on a missing record");
+            require(holder.isRemoved(), "loaded identity mismatch exits rather than freezing on a missing record: holder="
+                    + holder + ", removed=" + holder.isRemoved() + ", tube=" + tube + ", record="
+                    + DisposalTubeWorldData.forMutation(level).lookup(level, tube).record() + ", currentPos="
+                    + holder.currentPos() + ", tick=" + level.getGameTime());
             require(level.getEntity(body.getUUID()) == body, "same body remains loaded");
             require(containment.ownerOf(body).isEmpty(), "body safely returned to world ownership");
             require(body.isInvisible() && body.noPhysics && body.isNoGravity(), "all original body flags restored exactly");
@@ -132,11 +135,17 @@ public final class DisposalSpatialTransportGameTests {
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                 require(holder.currentPos().equals(bend), "holder reached vertical bend in two ticks");
                 require(atBlockCenter(holder, vertical), "holder arrived at vertical segment block center");
-                require(Math.abs(body.getEyeY() - holder.position().y) < .15, "contained camera eye tracks vertical bore center");
+                require(Math.abs(body.getEyeY() - holder.position().y) < .15, "contained camera eye tracks vertical bore center: eye="
+                        + body.getEyeY() + ", holder=" + holder.position() + ", body=" + body.position()
+                        + ", currentCell=" + holder.currentPos() + ", tick=" + level.getGameTime()
+                        + ", owner=" + com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level).ownerOf(body));
                 com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 2, () -> {
                     require(holder.currentPos().equals(outlet), "holder naturally traverses bend to outlet");
                     require(atBlockCenter(holder, bend), "holder arrived at bend block center");
-                    require(Math.abs(body.getEyeY() - holder.position().y) < .15, "contained camera eye tracks bend bore center");
+                     require(Math.abs(body.getEyeY() - holder.position().y) < .15, "contained camera eye tracks bend bore center: eye="
+                             + body.getEyeY() + ", holder=" + holder.position() + ", body=" + body.position()
+                             + ", currentCell=" + holder.currentPos() + ", tick=" + level.getGameTime()
+                             + ", owner=" + com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level).ownerOf(body));
                     com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5, () -> {
                         require(holder.isRemoved(), "open outlet released holder");
                         require(level.getEntity(body.getUUID()) == body, "same body entity retained");

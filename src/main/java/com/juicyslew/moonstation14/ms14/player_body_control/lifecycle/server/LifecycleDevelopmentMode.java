@@ -44,6 +44,7 @@ public final class LifecycleDevelopmentMode {
     private static final Map<MinecraftServer, ServerPlayer> RETURNING_GHOSTS = new IdentityHashMap<>();
     private static final Map<MinecraftServer, ServerPlayer> RETURNING_BODIES = new IdentityHashMap<>();
     private static final Map<MinecraftServer, ServerPlayer> RECOVERING_CREATIVE = new IdentityHashMap<>();
+    private static final Map<MinecraftServer, ServerPlayer> WAITING_SPECTATOR_SWITCH = new IdentityHashMap<>();
     private record ParkedGhost(ServerPlayer player, SavedLifecycleProfile saved) { }
     private record ParkedBody(ServerPlayer player, SavedLifecycleProfile active, SavedLifecycleProfile offline,
                                SavedLifecycleProfile retryDeath) { }
@@ -54,6 +55,10 @@ public final class LifecycleDevelopmentMode {
 
     @SubscribeEvent
     public static void registerCommands(RegisterCommandsEvent event) {
+        event.getDispatcher().register(Commands.literal("ms14_return")
+                .executes(context -> retrySavedReconnect(context.getSource().getPlayerOrException())));
+        event.getDispatcher().register(Commands.literal("ms14").then(Commands.literal("return")
+                .executes(context -> retrySavedReconnect(context.getSource().getPlayerOrException()))));
         event.getDispatcher().register(Commands.literal("ms14dev").requires(source -> source.hasPermission(2))
                 .then(Commands.literal("creative").executes(context -> enterCreative(
                         context.getSource().getPlayerOrException())))
@@ -68,6 +73,11 @@ public final class LifecycleDevelopmentMode {
                 || level.getServer() == null || !level.getServer().isSameThread()) return;
 
         GameType requested = event.getNewGameMode();
+        if (requested == GameType.SPECTATOR
+                && exactTransitionOwner(WAITING_SPECTATOR_SWITCH.get(level.getServer()), player)
+                && LifecycleExistingBodyReconnect.isWaiting(level.getServer(), player)
+                && !LifecycleCharacterSessionControl.ownsAny(player)
+                && !LifecycleGhostSessionControl.ownsAny(player)) return;
         if (LifecycleGhostSessionControl.ownsAny(player)) {
             if (rejectRawGhostModeChange(true, requested)
                     && !(requested == GameType.CREATIVE
@@ -338,6 +348,17 @@ public final class LifecycleDevelopmentMode {
         else if (result == LifecycleExistingBodyReconnect.ReturnResult.BLOCKED
                 && player.connection != null && player.connection.isAcceptingMessages())
             player.sendSystemMessage(Component.literal("The exact saved character body could not be proven safe. You remain in Creative; inspect recovery or reconnect."));
+        return 1;
+    }
+
+    private static int retrySavedReconnect(ServerPlayer player) {
+        if (player == null || !(player.level() instanceof ServerLevel level) || level.getServer() == null) return 0;
+        MinecraftServer server = level.getServer();
+        if (!LifecycleExistingBodyReconnect.isWaiting(server, player)) {
+            player.sendSystemMessage(Component.literal("No deferred saved-character reconnect is waiting."));
+            return 0;
+        }
+        LifecycleExistingBodyReconnect.retryWaiting(player, server);
         return 1;
     }
 
@@ -1012,6 +1033,62 @@ public final class LifecycleDevelopmentMode {
         }
     }
 
+    /** Restore only the original authenticated Creative carrier for a read-only park-denial repair. */
+    static boolean enterWaitingCreativeForRepair(ServerPlayer player, MinecraftServer server,
+                                                  SavedLifecycleProfile expected) {
+        if (server == null || player == null || expected == null || expected.state() != SavedLifecycleProfile.State.OFFLINE
+                || !server.isSameThread() || !LifecycleExistingBodyReconnect.isWaiting(server, player)
+                || !LifecycleExistingBodyReconnect.waitingCreativeRepairEvidence(server, player, expected)
+                || player.getServer() != server || server.getPlayerList().getPlayer(player.getUUID()) != player
+                || player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR
+                || player.hasData(ModDataAttachments.CREATIVE_PARKED_INVENTORY.get())
+                || LifecycleCharacterSessionControl.ownsAny(player) || LifecycleGhostSessionControl.ownsAny(player)
+                || com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl.ownsDebugSession(player))
+            return false;
+        var context = LifecycleStartupRuntime.contextFor(server).orElse(null);
+        if (context == null) return false;
+        try {
+            return context.primaryStore().withCurrentPrimary(lease -> {
+                if (lease.envelope().profiles().stream().filter(expected::equals).count() != 1) return false;
+                var memory = context.lifecycle().profile(player.getUUID()).orElse(null);
+                if (memory != null && (memory.active()
+                        || memory.state() != PlayerLifecycleRegistry.LifecycleState.OFFLINE
+                        || !memory.mindId().value().equals(expected.mindId())
+                        || !memory.bodyId().value().equals(expected.bodyId()))) return false;
+                boolean committed = false;
+                try {
+                    if (!player.setGameMode(GameType.CREATIVE)
+                            || player.gameMode.getGameModeForPlayer() != GameType.CREATIVE) return false;
+                    syncCarrier(player);
+                    committed = lease.readCurrentPrimary().profiles().stream().filter(expected::equals).count() == 1
+                            && server.getPlayerList().getPlayer(player.getUUID()) == player
+                            && player.gameMode.getGameModeForPlayer() == GameType.CREATIVE;
+                    return committed;
+                } finally {
+                    if (!committed && player.connection != null && player.connection.isAcceptingMessages()
+                            && player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) {
+                        try { player.setGameMode(GameType.SPECTATOR); }
+                        catch (RuntimeException | Error ignored) { }
+                    }
+                }
+            }).orElse(false);
+        } catch (IOException | RuntimeException | Error failure) { return false; }
+    }
+
+    static boolean switchWaitingSpectator(ServerPlayer player, MinecraftServer server) {
+        if (server == null || player == null || !server.isSameThread()
+                || !LifecycleExistingBodyReconnect.isWaiting(server, player)
+                || server.getPlayerList().getPlayer(player.getUUID()) != player
+                || player.connection == null || !player.connection.isAcceptingMessages()
+                || LifecycleCharacterSessionControl.ownsAny(player) || LifecycleGhostSessionControl.ownsAny(player)
+                || WAITING_SPECTATOR_SWITCH.putIfAbsent(server, player) != null) return false;
+        try {
+            return player.setGameMode(GameType.SPECTATOR)
+                    && player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR;
+        } catch (RuntimeException | Error failure) { return false; }
+        finally { WAITING_SPECTATOR_SWITCH.remove(server, player); }
+    }
+
     static boolean isTracked(MinecraftServer server, ServerPlayer player) {
         if (server == null || player == null) return false;
         Map<UUID, OfflineCreative> entries = OFFLINE_CREATIVE.get(server);
@@ -1116,6 +1193,7 @@ public final class LifecycleDevelopmentMode {
         RETURNING_GHOSTS.remove(event.getServer());
         RETURNING_BODIES.remove(event.getServer());
         RECOVERING_CREATIVE.remove(event.getServer());
+        WAITING_SPECTATOR_SWITCH.remove(event.getServer());
     }
 
     private static boolean isDetached(ServerPlayer player) {

@@ -40,8 +40,9 @@ public final class AirlockToolInteraction {
     private static boolean startPanel(ServerPlayer actor,BodyBlockUseRequest req,BodyHandRequestService.BlockUseAdmission admission,ItemStack held,ServerLevel level,BlockPos pos,AirlockBlockEntity door,double seconds,ToolProfile.Quality openingQuality) {
         var authority=admission.authority();LiveHands hands=admission.hands();UUID identity=door.identity();long revision=door.state().revision();boolean panel=door.panelOpen();
         String hand=req.handId(),token=req.expectedToken();long handRevision=req.expectedRevision();BlockPos exact=pos.immutable();
+        UUID frameId=admission.hit().frameId();
         int ticks=panelDurationTicks(seconds);
-        java.util.function.BooleanSupplier valid=()->valid(actor,authority,hands,hand,token,handRevision,held,level,exact,identity,revision,panel,openingQuality);
+        java.util.function.BooleanSupplier valid=()->valid(actor,authority,hands,hand,token,handRevision,held,level,exact,identity,revision,panel,openingQuality,frameId);
         TimedInteractionSystem.start(authority.body(),actor,req.sequence(),KIND,identity.toString(),ticks,true,true,valid::getAsBoolean,()->{
             if(!valid.getAsBoolean()||!(level.getBlockEntity(exact) instanceof AirlockBlockEntity current))return TimedInteractionSystem.Completion.STOP;
             return current.togglePanel(identity,revision,panel)?TimedInteractionSystem.Completion.STOP:TimedInteractionSystem.Completion.DENIED;
@@ -50,7 +51,7 @@ public final class AirlockToolInteraction {
     }
     public static int panelDurationTicks(double resolvedSeconds){if(!Double.isFinite(resolvedSeconds)||resolvedSeconds<=0)throw new IllegalArgumentException("invalid resolved panel delay");return (int)Math.max(1,Math.ceil(resolvedSeconds*20));}
 
-    private static boolean valid(ServerPlayer actor,HandActorAuthority.Snapshot authority,LiveHands hands,String hand,String token,long handRevision,ItemStack held,ServerLevel level,BlockPos pos,UUID identity,long revision,boolean panel,ToolProfile.Quality openingQuality) {
+    private static boolean valid(ServerPlayer actor,HandActorAuthority.Snapshot authority,LiveHands hands,String hand,String token,long handRevision,ItemStack held,ServerLevel level,BlockPos pos,UUID identity,long revision,boolean panel,ToolProfile.Quality openingQuality,UUID frameId) {
         if(!HandActorAuthority.revalidate(actor,authority)||authority.body().level()!=level
                 ||authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())!=hands||!hands.compatible(authority.body())
                 ||hands.revision()!=handRevision||!hands.token(hand).filter(token::equals).isPresent()
@@ -58,6 +59,8 @@ public final class AirlockToolInteraction {
                 ||!ToolQualities.has(held,openingQuality)||!level.hasChunkAt(pos))return false;
         if(!(level.getBlockEntity(pos) instanceof AirlockBlockEntity door)||!door.identity().equals(identity)
                 ||door.state().revision()!=revision||door.panelOpen()!=panel||door.prototype()==null)return false;
-        return AirlockToolLineOfSight.canReachRoot(authority.body(),level,pos,door,identity);
+        var point=com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentTargetPoint(level,pos);
+        return point!=null&&java.util.Objects.equals(point.frameId(),frameId)
+                &&AirlockToolLineOfSight.canReachRoot(authority.body(),level,pos,door,identity);
     }
 }

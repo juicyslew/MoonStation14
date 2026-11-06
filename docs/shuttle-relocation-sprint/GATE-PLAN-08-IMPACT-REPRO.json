@@ -1,0 +1,32 @@
+{
+  "title": "Feedback-08: production-cabin 20/40/80 m/s hull-terrain impact reproduction",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/shuttle/sable/HullTerrainImpactGameTests.java",
+  "acceptance_criteria": [
+    "The test-only impact probes and actual transformed-shape/SAT geometry oracle compile and pass focused math checks without changing gameplay physics, the accepted wall fix, native dependencies or owner configuration.",
+    "The registered 20, 40 and 80 m/s probes use the normal production cabin, bounded loaded terrain and one native velocity nudge, then observe genuine ascent, descent, impact and settling without imposed orientation, recovery teleports or altered gravity.",
+    "Actual rotated hull collision shapes and loaded terrain distinguish overlap, deep penetration and slab escape from empty-space AABB overlap; report setup versus physical-trajectory failures, actual selected/discovered and pass/failure counts, aggregate completion and clean save/shutdown.",
+    "Retain the first physical failure irreversibly and collect bounded post-failure diagnostics; later recovery must not turn a failed probe into a pass. Report native-only observations explicitly when terrain evidence is unavailable."
+  ],
+  "manual_steps": [
+    "This is a reproduction gate, not a hull-collision fix or M1 acceptance. No additional owner test is needed at this stage.",
+    "The owner already observed partial burial after upward 40 and 80 m/s nudges without disconnecting. Preserve that report separately from the lower-speed cargo/reconnect failure.",
+    "No client launch, GUI automation, packaging, installation or owner-world/configuration changes."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "compileJava", "compileGameTestJava", "compileTestJava", "test", "--tests", "*HullTerrainGeometryTest", "--tests", "*HullImpactTraceStateTest", "--rerun-tasks"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-impact-r3-math.log",
+      "rationale": "Fresh compilation and focused tests of the geometry, shared support-surface helpers and immutable failure/diagnostic-window state used by the native probe. R2 reproduced excess penetration at 40/80 m/s but stopped before recovery or complete escape could be distinguished. R3 retains every existing failure criterion while observing a bounded remainder. No gameplay physics, terrain layout or tolerances change; no package task or full suite.",
+      "covers": ["The test-only impact probes and actual transformed-shape/SAT geometry oracle compile and pass focused math checks without changing gameplay physics, the accepted wall fix, native dependencies or owner configuration.", "Retain the first physical failure irreversibly and collect bounded post-failure diagnostics; later recovery must not turn a failed probe into a pass. Report native-only observations explicitly when terrain evidence is unavailable."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestTags=shuttle-hull-impact-reproduction", "-Pms14GameTestDir=build/gametest-shuttle-feedback-08-impact-repro-r3"],
+      "log": "build/agent-workflow/shuttle-relocation-sprint/reports/feedback08-impact-r3-native.log",
+      "rationale": "One focused native invocation only, using this fresh directory once. Expected three probes among 881 registered fixtures; record actual counts. R2 physically failed 40/80, so R3 may remain red: do not call diagnostic completion a physics repair or technical readiness. Retain the original failure plus bounded post-impact recovery/escape observations and identify setup versus impact/settling failure. A pass means no reproduction in this scene, not resolution of the owner's hull issue. Loaded-world readiness and observed initial support do not prove every native collider upload. No client, changed physics settings, saved-world rerun or broader suites under this reproduction-only plan.",
+      "covers": ["The registered 20, 40 and 80 m/s probes use the normal production cabin, bounded loaded terrain and one native velocity nudge, then observe genuine ascent, descent, impact and settling without imposed orientation, recovery teleports or altered gravity.", "Actual rotated hull collision shapes and loaded terrain distinguish overlap, deep penetration and slab escape from empty-space AABB overlap; report setup versus physical-trajectory failures, actual selected/discovered and pass/failure counts, aggregate completion and clean save/shutdown.", "Retain the first physical failure irreversibly and collect bounded post-failure diagnostics; later recovery must not turn a failed probe into a pass. Report native-only observations explicitly when terrain evidence is unavailable."]
+    }
+  ]
+}

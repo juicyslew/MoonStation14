@@ -59,7 +59,7 @@ public final class ApcMenuService {
                 || !HandActorAuthority.revalidate(actor, authority)) return false;
         UUID session = UUID.randomUUID();
         actor.openMenu(new SimpleMenuProvider((id, inventory, owner) -> new ApcMenu(id, inventory, pos,
-                session, level, device, authority, request), Component.translatable("container.moonstation14.apc")),
+                session, level, device, authority, request, target.frameId()), Component.translatable("container.moonstation14.apc")),
                 buf -> { buf.writeBlockPos(pos); buf.writeUUID(session); });
         return actor.containerMenu instanceof ApcMenu menu && menu.session().equals(session)
                 && menu.boundDevice() == device && menu.bodyAuthority() == authority;
@@ -77,9 +77,13 @@ public final class ApcMenuService {
                 || chunk.getBlockEntity(pos) != menu.boundDevice()
                 || !(chunk.getBlockState(pos).getBlock() instanceof com.juicyslew.moonstation14.block.custom.PowerDeviceBlock block)
                 || block.kind() != com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind.APC) return false;
-        var request = menu.bodyRequest();
-        var fresh = BodyBlockUseTargetProbe.probe(level, menu.bodyAuthority().body(), request.target(), request.face());
-        return fresh != null && fresh.pos().equals(pos)
+        var point = com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentTargetPoint(level, pos);
+        var body = menu.bodyAuthority().body();
+        if (point == null || !java.util.Objects.equals(point.frameId(), menu.expectedFrameId())) return false;
+        double rootDistanceSquared = body.distanceToSqr(point.worldPoint().x, point.worldPoint().y, point.worldPoint().z);
+        return com.juicyslew.moonstation14.ms14.power.device.PowerDeviceRules.canToggle(
+                        true, true, rootDistanceSquared)
+                && BodyBlockUseTargetProbe.lineOfSight(level, body, pos)
                 && HandActorAuthority.revalidateInMenu(actor, menu.bodyAuthority(), menu);
     }
 
@@ -94,10 +98,12 @@ public final class ApcMenuService {
         // controlled body's current position. Use that same authenticated body as the
         // reach actor; ordinary vanilla menus retain player/carrier reach semantics.
         var body = menu.bodyAuthority() == null ? null : menu.bodyAuthority().body();
+        var currentPoint = body == null ? null : com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
+                .currentTargetPoint(menu.serverLevel(), menu.devicePos());
         double carrierDistance = player.distanceToSqr(menu.devicePos().getX() + .5,
                 menu.devicePos().getY() + .5, menu.devicePos().getZ() + .5);
-        double bodyDistance = body == null ? Double.NaN : body.distanceToSqr(menu.devicePos().getX() + .5,
-                menu.devicePos().getY() + .5, menu.devicePos().getZ() + .5);
+        double bodyDistance = body == null || currentPoint == null ? Double.NaN
+                : body.distanceToSqr(currentPoint.worldPoint().x, currentPoint.worldPoint().y, currentPoint.worldPoint().z);
         InteractionActorContext actorContext = selectInteractionActor(menu.bodyAuthority() != null,
                 menu.bodyAuthority() == null || validBodyContext(player, menu),
                 body == null || com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(body),

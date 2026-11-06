@@ -1,6 +1,8 @@
 package com.juicyslew.moonstation14.ms14.hands.network;
 
 import com.juicyslew.moonstation14.ms14.atmos.piping.PipeGasTransaction;
+import com.juicyslew.moonstation14.ms14.hands.live.LoadedBlockGetter;
+import com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -24,8 +26,9 @@ public final class BodyBlockUseTargetProbe {
     private static final int MAX_CHUNKS = 16;
     private BodyBlockUseTargetProbe() { }
 
-    public record Target(BlockPos pos, Direction face, Vec3 location) {
+    public record Target(BlockPos pos, Direction face, Vec3 location, java.util.UUID frameId, Vec3 worldLocation) {
         public Target { pos = pos.immutable(); }
+        public Target(BlockPos pos, Direction face, Vec3 location) { this(pos, face, location, null, location); }
     }
 
     @Nullable
@@ -52,20 +55,11 @@ public final class BodyBlockUseTargetProbe {
         if (!finite(from) || !finite(look) || look.lengthSqr() < .99 || look.lengthSqr() > 1.01) return null;
         Vec3 to = from.add(look.scale(MAX_REACH));
         if (!finite(to) || from.equals(to) || !inside(level, from) || !inside(level, to)
-                || !level.getWorldBorder().isWithinBounds(nominated) || level.isOutsideBuildHeight(nominated)) return null;
-
-        int fromX = BlockPos.containing(from).getX(), toX = BlockPos.containing(to).getX();
-        int fromZ = BlockPos.containing(from).getZ(), toZ = BlockPos.containing(to).getZ();
-        int minX = (Math.min(fromX, toX) >> 4) - 1, maxX = (Math.max(fromX, toX) >> 4) + 1;
-        int minZ = (Math.min(fromZ, toZ) >> 4) - 1, maxZ = (Math.max(fromZ, toZ) >> 4) + 1;
-        if ((long) (maxX - minX + 1) * (maxZ - minZ + 1) > MAX_CHUNKS) return null;
-        for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++)
-            if (level.getChunkSource().getChunkNow(x, z) == null) return null;
+                || level.isOutsideBuildHeight(nominated)) return null;
 
         try {
-            LoadedGetter getter = new LoadedGetter(level, minX, maxX, minZ, maxZ);
-            BlockHitResult hit = getter.clip(new ClipContext(
-                    from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, body) {
+            var result = LoadedFrameRayQuery.clip(level, from, to, MAX_CHUNKS, .125, 1, (getter,rayFrom,rayTo) -> new ClipContext(
+                    rayFrom, rayTo, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, body) {
                 @Override public net.minecraft.world.phys.shapes.VoxelShape getBlockShape(
                         BlockState state, BlockGetter ignored, BlockPos pos) {
                     // Keep state/fluid reads bounded, but preserve the real level context for
@@ -73,12 +67,19 @@ public final class BodyBlockUseTargetProbe {
                     return super.getBlockShape(state, level, pos);
                 }
             });
-            return hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(nominated)
+            if (result.state() == LoadedFrameRayQuery.State.UNKNOWN) return null;
+            var frame = result.frameHit();
+            if (frame != null && frame.storagePos().equals(nominated) && frame.localFace() == nominatedFace
+                    && LoadedFrameRayQuery.revalidate(level, frame)
+                    && from.distanceToSqr(frame.worldPoint()) <= MAX_REACH * MAX_REACH)
+                return new Target(nominated, nominatedFace, frame.worldPoint(), frame.frameId(), frame.worldPoint());
+            BlockHitResult hit = result.worldHit();
+            return hit != null && hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(nominated)
                     && hit.getDirection() == nominatedFace && finite(hit.getLocation())
                     && level.getWorldBorder().isWithinBounds(hit.getLocation())
                     && from.distanceToSqr(hit.getLocation()) <= MAX_REACH * MAX_REACH
                     ? new Target(nominated, hit.getDirection(), hit.getLocation()) : null;
-        } catch (MissingChunk ignored) {
+        } catch (com.juicyslew.moonstation14.ms14.hands.live.LoadedBlockGetter.UnknownChunk ignored) {
             return null;
         } catch (PipeGasTransaction.RecoveryRequiredException recoveryRequired) {
             throw recoveryRequired;
@@ -89,36 +90,45 @@ public final class BodyBlockUseTargetProbe {
 
     /** Bounded distance/loading check for block positions already admitted by the body-eye caller. */
     public static boolean withinReach(ServerLevel level, LivingEntity body, BlockPos pos) {
+        return withinReach(level, body, pos, LoadedFrameRayQuery.currentTargetPoint(level, pos));
+    }
+
+    private static boolean withinReach(ServerLevel level, LivingEntity body, BlockPos pos,
+                                       LoadedFrameRayQuery.TargetPoint point) {
         if (level == null || body == null || pos == null || body.level() != level || !level.getServer().isSameThread()
-                || !level.getWorldBorder().isWithinBounds(pos) || level.isOutsideBuildHeight(pos)) return false;
-        var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
-        return chunk != null && chunk.getFullStatus().isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL)
-                && body.getEyePosition().distanceToSqr(Vec3.atCenterOf(pos)) <= MAX_REACH * MAX_REACH;
+                || level.isOutsideBuildHeight(pos) || point == null
+                || !level.getWorldBorder().isWithinBounds(point.worldPoint())) return false;
+        return point != null && body.getEyePosition().distanceToSqr(point.worldPoint()) <= MAX_REACH * MAX_REACH;
     }
 
     /** UI continuation admission: range and visible loaded identity, without requiring current aim. */
     public static boolean lineOfSight(ServerLevel level, LivingEntity body, BlockPos pos) {
-        if (!withinReach(level, body, pos)) return false;
-        var from = body.getEyePosition(); var to = Vec3.atCenterOf(pos);
+        var target = LoadedFrameRayQuery.currentTargetPoint(level, pos);
+        if (!withinReach(level, body, pos, target)) return false;
+        var from = body.getEyePosition(); var to = target.worldPoint();
         if (!finite(from) || !finite(to)) return false;
-        int minX = (Math.min(BlockPos.containing(from).getX(), pos.getX()) >> 4) - 1;
-        int maxX = (Math.max(BlockPos.containing(from).getX(), pos.getX()) >> 4) + 1;
-        int minZ = (Math.min(BlockPos.containing(from).getZ(), pos.getZ()) >> 4) - 1;
-        int maxZ = (Math.max(BlockPos.containing(from).getZ(), pos.getZ()) >> 4) + 1;
-        if ((long) (maxX - minX + 1) * (maxZ - minZ + 1) > MAX_CHUNKS) return false;
-        for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++)
-            if (level.getChunkSource().getChunkNow(x, z) == null) return false;
         try {
-            var getter = new LoadedGetter(level, minX, maxX, minZ, maxZ);
-            var hit = getter.clip(new ClipContext(from, to, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, body) {
+            var result = LoadedFrameRayQuery.clip(level,from,to,MAX_CHUNKS,.125,1,(getter,rayFrom,rayTo) -> new ClipContext(rayFrom,rayTo,ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,body) {
                 @Override public net.minecraft.world.phys.shapes.VoxelShape getBlockShape(
                         BlockState state, BlockGetter ignored, BlockPos blockPos) {
                     return super.getBlockShape(state, level, blockPos);
                 }
             });
-            return hit.getType() == HitResult.Type.MISS
-                    || hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(pos);
-        } catch (MissingChunk ignored) {
+            if (result.state() == LoadedFrameRayQuery.State.UNKNOWN) return false;
+            var frame = result.frameHit();
+            if(frame!=null&&frame.storagePos().equals(pos)&&LoadedFrameRayQuery.revalidate(level,frame)
+                    && java.util.Objects.equals(target.frameId(),frame.frameId()))return true;
+            // A thin frame-mounted outline may end before the block-center endpoint. A bounded known MISS
+            // still proves an unobstructed path to this exact currently loaded frame identity; any nearer
+            // terrain/frame hit and every UNKNOWN read remain a denial.
+            var currentTarget = LoadedFrameRayQuery.currentTargetPoint(level, pos);
+            if (target.frameId() != null && result.state() == LoadedFrameRayQuery.State.MISS
+                    && currentTarget != null && currentTarget.worldPoint().equals(target.worldPoint())
+                    && java.util.Objects.equals(target.frameId(), currentTarget.frameId())) return true;
+            BlockHitResult hit = result.worldHit();
+            return target.frameId() == null && hit != null && (hit.getType() == HitResult.Type.MISS
+                    || hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(pos));
+        } catch (com.juicyslew.moonstation14.ms14.hands.live.LoadedBlockGetter.UnknownChunk ignored) {
             return false;
         } catch (RuntimeException deniedRead) {
             return false;
@@ -131,27 +141,5 @@ public final class BodyBlockUseTargetProbe {
     }
     private static boolean inside(ServerLevel level, Vec3 v) {
         return !level.isOutsideBuildHeight(BlockPos.containing(v)) && level.getWorldBorder().isWithinBounds(v);
-    }
-    private static final class MissingChunk extends RuntimeException { }
-
-    /** FULL-chunk-only reads. Block shape callbacks may independently access the Level and load chunks. */
-    private static final class LoadedGetter implements BlockGetter {
-        private final ServerLevel level;
-        private final int minX, maxX, minZ, maxZ;
-        private LoadedGetter(ServerLevel level, int minX, int maxX, int minZ, int maxZ) {
-            this.level = level; this.minX = minX; this.maxX = maxX; this.minZ = minZ; this.maxZ = maxZ;
-        }
-        private LevelChunk chunk(BlockPos pos) {
-            int x = pos.getX() >> 4, z = pos.getZ() >> 4;
-            if (x < minX || x > maxX || z < minZ || z > maxZ || level.isOutsideBuildHeight(pos)) throw new MissingChunk();
-            LevelChunk chunk = level.getChunkSource().getChunkNow(x, z);
-            if (chunk == null) throw new MissingChunk();
-            return chunk;
-        }
-        @Override public BlockState getBlockState(BlockPos pos) { return chunk(pos).getBlockState(pos); }
-        @Override public FluidState getFluidState(BlockPos pos) { return chunk(pos).getFluidState(pos); }
-        @Nullable @Override public BlockEntity getBlockEntity(BlockPos pos) { return chunk(pos).getBlockEntities().get(pos); }
-        @Override public int getHeight() { return level.getHeight(); }
-        @Override public int getMinBuildHeight() { return level.getMinBuildHeight(); }
     }
 }
