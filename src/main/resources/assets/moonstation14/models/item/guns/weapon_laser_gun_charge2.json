@@ -1,0 +1,136 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/item/guns/weapon_laser_gun_charge2.obj",
+  "textures": {
+    "atlas": "moonstation14:item/guns/weapon_laser_gun_charge2",
+    "particle": "moonstation14:item/guns/weapon_laser_gun_charge2"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "emissive_ambient": false,
+  "ambientocclusion": false,
+  "render_type": "minecraft:solid",
+  "gui_light": "front",
+  "display": {
+    "gui": {
+      "rotation": [
+        -90,
+        55,
+        180
+      ],
+      "translation": [
+        -3.59991739420543e-16,
+        3.2103154317325953e-16,
+        3.153398058252427
+      ],
+      "scale": [
+        0.5436893203883495,
+        0.5436893203883495,
+        0.5436893203883495
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        -90,
+        90,
+        180
+      ],
+      "translation": [
+        -7.068565516613169e-32,
+        7.992367816027951e-16,
+        5.8
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        2.6645352591003756e-16,
+        3.48,
+        0.0
+      ],
+      "scale": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        180,
+        0,
+        -90
+      ],
+      "translation": [
+        4.640000000000001,
+        -0.7209611174826693,
+        -5.740000000000001
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -35,
+        90
+      ],
+      "translation": [
+        -7.093194230155928,
+        -0.720961117482668,
+        2.0405380695499598
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        180,
+        0,
+        90
+      ],
+      "translation": [
+        -4.640000000000001,
+        -0.7209611174826693,
+        -5.740000000000001
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        35,
+        -90
+      ],
+      "translation": [
+        7.093194230155928,
+        -0.720961117482668,
+        2.0405380695499598
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    }
+  }
+}

@@ -299,6 +299,36 @@ public final class BodyMachineItemSlotTransfer {
         });
     }
 
+    /** Lifecycle/block-break drain for a block entity owner, preserving the slot claim until staged output is added. */
+    public static Result ejectToWorldOwnedAt(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos position,
+            java.util.UUID ownerIdentity, MachineItemSlot slot, long expectedSlotRevision, long expectedLedgerRevision,
+            ItemLocationLedger ledger, BooleanSupplier ownerValid) {
+        if (level == null || position == null || ownerIdentity == null || slot == null || ledger == null || ownerValid == null
+                || !level.getServer().isSameThread() || !ownerIdentity.equals(slot.snapshot().owner()) || !ownerValid.getAsBoolean()) return Result.DENIED;
+        var snapshot = slot.snapshot();
+        if (snapshot.revision() != expectedSlotRevision || snapshot.token() == null || snapshot.stack().isEmpty()) return Result.DENIED;
+        var staged = com.juicyslew.moonstation14.entities.LooseItemEntity.create(level,
+                net.minecraft.world.phys.Vec3.atCenterOf(position).add(0, .5, 0), snapshot.stack());
+        if (staged == null || !net.minecraft.world.item.ItemStack.isSameItemSameComponents(snapshot.stack(), staged.getItem())
+                || !ownerValid.getAsBoolean()) return Result.DENIED;
+        var destination = new ItemLocation.WorldEntity(
+                com.juicyslew.moonstation14.ms14.disposal.item.DisposalWorldPayloadStage.worldIdentity(level), staged.getUUID());
+        var payload = slot.eject(expectedSlotRevision, expectedLedgerRevision, destination);
+        if (payload.isEmpty()) return Result.DENIED;
+        boolean added;
+        try { added = level.addFreshEntity(staged); } catch (RuntimeException failure) { added = false; }
+        if (!added || level.getEntity(staged.getUUID()) != staged || staged.isRemoved() || !staged.isAddedToLevel()
+                || !net.minecraft.world.item.ItemStack.isSameItemSameComponents(snapshot.stack(), staged.getItem())) {
+            if (!staged.isAddedToLevel() && !staged.isRemoved() && level.getEntity(staged.getUUID()) == null) {
+                boolean restored = slot.insert(slot.snapshot().revision(), ledger.snapshot().revision(), payload.orElseThrow().token(), destination, payload.orElseThrow().stack());
+                return restored ? Result.DENIED : Result.RECOVERY_REQUIRED;
+            }
+            return Result.RECOVERY_REQUIRED;
+        }
+        return ledger.consume(ledger.snapshot().revision(), payload.orElseThrow().token(), destination).accepted()
+                ? Result.SUCCESS : Result.RECOVERY_REQUIRED;
+    }
+
     private static Result ejectWorldCore(Entity body, MachineItemSlot slot,
             long expectedSlotRevision, long expectedLedgerRevision, ItemLocationLedger ledger,
             BooleanSupplier context) {
@@ -357,4 +387,3 @@ public final class BodyMachineItemSlotTransfer {
                 oldSlotStack, hand);
     }
 }
-

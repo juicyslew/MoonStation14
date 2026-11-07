@@ -26,6 +26,7 @@ import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.WieldState;
 import com.juicyslew.moonstation14.ms14.hands.live.PortableBodyContainmentRelation;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
 import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment;
@@ -177,6 +178,12 @@ public class ModDataAttachments {
             "live_hands", () -> AttachmentType.builder((Supplier<LiveHands>) () -> {
                         throw new IllegalStateException("Live hands require explicit prototype initialization");
                     }).serialize(LiveHands.CODEC).build());
+
+    /** Transient exact wield lease; the physical support-hand reservation remains in LIVE_HANDS. */
+    public static final Supplier<AttachmentType<WieldState>> WIELD_STATE = ATTACHMENT_TYPES.register(
+            "wield_state", () -> AttachmentType.builder((Supplier<WieldState>) () -> {
+                        throw new IllegalStateException("Wield state requires an exact acquired hand lease");
+                    }).build());
 
     /** Server-only account park, saved alongside vanilla player Inventory; never on a body. */
     public static final Supplier<AttachmentType<CreativeParkedInventory>> CREATIVE_PARKED_INVENTORY = ATTACHMENT_TYPES.register(

@@ -276,7 +276,24 @@ public final class BodyItemTargetProbe {
                 || level.getEntity(body.getUUID()) != body || !Double.isFinite(reach)
                 || reach <= 0 || reach > MAX_THROW_REACH || !finite(direction)
                 || direction.lengthSqr() < .99 || direction.lengthSqr() > 1.01) return null;
-        Vec3 from = body.getEyePosition();
+        return loadedRayEndpointInternal(level, body, body.getEyePosition(), direction, reach, false, MAX_THROW_REACH);
+    }
+
+    /** Loaded-only generic ray endpoint; this API is not capped by the legacy throw reach. */
+    @Nullable
+    public static Vec3 loadedRayEndpoint(ServerLevel level, LivingEntity requester, Vec3 origin,
+                                         Vec3 normalizedDirection, double reach, boolean opaqueOnly) {
+        return loadedRayEndpointInternal(level, requester, origin, normalizedDirection, reach, opaqueOnly,
+                Double.POSITIVE_INFINITY);
+    }
+
+    private static Vec3 loadedRayEndpointInternal(ServerLevel level, LivingEntity body, Vec3 from,
+                                                  Vec3 direction, double reach, boolean opaqueOnly, double maxReach) {
+        if (level == null || body == null || level.getServer() == null || !level.getServer().isSameThread()
+                || body.level() != level || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
+                || level.getEntity(body.getUUID()) != body || !Double.isFinite(reach)
+                || reach <= 0 || reach > maxReach || !finite(direction)
+                || direction.lengthSqr() < .99 || direction.lengthSqr() > 1.01) return null;
         if (!finite(from)) return null;
         Vec3 requestedEnd = from.add(direction.scale(reach));
         if (!finite(requestedEnd) || !inside(level, from)
@@ -284,7 +301,9 @@ public final class BodyItemTargetProbe {
         Vec3 to = boundedRayEndpoint(from, requestedEnd, level.getMinBuildHeight(), level.getMaxBuildHeight());
         if (!inside(level, to)) return null;
         try {
-            BlockHitResult hit = loadedAlong(level, from, to).clip(
+            LoadedGetter loaded = loadedAlong(level, from, to);
+            BlockGetter getter = opaqueOnly ? new OpaqueLoadedGetter(loaded) : loaded;
+            BlockHitResult hit = getter.clip(
                     new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, body));
             Vec3 aim = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation() : to;
             return finite(aim) ? aim : null;
@@ -600,5 +619,20 @@ public final class BodyItemTargetProbe {
         }
         @Override public int getHeight() { return level.getHeight(); }
         @Override public int getMinBuildHeight() { return level.getMinBuildHeight(); }
+    }
+
+    /** Non-occluding materials are transparent only for hitscan, never physical collision probes. */
+    private static final class OpaqueLoadedGetter implements BlockGetter {
+        private final LoadedGetter delegate;
+        private OpaqueLoadedGetter(LoadedGetter delegate) { this.delegate = delegate; }
+        @Override public BlockState getBlockState(BlockPos pos) {
+            BlockState state = delegate.getBlockState(pos);
+            return HitscanOpacityPolicy.keepsBlock(state) ? state
+                    : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        }
+        @Override public FluidState getFluidState(BlockPos pos) { return delegate.getFluidState(pos); }
+        @Nullable @Override public BlockEntity getBlockEntity(BlockPos pos) { return delegate.getBlockEntity(pos); }
+        @Override public int getHeight() { return delegate.getHeight(); }
+        @Override public int getMinBuildHeight() { return delegate.getMinBuildHeight(); }
     }
 }

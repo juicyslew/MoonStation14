@@ -44,7 +44,9 @@ public final class DisposalContainedActionPolicy {
                     SMART_STORE_BELT, SMART_STORE_BACK, SMART_TAKE_BELT, SMART_TAKE_BACK,
                     GRID_CROSS_BELT_TO_BACK, GRID_CROSS_BACK_TO_BELT,
                     GRID_BODY_WORN_TO_HELD, GRID_BODY_HELD_TO_WORN, GRID_BODY_HELD_TO_HELD, GRID_BODY_TO_EQUIPMENT, GRID_EQUIPMENT_TO_BODY,
-                    USE_HELD, USE_IN_HAND, PRIME_GRENADE, STOP_PULL, DROP, CYCLE_SYRINGE_AMOUNT -> true;
+                    USE_HELD, USE_IN_HAND, USE_ON_HAND, GUN_TOGGLE_WIELD, GUN_CYCLE_FIRE_MODE, GUN_CYCLE_ACTION, GUN_CYCLE_BATTERY_MODE,
+                    GUN_EJECT_MAGAZINE, GUN_EJECT_CELL, GUN_EMPTY_CYLINDER, GUN_SPIN_CYLINDER, GUN_TOGGLE_BOLT,
+                    PRIME_GRENADE, STOP_PULL, DROP, CYCLE_SYRINGE_AMOUNT -> true;
             // World targets, external throws/pickups, pouch legacy actions and unknown
             // future actions fail closed while the body's world position is owner-locked.
             case PICKUP, PICKUP_SELECTED, THROW_GRENADE, THROW_ITEM, USE_TARGET, BUTCHER, GUN_EMPTY, GUN_SPIN, ACTIVATE_TARGET,
@@ -52,4 +54,3 @@ public final class DisposalContainedActionPolicy {
         };
     }
 }
-

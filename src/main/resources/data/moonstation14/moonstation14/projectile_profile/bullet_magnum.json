@@ -1,1 +1,5 @@
-{"parent":"moonstation14:base_bullet","damage":{"piercing":35}}
+{
+  "id": "bullet_magnum",
+  "parent": "moonstation14:base_bullet",
+  "damage": { "piercing": 35 }
+}

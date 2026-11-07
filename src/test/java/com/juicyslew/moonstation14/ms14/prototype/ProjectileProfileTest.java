@@ -7,7 +7,7 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 class ProjectileProfileTest {
  private static ResourceLocation id(String s){return ResourceLocation.fromNamespaceAndPath("test",s);}
- @Test void resolvesInheritedDamageAndZeroAndPublishesCatalog(){
+  @Test void resolvesInheritedDamageAndZeroAndPublishesCatalog(){
   var manager=new PrototypeManager(); manager.register(ModProjectileProfiles.TYPE);
   var base=JsonParser.parseString("{\"damage\":{\"piercing\":14},\"lifetime_seconds\":10}").getAsJsonObject();
   var ap=JsonParser.parseString("{\"parent\":\"test:base\",\"damage\":{\"piercing\":26},\"ignore_resistances\":true}").getAsJsonObject();
@@ -38,10 +38,14 @@ class ProjectileProfileTest {
   for(String name:List.of("bullet_magnum","bullet_magnum_ap","bullet_cap","base_bullet","base_bullet_ap")){
    String path="data/moonstation14/moonstation14/projectile_profile/"+name+".json";
    try(var stream=getClass().getClassLoader().getResourceAsStream(path)){assertNotNull(stream,path);raw.put(ResourceLocation.fromNamespaceAndPath("moonstation14",name),JsonParser.parseReader(new java.io.InputStreamReader(stream,java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject());}
-   catch(java.io.IOException e){throw new AssertionError(e);}
-  }
-  manager.commit(manager.stage(Map.of(ModProjectileProfiles.TYPE,raw)));
-  var catalog=manager.snapshot(ModProjectileProfiles.TYPE);
+    catch(java.io.IOException e){throw new AssertionError(e);}
+   }
+   manager.commit(manager.stage(Map.of(ModProjectileProfiles.TYPE,raw)));
+   var catalog=manager.snapshot(ModProjectileProfiles.TYPE);
+   assertEquals("bullet",catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_magnum")).sprite().state());
+   assertEquals("piercing",catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_magnum_ap")).sprite().state());
+   assertFalse(catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_magnum_ap")).sprite().unshaded());
+   assertEquals("capbullet",catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_cap")).sprite().state());
   assertEquals("bullet",catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_magnum")).sprite().state());
   assertEquals("piercing",catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_magnum_ap")).sprite().state());
   assertFalse(catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_magnum_ap")).sprite().unshaded());
@@ -65,5 +69,30 @@ class ProjectileProfileTest {
    assertNull(synced.snapshot(ModProjectileProfiles.TYPE).get(id("suppressed")).impactEffect()); assertNull(synced.snapshot(ModProjectileProfiles.TYPE).get(id("suppressed")).hitSound());
   var encoded=ProjectileProfile.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE,catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_magnum"))).getOrThrow();
   assertEquals(inherited,ProjectileProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,encoded).getOrThrow().muzzleFlash());
- }
+  }
+  @Test void resolvesRangedShotCompositionAndImpactValues(){
+   var manager=new PrototypeManager(); manager.register(ModProjectileProfiles.TYPE);
+   var base=JsonParser.parseString("{\"hitscan\":{\"range\":20},\"spread\":{\"count\":6,\"degrees\":15,\"child_projectile\":\"test:pellet\"},\"ignore_shooter\":true}").getAsJsonObject();
+   var child=JsonParser.parseString("{\"parent\":\"test:base\",\"damage\":{\"piercing\":10},\"stamina_damage\":15}").getAsJsonObject();
+   manager.commit(manager.stage(Map.of(ModProjectileProfiles.TYPE,Map.of(id("base"),base,id("child"),child))));
+   var p=manager.snapshot(ModProjectileProfiles.TYPE).get(id("child"));
+   assertEquals(20f,p.hitscan().range()); assertEquals(new ProjectileProfile.SpreadData(6,15,Optional.of(id("pellet"))),p.spread());
+   assertEquals(Map.of("piercing",10f),p.damage()); assertEquals(15f,p.staminaDamage()); assertTrue(p.ignoreShooter());
+   var unknown=JsonParser.parseString("{\"damage\":{\"structural\":15}}").getAsJsonObject();
+   assertThrows(IllegalArgumentException.class, () -> ProjectileProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, unknown).getOrThrow());
+   assertEquals(p,ProjectileProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,ProjectileProfile.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE,p).getOrThrow()).getOrThrow());
+  }
+  @Test void packagedMovingEnergyProfilesResolveSpritesAndPreserveStats(){
+   var manager=new PrototypeManager();manager.register(ModProjectileProfiles.TYPE);var raw=new LinkedHashMap<ResourceLocation,com.google.gson.JsonObject>();
+    for(String name:List.of("base_energy","bullet_laser","bullet_laser_spread_narrow","bullet_disabler_smg","bullet_disabler_smg_spread")){String path="data/moonstation14/moonstation14/projectile_profile/"+name+".json";try(var in=getClass().getClassLoader().getResourceAsStream(path)){assertNotNull(in,path);raw.put(ResourceLocation.fromNamespaceAndPath("moonstation14",name),JsonParser.parseReader(new java.io.InputStreamReader(in,java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject());}catch(java.io.IOException e){throw new AssertionError(e);}}
+   manager.commit(manager.stage(Map.of(ModProjectileProfiles.TYPE,raw)));var catalog=manager.snapshot(ModProjectileProfiles.TYPE);
+   for(String name:List.of("bullet_laser","bullet_laser_spread_narrow","bullet_disabler_smg","bullet_disabler_smg_spread")){var p=catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14",name));assertNotNull(p.sprite(),name);assertTrue(p.sprite().unshaded());assertEquals("moonstation14:ss14/weapons/objects/weapons/guns/projectiles/projectiles_tg.rsi",p.sprite().texture().toString());}
+   assertEquals(Map.of("heat",13f),catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_laser")).damage());assertTrue(catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_disabler_smg")).damage().isEmpty());assertEquals(15f,catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_disabler_smg")).staminaDamage());
+    assertEquals(4,catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_laser_spread_narrow")).spread().count());assertEquals(3,catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_disabler_smg_spread")).spread().count());
+    var laser=catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_laser"));var disabler=catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14","bullet_disabler_smg"));
+    assertEquals(Map.of("heat",13f),laser.damage());assertEquals("impact_laser_greyscale",laser.impactEffect().sprite().state());assertEquals(-47872,laser.impactEffect().sprite().color());assertEquals(4,laser.impactEffect().sprite().frameCount());assertEquals(.05f,laser.impactEffect().sprite().frameSeconds());assertEquals(.2f,laser.impactEffect().lifetimeSeconds());
+    assertEquals("impact_laser_blue",disabler.impactEffect().sprite().state());assertEquals(0xffffffff,disabler.impactEffect().sprite().color());assertEquals(4,disabler.impactEffect().sprite().frameCount());assertEquals(.05f,disabler.impactEffect().sprite().frameSeconds());assertEquals(.2f,disabler.impactEffect().lifetimeSeconds());assertTrue(disabler.damage().isEmpty());assertEquals(15f,disabler.staminaDamage());
+    for(var p:List.of(laser,disabler)){assertEquals("muzzle_bullet",p.muzzleFlash().sprite().state());assertTrue(p.muzzleFlash().sprite().unshaded());assertEquals(.4f,p.muzzleFlash().lifetimeSeconds());}
+    var tinted=new ProjectileProfile.SpriteData(id("sprite"),"state",32,32,1,0,false,false,-47872);assertEquals(tinted,ProjectileProfile.SpriteData.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,ProjectileProfile.SpriteData.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE,tinted).getOrThrow()).getOrThrow());assertEquals(0xffffffff,new ProjectileProfile.SpriteData(id("sprite"),"state",32,32,1,0,false,false).color());
+  }
 }

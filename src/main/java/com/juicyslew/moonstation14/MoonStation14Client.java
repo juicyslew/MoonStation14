@@ -175,6 +175,7 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
         modEventBus.addListener(MoonStation14Client::registerJugModels);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.botany.client.PlantTrayModelRegistration::onModifyBakingResult);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.combat.client.GunIndicatorModelRegistration::onModifyBakingResult);
         modEventBus.addListener(MoonStation14Client::registerEmitterImpactParticle);
         modEventBus.addListener(MoonStation14Client::onRegisterRenderers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.mobs.client.MouseMobRenderer::registerLayer);
@@ -298,6 +299,12 @@ public class MoonStation14Client {
     private static void registerEmitterImpactParticle(RegisterParticleProvidersEvent event) {
         event.registerSpriteSet(com.juicyslew.moonstation14.entities.ModEmitterImpactParticles.EMITTER_IMPACT.get(),
                 com.juicyslew.moonstation14.entities.client.EmitterImpactParticle.Provider::new);
+    }
+
+    @SubscribeEvent
+    public static void registerSpentCasingParticle(RegisterParticleProvidersEvent event) {
+        event.registerSpecial(com.juicyslew.moonstation14.entities.ModSpentCasingParticles.TYPE.get(),
+                new com.juicyslew.moonstation14.entities.client.SpentCasingParticle.Provider());
     }
 
     @SubscribeEvent
@@ -1022,6 +1029,12 @@ public class MoonStation14Client {
             return com.juicyslew.moonstation14.ms14.chemistry.beaker.BeakerItemAppearance.color(reagent, data, Minecraft.getInstance().level);
         };
         event.register(beakerColor, ModItems.BEAKER.get(), ModItems.BEAKER_LARGE.get());
+        event.register((stack, tintIndex) -> {
+            if (tintIndex != 1) return -1;
+            ReagentComponent reagent = stack.get(ModDataComponents.REAGENT.get());
+            return reagent == null || com.juicyslew.moonstation14.util.MapOperations.getTotal(reagent.contents()) <= 0
+                    ? -1 : ReagentComponent.getBlendedColor(reagent.contents(), Minecraft.getInstance().level);
+        }, ModItems.WEAPON_SNIPER_MOSIN.get());
     }
 
     public static void registerBlockColors(RegisterColorHandlersEvent.Block event) {
@@ -1052,6 +1065,7 @@ public class MoonStation14Client {
     }
 
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.client.PlayerCharacterHarnessRenderer.register(event);
         event.registerBlockEntityRenderer(ModBlockEntities.AIRLOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.FIRELOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.StandaloneFirelockBlockEntityRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.HYDROPONICS_TRAY.get(), com.juicyslew.moonstation14.ms14.botany.client.HydroponicsTrayBlockEntityRenderer::new);

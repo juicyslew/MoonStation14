@@ -58,12 +58,12 @@ public final class AutomaticAtmosFirelockGameTests {
 
     @GameTestTags({"automatic_atmos_firelocks"})
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty",
-            batch = "automatic_atmos_firelocks", timeoutTicks = 300)
+            batch = "automatic_atmos_firelocks_queued_recovery", timeoutTicks = 300)
     public static void queuedDangerRelayRecoversAfterUnrelatedTopologyChange(GameTestHelper helper) {
-        withFixture(helper, false, false, f -> awaitQueuedRelaySetup(helper, f, 0));
+        withFixture(helper, false, false, f -> awaitQueuedRelaySetup(helper, f, new QueuedDangerCapture(), 0));
     }
 
-    private static void awaitQueuedRelaySetup(GameTestHelper helper, Fixture f, int elapsed) {
+    private static void awaitQueuedRelaySetup(GameTestHelper helper, Fixture f, QueuedDangerCapture capture, int elapsed) {
         ServerLevel level=f.paid.level();
         var vent=PowerRuntime.ventilationMeter(level,f.paid.vent());
         var alarm=PowerRuntime.airAlarmMeter(level,f.alarm);
@@ -73,42 +73,42 @@ public final class AutomaticAtmosFirelockGameTests {
                 &&door.known()&&door.deliveredWatts()==f.firelock.host().prototype().apcPowerReceiver().requestedWatts();
         long generation=PowerGraphService.topologyGeneration(level);
         if(full&&elapsed>=PowerRuntime.TICKS_PER_SOLVE+1){
+            capture.install(helper,f);
             require(initializeGas(f.paid,hazardGas()),"trusted finite physical hazard injection");
-            pumpDangerBeforeRelayDrain(helper,f,0);return;
+            pumpDangerBeforeRelayDrain(helper,f,capture,0);return;
         }
         if(elapsed>=100)throw failure("fresh full-power setup deadline vent="+vent+", alarm="+alarm+", door="+door+diagnostics(f));
-        BoundedGameTestWait.safeDelay(helper,1,()->awaitQueuedRelaySetup(helper,f,elapsed+1));
+        BoundedGameTestWait.safeDelay(helper,1,()->awaitQueuedRelaySetup(helper,f,capture,elapsed+1));
     }
 
-    private static void pumpDangerBeforeRelayDrain(GameTestHelper helper,Fixture f,int operations){
+    private static void pumpDangerBeforeRelayDrain(GameTestHelper helper,Fixture f,QueuedDangerCapture capture,int operations){
         ServerLevel level=f.paid.level();DeviceNetworkRuntime runtime=DeviceNetworkRuntime.forLevel(level);
         f.paid.atmosphere().tick(level,level.getGameTime());runtime.update();
-        if(f.alarm.alarmSeverity()==AtmosAlarmSeverity.DANGER){
+        capture.rethrow();
+        if(capture.captured){
+            runtime.update();capture.rethrow();
+            require(capture.drops.get()>0,"queued alarm-to-firelock DANGER relay dropped on stale power");
             require(f.firelock.state().phase()==com.juicyslew.moonstation14.ms14.doors.AirlockState.DoorPhase.OPEN
-                    &&coverOpen(level,f.firelock,f.firelockPos),"queued-danger interleaving keeps firelock open");
-            require(runtimeTransport(level).queuedPackets()>0,"relay remains queued for following transport drain");
-            invalidateAndDrain(helper,f);return;
+                    &&coverOpen(level,f.firelock,f.firelockPos),"stale relay drop leaves physical firelock open");
+            awaitFreshRecovery(helper,f,capture.drops,capture.dangerRevision,capture.dangerSources,0);return;
         }
         if(operations>=64)throw failure("bounded physical hazard monitor did not reach danger before drain; alarm="
                 +f.alarm.alarmSeverity()+", room="+f.paid.atmosphere().readAtmosphere(level,f.paid.room())+diagnostics(f));
-        BoundedGameTestWait.safeDelay(helper,1,()->pumpDangerBeforeRelayDrain(helper,f,operations+1));
+        BoundedGameTestWait.safeDelay(helper,1,()->pumpDangerBeforeRelayDrain(helper,f,capture,operations+1));
     }
 
-    private static void invalidateAndDrain(GameTestHelper helper,Fixture f){
+    private static void invalidateQueuedRelayTopology(GameTestHelper helper,Fixture f,QueuedDangerCapture capture){
         ServerLevel level=f.paid.level();var transport=runtimeTransport(level);
         var firelockEndpoint=uniqueEndpoint(level,f.firelockPos);
-        var alarmEndpoint=uniqueEndpoint(level,f.alarmPos);
-        var sender=alarmEndpoint.identity();var receiver=firelockEndpoint.identity();
-        long dangerRevision=f.alarm.stateRevision();
-        var dangerSources=java.util.Set.copyOf(f.alarm.alarmReceiverState().reports().keySet());
-        java.util.concurrent.atomic.AtomicInteger drops=new java.util.concurrent.atomic.AtomicInteger();
-        AutoCloseable observer=transport.observeDelivery(sender,receiver,attempt->{
+        capture.dangerRevision=f.alarm.stateRevision();
+        capture.dangerSources=java.util.Set.copyOf(f.alarm.alarmReceiverState().reports().keySet());
+        AutoCloseable dropObserver=transport.observeDelivery(uniqueEndpoint(level,f.alarmPos).identity(),null,attempt->{
             if(attempt.packet().payload() instanceof com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosAlarmPayload.Relay relay
-                    &&relay.source().equals(f.alarm.controllerId())
-                    &&(attempt.outcome()==com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkTransport.DeliveryOutcome.SOURCE_UNAVAILABLE
-                    ||attempt.outcome()==com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkTransport.DeliveryOutcome.RECEIVER_UNPOWERED))drops.incrementAndGet();
+                    &&relay.source().equals(f.alarm.controllerId())&&attempt.packet().destinationAddress().equals(firelockEndpoint.composition().network().orElseThrow().address())
+                    &&((attempt.outcome()==com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkTransport.DeliveryOutcome.SOURCE_UNAVAILABLE&&attempt.receiverDeviceIdentity()==null)
+                    ||(attempt.outcome()==com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkTransport.DeliveryOutcome.RECEIVER_UNPOWERED&&firelockEndpoint.identity().equals(attempt.receiverDeviceIdentity()))))capture.drops.incrementAndGet();
         });
-        helper.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener(){private void close(){try{observer.close();}catch(Exception e){throw new IllegalStateException(e);}} public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo i){} public void testPassed(net.minecraft.gametest.framework.GameTestInfo i,net.minecraft.gametest.framework.GameTestRunner r){close();} public void testFailed(net.minecraft.gametest.framework.GameTestInfo i,net.minecraft.gametest.framework.GameTestRunner r){close();} public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo i,net.minecraft.gametest.framework.GameTestInfo n,net.minecraft.gametest.framework.GameTestRunner r){close();}});
+        capture.observers.add(dropObserver);
         long before=PowerGraphService.topologyGeneration(level);
         BlockPos island=helper.absolutePos(new BlockPos(1,0,1));
         helper.setBlock(new BlockPos(1,0,1),net.minecraft.world.level.block.Blocks.STONE);
@@ -117,11 +117,32 @@ public final class AutomaticAtmosFirelockGameTests {
         require(changed!=before,"actual cable placement advances graph generation: "+before+" -> "+changed);
         var stale=f.firelock.host().powerObservation();
         require(!stale.known(),"firelock meter immediately rejects stale topology: "+stale);
-        DeviceNetworkRuntime.forLevel(level).update();
-        require(drops.get()>0,"queued alarm-to-firelock DANGER relay dropped on stale power; sender="+sender+", receiver="+receiver+", observed="+drops.get());
-        require(f.firelock.state().phase()==com.juicyslew.moonstation14.ms14.doors.AirlockState.DoorPhase.OPEN
-                &&coverOpen(level,f.firelock,f.firelockPos),"stale relay drop leaves physical firelock open");
-        awaitFreshRecovery(helper,f,drops,dangerRevision,dangerSources,0);
+    }
+
+    private static final class QueuedDangerCapture {
+        final java.util.concurrent.atomic.AtomicInteger drops=new java.util.concurrent.atomic.AtomicInteger();
+        boolean captured; long dangerRevision; java.util.Set<java.util.UUID> dangerSources=java.util.Set.of(); RuntimeException failure;
+        final java.util.List<AutoCloseable> observers=new java.util.ArrayList<>();
+        final java.util.concurrent.atomic.AtomicBoolean closed=new java.util.concurrent.atomic.AtomicBoolean();
+        void install(GameTestHelper helper,Fixture f){
+            var transport=runtimeTransport(f.paid.level());var monitor=uniqueEndpoint(f.paid.level(),f.paid.vent().getBlockPos());
+            var alarm=uniqueEndpoint(f.paid.level(),f.alarmPos);
+            AutoCloseable observer=transport.observeDelivery(monitor.identity(),alarm.identity(),attempt->{
+                if(captured||failure!=null||attempt.outcome()!=com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkTransport.DeliveryOutcome.ENDPOINT_CALLED
+                        ||!(attempt.packet().payload() instanceof com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosAlarmPayload.Measurement m)
+                        ||m.severity()!=AtmosAlarmSeverity.DANGER)return;
+                try {
+                    require(f.alarm.alarmSeverity()==AtmosAlarmSeverity.DANGER,"alarm accepted real DANGER measurement");
+                    require(f.firelock.state().phase()==com.juicyslew.moonstation14.ms14.doors.AirlockState.DoorPhase.OPEN
+                            &&coverOpen(f.paid.level(),f.firelock,f.firelockPos),"relay queued before firelock closes");
+                    require(transport.queuedPackets()>0,"alarm receive enqueued relay before observer callback");
+                    invalidateQueuedRelayTopology(helper,f,this);captured=true;
+                } catch(RuntimeException|Error e){failure=e instanceof RuntimeException r?r:new RuntimeException(e);}
+            });
+            observers.add(observer);
+            helper.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener(){private void close(){if(!closed.compareAndSet(false,true))return;for(var o:observers)try{o.close();}catch(Exception e){if(failure==null)failure=new IllegalStateException("failed to close delivery observer",e);}} public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo i){} public void testPassed(net.minecraft.gametest.framework.GameTestInfo i,net.minecraft.gametest.framework.GameTestRunner r){close();} public void testFailed(net.minecraft.gametest.framework.GameTestInfo i,net.minecraft.gametest.framework.GameTestRunner r){close();} public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo i,net.minecraft.gametest.framework.GameTestInfo n,net.minecraft.gametest.framework.GameTestRunner r){close();}});
+        }
+        void rethrow(){if(failure!=null)throw failure;}
     }
 
     private static void awaitFreshRecovery(GameTestHelper helper,Fixture f,java.util.concurrent.atomic.AtomicInteger drops,long dangerRevision,

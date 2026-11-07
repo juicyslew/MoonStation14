@@ -22,6 +22,7 @@ import com.juicyslew.moonstation14.ms14.devicenet.control.WallSignalControlBlock
 import com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity;
 import com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity;
 import com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlockEntity;
+import com.juicyslew.moonstation14.ms14.combat.WeaponCapacitorRechargerBlockEntity;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
@@ -102,6 +103,8 @@ public class ModBlockEntities {
             () -> BlockEntityType.Builder.of(SeedExtractorBlockEntity::new, ModBlocks.SEED_EXTRACTOR.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ReagentGrinderBlockEntity>> REAGENT_GRINDER = BLOCK_ENTITY_TYPES.register("reagent_grinder",
             () -> BlockEntityType.Builder.of(ReagentGrinderBlockEntity::new, ModBlocks.REAGENT_GRINDER.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<WeaponCapacitorRechargerBlockEntity>> WEAPON_CAPACITOR_RECHARGER = BLOCK_ENTITY_TYPES.register("weapon_capacitor_recharger",
+            () -> BlockEntityType.Builder.of(WeaponCapacitorRechargerBlockEntity::new, ModBlocks.WEAPON_CAPACITOR_RECHARGER.get()).build(null));
 
     public static void register(IEventBus eventBus){
         BLOCK_ENTITY_TYPES.register(eventBus);

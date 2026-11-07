@@ -17,7 +17,17 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 
 /** Shared public-snapshot hand display for humanoid and native animal renderers. */
+@net.neoforged.fml.common.EventBusSubscriber(modid = com.juicyslew.moonstation14.MoonStation14.MOD_ID,
+        value = net.neoforged.api.distmarker.Dist.CLIENT, bus = net.neoforged.fml.common.EventBusSubscriber.Bus.GAME)
 public final class BodyAppearanceItemRenderer {
+    private static final com.juicyslew.moonstation14.ms14.combat.client.ActualMuzzleFrameCache MUZZLES = new com.juicyslew.moonstation14.ms14.combat.client.ActualMuzzleFrameCache();
+    private static long renderGeneration;
+    @net.neoforged.bus.api.SubscribeEvent
+    public static void beginMuzzleFrame(net.neoforged.neoforge.client.event.RenderFrameEvent.Pre event) {
+        MUZZLES.beginFrame(++renderGeneration);
+    }
+    public static void clearMuzzleFrames() { MUZZLES.clear(); }
+    public static long currentRenderGeneration() { return renderGeneration; }
     @FunctionalInterface public interface HandAnchor {
         /** Returns false for models without an authored hand anchor. */
         boolean translate(LivingEntity entity, HumanoidArm arm, PoseStack pose);
@@ -98,8 +108,31 @@ public final class BodyAppearanceItemRenderer {
         if (stack.isEmpty()) return;
         boolean left = arm == HumanoidArm.LEFT;
         applyItemGripTransform(pose, left, convention);
+        var id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
+        var binding = com.juicyslew.moonstation14.ms14.combat.client.GunPresentationBindings.find(id);
+        if (binding != null) {
+            var capture = new PoseStack();
+            capture.last().pose().set(pose.last().pose());
+            capture.last().normal().set(pose.last().normal());
+            var model = net.minecraft.client.Minecraft.getInstance().getItemRenderer()
+                    .getModel(stack, entity.level(), entity, 0);
+            model.applyTransform(left ? ItemDisplayContext.THIRD_PERSON_LEFT_HAND : ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, capture, left);
+            capture.translate(-.5, -.5, -.5);
+            var m = capture.last().pose();
+            long frame = renderGeneration;
+            var camera = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+            var captured = com.juicyslew.moonstation14.ms14.combat.client.ActualMuzzleFrame.capture(m,binding,camera,frame);
+            MUZZLES.put(entity.level().dimension().location(), entity.getUUID(), left ? "left" : "right", id,
+                    BodyHandNetworking.clientCache().get(entity.level().dimension().location(), entity.getUUID(), entity.getId()).map(BodyAppearanceSnapshot::revision).orElse(-1L),
+                    captured);
+        }
         items.renderItem(entity, stack, left ? ItemDisplayContext.THIRD_PERSON_LEFT_HAND
                 : ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, left, pose, buffer, light);
+    }
+
+    public static java.util.Optional<com.juicyslew.moonstation14.ms14.combat.client.ActualMuzzleFrame> actualMuzzle(
+            ResourceLocation dimension, java.util.UUID body, String hand, ResourceLocation item, long revision, long frame) {
+        return MUZZLES.get(dimension, body, hand, item, revision, frame);
     }
 
     public static void applyItemGripTransform(PoseStack pose, boolean left, GripConvention convention) {

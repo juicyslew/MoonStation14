@@ -114,6 +114,7 @@ public class MoonStation14 {
         ModRecipes.register(modEventBus);
         ModEntities.register(modEventBus);
         com.juicyslew.moonstation14.entities.ModEmitterImpactParticles.register(modEventBus);
+        com.juicyslew.moonstation14.entities.ModSpentCasingParticles.register(modEventBus);
         modEventBus.addListener(PrototypeCatalogNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.ghost_roles.server.GhostRoleNetworking::registerPayloadHandlers);
         com.juicyslew.moonstation14.ms14.ghost_roles.server.GhostRoleNetworking.installDefaultServerHandler();
@@ -264,6 +265,7 @@ public class MoonStation14 {
     @SubscribeEvent
     public void onLevelTickPost(net.neoforged.neoforge.event.tick.LevelTickEvent.Post event) {
         if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+            com.juicyslew.moonstation14.ms14.hands.live.LiveWieldSystem.tick(level);
             com.juicyslew.moonstation14.ms14.singularity.fixture.SingularityFixtureService.tick(level);
             com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level).tick();
             com.juicyslew.moonstation14.ms14.explosion.server.QueuedExplosionSystem.tick(level);

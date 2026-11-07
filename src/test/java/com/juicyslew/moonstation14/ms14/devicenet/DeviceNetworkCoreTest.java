@@ -100,6 +100,23 @@ class DeviceNetworkCoreTest {
         assertEquals(2,attempts.size(),"closed observer receives no further notifications");
         assertEquals(1,target.received.size());
     }
+    @Test void receiverCallbackEnqueueWaitsForNextSnapshotDrainAndObserverRunsAfterReceive() throws Exception {
+        var transport=new DeviceNetworkTransport();
+        var monitor=new Endpoint("monitor",0,30);var alarm=new Endpoint("alarm",1,30);var firelock=new Endpoint("firelock",2,30);monitor.receiveAll=false;firelock.receiveAll=false;
+        transport.register(monitor);transport.register(alarm);transport.register(firelock);
+        var measurement=new DeviceNetworkPacket(monitor.id,2,1280,"monitor","alarm",false,new SignalPayload("Measurement",DeviceSignal.HIGH));
+        var relay=new DeviceNetworkPacket(alarm.id,2,1280,"alarm",firelock.address,false,new SignalPayload("Relay",DeviceSignal.HIGH));
+        alarm.onReceive=ignored->assertTrue(transport.enqueue(relay));
+        var sawPostReceive=new java.util.concurrent.atomic.AtomicBoolean();var observerFailure=new java.util.concurrent.atomic.AtomicReference<String>();
+        var observed=transport.observeDelivery(monitor.id,alarm.id,attempt->{
+            if(attempt.outcome()!=DeviceNetworkTransport.DeliveryOutcome.ENDPOINT_CALLED||transport.queuedPackets()!=1)
+                observerFailure.set("observer did not see post-receive relay enqueue");
+            sawPostReceive.set(true);
+        });
+        transport.enqueue(measurement);assertEquals(1,transport.drain());
+        assertTrue(sawPostReceive.get());assertNull(observerFailure.get());assertEquals(1,transport.queuedPackets());
+        observed.close();assertEquals(1,transport.drain());assertEquals(1,firelock.received.size());
+    }
     @Test void ordinaryBroadcastListenersReceiveEvenWhenReceiveAllIsFalse(){
         var transport=new DeviceNetworkTransport();var sender=new Endpoint("sender",0,30);var target=new Endpoint("target",1,30);target.receiveAll=false;
         transport.register(sender);transport.register(target);

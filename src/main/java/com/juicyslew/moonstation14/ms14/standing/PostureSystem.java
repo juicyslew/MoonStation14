@@ -75,6 +75,7 @@ public final class PostureSystem {
     }
     private static void save(LivingEntity body, PostureData data) { save(body, data, null); }
     private static void save(LivingEntity body, PostureData data, BiConsumer<LivingEntity, net.minecraft.resources.ResourceLocation> soundSink) {
+        data = normalizeSupportedGunAim(body, data);
         boolean wasDown = posture(body).down();
         if (!data.ownCrawling()) OWN_CRAWL_EXPIRY.remove(body.getUUID());
         body.setData(ModDataAttachments.POSTURE.get(), new PostureAttachment(data));
@@ -91,6 +92,16 @@ public final class PostureSystem {
             if (soundId != null && net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(soundId).isPresent())
                 soundSink.accept(body, soundId);
         }
+    }
+    private static PostureData normalizeSupportedGunAim(LivingEntity body, PostureData desired) {
+        if (body != null && GunProneAimPolicy.admittedServer(body, desired, conscious(body)))
+            return GunProneAimPolicy.normalize(desired, body.getYRot());
+        return desired.withSupportedGunAim(false);
+    }
+    /** Re-evaluate only after combat/wield state has committed; no hand initialization or mutation. */
+    public static void refreshSupportedGunAim(LivingEntity body) {
+        if (body != null && !body.isRemoved() && body.isAddedToLevel()
+                && body.level() instanceof ServerLevel) updateAimFacing(body);
     }
     public static boolean isDownPosture(LivingEntity body) { return isDown(body); }
     private static long now(ServerLevel level) { return level.getServer().overworld().getGameTime(); }
@@ -224,6 +235,7 @@ public final class PostureSystem {
         if (body == null || !(body.level() instanceof ServerLevel) || !posture(body).down()
                 || !conscious(body) || policy(body).crawler() == null) return false;
         save(body, posture(body).voluntaryRoll());
+        updateAimFacing(body);
         return true;
     }
     /** Turn a distinct downed body using an actor with an available hand. */
@@ -246,14 +258,19 @@ public final class PostureSystem {
                 && policy(body).crawler() != null && crawlMultiplier(body) > 0;
         if (eligible) OWN_CRAWL_EXPIRY.put(body.getUUID(), now(level) + 12);
         else OWN_CRAWL_EXPIRY.remove(body.getUUID());
+        PostureData next = prepareCrawlPosture(current, eligible);
+        if (!next.equals(current)) save(body, next);
+    }
+    static PostureData prepareCrawlPosture(PostureData current, boolean eligible) {
         PostureData next = current.crawling(eligible);
         if (eligible && next.faceUp()) next = new PostureData(next.down(), next.voluntaryAutoStand(),
                 next.knockdownUntil(), next.getUpKey(), next.totalHands(), next.freeHands(), next.pulling(), false, true,
-                next.movementFacingYaw());
-        if (!next.equals(current)) save(body, next);
+                next.movementFacingYaw(), next.supportedGunAim());
+        return next;
     }
     /** Updates prone presentation only from accepted, owner-authored horizontal world displacement. */
     public static void onOwnMovement(LivingEntity body, net.minecraft.world.phys.Vec3 acceptedDisplacement) {
+        if (aiming(body)) { updateAimFacing(body); return; }
         if (body == null || acceptedDisplacement == null || !(body.level() instanceof ServerLevel)
                 || !posture(body).down() || !conscious(body) || policy(body).crawler() == null
                 || crawlMultiplier(body) <= 0 || !Double.isFinite(acceptedDisplacement.x)
@@ -264,6 +281,20 @@ public final class PostureSystem {
         if (!current.ownCrawling()) return;
         if (Math.abs(net.minecraft.util.Mth.wrapDegrees(yaw - current.movementFacingYaw())) > .01f)
             save(body, current.facing(yaw));
+    }
+    private static boolean aiming(LivingEntity body) {
+        return body != null && GunProneAimPolicy.admittedServer(body, posture(body), conscious(body));
+    }
+    private static void updateAimFacing(LivingEntity body) {
+        if (body == null) return;
+        PostureData current = posture(body);
+        if (!aiming(body)) {
+            PostureData next = current.withSupportedGunAim(false);
+            if (!next.equals(current)) save(body, next);
+            return;
+        }
+        PostureData next = GunProneAimPolicy.normalize(current, body.getYRot()).withSupportedGunAim(true);
+        if (!next.equals(current)) save(body, next);
     }
     /** SS14 Crawler damage refresh policy: positive applied typed damage uses the resolved threshold. */
     @SubscribeEvent public static void onAppliedDamage(AppliedDamageEvent event) {
@@ -307,6 +338,7 @@ public final class PostureSystem {
             if (!(body.level() instanceof ServerLevel level) || level.getServer() != event.getServer()) continue;
             if (!posture(body).down()) { DOWN_BODIES.remove(body.getUUID(), body); continue; }
             refreshMovementAvailability(body);
+            updateAimFacing(body);
             PostureData data = posture(body);
             Long crawlExpiry = OWN_CRAWL_EXPIRY.get(body.getUUID());
             if (data.ownCrawling() && (crawlExpiry == null || now(level) > crawlExpiry || !conscious(body))) {
@@ -326,4 +358,3 @@ public final class PostureSystem {
         }
     }
 }
-

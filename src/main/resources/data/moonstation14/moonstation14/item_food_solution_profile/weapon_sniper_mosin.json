@@ -1,0 +1,7 @@
+{
+  "capacity_cents": 200,
+  "contents_cents": {},
+  "solution_name": "melee",
+  "refillable": true,
+  "max_transfer_cents": 200
+}

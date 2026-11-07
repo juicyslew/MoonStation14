@@ -1,0 +1,1 @@
+{"id":"weapon_revolver_inspector","parent":["base_weapon_revolver"],"gun":{"use_delay_seconds":0.66,"gunshot_sound":{"event":"moonstation14:ss14/weapons/guns/gunshots/revolver","volume_db":0,"pitch_variation":0}},"ammo_counter":true}

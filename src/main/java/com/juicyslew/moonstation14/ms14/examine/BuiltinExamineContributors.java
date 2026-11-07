@@ -38,6 +38,7 @@ public final class BuiltinExamineContributors {
         ExamineContributorRegistry.register("botany-tray", BotanyExamineContributor::contribute);
         ExamineContributorRegistry.register("botany-seed-packet", BotanySeedPacketExamineContributor::contribute);
         ExamineContributorRegistry.register("gas-tank", BuiltinExamineContributors::gasTank);
+        ExamineContributorRegistry.register("power-cell-charge", BuiltinExamineContributors::powerCellCharge);
     }
 
     /** Supported SS14 tank examination subset: detail-range pressure; connection and sealed valve state. */
@@ -207,6 +208,18 @@ public final class BuiltinExamineContributors {
         var stack = context.itemStack();
         if (!stack.isEmpty()) return stack;
         return context.targetEntity() instanceof ItemEntity item ? item.getItem().copy() : net.minecraft.world.item.ItemStack.EMPTY;
+    }
+
+    /** Standalone cell readout; gun cells remain owned by gun ammunition examination. */
+    static void powerCellCharge(ExamineContext context, ExamineCollector collector) {
+        var stack=itemStack(context);
+        if(stack.isEmpty()) return;
+        var id=net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.serverCatalog().get(id)!=null) return;
+        var projection=com.juicyslew.moonstation14.ms14.combat.BatteryChargeProjection.project(stack,
+                com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.serverCatalog().asMap());
+        if(projection==null) return;
+        collector.detailEntry(Component.translatable("examine.moonstation14.power_cell.charge", projection.percent()),"power-cell",45);
     }
 
     /** Syringe solution inspection from a detached authoritative stack snapshot. */

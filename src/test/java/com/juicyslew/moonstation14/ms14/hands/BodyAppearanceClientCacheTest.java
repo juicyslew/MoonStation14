@@ -41,4 +41,21 @@ class BodyAppearanceClientCacheTest {
         cache.clearDimension(DIM);
         assertTrue(cache.get(DIM,two,5).isEmpty());
     }
+    @Test void poseContextOnlyRetainsValidPublicHandShape() {
+        var item=new BodyAppearanceSnapshot.Entry("right",null);
+        var source=new BodyAppearanceSnapshot.Entry("left", new BodyAppearanceSnapshot.Entry("x", null).item());
+        // A non-null presentation is required for the wield source.
+        var presented=new BodyAppearanceSnapshot.Entry("left", com.juicyslew.moonstation14.ms14.hands.network.ItemPresentation.fromStack(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK)));
+        var valid=new BodyAppearanceSnapshot(DIM,1,UUID.randomUUID(),1,List.of(presented,item),List.of(),
+                new BodyAppearanceSnapshot.PoseContext("left","left","right"));
+        assertTrue(valid.poseContext().hasValidatedWield());
+        assertEquals("left",valid.poseContext().activeHand());
+        var stale=new BodyAppearanceSnapshot(DIM,1,UUID.randomUUID(),1,List.of(presented),List.of(),
+                new BodyAppearanceSnapshot.PoseContext("missing","left","right"));
+        assertNull(stale.poseContext());
+        var occupied=new BodyAppearanceSnapshot(DIM,1,UUID.randomUUID(),1,List.of(presented,
+                new BodyAppearanceSnapshot.Entry("right",presented.item())),List.of(),
+                new BodyAppearanceSnapshot.PoseContext("left","left","right"));
+        assertFalse(occupied.poseContext().hasValidatedWield());
+    }
 }

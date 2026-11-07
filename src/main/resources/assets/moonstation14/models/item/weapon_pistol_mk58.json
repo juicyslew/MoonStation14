@@ -1,0 +1,150 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/item/guns/weapon_pistol_mk58.obj",
+  "textures": {
+    "atlas": "moonstation14:item/guns/weapon_pistol_mk58",
+    "particle": "moonstation14:item/guns/weapon_pistol_mk58"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "emissive_ambient": false,
+  "ambientocclusion": false,
+  "render_type": "minecraft:cutout",
+  "gui_light": "front",
+  "overrides": [
+    {
+      "predicate": { "moonstation14:bolt_open": 1 },
+      "model": "moonstation14:item/guns/weapon_pistol_mk58__loaded_bolt_open"
+    },
+    {
+      "predicate": { "moonstation14:magazine_absent": 1 },
+      "model": "moonstation14:item/guns/weapon_pistol_mk58__no_mag_bolt_closed"
+    },
+    {
+      "predicate": { "moonstation14:bolt_open": 1, "moonstation14:magazine_absent": 1 },
+      "model": "moonstation14:item/guns/weapon_pistol_mk58__no_mag_bolt_open"
+    }
+  ],
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        3.0983564018428034e-16,
+        6.15,
+        -2.53
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        3.0983564018428034e-16,
+        6.15,
+        -2.53
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0.20000000000000032,
+        6.75,
+        -1.7299999999999998
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0.20000000000000032,
+        6.75,
+        -1.7299999999999998
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gui": {
+      "rotation": [
+        -15,
+        -90,
+        -5
+      ],
+      "translation": [
+        -0.6299999999999998,
+        9.50977473902199,
+        -1.731662903991208
+      ],
+      "scale": [
+        1.8,
+        1.8,
+        1.8
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0.030000000000000013,
+        5.37,
+        -0.34999999999999987
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        90
+      ],
+      "translation": [
+        -5.37,
+        -0.02999999999999964,
+        0.34999999999999987
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}

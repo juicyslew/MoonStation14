@@ -27,6 +27,7 @@ public final class LiveHandsCommitGateway {
             restoreAttachment(body, value, previous);
             return false;
         }
+        LiveWieldSystem.afterHandsCommit(body);
         deferOrPublish(actor, authority, previous, value);
         return true;
     }
@@ -68,6 +69,18 @@ public final class LiveHandsCommitGateway {
         return writeTrusted(body, expected, released, true);
     }
 
+    /** Remove only a caller-owned exact reservation, including when prototype drift prevents publication. */
+    static boolean clearExactReservationTrusted(LivingEntity body, LiveHands expected, String hand,
+                                                java.util.UUID proof, LiveHands released) {
+        if (body == null || expected == null || released == null || hand == null || proof == null
+                || body.level().isClientSide || body.level().getServer() == null
+                || !body.level().getServer().isSameThread()
+                || expected.reservation(hand).filter(proof::equals).isEmpty()) return false;
+        if (released.compatible(body) && BodyHandStateService.representable(released, body))
+            return commitTrusted(body, expected, released);
+        return writeTrusted(body, expected, released, true);
+    }
+
     private static boolean writeTrusted(LivingEntity body, LiveHands expected, LiveHands value,
                                         boolean allowIncompatibleCleanup) {
         if (body == null || value == null || body.level().isClientSide || body.level().getServer() == null
@@ -83,6 +96,7 @@ public final class LiveHandsCommitGateway {
             restoreAttachment(body, value, previous);
             return false;
         }
+        if (publishable) LiveWieldSystem.afterHandsCommit(body);
         if (publishable) {
             var server = body.level().getServer();
             ServerPlayer owner = null; HandActorAuthority.Snapshot ownerAuthority = null;

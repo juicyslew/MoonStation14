@@ -1,0 +1,137 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/item/guns/weapon_sniper_mosin.obj",
+  "textures": {
+    "atlas": "moonstation14:item/guns/weapon_sniper_mosin",
+    "particle": "moonstation14:item/guns/weapon_sniper_mosin"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "emissive_ambient": false,
+  "ambientocclusion": false,
+  "render_type": "minecraft:solid",
+  "gui_light": "front",
+  "overrides": [{"predicate": {"moonstation14:solution_present": 1.0}, "model": "moonstation14:item/weapon_sniper_mosin_solution_present"}],
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -10,
+        -90
+      ],
+      "translation": [
+        -0.7293223462011074,
+        -0.1,
+        4.136192562651273
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -10,
+        90
+      ],
+      "translation": [
+        -0.7293223462011075,
+        -0.1,
+        4.136192562651273
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        0,
+        0,
+        -90
+      ],
+      "translation": [
+        6.123233995736766e-18,
+        -0.1,
+        4.2
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        0,
+        0,
+        90
+      ],
+      "translation": [
+        -6.123233995736766e-18,
+        -0.1,
+        4.2
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gui": {
+      "rotation": [
+        20,
+        135,
+        -90
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        90,
+        -90
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.75,
+        0.75,
+        0.75
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        2,
+        0
+      ],
+      "scale": [
+        0.7,
+        0.7,
+        0.7
+      ]
+    }
+  }
+}

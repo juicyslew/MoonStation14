@@ -24,6 +24,52 @@ public final class HandEquipmentGesture {
                 && java.util.Objects.equals(h.itemId(), drag.itemId()) && h.count() == drag.count());
     }
     record Plan(BodyHandActionRequest.Action action, String handId) { }
+    /** Exact held-to-held use nomination; catalog capability checks are deliberately left to the UI caller. */
+    record HeldUsePlan(String sourceHandId, String sourceToken, String targetHandId, String targetToken) { }
+    enum DispatchResult { SENT, NOT_APPLICABLE, BLOCKED }
+    static boolean consumesHandUse(DispatchResult result) { return result != DispatchResult.NOT_APPLICABLE; }
+    static boolean resolveHandClick(DispatchResult result, Runnable selectFallback) {
+        if (consumesHandUse(result)) return true;
+        selectFallback.run();
+        return false;
+    }
+    enum HandClickKind { SELECT_TARGET, USE_ACTIVE, USE_ON_TARGET, TRANSFER_TO_ACTIVE, BLOCK }
+    static HandClickKind handClick(BodyHandClientPolicy.InventoryView view, String targetHandId) {
+        if (view == null || targetHandId == null) return HandClickKind.BLOCK;
+        var active = view.active(); var target = view.hand(targetHandId);
+        if (active == null || target == null || active.id().equals(target.id())) return HandClickKind.BLOCK;
+        if (active.token() != null) return target.token() == null ? HandClickKind.SELECT_TARGET : HandClickKind.USE_ON_TARGET;
+        return target.token() == null ? HandClickKind.SELECT_TARGET : HandClickKind.TRANSFER_TO_ACTIVE;
+    }
+    static DispatchResult handUsePlan(Drag drag, HandBarLayout.Layout.Tile target,
+            BodyHandClientPolicy.InventoryView view, BodyHandStateSnapshot proof, boolean compatible) {
+        if (drag == null || target != HandBarLayout.Layout.Tile.FIRST && target != HandBarLayout.Layout.Tile.SECOND)
+            return DispatchResult.NOT_APPLICABLE;
+        if (view != null && proof != null && drag.sourceSlotId() == null
+                && java.util.Objects.equals(view.activeHand(), drag.handId())
+                && (proof.revision() != drag.revision() || proof.epoch() != drag.epoch()
+                    || proof.reason() != BodyHandStateSnapshot.Reason.OK)) return DispatchResult.BLOCKED;
+        if (heldUsePlan(drag, target, view, proof) == null) return DispatchResult.NOT_APPLICABLE;
+        return compatible ? DispatchResult.SENT : DispatchResult.NOT_APPLICABLE;
+    }
+
+    static HeldUsePlan heldUsePlan(Drag drag, HandBarLayout.Layout.Tile target,
+                                   BodyHandClientPolicy.InventoryView view, BodyHandStateSnapshot proof) {
+        if (drag == null || drag.sourceSlotId() != null || view == null || proof == null
+                || proof.reason() != BodyHandStateSnapshot.Reason.OK
+                || !proof.accountId().equals(drag.accountId()) || !proof.bodyId().equals(drag.bodyId())
+                || proof.epoch() != drag.epoch() || proof.revision() != drag.revision()
+                || drag.source() == target) return null;
+        var source = proof.hands().stream().filter(h -> h.id().equals(drag.handId())).findFirst().orElse(null);
+        var destination = target == HandBarLayout.Layout.Tile.FIRST ? view.first()
+                : target == HandBarLayout.Layout.Tile.SECOND ? view.second() : null;
+        if (source == null || destination == null || destination.token() == null
+                || source.token() == null || !source.token().equals(drag.token())
+                || !java.util.Objects.equals(source.itemId(), drag.itemId()) || source.count() != drag.count()
+                || proof.hands().stream().noneMatch(h -> h.id().equals(destination.id())
+                        && java.util.Objects.equals(h.token(), destination.token()))) return null;
+        return new HeldUsePlan(source.id(), source.token(), destination.id(), destination.token());
+    }
     public record SlotPlan(BodyHandActionRequest.Action action, String handId, String slotId, String expectedToken) { }
     public record GearMovePlan(String sourceSlotId, String destinationSlotId, String handId, String expectedToken,
                                long epoch, long revision) { }

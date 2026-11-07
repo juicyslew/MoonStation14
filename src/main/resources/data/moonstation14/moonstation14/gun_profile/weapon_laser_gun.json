@@ -1,0 +1,1 @@
+{"id":"weapon_laser_gun","parent":"base_weapon_battery_small","battery_ammo_provider":{"ammo_prototype":"moonstation14:red_medium_laser","cost":62.5},"gun":{"gunshot_sound":{"event":"moonstation14:ss14/weapons/guns/gunshots/laser","volume_db":0,"pitch_variation":0}}}

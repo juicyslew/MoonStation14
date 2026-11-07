@@ -43,11 +43,31 @@ public final class BodyDropPlacementGameTests {
 
     @GameTestTags({"medical-corrections-regression"})
     public static void containedRefusalDropsAtOwnerPosition(GameTestHelper helper) {
+        containedRefusalDropsAtOwnerPosition(helper, new ItemStack(Items.DIAMOND, 3), "contained-refusal", Items.DIAMOND,
+                ContainedBodyOwner.Stage.UNIT);
+    }
+
+    @GameTestTags({"medical-corrections-regression", "hands", "guns"})
+    public static void containedGunRefusalDropsAsProfiledLooseItemAtOwnerPosition(GameTestHelper helper) {
+        var gun = com.juicyslew.moonstation14.item.ModItems.WEAPON_PISTOL_MK58.get();
+        containedRefusalDropsAtOwnerPosition(helper, new ItemStack(gun), "contained-gun-refusal", gun,
+                ContainedBodyOwner.Stage.UNIT);
+    }
+
+    @GameTestTags({"medical-corrections-regression", "hands", "guns"})
+    public static void containedGunTransitStageUsesCapturedOwnerPosition(GameTestHelper helper) {
+        var gun = com.juicyslew.moonstation14.item.ModItems.WEAPON_PISTOL_MK58.get();
+        containedRefusalDropsAtOwnerPosition(helper, new ItemStack(gun), "contained-gun-transit", gun,
+                ContainedBodyOwner.Stage.TRANSIT);
+    }
+
+    private static void containedRefusalDropsAtOwnerPosition(GameTestHelper helper, ItemStack held,
+            String token, net.minecraft.world.item.Item itemType, ContainedBodyOwner.Stage stage) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(2, 2, 2));
         require(LiveHands.initialize(body).isPresent(), "body hands initialized");
         LiveHands initial = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        ItemStack held = new ItemStack(Items.DIAMOND, 3);
-        LiveHands stored = initial.putWhole(initial.revision(), "left", new ItemToken("contained-refusal"), held).state();
+        ItemStack expectedPayload = held.copy();
+        LiveHands stored = initial.putWhole(initial.revision(), "left", new ItemToken(token), held).state();
         body.setData(ModDataAttachments.LIVE_HANDS.get(), stored);
         UUID ownerId = UUID.randomUUID();
         Vec3 ownerPosition = body.position().add(0, 0, 2);
@@ -55,7 +75,10 @@ public final class BodyDropPlacementGameTests {
             @Override public UUID identity() { return ownerId; }
             @Override public ServerLevel level() { return helper.getLevel(); }
             @Override public Vec3 position() { return ownerPosition; }
-            @Override public Stage stage() { return Stage.UNIT; }
+            @Override public Stage stage() { return stage; }
+            @Override public Vec3 positionFor(net.minecraft.world.entity.LivingEntity ignored) {
+                return stage == Stage.TRANSIT ? ownerPosition.add(0, -0.65, 0) : ownerPosition;
+            }
             @Override public boolean isValid() { return true; }
             @Override public boolean tryEscape(net.minecraft.world.entity.LivingEntity ignored) { return false; }
         };
@@ -63,26 +86,36 @@ public final class BodyDropPlacementGameTests {
                 .forLevel(helper.getLevel()).bind(body, refusingOwner), "fixture owner binds");
         var level = helper.getLevel();
         var query = body.getBoundingBox().inflate(5);
-        var before = level.getEntitiesOfClass(ItemEntity.class, query, item -> item.getItem().is(Items.DIAMOND))
+        var before = level.getEntitiesOfClass(ItemEntity.class, query, item -> item.getItem().is(itemType))
                 .stream().map(ItemEntity::getUUID).collect(java.util.stream.Collectors.toSet());
-        var result = BodyHandItemTransfer.dropOwned(body, "left", "contained-refusal", stored.revision(), () -> true);
-        var created = level.getEntitiesOfClass(ItemEntity.class, query, item -> item.getItem().is(Items.DIAMOND)
+        var result = BodyHandItemTransfer.dropOwned(body, "left", token, stored.revision(), () -> true);
+        var created = level.getEntitiesOfClass(ItemEntity.class, query, item -> item.getItem().is(itemType)
                 && !before.contains(item.getUUID()));
         require(result == BodyHandItemTransfer.Result.SUCCESS,
                 "semantic refusal uses contained-owner fallback: result=" + result + ", actor="
                         + body.position() + ", owner=" + ownerPosition + ", hand="
                         + body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).stackCopy("left"));
-        require(created.size() == 1 && created.getFirst().getItem().getCount() == 3,
-                "operation creates exactly one whole-stack world owner: created=" + created.size()
+        require(created.size() == 1 && ItemStack.isSameItemSameComponents(created.getFirst().getItem(), expectedPayload),
+                "operation creates exactly one exact whole-stack world owner: created=" + created.size()
                         + ", entities=" + created.stream().map(item -> item.getUUID() + ":"
                         + item.getItem().getCount() + "@" + item.position()).toList());
         require(created.getFirst().position().distanceToSqr(ownerPosition) < .001,
                 "new fallback entity uses owner transform, not camera/aim ray: actor=" + body.position()
                         + ", owner=" + ownerPosition + ", created=" + created.getFirst().position());
+        require(created.getFirst() instanceof com.juicyslew.moonstation14.entities.LooseItemEntity,
+                "contained refusal publishes through canonical LooseItemEntity factory");
+        if (itemType == com.juicyslew.moonstation14.item.ModItems.WEAPON_PISTOL_MK58.get()) {
+            var resolved = com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile
+                    .resolveForStack(expectedPayload, false);
+            require(resolved.visual().modelRest().rotationEulerZ() == 90f,
+                    "MK58 resolves its distinctive 90-degree model-rest profile");
+            require(created.getFirst().getItem().getItem() == expectedPayload.getItem(),
+                    "published item retains exact registered gun identity");
+        }
         require(body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left").isEmpty(),
                 "body hand is cleared after successful fallback: hand="
                         + body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()).token("left")
-                        + " originalCount=" + held.getCount() + " owner=" + ownerId);
+                        + " originalCount=" + expectedPayload.getCount() + " owner=" + ownerId);
         helper.succeed();
     }
 

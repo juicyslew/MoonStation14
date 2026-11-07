@@ -48,6 +48,24 @@ final class PowerGraphTest {
         assertEquals(LoadedPowerGraph.Knowledge.KNOWN, graph.state(cable).knowledge());
     }
 
+    @Test void cableBearingFrontierChunkRemovalInvalidatesIndexedRoot() {
+        LoadedPowerGraph graph = new LoadedPowerGraph();
+        ChunkPos rootChunk = new ChunkPos(0, 0);
+        ChunkPos frontier = new ChunkPos(1, 0);
+        CableFaceNode root = new CableFaceNode(new BlockPos(15, 0, 8), Direction.UP, CableTier.HV);
+        CableFaceNode frontierCable = new CableFaceNode(new BlockPos(16, 0, 8), Direction.UP, CableTier.HV);
+        graph.replaceChunk(rootChunk, List.of(root));
+        graph.replaceChunk(frontier, List.of(frontierCable));
+        finish(graph, 16);
+        assertTrue(graph.diagnostics(root).nodeIndexed());
+
+        graph.removeChunk(frontier);
+
+        var after = graph.diagnostics(root);
+        assertFalse(after.nodeIndexed(), "cable-bearing frontier removal invalidates indexed connectivity");
+        assertTrue(graph.isDirty());
+    }
+
     @Test void distantEmptyChunkChurnPreservesBoundedBuildProgressButCableEditRestartsIt() {
         LoadedPowerGraph graph = new LoadedPowerGraph();
         List<CableFaceNode> nodes = new ArrayList<>();

@@ -1,0 +1,9 @@
+{
+  "id": "pellet_shotgun_spread",
+  "parent": "moonstation14:pellet_shotgun",
+  "spread": {
+    "count": 6,
+    "degrees": 15,
+    "child_projectile": "moonstation14:pellet_shotgun"
+  }
+}

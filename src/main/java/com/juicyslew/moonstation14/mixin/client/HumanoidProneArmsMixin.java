@@ -25,22 +25,32 @@ public abstract class HumanoidProneArmsMixin {
                                               float ageInTicks, float netHeadYaw, float headPitch,
                                               CallbackInfo callback) {
         var attachment = entity.getExistingDataOrNull(ModDataAttachments.POSTURE.get());
-        if (attachment == null || !attachment.data().down()) return;
+        if (attachment == null || !attachment.data().down()) {
+            com.juicyslew.moonstation14.ms14.combat.client.GunArmPosePresentation.apply(entity,
+                    (HumanoidModel<?>)(Object)this, netHeadYaw, headPitch);
+            return;
+        }
         HumanoidModel<?> model = (HumanoidModel<?>)(Object)this;
         boolean idle = PronePoseMath.shouldRestArms(attachment.data());
         neutral(model.head);
         model.head.z = PronePoseMath.headGroundingOffsetPixels(attachment.data().faceUp());
         model.hat.copyFrom(model.head);
-        if (!idle) return;
-        neutral(model.hat);
-        neutral(model.leftArm);
-        neutral(model.rightArm);
-        neutral(model.leftLeg);
-        neutral(model.rightLeg);
+        if (idle) {
+            neutral(model.hat);
+            boolean melee=model.attackTime>0 || entity.swinging;
+            if (!melee) {
+                neutral(model.leftArm);
+                neutral(model.rightArm);
+            }
+            neutral(model.leftLeg);
+            neutral(model.rightLeg);
+        }
+        // Share the ordinary combat pose owner after the prone head-grounding pose.
+        // Its admission still leaves melee attacks ahead of the gun pose.
+        com.juicyslew.moonstation14.ms14.combat.client.GunArmPosePresentation.apply(entity,model,netHeadYaw,headPitch);
     }
 
     private static void neutral(net.minecraft.client.model.geom.ModelPart part) {
         part.xRot = part.yRot = part.zRot = 0;
     }
 }
-

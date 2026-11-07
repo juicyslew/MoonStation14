@@ -1,0 +1,5 @@
+{
+  "id": "bullet_pistol",
+  "parent": "moonstation14:base_bullet",
+  "damage": { "piercing": 16 }
+}

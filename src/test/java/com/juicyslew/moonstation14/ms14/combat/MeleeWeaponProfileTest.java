@@ -18,7 +18,7 @@ class MeleeWeaponProfileTest {
         client.register(ModMeleeWeaponProfiles.TYPE);
         var parent = ResourceLocation.fromNamespaceAndPath("test", "parent");
         var child = ResourceLocation.fromNamespaceAndPath("test", "child");
-        var base = JsonParser.parseString("{\"weapon\":{\"damage\":{\"blunt\":5},\"attack_rate\":2,\"range\":4,\"auto_attack\":true,\"arc\":\"moonstation14:weapon_arc_fist\",\"animation_offset\":2,\"wide_animation_rotation\":30,\"blunt_stamina_damage_factor\":0.5,\"angle_degrees\":30,\"wide_arc\":\"moonstation14:weapon_arc_slash\",\"alt_disarm\":false},\"damage_on_hit\":{\"blunt\":5},\"chemical_injector\":{\"solution_name\":\"food\",\"transfer_cents\":300,\"pierce_armor\":false}}").getAsJsonObject();
+        var base = JsonParser.parseString("{\"weapon\":{\"damage\":{\"blunt\":5},\"attack_rate\":2,\"range\":4,\"auto_attack\":true,\"arc\":\"moonstation14:weapon_arc_fist\",\"animation_offset\":2,\"wide_animation_rotation\":30,\"blunt_stamina_damage_factor\":0.5,\"angle_degrees\":30,\"wide_arc\":\"moonstation14:weapon_arc_slash\",\"alt_disarm\":false},\"requires_wield\":true,\"damage_on_hit\":{\"blunt\":5},\"chemical_injector\":{\"solution_name\":\"food\",\"transfer_cents\":300,\"pierce_armor\":false}}").getAsJsonObject();
         var derived = new JsonObject(); derived.addProperty("parent", "test:parent");
         derived.add("weapon", JsonParser.parseString("{\"attack_rate\":3,\"blunt_stamina_damage_factor\":0}"));
         derived.add("chemical_injector", JsonParser.parseString("{\"transfer_cents\":500}"));
@@ -36,6 +36,7 @@ class MeleeWeaponProfileTest {
         var profile = server.snapshot(ModMeleeWeaponProfiles.TYPE).get(child);
         assertEquals(Map.of("blunt", 5f), profile.damageOnHit());
         assertEquals(new MeleeWeaponProfile.MeleeChemicalInjectorData("food", 500, false), profile.chemicalInjector().orElseThrow());
+        assertTrue(profile.requiresWield());
         var aggregate = server.encodePublishedCatalogs();
         var encoded = aggregate.get(ModMeleeWeaponProfiles.TYPE.typeId()).get(child);
         assertEquals(3f, encoded.getAsJsonObject("weapon").get("attack_rate").getAsFloat());
@@ -53,7 +54,7 @@ class MeleeWeaponProfileTest {
         assertEquals(profile, roundTrip);
         var defaults = MeleeWeaponProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
                 JsonParser.parseString("{\"weapon\":{\"damage\":{\"blunt\":1}}}" )).getOrThrow();
-        assertTrue(defaults.damageOnHit().isEmpty()); assertTrue(defaults.chemicalInjector().isEmpty());
+        assertTrue(defaults.damageOnHit().isEmpty()); assertTrue(defaults.chemicalInjector().isEmpty()); assertFalse(defaults.requiresWield());
         assertThrows(IllegalArgumentException.class, () -> new MeleeWeaponProfile(actual, Map.of("bad-key", 1f), Optional.empty()));
         assertThrows(IllegalArgumentException.class, () -> new MeleeWeaponProfile(actual, Map.of("blunt", 0f), Optional.empty()));
         assertThrows(IllegalArgumentException.class, () -> new MeleeWeaponProfile.MeleeChemicalInjectorData(" ", 100, true));

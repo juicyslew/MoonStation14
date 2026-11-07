@@ -15,7 +15,7 @@ import org.lwjgl.glfw.GLFW;
 public final class PostureClient {
     private static long lastMoveWishTick = Long.MIN_VALUE;
     private static int lastMoveWishMask;
-    private static final java.util.Map<java.util.UUID, Boolean> LAST_POSE = new java.util.HashMap<>();
+    private static final java.util.Map<java.util.UUID, com.juicyslew.moonstation14.ms14.standing.PhysicalPosture.Variant> LAST_POSE = new java.util.HashMap<>();
     private static final RollInputPolicy ROLL_INPUT = RollInputPolicy.pending();
     private static final KeyMapping TOGGLE = new KeyMapping("key.moonstation14.toggle_prone",
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, "key.categories.moonstation14");
@@ -44,9 +44,10 @@ public final class PostureClient {
                 if (!(entity instanceof net.minecraft.world.entity.LivingEntity living)) continue;
                 present.add(living.getUUID());
                 var attachment = living.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.POSTURE.get());
-                boolean down = attachment != null && attachment.data().down();
-                Boolean previous = LAST_POSE.put(living.getUUID(), down);
-                if (previous == null || previous != down) {
+                var variant = com.juicyslew.moonstation14.ms14.standing.PhysicalPosture.variant(
+                        attachment == null ? null : attachment.data());
+                var previous = LAST_POSE.put(living.getUUID(), variant);
+                if (!variant.equals(previous)) {
                     com.juicyslew.moonstation14.ms14.standing.PhysicalPosture.apply(living);
                     living.refreshDimensions();
                 }

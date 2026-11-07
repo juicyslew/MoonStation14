@@ -5,7 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.List;
 /** Fieldwise merge for inherited cartridge composition. */
 public final class CartridgeProfileMergeStrategy implements PrototypeMergeStrategy {
- @Override public boolean handles(String field) { return field.equals("projectile") || field.equals("delete_on_spawn") || field.equals("tags"); }
+ @Override public boolean handles(String field) { return field.equals("projectile") || field.equals("delete_on_spawn") || field.equals("tags") || field.equals("spent_presentation"); }
  @Override public JsonElement merge(String field, ResourceLocation id, JsonObject child, List<JsonObject> parents) {
   if (!handles(field)) return null;
   JsonElement value=null;

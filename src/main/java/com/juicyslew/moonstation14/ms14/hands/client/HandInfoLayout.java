@@ -2,6 +2,8 @@ package com.juicyslew.moonstation14.ms14.hands.client;
 
 /** Pure layout for the non-interactive hand name labels. */
 public final class HandInfoLayout {
+    public static final float DETAIL_TEXT_SCALE = 0.76f;
+    public static final int DETAIL_MUTED_COLOR = com.juicyslew.moonstation14.ms14.ui.client.MachineWindowRenderer.MUTED_TEXT;
     public record Layout(HandBarLayout.Rect left, HandBarLayout.Rect right, int textBudget) { }
 
     private HandInfoLayout() { }
@@ -22,7 +24,7 @@ public final class HandInfoLayout {
         var second = bar.rightHand();
         if (second.width() == 0) {
             int panelWidth = Math.min(96, width - 6);
-            int panelHeight = 12;
+            int panelHeight = leftAmmoRowVisible ? 27 : 12;
             int y = first.y() - panelHeight - 2;
             if (panelWidth < 24 || y < 0) return null;
             return new Layout(new HandBarLayout.Rect((width - panelWidth) / 2, y, panelWidth, panelHeight),

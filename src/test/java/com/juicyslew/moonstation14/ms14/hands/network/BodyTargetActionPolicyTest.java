@@ -67,6 +67,15 @@ class BodyTargetActionPolicyTest {
         // Target UUID is separately validated by probeSelected; a non-nominated target cannot pass that shared probe.
         assertNotNull(query.targetId());
     }
+    @Test void groundGunActionRequiresExactNullableActiveHandProofButAllowsHeldItem(){
+        assertTrue(BodyHandRequestService.worldGunActorProofMatches(null,null,"right","right",false));
+        assertFalse(BodyHandRequestService.worldGunActorProofMatches(null,"cell-token","right","right",false));
+        assertFalse(BodyHandRequestService.worldGunActorProofMatches("cell-token",null,"right","right",false));
+        assertTrue(BodyHandRequestService.worldGunActorProofMatches("cell-token","cell-token","right","right",false));
+        assertFalse(BodyHandRequestService.worldGunActorProofMatches("old","cell-token","right","right",false));
+        assertFalse(BodyHandRequestService.worldGunActorProofMatches("cell-token","cell-token","left","right",false));
+        assertFalse(BodyHandRequestService.worldGunActorProofMatches("cell-token","cell-token","right","right",true));
+    }
 
     @Test void queryBoundsHandIdentifierToSharedHandContract() {
         String tooLong = "x".repeat(HandState.MAX_ID_LENGTH + 1);

@@ -17,10 +17,15 @@ public final class EquipmentRenderPlan {
     public record Hand(String id, ItemStack stack) { }
     public enum Anchor { HEAD, FACE, TORSO, LEFT_ARM, RIGHT_ARM, LEFT_LEG, RIGHT_LEG, BACK, WAIST, CHEST, HIP }
     public record Garment(String slot, ResourceLocation item, EquipmentItemData.AppearanceRegion region,
-                          int color, List<Anchor> anchors, int layerOrder, java.util.Optional<EquipmentItemData.WornModel> wornModel) {
-        public Garment { anchors = List.copyOf(anchors); }
+                          int color, List<Anchor> anchors, int layerOrder, java.util.Optional<EquipmentItemData.WornModel> wornModel,
+                          ItemStack stack, boolean renderItemModel) {
+        public Garment { anchors = List.copyOf(anchors); stack = stack.copy(); }
+        @Override public ItemStack stack() { return stack.copy(); }
+        public Garment(String slot, ResourceLocation item, EquipmentItemData.AppearanceRegion region, int color, List<Anchor> anchors, int layerOrder, java.util.Optional<EquipmentItemData.WornModel> model) {
+            this(slot, item, region, color, anchors, layerOrder, model, ItemStack.EMPTY, false);
+        }
         public Garment(String slot, ResourceLocation item, EquipmentItemData.AppearanceRegion region, int color, List<Anchor> anchors, int layerOrder) {
-            this(slot, item, region, color, anchors, layerOrder, java.util.Optional.empty());
+            this(slot, item, region, color, anchors, layerOrder, java.util.Optional.empty(), ItemStack.EMPTY, false);
         }
     }
     public record Plan(List<Hand> hands, List<Garment> garments) {
@@ -44,7 +49,7 @@ public final class EquipmentRenderPlan {
                 var model = lowered ? data.breathMask().flatMap(EquipmentItemData.BreathMask::loweredWornModel)
                         : clothing.wornModel();
                 if (!anchors.isEmpty() && (!lowered || model.isPresent())) garments.add(new Garment(entry.id(), itemId, clothing.region(),
-                        clothing.color(), anchors, layerOrder(entry.id()), model));
+                        clothing.color(), anchors, layerOrder(entry.id()), model, stack, clothing.renderItemModel()));
             });
         }
         return new Plan(hands, garments);

@@ -10,6 +10,8 @@ acknowledged. It predates the final saved-binding repair; it is not proof for th
 last edit. No merge commit or merge continuation was performed. Sprint closure
 does not authorize either.
 
+The owner subsequently confirmed that this work was merged.
+
 # ARCHITECTURE
 
 - Resolved typed item/character composition supplies thrown damage, embedding,

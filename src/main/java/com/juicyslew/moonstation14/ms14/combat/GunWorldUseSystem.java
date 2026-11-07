@@ -20,7 +20,7 @@ public final class GunWorldUseSystem {
     private GunWorldUseSystem() { }
     public enum Result { SUCCESS, DENIED, RECOVERY }
 
-    /** Consume one exact held registered cartridge into a loose revolver, hand first. */
+    /** Insert an exact held registered source into a loose resolved gun, hand first. */
     public static Result insertHeldCartridge(ServerPlayer actor, HandActorAuthority.Snapshot authority,
             LiveHands expected, String hand, com.juicyslew.moonstation14.ms14.hands.ItemToken token,
             long revision, LooseItemEntity looseGun) {
@@ -33,7 +33,7 @@ public final class GunWorldUseSystem {
             return Result.DENIED;
         var held = expected.stackCopy(hand).orElse(null);
         if (held == null || held.isEmpty() || held.getCount() != 1
-                || !java.util.Objects.equals(expected.token(hand).orElse(null), token)
+                || !java.util.Objects.equals(expected.token(hand).orElse(null), token.value())
                 || looseGun == null || looseGun.level() != level || looseGun.isRemoved() || !looseGun.isAddedToLevel()
                 || level.getEntity(looseGun.getUUID()) != looseGun || looseGun.getItem().isEmpty()
                 || looseGun.getItem().getCount() != 1
@@ -41,30 +41,36 @@ public final class GunWorldUseSystem {
             return Result.DENIED;
         ItemStack originalGun = looseGun.getItem(), gunSnapshot = originalGun.copy(), heldSnapshot = held.copy();
         var entityId = looseGun.getUUID(); var position = looseGun.position();
-        var cartridgeId = BuiltInRegistries.ITEM.getKey(held.getItem());
-        var cartridgeProfile = cartridgeId == null ? null : ModCartridgeProfiles.serverCatalog().get(cartridgeId);
         var gunId = BuiltInRegistries.ITEM.getKey(originalGun.getItem());
         var gunProfile = gunId == null ? null : ModGunProfiles.serverCatalog().get(gunId);
-        if (cartridgeProfile == null || gunProfile == null || gunProfile.revolverAmmoProvider().isEmpty()) return Result.DENIED;
+        var sourceId = BuiltInRegistries.ITEM.getKey(held.getItem());
+        boolean recognized = sourceId != null && (ModCartridgeProfiles.serverCatalog().get(sourceId) != null
+                || ModAmmoContainerProfiles.serverCatalog().get(sourceId) != null
+                || ModBatteryProfiles.serverCatalog().get(sourceId) != null);
+        boolean containerTarget = gunProfile == null && gunId != null
+                && ModAmmoContainerProfiles.serverCatalog().get(gunId) != null
+                && sourceId != null && ModCartridgeProfiles.serverCatalog().get(sourceId) != null;
+        if (!recognized || gunProfile == null && !containerTarget) return Result.DENIED;
         var plan = GunWorldUsePolicy.prepareInsert(gunProfile, gunSnapshot, heldSnapshot);
         if (!plan.accepted()) {
-            if (plan.failure() == RevolverProviderKernel.InsertFailure.FULL)
+            if (plan.failure() == RevolverProviderKernel.InsertFailure.FULL && gunProfile.revolverAmmoProvider().isPresent())
                 actor.displayClientMessage(Component.translatable("moonstation14.gun-revolver-full"), true);
             return Result.DENIED;
         }
         ItemStack stagedGun = plan.gun();
-        LiveHands cleared = expected.clearHeldWhole(revision, hand, token).orElse(null);
-        if (cleared == null) return Result.DENIED;
+        LiveHands stagedHands = com.juicyslew.moonstation14.ms14.hands.live.BodyHeldItemMutation.preview(
+                actor, authority, expected, hand, token.value(), revision, heldSnapshot, plan.sourceRemainder()).orElse(null);
+        if (stagedHands == null) return Result.DENIED;
         if (!HandActorAuthority.revalidate(actor, authority) || !CharacterControlSystem.canAct(authority.body())
                 || authority.body().getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()) != expected
                 || !expected.compatible(authority.body()) || !expected.stackCopy(hand).filter(s -> matches(s, heldSnapshot)).isPresent()
-                || !java.util.Objects.equals(expected.token(hand).orElse(null), token)
+                 || !java.util.Objects.equals(expected.token(hand).orElse(null), token.value())
                 || looseGun.level() != level || looseGun.isRemoved() || level.getEntity(entityId) != looseGun
-                || looseGun.getUUID() != entityId || looseGun.getItem() != originalGun || !matches(originalGun, gunSnapshot)
+                 || !looseGun.getUUID().equals(entityId) || looseGun.getItem() != originalGun || !matches(originalGun, gunSnapshot)
                 || !looseGun.position().equals(position)
                 || BodyItemTargetProbe.probe(level, authority.body(), looseGun, BodyItemTargetProbe.MAX_REACH) == null)
             return Result.DENIED;
-        if (!com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.commit(actor, authority, cleared))
+        if (!com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.commit(actor, authority, stagedHands))
             return Result.DENIED;
         // The source is now irreversibly consumed. Any failure past this point is recovery, never retryable denial.
         try {
@@ -72,76 +78,49 @@ public final class GunWorldUseSystem {
                     || !matches(originalGun, gunSnapshot) || !looseGun.position().equals(position)) return Result.RECOVERY;
             looseGun.setItem(stagedGun);
             if (looseGun.isRemoved() || level.getEntity(entityId) != looseGun || looseGun.getItem() != stagedGun) return Result.RECOVERY;
-            var cue = gunProfile.revolverAmmoProvider().orElseThrow().insertSound().orElse(null);
+            var cue = plan.cue();
             if (cue != null) PositionalSoundRouter.play(level, cue.event(), SoundSource.PLAYERS, position.x, position.y, position.z,
                     cue.volume(), (float) level.random.triangle(1.0, cue.pitchVariation()));
-            actor.displayClientMessage(Component.translatable("moonstation14.gun-revolver-inserted"), true);
+            if (gunProfile.revolverAmmoProvider().isPresent())
+                actor.displayClientMessage(Component.translatable("moonstation14.gun-revolver-inserted"), true);
             return Result.SUCCESS;
         } catch (RuntimeException failure) { return Result.RECOVERY; }
     }
 
     public static Result spin(ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands expected,
                               LooseItemEntity looseGun) {
-        if (actor == null || authority == null || expected == null || looseGun == null
-                || !(actor.level() instanceof ServerLevel level) || level.getServer() == null
-                || !level.getServer().isSameThread() || authority.actor() != actor
-                || !HandActorAuthority.revalidate(actor, authority) || !CharacterControlSystem.canAct(authority.body())
-                || !expected.compatible(authority.body())
-                || authority.body().getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()) != expected
-                || looseGun.level() != level || looseGun.isRemoved() || !looseGun.isAddedToLevel()
-                || level.getEntity(looseGun.getUUID()) != looseGun || looseGun.getItem().isEmpty()
-                || looseGun.getItem().getCount() != 1)
-            return Result.DENIED;
-        ItemStack original = looseGun.getItem();
-        ItemStack snapshot = original.copy();
-        var entityId = looseGun.getUUID();
-        var position = looseGun.position();
-        if (BodyItemTargetProbe.probe(level, authority.body(), looseGun, BodyItemTargetProbe.MAX_REACH) == null
-                || looseGun.getItem() != original || !matches(original, snapshot)) return Result.DENIED;
-        var itemId = BuiltInRegistries.ITEM.getKey(original.getItem());
-        var profile = itemId == null ? null : ModGunProfiles.serverCatalog().get(itemId);
-        if (profile == null || profile.revolverAmmoProvider().isEmpty()) return Result.DENIED;
-        ItemStack staged = GunWorldUsePolicy.prepareSpin(profile, original, level.random.nextInt(profile.revolverAmmoProvider().orElseThrow().capacity()));
-        if (staged.isEmpty()) return Result.DENIED;
-        if (!HandActorAuthority.revalidate(actor, authority) || !CharacterControlSystem.canAct(authority.body())
-                || authority.body().getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get()) != expected
-                || !expected.compatible(authority.body()) || looseGun.level() != level || looseGun.isRemoved()
-                || level.getEntity(entityId) != looseGun || looseGun.getUUID() != entityId || looseGun.getItem() != original
-                || !matches(original, snapshot) || !looseGun.position().equals(position)
-                || BodyItemTargetProbe.probe(level, authority.body(), looseGun, BodyItemTargetProbe.MAX_REACH) == null)
-            return Result.DENIED;
-        if (looseGun.getItem() != original || !matches(original, snapshot) || !looseGun.position().equals(position)) return Result.DENIED;
-        looseGun.setItem(staged);
-        if (looseGun.isRemoved() || level.getEntity(looseGun.getUUID()) != looseGun || looseGun.getItem() != staged) return Result.RECOVERY;
-        var cue = profile.revolverAmmoProvider().orElseThrow().spinSound().orElse(null);
-        if (cue != null) PositionalSoundRouter.play(level, cue.event(), SoundSource.PLAYERS, position.x, position.y, position.z, cue.volume(), (float) level.random.triangle(1.0, cue.pitchVariation()));
-        actor.displayClientMessage(Component.translatable("moonstation14.gun-revolver-spun"), true);
-        return Result.SUCCESS;
+        return tryControl(actor,authority,expected,looseGun,
+                com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.GUN_SPIN);
     }
 
     public static Result empty(ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands expected,
                                LooseItemEntity looseGun) {
-        ServerLevel level = actor != null && actor.level() instanceof ServerLevel server ? server : null;
-        if (!valid(actor, authority, expected, looseGun, level)) return Result.DENIED;
-        ItemStack original = looseGun.getItem(), snapshot = original.copy();
-        var entityId = looseGun.getUUID();
-        var position = looseGun.position();
-        var itemId = BuiltInRegistries.ITEM.getKey(original.getItem());
-        var profile = itemId == null ? null : ModGunProfiles.serverCatalog().get(itemId);
-        if (profile == null || profile.revolverAmmoProvider().isEmpty()) return Result.DENIED;
-        var plan = GunWorldUsePolicy.prepareEmpty(profile, snapshot);
-        if (plan == null || plan.outputs().isEmpty()) return Result.DENIED;
-        if (!valid(actor, authority, expected, looseGun, level) || looseGun.getItem() != original
-                || !matches(original, snapshot) || !looseGun.position().equals(position)) return Result.DENIED;
-        looseGun.setItem(plan.gun());
-        if (looseGun.isRemoved() || level.getEntity(entityId) != looseGun || looseGun.getItem() != plan.gun()
-                || !matches(looseGun.getItem(), plan.gun())) return Result.RECOVERY;
-        var cue = profile.revolverAmmoProvider().orElseThrow().ejectSound().orElse(null);
-        if (cue != null) PositionalSoundRouter.play(level, cue.event(), SoundSource.PLAYERS, position.x, position.y, position.z, cue.volume(), (float) level.random.triangle(1.0, cue.pitchVariation()));
-        var published = FreshWorldOutputBatch.publishAfterSourceCommitAtPosition(level, position, plan.outputs(),
-                () -> !looseGun.isRemoved() && level.getEntity(entityId) == looseGun
-                        && looseGun.getItem() == plan.gun() && matches(looseGun.getItem(), plan.gun()));
-        return published == BodyHandItemTransfer.Result.SUCCESS ? Result.SUCCESS : Result.RECOVERY;
+        return tryControl(actor,authority,expected,looseGun,
+                com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.GUN_EMPTY);
+    }
+
+    /** World-source counterpart to held controls; staging is shared with GunUseSystem. */
+    public static Result tryControl(ServerPlayer actor,HandActorAuthority.Snapshot authority,LiveHands expected,
+            LooseItemEntity source,com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action action) {
+        ServerLevel level=actor!=null&&actor.level() instanceof ServerLevel server?server:null;
+        if(!valid(actor,authority,expected,source,level))return Result.DENIED;
+        ItemStack original=source.getItem(),snapshot=original.copy();var uuid=source.getUUID();var position=source.position();
+        var id=BuiltInRegistries.ITEM.getKey(snapshot.getItem());var profile=id==null?null:ModGunProfiles.serverCatalog().get(id);
+        if(profile==null)return Result.DENIED;
+        int spin=profile.revolverAmmoProvider().map(p->level.random.nextInt(p.capacity())).orElse(0);
+        var plan=GunWorldUsePolicy.prepareControl(action,profile,snapshot,spin,level.getGameTime());
+        if(plan==null)return Result.DENIED;
+        ItemStack staged=plan.gun();var outputs=plan.outputs();
+        if(!valid(actor,authority,expected,source,level)||source.getItem()!=original||!matches(original,snapshot)
+                ||!source.position().equals(position))return Result.DENIED;
+        source.setItem(staged);
+        if(source.isRemoved()||level.getEntity(uuid)!=source||source.getItem()!=staged||!matches(staged,plan.gun()))return Result.RECOVERY;
+        var cues=GunManipulationAudioPolicy.select(profile,plan.audioOperation(),plan.beforeBoltClosed(),false);
+        for(var cue:cues)try{PositionalSoundRouter.play(level,cue.event(),SoundSource.PLAYERS,position.x,position.y,position.z,cue.volume(),(float)level.random.triangle(1.0,cue.pitchVariation()));}catch(RuntimeException ignored){}
+        if(outputs.isEmpty())return Result.SUCCESS;
+        var published=FreshWorldOutputBatch.publishAfterSourceCommitAtPosition(level,position,outputs,
+                ()->!source.isRemoved()&&level.getEntity(uuid)==source&&source.getItem()==staged&&matches(source.getItem(),staged));
+        return published==BodyHandItemTransfer.Result.SUCCESS?Result.SUCCESS:Result.RECOVERY;
     }
 
     private static boolean valid(ServerPlayer actor, HandActorAuthority.Snapshot authority, LiveHands expected,

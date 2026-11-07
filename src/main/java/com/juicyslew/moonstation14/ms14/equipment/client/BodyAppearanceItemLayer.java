@@ -25,6 +25,7 @@ public final class BodyAppearanceItemLayer extends RenderLayer<PlayerCharacterHa
                                  float partialTicks, float ageInTicks, float netHeadYaw, float headPitch) {
         appearanceItems.render(entity, pose, buffer, light, (ignored, arm, stack) -> {
             getParentModel().translateToHand(arm, stack);
+            com.juicyslew.moonstation14.ms14.combat.client.GunMountTransform.applyHeldMount(entity, arm, getParentModel(), pose);
             return true;
         });
     }

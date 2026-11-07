@@ -1,0 +1,136 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/item/guns/magazine_pistol__level_1.obj",
+  "textures": {
+    "atlas": "moonstation14:item/guns/magazine_pistol__level_1",
+    "particle": "moonstation14:item/guns/magazine_pistol__level_1"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "emissive_ambient": false,
+  "ambientocclusion": false,
+  "render_type": "minecraft:cutout",
+  "gui_light": "front",
+  "display": {
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        -2.4492935982947065e-17,
+        6.2,
+        0.2
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        -2.4492935982947065e-17,
+        6.2,
+        0.2
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        90,
+        180,
+        0
+      ],
+      "translation": [
+        0.35,
+        0.6000000000000004,
+        7.2
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        90,
+        180,
+        0
+      ],
+      "translation": [
+        0.35,
+        0.6000000000000004,
+        7.2
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gui": {
+      "rotation": [
+        -15,
+        -90,
+        -5
+      ],
+      "translation": [
+        0.8190000000000002,
+        15.491025954882035,
+        -2.731485834700814
+      ],
+      "scale": [
+        2.6,
+        2.6,
+        2.6
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        -3.8576374173141627e-17,
+        6.05,
+        0.315
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        90
+      ],
+      "translation": [
+        -6.05,
+        3.7045565674207433e-16,
+        -0.315
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}

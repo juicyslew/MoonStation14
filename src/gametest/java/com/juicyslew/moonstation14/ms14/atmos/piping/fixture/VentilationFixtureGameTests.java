@@ -10,6 +10,10 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.VisualPipeBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceIdentity;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkTransport;
+import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosDevicePayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -77,21 +81,35 @@ public final class VentilationFixtureGameTests {
                 return;
             }
             var liveScrubber = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.scrubber()));
+            var liveVent = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.vent()));
             var alarm = (AirAlarmBlockEntity) level.getBlockEntity(origin.offset(plan.alarm()));
-            if (liveScrubber == null || alarm == null
+            if (liveScrubber == null || liveVent == null || alarm == null
                     || !PowerRuntime.ventilationMeter(level, liveScrubber).known()
+                    || !PowerRuntime.ventilationMeter(level, liveVent).known()
                     || !PowerRuntime.airAlarmMeter(level, alarm).known()) {
                 if (tick >= 300) throw new GameTestAssertException("live scrubber/alarm paid meter did not settle before one-shot fixture initialization; scrubber="
                         + (liveScrubber == null ? "missing" : PowerRuntime.ventilationMeter(level, liveScrubber))
-                        + " alarm=" + (alarm == null ? "missing" : PowerRuntime.airAlarmMeter(level, alarm))
+                         + " vent=" + (liveVent == null ? "missing" : PowerRuntime.ventilationMeter(level, liveVent))
+                         + " alarm=" + (alarm == null ? "missing" : PowerRuntime.airAlarmMeter(level, alarm))
                         + " indexedDevices=" + PowerRuntime.indexedDeviceCount(level));
                 helper.runAtTickTime(tick + 5, () -> initializeWhenReady(helper, level, origin, plan, tick + 5, newlyForced));
                 return;
             }
+            startManualControllerBarrier(helper, level, origin, plan, tick, newlyForced, alarm, liveScrubber, liveVent);
+        } catch (RuntimeException | Error failure) {
+            unforce(level, newlyForced);
+            throw failure;
+        }
+    }
+
+    private static void initializeGasAfterManualController(GameTestHelper helper, ServerLevel level, BlockPos origin,
+            VentilationFixturePlan plan, Set<Long> newlyForced, AirAlarmBlockEntity alarm) {
+        try {
             String initialized = VentilationFixtureService.initialize(level, origin);
             require(initialized.startsWith("Initialized 18 finite room cells") && initialized.contains("2 mol Plasma per cell"), "initialize service: " + initialized);
             require(VentilationFixtureService.initialize(level, origin).contains("already initialized"), "repeat initialization is guarded");
             String status = VentilationFixtureService.status(level, origin);
+            require(!alarm.automaticMode(), "fixture alarm remains in manual ownership before gas-flow scenario");
             require(status.contains("source 18/18 finite cells") && status.contains("recipient 18/18 finite cells"), "status reports measured finite rooms: " + status);
             require(status.contains("connected nodes Plasma=") && status.contains("concealed pipe=owner active Plasma="), "status reports actual pipe inventories: " + status);
             require(status.contains("alarm power=meter known delivered=") && status.contains("scrubber power=meter known delivered="), "status reports live delivered power: " + status);
@@ -117,6 +135,75 @@ public final class VentilationFixtureGameTests {
             unforce(level, newlyForced);
             throw failure;
         }
+    }
+
+    private static void startManualControllerBarrier(GameTestHelper helper, ServerLevel level, BlockPos origin,
+            VentilationFixturePlan plan, int tick, Set<Long> newlyForced, AirAlarmBlockEntity alarm,
+            VentilationDeviceBlockEntity scrubber, VentilationDeviceBlockEntity vent) {
+        var transport = DeviceNetworkRuntime.forLevel(level).transport();
+        var alarmEndpoint = transport.lookup(new DeviceIdentity(alarm.controllerId()));
+        var alarmId = new DeviceIdentity(alarm.controllerId());
+        var scrubId = new DeviceIdentity(scrubber.deviceId());
+        var ventId = new DeviceIdentity(vent.deviceId());
+        var tracker = new ManualPresetAckTracker(Set.of(scrubber.deviceId(), vent.deviceId()));
+        var scrubEndpoint = transport.lookup(scrubId);
+        var ventEndpoint = transport.lookup(ventId);
+        require(alarmEndpoint != null && scrubEndpoint != null && ventEndpoint != null,
+                "fixture alarm/devices registered before manual preset barrier");
+        var observers = new java.util.ArrayList<AutoCloseable>();
+        observers.add(transport.observeDelivery(alarmId, null, attempt -> {
+            if (attempt.outcome() != DeviceNetworkTransport.DeliveryOutcome.ENDPOINT_CALLED
+                    || attempt.receiverDeviceIdentity() == null || !(attempt.packet().payload() instanceof AtmosDevicePayload.SetState command)) return;
+            var id = attempt.receiverDeviceIdentity().value();
+            if (trackerExpected(id, scrubber.deviceId(), vent.deviceId())) tracker.commandDelivered(id, command.requestId(), command.enabled());
+        }));
+        observers.add(transport.observeDelivery(scrubId, alarmId, attempt -> {
+            if (attempt.outcome() == DeviceNetworkTransport.DeliveryOutcome.ENDPOINT_CALLED
+                    && attempt.packet().payload() instanceof AtmosDevicePayload.CommandResult result && result.current() != null)
+                tracker.resultDelivered(scrubber.deviceId(), result.requestId(), result.applied(), result.current().enabled());
+        }));
+        observers.add(transport.observeDelivery(ventId, alarmId, attempt -> {
+            if (attempt.outcome() == DeviceNetworkTransport.DeliveryOutcome.ENDPOINT_CALLED
+                    && attempt.packet().payload() instanceof AtmosDevicePayload.CommandResult result && result.current() != null)
+                tracker.resultDelivered(vent.deviceId(), result.requestId(), result.applied(), result.current().enabled());
+        }));
+        require(alarm.setAutomaticMode(false) && alarm.setMode(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.NONE),
+                "fixture alarm manual NONE ownership established");
+        helper.runAtTickTime(tick + 1, () -> pollManualControllerBarrier(helper, level, origin, plan, tick + 1,
+                newlyForced, alarm, scrubber, vent, tracker, observers));
+    }
+
+    private static boolean trackerExpected(java.util.UUID id, java.util.UUID scrubber, java.util.UUID vent) {
+        return id.equals(scrubber) || id.equals(vent);
+    }
+
+    private static void pollManualControllerBarrier(GameTestHelper helper, ServerLevel level, BlockPos origin,
+            VentilationFixturePlan plan, int elapsed, Set<Long> newlyForced, AirAlarmBlockEntity alarm,
+            VentilationDeviceBlockEntity scrubber, VentilationDeviceBlockEntity vent, ManualPresetAckTracker tracker,
+            java.util.List<AutoCloseable> observers) {
+        try {
+            boolean settingsOff = !scrubber.config().settings().configuredEnabled() && !vent.config().settings().configuredEnabled();
+            if (tracker.ready() && settingsOff && !alarm.automaticMode()
+                    && alarm.currentMode() == com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.NONE) {
+                closeObservers(observers);
+                initializeGasAfterManualController(helper, level, origin, plan, newlyForced, alarm);
+                return;
+            }
+            if (elapsed >= 80) throw new GameTestAssertException("manual NONE controller acknowledgement timeout: "
+                    + tracker.diagnostic() + " alarmAuto=" + alarm.automaticMode() + " alarmMode=" + alarm.currentMode()
+                    + " scrubber=" + scrubber.config().settings() + " vent=" + vent.config().settings());
+            helper.runAtTickTime(elapsed + 1, () -> pollManualControllerBarrier(helper, level, origin, plan, elapsed + 1,
+                    newlyForced, alarm, scrubber, vent, tracker, observers));
+        } catch (RuntimeException | Error failure) {
+            closeObservers(observers);
+            unforce(level, newlyForced);
+            throw failure;
+        }
+    }
+
+    private static void closeObservers(java.util.List<AutoCloseable> observers) {
+        for (var observer : observers) try { observer.close(); } catch (Exception ignored) { }
+        observers.clear();
     }
 
     private record GasTotals(double source, double recipient, double pipe,
@@ -277,8 +364,11 @@ public final class VentilationFixtureGameTests {
             var current = vent.config().settings();
             var enabled = new VentilationDeviceConfig.Settings(current.revision(), true, current.externalPressureBoundKPa(),
                     current.targetPressureChangeKPaPerSecond(), current.targetPressureKPa(), current.volumeRateM3PerSecond(),
-                    current.scrubberMode(), current.filteredGases(), current.selectedLayer());
-            if (!current.configuredEnabled()) require(vent.compareAndSetSettings(current.revision(), enabled), "enable vent through revision-checked device settings");
+                    current.scrubberMode(), current.filteredGases(), current.selectedLayer(), true, current.wideNet());
+            if (!current.configuredEnabled() || !current.pressureLockoutOverride())
+                require(vent.compareAndSetSettings(current.revision(), enabled), "enable vent with explicit fill override through revision-checked device settings");
+            require(vent.config().settings().configuredEnabled() && vent.config().settings().pressureLockoutOverride(),
+                    "manual paid vent release explicitly overrides low-pressure fill lockout; settings=" + vent.config().settings());
             GasTotals releaseStart = totals(level, origin, plan);
             var releaseCounters = AtmosphereService.INSTANCE.diagnosticRuntime(level);
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> pollVentRelease(helper, level, origin, plan, newlyForced,
@@ -293,18 +383,21 @@ public final class VentilationFixtureGameTests {
         try {
             GasTotals now = totals(level, origin, plan);
             var vent = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.vent()));
+            var scrubber = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.scrubber()));
+            var alarm = (AirAlarmBlockEntity) level.getBlockEntity(origin.offset(plan.alarm()));
+            require(alarm != null && !alarm.automaticMode(), "fixture alarm remains manually owned during vent release");
+            require(scrubber != null && !scrubber.config().settings().configuredEnabled(),
+                    "scrubber remains disabled during vent release; settings=" + (scrubber == null ? "missing" : scrubber.config().settings()));
             var countersAfter = AtmosphereService.INSTANCE.diagnosticRuntime(level);
             long cycles = countersAfter.completedCycles() - countersBefore.completedCycles();
             double operations = AtmospherePrecisionBudget.operations(cycles, fixtureFacePairs(plan),
                     Math.max(1, (elapsed + PowerRuntime.TICKS_PER_SOLVE - 1) / PowerRuntime.TICKS_PER_SOLVE));
-            if (now.recipient() > releaseStart.recipient() && now.pipe() < releaseStart.pipe()) {
+            double released = releaseStart.pipe() - now.pipe();
+            double received = now.recipient() - releaseStart.recipient();
+            double budget = releaseStart.transportInventory().moleBudget(
+                    plan.testGas(), now.transportInventory(), operations);
+            if (released > 0 || received > 0) {
                 requireConserved(releaseStart.allInventory(), now.allInventory(), operations, "vent release phase");
-                double budget = releaseStart.transportInventory().moleBudget(
-                        plan.testGas(), now.transportInventory(), operations);
-                double released = releaseStart.pipe() - now.pipe();
-                double received = now.recipient() - releaseStart.recipient();
-                require(budget < released, "local precision budget below measured vent release; released=" + released
-                        + " budget=" + budget + " operations=" + operations);
                 require(Math.abs(released - received) <= budget,
                         "packet control-volume transfer conserves released Plasma; pipeLoss=" + released
                                 + " recipientGain=" + received + " budget=" + budget + " operations=" + operations);
@@ -312,10 +405,12 @@ public final class VentilationFixtureGameTests {
                         "vent packet control volume");
                 requireConserved(releaseStart.sourceInventory(), now.sourceInventory(), operations,
                         "scrubber remains disabled during vent release");
-                System.out.println("VENTILATION_FIXTURE_PASS finite-vent-release");
-                require(VentilationFixtureService.initialize(level, origin).contains("already initialized"), "gas initialization remains one-shot after transfer");
-                unforce(level, newlyForced);
-                helper.succeed(); return;
+                if (VentReleaseDecision.shouldComplete(released, received, budget)) {
+                    System.out.println("VENTILATION_FIXTURE_PASS finite-vent-release");
+                    require(VentilationFixtureService.initialize(level, origin).contains("already initialized"), "gas initialization remains one-shot after transfer");
+                    unforce(level, newlyForced);
+                    helper.succeed(); return;
+                }
             }
             if (elapsed >= 200) throw new GameTestAssertException("normal paid vent did not release captured gas before deadline; elapsed="
                     + elapsed + " pipePlasma=" + now.pipe() + " recipientPlasma=" + now.recipient()
@@ -324,16 +419,29 @@ public final class VentilationFixtureGameTests {
                     + " topologyReady=" + PowerGraphService.topologyReady(level) + " topologyGeneration="
                     + PowerGraphService.topologyGeneration(level) + " indexedDevices=" + PowerRuntime.indexedDeviceCount(level)
                     + " settingsValid=" + (vent != null && vent.settingsValid())
-                    + " settings=" + (vent == null ? "missing" : vent.config().settings())
+                     + " settings=" + (vent == null ? "missing" : vent.config().settings())
+                     + " scrubberSettings=" + (scrubber == null ? "missing" : scrubber.config().settings())
+                     + " alarmAutomatic=" + (alarm == null ? "missing" : alarm.automaticMode())
+                     + " alarmMode=" + (alarm == null ? "missing" : alarm.currentMode())
+                     + " sourcePlasmaDelta=" + (now.source() - releaseStart.source())
                     + " roomFiniteEndpoint=" + AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level,
                             origin.offset(plan.vent().relative(Direction.SOUTH))).isPresent()
                     + " fixtureStatus=" + VentilationFixtureService.status(level, origin)
                     + " pipeNodes=" + now.pipeDetail()
-                    + " energyDelta=" + (now.allInventory().energy() - releaseStart.allInventory().energy())
-                    + " operations=" + operations);
+                     + " energyDelta=" + (now.allInventory().energy() - releaseStart.allInventory().energy())
+                     + " released=" + released + " received=" + received + " budget=" + budget
+                     + " cycles=" + cycles + " operations=" + operations);
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> pollVentRelease(helper, level, origin, plan, newlyForced,
                     releaseStart, countersBefore, elapsed + 10));
         } catch (RuntimeException | Error failure) { unforce(level, newlyForced); throw failure; }
+    }
+
+    public static final class VentReleaseDecision {
+        private VentReleaseDecision() { }
+
+        public static boolean shouldComplete(double released, double received, double budget) {
+            return released > 0 && received > 0 && budget < released && Math.abs(released - received) <= budget;
+        }
     }
 
     private static void unforce(ServerLevel level, Set<Long> chunks) {

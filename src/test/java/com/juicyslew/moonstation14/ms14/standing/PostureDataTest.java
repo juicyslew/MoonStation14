@@ -4,6 +4,15 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PostureDataTest {
+    @Test void physicalVariantTracksOnlyDimensionRelevantPostureTransitions() {
+        var prone = PostureData.STANDING.forceDown(10);
+        var aimed = prone.withSupportedGunAim(true);
+        assertNotEquals(PhysicalPosture.variant(prone), PhysicalPosture.variant(aimed));
+        assertNotEquals(PhysicalPosture.variant(aimed), PhysicalPosture.variant(prone));
+        assertNotEquals(PhysicalPosture.variant(prone), PhysicalPosture.variant(PostureData.STANDING));
+        assertEquals(PhysicalPosture.variant(prone), PhysicalPosture.variant(prone.movement(2, 1, true)));
+        assertEquals(PhysicalPosture.variant(PostureData.STANDING), PhysicalPosture.variant(null));
+    }
     @Test void occupiedAndReservedHandsScaleCrawlAndGetUp() {
         assertEquals(.4, PostureData.crawlSpeed(true, .4, 2, 2));
         assertEquals(.2, PostureData.crawlSpeed(true, .4, 1, 2));
@@ -102,5 +111,35 @@ class PostureDataTest {
         assertThrows(IllegalArgumentException.class, () -> original.facing(Float.NaN));
         assertThrows(IllegalArgumentException.class, () -> original.facing(Float.POSITIVE_INFINITY));
         assertThrows(IllegalArgumentException.class, () -> original.facing(Float.NEGATIVE_INFINITY));
+    }
+    @Test void supportedGunAimSurvivesDownedCopiesAndClearsOnStanding() {
+        PostureData aimed = PostureData.STANDING.forceDown(20).withSupportedGunAim(true);
+        assertTrue(aimed.movement(2, 1, true).supportedGunAim());
+        assertTrue(aimed.crawling(true).supportedGunAim());
+        assertTrue(aimed.forceDown(30).supportedGunAim());
+        assertTrue(aimed.beginGetUp(2).supportedGunAim());
+        assertFalse(aimed.completeGetUp(true).supportedGunAim());
+        assertFalse(PostureData.STANDING.withSupportedGunAim(true).supportedGunAim());
+        PostureData decoded = PostureData.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                PostureData.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, aimed).getOrThrow()).getOrThrow();
+        assertTrue(decoded.supportedGunAim());
+    }
+    @Test void crawlPreparationPreservesAimAndAllOtherFieldsWhileTurningFaceDown() {
+        PostureData source = PostureData.STANDING.forceDown(24).movement(3, 2, true)
+                .facing(63).forceFaceUp(30).withSupportedGunAim(true);
+        PostureData prepared = PostureSystem.prepareCrawlPosture(source, true);
+        assertTrue(prepared.down());
+        assertFalse(prepared.faceUp());
+        assertTrue(prepared.ownCrawling());
+        assertTrue(prepared.supportedGunAim());
+        assertEquals(source.down(), prepared.down());
+        assertEquals(source.voluntaryAutoStand(), prepared.voluntaryAutoStand());
+        assertEquals(source.knockdownUntil(), prepared.knockdownUntil());
+        assertEquals(source.getUpKey(), prepared.getUpKey());
+        assertEquals(source.totalHands(), prepared.totalHands());
+        assertEquals(source.freeHands(), prepared.freeHands());
+        assertEquals(source.pulling(), prepared.pulling());
+        assertEquals(source.movementFacingYaw(), prepared.movementFacingYaw());
+        assertFalse(PostureSystem.prepareCrawlPosture(source.withSupportedGunAim(false), true).supportedGunAim());
     }
 }

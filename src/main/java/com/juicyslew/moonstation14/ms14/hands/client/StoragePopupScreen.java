@@ -812,6 +812,10 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
                                 binding.location(), binding.slot(), binding.revision(), binding.token())) return true;
                     }
                     if (button == 1) {
+                        if ((tile == HandBarLayout.Layout.Tile.FIRST || tile == HandBarLayout.Layout.Tile.SECOND)) {
+                            var hand = tile == HandBarLayout.Layout.Tile.FIRST ? view.first() : view.second();
+                            if (hand.id().equals(view.activeHand()) && BodyHandClient.openActiveHeldGunControls()) return true;
+                        }
                         var proof = BodyHandClient.inventoryProof();
                         var candidate = HandEquipmentGesture.begin(tile, view, proof);
                         if (candidate == null && proof != null && (tile == HandBarLayout.Layout.Tile.FIRST
@@ -1008,7 +1012,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             var selected = inactiveClickHand;
             inactiveClickHand = null;
             if (!PopupActionPlan.moved(inactiveClickX, inactiveClickY, x, y))
-                BodyHandClient.selectInventoryHand(selected);
+                if (!dispatchHandItemUse(selected)) BodyHandClient.selectInventoryHand(selected);
             return true;
         }
         if (dragging != null) updateItemPointer(x, y, true);
@@ -1089,7 +1093,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             if (handGridWasInactive && releasedTile == source.source()
                     && !PopupActionPlan.moved(dragStartX, dragStartY, x, y)) {
                 handGridWasInactive = false;
-                BodyHandClient.selectInventoryHand(source.handId());
+                if (!dispatchHandItemUse(source.handId())) BodyHandClient.selectInventoryHand(source.handId());
                 return true;
             }
             handGridWasInactive = false;
@@ -1228,6 +1232,11 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         }
         itemMoved = false;
         return true;
+    }
+
+    /** An occupied-hand click is a use nomination before it is a hand-selection gesture. */
+    private boolean dispatchHandItemUse(String targetHandId) {
+        return HandEquipmentGesture.consumesHandUse(BodyHandClient.handClick(targetHandId));
     }
 
     private void beginItemPointer(double x, double y, int offsetX, int offsetY) {

@@ -289,14 +289,24 @@ public final class LiveMeleeAttackService {
      }
     private static MeleeAttackPolicy.Reason admissionReason(net.minecraft.world.entity.LivingEntity body,
             MeleeWeaponResolver.Selection expected, UUID targetId, long now) { return admissionReason(body, expected, targetId, now, false); }
-    private static MeleeAttackPolicy.Reason admissionReason(net.minecraft.world.entity.LivingEntity body,
-            MeleeWeaponResolver.Selection expected, UUID targetId, long now, boolean disarm) {
-        var deadline = MeleeCooldownSystem.nextAttackTick(body, expected);
+     private static MeleeAttackPolicy.Reason admissionReason(net.minecraft.world.entity.LivingEntity body,
+             MeleeWeaponResolver.Selection expected, UUID targetId, long now, boolean disarm) {
+         if (expected.profile().requiresWield() && !requiresWieldLease(body, expected))
+             return MeleeAttackPolicy.Reason.SOURCE_MISMATCH;
+         var deadline = MeleeCooldownSystem.nextAttackTick(body, expected);
         boolean sourceMatch = MeleeWeaponResolver.revalidate(body, expected) && deadline.isPresent();
         boolean ready = sourceMatch && now >= deadline.getAsLong();
         return MeleeAttackPolicy.evaluate(CombatModeSystem.isInCombatMode(body), CharacterControlSystem.isStunned(body),
                 MobStateSystem.isCritical(body), MobStateSystem.isDead(body), sourceMatch, !ready,
                 !disarm && expected.kind() == MeleeWeaponResolver.Kind.UNARMED && body.getUUID().equals(targetId));
-    }
+     }
+     /** The lease must still name this exact selected hand binding at each admission checkpoint. */
+     static boolean requiresWieldLease(net.minecraft.world.entity.LivingEntity body,
+             MeleeWeaponResolver.Selection selection) {
+         if (selection == null || selection.kind() != MeleeWeaponResolver.Kind.HELD
+                 || selection.itemToken().isEmpty() || selection.activeHand() == null || selection.activeHand().isBlank()) return false;
+         return com.juicyslew.moonstation14.ms14.hands.live.LiveWieldSystem.isWielded(
+                 body, selection.activeHand(), selection.itemToken().orElseThrow());
+     }
     private static Result rejected() { return new Result(Status.REJECTED, false, null, null, null, false); }
 }

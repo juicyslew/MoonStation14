@@ -1,5 +1,14 @@
 {
   "sources": [
+    { "type": "single", "resource": "moonstation14:ss14/power/recharger.rsi/empty" },
+    { "type": "single", "resource": "moonstation14:ss14/power/recharger.rsi/full" },
+    { "type": "single", "resource": "moonstation14:ss14/power/recharger.rsi/light-off" },
+    { "type": "single", "resource": "moonstation14:ss14/power/recharger.rsi/light-empty" },
+    { "type": "single", "resource": "moonstation14:ss14/power/recharger.rsi/light-charging" },
+    { "type": "single", "resource": "moonstation14:ss14/power/recharger.rsi/light-charged" },
+    { "type": "single", "resource": "moonstation14:ss14/guns/cartridge_spent_body" },
+    { "type": "single", "resource": "moonstation14:ss14/guns/shell_spent_body" },
+    { "type": "single", "resource": "moonstation14:ss14/weapons/objects/weapons/guns/ammunition/casings/ammo_casing.rsi/base-spent" },
     {
       "type": "single",
       "resource": "moonstation14:ss14/throwing_knife/icon"

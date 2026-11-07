@@ -51,7 +51,8 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
             Codec.BOOL.optionalFieldOf("quick_equip", true).forGetter(Clothing::quickEquip),
             WORN_MODEL_CODEC.optionalFieldOf("worn_model").forGetter(Clothing::wornModel),
             Codec.DOUBLE.optionalFieldOf("strip_delay", 0.0).forGetter(Clothing::stripDelay),
-            InventoryTemplateData.SLOT_FLAG_CODEC.listOf().optionalFieldOf("quick_equip_preferred_slot_flags", List.of()).forGetter(Clothing::quickEquipPreferredSlotFlags)
+             InventoryTemplateData.SLOT_FLAG_CODEC.listOf().optionalFieldOf("quick_equip_preferred_slot_flags", List.of()).forGetter(Clothing::quickEquipPreferredSlotFlags),
+             Codec.BOOL.optionalFieldOf("render_item_model", false).forGetter(Clothing::renderItemModel)
     ).apply(i, Clothing::new));
     public static final Codec<AllowSuitStorage> SUIT_STORAGE_CODEC = Codec.BOOL.xmap(AllowSuitStorage::new, AllowSuitStorage::enabled);
     private static final Codec<Float> FINITE_NONNEGATIVE_FLOAT = Codec.FLOAT.comapFlatMap(value ->
@@ -218,7 +219,7 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
     }
     public record Clothing(List<InventoryTemplateData.SlotFlag> slotFlags, AppearanceRegion region, int color, int equipDelay, int unequipDelay,
                            Optional<String> equipSound, Optional<String> unequipSound, boolean quickEquip,
-                           Optional<WornModel> wornModel, double stripDelay, List<InventoryTemplateData.SlotFlag> quickEquipPreferredSlotFlags) {
+                            Optional<WornModel> wornModel, double stripDelay, List<InventoryTemplateData.SlotFlag> quickEquipPreferredSlotFlags, boolean renderItemModel) {
         public Clothing {
             slotFlags = List.copyOf(slotFlags); quickEquipPreferredSlotFlags = List.copyOf(quickEquipPreferredSlotFlags);
             if (slotFlags.isEmpty() || region == null || equipDelay < 0 || unequipDelay < 0 || !Double.isFinite(stripDelay)
@@ -227,6 +228,7 @@ public record EquipmentItemData(Item item, Optional<Clothing> clothing,
             equipSound = equipSound == null ? Optional.empty() : equipSound; unequipSound = unequipSound == null ? Optional.empty() : unequipSound;
             wornModel = wornModel == null ? Optional.empty() : wornModel;
         }
+        public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int equipDelay, int unequipDelay, Optional<String> equipSound, Optional<String> unequipSound, boolean quickEquip, Optional<WornModel> wornModel, double stripDelay, List<InventoryTemplateData.SlotFlag> preferred) { this(flags, region, color, equipDelay, unequipDelay, equipSound, unequipSound, quickEquip, wornModel, stripDelay, preferred, false); }
         public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick, Optional<WornModel> model, double strip, List<InventoryTemplateData.SlotFlag> preferred) { this(flags, region, color, delay, 0, equip, unequip, quick, model, strip, preferred); }
         public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick, Optional<WornModel> model, double strip) { this(flags, region, color, delay, 0, equip, unequip, quick, model, strip, List.of()); }
         public Clothing(List<InventoryTemplateData.SlotFlag> flags, AppearanceRegion region, int color, int delay, Optional<String> equip, Optional<String> unequip, boolean quick) { this(flags, region, color, delay, 0, equip, unequip, quick, Optional.empty(), 0, List.of()); }

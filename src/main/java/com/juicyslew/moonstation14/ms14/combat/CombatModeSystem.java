@@ -32,6 +32,7 @@ public final class CombatModeSystem {
         CombatModeAttachment current = body.getExistingDataOrNull(ModDataAttachments.COMBAT_MODE.get());
         if (current != null && current.inCombatMode() == enabled) return true;
         body.setData(ModDataAttachments.COMBAT_MODE.get(), new CombatModeAttachment(enabled));
+        com.juicyslew.moonstation14.ms14.standing.PostureSystem.refreshSupportedGunAim(body);
         return true;
     }
 }

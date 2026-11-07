@@ -16,6 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import org.joml.Vector3f;
 
 /** Shared item-specific world presentation. Callers own entity/weapon placement and rotation. */
 public final class WorldItemPresentationRenderer {
@@ -106,6 +107,7 @@ public final class WorldItemPresentationRenderer {
             pose.translate(0, profile.modelFloorOffset(), 0);
             pose.scale(profile.modelScale() * appearanceScale, profile.modelScale() * appearanceScale,
                     profile.modelScale() * appearanceScale);
+            applyModelRest(pose, profile.visual().modelRest());
             Minecraft.getInstance().getItemRenderer().renderStatic(stack, ItemDisplayContext.NONE, light,
                     OverlayTexture.NO_OVERLAY, pose, presentationBuffers, level, seed);
         } else {
@@ -116,6 +118,32 @@ public final class WorldItemPresentationRenderer {
                     "grenade".equals(profile.renderKind()) ? ItemDisplayContext.NONE : ItemDisplayContext.FIXED,
                     light, OverlayTexture.NO_OVERLAY, pose, presentationBuffers, level, seed);
         }
+    }
+
+    /** Applies raw-model-unit horizontal centering and Euler rest after floor translation and scale. */
+    static void applyModelRest(PoseStack pose, LooseObjectProfile.ModelRest rest) {
+        pose.translate(rest.horizontalOffsetX(), 0, rest.horizontalOffsetZ());
+        pose.mulPose(new org.joml.Quaternionf().rotationXYZ((float) Math.toRadians(rest.rotationEulerX()),
+                (float) Math.toRadians(rest.rotationEulerY()), (float) Math.toRadians(rest.rotationEulerZ())));
+    }
+
+    /** Pure vertex counterpart of the block_model pipeline, after native NONE's raw (v - .5) centering. */
+    public static Vector3f transformBlockModelVertex(Vector3f vertex, LooseObjectProfile profile) {
+        var rest = profile.visual().modelRest();
+        float x = vertex.x - .5f, y = vertex.y - .5f, z = vertex.z - .5f;
+        float ax = (float) Math.toRadians(rest.rotationEulerX());
+        float ay = (float) Math.toRadians(rest.rotationEulerY());
+        float az = (float) Math.toRadians(rest.rotationEulerZ());
+        float cx = (float) Math.cos(ax), sx = (float) Math.sin(ax);
+        float cy = (float) Math.cos(ay), sy = (float) Math.sin(ay);
+        float cz = (float) Math.cos(az), sz = (float) Math.sin(az);
+        float y1 = cx * y - sx * z, z1 = sx * y + cx * z;
+        float x2 = cy * x + sy * z1, z2 = -sy * x + cy * z1;
+        float x3 = cz * x2 - sz * y1, y3 = sz * x2 + cz * y1;
+        float scale = profile.modelScale();
+        return new Vector3f(scale * (x3 + rest.horizontalOffsetX()),
+                profile.modelFloorOffset() + scale * y3,
+                scale * (z2 + rest.horizontalOffsetZ()));
     }
 
     static MultiBufferSource presentationBuffers(MultiBufferSource buffers, int vertexAlpha, int tintRgb, int[] count) {

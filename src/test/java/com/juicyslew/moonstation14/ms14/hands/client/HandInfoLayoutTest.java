@@ -65,6 +65,25 @@ class HandInfoLayoutTest {
         assertTrue(narrow.right().y() >= 0);
     }
 
+    @Test void allocatedCounterRowsHavePositiveActualPaintAreaForEveryHand() {
+        for (int[] size : new int[][]{{320,240},{640,360}}) {
+            var bar=HandBarLayout.calculate(size[0],size[1]);
+            for(boolean left:new boolean[]{false,true}) for(boolean right:new boolean[]{false,true}) {
+                var layout=HandInfoLayout.calculate(size[0],size[1],bar,left,right);
+                assertNotNull(layout);
+                if(left) assertTrue(layout.left().height()-14>0);
+                if(right) assertTrue(layout.right().height()-14>0);
+            }
+            var rightOnly=HandInfoLayout.calculate(size[0],size[1],bar,false,true);
+            assertEquals(12,rightOnly.left().height()); assertEquals(27,rightOnly.right().height());
+            var leftOnly=HandInfoLayout.calculate(size[0],size[1],bar,true,false);
+            assertEquals(27,leftOnly.left().height()); assertEquals(12,leftOnly.right().height());
+        }
+        var singleBar=HandBarLayout.calculate(320,240,1);
+        var single=HandInfoLayout.calculate(320,240,singleBar,true,false);
+        assertEquals(27,single.left().height()); assertTrue(single.left().height()-14>0);
+    }
+
     @Test
     void centeredGeometryRemainsInsideBoundsAtSupportedWidths() {
         for (int width : new int[]{90, 180, 320, 640}) {

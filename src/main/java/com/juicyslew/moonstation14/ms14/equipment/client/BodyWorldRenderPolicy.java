@@ -8,5 +8,10 @@ public final class BodyWorldRenderPolicy {
                                             boolean firstPerson) {
         return !(locallyOwnedBody && cameraBoundToBody && firstPerson);
     }
-}
 
+    /** Allows exactly the separately-owned arms invocation, never an ordinary body render. */
+    public static boolean allowOwnedGunArmsPass(boolean ownedCameraBody, boolean firstPerson,
+                                                 boolean committedEpochPositive, boolean activeGun) {
+        return ownedCameraBody && firstPerson && committedEpochPositive && activeGun;
+    }
+}

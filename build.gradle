@@ -311,6 +311,11 @@ readinessCatalog.interaction.addAll([
 ])
 readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.actions.BodyActionServicePresentationTest')
 readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.combat.GunAmmoCounterPainterTest',
+    'com.juicyslew.moonstation14.ms14.hands.client.HandAmmoHudProjectionTest',
+    'com.juicyslew.moonstation14.ms14.ui.preview.HandAmmoHudPreviewTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.client.TargetActionListLayoutTest',
+    'com.juicyslew.moonstation14.ms14.ui.preview.TargetActionWindowPreviewTest',
     'com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicyTest',
     'com.juicyslew.moonstation14.ms14.examine.client.ExamineRayTest',
     'com.juicyslew.moonstation14.ms14.examine.client.ExamineCandidateCycleTest',
@@ -320,6 +325,12 @@ readinessCatalog.ui.addAll([
     'com.juicyslew.moonstation14.ms14.hands.client.StoragePopupHostFocusRoutingTest'
 ])
 readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.combat.GunWorldUsePolicyTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequestTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyTargetActionPolicyTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyTargetActionSnapshotTest',
+    'com.juicyslew.moonstation14.ms14.standing.GunProneAimPolicyTest',
+    'com.juicyslew.moonstation14.ms14.standing.PostureDataTest',
     'com.juicyslew.moonstation14.ms14.hands.network.EquipmentTimedInteractionTest',
     'com.juicyslew.moonstation14.ms14.actions.BodyActionServicePresentationTest',
     'com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicyTest',
@@ -416,6 +427,9 @@ readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.construction.ConstructionEntityPrototypeTest'
 ])
 readinessCatalog.prediction.addAll([
+    'com.juicyslew.moonstation14.ms14.combat.GunShotClientPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.ClientGunShotPredictionTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.client.TargetActionClientPolicyTest',
     'com.juicyslew.moonstation14.ms14.standing.ClientBodyEntityRayTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleePredictionAdmissionTest',
     'com.juicyslew.moonstation14.ms14.hands.network.BodyHandSnapshotClockTest',

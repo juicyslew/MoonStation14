@@ -64,21 +64,53 @@ public final class HeldTimedIngestionGameTests {
     public static void pillTransfersWholeContentsAfterTwelveTicksAndConsumesOwnerTokenOnce(GameTestHelper h) {
         ItemStack pill = new ItemStack(ModItems.PILL.get());
         Fixture f = fixtureWithItem(h, pill, 12);
+        // Metabolism is independently bucketed per body. Align completion away from
+        // that tick so this fixture measures the committed dose, not later digestion.
+        waitForPillSafeStart(h, f, () -> runPillTransferAssertions(h, f));
+    }
+
+    private static void runPillTransferAssertions(GameTestHelper h, Fixture f) {
+        long start = h.getLevel().getGameTime();
+        var metabolism = com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM;
+        require(!metabolism.isDue(start + 12, f.body.getId()) && !metabolism.isDue(start + 13, f.body.getId()),
+                "fixture avoids metabolism across pill completion and post-dispatch observation ticks");
         require(BodyTimedIngestionService.startHeldOwned(f.body, "left", f.token, f.revision, 700, () -> true).name().equals("OK"),
                 "resolved pill profile starts ordinary timed ingestion");
+        var operation = f.body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations().stream()
+                .filter(o -> o.phase() == TimedOperation.Phase.ACTIVE).findFirst().orElseThrow();
+        require(operation.durationTicks() == 12 && operation.dueTick() == start + 12,
+                "resolved pill profile retains its 12-tick completion");
         h.runAfterDelay(11, () -> {
             require(hands(f).token("left").filter(f.token::equals).isPresent()
                     && source(f) == 1200, "pill and full source amount remain unchanged before the 12-tick deadline");
         });
-        h.runAfterDelay(15, () -> {
-            require(hands(f).token("left").isEmpty() && hands(f).revision() == f.revision + 1,
-                    "committed whole-dose pill is removed once through the hand owner revision");
-            require(ReagentUnits.fromFloat(com.juicyslew.moonstation14.ms14.MS14Provider
-                    .get(f.body, com.juicyslew.moonstation14.ms14.MS14Bridges.STOMACH).getMap().getOrDefault(WATER, 0f)) == 1200,
-                    "all pill contents transfer together");
+        h.runAfterDelay(13, () -> {
+            long stomach = stomachWater(f.body);
+            boolean consumed = hands(f).token("left").isEmpty() && hands(f).revision() == f.revision + 1;
+            var operations = f.body.getData(ModDataAttachments.TIMED_OPERATIONS.get()).operations();
+            var activeOperation = operations.stream().filter(o -> o.phase() == TimedOperation.Phase.ACTIVE).findFirst().orElse(null);
+            require(consumed, "committed whole-dose pill is removed once through the hand owner revision; token="
+                    + hands(f).token("left") + ", revision=" + hands(f).revision() + ", expectedRevision="
+                    + (f.revision + 1) + ", operation=" + activeOperation + ", tick=" + h.getLevel().getGameTime()
+                    + ", metabolismInterval=" + metabolism.tickInterval());
+            require(stomach == 1200,
+                    "all pill contents transfer together; stomach=" + stomach + " cents, tick="
+                            + h.getLevel().getGameTime() + ", metabolismDue="
+                            + metabolism.isDue(h.getLevel().getGameTime(), f.body.getId()) + ", start=" + start);
             require(!active(f), "single-use pill operation stops rather than repeating");
             h.succeed();
         });
+    }
+
+    private static void waitForPillSafeStart(GameTestHelper helper, Fixture fixture, Runnable action) {
+        long start = helper.getLevel().getGameTime();
+        var metabolism = com.juicyslew.moonstation14.ms14.activity.EntityActivity.REAGENT_METABOLISM;
+        if (!metabolism.isDue(start + 12, fixture.body.getId())
+                && !metabolism.isDue(start + 13, fixture.body.getId())) {
+            action.run();
+        } else {
+            helper.runAfterDelay(1, () -> waitForPillSafeStart(helper, fixture, action));
+        }
     }
 
     @GameTestTags({"chemmaster-output"})

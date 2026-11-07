@@ -28,7 +28,7 @@ public class ModCreativeModeTabs {
             ModItems.MIMANA, ModItems.WATERMELON, ModItems.AMBROSIA_DEUS, ModItems.AMBROSIA_VULGARIS, ModItems.BANANA, ModItems.BERRIES, ModItems.BLOOD_TOMATO, ModItems.BLOONION, ModItems.BLUE_PUMPKIN, ModItems.BLUE_TOMATO, ModItems.BUNGO, ModItems.LEAVES_CANNABIS, ModItems.MUSHROOM, ModItems.CHERRY, ModItems.CHILI, ModItems.CHILLY, ModItems.COCOA_POD, ModItems.CORN, ModItems.COTTON_BOL, ModItems.DEATH_NETTLE, ModItems.EGGPLANT, ModItems.EGG, ModItems.FLY_AMANITA, ModItems.GALAXYTHISTLE, ModItems.GARLIC, ModItems.GLASSTLE, ModItems.GRAPE, ModItems.HOLYMELON, ModItems.FOOD_KOIBEAN, ModItems.FOOD_LAUGHIN_PEA_POD, ModItems.LILY, ModItems.LINGZHI, ModItems.NETTLE, ModItems.OAT_BUSHEL, ModItems.ONION, ModItems.ONION_RED, ModItems.PAPERCANE, ModItems.FOOD_PEA_POD, ModItems.PINEAPPLE, ModItems.PUMPKIN, ModItems.PYROTTON_BOL, ModItems.LEAVES_CANNABIS_RAINBOW, ModItems.RICE_BUSHEL, ModItems.FOOD_SOYBEANS, ModItems.STEEL_LOG, ModItems.SUGARCANE, ModItems.LEAVES_TEA, ModItems.LEAVES_TOBACCO, ModItems.LOG, ModItems.FOOD_WORLD_PEAS,
             ModItems.TRASH_BANANA_PEEL, ModItems.TRASH_MIMANA_PEEL, ModItems.TRASH_CHERRY_PIT, ModItems.FOOD_BUNGO_PIT, ModItems.FOOD_CORN_TRASH, ModItems.HOLYMELON_SLICE, ModItems.ONION_SLICE, ModItems.ONION_RED_SLICE, ModItems.PINEAPPLE_SLICE, ModItems.WATERMELON_SLICE, ModItems.CLOTHING_HEAD_HAT_HOLY_WATERMELON, ModItems.CLOTHING_HEAD_HAT_WATERMELON, ModItems.CARVED_PUMPKIN, ModItems.EGGSHELLS, ModItems.SHARD_GLASS,
             ModItems.CROWBAR, ModItems.AIRLOCK_MULTITOOL, ModItems.PILL, ModItems.PILL_CANISTER, ModItems.STATION_FLOOR_TILE, ModItems.STATION_FLOOR_TILE_WHITE,
-            ModItems.WEAPON_REVOLVER_PYTHON, ModItems.REVOLVER_CAP_GUN, ModItems.REVOLVER_CAP_GUN_FAKE,
+            ModItems.REVOLVER_CAP_GUN, ModItems.REVOLVER_CAP_GUN_FAKE,
             ModItems.CARTRIDGE_MAGNUM, ModItems.CARTRIDGE_MAGNUM_AP, ModItems.CARTRIDGE_CAP,
             ModItems.STATION_FLOOR_TILE_PRY, ModItems.HV_CABLE_SPOOL, ModItems.MV_CABLE_SPOOL,
             ModItems.APC_CABLE_SPOOL, ModItems.WIRECUTTER, ModItems.WAFFLE, ModItems.BOTTLE, ModItems.SYRINGE,
@@ -41,6 +41,12 @@ public class ModCreativeModeTabs {
             ModItems.NETWORK_CONFIGURATOR, ModItems.REMOTE_SIGNALLER, ModItems.REMOTE_SIGNALLER_ADVANCED,
             ModItems.PLASMA_TANK,
             ModItems.THROWING_KNIFE, ModItems.DART, ModItems.HYPO_DART, ModItems.BOLA, ModItems.ARMOR_VEST, ModItems.BASIC_HELMET,
+            ModItems.WEAPON_PISTOL_MK58, ModItems.WEAPON_RIFLE_LECTER, ModItems.WEAPON_REVOLVER_INSPECTOR,
+            ModItems.WEAPON_SHOTGUN_KAMMERER, ModItems.WEAPON_SNIPER_MOSIN, ModItems.WEAPON_LASER_GUN,
+            ModItems.WEAPON_ENERGY_SHOTGUN, ModItems.WEAPON_LASER_SVALINN,
+            ModItems.MAGAZINE_PISTOL, ModItems.MAGAZINE_RIFLE, ModItems.SPEEDLOADER_MAGNUM, ModItems.POWER_CELL_SMALL,
+            ModItems.CARTRIDGE_PISTOL, ModItems.CARTRIDGE_RIFLE, ModItems.CARTRIDGE_MAGNUM,
+            ModItems.CARTRIDGE_LIGHT_RIFLE, ModItems.SHELL_SHOTGUN,
             ModEquipmentItems.GREY_CAP, ModEquipmentItems.DEBUG_CAPABILITY_CAP, ModEquipmentItems.GREY_JUMPSUIT, ModEquipmentItems.SIMPLE_COAT,
             ModEquipmentItems.BLACK_GLOVES, ModEquipmentItems.BLACK_SHOES, ModEquipmentItems.GLASSES,
             ModEquipmentItems.RED_TIE, ModEquipmentItems.BLACK_BANDANA, ModEquipmentItems.EARPIECES,
@@ -64,7 +70,8 @@ public class ModCreativeModeTabs {
             ModItems.GAS_PIPE_VISUAL, ModItems.GAS_PIPE_VISUAL_SECONDARY, ModItems.GAS_PIPE_VISUAL_TERTIARY,
             ModBlocks.DISPOSAL_UNIT, ModBlocks.DISPOSAL_TUBE, ModBlocks.CHEM_MASTER,
             ModBlocks.SIGNAL_BUTTON, ModBlocks.SIGNAL_SWITCH,
-            ModBlocks.HYDROPONICS_TRAY, ModBlocks.EMPTY_HYDROPONICS_TRAY, ModBlocks.SEED_EXTRACTOR, ModBlocks.REAGENT_GRINDER);
+            ModBlocks.HYDROPONICS_TRAY, ModBlocks.EMPTY_HYDROPONICS_TRAY, ModBlocks.SEED_EXTRACTOR, ModBlocks.REAGENT_GRINDER,
+            ModBlocks.WEAPON_CAPACITOR_RECHARGER);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TAB =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MoonStation14.MOD_ID);
 

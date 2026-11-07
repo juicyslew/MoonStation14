@@ -30,6 +30,13 @@ public final class CombatModeClient {
     public static void clearContext() { POLICY.clear(); }
     public static CombatModeClientPolicy policy() { return POLICY; }
     public static boolean projectedMode() { return POLICY.mode(); }
+    /** Uses the predicted owner mode only for the currently bound controlled body. */
+    public static boolean modeForPresentation(net.minecraft.world.entity.LivingEntity entity) {
+        if (entity != null && POLICY.epoch() > 0 && entity.getUUID().equals(POLICY.body())) return POLICY.mode();
+        var replicated = entity == null ? null : entity.getExistingDataOrNull(
+                com.juicyslew.moonstation14.component.ModDataAttachments.COMBAT_MODE.get());
+        return replicated != null && replicated.inCombatMode();
+    }
     /** Capability is profile-resolved and independent of whether the default-OFF attachment exists. */
     public static boolean hasCapability(net.minecraft.world.entity.Mob body) {
         return CombatModeSystem.capability(body).isPresent();

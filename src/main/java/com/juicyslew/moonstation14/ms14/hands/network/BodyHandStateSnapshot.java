@@ -23,8 +23,24 @@ import java.util.function.Consumer;
 public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
                                      UUID bodyId, long epoch, long revision, String activeHand,
                                        List<Hand> hands, List<EquipmentSlot> equipment, List<GridHost> grids, boolean push,
-                                        ResourceLocation templateId, long serverTick) implements CustomPacketPayload {
+                                        ResourceLocation templateId, long serverTick, WieldProjection wieldProjection) implements CustomPacketPayload {
     public enum Reason { OK, NO_AUTHORITY, RATE_LIMITED, REPLAY, NOT_READY }
+
+    public record WieldProjection(String sourceHand, String sourceToken, String supportHand, UUID reservation) {
+        public WieldProjection {
+            if (sourceHand == null || sourceHand.isBlank() || sourceHand.length() > HandState.MAX_ID_LENGTH
+                    || sourceToken == null || sourceToken.isBlank() || sourceToken.length() > ItemToken.MAX_LENGTH
+                    || supportHand == null || supportHand.isBlank() || supportHand.length() > HandState.MAX_ID_LENGTH
+                    || sourceHand.equals(supportHand) || reservation == null) throw new IllegalArgumentException("Invalid wield projection");
+        }
+    }
+
+    public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId, UUID bodyId,
+            long epoch, long revision, String activeHand, List<Hand> hands, List<EquipmentSlot> equipment,
+            List<GridHost> grids, boolean push, ResourceLocation templateId, long serverTick) {
+        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment,
+                grids, push, templateId, serverTick, null);
+    }
 
     public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
                                  UUID bodyId, long epoch, long revision, String activeHand, List<Hand> hands) {
@@ -184,6 +200,13 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                     buf.writeVarLong(snapshot.epoch);
                     buf.writeVarLong(snapshot.revision);
                     buf.writeVarLong(snapshot.serverTick);
+                    buf.writeBoolean(snapshot.wieldProjection != null);
+                    if (snapshot.wieldProjection != null) {
+                        buf.writeUtf(snapshot.wieldProjection.sourceHand(), HandState.MAX_ID_LENGTH);
+                        buf.writeUtf(snapshot.wieldProjection.sourceToken(), ItemToken.MAX_LENGTH);
+                        buf.writeUtf(snapshot.wieldProjection.supportHand(), HandState.MAX_ID_LENGTH);
+                        buf.writeUUID(snapshot.wieldProjection.reservation());
+                    }
                     buf.writeUtf(snapshot.activeHand, HandState.MAX_ID_LENGTH);
                     buf.writeBoolean(snapshot.templateId != null);
                     if (snapshot.templateId != null) buf.writeResourceLocation(snapshot.templateId);
@@ -253,7 +276,10 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                 UUID body = buf.readUUID();
                 long epoch = buf.readVarLong();
                 long revision = buf.readVarLong();
-                long serverTick = buf.readVarLong();
+                 long serverTick = buf.readVarLong();
+                 WieldProjection wield = null;
+                 if (buf.readBoolean()) wield = new WieldProjection(buf.readUtf(HandState.MAX_ID_LENGTH),
+                         buf.readUtf(ItemToken.MAX_LENGTH), buf.readUtf(HandState.MAX_ID_LENGTH), buf.readUUID());
                 String active = buf.readUtf(HandState.MAX_ID_LENGTH);
                 ResourceLocation templateId = buf.readBoolean() ? buf.readResourceLocation() : null;
                 int size = buf.readVarInt();
@@ -315,7 +341,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                 }
                 if (buf.isReadable()) throw new IllegalArgumentException("Unexpected snapshot payload");
                 return new BodyHandStateSnapshot(requestedEpoch, sequence, reason, account, body,
-                        epoch, revision, active, slots, equipment, grids, push, templateId, serverTick);
+                        epoch, revision, active, slots, equipment, grids, push, templateId, serverTick, wield);
             }));
 
     private static BodyHandStateSnapshot decodeGuarded(RegistryFriendlyByteBuf buf,
@@ -366,8 +392,15 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                 for (GridEntry entry : grid.entries()) if (!tokens.add(entry.token())) throw new IllegalArgumentException("Duplicate grid entry token");
             }
             if (!ids.contains(activeHand)) throw new IllegalArgumentException("Unknown active hand");
+            if (wieldProjection != null) {
+                var source = hands.stream().filter(h -> h.id().equals(wieldProjection.sourceHand())).findFirst().orElse(null);
+                var support = hands.stream().filter(h -> h.id().equals(wieldProjection.supportHand())).findFirst().orElse(null);
+                if (source == null || !wieldProjection.sourceToken().equals(source.token()) || support == null
+                        || wieldProjection.reservation().toString().equals(support.pullTarget()) == false
+                        || support.token() != null) throw new IllegalArgumentException("Invalid wield projection slots");
+            }
         } else if (accountId != null || bodyId != null || epoch != 0 || revision != 0 || templateId != null
-                || activeHand != null || !hands.isEmpty() || !equipment.isEmpty() || !grids.isEmpty()) throw new IllegalArgumentException("Invalid rejection");
+                || activeHand != null || !hands.isEmpty() || !equipment.isEmpty() || !grids.isEmpty() || wieldProjection != null) throw new IllegalArgumentException("Invalid rejection");
     }
 
     private static String hostKind(String itemId) {
@@ -410,4 +443,3 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
-

@@ -34,7 +34,6 @@ public final class AuthoredWearableMeshes {
             }
             return Map.copyOf(parsed);
         }
-        @Override protected void apply(Map<ResourceLocation,AuthoredWearableMesh> prepared, ResourceManager manager, net.minecraft.util.profiling.ProfilerFiller profiler) { applySnapshot(prepared); }
+        @Override protected void apply(Map<ResourceLocation,AuthoredWearableMesh> prepared, ResourceManager manager, net.minecraft.util.profiling.ProfilerFiller profiler) { applySnapshot(prepared); BodyAppearanceItemRenderer.clearMuzzleFrames(); }
     }
 }
-

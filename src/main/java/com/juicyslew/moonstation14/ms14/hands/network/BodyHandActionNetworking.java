@@ -171,8 +171,10 @@ public final class BodyHandActionNetworking {
                      if (admission != null && request.intent() == BodyBlockUseRequest.Intent.USE) {
                          var held = admission.hands().stackCopy(request.handId()).orElse(null);
                           var body = admission.authority().body();
-                          var targetEntity = body.level().getBlockEntity(admission.hit().pos());
-                            if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity extractor) {
+                           var targetEntity = body.level().getBlockEntity(admission.hit().pos());
+                             if (targetEntity instanceof com.juicyslew.moonstation14.ms14.combat.WeaponCapacitorRechargerBlockEntity charger) {
+                                 outcome = com.juicyslew.moonstation14.ms14.combat.CapacitorRechargerHandUseService.use(actor, request, admission, charger, held);
+                             } else if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity extractor) {
                                 outcome = com.juicyslew.moonstation14.ms14.botany.SeedExtractorHandUseService.use(
                                         actor, request, admission, extractor, held);
                             } else if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity tray) {

@@ -33,6 +33,7 @@ import com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlock;
 import com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlock;
 import com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlock;
 import com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlock;
+import com.juicyslew.moonstation14.ms14.combat.WeaponCapacitorRechargerBlock;
 import com.juicyslew.moonstation14.item.custom.CatalogOnlyDisposalPipeBlockItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -163,6 +164,8 @@ public class ModBlocks {
             () -> new SeedExtractorBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
     public static final DeferredBlock<ReagentGrinderBlock> REAGENT_GRINDER = registerBlock("reagent_grinder",
             () -> new ReagentGrinderBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
+    public static final DeferredBlock<WeaponCapacitorRechargerBlock> WEAPON_CAPACITOR_RECHARGER = registerBlock("weapon_capacitor_recharger",
+            () -> new WeaponCapacitorRechargerBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
     static {
         ModItems.ITEMS.register("disposal_tube", () -> new CatalogOnlyDisposalPipeBlockItem(
                 DISPOSAL_TUBE.get(), new Item.Properties()));

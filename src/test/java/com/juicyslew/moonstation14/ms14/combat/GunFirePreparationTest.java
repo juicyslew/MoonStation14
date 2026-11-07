@@ -19,4 +19,14 @@ class GunFirePreparationTest {
         assertEquals(new Vec3(1, .5, 2), v);
         assertThrows(IllegalArgumentException.class, () -> GunFireSystem.projectileVelocity(Vec3.ZERO, 0, 40, Vec3.ZERO));
     }
+    @Test void spreadProducesRequestedOffsetForVerticalAimAndPreservesZeroAngle() {
+        for (Vec3 vertical : new Vec3[]{new Vec3(0, 1, 0), new Vec3(0, -1, 0)}) {
+            double angle = .2;
+            Vec3 spread = RangedDirection.applySpread(vertical, angle);
+            assertNotEquals(vertical, spread);
+            assertEquals(angle, Math.acos(vertical.dot(spread)), 1e-9);
+            assertEquals(vertical, RangedDirection.applySpread(vertical, 0));
+        }
+        assertThrows(IllegalArgumentException.class, () -> RangedDirection.applySpread(Vec3.ZERO, .2));
+    }
 }

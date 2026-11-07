@@ -61,11 +61,12 @@ class ItemFootprintResourceTest {
     @Test
     void productionFootprintProfilesLoadFromResourcesWithExpectedInheritanceAndSizes() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
-        // Exact bundled inventory includes abstract geometry templates; large adds the 2x3 carrier shape.
-        assertEquals(218, raw.size());
+        // Exact bundled inventory includes abstract geometry templates, the 2x3 carrier, and the 2x2 capacitor recharger.
+        assertEquals(237, raw.size());
+        assertTrue(raw.containsKey(id("weapon_capacitor_recharger")));
 
         PrototypeCatalog<JsonObject> resolved = PrototypeResolver.resolve(raw);
-        assertEquals(212, resolved.size());
+        assertEquals(231, resolved.size());
         String[] coreItems = {"steel", "glass", "plastic", "cloth", "wood", "jug", "station_floor_tile",
                 "station_floor_tile_white", "station_floor_tile_pry", "paper", "bottle", "waffle", "crowbar",
                 "wirecutter", "atmosphere_analyzer", "grenade", "hv_cable_spool", "mv_cable_spool",
@@ -87,7 +88,7 @@ class ItemFootprintResourceTest {
         manager.register(ModItemFootprints.TYPE);
         manager.reload(ModItemFootprints.TYPE, raw);
         var catalog = manager.snapshot(ModItemFootprints.TYPE);
-        assertEquals(212, catalog.size());
+        assertEquals(231, catalog.size());
         assertEquals(catalog.get(id("grey_cap")).cells(), catalog.get(id("debug_capability_cap")).cells());
         assertEquals(catalog.get(id("grey_cap")).itemSize(), catalog.get(id("debug_capability_cap")).itemSize());
         var pocket = new com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData(java.util.List.of(

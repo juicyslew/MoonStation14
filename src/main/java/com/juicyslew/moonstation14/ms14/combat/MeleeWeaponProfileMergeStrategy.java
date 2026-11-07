@@ -10,9 +10,17 @@ import java.util.Map;
 
 /** Merges partial weapon component fields using the shared prototype resolver. */
 public final class MeleeWeaponProfileMergeStrategy implements PrototypeMergeStrategy {
-    @Override public boolean handles(String fieldName) { return "weapon".equals(fieldName) || "damage_on_hit".equals(fieldName) || "chemical_injector".equals(fieldName); }
+    @Override public boolean handles(String fieldName) { return "weapon".equals(fieldName) || "damage_on_hit".equals(fieldName) || "chemical_injector".equals(fieldName) || "requires_wield".equals(fieldName); }
     @Override public JsonElement merge(String fieldName, ResourceLocation childId, JsonObject child, List<JsonObject> parents) {
         if (!handles(fieldName)) return null;
+        if ("requires_wield".equals(fieldName)) {
+            if (child.has(fieldName)) return child.get(fieldName).deepCopy();
+            for (int i = 0; i < parents.size(); i++) {
+                JsonElement value = parents.get(i).get(fieldName);
+                if (value != null) return value.deepCopy();
+            }
+            return null;
+        }
         if (!"weapon".equals(fieldName)) {
             JsonObject result = new JsonObject();
             for (JsonObject parent : parents) {

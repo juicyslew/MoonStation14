@@ -13,6 +13,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /** Main-thread client correlation gate. Only a matching full query reply can enable an action. */
 public final class BodyHandClientPolicy {
+    /** Screens that retain the confirmed held-item proof while the world remains input-gated. */
+    public static boolean keepsProofForScreen(boolean storagePopup, boolean chat, boolean bodyInventory) {
+        return storagePopup || chat || bodyInventory;
+    }
     record HudExamineBinding(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location location,
                              String slot, long revision, String token) { }
     static HudExamineBinding examineHudTile(BodyHandStateSnapshot snapshot, HandBarLayout.Layout.Tile tile) {
@@ -235,6 +239,7 @@ public final class BodyHandClientPolicy {
 
     public BodyHandStateSnapshot snapshot() { return snapshot; }
     public boolean handQueryPending() { return pendingQuery != 0 && pendingAction == 0 && pendingBlockUse == 0; }
+    public boolean actionPending() { return pendingAction != 0; }
     public BodyHandStateSnapshot lastConfirmedSnapshot() { return inputEnabled ? lastConfirmedSnapshot : null; }
     /** Confirmed read-only authority state; unlike inventoryView this remains usable while input is barred. */
     public BodyHandStateSnapshot confirmedSnapshot() {

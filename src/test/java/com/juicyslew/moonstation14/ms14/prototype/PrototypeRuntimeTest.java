@@ -56,6 +56,39 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PrototypeRuntimeTest {
     @Test
+    void ammoContainerAndBatteryFamiliesResolveInheritanceAndSynchronize() {
+        var manager = new PrototypeManager();
+        var ammoType = com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.TYPE;
+        var batteryType = com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.TYPE;
+        manager.register(ammoType);
+        manager.register(batteryType);
+        var tagA = id("tag_a");
+        var tagB = id("tag_b");
+        JsonObject ammoParent = JsonParser.parseString("{\"abstract\":true,\"capacity\":12,\"accepted_tags\":[\"moonstation14:tag_a\"],\"magazine_tags\":[\"moonstation14:tag_a\"],\"fill_cartridge_prototype\":\"moonstation14:round\"}").getAsJsonObject();
+        JsonObject ammoChild = JsonParser.parseString("{\"parent\":\"moonstation14:ammo_parent\",\"capacity\":20,\"accepted_tags\":[\"moonstation14:tag_b\"]}").getAsJsonObject();
+        JsonObject batteryParent = JsonParser.parseString("{\"abstract\":true,\"capacity\":100.0,\"starting_charge\":75.0,\"tags\":[\"moonstation14:tag_a\"]}").getAsJsonObject();
+        JsonObject batteryChild = JsonParser.parseString("{\"parent\":\"moonstation14:battery_parent\",\"tags\":[\"moonstation14:tag_b\"]}").getAsJsonObject();
+        manager.reload(ammoType, Map.of(id("ammo_parent"), ammoParent, id("ammo_child"), ammoChild));
+        manager.reload(batteryType, Map.of(id("battery_parent"), batteryParent, id("battery_child"), batteryChild));
+        var ammo = manager.snapshot(ammoType).get(id("ammo_child"));
+        var battery = manager.snapshot(batteryType).get(id("battery_child"));
+        assertEquals(20, ammo.capacity());
+        assertEquals(Set.of(tagB), ammo.acceptedTags());
+        assertEquals(Set.of(tagA), ammo.magazineTags());
+        assertEquals(id("round"), ammo.fillCartridgePrototype());
+        assertEquals(100f, battery.capacity());
+        assertEquals(75f, battery.startingCharge());
+        assertEquals(Set.of(tagB), battery.tags());
+
+        var client = new PrototypeManager();
+        client.register(ammoType);
+        client.register(batteryType);
+        client.publishEncodedCatalogs(manager.encodePublishedCatalogs());
+        assertEquals(ammo, client.snapshot(ammoType).get(id("ammo_child")));
+        assertEquals(battery, client.snapshot(batteryType).get(id("battery_child")));
+    }
+
+    @Test
     void canisterResourcesResolveAbstractBaseAndConcreteProfilesIntoLiveState() {
         var manager = new PrototypeManager();
         var type = com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE;
@@ -143,6 +176,9 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModChargerProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE);
@@ -327,7 +363,12 @@ class PrototypeRuntimeTest {
                  "minecraft:stone", new com.juicyslew.moonstation14.ms14.damage.DamageModifierData(
                          Map.of("blunt", 0.5f), Map.of()));
          server.publishDecoded(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE,
-                 Map.of(id("stone"), contactPolicy));
+                  Map.of(id("stone"), contactPolicy));
+          var chargerProfile = new com.juicyslew.moonstation14.ms14.combat.ChargerProfile(1f, 20f,
+                  true, "charger_slot", Set.of(com.juicyslew.moonstation14.ms14.combat.ChargerCapability.BATTERY_AMMO_PROVIDER,
+                  com.juicyslew.moonstation14.ms14.combat.ChargerCapability.POWER_CELL));
+          server.publishDecoded(com.juicyslew.moonstation14.ms14.combat.ModChargerProfiles.TYPE,
+                  Map.of(id("weapon_capacitor_recharger"), chargerProfile));
          Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
@@ -360,7 +401,10 @@ class PrototypeRuntimeTest {
                  com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.ModChargerProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.botany.ModPlantMutations.TYPE.typeId(),
@@ -416,9 +460,11 @@ class PrototypeRuntimeTest {
 
          client.publishEncodedCatalogs(exported);
          assertEquals(contactPolicy, PrototypeRuntime.serverBlockStructuralContacts().get(id("stone")));
-         assertEquals(contactPolicy, PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
+          assertEquals(contactPolicy, PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
          assertNotSame(PrototypeRuntime.serverBlockStructuralContacts().get(id("stone")),
-                 PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
+                  PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
+          assertEquals(chargerProfile, PrototypeRuntime.clientChargerProfiles().get(id("weapon_capacitor_recharger")));
+          assertNotSame(chargerProfile, PrototypeRuntime.clientChargerProfiles().get(id("weapon_capacitor_recharger")));
          var serverActions = ModActionPrototypes.serverCatalog();
          var clientActions = ModActionPrototypes.clientCatalog();
          var combatAction = id("combat_mode_toggle");

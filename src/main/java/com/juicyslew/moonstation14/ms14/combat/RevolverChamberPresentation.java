@@ -43,6 +43,7 @@ public final class RevolverChamberPresentation {
                 status = Boolean.TRUE.equals(cartridge.get(com.juicyslew.moonstation14.component.ModDataComponents.CARTRIDGE_SPENT.get()))
                         ? Status.SPENT : Status.LOADED;
             } else if (chamber.virtualLive()) status = Status.LOADED;
+            else if (chamber.spentCasing().isPresent()) status = Status.SPENT;
             else status = Status.MISSING;
             int tint = switch (status) {
                 case LOADED -> i % 2 == 0 ? YELLOW_A : YELLOW_B;

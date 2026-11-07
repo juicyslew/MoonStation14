@@ -368,8 +368,11 @@ public class BotanyCatalogCandidateTest {
     }
 
     public static Map<ResourceLocation, JsonObject> mainResourcesAll(String family) {
+        return mainResourcesAllAt("data/moonstation14/moonstation14/" + family);
+    }
+
+    public static Map<ResourceLocation, JsonObject> mainResourcesAllAt(String resourceDirectory) {
         var result = new LinkedHashMap<ResourceLocation, JsonObject>();
-        String resourceDirectory = "data/moonstation14/moonstation14/" + family;
         var url = BotanyCatalogCandidateTest.class.getClassLoader().getResource(resourceDirectory);
         assertNotNull(url, resourceDirectory);
         try {

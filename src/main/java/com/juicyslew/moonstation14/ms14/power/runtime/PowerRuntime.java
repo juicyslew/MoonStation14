@@ -33,6 +33,7 @@ import com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity;
 import com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlockEntity;
 import com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity;
+import com.juicyslew.moonstation14.ms14.combat.WeaponCapacitorRechargerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -114,8 +115,8 @@ public final class PowerRuntime {
         private boolean hasExactlyOne(CableTier tier) { return counts.getOrDefault(tier, 0) == 1; }
     }
     private record ProcessingMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
-                                         Object machine, java.util.UUID identity, double demandWatts,
-                                         PowerDeviceBlockEntity apc, long breakerRevision) { }
+                                          Object machine, java.util.UUID identity, double demandWatts,
+                                          String slotToken, PowerDeviceBlockEntity apc, long breakerRevision) { }
     private record CompletedVentBudget(long solveTick, VentilationPaidInterval.WorkBudget budget,
                                        PowerDeviceBlockEntity apc, long breakerRevision, long topologyGeneration) { }
     public record VentMeterObservation(boolean known, double deliveredWatts) {
@@ -255,6 +256,7 @@ public final class PowerRuntime {
         BlockEntity be = chunk.getBlockEntity(pos);
         if (be instanceof ReagentGrinderBlockEntity grinder) return processingMeter(level, grinder);
         if (be instanceof SeedExtractorBlockEntity extractor) return processingMeter(level, extractor);
+        if (be instanceof WeaponCapacitorRechargerBlockEntity charger) return processingMeter(level, charger);
         return VentMeterObservation.UNKNOWN;
     }
     public static VentMeterObservation processingMeter(ServerLevel level, ReagentGrinderBlockEntity machine) {
@@ -267,12 +269,22 @@ public final class PowerRuntime {
         if (profile == null || !profile.extractor()) return VentMeterObservation.UNKNOWN;
         return processingMeterValidated(level, machine, machine.placementIdentity(), profile.powered() ? profile.powerWatts() : 0d);
     }
+    public static VentMeterObservation processingMeter(ServerLevel level, WeaponCapacitorRechargerBlockEntity machine) {
+        if (level == null || machine == null || machine.getLevel() != level || machine.isRemoved() || !machine.isLoadedValid()
+                || !machine.hasResolvedChargerProfile() || machine.slot() == null) return VentMeterObservation.UNKNOWN;
+        return processingMeterValidated(level, machine, machine.placementIdentity(), chargerDemand(machine));
+    }
+    public static void tickCharger(ServerLevel level, WeaponCapacitorRechargerBlockEntity machine) {
+        var meter = processingMeter(level, machine);
+        if (meter.known() && meter.deliveredWatts() == chargerDemand(machine)) machine.advanceOnePoweredTick();
+    }
     private static VentMeterObservation processingMeterValidated(ServerLevel level, Object machine, java.util.UUID identity, double demand) {
         if (level == null || machine == null || !level.getServer().isSameThread() || identity == null || !Double.isFinite(demand) || demand < 0) return VentMeterObservation.UNKNOWN;
-        BlockPos pos = machine instanceof ReagentGrinderBlockEntity g ? g.getBlockPos() : ((SeedExtractorBlockEntity) machine).getBlockPos();
+        BlockPos pos = machine instanceof ReagentGrinderBlockEntity g ? g.getBlockPos() : machine instanceof SeedExtractorBlockEntity e ? e.getBlockPos() : ((WeaponCapacitorRechargerBlockEntity) machine).getBlockPos();
         if (demand == 0) return new VentMeterObservation(true, 0);
         ProcessingMeterSample sample = PROCESSING_METERS.getOrDefault(level, Map.of()).get(pos);
         if (sample == null || sample.machine() != machine || !identity.equals(sample.identity()) || demand != sample.demandWatts()
+                || !Objects.equals(sample.slotToken(), processingSlotToken(machine))
                 || !freshFullDemandApcAuthorization(level, sample.sampleTick(), sample.topologyGeneration(),
                 sample.deliveredWatts(), sample.demandWatts(), sample.apc(), sample.breakerRevision())) return VentMeterObservation.UNKNOWN;
         return new VentMeterObservation(true, sample.deliveredWatts());
@@ -1037,9 +1049,10 @@ public final class PowerRuntime {
                 BlockPos pos = it.next(); LevelChunk chunk = loadedFullChunk(level, pos);
                 if (chunk == null) { it.remove(); continue; }
                 BlockEntity be = chunk.getBlockEntity(pos);
-                if (be instanceof ReagentGrinderBlockEntity g && g.isLoadedValid() && g.resolvedProfile() != null) processingMachines.add(g);
+                if (be instanceof WeaponCapacitorRechargerBlockEntity c && c.isLoadedValid()) processingMachines.add(c);
+                else if (be instanceof ReagentGrinderBlockEntity g && g.isLoadedValid() && g.resolvedProfile() != null) processingMachines.add(g);
                 else if (be instanceof SeedExtractorBlockEntity e && e.isLoadedValid() && e.resolvedProfile() != null) processingMachines.add(e);
-                else if (!(be instanceof ReagentGrinderBlockEntity) && !(be instanceof SeedExtractorBlockEntity)) it.remove();
+                else if (!(be instanceof ReagentGrinderBlockEntity) && !(be instanceof SeedExtractorBlockEntity) && !(be instanceof WeaponCapacitorRechargerBlockEntity)) it.remove();
             }
         }
 
@@ -1380,6 +1393,7 @@ public final class PowerRuntime {
             if (provider != null || PowerGraphService.topologyReady(level) && state != null && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN)
                 processingMeters.put(processingPos(machine).immutable(), new ProcessingMeterSample(sampleTick, PowerGraphService.topologyGeneration(level),
                         result.processingWatts().getOrDefault(processingIdentity(machine).toString(), 0.0), machine, processingIdentity(machine), demand,
+                        processingSlotToken(machine),
                         provider, provider == null ? -1 : provider.breakerRevision()));
         }
         // Use the machine's authoritative extraction predicate, including its fail-closed
@@ -1602,9 +1616,15 @@ public final class PowerRuntime {
             List<PowerLiveLoop.ApcConsumer> existing){List<PowerLiveLoop.ApcConsumer> result=new ArrayList<>(existing);for(FirelockTarget door:firelocks){var state=states.get(door);result.add(new PowerLiveLoop.ApcConsumer(firelockPowerId(door),state.componentId(),providers.containsKey(door),door.prototype().apcPowerReceiver().requestedWatts()));}return result;}
 
     private static String id(DisposalUnitBlockEntity device) { return device.getBlockPos().toShortString(); }
-    private static BlockPos processingPos(Object machine) { return machine instanceof ReagentGrinderBlockEntity g ? g.getBlockPos() : ((SeedExtractorBlockEntity) machine).getBlockPos(); }
-    private static java.util.UUID processingIdentity(Object machine) { return machine instanceof ReagentGrinderBlockEntity g ? g.placementIdentity() : ((SeedExtractorBlockEntity) machine).placementIdentity(); }
-    private static double processingDemand(Object machine) { return machine instanceof ReagentGrinderBlockEntity g ? g.requiredPowerWatts() : (((SeedExtractorBlockEntity) machine).resolvedProfile().powered() ? ((SeedExtractorBlockEntity) machine).resolvedProfile().powerWatts() : 0d); }
+    private static BlockPos processingPos(Object machine) { return machine instanceof ReagentGrinderBlockEntity g ? g.getBlockPos() : machine instanceof SeedExtractorBlockEntity e ? e.getBlockPos() : ((WeaponCapacitorRechargerBlockEntity) machine).getBlockPos(); }
+    private static java.util.UUID processingIdentity(Object machine) { return machine instanceof ReagentGrinderBlockEntity g ? g.placementIdentity() : machine instanceof SeedExtractorBlockEntity e ? e.placementIdentity() : ((WeaponCapacitorRechargerBlockEntity) machine).placementIdentity(); }
+    private static double processingDemand(Object machine) { return machine instanceof ReagentGrinderBlockEntity g ? g.requiredPowerWatts() : machine instanceof SeedExtractorBlockEntity e ? (e.resolvedProfile().powered() ? e.resolvedProfile().powerWatts() : 0d) : chargerDemand((WeaponCapacitorRechargerBlockEntity) machine); }
+    private static double chargerDemand(WeaponCapacitorRechargerBlockEntity machine) { return machine.demandWatts(); }
+    private static String processingSlotToken(Object machine) {
+        if (!(machine instanceof WeaponCapacitorRechargerBlockEntity charger)) return null;
+        var slot = charger.slot(); var snapshot = slot == null ? null : slot.snapshot();
+        return snapshot == null || snapshot.token() == null ? null : snapshot.token().value();
+    }
 
     private static LoadedPowerGraph.NodeState alarmReceiverState(ServerLevel level, AirAlarmBlockEntity alarm) {
         AirAlarmData prototype = alarm.prototype();

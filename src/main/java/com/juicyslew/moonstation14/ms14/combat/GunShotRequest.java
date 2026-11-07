@@ -8,16 +8,20 @@ import net.minecraft.world.phys.Vec3;
 
 /** A single client press nomination; all firing facts remain server-owned. */
 public record GunShotRequest(long epoch, long sequence, long expectedHandRevision, String activeHand,
-                             String expectedItemToken, Vec3 nominatedAimPoint) implements CustomPacketPayload {
+                             String expectedItemToken, Vec3 nominatedAimPoint, long triggerId, boolean start) implements CustomPacketPayload {
     public static final Type<GunShotRequest> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("moonstation14", "gun_shot_request"));
     public static final StreamCodec<RegistryFriendlyByteBuf, GunShotRequest> STREAM_CODEC = StreamCodec.of((b,v) -> {
         b.writeVarLong(v.epoch); b.writeVarLong(v.sequence); b.writeVarLong(v.expectedHandRevision);
         b.writeUtf(v.activeHand,32); b.writeUtf(v.expectedItemToken,128);
         b.writeDouble(v.nominatedAimPoint.x); b.writeDouble(v.nominatedAimPoint.y); b.writeDouble(v.nominatedAimPoint.z);
+        b.writeVarLong(v.triggerId); b.writeBoolean(v.start);
     }, b -> new GunShotRequest(b.readVarLong(), b.readVarLong(), b.readVarLong(), b.readUtf(32), b.readUtf(128),
-            new Vec3(b.readDouble(),b.readDouble(),b.readDouble())));
+            new Vec3(b.readDouble(),b.readDouble(),b.readDouble()), b.readVarLong(), b.readBoolean()));
+    public GunShotRequest(long epoch,long sequence,long expectedHandRevision,String activeHand,String expectedItemToken,Vec3 nominatedAimPoint) {
+        this(epoch,sequence,expectedHandRevision,activeHand,expectedItemToken,nominatedAimPoint,sequence,true);
+    }
     public GunShotRequest {
-        if(epoch<=0||sequence<=0||expectedHandRevision<0||activeHand==null||expectedItemToken==null||nominatedAimPoint==null
+        if(epoch<=0||sequence<=0||expectedHandRevision<0||triggerId<=0||activeHand==null||expectedItemToken==null||nominatedAimPoint==null
                 ||!Double.isFinite(nominatedAimPoint.x)||!Double.isFinite(nominatedAimPoint.y)||!Double.isFinite(nominatedAimPoint.z))
             throw new IllegalArgumentException("invalid gun shot request");
     }

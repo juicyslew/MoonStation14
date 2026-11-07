@@ -1,4 +1,8 @@
 {
+  "ss14/weapons/guns/casings/casing_fall_1": {"sounds":["moonstation14:ss14/weapons/guns/casings/casing_fall_1"]},
+  "ss14/weapons/guns/casings/casing_fall_2": {"sounds":["moonstation14:ss14/weapons/guns/casings/casing_fall_2"]},
+  "ss14/weapons/guns/casings/casing_fall_3": {"sounds":["moonstation14:ss14/weapons/guns/casings/casing_fall_3"]},
+  "ss14/weapons/guns/casings/shotgun_fall": {"sounds":["moonstation14:ss14/weapons/guns/casings/shotgun_fall"]},
   "equipment/eva_helmet": { "sounds": ["moonstation14:equipment/mechmove03"] },
   "equipment/jumpsuit_equip": { "sounds": ["moonstation14:equipment/jumpsuit_equip"] },
   "internals": {
@@ -17,6 +21,7 @@
       "moonstation14:ss14/weapons/guns/miss/bullet_miss4"
     ]
   },
+  "ss14/weapons/guns/miss/energy_miss": { "sounds": ["moonstation14:ss14/weapons/guns/miss/energy_miss1"] },
   "ss14/weapons/guns/magout/revolver_magout": {
     "sounds": [
       "moonstation14:ss14/weapons/guns/magout/revolver_magout"
@@ -42,6 +47,42 @@
       "moonstation14:ss14/weapons/guns/gunshots/revolver"
     ]
   },
+  "ss14/weapons/guns/gunshots/pistol": {
+    "sounds": ["moonstation14:ss14/weapons/guns/gunshots/pistol"]
+  },
+  "ss14/weapons/guns/gunshots/rifle": {
+    "sounds": ["moonstation14:ss14/weapons/guns/gunshots/ltrifle"]
+  },
+  "ss14/weapons/guns/gunshots/shotgun": {
+    "sounds": ["moonstation14:ss14/weapons/guns/gunshots/shotgun"]
+  },
+  "ss14/weapons/guns/gunshots/sniper": {
+    "sounds": ["moonstation14:ss14/weapons/guns/gunshots/sniper"]
+  },
+  "ss14/weapons/guns/gunshots/laser": {
+    "sounds": ["moonstation14:ss14/weapons/guns/gunshots/laser"]
+  },
+  "ss14/weapons/guns/gunshots/laser_cannon": {
+    "sounds": ["moonstation14:ss14/weapons/guns/gunshots/laser_cannon"]
+  },
+  "ss14/weapons/guns/gunshots/taser2": {
+    "sounds": ["moonstation14:ss14/weapons/guns/gunshots/taser2"]
+  },
+  "ss14/weapons/guns/cock/pistol_cock": { "sounds": ["moonstation14:ss14/weapons/guns/cock/pistol_cock"] },
+  "ss14/weapons/guns/cock/sf_rifle_cock": { "sounds": ["moonstation14:ss14/weapons/guns/cock/sf_rifle_cock"] },
+  "ss14/weapons/guns/cock/ltrifle_cock": { "sounds": ["moonstation14:ss14/weapons/guns/cock/ltrifle_cock"] },
+  "ss14/weapons/guns/cock/smg_cock": { "sounds": ["moonstation14:ss14/weapons/guns/cock/smg_cock"] },
+  "ss14/weapons/guns/bolt/rifle_bolt_closed": { "sounds": ["moonstation14:ss14/weapons/guns/bolt/rifle_bolt_closed"] },
+  "ss14/weapons/guns/bolt/rifle_bolt_open": { "sounds": ["moonstation14:ss14/weapons/guns/bolt/rifle_bolt_open"] },
+  "ss14/weapons/guns/magin/pistol_magin": { "sounds": ["moonstation14:ss14/weapons/guns/magin/pistol_magin"] },
+  "ss14/weapons/guns/magout/pistol_magout": { "sounds": ["moonstation14:ss14/weapons/guns/magout/pistol_magout"] },
+  "ss14/weapons/guns/magin/ltrifle_magin": { "sounds": ["moonstation14:ss14/weapons/guns/magin/ltrifle_magin"] },
+  "ss14/weapons/guns/magout/ltrifle_magout": { "sounds": ["moonstation14:ss14/weapons/guns/magout/ltrifle_magout"] },
+  "ss14/weapons/guns/magin/bullet_insert": { "sounds": ["moonstation14:ss14/weapons/guns/magin/bullet_insert"] },
+  "ss14/weapons/guns/magin/shotgun_insert": { "sounds": ["moonstation14:ss14/weapons/guns/magin/shotgun_insert"] },
+  "ss14/weapons/guns/magin/batrifle_magin": { "sounds": ["moonstation14:ss14/weapons/guns/magin/batrifle_magin"] },
+  "ss14/weapons/guns/magout/batrifle_magout": { "sounds": ["moonstation14:ss14/weapons/guns/magout/batrifle_magout"] },
+  "ss14/weapons/guns/misc/selector": { "sounds": ["moonstation14:ss14/weapons/guns/misc/selector"] },
   "mouse_squeak": {
     "sounds": [
       "moonstation14:mouse_squeak"

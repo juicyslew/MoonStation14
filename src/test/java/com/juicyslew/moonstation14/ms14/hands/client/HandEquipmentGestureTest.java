@@ -13,6 +13,59 @@ import static org.junit.jupiter.api.Assertions.*;
 class HandEquipmentGestureTest {
     private static final String BAG = "moonstation14:bag", BELT_ITEM = "moonstation14:belt";
 
+    @Test void heldUsePlanAllowsCapturedInactiveSourceOccupiedOtherAndExactFreshProofBothOrders() {
+        for (boolean sourceFirst : new boolean[]{true, false}) {
+            var proof = snapshot(sourceFirst ? "left" : "right",
+                    sourceFirst ? "moonstation14:magazine_pistol" : "moonstation14:weapon_pistol_mk58",
+                    sourceFirst ? "moonstation14:weapon_pistol_mk58" : "moonstation14:magazine_pistol", false, false);
+            var drag = HandEquipmentGesture.beginAny(sourceFirst ? FIRST : SECOND, view(proof), proof);
+            var plan = HandEquipmentGesture.heldUsePlan(drag, sourceFirst ? SECOND : FIRST, view(proof), proof);
+            assertNotNull(plan);
+            assertEquals(sourceFirst ? "first" : "second", plan.sourceToken());
+            assertEquals(sourceFirst ? "second" : "first", plan.targetToken());
+            assertNull(HandEquipmentGesture.heldUsePlan(drag, sourceFirst ? SECOND : FIRST, view(proof),
+                    new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, proof.accountId(), proof.bodyId(),
+                            proof.epoch(), proof.revision()+1, proof.activeHand(), proof.hands(), proof.equipment())));
+            assertEquals(HandEquipmentGesture.DispatchResult.SENT, HandEquipmentGesture.handUsePlan(
+                    drag, sourceFirst ? SECOND : FIRST, view(proof), proof, true));
+            assertEquals(HandEquipmentGesture.DispatchResult.NOT_APPLICABLE, HandEquipmentGesture.handUsePlan(
+                    drag, sourceFirst ? SECOND : FIRST, view(proof), proof, false));
+            var stale = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, proof.accountId(), proof.bodyId(),
+                    proof.epoch(), proof.revision()+1, proof.activeHand(), proof.hands(), proof.equipment());
+            var blocked = HandEquipmentGesture.handUsePlan(drag, sourceFirst ? SECOND : FIRST, view(proof), stale, true);
+            assertEquals(HandEquipmentGesture.DispatchResult.BLOCKED, blocked);
+            assertTrue(HandEquipmentGesture.consumesHandUse(blocked), "stale nominations must not become selection gestures");
+            assertFalse(HandEquipmentGesture.consumesHandUse(HandEquipmentGesture.DispatchResult.NOT_APPLICABLE));
+        }
+    }
+
+    @Test void legacyClickReleaseConsumesBlockedOrSentAndSelectsOnlyNotApplicable() {
+        for (var result : List.of(HandEquipmentGesture.DispatchResult.SENT, HandEquipmentGesture.DispatchResult.BLOCKED)) {
+            var selected = new java.util.concurrent.atomic.AtomicBoolean();
+            assertTrue(HandEquipmentGesture.resolveHandClick(result, () -> selected.set(true)));
+            assertFalse(selected.get());
+        }
+        var selected = new java.util.concurrent.atomic.AtomicBoolean();
+        assertFalse(HandEquipmentGesture.resolveHandClick(HandEquipmentGesture.DispatchResult.NOT_APPLICABLE,
+                () -> selected.set(true)));
+        assertTrue(selected.get());
+    }
+    @Test void verifiedHandClickTableCoversOccupiedEmptyAndActiveEmptyCases() {
+        for (boolean reverse : new boolean[]{false,true}) {
+            var both=snapshot(reverse?"right":"left", "moonstation14:magazine_pistol", "moonstation14:weapon_pistol_mk58",false,false);
+            var target=reverse?"left":"right";
+            assertEquals(HandEquipmentGesture.HandClickKind.USE_ON_TARGET, HandEquipmentGesture.handClick(view(both),target));
+            var emptyTarget=reverse
+                    ? snapshot("right", null, "moonstation14:magazine_pistol",false,false)
+                    : snapshot("left", "moonstation14:magazine_pistol",null,false,false);
+            assertEquals(HandEquipmentGesture.HandClickKind.SELECT_TARGET, HandEquipmentGesture.handClick(view(emptyTarget),reverse?"left":"right"));
+            var emptyActive=reverse
+                    ? snapshot("right", "moonstation14:magazine_pistol",null,false,false)
+                    : snapshot("left", null,"moonstation14:magazine_pistol",false,false);
+            assertEquals(HandEquipmentGesture.HandClickKind.TRANSFER_TO_ACTIVE, HandEquipmentGesture.handClick(view(emptyActive),reverse?"left":"right"));
+        }
+    }
+
     private BodyHandStateSnapshot snapshot(String active, String firstItem, String secondItem, boolean back, boolean belt) {
         var first = firstItem == null ? new BodyHandStateSnapshot.Hand("left", null, null, 0)
                 : new BodyHandStateSnapshot.Hand("left", "first", firstItem, 1);
@@ -266,5 +319,32 @@ class HandEquipmentGestureTest {
         var stale = new BodyHandStateSnapshot(0, query, proof.reason(), proof.accountId(), proof.bodyId(), proof.epoch(),
                 proof.revision() + 1, proof.activeHand(), proof.hands(), proof.equipment(), proof.grids());
         assertNull(HandEquipmentGesture.heldStorePlan(drag, FIRST, view, stale, policy.heldGrid("first", false)));
+    }
+
+    @Test void heldUseRequiresActiveExactSourceProofAndOccupiedTarget() {
+        var proof = snapshot("left", BAG, "moonstation14:gun", false, false);
+        var view = view(proof);
+        var drag = HandEquipmentGesture.beginAny(FIRST, view, proof);
+        var plan = HandEquipmentGesture.heldUsePlan(drag, SECOND, view, proof);
+        assertNotNull(plan);
+        assertEquals("left", plan.sourceHandId());
+        assertEquals("first", plan.sourceToken());
+        assertEquals("right", plan.targetHandId());
+        assertEquals("second", plan.targetToken());
+
+        var differentGun = snapshot("left", BAG, "moonstation14:other_gun", false, false);
+        assertNull(HandEquipmentGesture.heldUsePlan(drag, SECOND, view(differentGun), differentGun));
+        var emptyTarget = snapshot("left", BAG, null, false, false);
+        assertNull(HandEquipmentGesture.heldUsePlan(drag, SECOND, view(emptyTarget), emptyTarget));
+    }
+
+    @Test void heldUseCanUseCapturedInactiveSourceWithoutChangingSelection() {
+        var proof = snapshot("right", BAG, "moonstation14:gun", false, false);
+        var drag = HandEquipmentGesture.beginAny(FIRST, view(proof), proof);
+        var plan = HandEquipmentGesture.heldUsePlan(drag, SECOND, view(proof), proof);
+        assertNotNull(plan);
+        assertEquals("left", plan.sourceHandId());
+        assertEquals("right", plan.targetHandId());
+        assertEquals("right", proof.activeHand());
     }
 }

@@ -1,0 +1,1 @@
+{"id":"base_gun_wieldable","abstract":true,"gun":{"spread":{"minimum_degrees":21,"maximum_degrees":32,"angle_increase_degrees":0.5,"angle_decay_degrees_per_second":4}},"wield_bonus":{"minimum_degrees":-20,"maximum_degrees":-30},"wieldable":{"unwield_on_use":false}}

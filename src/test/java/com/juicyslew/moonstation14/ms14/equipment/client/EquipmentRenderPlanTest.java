@@ -15,6 +15,21 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EquipmentRenderPlanTest {
+    @Test void nativeGunPlanCopiesActualStackAndDoesNotUseGarmentFallback() {
+        ModEquipmentItems.bootstrapClientBundled();
+        var original = new ItemStack(com.juicyslew.moonstation14.item.ModItems.WEAPON_PISTOL_MK58.get());
+        var snapshot = new BodyAppearanceSnapshot(ResourceLocation.parse("minecraft:overworld"), 3,
+                java.util.UUID.randomUUID(), 0, List.of(), List.of(new BodyAppearanceSnapshot.Entry("belt", ItemPresentation.fromStack(original))));
+        var garment = EquipmentRenderPlan.create(snapshot, ModEquipmentItems.clientCatalog()).garments().getFirst();
+        assertTrue(garment.renderItemModel());
+        assertTrue(garment.wornModel().isEmpty());
+        assertTrue(ItemStack.matches(original, garment.stack()));
+        assertNotSame(original, garment.stack());
+        garment.stack().setCount(1);
+        assertEquals(1, original.getCount());
+        assertEquals(1, garment.stack().getCount());
+    }
+
     @Test void registeredPlantWearablesEnterRenderPlanThroughBundledResolvedProfiles() {
         ModEquipmentItems.bootstrapClientBundled();
         var snapshot = new BodyAppearanceSnapshot(ResourceLocation.parse("minecraft:overworld"), 3,

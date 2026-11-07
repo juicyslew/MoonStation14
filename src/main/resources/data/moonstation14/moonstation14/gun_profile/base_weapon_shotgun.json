@@ -1,0 +1,1 @@
+{"abstract":true,"id":"base_weapon_shotgun","gun":{"fire_rate":1,"projectile_speed":40,"use_key":true,"firing_mode":"SEMI_AUTO","available_modes":["SEMI_AUTO"]},"ballistic_provider":{"capacity":7,"cartridge_tag":"moonstation14:shell_shotgun","fill_cartridge_prototype":"moonstation14:shell_shotgun","cycleable":true},"ammo_counter":true}

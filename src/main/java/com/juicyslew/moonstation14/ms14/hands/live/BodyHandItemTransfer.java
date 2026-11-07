@@ -121,6 +121,12 @@ public final class BodyHandItemTransfer {
     }
 
     private static LooseItemEntity createTrustedDropEntity(Entity body, ItemStack stack, Entity excludedCarrier) {
+        return createTrustedDropEntity(body, stack, excludedCarrier, null);
+    }
+
+    /** Canonical profile-aware drop construction with an optional captured containment destination. */
+    private static LooseItemEntity createTrustedDropEntity(Entity body, ItemStack stack, Entity excludedCarrier,
+                                                            Vec3 capturedContainedPosition) {
         if (body == null || stack == null || stack.isEmpty()
                 || body instanceof LivingEntity living && PortableBodyCarrying.containsPortableReferences(stack)
                 || !(body.level() instanceof ServerLevel level)) return null;
@@ -130,7 +136,11 @@ public final class BodyHandItemTransfer {
             var owner = livingBody == null ? null
                     : com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level).ownerOf(livingBody).orElse(null);
             BodyItemTargetProbe.DropPlacement placement;
-            if (owner != null) {
+            if (capturedContainedPosition != null) {
+                if (owner == null || !owner.isValid() || !finite(capturedContainedPosition)
+                        || !level.hasChunkAt(net.minecraft.core.BlockPos.containing(capturedContainedPosition))) return null;
+                placement = new BodyItemTargetProbe.DropPlacement(capturedContainedPosition, Vec3.ZERO);
+            } else if (owner != null) {
                 Vec3 root = owner.positionFor(livingBody);
                 if (!owner.isValid() || root == null || !finite(root)
                         || !level.hasChunkAt(net.minecraft.core.BlockPos.containing(root))) return null;
@@ -727,9 +737,10 @@ public final class BodyHandItemTransfer {
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != cleared) return Result.RECOVERY_REQUIRED;
         ItemEntity dropped;
         try {
-            dropped = new ItemEntity(level, position.x, position.y, position.z, stack.copy());
-            dropped.setDeltaMovement(Vec3.ZERO);
-            dropped.setUnlimitedLifetime();
+            // Use the ordinary loose-item factory so resolved item rest profiles and
+            // presentation apply even when containment owns the body at this position.
+            dropped = createTrustedDropEntity(body, stack, null, position);
+            if (dropped == null) return restoreContainedHand(body, before, cleared, hand, token, stack);
         } catch (RuntimeException failure) { return restoreContainedHand(body, before, cleared, hand, token, stack); }
         if (!same(stack, dropped.getItem())) return restoreContainedHand(body, before, cleared, hand, token, stack);
         try {

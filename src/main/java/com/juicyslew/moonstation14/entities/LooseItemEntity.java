@@ -312,7 +312,14 @@ public class LooseItemEntity extends ItemEntity implements com.juicyslew.moonsta
         boolean hitY = Math.abs(actual.y - travel.y) > 1.0e-6;
         boolean hitZ = Math.abs(actual.z - travel.z) > 1.0e-6;
         var terrainProfile = com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.resolveForStack(getItem(), false).orElse(null);
-        emitCollisionCue(collisionSoundPolicy.terrain(terrainProfile, (hitX ? 1 : 0) | (hitY ? 2 : 0) | (hitZ ? 4 : 0), travel, level().getGameTime()), getX(), getY(), getZ());
+        var collisionSound = terrainProfile == null ? null : terrainProfile.collisionSound().orElse(null);
+        if (collisionSound == null && hitY && travel.y < 0 && Boolean.TRUE.equals(getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.CARTRIDGE_SPENT.get()))) {
+            var cartridgeId = com.juicyslew.moonstation14.ms14.combat.GunAmmoProviderKernel.itemId(getItem());
+            var cartridge = cartridgeId == null ? null : com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.serverCatalog().get(cartridgeId);
+            var presentation = cartridge == null ? null : cartridge.spentPresentation();
+            if (presentation != null) collisionSound = new com.juicyslew.moonstation14.ms14.combat.throwing.ThrownItemProfile.CollisionSoundData(presentation.landingCue(), .5f, .2f);
+        }
+        emitCollisionCue(collisionSoundPolicy.terrain(collisionSound, (hitX ? 1 : 0) | (hitY ? 2 : 0) | (hitZ ? 4 : 0), travel, level().getGameTime()), getX(), getY(), getZ());
         if (hitY && travel.y < 0) {
             boolean armedThrownLanding = activeThrownCombat;
             boolean cueLanding = shouldCueThrownLandingSound(armedThrownLanding, thrownLandingSoundConsumed);

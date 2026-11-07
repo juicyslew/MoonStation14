@@ -19,11 +19,12 @@ public final class TypedProjectileRenderer extends EntityRenderer<TypedProjectil
     }
     @Override public void render(TypedProjectileEntity e,float yaw,float partial,PoseStack pose,MultiBufferSource buffers,int light) {
         ProjectileProfile.SpriteData s=e.visual(); if(s==null)return;
-        pose.pushPose(); pose.mulPose(entityRenderDispatcher.cameraOrientation());
-        pose.mulPose(com.mojang.math.Axis.ZP.rotation(ProjectileSpritePose.rotation(e.getDeltaMovement(),entityRenderDispatcher.cameraOrientation(),s.noRot())));
-        var out=buffers.getBuffer(RenderType.entityCutout(getTextureLocation(e)));
+        pose.pushPose();
+        if(!s.noRot()) pose.mulPose(ProjectileSpritePose.volumeRotation(e.getDeltaMovement(),new net.minecraft.world.phys.Vec3(0,1,0),s.rotationOffset()));
         ProjectileSpriteFrames.Frame frame=ProjectileSpriteFrames.at(s,e.tickCount,partial);
-        ProjectileSpriteQuadRenderer.emit(pose,out,frame,1f,s.unshaded(),light);
+        var out=buffers.getBuffer(RenderType.entityCutout(getTextureLocation(e)));
+        var mesh=ProjectileVolumeCache.frame(getTextureLocation(e),s.frameWidth(),s.frameHeight(),s.frameColumns(),frame.index(),frame.u0(),frame.u1(),frame.v0(),frame.v1());
+        ClosedEffectMesh.emitQuads(pose.last(),out,mesh,s.color(),255,light,s.unshaded());
         pose.popPose(); super.render(e,yaw,partial,pose,buffers,light);
     }
 }

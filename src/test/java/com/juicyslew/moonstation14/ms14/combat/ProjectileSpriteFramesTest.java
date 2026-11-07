@@ -10,7 +10,7 @@ class ProjectileSpriteFramesTest {
     }
     @Test void selectsAndWrapsTwoFramesAtTwentyHzAndProducesAtlasUvs() {
         var s=sprite(2,.05f);
-        assertEquals(new ProjectileSpriteFrames.Frame(0,0,.5f),ProjectileSpriteFrames.at(s,0,0));
+        assertEquals(new ProjectileSpriteFrames.Frame(0,0,.5f,0,1),ProjectileSpriteFrames.at(s,0,0));
         assertEquals(0,ProjectileSpriteFrames.at(s,0,.99f).index());
         assertEquals(1,ProjectileSpriteFrames.at(s,1,0).index());
         assertEquals(1,ProjectileSpriteFrames.at(s,1,.99f).index());
