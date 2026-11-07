@@ -231,6 +231,8 @@ def collect_evidence(check, repo, started, finished, log_path, before, *, hash_f
             producer_fresh = bool(producer and producer.is_file() and _fresh(producer, before, started, finished, hash_file))
             if producer_fresh: add(producer)
             if kind == "gametest":
+                if check.get("exit_code", 0) != 0 and not producer_fresh:
+                    findings.append("GameTest process exited before producer log; server execution is not evidenced")
                 failed = re.compile(r"(?m)^\s*(\d+) (?:required )?tests? failed\b", re.I)
                 saw_pre = saw_complete = False
                 # Stream to avoid retaining large Gradle/server logs in memory.
