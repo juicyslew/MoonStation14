@@ -61,12 +61,16 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         var mc = net.minecraft.client.Minecraft.getInstance();
         workspace.resize(Math.max(1, width), Math.max(1, height));
         var view = BodyHandClient.inventoryPresentation();
-        record Entry(long z, StoragePopupWorkspace.Window storage, com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.Window analyzer) { }
+        record Entry(long z, StoragePopupWorkspace.Window storage, com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.Window analyzer,
+                     com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace gas) { }
         var entries=new ArrayList<Entry>();
-        workspace.windows().stream().filter(StoragePopupWorkspace.Window::visible).forEach(w->entries.add(new Entry(w.z(),w,null)));
+        workspace.windows().stream().filter(StoragePopupWorkspace.Window::visible).forEach(w->entries.add(new Entry(w.z(),w,null,null)));
         var analyzers=com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
         analyzers.resize(width,height);
-        analyzers.windows().stream().filter(com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.Window::visible).forEach(w->entries.add(new Entry(w.z(),null,w)));
+        analyzers.windows().stream().filter(com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.Window::visible).forEach(w->entries.add(new Entry(w.z(),null,w,null)));
+        var gas=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE;
+        gas.resize(width,height);
+        if(gas.visible())entries.add(new Entry(gas.z(),null,null,gas));
         entries.sort(Comparator.comparingLong(Entry::z));
         // Match the existing paint hook's shared workspace count (storage, analyzer,
         // and live Chem windows) so overlay and host ranks use the same resolved base.
@@ -78,6 +82,16 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         boolean storageFront=pairVisible&&!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront();
         for (int rank=0;rank<entries.size();rank++) {
             var entry=entries.get(rank);
+            if(entry.gas()!=null) {
+                g.flush();g.pose().pushPose();
+                try {
+                    g.pose().translate(0,0,com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayers.storageLayer(rank,storageFront,siblingCount,browserFamilySize));
+                    int mx=(int)(mc.mouseHandler.xpos()*width/mc.getWindow().getScreenWidth());
+                    int my=(int)(mc.mouseHandler.ypos()*height/mc.getWindow().getScreenHeight());
+                    com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerRenderer.drawWindow(g,width,height,mx,my);
+                } finally {g.pose().popPose();g.flush();}
+                continue;
+            }
             if(entry.analyzer()!=null) {
                 g.flush();g.pose().pushPose();
                 try {
@@ -642,7 +656,9 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         double x = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
         double y = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
         var medical = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+        var gas=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE;
         return popup.pointerUiHit(x, y) || medical.topmost(x, y) != null
+                ||gas.topmostAt(x,y,mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight())
                 || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x, y);
     }
 
@@ -674,6 +690,8 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             return handled;
         }
         var medical=com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+        var gas=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE;
+        var gw=gas.topmostAt(mouseX,mouseY,width,height)?gas:null;
         var sw=workspace.topmost(mouseX,mouseY); var mw=medical.topmost(mouseX,mouseY);
         var popupAtPress=hit(mouseX,mouseY);
         var wire = com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.active();
@@ -681,10 +699,14 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         boolean wireHit=pointerAvailable&&wire!=null&&wire.contains(mouseX,mouseY);
         // Wire and registered overlays use one click-promoted family z-order, matching paint.
         boolean storageWins=!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront()
-                &&(popupAtPress!=null||sw!=null||mw!=null);
+                &&(popupAtPress!=null||sw!=null||mw!=null||gw!=null);
         if(routeRegisteredWorkspaceClick(mouseX,mouseY,button,storageWins,wireHit,
                 ()->wire!=null&&wire.workspaceMouseClicked(mouseX,mouseY,button))) {
             return true;
+        }
+        if(gw!=null&&(sw==null||gw.z()>sw.z())&&(mw==null||gw.z()>mw.z())) {
+            com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.clearTextFocus();
+            gas.click(mouseX,mouseY,button,width,height);return true;
         }
         if(popupAtPress!=null)com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.overlayFront(false);
         if(mw!=null && (sw==null || mw.z()>sw.z())) {
@@ -900,6 +922,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         if(com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE.drag(x,y)
                 || com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE.drag(x,y)) return true;
         if (com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.drag(x, y, width, height)) return true;
+        if (com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE.drag(x,y,width,height)) return true;
         if (dragging != null) updateItemPointer(x, y, leftButtonDown());
         if (button != 0) return true;
         if (moving != null) workspace.place(moving, (int) x - grabX, (int) y - grabY);
@@ -941,6 +964,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorLinkWindowState.INSTANCE.endDrag();
         com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorListWindowState.INSTANCE.endDrag();
         com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.endDrag();
+        com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE.endDrag();
         if (button != 0) return true;
         if (inactiveClickHand != null) {
             var selected = inactiveClickHand;
@@ -1265,9 +1289,15 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         boolean wireHit=wire!=null&&wire.contains(mouseX,mouseY);
         boolean browserHit=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(mouseX,mouseY);
         var medical = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
+        var gas=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE;
+        var gasWindow=gas.topmostAt(mouseX,mouseY,width,height)?gas:null;
         var medicalWindow = medical.topmost(mouseX, mouseY);
         var storageWindow = workspace.topmost(mouseX, mouseY);
         if(storageFront) {
+            if(gasWindow!=null&&(medicalWindow==null||gas.z()>medicalWindow.z())
+                    &&(storageWindow==null||gas.z()>storageWindow.z())) {
+                gas.scroll(mouseX,mouseY,deltaY,width,height);return true;
+            }
             if(medicalWindow!=null&&(storageWindow==null||medicalWindow.z()>storageWindow.z())) {
                 medical.scroll(mouseX,mouseY,deltaY);return true;
             }
@@ -1283,6 +1313,10 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
         if (medicalWindow != null && (storageWindow == null || medicalWindow.z() > storageWindow.z())) {
             medical.scroll(mouseX, mouseY, deltaY);
             return true;
+        }
+        if(gasWindow!=null&&(medicalWindow==null||gas.z()>medicalWindow.z())
+                &&(storageWindow==null||gas.z()>storageWindow.z())) {
+            gas.scroll(mouseX,mouseY,deltaY,width,height);return true;
         }
         if (hit(mouseX,mouseY)==null && BodyHandClient.equipmentPanelHit((int)mouseX,(int)mouseY,width,height)) {
             if (BodyHandClient.toggleEquipmentPanel((int)mouseX,(int)mouseY,width,height)) return true;
@@ -1301,6 +1335,7 @@ public final class StoragePopupScreen extends net.minecraft.client.gui.screens.S
             com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.scroll(mouseX, mouseY, deltaY);
             return true;
         }
+        if(BodyHandClient.adjustGasAnalyzerDistanceFromWheel(deltaY))return true;
         return super.mouseScrolled(mouseX,mouseY,deltaX,deltaY);
     }
 

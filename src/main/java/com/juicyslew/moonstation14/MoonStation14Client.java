@@ -62,7 +62,6 @@ import com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractio
 import com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionRenderer;
 import com.juicyslew.moonstation14.ms14.atmos.piping.client.VisualPipeBlockEntityRenderer;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking;
-import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
@@ -130,6 +129,7 @@ public class MoonStation14Client {
 
     public MoonStation14Client(IEventBus modEventBus, ModContainer container) {
         modEventBus.addListener(com.juicyslew.moonstation14.entities.client.SingularityAmbientClient::registerReloadListener);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.atmos.machine.client.AtmosMachineAmbientClient::registerReloadListener);
         modEventBus.addListener(com.juicyslew.moonstation14.entities.client.SingularityRenderer::registerShaders);
         var analyzerWorkspace = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE;
         analyzerWorkspace.closeSender(request -> net.neoforged.neoforge.network.PacketDistributor.sendToServer(request));
@@ -208,9 +208,15 @@ public class MoonStation14Client {
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
         }));
-        AirAlarmNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
-            if (Minecraft.getInstance().screen instanceof AirAlarmScreen screen) screen.handleResponse(response);
+        AirAlarmNetworking.installClientHandler((response, context) -> context.enqueueWork(() ->
+                com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmWorkspace.INSTANCE.snapshot(response)));
+        AirAlarmNetworking.installSessionHandler((state, context) -> context.enqueueWork(() ->
+                com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmWorkspace.INSTANCE.open(state)));
+        com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
+            com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineWorkspace.INSTANCE.snapshot(response);
         }));
+        com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineNetworking.installSessionClientHandler((state, context) -> context.enqueueWork(() ->
+                com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineWorkspace.INSTANCE.open(state)));
         AirlockWireNetworking.installClientBridge(
                 (open, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.open(open.windowId(), open.session())),
                 (response, context) -> context.enqueueWork(() -> com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireClient.accept(response)),
@@ -271,7 +277,6 @@ public class MoonStation14Client {
 
     private static void registerMenuScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.APC.get(), ApcScreen::new);
-        event.register(ModMenus.AIR_ALARM.get(), AirAlarmScreen::new);
         event.register(ModMenus.DISPOSAL_BUILD.get(), DisposalBuildScreen::new);
         event.register(ModMenus.DISPOSAL_UNIT.get(), DisposalUnitScreen::new);
     }
@@ -909,6 +914,7 @@ public class MoonStation14Client {
     public static void constructionBrowserScreenKey(ScreenEvent.KeyPressed.Pre event) {
         if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
         if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.key(event.getKeyCode(),event.getScanCode(),event.getModifiers())) { event.setCanceled(true); return; }
         if (com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance()
                 .keyPressed(event.getKeyCode(),event.getScanCode(),event.getModifiers())) event.setCanceled(true);
     }
@@ -923,6 +929,7 @@ public class MoonStation14Client {
     public static void constructionBrowserScreenCharacter(ScreenEvent.CharacterTyped.Pre event) {
         if (!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.allowsHost(event.getScreen())) return;
         if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(event.getScreen())) return;
+        if (com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.character(event.getCodePoint(),event.getModifiers())) { event.setCanceled(true); return; }
         if (com.juicyslew.moonstation14.ms14.construction.client.ConstructionBrowserWindow.instance()
                 .charTyped(event.getCodePoint(),event.getModifiers())) event.setCanceled(true);
     }
@@ -946,6 +953,7 @@ public class MoonStation14Client {
     @SubscribeEvent
     public static void renderSelectedLooseOutline(RenderLevelStageEvent event) {
         com.juicyslew.moonstation14.ms14.hands.client.SelectedLooseOutlineRenderer.render(event);
+        com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerCellOutlineRenderer.render(event);
     }
 
     @SubscribeEvent
@@ -1239,6 +1247,8 @@ final class MoonStation14ClientNetworkEvents {
 
     @SubscribeEvent
     public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineWorkspace.INSTANCE.clear();
+        com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmWorkspace.INSTANCE.clear();
         com.juicyslew.moonstation14.ms14.combat.client.GunMuzzleFlashClient.clear();
         com.juicyslew.moonstation14.entities.client.SingularityRenderer.clearDiagnostics();
         com.juicyslew.moonstation14.ms14.singularity.client.SingularityVisualPreview.clear();

@@ -7,6 +7,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.piping.PipeGasTransaction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -137,12 +138,16 @@ public final class FiniteRoomGasEndpointGameTests {
 
     /** Claims already-persisted finite ownership without inserting an AIR block or gas override. */
     private static BlockPos buildClaimedVacuumRoom(GameTestHelper helper, int width) {
+        return buildClaimedVacuumRoom(helper, width, BlockPos.ZERO);
+    }
+
+    private static BlockPos buildClaimedVacuumRoom(GameTestHelper helper, int width, BlockPos offset) {
         for (int x = 1; x <= width + 2; x++) for (int z = 1; z <= 8; z++) {
-            helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
-            helper.setBlock(new BlockPos(x, 5, z), Blocks.STONE);
+            helper.setBlock(new BlockPos(x, 0, z).offset(offset), Blocks.STONE);
+            helper.setBlock(new BlockPos(x, 5, z).offset(offset), Blocks.STONE);
             for (int y = 1; y <= 4; y++) {
                 boolean inside = x >= 2 && x <= width + 1 && z >= 2 && z <= 7;
-                BlockPos local = new BlockPos(x, y, z);
+                BlockPos local = new BlockPos(x, y, z).offset(offset);
                 helper.setBlock(local, inside ? Blocks.AIR : Blocks.STONE);
                 if (inside) {
                     BlockPos pos = helper.absolutePos(local);
@@ -153,7 +158,127 @@ public final class FiniteRoomGasEndpointGameTests {
                 }
             }
         }
-        return helper.absolutePos(new BlockPos(2, 1, 2));
+        return helper.absolutePos(new BlockPos(2, 1, 2).offset(offset));
+    }
+
+    @GameTestTags({"atmosphere", "gas-miner-runtime"})
+    @GameTest(template = "atmos_large_empty", batch = "finite_room_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
+    public static void placedGasMinerAddsItsResolvedSpeciesToFiniteRoom(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos room = buildClaimedVacuumRoom(helper, 1);
+        helper.setBlock(new BlockPos(2, 1, 2), com.juicyslew.moonstation14.block.ModBlocks.GAS_MINER_OXYGEN.get());
+        var miner = (GasMinerBlockEntity) level.getBlockEntity(room);
+        require(miner != null && miner.resolvedProfile() != null, "placed miner resolves profile from live catalog");
+        GasMixture before = AtmosphereService.INSTANCE.sample(level, room).orElseThrow(() -> missing("finite miner room", room));
+        GasMinerBlockEntity.tick(level, miner);
+        GasMixture after = AtmosphereService.INSTANCE.sample(level, room).orElseThrow(() -> missing("post-miner room", room));
+        require(after.moles(GasType.OXYGEN) > before.moles(GasType.OXYGEN), "production placement adds oxygen to owned room");
+        require(after.moles(GasType.NITROGEN) == before.moles(GasType.NITROGEN), "miner adds no unintended species");
+        require(after.temperatureKelvin() > 0, "mixed cell remains thermodynamically valid");
+        helper.succeed();
+    }
+
+    @GameTestTags({"atmosphere", "gas-miner-runtime"})
+    @GameTest(template = "atmos_large_empty", batch = "finite_room_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
+    public static void finiteGasReceiptReportsActualCellDeltaAndMinerCountersArePerPlacement(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos room = buildClaimedVacuumRoom(helper, 1);
+        AtmosphereService service = AtmosphereService.INSTANCE;
+        GasMixture before = service.sample(level, room).orElseThrow(() -> missing("finite miner room", room));
+        double requested = 1_000_000;
+        var receipt = service.generateFiniteGas(level, room, GasType.OXYGEN, requested, 293.15, 1.0, Double.POSITIVE_INFINITY)
+                .orElseThrow(() -> missing("capped finite gas receipt", room));
+        GasMixture after = service.sample(level, room).orElseThrow(() -> missing("generated finite room", room));
+        double actualMoles = after.moles(GasType.OXYGEN) - before.moles(GasType.OXYGEN);
+        double actualEnergy = after.thermalEnergy() - before.thermalEnergy();
+        require(actualMoles == receipt.packet().moles(GasType.OXYGEN), "receipt moles equal actual cell species delta");
+        require(actualEnergy == receipt.thermalEnergyJoules(), "receipt energy equals actual cell thermal delta");
+        require(actualMoles < requested, "pressure cap admits less than requested amount");
+        double totalBeforeEmptyAttempt = after.totalMoles();
+        require(service.generateFiniteGas(level, room, GasType.OXYGEN, requested, 293.15, 1.0, Double.POSITIVE_INFINITY).isEmpty(),
+                "at-cap generation returns empty receipt");
+        require(service.sample(level, room).orElseThrow().totalMoles() == totalBeforeEmptyAttempt,
+                "at-cap retry does not increase gas");
+
+        // Keep the miner's receipt/counter comparison independent of the prior cap test.
+        BlockPos minerRoom = buildClaimedVacuumRoom(helper, 1, new BlockPos(10, 0, 0));
+        BlockPos minerLocal = new BlockPos(2, 1, 2).offset(10, 0, 0);
+        require(minerRoom.equals(helper.absolutePos(minerLocal)), "offset fixture returns actual miner cell");
+        helper.setBlock(minerLocal, com.juicyslew.moonstation14.block.ModBlocks.GAS_MINER_OXYGEN.get());
+        var miner = (GasMinerBlockEntity) level.getBlockEntity(minerRoom);
+        require(miner != null, "placed miner block entity exists");
+        require(service.finiteRoomEndpoint(level, minerRoom).isPresent(), "miner placement has admitted finite endpoint");
+        GasMixture minerBefore = service.sample(level, minerRoom).orElseThrow(() -> missing("miner before", minerRoom));
+        GasMinerBlockEntity.tick(level, miner);
+        GasMixture minerAfter = service.sample(level, minerRoom).orElseThrow(() -> missing("miner after", minerRoom));
+        require(miner.producedMoles() == minerAfter.totalMoles() - minerBefore.totalMoles(),
+                "miner cumulative moles equal receipt-observed generated delta for placement");
+        require(miner.producedThermalJoules() == minerAfter.thermalEnergy() - minerBefore.thermalEnergy(),
+                "miner cumulative energy equals receipt-observed thermal delta for placement");
+        helper.setBlock(minerLocal, Blocks.AIR);
+        helper.setBlock(minerLocal, com.juicyslew.moonstation14.block.ModBlocks.GAS_MINER_OXYGEN.get());
+        var replacement = (GasMinerBlockEntity) level.getBlockEntity(minerRoom);
+        require(replacement != null && replacement != miner && replacement.producedMoles() == 0
+                        && replacement.producedThermalJoules() == 0,
+                "replacement block entity starts with zero generation counters");
+        helper.succeed();
+    }
+
+    @GameTestTags({"atmosphere", "gas-miner-runtime"})
+    @GameTest(template = "atmos_large_empty", batch = "finite_room_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
+    public static void finiteGasGenerationRejectsLoadedExteriorWithoutChangingAmbient(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos loadedColumn = helper.absolutePos(new BlockPos(2, 1, 2));
+        LevelChunk chunk = (LevelChunk) level.getChunkSource().getChunkNow(loadedColumn.getX() >> 4, loadedColumn.getZ() >> 4);
+        require(chunk != null, "fixture column chunk is already loaded");
+        int x = loadedColumn.getX() & 15, z = loadedColumn.getZ() & 15;
+        int y = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z) + 2;
+        require(level.isInWorldBounds(new BlockPos(loadedColumn.getX(), y, loadedColumn.getZ())),
+                "heightmap exterior position is in world bounds");
+        BlockPos exterior = new BlockPos(loadedColumn.getX(), y, loadedColumn.getZ());
+        require(level.getBlockState(exterior).isAir(), "heightmap exterior position is passable air");
+        var chunkData = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+        require(chunkData == null || !chunkData.isFiniteClaimed(x, y, z), "heightmap exterior position has no finite claim");
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of());
+        var boundary = service.exteriorBoundaryForImmediateTransfer(level, exterior)
+                .orElseThrow(() -> missing("proven planetary exterior boundary", exterior));
+        require(boundary.kind() == AtmosphereService.ExteriorBoundary.Kind.PLANETARY_AMBIENT && boundary.validate(),
+                "loaded passable exterior has valid planetary ambient boundary proof");
+        GasMixture before = service.sample(level, exterior).orElseThrow(() -> missing("planet ambient before", exterior));
+        require(service.readAtmosphere(level, exterior).orElseThrow(() -> missing("classified exterior", exterior))
+                        .status() == AtmosphereReading.Status.EXTERIOR,
+                "ambient preservation fixture is proven exterior, not unknown");
+        require(service.generateFiniteGas(level, exterior, GasType.OXYGEN, 10, 350, 300, Double.POSITIVE_INFINITY).isEmpty(),
+                "loaded exterior position is rejected");
+        GasMixture after = service.sample(level, exterior).orElseThrow(() -> missing("planet ambient after", exterior));
+        require(same(before, after), "exterior rejection preserves planet ambient mixture");
+        helper.succeed();
+    }
+
+    @GameTestTags({"atmosphere", "gas-miner-runtime"})
+    @GameTest(template = "atmos_large_empty", batch = "finite_room_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")
+    public static void finiteGasGenerationHonorsTotalMolesCapAndReceiptMatchesDelta(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos room = buildClaimedVacuumRoom(helper, 1);
+        AtmosphereService service = AtmosphereService.INSTANCE;
+        GasMixture before = service.sample(level, room).orElseThrow(() -> missing("finite room before", room));
+        double maxTotal = before.totalMoles() + 0.25;
+        double generationTemperature = 350;
+        var receipt = service.generateFiniteGas(level, room, GasType.OXYGEN, 10, generationTemperature, 300, maxTotal)
+                .orElseThrow(() -> missing("total-moles-capped receipt", room));
+        GasMixture after = service.sample(level, room).orElseThrow(() -> missing("finite room after", room));
+        double actualDelta = after.moles(GasType.OXYGEN) - before.moles(GasType.OXYGEN);
+        require(after.totalMoles() <= maxTotal, "generated mixture does not overshoot total-moles cap");
+        require(receipt.packet().moles(GasType.OXYGEN) == actualDelta,
+                "receipt species amount equals observed actual cell delta");
+        require(receipt.thermalEnergyJoules() == after.thermalEnergy() - before.thermalEnergy(),
+                "receipt energy equals observed actual cell thermal delta");
+        require(receipt.packet().temperatureKelvin() == generationTemperature,
+                "receipt packet preserves configured source temperature");
+        require(service.generateFiniteGas(level, room, GasType.OXYGEN, 10, generationTemperature, 300, maxTotal).isEmpty(),
+                "retry at total-moles cap returns empty");
+        require(same(after, service.sample(level, room).orElseThrow()), "empty retry leaves capped cell unchanged");
+        helper.succeed();
     }
 
     @GameTest(template = "atmos_large_empty", batch = "finite_room_endpoint", timeoutTicks = 100, templateNamespace = "moonstation14")

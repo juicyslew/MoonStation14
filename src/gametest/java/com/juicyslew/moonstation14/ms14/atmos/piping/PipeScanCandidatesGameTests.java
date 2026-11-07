@@ -15,7 +15,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@GameTestTags({"ventilation", "atmosphere"})
+@GameTestTags({"ventilation", "atmosphere", "atmos-pipe-retirement-boundary"})
 @PrefixGameTestTemplate(false)
 public final class PipeScanCandidatesGameTests {
     private PipeScanCandidatesGameTests() { }
@@ -88,7 +88,21 @@ public final class PipeScanCandidatesGameTests {
         PipeGasInventorySavedData saved = PipeGasInventorySavedData.existing(level).orElseThrow();
         var before = saved.snapshot();
         var wallKey = new PipeTopology.NodeKey(wall, PipeTopology.Layer.PRIMARY);
-        var wallGas = before.get(wallKey).orElseThrow().mixture();
+        var originalWallEntry = before.get(wallKey)
+                .orElseThrow(() -> new GameTestAssertException("active concealed wall incarnation exists before retirement"));
+        require(saved.replace(before.revision(), before, before.withMixture(wallKey, originalWallEntry.incarnation(),
+                originalWallEntry.version(), PipeGasFixtureTestSupport.atCurrentNetworkVolume(before, wallKey,
+                java.util.Map.of(com.juicyslew.moonstation14.ms14.atmos.core.GasType.OXYGEN, 6.0), 310.0))),
+                "seed finite gas into old concealed wall incarnation");
+        var seededInventory = saved.snapshot();
+        var seededWallEntry = seededInventory.get(wallKey)
+                .orElseThrow(() -> new GameTestAssertException("seeded wall incarnation remains active before removal"));
+        var seededWallGas = seededInventory.nodeShare(wallKey);
+        var exposedKey = new PipeTopology.NodeKey(exposed, PipeTopology.Layer.PRIMARY);
+        var beforeRetirement = saved.snapshot();
+        var exposedEntry = beforeRetirement.get(exposedKey)
+                .orElseThrow(() -> new GameTestAssertException("exposed owner exists before wall retirement"));
+        var exposedGas = beforeRetirement.nodeShare(exposedKey);
         var query = new Vec3(wall.getX() + .5, wall.getY() + .5, wall.getZ() + .5);
         var initial = PipeScanCandidates.readLoaded(level, query, 5, 32);
         require(initial.stream().anyMatch(candidate -> candidate.position().equals(wall)), "live concealed candidate found");
@@ -102,10 +116,17 @@ public final class PipeScanCandidatesGameTests {
                 "stale concealed candidate disappears");
         require(after.stream().anyMatch(candidate -> candidate.position().equals(exposed)),
                 "separate exposed lane remains");
-        var retained = saved.snapshot().get(wallKey).orElseThrow().mixture();
-        require(retained.gasMoles().equals(wallGas.gasMoles())
-                        && Double.compare(retained.thermalEnergy(), wallGas.thermalEnergy()) == 0,
-                "host invalidation preserves saved gas");
+        var retired = saved.snapshot();
+        require(retired.get(wallKey).isEmpty(), "old wall generation is no longer active");
+        require(retired.retiredSnapshot().get(seededWallEntry.incarnation()) != null
+                        && retired.retiredSnapshot().get(seededWallEntry.incarnation()).mixture().equals(seededWallGas),
+                "finite gas remains archived under retired wall incarnation");
+        var exposedAfter = retired.get(exposedKey)
+                .orElseThrow(() -> new GameTestAssertException("exposed owner remains active after wall retirement"));
+        require(exposedAfter.incarnation().equals(exposedEntry.incarnation())
+                        && exposedAfter.version() == exposedEntry.version()
+                        && retired.nodeShare(exposedKey).equals(exposedGas),
+                "separate exposed owner remains unchanged");
         helper.succeed();
     }
 

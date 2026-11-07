@@ -12,6 +12,133 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PipeGasInventoryTest {
+    @Test void relocationPreservesExactFiniteOwnersAndRejectsStaleOrOccupiedDestinations() {
+        var pos = new BlockPos(40, 2, 3);
+        var a = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY, "in");
+        var b = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY, "out");
+        var da = new PipeTopology.NodeKey(pos, PipeTopology.Layer.SECONDARY, "in");
+        var db = new PipeTopology.NodeKey(pos, PipeTopology.Layer.SECONDARY, "out");
+        UUID aid = UUID.randomUUID(), bid = UUID.randomUUID();
+        PipeGasInventory source = new PipeGasInventory().admit(a, aid, .1).admit(b, bid, .2);
+        source = source.withMixture(a, aid, source.get(a).orElseThrow().version(), new GasMixture(Map.of(GasType.PLASMA, 2d), 420, .1));
+        source = source.withMixture(b, bid, source.get(b).orElseThrow().version(), new GasMixture(Map.of(GasType.OXYGEN, 3d), 280, .2));
+        final PipeGasInventory original = source;
+        var ae = source.get(a).orElseThrow(); var be = source.get(b).orElseThrow();
+        var moves = Map.of(a, new PipeGasInventory.ExpectedIdentityVersionAndDestination(aid, ae.version(), da),
+                b, new PipeGasInventory.ExpectedIdentityVersionAndDestination(bid, be.version(), db));
+        var moved = source.relocateBatch(moves);
+        assertEquals(source.revision() + 1, moved.revision());
+        assertTrue(moved.get(a).isEmpty()); assertTrue(moved.get(b).isEmpty());
+        assertEquals(aid, moved.get(da).orElseThrow().incarnation());
+        assertEquals(.1, moved.get(da).orElseThrow().volume());
+        assertEquals(source.mixture(a).gasMoles(), moved.mixture(da).gasMoles());
+        assertEquals(source.mixture(b).thermalEnergy(), moved.mixture(db).thermalEnergy());
+        assertEquals(ae.version() + 1, moved.get(da).orElseThrow().version());
+        assertSame(moved, moved.relocateBatch(Map.of(da, new PipeGasInventory.ExpectedIdentityVersionAndDestination(
+                aid, moved.get(da).orElseThrow().version(), da))));
+        assertThrows(IllegalStateException.class, () -> original.relocateBatch(Map.of(a,
+                new PipeGasInventory.ExpectedIdentityVersionAndDestination(UUID.randomUUID(), ae.version(), da))));
+        assertThrows(IllegalStateException.class, () -> original.relocateBatch(Map.of(a,
+                new PipeGasInventory.ExpectedIdentityVersionAndDestination(aid, ae.version() + 1, da))));
+        assertThrows(IllegalStateException.class, () -> original.relocateBatch(Map.of(a,
+                new PipeGasInventory.ExpectedIdentityVersionAndDestination(aid, ae.version(), b))));
+        assertThrows(IllegalStateException.class, () -> original.unload(a, aid).relocateBatch(moves));
+        assertEquals(source.mixture(a).gasMoles(), original.mixture(a).gasMoles());
+    }
+
+    @Test void codecRecordOrderingUsesFullNodeIdentityAndStableRetiredUuidTieBreak() {
+        var pos = new BlockPos(5, 6, 7);
+        var ordinary = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY);
+        var portA = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY, "a");
+        var portB = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY, "b");
+        UUID idOrdinary = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID idA = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID idB = UUID.fromString("00000000-0000-0000-0000-000000000003");
+        var first = new PipeGasInventory().admit(portB, idB, 1).admit(ordinary, idOrdinary, 1).admit(portA, idA, 1);
+        var second = new PipeGasInventory().admit(portA, idA, 1).admit(portB, idB, 1).admit(ordinary, idOrdinary, 1);
+        var firstJson = PipeGasInventory.CODEC.encodeStart(JsonOps.INSTANCE, first).getOrThrow(IllegalStateException::new).getAsJsonObject();
+        var secondJson = PipeGasInventory.CODEC.encodeStart(JsonOps.INSTANCE, second).getOrThrow(IllegalStateException::new).getAsJsonObject();
+        assertEquals(firstJson.getAsJsonArray("entries").toString(), secondJson.getAsJsonArray("entries").toString());
+
+        var samePort = new PipeTopology.NodeKey(new BlockPos(9, 0, 0), PipeTopology.Layer.TERTIARY, "shared");
+        var archiveFirst = new PipeGasInventory().admit(samePort, idB, 1)
+                .withMixture(samePort, idB, 1, new GasMixture(Map.of(GasType.OXYGEN, 1d), 300, 1)).retire(samePort, idB)
+                .admit(samePort, idA, 1)
+                .withMixture(samePort, idA, 1, new GasMixture(Map.of(GasType.NITROGEN, 1d), 300, 1)).retire(samePort, idA);
+        var archiveSecond = new PipeGasInventory().admit(samePort, idA, 1)
+                .withMixture(samePort, idA, 1, new GasMixture(Map.of(GasType.NITROGEN, 1d), 300, 1)).retire(samePort, idA)
+                .admit(samePort, idB, 1)
+                .withMixture(samePort, idB, 1, new GasMixture(Map.of(GasType.OXYGEN, 1d), 300, 1)).retire(samePort, idB);
+        var retiredFirst = PipeGasInventory.CODEC.encodeStart(JsonOps.INSTANCE, archiveFirst).getOrThrow(IllegalStateException::new).getAsJsonObject();
+        var retiredSecond = PipeGasInventory.CODEC.encodeStart(JsonOps.INSTANCE, archiveSecond).getOrThrow(IllegalStateException::new).getAsJsonObject();
+        assertEquals(retiredFirst.getAsJsonArray("retired_entries").toString(), retiredSecond.getAsJsonArray("retired_entries").toString());
+    }
+
+    @Test void gasMutationAdvancesNetworkRevisionWithoutChangingNodeMetadata() {
+        var node = new PipeTopology.NodeKey(new BlockPos(2, 3, 4), PipeTopology.Layer.PRIMARY);
+        UUID id = UUID.randomUUID();
+        var original = new PipeGasInventory().admit(node, id, 1);
+        var metadata = original.get(node).orElseThrow();
+        var network = original.network(node).orElseThrow();
+        var updated = original.withMixture(node, id, metadata.version(),
+                new GasMixture(Map.of(GasType.OXYGEN, 1d), 300));
+        assertEquals(metadata, updated.get(node).orElseThrow());
+        assertEquals(network.id(), updated.network(node).orElseThrow().id());
+        assertEquals(network.gasRevision() + 1, updated.network(node).orElseThrow().gasRevision());
+        assertSame(original.snapshot(), updated.snapshot());
+    }
+
+    @Test void devicePortOwnersAtSameLaneAndPositionAreIndependentAndRoundTrip() {
+        var pos = new BlockPos(18, 4, -3);
+        var a = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY, "inlet");
+        var b = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY, "outlet");
+        UUID aid = UUID.randomUUID(), bid = UUID.randomUUID();
+        var inv = new PipeGasInventory().admit(a, aid, 0.1).admit(b, bid, 0.2);
+        inv = inv.withMixture(a, aid, inv.get(a).orElseThrow().version(), new GasMixture(Map.of(GasType.OXYGEN, 1.0), 300, .1));
+        inv = inv.withMixture(b, bid, inv.get(b).orElseThrow().version(), new GasMixture(Map.of(GasType.NITROGEN, 2.0), 400, .2));
+        assertNotEquals(a, b);
+        assertEquals(1.0, inv.mixture(a).moles(GasType.OXYGEN));
+        assertEquals(2.0, inv.mixture(b).moles(GasType.NITROGEN));
+        inv = inv.retire(b, bid);
+        var encoded = PipeGasInventory.CODEC.encodeStart(JsonOps.INSTANCE, inv).getOrThrow(IllegalStateException::new);
+        var decoded = PipeGasInventory.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow(IllegalStateException::new);
+        assertEquals("inlet", decoded.get(a).orElseThrow().node().portId());
+        assertEquals(aid, decoded.get(a).orElseThrow().incarnation());
+        assertEquals(0.1, decoded.get(a).orElseThrow().volume());
+        assertEquals(1.0, decoded.mixture(a).moles(GasType.OXYGEN));
+        var archived = decoded.retiredSnapshot().get(bid);
+        assertEquals("outlet", archived.node().portId());
+        assertEquals(2.0, archived.mixture().moles(GasType.NITROGEN));
+    }
+
+    @Test void accountedThermalBatchRequiresExactFiniteDeltaAndStillConservesSpecies() {
+        var key = new PipeTopology.NodeKey(new BlockPos(1, 2, 3), PipeTopology.Layer.PRIMARY, "heat");
+        UUID id = UUID.randomUUID();
+        var inv = new PipeGasInventory().admit(key, id, 1);
+        inv = inv.withMixture(key, id, inv.get(key).orElseThrow().version(), new GasMixture(Map.of(GasType.OXYGEN, 2.0), 300));
+        var before = inv.get(key).orElseThrow();
+        final PipeGasInventory source = inv;
+        GasMixture heated = new GasMixture(Map.of(GasType.OXYGEN, 2.0), 310);
+        var update = Map.of(key, new PipeGasInventory.ExpectedIdentityVersionAndGasAfter(id, before.version(), heated));
+        double delta = heated.thermalEnergy() - source.mixture(key).thermalEnergy();
+        assertThrows(IllegalArgumentException.class, () -> source.withBatchMixtures(update));
+        var result = source.withBatchMixtures(update, delta);
+        assertEquals(310, result.mixture(key).temperatureKelvin());
+        assertThrows(IllegalArgumentException.class, () -> source.withBatchMixtures(update, delta + 100));
+        assertThrows(IllegalStateException.class, () -> source.withBatchMixtures(Map.of(key,
+                new PipeGasInventory.ExpectedIdentityVersionAndGasAfter(UUID.randomUUID(), before.version(), heated)), delta));
+        assertThrows(IllegalArgumentException.class, () -> source.withBatchMixtures(update, Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> source.withBatchMixtures(update, Double.POSITIVE_INFINITY));
+
+        GasMixture cooled = new GasMixture(Map.of(GasType.OXYGEN, 2.0), 290);
+        var cooling = Map.of(key, new PipeGasInventory.ExpectedIdentityVersionAndGasAfter(id, before.version(), cooled));
+        assertThrows(IllegalArgumentException.class, () -> source.withBatchMixtures(cooling, 0));
+        var extracted = source.withBatchMixtures(cooling, cooled.thermalEnergy() - source.mixture(key).thermalEnergy());
+        assertEquals(290, extracted.mixture(key).temperatureKelvin());
+        assertThrows(IllegalArgumentException.class, () -> source.withBatchMixtures(cooling,
+                cooled.thermalEnergy() - source.mixture(key).thermalEnergy() - 10));
+    }
+
     @Test void floatAwareConservationComparisonFailsClosedOutsideItsRepresentableDomain() {
         assertTrue(PipeGasTransfer.close(1.0e40, 1.0e40), "matching large finite doubles retain strict equality");
         assertFalse(PipeGasTransfer.close(1.0e40, 2.0e40), "material large finite changes are rejected");
@@ -24,16 +151,16 @@ class PipeGasInventoryTest {
         var node = new PipeTopology.NodeKey(new BlockPos(4, 5, 6), PipeTopology.Layer.SECONDARY);
         UUID id = UUID.randomUUID();
         PipeGasInventory first = new PipeGasInventory().admit(node, id, 2.0);
-        GasMixture seeded = new GasMixture(Map.of(GasType.OXYGEN, 2.0), 300.0);
+        GasMixture seeded = new GasMixture(Map.of(GasType.OXYGEN, 2.0), 300.0, 2.0);
         PipeGasInventory changed = first.withMixture(node, id, first.get(node).orElseThrow().version(), seeded).unload(node, id);
         var json = PipeGasInventory.CODEC.encodeStart(JsonOps.INSTANCE, changed).getOrThrow(IllegalStateException::new);
         PipeGasInventory loaded = PipeGasInventory.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow(IllegalStateException::new);
         assertFalse(loaded.get(node).orElseThrow().active());
-        assertEquals(seeded.gasMoles(), loaded.get(node).orElseThrow().mixture().gasMoles());
+        assertEquals(seeded.gasMoles(), loaded.mixture(node).gasMoles());
         assertEquals(changed.revision(), loaded.revision());
         assertEquals(changed.get(node).orElseThrow().version(), loaded.get(node).orElseThrow().version());
         PipeGasInventory joined = loaded.admit(node, id, 2.0);
-        assertEquals(2.0, joined.get(node).orElseThrow().mixture().moles(GasType.OXYGEN));
+        assertEquals(2.0, joined.mixture(node).moles(GasType.OXYGEN));
         assertThrows(IllegalStateException.class, () -> joined.withMixture(node, id, first.get(node).orElseThrow().version(), GasMixture.vacuum()));
         assertThrows(IllegalStateException.class, () -> joined.admit(node, UUID.randomUUID(), 2.0));
         assertEquals(1, first.size());
@@ -51,7 +178,7 @@ class PipeGasInventoryTest {
         var empty = new PipeGasInventory().admit(node, id, 1).tombstoneEmpty(node, id);
         assertEquals(0, empty.size());
         var max = PipeGasInventory.CODEC.parse(JsonOps.INSTANCE, com.google.gson.JsonParser.parseString(
-                "{\"version\":1,\"revision\":9223372036854775807,\"entries\":[]}"))
+                "{\"version\":2,\"revision\":9223372036854775807,\"entries\":[],\"retired_entries\":[],\"networks\":[]}"))
                 .getOrThrow(IllegalStateException::new);
         assertThrows(ArithmeticException.class, () -> max.admit(node, id, 1));
     }
@@ -62,9 +189,9 @@ class PipeGasInventoryTest {
         String first = entry.formatted(id, "1");
         String second = entry.replace("\"x\":0", "\"x\":1").formatted(id, "1");
         assertTrue(PipeGasInventory.CODEC.parse(JsonOps.INSTANCE, com.google.gson.JsonParser.parseString(
-                "{\"version\":1,\"revision\":2,\"entries\":[" + first + "," + second + "]}")).error().isPresent());
+                "{\"version\":2,\"revision\":2,\"entries\":[" + first + "," + second + "],\"retired_entries\":[],\"networks\":[]}")).error().isPresent());
         assertTrue(PipeGasInventory.CODEC.parse(JsonOps.INSTANCE, com.google.gson.JsonParser.parseString(
-                "{\"version\":1,\"revision\":0,\"entries\":[" + entry.formatted(id, "-1") + "]}")).error().isPresent());
+                "{\"version\":2,\"revision\":0,\"entries\":[" + entry.formatted(id, "-1") + "],\"retired_entries\":[],\"networks\":[]}")).error().isPresent());
     }
 
     @Test void incarnationCannotBeOwnedByAnotherLiveOrDormantNodeButSameNodeReconciles() {
@@ -82,13 +209,14 @@ class PipeGasInventoryTest {
         var node = new PipeTopology.NodeKey(new BlockPos(20, 2, 3), PipeTopology.Layer.PRIMARY);
         UUID oldId = UUID.randomUUID(), newId = UUID.randomUUID();
         var inventory = new PipeGasInventory().admit(node, oldId, 2);
-        var gas = new GasMixture(Map.of(GasType.OXYGEN, 3.0), 300);
+        var gas = new GasMixture(Map.of(GasType.OXYGEN, 3.0), 300, 2);
         inventory = inventory.withMixture(node, oldId, inventory.get(node).orElseThrow().version(), gas);
         var retired = inventory.retire(node, oldId);
         assertTrue(retired.get(node).isEmpty());
-        assertEquals(gas, retired.retiredSnapshot().get(oldId).mixture());
+        assertEquals(gas.gasMoles(), retired.retiredSnapshot().get(oldId).mixture().gasMoles());
+        assertEquals(gas.thermalEnergy(), retired.retiredSnapshot().get(oldId).mixture().thermalEnergy());
         var fresh = retired.admit(node, newId, 2);
-        assertTrue(fresh.get(node).orElseThrow().mixture().gasMoles().isEmpty());
+        assertTrue(fresh.mixture(node).gasMoles().isEmpty());
         assertEquals(gas.gasMoles(), fresh.retiredSnapshot().get(oldId).mixture().gasMoles());
         assertEquals(retired.revision(), retired.retire(node, oldId).revision());
         assertThrows(IllegalStateException.class, () -> retired.admit(node, oldId, 2));
@@ -96,7 +224,7 @@ class PipeGasInventoryTest {
         var loaded = PipeGasInventory.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow(IllegalStateException::new);
         assertEquals(gas.gasMoles(), loaded.retiredSnapshot().get(oldId).mixture().gasMoles());
         assertEquals(gas.thermalEnergy(), loaded.retiredSnapshot().get(oldId).mixture().thermalEnergy(), 1e-9);
-        assertTrue(loaded.get(node).orElseThrow().mixture().gasMoles().isEmpty());
+        assertTrue(loaded.mixture(node).gasMoles().isEmpty());
     }
 
     @Test void lanesAreIndependentAndMalformedOrUnknownVersionsFail() {
@@ -106,7 +234,8 @@ class PipeGasInventoryTest {
         PipeGasInventory inventory = new PipeGasInventory().admit(a, UUID.randomUUID(), 1).admit(b, UUID.randomUUID(), 1);
         assertEquals(2, inventory.size());
         assertTrue(PipeGasInventory.CODEC.parse(JsonOps.INSTANCE, com.google.gson.JsonParser.parseString("{\"version\":99,\"entries\":[]}")).error().isPresent());
-        assertTrue(PipeGasInventory.CODEC.parse(JsonOps.INSTANCE, com.google.gson.JsonParser.parseString("{\"version\":1,\"entries\":[{\"x\":0}]} ")).error().isPresent());
+        assertTrue(PipeGasInventory.CODEC.parse(JsonOps.INSTANCE, com.google.gson.JsonParser.parseString("{\"version\":2,\"entries\":[{\"x\":0}],\"retired_entries\":[],\"networks\":[]} ")).error().isPresent());
+        assertTrue(PipeGasInventory.CODEC.parse(JsonOps.INSTANCE, com.google.gson.JsonParser.parseString("{\"version\":1,\"revision\":0,\"entries\":[],\"retired_entries\":[],\"networks\":[]} ")).error().isPresent());
         assertThrows(IllegalArgumentException.class, () -> inventory.admit(a, UUID.randomUUID(), Double.POSITIVE_INFINITY));
     }
 
@@ -124,8 +253,9 @@ class PipeGasInventoryTest {
         var retired = unchanged.retireBatch(owners);
         assertEquals(unchanged.revision() + 1, retired.revision());
         assertEquals(0, retired.size());
-        assertEquals(gas, retired.retiredSnapshot().get(b).mixture());
-        assertFalse(retired.retiredSnapshot().get(b).active());
+        assertEquals(gas.gasMoles(), retired.retiredSnapshot().get(b).mixture().gasMoles());
+        assertEquals(gas.thermalEnergy(), retired.retiredSnapshot().get(b).mixture().thermalEnergy());
+        assertNotNull(retired.retiredSnapshot().get(b));
         assertFalse(retired.retiredSnapshot().containsKey(a));
         assertFalse(retired.retiredSnapshot().containsKey(c));
         assertSame(retired, retired.retireBatch(Map.of()));
@@ -143,15 +273,16 @@ class PipeGasInventoryTest {
         var inventory = new PipeGasInventory().admit(a, idA, 1).admit(b, idB, 1);
         inventory = inventory.withMixture(a, idA, inventory.get(a).orElseThrow().version(), new GasMixture(Map.of(GasType.OXYGEN, 2.0), 300));
         inventory = inventory.withMixture(b, idB, inventory.get(b).orElseThrow().version(), GasMixture.vacuum());
-        var plan = PipeComponentEqualization.plan(java.util.List.of(
-                new PipeComponentEqualization.Node(a, idA, inventory.get(a).orElseThrow().version(), 1, inventory.get(a).orElseThrow().mixture()),
-                new PipeComponentEqualization.Node(b, idB, inventory.get(b).orElseThrow().version(), 1, inventory.get(b).orElseThrow().mixture())));
+        var plan = withNetworkVolumes(inventory, PipeComponentEqualization.plan(java.util.List.of(
+                new PipeComponentEqualization.Node(a, idA, inventory.get(a).orElseThrow().version(), 1, inventory.mixture(a)),
+                new PipeComponentEqualization.Node(b, idB, inventory.get(b).orElseThrow().version(), 1, inventory.mixture(b)))));
         var source = inventory;
         var result = source.withBatchMixtures(plan);
         assertEquals(source.revision() + 1, result.revision());
-        assertEquals(source.get(a).orElseThrow().version() + 1, result.get(a).orElseThrow().version());
+        assertEquals(source.get(a).orElseThrow(), result.get(a).orElseThrow(), "gas redistribution does not mutate owner metadata");
+        assertEquals(source.network(a).orElseThrow().gasRevision() + 1, result.network(a).orElseThrow().gasRevision());
         var before = result.snapshot();
-        assertThrows(IllegalStateException.class, () -> result.withBatchMixtures(plan));
+        assertSame(result, result.withBatchMixtures(plan), "reapplying an already-committed network mixture is an immutable no-op");
         var partial = Map.of(a, new PipeGasInventory.ExpectedIdentityVersionAndGasAfter(idA,
                 source.get(a).orElseThrow().version(), plan.get(a).gasAfter()));
         assertThrows(IllegalArgumentException.class, () -> source.withBatchMixtures(partial));
@@ -171,21 +302,21 @@ class PipeGasInventoryTest {
             source = source.admit(key, id, 0.2);
             var entry = source.get(key).orElseThrow();
             GasMixture mixture = i == 0
-                    ? new GasMixture(Map.of(GasType.PLASMA, (double) 0.4f), 300)
+                    ? new GasMixture(Map.of(GasType.PLASMA, (double) 0.4f), 300, .2)
                     : GasMixture.vacuum();
             if (i == 0) source = source.withMixture(key, id, entry.version(), mixture);
             entry = source.get(key).orElseThrow();
-            nodes.add(new PipeComponentEqualization.Node(key, id, entry.version(), entry.volume(), entry.mixture()));
+            nodes.add(new PipeComponentEqualization.Node(key, id, entry.version(), entry.volume(), source.mixture(key)));
         }
 
         var initial = source;
-        var plan = PipeComponentEqualization.plan(nodes);
+        var plan = withNetworkVolumes(source, PipeComponentEqualization.plan(nodes));
         var distributed = source.withBatchMixtures(plan);
-        var port = distributed.get(keys.get(10)).orElseThrow().mixture();
+        var port = distributed.nodeShare(keys.get(10));
         assertTrue(port.moles(GasType.PLASMA) > 0.0, "remote vent-side node receives its float-backed share");
-        double plasmaAfter = keys.stream().mapToDouble(key -> distributed.get(key).orElseThrow().mixture().moles(GasType.PLASMA)).sum();
+        double plasmaAfter = keys.stream().mapToDouble(key -> distributed.nodeShare(key).moles(GasType.PLASMA)).sum();
         double energyBefore = nodes.stream().mapToDouble(node -> node.mixture().thermalEnergy()).sum();
-        double energyAfter = keys.stream().mapToDouble(key -> distributed.get(key).orElseThrow().mixture().thermalEnergy()).sum();
+        double energyAfter = keys.stream().mapToDouble(key -> distributed.nodeShare(key).thermalEnergy()).sum();
         assertTrue(PipeGasTransfer.close(0.4f, plasmaAfter));
         assertTrue(PipeGasTransfer.close(energyBefore, energyAfter));
 
@@ -195,7 +326,7 @@ class PipeGasInventoryTest {
         alteredGas.putAll(firstExpected.gasAfter().gasMoles());
         alteredGas.merge(GasType.PLASMA, 0.1, Double::sum);
         speciesCorruption.put(keys.get(0), new PipeGasInventory.ExpectedIdentityVersionAndGasAfter(
-                identities.get(0), firstExpected.expectedVersion(), new GasMixture(alteredGas, firstExpected.gasAfter().temperatureKelvin())));
+                identities.get(0), firstExpected.expectedVersion(), new GasMixture(alteredGas, firstExpected.gasAfter().temperatureKelvin(), .2)));
         assertThrows(IllegalArgumentException.class, () -> initial.withBatchMixtures(speciesCorruption));
 
         var energyCorruption = new java.util.LinkedHashMap<>(plan);
@@ -229,7 +360,22 @@ class PipeGasInventoryTest {
         }
 
         assertThrows(IllegalArgumentException.class, () -> before.withBatchMixtures(deletesAll));
-        assertEquals(4.0e38, keys.stream().mapToDouble(key -> before.get(key).orElseThrow()
-                .mixture().moles(GasType.TRITIUM)).sum(), Math.ulp((float) 4.0e38) * 2.0);
+        assertEquals(4.0e38, keys.stream().mapToDouble(key -> before.nodeShare(key)
+                .moles(GasType.TRITIUM)).sum(), Math.ulp((float) 4.0e38) * 2.0);
+    }
+
+    private static Map<PipeTopology.NodeKey, PipeGasInventory.ExpectedIdentityVersionAndGasAfter> withNetworkVolumes(
+            PipeGasInventory inventory,
+            Map<PipeTopology.NodeKey, PipeGasInventory.ExpectedIdentityVersionAndGasAfter> plan) {
+        var result = new java.util.LinkedHashMap<PipeTopology.NodeKey, PipeGasInventory.ExpectedIdentityVersionAndGasAfter>();
+        for (var item : plan.entrySet()) {
+            var expected = item.getValue();
+            double networkVolume = inventory.network(item.getKey()).orElseThrow().mixture().volumeCubicMeters();
+            GasMixture gas = expected.gasAfter();
+            var volumeCorrect = new GasMixture(gas.gasMoles(), gas.temperatureKelvin(), networkVolume);
+            result.put(item.getKey(), new PipeGasInventory.ExpectedIdentityVersionAndGasAfter(
+                    expected.incarnation(), expected.expectedVersion(), volumeCorrect));
+        }
+        return result;
     }
 }

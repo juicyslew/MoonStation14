@@ -29,10 +29,19 @@ public final class VentilationFixtureService {
     private VentilationFixtureService() { }
 
     public static String build(ServerLevel level, BlockPos origin) {
+        return build(level, origin, false);
+    }
+
+    /** Places the standard fixture on an already-owned laboratory iron platform (Y=0 only). */
+    public static String buildOnLaboratoryFloor(ServerLevel level, BlockPos origin) {
+        return build(level, origin, true);
+    }
+
+    private static String build(ServerLevel level, BlockPos origin, boolean laboratoryFloor) {
         var saved = VentilationFixtureSavedData.existing(level).orElse(null);
         if (saved != null && (saved.entry(origin).isPresent() || saved.count() >= VentilationFixtureSavedData.MAX_FIXTURES))
             return "Fixture already has a saved ownership marker; refusing overwrite.";
-        if (!preflight(level, origin)) return "Build refused: footprint must be loaded, clear of entities/fluids/block entities and within world bounds.";
+        if (!preflight(level, origin, laboratoryFloor)) return "Build refused: footprint must be loaded, clear of entities/fluids/block entities and within world bounds.";
         if (PrototypeRuntime.serverVentilationDevices().get(ModVentilationDevices.SCRUBBER) == null
                 || PrototypeRuntime.serverVentilationDevices().get(ModVentilationDevices.VENT) == null
                 || ModAirAlarms.catalog(level).get(ModAirAlarms.AIR_ALARM) == null)
@@ -94,45 +103,121 @@ public final class VentilationFixtureService {
                 || !alarmEntity.addDeviceLink((VentilationDeviceBlockEntity) level.getBlockEntity(vent))
                 || !VentilationFixtureSavedData.forMutation(level).recordBuilt(origin, sid, vid, aid))
             return "Structure placed but fixture ownership admission failed; manual recovery required.";
-        for (BlockPos p : PLAN.sourceCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
-        for (BlockPos p : PLAN.recipientCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
-        return "Built finite ventilation fixture at absolute origin " + origin.getX()+" "+origin.getY()+" "+origin.getZ() + "; wait for normal atmosphere ownership, then run initialize.";
+        requestLaboratoryDiscovery(level, origin);
+        return "Built finite ventilation fixture at absolute origin " + origin.getX()+" "+origin.getY()+" "+origin.getZ() + "; run initialize to prove and seed its enclosed rooms.";
     }
 
-    public static String initialize(ServerLevel level, BlockPos origin) {
+    private static String laboratoryReadiness(ServerLevel level, BlockPos origin, boolean requireOwned) {
         var data = VentilationFixtureSavedData.existing(level).orElse(null);
         var entry = data == null ? Optional.<VentilationFixtureSavedData.Entry>empty() : data.entry(origin);
         if (entry.isEmpty()) return "No saved fixture at that origin.";
-        var e = entry.get(); if (e.initialized()) return "Fixture was already initialized; refusing reseed.";
+        var e = entry.get();
         if (!footprintLoaded(level, origin)) return "Initialization refused: fixture footprint chunks must all be loaded.";
         BlockPos source = origin.offset(PLAN.scrubber()), receiver = origin.offset(PLAN.vent());
         if (!(level.getBlockEntity(source) instanceof VentilationDeviceBlockEntity s) || !e.scrubberUUID().equals(s.deviceId())
                 || !(level.getBlockEntity(receiver) instanceof VentilationDeviceBlockEntity v) || !e.ventUUID().equals(v.deviceId()))
             return "Fixture devices do not match saved identities.";
         if (!(level.getBlockEntity(origin.offset(PLAN.alarm())) instanceof com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity alarm)
-                || alarm.prototype() == null || !alarm.deviceLinksValid() || alarm.deviceLinks().size() != 2 || alarm.deviceLinks().stream().noneMatch(link -> link.deviceId().equals(e.scrubberUUID()))
+                || alarm.prototype() == null || !alarm.deviceLinksValid() || alarm.deviceLinks().size() != 2
+                || alarm.deviceLinks().stream().noneMatch(link -> link.deviceId().equals(e.scrubberUUID()))
                 || alarm.deviceLinks().stream().noneMatch(link -> link.deviceId().equals(e.ventUUID())))
             return "Fixture air alarm links do not match saved device identities.";
         if (!validatePipeNetwork(level, origin)) return "Fixture pipe network does not match its planned nodes.";
-         for (BlockPos p : PLAN.sourceCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
-         for (BlockPos p : PLAN.recipientCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
-         for (BlockPos p : PLAN.sourceCells()) if (AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, origin.offset(p)).isEmpty()) return "Source room is not fully finite/owned; no gas written.";
-        for (BlockPos p : PLAN.recipientCells()) if (AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, origin.offset(p)).isEmpty()) return "Recipient room is not fully finite/owned; no gas written.";
-          if (!VentilationFixtureSavedData.forMutation(level).markInitialized(origin, e.scrubberUUID(), e.ventUUID(), e.fixtureUUID())) return "Initialization guard changed; refusing gas write.";
-          Map<GasType, Double> mix = new EnumMap<>(GasType.class); mix.put(GasType.OXYGEN, 8.0); mix.put(GasType.NITROGEN, 30.0); mix.put(PLAN.testGas(), PLAN.testGasMolesPerCell());
-         GasMixture fill = new GasMixture(mix, 300.0);
-         for (BlockPos p : PLAN.sourceCells()) if (!AtmosphereService.INSTANCE.initializeFiniteMixtureForTrustedSetup(level, origin.offset(p), fill)) return "Partial initialization failure; guard retained, manual rebuild required.";
-         for (BlockPos p : PLAN.recipientCells()) if (!AtmosphereService.INSTANCE.initializeFiniteMixtureForTrustedSetup(level, origin.offset(p), GasMixture.vacuum())) return "Partial initialization failure; guard retained, manual rebuild required.";
-        if (!configureFixtureDevice(s, true) || !configureFixtureDevice(v, false))
+        if (requireOwned) {
+            for (BlockPos p : PLAN.sourceCells()) if (AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, origin.offset(p)).isEmpty()) return "Source room is not fully finite/owned.";
+            for (BlockPos p : PLAN.recipientCells()) if (AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, origin.offset(p)).isEmpty()) return "Recipient room is not fully finite/owned.";
+        } else {
+            if (!AtmosphereService.INSTANCE.trustedSetupRoomReady(level, PLAN.sourceCells().stream().map(origin::offset).toList(), null)) return "Source room is not physically enclosed; no gas written.";
+            if (!AtmosphereService.INSTANCE.trustedSetupRoomReady(level, PLAN.recipientCells().stream().map(origin::offset).toList(), null)) return "Recipient room is not physically enclosed; no gas written.";
+        }
+        return null;
+    }
+
+    public static boolean initializationReadyForLaboratory(ServerLevel level, BlockPos origin) {
+        return laboratoryReadinessFailure(level, origin) == null;
+    }
+
+    /** Requests bounded discovery only at the fixture's already-loaded, planned finite-room cells. */
+    public static void requestLaboratoryDiscovery(ServerLevel level, BlockPos origin) {
+        if (level == null || origin == null || !footprintLoaded(level, origin)) return;
+        for (BlockPos p : PLAN.sourceCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
+        for (BlockPos p : PLAN.recipientCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
+    }
+
+    /** Canonical read-only admission cause; requesting discovery is deliberately a separate operation. */
+    public static String laboratoryReadinessFailure(ServerLevel level, BlockPos origin) {
+        var data = VentilationFixtureSavedData.existing(level).orElse(null);
+        var entry = data == null ? Optional.<VentilationFixtureSavedData.Entry>empty() : data.entry(origin);
+        if (entry.isEmpty()) return "No saved fixture at that origin.";
+        if (entry.get().initialized()) return "Fixture was already initialized; refusing reseed.";
+        return laboratoryReadiness(level, origin, false);
+    }
+
+    /** Initializes the fixture once, then enables both the finite-gas source and scrubber. */
+    public static String startLaboratoryTransfer(ServerLevel level, BlockPos origin) {
+        var data = VentilationFixtureSavedData.existing(level).orElse(null);
+        var entry = data == null ? Optional.<VentilationFixtureSavedData.Entry>empty() : data.entry(origin);
+        if (entry.isEmpty()) return "No saved fixture at that origin.";
+        if (entry.get().initialized()) return "Fixture was already initialized; refusing reseed.";
+        String initialized = prepareLaboratoryTransfer(level, origin);
+        if (initialized.startsWith("Initialized ")) {
+            String activated = activateLaboratoryTransfer(level, origin);
+            if (!activated.startsWith("Activated ")) return activated;
+        }
+        return initialized;
+    }
+
+    /** Seeds the actual laboratory source and receiver while leaving both devices disabled. */
+    public static String prepareLaboratoryTransfer(ServerLevel level, BlockPos origin) {
+        return initialize(level, origin, false, false);
+    }
+
+    /** Enables a previously prepared laboratory fixture without reseeding or consuming its guard. */
+    public static String activateLaboratoryTransfer(ServerLevel level, BlockPos origin) {
+        var data = VentilationFixtureSavedData.existing(level).orElse(null);
+        var entry = data == null ? Optional.<VentilationFixtureSavedData.Entry>empty() : data.entry(origin);
+        if (entry.isEmpty() || !entry.get().initialized()) return "Fixture has not been prepared; refusing activation.";
+        String notReady = laboratoryReadiness(level, origin, true);
+        if (notReady != null) return notReady;
+        BlockPos scrub = origin.offset(PLAN.scrubber()), vent = origin.offset(PLAN.vent());
+        if (!(level.getBlockEntity(scrub) instanceof VentilationDeviceBlockEntity s)
+                || !(level.getBlockEntity(vent) instanceof VentilationDeviceBlockEntity v)
+                || !configureFixtureDevice(s, true) || !configureFixtureDevice(v, true))
+            return "Gas prepared but transfer device activation failed; manual recovery required.";
+        return "Activated laboratory ventilation transfer.";
+    }
+
+    public static String initialize(ServerLevel level, BlockPos origin) {
+        return initialize(level, origin, true, false);
+    }
+
+    private static String initialize(ServerLevel level, BlockPos origin, boolean sourceEnabled, boolean receiverEnabled) {
+        var data = VentilationFixtureSavedData.existing(level).orElse(null);
+        var entry = data == null ? Optional.<VentilationFixtureSavedData.Entry>empty() : data.entry(origin);
+        if (entry.isEmpty()) return "No saved fixture at that origin.";
+        var e = entry.get(); if (e.initialized()) return "Fixture was already initialized; refusing reseed.";
+        String readiness = laboratoryReadiness(level, origin, false);
+        if (readiness != null) return readiness;
+        BlockPos source = origin.offset(PLAN.scrubber()), receiver = origin.offset(PLAN.vent());
+        var s = (VentilationDeviceBlockEntity) level.getBlockEntity(source);
+        var v = (VentilationDeviceBlockEntity) level.getBlockEntity(receiver);
+        Map<GasType, Double> mix = new EnumMap<>(GasType.class); mix.put(GasType.OXYGEN, 8.0); mix.put(GasType.NITROGEN, 30.0); mix.put(PLAN.testGas(), PLAN.testGasMolesPerCell());
+        GasMixture fill = new GasMixture(mix, 300.0);
+        // Shared readiness already validated both complete domains before consuming the guard;
+        // each initializer repeats its proof immediately before its own claim/write phase.
+        if (!VentilationFixtureSavedData.forMutation(level).markInitialized(origin, e.scrubberUUID(), e.ventUUID(), e.fixtureUUID())) return "Initialization guard changed; refusing gas write.";
+          if (!AtmosphereService.INSTANCE.initializeEnclosedFiniteMixtureForTrustedSetup(level, PLAN.sourceCells().stream().map(origin::offset).toList(), fill)) return "Partial initialization failure; guard retained, manual rebuild required.";
+          if (!AtmosphereService.INSTANCE.initializeEnclosedFiniteMixtureForTrustedSetup(level, PLAN.recipientCells().stream().map(origin::offset).toList(), GasMixture.vacuum())) return "Partial initialization failure; guard retained, manual rebuild required.";
+          if (!configureFixtureDevice(s, sourceEnabled) || !configureFixtureDevice(v, receiverEnabled))
             return "Gas initialized but device configuration failed; manual recovery required.";
-         return "Initialized 18 finite room cells per side at absolute origin " + origin.getX()+" "+origin.getY()+" "+origin.getZ()+"; source contains 8 mol O2, 30 mol N2 and 2 mol Plasma per cell.";
+          return "Initialized 18 finite room cells per side at absolute origin " + origin.getX()+" "+origin.getY()+" "+origin.getZ()+"; source contains 8 mol O2, 30 mol N2 and 2 mol Plasma per cell.";
     }
 
     public static String status(ServerLevel level, BlockPos origin) {
         return VentilationFixtureTelemetry.status(level, origin);
     }
 
-    private static boolean preflight(ServerLevel level, BlockPos origin) {
+    private static boolean preflight(ServerLevel level, BlockPos origin, boolean laboratoryFloor) {
         var saved = VentilationFixtureSavedData.existing(level).orElse(null);
         if (saved != null && saved.count() >= VentilationFixtureSavedData.MAX_FIXTURES) return false;
         var gasSnapshot = PipeGasInventorySavedData.existing(level)
@@ -151,7 +236,8 @@ public final class VentilationFixtureService {
             if (p.getY() < level.getMinBuildHeight() || p.getY() >= level.getMaxBuildHeight() || !level.getWorldBorder().isWithinBounds(p)) return false;
             if (level.getChunkSource().getChunk(p.getX() >> 4, p.getZ() >> 4, ChunkStatus.FULL, false) == null) return false;
             var state = level.getBlockState(p);
-            if (!state.isAir() || !state.getFluidState().isEmpty() || level.getBlockEntity(p) != null) return false;
+            boolean acceptable = state.isAir() || (laboratoryFloor && y == 0 && state.is(Blocks.IRON_BLOCK));
+            if (!acceptable || !state.getFluidState().isEmpty() || level.getBlockEntity(p) != null) return false;
         }
         for (var node : PLAN.pipes()) {
             BlockPos p = origin.offset(node.position());

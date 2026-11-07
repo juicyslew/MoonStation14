@@ -8,6 +8,19 @@ import workflow_runtime
 
 
 class ExecutionArgvTests(unittest.TestCase):
+    def test_gradle_wrapper_is_forced_finite_without_rewriting_other_arguments(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo=Path(tmp); wrapper=repo/'gradlew.bat'; wrapper.write_text('@echo off\n',encoding='utf-8')
+            argv=['./gradlew','-p','tiny project','runGameTestServer','-Pms14GameTestTags=fixture']
+            expected=['./gradlew','-p','tiny project','runGameTestServer','-Pms14GameTestTags=fixture','--no-daemon']
+            self.assertEqual(expected,workflow_runtime.execution_argv(repo,argv,os_name='posix'))
+            expected[0]=str(wrapper.resolve())
+            self.assertEqual(expected,workflow_runtime.execution_argv(repo,argv,os_name='nt'))
+            self.assertEqual(['gradlew.bat','build','--no-daemon'],
+                workflow_runtime.execution_argv(repo,['gradlew.bat','build','--no-daemon'],os_name='posix'))
+            with self.assertRaisesRegex(ValueError,'persistent daemon'):
+                workflow_runtime.execution_argv(repo,['./gradlew','build','--daemon'],os_name='nt')
+
     def test_windows_launcher_resolution_is_exact_and_posix_preserves_argv(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo=Path(tmp)

@@ -30,12 +30,11 @@ public final class BodyHeldItemActions {
                 || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
                 || hands.revision() != request.expectedRevision()) return BodyHandActionResult.Reason.DENIED;
         var stack = hands.stackCopy(request.handId()).orElse(null);
-        if (stack == null || !(stack.getItem() instanceof AtmosphereAnalyzerItem)
-                || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level))
-            return BodyHandActionResult.Reason.DENIED;
-        AtmosphereAnalyzerItem.reportForBody(level, actor, authority.body(),
-                AtmosphereAnalyzerItem.eyeTarget(authority.body().getEyePosition()), null);
-        return BodyHandActionResult.Reason.OK;
+        if (stack != null && stack.getItem() instanceof AtmosphereAnalyzerItem
+                && authority.body().level() instanceof net.minecraft.server.level.ServerLevel)
+            return com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSessionService.open(actor, authority,
+                    hands, request.handId(), request.expectedToken(), request.expectedRevision());
+        return BodyHandActionResult.Reason.DENIED;
     }
 
     public static BodyHandActionResult.Reason activate(ServerPlayer actor, BodyHandActionRequest request) {
@@ -55,6 +54,10 @@ public final class BodyHeldItemActions {
                 || authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands)
             return BodyHandActionResult.Reason.DENIED;
         var before = hands.stackCopy(request.handId()).orElse(null);
+        if (before != null && before.getItem() instanceof AtmosphereAnalyzerItem
+                && authority.body().level() instanceof net.minecraft.server.level.ServerLevel)
+            return com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSessionService.open(actor, authority,
+                    hands, request.handId(), request.expectedToken(), request.expectedRevision());
         if (before != null) {
             var id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(before.getItem());
             try {

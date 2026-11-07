@@ -37,8 +37,8 @@ public final class VentilationFixtureTelemetry {
 
         StringBuilder out = new StringBuilder("Fixture ").append(origin.toShortString())
                 .append(" initialized=").append(entry.initialized());
-        appendRoom(out, "source", level, PLAN.sourceCells(), origin);
-        appendRoom(out, "recipient", level, PLAN.recipientCells(), origin);
+        appendRoom(out, "source", roomTotals(level, origin, true), PLAN.sourceCells().size());
+        appendRoom(out, "recipient", roomTotals(level, origin, false), PLAN.recipientCells().size());
         if (scrubber.config() == null || vent.config() == null) return out.append("; device settings UNKNOWN (prototype/config unavailable)").toString();
         out.append("; scrubber enabled=").append(scrubber.config().settings().configuredEnabled())
                 .append(" mode=").append(scrubber.config().settings().scrubberMode())
@@ -51,25 +51,38 @@ public final class VentilationFixtureTelemetry {
         return out.toString();
     }
 
-    private static void appendRoom(StringBuilder out, String label, ServerLevel level, java.util.List<BlockPos> cells, BlockPos origin) {
+    /** Read-only finite total for the fixture source or recipient room; unavailable data stays UNKNOWN. */
+    public static Optional<GasMixture> roomTotals(ServerLevel level, BlockPos origin, boolean source) {
+        java.util.List<BlockPos> cells = source ? PLAN.sourceCells() : PLAN.recipientCells();
+        for (BlockPos relative : cells) {
+            BlockPos pos = origin.offset(relative);
+            if (level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) == null)
+                return Optional.empty();
+        }
         GasMixture total = GasMixture.vacuum();
         // A successful finite endpoint proves enclosure before samples are accepted as physical measurements.
         boolean enclosed = cells.stream().anyMatch(pos -> AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, origin.offset(pos)).isPresent());
-        if (!enclosed) { out.append("; ").append(label).append(" UNKNOWN/outside (0/").append(cells.size()).append(" finite)"); return; }
+        if (!enclosed) return Optional.empty();
         for (BlockPos relative : cells) {
             var reading = AtmosphereService.INSTANCE.readAtmosphere(level, origin.offset(relative));
             if (reading.isEmpty() || reading.get().status() != AtmosphereReading.Status.FINITE) {
-                out.append("; ").append(label).append(" UNKNOWN (finite cells incomplete)"); return;
+                return Optional.empty();
             }
             total = merge(total, reading.get().mixture());
         }
-        out.append("; ").append(label).append(' ').append(cells.size()).append('/').append(cells.size())
-                .append(" finite cells ").append(PLAN.testGasLabel()).append('=').append(fmt(total.moles(PLAN.testGas())))
-                .append(" mol total=").append(fmt(total.totalMoles())).append(" mol averagePressure=").append(fmt(averagePressureKpa(total, cells.size())))
-                .append(" kPa at ").append(fmt(total.temperatureKelvin())).append(" K");
+        return Optional.of(total);
     }
 
-    private static GasMixture merge(GasMixture a, GasMixture b) {
+    private static void appendRoom(StringBuilder out, String label, Optional<GasMixture> total, int cellCount) {
+        if (total.isEmpty()) { out.append("; ").append(label).append(" UNKNOWN (finite cells unavailable)"); return; }
+        GasMixture mixture = total.get();
+        out.append("; ").append(label).append(' ').append(cellCount).append('/').append(cellCount)
+                .append(" finite cells ").append(PLAN.testGasLabel()).append('=').append(fmt(mixture.moles(PLAN.testGas())))
+                .append(" mol total=").append(fmt(mixture.totalMoles())).append(" mol averagePressure=").append(fmt(averagePressureKpa(mixture, cellCount)))
+                .append(" kPa at ").append(fmt(mixture.temperatureKelvin())).append(" K");
+    }
+
+    public static GasMixture merge(GasMixture a, GasMixture b) {
         var m = new java.util.EnumMap<GasType, Double>(GasType.class);
         m.putAll(a.gasMoles()); b.gasMoles().forEach((gas, n) -> m.merge(gas, n, Double::sum));
         GasMixture combined = new GasMixture(m, b.temperatureKelvin());
@@ -79,21 +92,28 @@ public final class VentilationFixtureTelemetry {
     }
 
     private static void appendPipe(StringBuilder out, String label, ServerLevel level, BlockPos first, int lane) {
-        Optional<LoadedPipeComponent.Snapshot> snapshot = LoadedPipeComponent.discover(level, first, lane);
+        var start = new PipeTopology.NodeKey(first, lane == VisualPipeBlockEntity.SECONDARY
+                ? PipeTopology.Layer.SECONDARY : PipeTopology.Layer.PRIMARY);
+        var snapshot = LoadedPipeGasWork.capture(level, java.util.List.of(new LoadedPipeGasWork.Port(start)));
         out.append("; ").append(label).append(" pipe=");
         if (snapshot.isEmpty()) { out.append("UNKNOWN (component unvalidated)"); return; }
         var s = snapshot.get();
-        GasMixture gas = GasMixture.vacuum();
-        for (var node : s.nodes()) gas = merge(gas, node.mixture());
+        var component = s.componentFor(start).orElse(null);
+        if (component == null) { out.append("UNKNOWN (component metadata unavailable)"); return; }
+        // A connected component is one shared inventory. Summing node projections would
+        // introduce rounding and treating each as independent gas would double-count it.
+        GasMixture gas = s.inventory().network(start).map(PipeGasInventory.Network::mixture).orElse(null);
+        if (gas == null) { out.append("UNKNOWN (component gas unavailable)"); return; }
         java.util.Set<PipeTopology.NodeKey> expected = PLAN.pipes().stream()
                 .map(p -> new PipeTopology.NodeKey(levelPosition(first, p.position()), PipeTopology.Layer.PRIMARY))
                 .collect(java.util.stream.Collectors.toSet());
-        boolean matches = s.nodes().stream().map(LoadedPipeComponent.Node::key).collect(java.util.stream.Collectors.toSet()).equals(expected);
+        boolean matches = component.nodes().stream().map(LoadedPipeComponent.Node::key).collect(java.util.stream.Collectors.toSet()).equals(expected);
         long expectedCount = PLAN.pipes().size();
-        out.append(s.nodes().size()).append('/').append(expectedCount)
+        double totalVolume = component.nodes().stream().mapToDouble(LoadedPipeComponent.Node::volume).sum();
+        out.append(component.nodes().size()).append('/').append(expectedCount)
                 .append(matches ? " expected" : " MISMATCH")
                 .append(" connected nodes ").append(PLAN.testGasLabel()).append('=').append(fmt(gas.moles(PLAN.testGas()))).append(" mol total=")
-                .append(fmt(gas.totalMoles())).append(" mol pressure=").append(fmt(gas.pressureKpa(s.totalVolume()))).append(" kPa");
+                .append(fmt(gas.totalMoles())).append(" mol pressure=").append(fmt(gas.pressureKpa(totalVolume))).append(" kPa");
     }
 
     private static BlockPos levelPosition(BlockPos first, BlockPos relative) {
@@ -124,7 +144,7 @@ public final class VentilationFixtureTelemetry {
                 : "UNKNOWN (meter unavailable/stale/not delivered)";
     }
 
-    static double averagePressureKpa(GasMixture total, int cellCount) {
+    public static double averagePressureKpa(GasMixture total, int cellCount) {
         return total.pressureKpa(cellCount * 1.0);
     }
 
@@ -132,7 +152,9 @@ public final class VentilationFixtureTelemetry {
         var entry = LoadedSealedWallGasOwner.activeSnapshot(level, pos, PipeTopology.Layer.PRIMARY);
         out.append("; concealed pipe=");
         if (entry.isEmpty()) { out.append("UNKNOWN (owner inactive)"); return; }
-        var gas = entry.get().mixture();
+        var gas = PipeGasInventorySavedData.existing(level).map(PipeGasInventorySavedData::snapshot)
+                .map(inventory -> inventory.nodeShare(entry.get().node())).orElse(null);
+        if (gas == null) { out.append("UNKNOWN (owner gas unavailable)"); return; }
         out.append("owner active ").append(PLAN.testGasLabel()).append('=').append(fmt(gas.moles(PLAN.testGas()))).append(" mol total=")
                 .append(fmt(gas.totalMoles())).append(" mol pressure=").append(fmt(gas.pressureKpa(entry.get().volume()))).append(" kPa");
     }

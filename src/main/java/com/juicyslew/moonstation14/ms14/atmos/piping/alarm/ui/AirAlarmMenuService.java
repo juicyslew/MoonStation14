@@ -32,7 +32,6 @@ import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.SimpleMenuProvider;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -45,56 +44,70 @@ import java.util.UUID;
 public final class AirAlarmMenuService {
     enum Validity { VALID, AUTHORITY, ALARM, POWER_UNKNOWN, POWER_INCOMPLETE, OUT_OF_REACH, PATH_UNLOADED, LOS_BLOCKED }
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(AirAlarmMenuService.class);
-    private record Session(long lastRequest) { }
-    private static final Map<AirAlarmMenu, Session> SESSIONS = new java.util.WeakHashMap<>();
+    private record Session(ServerPlayer player, int containerId, long lastRequest, AirAlarmMenu menu) { }
+    private static final Map<UUID, Session> SESSIONS = new java.util.HashMap<>();
     private AirAlarmMenuService() { }
-    static void closed(AirAlarmMenu menu) { SESSIONS.remove(menu); }
+    /** Read-only lookup of a currently valid workspace capability for its owning actor and alarm. */
+    public static UUID workspaceSession(ServerPlayer actor, net.minecraft.core.BlockPos pos) {
+        if (actor == null || pos == null) return null;
+        for (var entry : List.copyOf(SESSIONS.entrySet())) {
+            Session session = entry.getValue();
+            if (session.player() == actor && session.menu().pos().equals(pos)
+                    && validPersistent(actor, session.menu())) return entry.getKey();
+        }
+        return null;
+    }
+    static void closed(AirAlarmMenu menu) { if (menu.serverLevel() != null) invalidate(menu, "dismissed"); }
 
-    public static boolean open(ServerPlayer actor, BodyBlockUseRequest request,
-                               BodyHandRequestService.BlockUseAdmission admitted) {
-        if (actor == null || request == null || admitted == null) return false;
+    /** Opens a server-owned capability without replacing the actor's current Minecraft container. */
+    public static UUID openWorkspace(ServerPlayer actor, BodyBlockUseRequest request,
+            BodyHandRequestService.BlockUseAdmission admitted) {
+        if (actor == null || request == null || admitted == null) return null;
         var resolved = HandActorAuthority.resolve(actor);
-        if (resolved.isEmpty() || !resolved.get().equals(admitted.authority())) return false;
+        if (resolved.isEmpty() || !resolved.get().equals(admitted.authority())) return null;
         var authority = resolved.get();
         if (!HandActorAuthority.revalidate(actor, authority)
                 || !(authority.body().level() instanceof ServerLevel level)
-                || admitted.hands() == null || admitted.hands() != authority.body()
-                    .getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())
-                || !admitted.hands().compatible(authority.body())
-                || admitted.hands().revision() != request.expectedRevision()) return false;
+                || admitted.hands() == null || admitted.hands() != authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get())
+                || !admitted.hands().compatible(authority.body()) || admitted.hands().revision() != request.expectedRevision()) return null;
         var hit = BodyBlockUseTargetProbe.probe(level, authority.body(), request.target(), request.face());
-        if (hit == null || !hit.equals(admitted.hit()) || !level.getWorldBorder().isWithinBounds(hit.pos())) return false;
-        var pos = hit.pos();
-        var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+        if (hit == null || !hit.equals(admitted.hit()) || !level.getWorldBorder().isWithinBounds(hit.pos())) return null;
+        var chunk = level.getChunkSource().getChunkNow(hit.pos().getX() >> 4, hit.pos().getZ() >> 4);
         if (chunk == null || !chunk.getFullStatus().isOrAfter(FullChunkStatus.FULL)
-                || chunk.getBlockState(pos).getBlock() != ModBlocks.AIR_ALARM.get()
-                || !(chunk.getBlockEntity(pos) instanceof AirAlarmBlockEntity alarm)
-                || alarm.getLevel() != level || alarm.isRemoved() || alarm.prototype() == null
-                 || !alarm.deviceLinksValid() || !HandActorAuthority.revalidate(actor, authority)) return false;
+                || chunk.getBlockState(hit.pos()).getBlock() != ModBlocks.AIR_ALARM.get()
+                || !(chunk.getBlockEntity(hit.pos()) instanceof AirAlarmBlockEntity alarm)
+                || alarm.getLevel() != level || alarm.isRemoved() || alarm.prototype() == null || !alarm.deviceLinksValid()) return null;
         Validity validity = persistentValidity(actor, level, alarm, authority);
-        if (validity != Validity.VALID) { actor.sendSystemMessage(Component.literal("Air alarm closed: " + reason(validity))); return false; }
+        if (validity != Validity.VALID) { actor.sendSystemMessage(Component.literal("Air alarm closed: " + reason(validity))); return null; }
         alarm.requestDeviceSync();
         UUID session = UUID.randomUUID();
-        actor.openMenu(new SimpleMenuProvider((id, inv, player) -> new AirAlarmMenu(id, pos, session,
-                level, alarm, authority, request), Component.literal("Air Alarm")),
-                buf -> { buf.writeBlockPos(pos); buf.writeUUID(session); });
-        return actor.containerMenu instanceof AirAlarmMenu menu && menu.session().equals(session);
+        AirAlarmMenu capability = new AirAlarmMenu(0, hit.pos(), session, level, alarm, authority, request);
+        SESSIONS.put(session, new Session(actor, 0, -1, capability));
+        AirAlarmNetworking.send(actor, new AirAlarmSessionState(session, true, ""));
+        AirAlarmNetworking.send(actor, snapshotForWorkspace(session, capability));
+        return session;
     }
 
     static AirAlarmControlSnapshot apply(ServerPlayer actor, AirAlarmControlRequest request) {
-        if (!(actor.containerMenu instanceof AirAlarmMenu menu) || !menu.stillValid(actor)) return denied(request);
-        Session previous = SESSIONS.get(menu);
-        if (!admit(menu.containerId, menu.session(), previous == null ? -1 : previous.lastRequest(), request))
+        Session previous = request == null ? null : SESSIONS.get(request.session());
+        if (previous == null || previous.player() != actor) return denied(request);
+        return applyToMenu(actor, request, previous, previous.menu());
+    }
+
+    private static AirAlarmControlSnapshot applyToMenu(ServerPlayer actor, AirAlarmControlRequest request, Session previous, AirAlarmMenu menu) {
+        if (!menu.session().equals(request.session()) || !validPersistent(actor, menu)) { invalidate(menu, "invalid"); return denied(request); }
+        if (!admit(previous.containerId(), request.session(), previous.lastRequest(), request))
             return denied(request);
+        if (request.operation() == AirAlarmControlRequest.Operation.CLOSE) { invalidate(menu, "dismissed"); return denied(request); }
         // Consume each correlated action once, including rejected setup requests.
-        SESSIONS.put(menu, new Session(request.requestId()));
+        SESSIONS.put(menu.session(), new Session(actor, menu.containerId, request.requestId(), menu));
         var level = menu.serverLevel(); var alarm = menu.alarm();
         if (request.operation() == AirAlarmControlRequest.Operation.QUERY) alarm.requestDeviceSync();
         boolean powered = powered(level, alarm);
         if (request.operation() == AirAlarmControlRequest.Operation.QUERY) {
             return snapshot(request, true, powered, level, alarm);
         }
-        if (powered && menu.stillValid(actor)) {
+        if (powered && validPersistent(actor, menu)) {
             switch (request.operation()) {
                 case PAIR, UNPAIR -> { /* Membership is configured only by the Network Configurator. */ }
                 case SET_ENABLED, SET_SCRUBBER_MODE, SET_FILTER_GAS, SET_EXTERNAL_PRESSURE_BOUND, SET_VOLUME_RATE -> {
@@ -105,22 +118,8 @@ public final class AirAlarmMenuService {
                         var device = alarm.resolveDeviceLink(link);
                         if (device == null || !device.settingsValid()) break;
                         var current = device.config().settings();
-                        if (request.operation() == AirAlarmControlRequest.Operation.SET_EXTERNAL_PRESSURE_BOUND
-                                || request.operation() == AirAlarmControlRequest.Operation.SET_VOLUME_RATE) {
-                            boolean vent = request.operation() == AirAlarmControlRequest.Operation.SET_EXTERNAL_PRESSURE_BOUND;
-                            double value = request.numericValue();
-                            if (device.kind() != (vent ? VentilationDeviceConfig.Kind.VENT : VentilationDeviceConfig.Kind.SCRUBBER)
-                                    || !AirAlarmNumericBounds.valid(device.kind(), value)) break;
-                            var proposed = new VentilationDeviceConfig.Settings(current.revision(), current.configuredEnabled(),
-                                    vent ? value : current.externalPressureBoundKPa(), current.targetPressureChangeKPaPerSecond(),
-                                    current.targetPressureKPa(), vent ? current.volumeRateM3PerSecond() : value,
-                                    current.scrubberMode(), current.filteredGases(), current.selectedLayer());
-                            if (powered(level, alarm) && menu.stillValid(actor) && alarm.resolveDeviceLink(link) == device)
-                                enqueueControl(level, alarm, device, proposed);
-                            break;
-                        }
                         var desired = propose(current, device.kind(), request);
-                        if (desired.isPresent() && powered(level, alarm) && menu.stillValid(actor)
+                        if (desired.isPresent() && powered(level, alarm) && validPersistent(actor, menu)
                                 && alarm.resolveDeviceLink(link) == device)
                             enqueueControl(level, alarm, device, desired.get());
                         break;
@@ -129,7 +128,31 @@ public final class AirAlarmMenuService {
                 case QUERY -> { }
             }
         }
-        return menu.stillValid(actor) ? snapshot(request, true, powered(level, alarm), level, alarm) : denied(request);
+        return validPersistent(actor, menu) ? snapshot(request, true, powered(level, alarm), level, alarm) : denied(request);
+    }
+
+    private static boolean validPersistent(ServerPlayer actor, AirAlarmMenu menu) {
+        return persistentValidity(actor, menu.serverLevel(), menu.alarm(), menu.authority()) == Validity.VALID;
+    }
+
+    public static void close(ServerPlayer actor, AirAlarmSessionClose request) {
+        Session s = request == null ? null : SESSIONS.get(request.session());
+        if (s != null && s.player() == actor) invalidate(s.menu(), "dismissed");
+    }
+    private static void invalidate(AirAlarmMenu menu, String reason) {
+        Session s = SESSIONS.remove(menu.session());
+        if (s != null) AirAlarmNetworking.send(s.player(), new AirAlarmSessionState(menu.session(), false, reason));
+    }
+    public static void logout(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p) for (Session s : List.copyOf(SESSIONS.values())) if (s.player() == p) invalidate(s.menu(), "logout");
+    }
+    public static void serverStopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) { SESSIONS.clear(); }
+    public static void serverTick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
+        for (Session s : List.copyOf(SESSIONS.values())) if (s.menu().serverLevel().getServer() == event.getServer() && !validPersistent(s.player(), s.menu())) invalidate(s.menu(), "invalid");
+    }
+    private static AirAlarmControlSnapshot snapshotForWorkspace(UUID session, AirAlarmMenu menu) {
+        return snapshot(new AirAlarmControlRequest(0, session, 0, new UUID(0, 0), 0,
+                AirAlarmControlRequest.Operation.QUERY, false, 0, 0), true, powered(menu.serverLevel(), menu.alarm()), menu.serverLevel(), menu.alarm());
     }
 
     private static boolean enqueueControl(ServerLevel level, AirAlarmBlockEntity alarm,
@@ -156,7 +179,7 @@ public final class AirAlarmMenuService {
 
     /** Pure capability/replay gate, separate from the pre-consumed block-use sequence. */
     static boolean admit(int containerId, UUID session, long lastRequest, AirAlarmControlRequest request) {
-        return request != null && session != null && containerId == request.containerId()
+        return request != null && request.containerId() == containerId && session != null
                 && session.equals(request.session()) && request.requestId() > lastRequest;
     }
 
@@ -168,8 +191,20 @@ public final class AirAlarmMenuService {
             case SET_ENABLED -> VentilationControlRequest.Operation.SET_ENABLED;
             case SET_SCRUBBER_MODE -> VentilationControlRequest.Operation.SET_SCRUBBER_MODE;
             case SET_FILTER_GAS -> VentilationControlRequest.Operation.SET_FILTER_GAS;
+            case SET_EXTERNAL_PRESSURE_BOUND -> VentilationControlRequest.Operation.QUERY;
+            case SET_VOLUME_RATE -> VentilationControlRequest.Operation.QUERY;
             default -> null;
         };
+        if (request.operation() == AirAlarmControlRequest.Operation.SET_EXTERNAL_PRESSURE_BOUND
+                || request.operation() == AirAlarmControlRequest.Operation.SET_VOLUME_RATE) {
+            if (!AirAlarmNumericBounds.valid(kind, request.numericValue())) return Optional.empty();
+            boolean vent = request.operation() == AirAlarmControlRequest.Operation.SET_EXTERNAL_PRESSURE_BOUND;
+            if (kind != (vent ? VentilationDeviceConfig.Kind.VENT : VentilationDeviceConfig.Kind.SCRUBBER)) return Optional.empty();
+            return Optional.of(new VentilationDeviceConfig.Settings(current.revision(), current.configuredEnabled(),
+                    vent ? request.numericValue() : current.externalPressureBoundKPa(), current.targetPressureChangeKPaPerSecond(),
+                    current.targetPressureKPa(), vent ? current.volumeRateM3PerSecond() : request.numericValue(),
+                    current.scrubberMode(), current.filteredGases(), current.selectedLayer()));
+        }
         return operation == null ? Optional.empty() : VentilationControlIntentPolicy.apply(current, kind,
                 operation, request.desired(), request.enumIndex());
     }
@@ -215,41 +250,12 @@ public final class AirAlarmMenuService {
         case OUT_OF_REACH -> "body out of reach"; case PATH_UNLOADED -> "body path unloaded"; case LOS_BLOCKED -> "line of sight blocked";
     }; }
 
-    /** Bounded FULL-chunk LOS. This is intentionally independent of the body's current aim. */
-    static boolean bodyCanReach(ServerLevel level, LivingEntity body, net.minecraft.core.BlockPos target, Vec3 point) {
-        return bodyReachReason(level, body, target, point) == Validity.VALID;
-    }
+    /** Compatibility facade over shared bounded reach. */
+    static boolean bodyCanReach(ServerLevel level, LivingEntity body, net.minecraft.core.BlockPos target, Vec3 point) { return bodyReachReason(level,body,target,point)==Validity.VALID; }
     static Validity bodyReachReason(ServerLevel level, LivingEntity body, net.minecraft.core.BlockPos target, Vec3 point) {
-        Vec3 from = body.getEyePosition();
-        if (from.distanceToSqr(point) > 36 || !level.getWorldBorder().isWithinBounds(point)) return Validity.OUT_OF_REACH;
-        int minX = (Math.min(net.minecraft.core.BlockPos.containing(from).getX(), target.getX()) >> 4) - 1;
-        int maxX = (Math.max(net.minecraft.core.BlockPos.containing(from).getX(), target.getX()) >> 4) + 1;
-        int minZ = (Math.min(net.minecraft.core.BlockPos.containing(from).getZ(), target.getZ()) >> 4) - 1;
-        int maxZ = (Math.max(net.minecraft.core.BlockPos.containing(from).getZ(), target.getZ()) >> 4) + 1;
-        if ((long)(maxX-minX+1)*(maxZ-minZ+1)>16) return Validity.PATH_UNLOADED;
-        for(int x=minX;x<=maxX;x++) for(int z=minZ;z<=maxZ;z++) {
-            var c=level.getChunkSource().getChunkNow(x,z);
-            if(c==null || !c.getFullStatus().isOrAfter(FullChunkStatus.FULL)) return Validity.PATH_UNLOADED;
-        }
-        try {
-            BlockHitResult hit = new LoadedLos(level,minX,maxX,minZ,maxZ).clip(new ClipContext(from,point,
-                    ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,body));
-            return hit.getType()!=HitResult.Type.BLOCK || hit.getBlockPos().equals(target) ? Validity.VALID : Validity.LOS_BLOCKED;
-        } catch (RuntimeException unavailable) { return Validity.PATH_UNLOADED; }
-    }
-    private static final class LoadedLos implements BlockGetter {
-        private final ServerLevel level; private final int minX,maxX,minZ,maxZ;
-        LoadedLos(ServerLevel l,int a,int b,int c,int d){level=l;minX=a;maxX=b;minZ=c;maxZ=d;}
-        private LevelChunk chunk(net.minecraft.core.BlockPos p) {
-            int x=p.getX()>>4,z=p.getZ()>>4;
-            if(x<minX||x>maxX||z<minZ||z>maxZ||level.isOutsideBuildHeight(p)) throw new IllegalStateException();
-            var c=level.getChunkSource().getChunkNow(x,z);
-            if(c==null||!c.getFullStatus().isOrAfter(FullChunkStatus.FULL)) throw new IllegalStateException(); return c;
-        }
-        public BlockState getBlockState(net.minecraft.core.BlockPos p){return chunk(p).getBlockState(p);}
-        public FluidState getFluidState(net.minecraft.core.BlockPos p){return chunk(p).getFluidState(p);}
-        public BlockEntity getBlockEntity(net.minecraft.core.BlockPos p){return chunk(p).getBlockEntities().get(p);}
-        public int getHeight(){return level.getHeight();} public int getMinBuildHeight(){return level.getMinBuildHeight();}
+        return switch (com.juicyslew.moonstation14.ms14.hands.network.BodyMenuReach.check(level,body,target,point)) {
+            case VALID -> Validity.VALID; case OUT_OF_REACH -> Validity.OUT_OF_REACH; case PATH_UNLOADED -> Validity.PATH_UNLOADED; case LOS_BLOCKED -> Validity.LOS_BLOCKED;
+        };
     }
 
     static boolean powered(int requestedWatts, PowerRuntime.VentMeterObservation meter) {

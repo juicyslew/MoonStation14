@@ -23,7 +23,9 @@ public final class GasMixture {
     public GasMixture(Map<GasType, Double> moles, double temperatureKelvin, double volumeCubicMeters) {
         this.speciesMoles = snapshot(moles);
         this.temperatureKelvin = (float) clampTemperature(temperatureKelvin);
-        this.volumeCubicMeters = (float) nonNegativeFinite(volumeCubicMeters, "volumeCubicMeters");
+        float storedVolume = (float) nonNegativeFinite(volumeCubicMeters, "volumeCubicMeters");
+        if (!Float.isFinite(storedVolume)) throw new IllegalArgumentException("volumeCubicMeters exceed float range");
+        this.volumeCubicMeters = storedVolume;
         if (!Double.isFinite(totalMoles()) || !Double.isFinite(heatCapacity())
                 || !Double.isFinite(thermalEnergy())) {
             throw new IllegalArgumentException("Mixture aggregate values must be finite");
@@ -128,24 +130,47 @@ public final class GasMixture {
         return AtmosphereUnits.referenceTileQuantity(7000.0);
     }
 
-    public record Removal(GasMixture remaining, GasMixture removed) { }
+    public record Removal(GasMixture remaining, GasMixture removed, Map<GasType, Double> discardedMoles) {
+        public Removal {
+            Objects.requireNonNull(remaining, "remaining");
+            Objects.requireNonNull(removed, "removed");
+            discardedMoles = validatedDiscardedMoles(discardedMoles);
+        }
+    }
+
+    /** Validates immutable per-split cutoff receipts; this is not a bound on cumulative observations. */
+    public static Map<GasType, Double> validatedDiscardedMoles(Map<GasType, Double> receipts) {
+        EnumMap<GasType, Double> copy = new EnumMap<>(GasType.class);
+        Objects.requireNonNull(receipts, "discardedMoles").forEach((gas, amount) -> {
+            Objects.requireNonNull(gas, "discarded gas");
+            Objects.requireNonNull(amount, "discarded moles");
+            float f = amount.floatValue();
+            if (!Double.isFinite(amount) || amount <= 0 || !Float.isFinite(f) || f <= 0
+                    || f >= 2 * GAS_MIN_MOLES) throw new IllegalArgumentException("invalid split cutoff receipt");
+            copy.put(gas, amount);
+        });
+        return Collections.unmodifiableMap(copy);
+    }
 
     /** SS14 RemoveRatio semantics, cleaning tiny species in both source remainder and packet. */
     public Removal splitRatio(double ratio) {
         if (!Double.isFinite(ratio)) throw new IllegalArgumentException("ratio must be finite");
-        if (ratio <= 0) return new Removal(this, new GasMixture(Map.of(), temperatureKelvin, volumeCubicMeters));
+        if (ratio <= 0) return new Removal(this, new GasMixture(Map.of(), temperatureKelvin, volumeCubicMeters), Map.of());
         ratio = Math.min(1, ratio);
         EnumMap<GasType, Double> removed = new EnumMap<>(GasType.class);
         EnumMap<GasType, Double> remaining = new EnumMap<>(GasType.class);
+        EnumMap<GasType, Double> discarded = new EnumMap<>(GasType.class);
         for (GasType type : GasType.values()) {
             float original = (float) moles(type);
             float packet = original * (float) ratio;
             float residual = original - packet;
             if (packet >= GAS_MIN_MOLES) removed.put(type, (double) packet);
+            else if (packet > 0) discarded.merge(type, (double) packet, Double::sum);
             if (residual >= GAS_MIN_MOLES) remaining.put(type, (double) residual);
+            else if (residual > 0) discarded.merge(type, (double) residual, Double::sum);
         }
         return new Removal(new GasMixture(remaining, temperatureKelvin, volumeCubicMeters),
-                new GasMixture(removed, temperatureKelvin, volumeCubicMeters));
+                new GasMixture(removed, temperatureKelvin, volumeCubicMeters), discarded);
     }
 
     /** Compatibility convenience returning only the packet; use splitRatio when source cleanup matters. */

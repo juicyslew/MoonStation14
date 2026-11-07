@@ -57,17 +57,18 @@ public final class ModVentilationDevices {
                 || !base.get("abstract").getAsBoolean() || base.has("parent") || base.has("kind")
                 || base.has("gasVentPump") || base.has("gasVentScrubber")
                 || !base.has("pipeLane") || !base.has("apcPowerReceiver")
-                  || !base.has("extensionCableReceiver")
-                  || !base.has("fixtureGeometry")
-                  || !Set.of("abstract", "pipeLane", "apcPowerReceiver", "extensionCableReceiver",
-                           "fixtureGeometry", "deviceComponents").containsAll(base.keySet()))
+                   || !base.has("extensionCableReceiver")
+                   || !base.has("fixtureGeometry")
+                   || !base.has("deviceIntervalSeconds")
+                   || !Set.of("abstract", "pipeLane", "apcPowerReceiver", "extensionCableReceiver",
+                             "fixtureGeometry", "deviceComponents", "ambientAudio", "deviceIntervalSeconds").containsAll(base.keySet()))
             throw new IllegalArgumentException("gas_unary_base must be an abstract shared parent without kind components");
         for (ResourceLocation id : Set.of(VENT, SCRUBBER)) {
             JsonObject child = raw.get(id);
             if (child == null || !child.has("parent") || !child.get("parent").isJsonPrimitive()
                     || !child.get("parent").getAsString().equals(BASE.getPath()) || child.has("abstract")
                     || child.has("pipeLane") || child.has("apcPowerReceiver")
-                     || child.has("extensionCableReceiver") || child.has("fixtureGeometry"))
+                        || child.has("extensionCableReceiver") || child.has("fixtureGeometry") || child.has("ambientAudio"))
                 throw new IllegalArgumentException(id + " must inherit gas_unary_base as a concrete child");
         }
         if (resolved.asMap().containsKey(BASE)) throw new IllegalArgumentException("abstract base was published");
@@ -75,7 +76,7 @@ public final class ModVentilationDevices {
             if (id.equals(BASE)) continue;
             JsonObject child = raw.get(id);
             if (child.has("abstract") || child.has("pipeLane") || child.has("apcPowerReceiver")
-                      || child.has("extensionCableReceiver") || child.has("fixtureGeometry"))
+                       || child.has("extensionCableReceiver") || child.has("fixtureGeometry") || child.has("ambientAudio"))
                 throw new IllegalArgumentException(id + " must inherit shared fields without overriding them");
             JsonElement parent = child.get("parent");
             if (parent == null || !parent.isJsonPrimitive() || !parent.getAsString().equals(BASE.getPath()))

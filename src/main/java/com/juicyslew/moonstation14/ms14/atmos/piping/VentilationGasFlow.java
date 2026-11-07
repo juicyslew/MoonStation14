@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.atmos.piping;
 
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
+import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -16,19 +17,41 @@ public final class VentilationGasFlow {
     /** Plan release from pipe to room, bounded by the configured pressure target and rate. */
     public static Optional<PipeGasTransfer.Plan> planVentRelease(
             GasMixture pipeBefore, GasMixture roomBefore, double pipeVolumeM3, double roomVolumeM3,
-            double elapsedSeconds, VentilationDeviceConfig.Settings settings) {
+            double elapsedSeconds, VentilationDeviceConfig.Settings settings, VentilationDeviceData.GasVentPump profile) {
         validate(pipeBefore, roomBefore, pipeVolumeM3, roomVolumeM3, elapsedSeconds, settings);
+        Objects.requireNonNull(profile, "profile");
         if (!settings.configuredEnabled() || pipeBefore.totalMoles() == 0.0) return Optional.empty();
         double roomPressure = roomBefore.pressureKpa(roomVolumeM3);
-        double remainingPressure = Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa()) - roomPressure;
-        if (!(remainingPressure > Math.ulp((float) Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa())))
-                || roomBefore.temperatureKelvin() <= 0.0) return Optional.empty();
+        double destinationPressureLimit = releaseDestinationPressureLimit(settings, profile);
+        double remainingPressure = destinationPressureLimit - roomPressure;
+        if (!(remainingPressure > Math.ulp((float) destinationPressureLimit))
+                || roomBefore.temperatureKelvin() <= 0.0 || pipeBefore.temperatureKelvin() <= 0.0) return Optional.empty();
+        var checks = profile.pressureChecks();
+        double pipePressure = pipeBefore.pressureKpa(pipeVolumeM3);
+        double sourcePressureCap = checks == VentilationDeviceData.PressureChecks.EXTERNAL
+                || checks == VentilationDeviceData.PressureChecks.BOTH
+                ? Math.min(pipePressure * profile.pumpPower(), settings.externalPressureBoundKPa()) : Double.POSITIVE_INFINITY;
+        double sourcePressureDelta = sourcePressureCap - roomPressure;
+        if (!(sourcePressureDelta > 0)) return Optional.empty();
         double maxMoles = Math.min(settings.targetPressureChangeKPaPerSecond() * elapsedSeconds,
-                remainingPressure) * 1000.0 * roomVolumeM3
-                / (GAS_CONSTANT * roomBefore.temperatureKelvin());
-        double destinationMaxPressureKpa = Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa());
+                Math.min(remainingPressure, sourcePressureDelta)) * 1000.0 * roomVolumeM3
+                / (GAS_CONSTANT * pipeBefore.temperatureKelvin());
+        if (checks == VentilationDeviceData.PressureChecks.INTERNAL || checks == VentilationDeviceData.PressureChecks.BOTH) {
+            double internalMoles = Math.max(0, pipePressure - profile.internalPressureBoundKPa()) * 1000.0 * pipeVolumeM3
+                    / (GAS_CONSTANT * pipeBefore.temperatureKelvin());
+            maxMoles = Math.min(maxMoles, internalMoles);
+        }
+        double destinationMaxPressureKpa = destinationPressureLimit;
         return PipeGasTransfer.plan(pipeBefore, roomBefore, pipeVolumeM3, roomVolumeM3, maxMoles,
                 destinationMaxPressureKpa, java.util.Set.of(com.juicyslew.moonstation14.ms14.atmos.core.GasType.values()));
+    }
+
+    static double releaseDestinationPressureLimit(VentilationDeviceConfig.Settings settings,
+            VentilationDeviceData.GasVentPump profile) {
+        return switch (profile.pressureChecks()) {
+            case EXTERNAL, BOTH -> Math.min(settings.targetPressureKPa(), settings.externalPressureBoundKPa());
+            case NO, INTERNAL -> settings.targetPressureKPa();
+        };
     }
 
     /** Plan room capture, filtering selected gases unless configured for siphon mode. */

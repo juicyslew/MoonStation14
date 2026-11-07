@@ -5,12 +5,23 @@ import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
+import com.juicyslew.moonstation14.item.ModItems;
+import net.minecraft.world.item.ItemStack;
 
 /** Places one tier-specific cable record on the exact clicked host face. */
 public final class CableSpoolItem extends Item {
     private final CableTier tier;
     public CableSpoolItem(Properties properties, CableTier tier) { super(properties); this.tier = tier; }
     public CableTier bodyUseTier() { return tier; }
+
+    /** Fresh matching refund stack; deliberately resolves registrations only when invoked. */
+    public static ItemStack freshStack(CableTier tier) {
+        return new ItemStack(switch (tier) {
+            case HV -> ModItems.HV_CABLE_SPOOL.get();
+            case MV -> ModItems.MV_CABLE_SPOOL.get();
+            case APC -> ModItems.APC_CABLE_SPOOL.get();
+        });
+    }
 
     @Override public InteractionResult useOn(UseOnContext context) {
         if (context.getLevel().isClientSide) return InteractionResult.SUCCESS;

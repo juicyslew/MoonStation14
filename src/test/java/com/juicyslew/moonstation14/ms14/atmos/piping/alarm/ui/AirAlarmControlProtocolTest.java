@@ -37,6 +37,50 @@ class AirAlarmControlProtocolTest {
         assertFalse(AirAlarmResponseQueryPolicy.shouldQuery(false, false));
     }
 
+    @Test void pendingIntentNeedsNewerAuthoritativeDesiredStateAndKeepsTarget() {
+        var owner = new AirAlarmPendingIntentOwner();
+        assertEquals(AirAlarmPendingIntentOwner.Outcome.IDLE, owner.outcome());
+        assertTrue(owner.admitsSetting());
+        var command = new AirAlarmControlRequest(12, SESSION, 4, DEVICE, 7,
+                AirAlarmControlRequest.Operation.SET_ENABLED, true, 0);
+        owner.begin(command, 0, 100);
+        assertFalse(owner.admitsSetting());
+        assertTrue(owner.shouldPoll(20, 20));
+        assertFalse(owner.shouldPoll(21, 20));
+        // A selection change is presentation state only: the owner's immutable target remains DEVICE.
+        UUID selection = UUID.randomUUID();
+        assertNotEquals(selection, owner.device());
+        assertEquals(AirAlarmPendingIntentOwner.Outcome.PENDING, owner.acknowledge(true));
+        assertFalse(owner.admitsSetting()); // enqueue ACK is not permission to replace the intent
+        var old = new AirAlarmControlSnapshot.Device(DEVICE, VentilationDeviceConfig.Kind.VENT,
+                new BlockPos(0, 0, 0), true, true, false, 0, 0, 7);
+        assertEquals(AirAlarmPendingIntentOwner.Outcome.PENDING, owner.observe(
+                new AirAlarmControlSnapshot(12, SESSION, 5, true, true, List.of(old)), 1));
+        var applied = new AirAlarmControlSnapshot.Device(DEVICE, VentilationDeviceConfig.Kind.VENT,
+                new BlockPos(0, 0, 0), true, true, true, 0, 0, 8);
+        assertEquals(AirAlarmPendingIntentOwner.Outcome.SUCCEEDED, owner.observe(
+                new AirAlarmControlSnapshot(12, SESSION, 6, true, true, List.of(applied)), 2));
+        assertNull(owner.device());
+        assertTrue(owner.admitsSetting());
+    }
+
+    @Test void pendingIntentReportsRejectConflictAndTimeout() {
+        var command = new AirAlarmControlRequest(12, SESSION, 4, DEVICE, 7,
+                AirAlarmControlRequest.Operation.SET_ENABLED, true, 0);
+        var owner = new AirAlarmPendingIntentOwner(); owner.begin(command, 0, 10);
+        assertEquals(AirAlarmPendingIntentOwner.Outcome.REJECTED, owner.acknowledge(false));
+        assertTrue(owner.admitsSetting());
+        owner.begin(command, 0, 10);
+        var conflict = new AirAlarmControlSnapshot.Device(DEVICE, VentilationDeviceConfig.Kind.VENT,
+                new BlockPos(0, 0, 0), true, true, false, 0, 0, 8);
+        assertEquals(AirAlarmPendingIntentOwner.Outcome.PENDING, owner.observe(
+                new AirAlarmControlSnapshot(12, SESSION, 5, true, true, List.of(conflict)), 1));
+        assertEquals(AirAlarmPendingIntentOwner.Outcome.CONFLICT, owner.observe(
+                new AirAlarmControlSnapshot(12, SESSION, 4, true, true, List.of(conflict)), 2));
+        owner.begin(command, 0, 10);
+        assertEquals(AirAlarmPendingIntentOwner.Outcome.TIMED_OUT, owner.observe(null, 10));
+    }
+
     private static AirAlarmControlRequest request(long id) {
         return new AirAlarmControlRequest(12, SESSION, id, DEVICE, 4,
                 AirAlarmControlRequest.Operation.SET_FILTER_GAS, true, 0);
@@ -45,11 +89,33 @@ class AirAlarmControlProtocolTest {
     @Test void intentRoundTripsWithoutClientCoordinatesOrSettings() {
         var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
         AirAlarmControlRequest.STREAM_CODEC.encode(buffer, request(8));
-        assertEquals(request(8), AirAlarmControlRequest.STREAM_CODEC.decode(buffer));
+        // Container ids are intentionally not part of the workspace wire protocol. The
+        // server binds the request to the session owner rather than trusting that legacy id.
+        assertEquals(0, AirAlarmControlRequest.STREAM_CODEC.decode(buffer).containerId());
         assertThrows(IllegalArgumentException.class, () -> new AirAlarmControlRequest(12, SESSION, 0, DEVICE, 0,
                 AirAlarmControlRequest.Operation.SET_FILTER_GAS, true, GasType.values().length));
         assertThrows(IllegalArgumentException.class, () -> new AirAlarmControlRequest(12, SESSION, -1, DEVICE, 0,
                 AirAlarmControlRequest.Operation.QUERY, false, 0));
+    }
+
+    @Test void workspaceLifecyclePayloadsRoundTripAndBoundReasons() {
+        var session = UUID.randomUUID();
+        var opened = new AirAlarmSessionState(session, true, "");
+        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        AirAlarmSessionState.STREAM_CODEC.encode(buffer, opened);
+        assertEquals(opened, AirAlarmSessionState.STREAM_CODEC.decode(buffer));
+
+        var closed = new AirAlarmSessionState(session, false, "logout");
+        buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        AirAlarmSessionState.STREAM_CODEC.encode(buffer, closed);
+        assertEquals(closed, AirAlarmSessionState.STREAM_CODEC.decode(buffer));
+
+        var close = new AirAlarmSessionClose(session);
+        buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        AirAlarmSessionClose.STREAM_CODEC.encode(buffer, close);
+        assertEquals(close, AirAlarmSessionClose.STREAM_CODEC.decode(buffer));
+        assertThrows(IllegalArgumentException.class,
+                () -> new AirAlarmSessionState(session, false, "x".repeat(65)));
     }
 
     @Test void numericIntentRoundTripsAndRejectsInvalidValues() {
@@ -63,13 +129,32 @@ class AirAlarmControlProtocolTest {
                 AirAlarmControlRequest.Operation.SET_VOLUME_RATE, false, 0, 0.15);
         var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
         AirAlarmControlRequest.STREAM_CODEC.encode(buffer, numeric);
-        assertEquals(numeric, AirAlarmControlRequest.STREAM_CODEC.decode(buffer));
+        var decodedNumeric = AirAlarmControlRequest.STREAM_CODEC.decode(buffer);
+        assertEquals(0, decodedNumeric.containerId());
+        assertEquals(numeric.session(), decodedNumeric.session());
+        assertEquals(numeric.requestId(), decodedNumeric.requestId());
+        assertEquals(numeric.deviceId(), decodedNumeric.deviceId());
+        assertEquals(numeric.expectedRevision(), decodedNumeric.expectedRevision());
+        assertEquals(numeric.operation(), decodedNumeric.operation());
+        assertEquals(numeric.numericValue(), decodedNumeric.numericValue());
         assertThrows(IllegalArgumentException.class, () -> new AirAlarmControlRequest(12, SESSION, 8, DEVICE, 4,
                 AirAlarmControlRequest.Operation.SET_VOLUME_RATE, false, 0, Double.NaN));
         var vent = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT);
         var stale = new AirAlarmControlRequest(12, SESSION, 8, DEVICE, 3,
                 AirAlarmControlRequest.Operation.SET_EXTERNAL_PRESSURE_BOUND, false, 0, 100);
         assertTrue(AirAlarmMenuService.propose(vent.settings(), vent.kind(), stale).isEmpty());
+        var currentVent = vent.settings();
+        var validPressure = new AirAlarmControlRequest(12, SESSION, 9, DEVICE, currentVent.revision(),
+                AirAlarmControlRequest.Operation.SET_EXTERNAL_PRESSURE_BOUND, false, 0, 100);
+        assertTrue(AirAlarmMenuService.propose(currentVent, vent.kind(), validPressure).isPresent());
+        var scrubber = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.SCRUBBER);
+        var currentScrubber = scrubber.settings();
+        var staleRate = new AirAlarmControlRequest(12, SESSION, 10, DEVICE, currentScrubber.revision() + 1,
+                AirAlarmControlRequest.Operation.SET_VOLUME_RATE, false, 0, 0.1);
+        assertTrue(AirAlarmMenuService.propose(currentScrubber, scrubber.kind(), staleRate).isEmpty());
+        var validRate = new AirAlarmControlRequest(12, SESSION, 11, DEVICE, currentScrubber.revision(),
+                AirAlarmControlRequest.Operation.SET_VOLUME_RATE, false, 0, 0.1);
+        assertTrue(AirAlarmMenuService.propose(currentScrubber, scrubber.kind(), validRate).isPresent());
         var wrongKind = new AirAlarmControlRequest(12, SESSION, 8, DEVICE, 0,
                 AirAlarmControlRequest.Operation.SET_VOLUME_RATE, false, 0, 0.1);
         assertTrue(AirAlarmMenuService.propose(vent.settings(), vent.kind(), wrongKind).isEmpty());

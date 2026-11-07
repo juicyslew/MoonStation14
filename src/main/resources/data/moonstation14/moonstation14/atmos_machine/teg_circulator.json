@@ -1,0 +1,1 @@
+{"kind":"teg_circulator","parent":"atmos_machine_base","ports":[{"name":"inlet","direction":"North","volumeM3":0.1},{"name":"outlet","direction":"South","volumeM3":0.1}],"networkNodes":[{"name":"circulator","group":"TEG"}],"visual":{"sprite":"Structures/Power/Generation/teg.rsi","state":"circ-0","circulatorFastDeltaKpa":506.625}}

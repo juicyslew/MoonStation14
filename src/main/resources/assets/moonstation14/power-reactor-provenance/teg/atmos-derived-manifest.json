@@ -1,0 +1,3919 @@
+{
+  "sourceRepository": "space-station-14",
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "conversion": "RSI row-major source image frames, ordered direction-major by RSI metadata; exact frame pixels cropped without resampling; vertical strips for animation",
+  "directions4": [
+    "south",
+    "north",
+    "east",
+    "west"
+  ],
+  "assets": [
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressure.png",
+      "sourceSha256": "5264479bfb8928c3995172987c566581835559a7354bd4ace1b394a31840a985",
+      "state": "pumpPressure",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpPressure_south.png",
+      "outputSha256": "10a67a7f318dfb6f9f983990d82d95ba01c6d020a134b28fbd737277756ac78e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressure.png",
+      "sourceSha256": "5264479bfb8928c3995172987c566581835559a7354bd4ace1b394a31840a985",
+      "state": "pumpPressure",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpPressure_north.png",
+      "outputSha256": "175deb9234b2345ca87372d3bd555cd6f33cb1076f582ea3937b5aaba2de715b",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressure.png",
+      "sourceSha256": "5264479bfb8928c3995172987c566581835559a7354bd4ace1b394a31840a985",
+      "state": "pumpPressure",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpPressure_east.png",
+      "outputSha256": "7603439c3871d9372d6db45685f22b351dac2cc58ab479183a1c3fa958a4b9a8",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressure.png",
+      "sourceSha256": "5264479bfb8928c3995172987c566581835559a7354bd4ace1b394a31840a985",
+      "state": "pumpPressure",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpPressure_west.png",
+      "outputSha256": "0230e01d234fd617c2067e354b546a19a779cfa486c99cf8134d830da4a5f218",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressureOn.png",
+      "sourceSha256": "81d84913d67851cc33a8119b063b3f4a653705013464a41ddbc6ad0dac643f3c",
+      "state": "pumpPressureOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpPressureOn_south.png",
+      "outputSha256": "e8e08deee2c5feb5069e83d1fa65771223eeb7697df84228c8a481bd2b78379a",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressureOn.png",
+      "sourceSha256": "81d84913d67851cc33a8119b063b3f4a653705013464a41ddbc6ad0dac643f3c",
+      "state": "pumpPressureOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpPressureOn_north.png",
+      "outputSha256": "79f9d028a57c5da999a574b3021e61d73f946429dbe04efa7fd0c5190ada5da9",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressureOn.png",
+      "sourceSha256": "81d84913d67851cc33a8119b063b3f4a653705013464a41ddbc6ad0dac643f3c",
+      "state": "pumpPressureOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpPressureOn_east.png",
+      "outputSha256": "47f76a5d90f4edc5b9e42fb3c23b74e603d2986ee9aeac00d2439edada318c7b",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressureOn.png",
+      "sourceSha256": "81d84913d67851cc33a8119b063b3f4a653705013464a41ddbc6ad0dac643f3c",
+      "state": "pumpPressureOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpPressureOn_west.png",
+      "outputSha256": "0414f9b730b840a7de7ca4ee3f132a8bc0001dcdbf009bc74ab9c542df1f9de5",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolume.png",
+      "sourceSha256": "c2e37506b20688f6bc1f5b7153f0c2ed385ad9e6db6d0decec352bf4a614f3d9",
+      "state": "pumpVolume",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolume_south.png",
+      "outputSha256": "b194a6b7d1e468100de779e26bbeac57801af47381a7013d5aa4a73041ffb13e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolume.png",
+      "sourceSha256": "c2e37506b20688f6bc1f5b7153f0c2ed385ad9e6db6d0decec352bf4a614f3d9",
+      "state": "pumpVolume",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolume_north.png",
+      "outputSha256": "53a80dae491cd17e03fd3383fe0ce9dc18e7c2c65e06ea6dbeb7081075cce3bb",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolume.png",
+      "sourceSha256": "c2e37506b20688f6bc1f5b7153f0c2ed385ad9e6db6d0decec352bf4a614f3d9",
+      "state": "pumpVolume",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolume_east.png",
+      "outputSha256": "7390b44622b2945e38d37201542b4997e05c4b59b8993c40be288473d9cd7156",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolume.png",
+      "sourceSha256": "c2e37506b20688f6bc1f5b7153f0c2ed385ad9e6db6d0decec352bf4a614f3d9",
+      "state": "pumpVolume",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolume_west.png",
+      "outputSha256": "a706de1e88c5e9ab413a5995e5d79b435db5f6b1f766a0669c57247c5be7e40f",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolumeOn.png",
+      "sourceSha256": "96a7deee9f8519814379466b6aaa16ba9d4643595558852b07412263d945f2f2",
+      "state": "pumpVolumeOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolumeOn_south.png",
+      "outputSha256": "63cc346c0be64f10c54be3a7479827ab54367243fff8bb533f2229647b009e49",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolumeOn.png",
+      "sourceSha256": "96a7deee9f8519814379466b6aaa16ba9d4643595558852b07412263d945f2f2",
+      "state": "pumpVolumeOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolumeOn_north.png",
+      "outputSha256": "1526a013f89d8ed0645e2ea68b2bef7bf5ac6d7f970c4a6f1b3e52e6fd69e40b",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolumeOn.png",
+      "sourceSha256": "96a7deee9f8519814379466b6aaa16ba9d4643595558852b07412263d945f2f2",
+      "state": "pumpVolumeOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolumeOn_east.png",
+      "outputSha256": "cad309f854f93815b7b93dad7881c0b7686cfdfa523f4fdd86160349b49f1cb9",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolumeOn.png",
+      "sourceSha256": "96a7deee9f8519814379466b6aaa16ba9d4643595558852b07412263d945f2f2",
+      "state": "pumpVolumeOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolumeOn_west.png",
+      "outputSha256": "9abe38e4ae45db1fce9268058fe40fcd0ee11c0bf74bf5f60f07383b394dee3b",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "833f8c2b6a97d238fcdd3e67836a4069c51a0ca3c8ebd26aa2ad6b4bd42b15e9",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolumeBlocked_south.png",
+      "outputSha256": "5a5f5f8bff7ec4bd7ff37f6f47700e8ffc2e46f6dbc72cdb0b1c59ffcb683b9b",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "833f8c2b6a97d238fcdd3e67836a4069c51a0ca3c8ebd26aa2ad6b4bd42b15e9",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolumeBlocked_north.png",
+      "outputSha256": "9d919738c2f262ead383a1fa98acfdd9b0d1668d70421ea47a65fa1540c46bdd",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "833f8c2b6a97d238fcdd3e67836a4069c51a0ca3c8ebd26aa2ad6b4bd42b15e9",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolumeBlocked_east.png",
+      "outputSha256": "7a1758febb9a3d98b9899c0b59983f78641442a7ca45f0b0af892834507e69de",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "833f8c2b6a97d238fcdd3e67836a4069c51a0ca3c8ebd26aa2ad6b4bd42b15e9",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpVolumeBlocked_west.png",
+      "outputSha256": "004f42379682fffb02769acb5308cd494f2a4bf3e7f998ddcb66effbd61a7ce8",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpManualValve.png",
+      "sourceSha256": "8da85f4d2b8a4c42feeda0f30834d28cf7fdbb79b14bef6f4102c5a0840f8462",
+      "state": "pumpManualValve",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpManualValve_south.png",
+      "outputSha256": "9d0c8aeaf8d892f064052bf3559c78ac056fb6f9e69a91488253842436f1e017",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpManualValve.png",
+      "sourceSha256": "8da85f4d2b8a4c42feeda0f30834d28cf7fdbb79b14bef6f4102c5a0840f8462",
+      "state": "pumpManualValve",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpManualValve_north.png",
+      "outputSha256": "9d0c8aeaf8d892f064052bf3559c78ac056fb6f9e69a91488253842436f1e017",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpManualValve.png",
+      "sourceSha256": "8da85f4d2b8a4c42feeda0f30834d28cf7fdbb79b14bef6f4102c5a0840f8462",
+      "state": "pumpManualValve",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpManualValve_east.png",
+      "outputSha256": "e278e5e702dc811ba62efdd60e6c909ed11a1e71183f9f9877189de2ef39c843",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpManualValve.png",
+      "sourceSha256": "8da85f4d2b8a4c42feeda0f30834d28cf7fdbb79b14bef6f4102c5a0840f8462",
+      "state": "pumpManualValve",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpManualValve_west.png",
+      "outputSha256": "e278e5e702dc811ba62efdd60e6c909ed11a1e71183f9f9877189de2ef39c843",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpManualValveOn.png",
+      "sourceSha256": "f00d1474d6e6439d6da61f685e45106ea3b75e4d5533ac39be1e8da27e7710ca",
+      "state": "pumpManualValveOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpManualValveOn_south.png",
+      "outputSha256": "602985ee853497b2a3fc84f118321d5072e934c7422d527c6781a12491a591de",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpManualValveOn.png",
+      "sourceSha256": "f00d1474d6e6439d6da61f685e45106ea3b75e4d5533ac39be1e8da27e7710ca",
+      "state": "pumpManualValveOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpManualValveOn_north.png",
+      "outputSha256": "602985ee853497b2a3fc84f118321d5072e934c7422d527c6781a12491a591de",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpManualValveOn.png",
+      "sourceSha256": "f00d1474d6e6439d6da61f685e45106ea3b75e4d5533ac39be1e8da27e7710ca",
+      "state": "pumpManualValveOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpManualValveOn_east.png",
+      "outputSha256": "3610f6e0408be89af03e611b9c6ef625622f6cf2088fc451470fe268e5ec3c5e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump.rsi/pumpManualValveOn.png",
+      "sourceSha256": "f00d1474d6e6439d6da61f685e45106ea3b75e4d5533ac39be1e8da27e7710ca",
+      "state": "pumpManualValveOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump/pumpManualValveOn_west.png",
+      "outputSha256": "3610f6e0408be89af03e611b9c6ef625622f6cf2088fc451470fe268e5ec3c5e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressure.png",
+      "sourceSha256": "71328f7398f4f813158babce78150445fddb69df2ba867f0762cb7d942e21a16",
+      "state": "pumpPressure",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpPressure_south.png",
+      "outputSha256": "6ce25f2db9dd11947704194ec44aab6d2108dee3d6669449601049606babc6bf",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressure.png",
+      "sourceSha256": "71328f7398f4f813158babce78150445fddb69df2ba867f0762cb7d942e21a16",
+      "state": "pumpPressure",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpPressure_north.png",
+      "outputSha256": "c2654aaa80afecce87af9e4fabbe36f2a5245428cda55e73267beb7506445023",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressure.png",
+      "sourceSha256": "71328f7398f4f813158babce78150445fddb69df2ba867f0762cb7d942e21a16",
+      "state": "pumpPressure",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpPressure_east.png",
+      "outputSha256": "737eaf61a2bf025156c0574e70273b7b9cd9d0c6e89ad6d49a12f6158d737371",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressure.png",
+      "sourceSha256": "71328f7398f4f813158babce78150445fddb69df2ba867f0762cb7d942e21a16",
+      "state": "pumpPressure",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpPressure_west.png",
+      "outputSha256": "edf7843bdd11d1980216fafb9da635839123e777716036e539cdf17dbc9291b0",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressureOn.png",
+      "sourceSha256": "1b53676399207eb6391bfb0e33f0790adc5313fa8c2978936fe11e9730c1a1d6",
+      "state": "pumpPressureOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpPressureOn_south.png",
+      "outputSha256": "f1d0e03a4cbf0b56049efa49311fd29342b6051edc552d0c7911a3a344e896e2",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressureOn.png",
+      "sourceSha256": "1b53676399207eb6391bfb0e33f0790adc5313fa8c2978936fe11e9730c1a1d6",
+      "state": "pumpPressureOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpPressureOn_north.png",
+      "outputSha256": "542673695a3c14c0dc883b231919baa24b9f631d50bd90c1f253de037f2d63b9",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressureOn.png",
+      "sourceSha256": "1b53676399207eb6391bfb0e33f0790adc5313fa8c2978936fe11e9730c1a1d6",
+      "state": "pumpPressureOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpPressureOn_east.png",
+      "outputSha256": "4dc95f2ed70efeca26f18dc43c8e7ee81f7ef227b1bd1691da1986b94e1d0834",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressureOn.png",
+      "sourceSha256": "1b53676399207eb6391bfb0e33f0790adc5313fa8c2978936fe11e9730c1a1d6",
+      "state": "pumpPressureOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpPressureOn_west.png",
+      "outputSha256": "d992987d867ce37899223fc8be2c2b88e34aa4c00aca97880af9fe0496a5a17c",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolume.png",
+      "sourceSha256": "008daab764585a611b360cfe5f06306239838162fe9fa06830b6014bae232f34",
+      "state": "pumpVolume",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolume_south.png",
+      "outputSha256": "2ce19fd31b27b36c915d453f0c27c83b53d363bf1d4805770a7a375ea0148678",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolume.png",
+      "sourceSha256": "008daab764585a611b360cfe5f06306239838162fe9fa06830b6014bae232f34",
+      "state": "pumpVolume",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolume_north.png",
+      "outputSha256": "f69722aa202dbf40c435cb08ac72af53d61d1e2ecce47736389729466c7bc66a",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolume.png",
+      "sourceSha256": "008daab764585a611b360cfe5f06306239838162fe9fa06830b6014bae232f34",
+      "state": "pumpVolume",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolume_east.png",
+      "outputSha256": "c5094b8ea6a758273fa324bbcae82a0cb7c11d5fee8771b474e00aa214b7c3e2",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolume.png",
+      "sourceSha256": "008daab764585a611b360cfe5f06306239838162fe9fa06830b6014bae232f34",
+      "state": "pumpVolume",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolume_west.png",
+      "outputSha256": "a72f455b44f6012a66b59d3a65dddbaf8c8e2182bce56344bc5867680f7f2af6",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolumeOn.png",
+      "sourceSha256": "6bad6b9cb12bf1702612cd736c7be132e965df5f92adbfbdbcf4fc714fc2bf60",
+      "state": "pumpVolumeOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolumeOn_south.png",
+      "outputSha256": "63f53486e6d0378a8db7165e0fc6d8f95b187a0c76a9488a5a22bb90e69f8dee",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolumeOn.png",
+      "sourceSha256": "6bad6b9cb12bf1702612cd736c7be132e965df5f92adbfbdbcf4fc714fc2bf60",
+      "state": "pumpVolumeOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolumeOn_north.png",
+      "outputSha256": "882e86d15338609fda5460035974b6d99010e5d5acdd0a8e77cd55cfdfbd7321",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolumeOn.png",
+      "sourceSha256": "6bad6b9cb12bf1702612cd736c7be132e965df5f92adbfbdbcf4fc714fc2bf60",
+      "state": "pumpVolumeOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolumeOn_east.png",
+      "outputSha256": "fded0d7d5fb91828ff950bf58b8d38870a3e252b52251509259eb52ffc98e102",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolumeOn.png",
+      "sourceSha256": "6bad6b9cb12bf1702612cd736c7be132e965df5f92adbfbdbcf4fc714fc2bf60",
+      "state": "pumpVolumeOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolumeOn_west.png",
+      "outputSha256": "031c631c038f891c3fd98e7c300e557262ac1a1964d6c942e63400bf54e33575",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "2e332597cc1ed8def77fa48168b6b522c980acbfac90c27b7a592c86e83c9ae6",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolumeBlocked_south.png",
+      "outputSha256": "2fbbc191c04c1743e3665fb8a52334e968bf3abe780d8d0f1be07ff17d84c6dc",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "2e332597cc1ed8def77fa48168b6b522c980acbfac90c27b7a592c86e83c9ae6",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolumeBlocked_north.png",
+      "outputSha256": "757542aa301e46442268888332f48c63a2f6488736135fbdb64232dca55a6b99",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "2e332597cc1ed8def77fa48168b6b522c980acbfac90c27b7a592c86e83c9ae6",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolumeBlocked_east.png",
+      "outputSha256": "7417b353b476eb6fb9b6bdb85effc4adb05f9038afc91b582498ac3baf7c62b4",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "2e332597cc1ed8def77fa48168b6b522c980acbfac90c27b7a592c86e83c9ae6",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpVolumeBlocked_west.png",
+      "outputSha256": "85d1a7361c63d34a5ed59fa499cebf13240efd69e6a3bd8cff16672c40b3113f",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpManualValve.png",
+      "sourceSha256": "44c34c6dc8d782a4e59106507b6757ab31261bb0d1ece8fffeea3719380490f9",
+      "state": "pumpManualValve",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpManualValve_south.png",
+      "outputSha256": "405cb35903bc58f96700c140832ba352726c6419c31b629ae5010cef8337a82d",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpManualValve.png",
+      "sourceSha256": "44c34c6dc8d782a4e59106507b6757ab31261bb0d1ece8fffeea3719380490f9",
+      "state": "pumpManualValve",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpManualValve_north.png",
+      "outputSha256": "405cb35903bc58f96700c140832ba352726c6419c31b629ae5010cef8337a82d",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpManualValve.png",
+      "sourceSha256": "44c34c6dc8d782a4e59106507b6757ab31261bb0d1ece8fffeea3719380490f9",
+      "state": "pumpManualValve",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpManualValve_east.png",
+      "outputSha256": "53f6cf6108b7c7cc9052df3d81d064fd98a98a61b85765efa4b921852d8216a2",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpManualValve.png",
+      "sourceSha256": "44c34c6dc8d782a4e59106507b6757ab31261bb0d1ece8fffeea3719380490f9",
+      "state": "pumpManualValve",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpManualValve_west.png",
+      "outputSha256": "53f6cf6108b7c7cc9052df3d81d064fd98a98a61b85765efa4b921852d8216a2",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpManualValveOn.png",
+      "sourceSha256": "21427b65d38a8e4a84168b09c76bae5655560b261cfd1b22155b74fe010c08aa",
+      "state": "pumpManualValveOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpManualValveOn_south.png",
+      "outputSha256": "a001ba7173e59c0cbbb1e6dfb7cf839e400e6d9320f86b755c26fcd0f2cd3e3b",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpManualValveOn.png",
+      "sourceSha256": "21427b65d38a8e4a84168b09c76bae5655560b261cfd1b22155b74fe010c08aa",
+      "state": "pumpManualValveOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpManualValveOn_north.png",
+      "outputSha256": "a001ba7173e59c0cbbb1e6dfb7cf839e400e6d9320f86b755c26fcd0f2cd3e3b",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpManualValveOn.png",
+      "sourceSha256": "21427b65d38a8e4a84168b09c76bae5655560b261cfd1b22155b74fe010c08aa",
+      "state": "pumpManualValveOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpManualValveOn_east.png",
+      "outputSha256": "dbcf4528ae57cf0f85acf9d0710fad2c4cbf29743790dcc23cf227caf5dd63e4",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpManualValveOn.png",
+      "sourceSha256": "21427b65d38a8e4a84168b09c76bae5655560b261cfd1b22155b74fe010c08aa",
+      "state": "pumpManualValveOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt1/pumpManualValveOn_west.png",
+      "outputSha256": "dbcf4528ae57cf0f85acf9d0710fad2c4cbf29743790dcc23cf227caf5dd63e4",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressure.png",
+      "sourceSha256": "8cd1d7f0f22a7c397abfe6e56d9e2f4a09abe30d29267203323f76e76e9d622b",
+      "state": "pumpPressure",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpPressure_south.png",
+      "outputSha256": "7bcb8dd13385faee0044823162ecbf9371fb58816f3312c859ace89d49ffe5a8",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressure.png",
+      "sourceSha256": "8cd1d7f0f22a7c397abfe6e56d9e2f4a09abe30d29267203323f76e76e9d622b",
+      "state": "pumpPressure",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpPressure_north.png",
+      "outputSha256": "63f76e91e02e195458c51c4a3821aab1ecd53d5fb99e17411ffd2b19b0a12840",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressure.png",
+      "sourceSha256": "8cd1d7f0f22a7c397abfe6e56d9e2f4a09abe30d29267203323f76e76e9d622b",
+      "state": "pumpPressure",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpPressure_east.png",
+      "outputSha256": "81ea832af8b1d61c89ccbe6f699fec1bd094ee600c111380a40a2052f606e345",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressure.png",
+      "sourceSha256": "8cd1d7f0f22a7c397abfe6e56d9e2f4a09abe30d29267203323f76e76e9d622b",
+      "state": "pumpPressure",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpPressure_west.png",
+      "outputSha256": "87d88cb495b8c13aab1980e1829c18775cd22022fe68c43a3bb9c5779a63f9ad",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressureOn.png",
+      "sourceSha256": "40d315d4d9521c53c626bf8d67ea655412389abd8f6692768d60a908fb455e64",
+      "state": "pumpPressureOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpPressureOn_south.png",
+      "outputSha256": "798c02bc01289ddc8a4b6b757d877f9bf7e6654b0534526539650b8878d6878f",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressureOn.png",
+      "sourceSha256": "40d315d4d9521c53c626bf8d67ea655412389abd8f6692768d60a908fb455e64",
+      "state": "pumpPressureOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpPressureOn_north.png",
+      "outputSha256": "a81e2371f410bc1615e40d7bec1a33c808cafe4478ffe5c271512ad0bb12bd45",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressureOn.png",
+      "sourceSha256": "40d315d4d9521c53c626bf8d67ea655412389abd8f6692768d60a908fb455e64",
+      "state": "pumpPressureOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpPressureOn_east.png",
+      "outputSha256": "924a2b0078cc087f8c9eb39d35774df026b22352e7738edb485fd83e43641130",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressureOn.png",
+      "sourceSha256": "40d315d4d9521c53c626bf8d67ea655412389abd8f6692768d60a908fb455e64",
+      "state": "pumpPressureOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpPressureOn_west.png",
+      "outputSha256": "5bf2a81065e1166bb8110da832b5c0f625778eb262de196f022d16705f30bddf",
+      "frames": 5,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolume.png",
+      "sourceSha256": "9a022477c34c7648e1506735d808c719f8213a0a44fdbbe97b84e068b4f6773b",
+      "state": "pumpVolume",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolume_south.png",
+      "outputSha256": "ae4c784a606134537952437d7bf7b57e665da23a1cde16e511659e453be98b90",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolume.png",
+      "sourceSha256": "9a022477c34c7648e1506735d808c719f8213a0a44fdbbe97b84e068b4f6773b",
+      "state": "pumpVolume",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolume_north.png",
+      "outputSha256": "3799c27567918f244c896457be953d08705676d792304a0ef22e539168914ee3",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolume.png",
+      "sourceSha256": "9a022477c34c7648e1506735d808c719f8213a0a44fdbbe97b84e068b4f6773b",
+      "state": "pumpVolume",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolume_east.png",
+      "outputSha256": "3d07c31e1ba3f8118e391f54c7ed47bcc31a0b658f12eeb5d190405633745779",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolume.png",
+      "sourceSha256": "9a022477c34c7648e1506735d808c719f8213a0a44fdbbe97b84e068b4f6773b",
+      "state": "pumpVolume",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolume_west.png",
+      "outputSha256": "b7331c5c4809c152236fcb838d04f9133421cf759080b443488a002840742c9c",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolumeOn.png",
+      "sourceSha256": "e26f22a55eee0a2863a4496473c2afe4f25edfa147ac32d6f483ce6b62c2a2ac",
+      "state": "pumpVolumeOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolumeOn_south.png",
+      "outputSha256": "720bf6edab44f04f36775df465837f2d04e13149356423ed97500b94da625d6c",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolumeOn.png",
+      "sourceSha256": "e26f22a55eee0a2863a4496473c2afe4f25edfa147ac32d6f483ce6b62c2a2ac",
+      "state": "pumpVolumeOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolumeOn_north.png",
+      "outputSha256": "eba6e50935369acc7708847e374030c208fe699c2493bc695d2ee3630cf87830",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolumeOn.png",
+      "sourceSha256": "e26f22a55eee0a2863a4496473c2afe4f25edfa147ac32d6f483ce6b62c2a2ac",
+      "state": "pumpVolumeOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolumeOn_east.png",
+      "outputSha256": "62523b95c1bd8213010c1012bdc2a214222185f152ef9b17e9b8abdb6adcf11d",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolumeOn.png",
+      "sourceSha256": "e26f22a55eee0a2863a4496473c2afe4f25edfa147ac32d6f483ce6b62c2a2ac",
+      "state": "pumpVolumeOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolumeOn_west.png",
+      "outputSha256": "813792c87ac9c906db918b37ac2d8b5aed23879182866b4c4ee5d73678734f33",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "98bfa34d5742d0ec2bf3a65fcff1a215eb5b34ff8830b1470e394755e2e67d60",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolumeBlocked_south.png",
+      "outputSha256": "abc9eb7b939950deec3b653af585f8a4a9e287dc16d6b8dadb6d80eb9f297db9",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "98bfa34d5742d0ec2bf3a65fcff1a215eb5b34ff8830b1470e394755e2e67d60",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolumeBlocked_north.png",
+      "outputSha256": "85ff438416592b98c8f7755f6b4e375503b50eddd3f48fe22ed0563c7fee64ae",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "98bfa34d5742d0ec2bf3a65fcff1a215eb5b34ff8830b1470e394755e2e67d60",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolumeBlocked_east.png",
+      "outputSha256": "b3af8e1af2fd7bc668196c3ec623d16333f107bce6bb7b64e5068c9bca2aea05",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "98bfa34d5742d0ec2bf3a65fcff1a215eb5b34ff8830b1470e394755e2e67d60",
+      "state": "pumpVolumeBlocked",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpVolumeBlocked_west.png",
+      "outputSha256": "ec7c64e792bf9a7970377da5d26d211e26feca47c979040e237acd2c8ed32a2e",
+      "frames": 2,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        1,
+        1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpManualValve.png",
+      "sourceSha256": "dcbe57605329917f926f85c617e5a33746c2ce0143ffaa5c7430b7612f879f6a",
+      "state": "pumpManualValve",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpManualValve_south.png",
+      "outputSha256": "c5c15822a5d0906d15286a41b89d45afe0910d93e39e89b20461e698df5cf4ea",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpManualValve.png",
+      "sourceSha256": "dcbe57605329917f926f85c617e5a33746c2ce0143ffaa5c7430b7612f879f6a",
+      "state": "pumpManualValve",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpManualValve_north.png",
+      "outputSha256": "c5c15822a5d0906d15286a41b89d45afe0910d93e39e89b20461e698df5cf4ea",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpManualValve.png",
+      "sourceSha256": "dcbe57605329917f926f85c617e5a33746c2ce0143ffaa5c7430b7612f879f6a",
+      "state": "pumpManualValve",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpManualValve_east.png",
+      "outputSha256": "5cbeabab5c023ac93de86a117084f37796042e613704cf6db3c20b90e44cb999",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpManualValve.png",
+      "sourceSha256": "dcbe57605329917f926f85c617e5a33746c2ce0143ffaa5c7430b7612f879f6a",
+      "state": "pumpManualValve",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpManualValve_west.png",
+      "outputSha256": "5cbeabab5c023ac93de86a117084f37796042e613704cf6db3c20b90e44cb999",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpManualValveOn.png",
+      "sourceSha256": "67cf247bcdd11d66ecc3bb96fe0f090569677b79fb9cbab0331f5d7c4d3c21eb",
+      "state": "pumpManualValveOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpManualValveOn_south.png",
+      "outputSha256": "d2ce3c08bf20c347b7e7ae8ba7e764af332a475b96a9b7e4155832e2f368f98a",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpManualValveOn.png",
+      "sourceSha256": "67cf247bcdd11d66ecc3bb96fe0f090569677b79fb9cbab0331f5d7c4d3c21eb",
+      "state": "pumpManualValveOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpManualValveOn_north.png",
+      "outputSha256": "d2ce3c08bf20c347b7e7ae8ba7e764af332a475b96a9b7e4155832e2f368f98a",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpManualValveOn.png",
+      "sourceSha256": "67cf247bcdd11d66ecc3bb96fe0f090569677b79fb9cbab0331f5d7c4d3c21eb",
+      "state": "pumpManualValveOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpManualValveOn_east.png",
+      "outputSha256": "6cb9317623ec29f0bdcc38517f8b43fe89d196e0117211051e6122e41db3ac81",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpManualValveOn.png",
+      "sourceSha256": "67cf247bcdd11d66ecc3bb96fe0f090569677b79fb9cbab0331f5d7c4d3c21eb",
+      "state": "pumpManualValveOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pump_alt2/pumpManualValveOn_west.png",
+      "outputSha256": "6cb9317623ec29f0bdcc38517f8b43fe89d196e0117211051e6122e41db3ac81",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeUnaryConnectors.png",
+      "sourceSha256": "9bdfa044fae38b49252ef7cc3e4e4c09e62053989311056dd06e7425a149f735",
+      "state": "pipeUnaryConnectors",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeUnaryConnectors_south.png",
+      "outputSha256": "ee8b17295728e308ca7cc62fa85831ebe927c83a706626190c5c82734c6320cf",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeUnaryConnectors.png",
+      "sourceSha256": "9bdfa044fae38b49252ef7cc3e4e4c09e62053989311056dd06e7425a149f735",
+      "state": "pipeUnaryConnectors",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeUnaryConnectors_north.png",
+      "outputSha256": "3c2303a780dbb79eff09da5edc7a1572e38f458fe447130ba7d9a69303d84ca0",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeUnaryConnectors.png",
+      "sourceSha256": "9bdfa044fae38b49252ef7cc3e4e4c09e62053989311056dd06e7425a149f735",
+      "state": "pipeUnaryConnectors",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeUnaryConnectors_east.png",
+      "outputSha256": "8de126b693faec5d5576d1885bd78b3a03ea6edc4594cd79ab3b90f41ebe7e08",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeUnaryConnectors.png",
+      "sourceSha256": "9bdfa044fae38b49252ef7cc3e4e4c09e62053989311056dd06e7425a149f735",
+      "state": "pipeUnaryConnectors",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeUnaryConnectors_west.png",
+      "outputSha256": "ac88fa78c7e9fcfe71e318de7810bdf0e138a7b600c514dd83500f978d9c1221",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeBinaryConnectors.png",
+      "sourceSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "state": "pipeBinaryConnectors",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeBinaryConnectors_south.png",
+      "outputSha256": "02ec132e103fa744853146403860452fb30f56d178169cb491829ee8f4b18854",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeBinaryConnectors.png",
+      "sourceSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "state": "pipeBinaryConnectors",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeBinaryConnectors_north.png",
+      "outputSha256": "02ec132e103fa744853146403860452fb30f56d178169cb491829ee8f4b18854",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeBinaryConnectors.png",
+      "sourceSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "state": "pipeBinaryConnectors",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeBinaryConnectors_east.png",
+      "outputSha256": "b617ba3c884527cd0aef20a0097c7d4e744f731489cd950ecb2f8b4a0f9f5d44",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeBinaryConnectors.png",
+      "sourceSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "state": "pipeBinaryConnectors",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeBinaryConnectors_west.png",
+      "outputSha256": "c30fc0e72a3546eff37d7885549e4c1479f5d711c8282da1ad965ca39aa52286",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeTrinaryConnectors.png",
+      "sourceSha256": "e082970e678f661bbb3a05b9c53795456ed20a39f510401222c89cfc6907b5c1",
+      "state": "pipeTrinaryConnectors",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeTrinaryConnectors_south.png",
+      "outputSha256": "3564f2f74fec7c504a757a001dc4f4199a3db82424a56f1fd66f9b382bcde45e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeTrinaryConnectors.png",
+      "sourceSha256": "e082970e678f661bbb3a05b9c53795456ed20a39f510401222c89cfc6907b5c1",
+      "state": "pipeTrinaryConnectors",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeTrinaryConnectors_north.png",
+      "outputSha256": "9d9e77f1d4ef34581f8e86c6be9274f4f078e293919daad810634eff500844bf",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeTrinaryConnectors.png",
+      "sourceSha256": "e082970e678f661bbb3a05b9c53795456ed20a39f510401222c89cfc6907b5c1",
+      "state": "pipeTrinaryConnectors",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeTrinaryConnectors_east.png",
+      "outputSha256": "bdf591db815722181db6de32d5569148534a34a936e1191758fe077b697697bd",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeTrinaryConnectors.png",
+      "sourceSha256": "e082970e678f661bbb3a05b9c53795456ed20a39f510401222c89cfc6907b5c1",
+      "state": "pipeTrinaryConnectors",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeTrinaryConnectors_west.png",
+      "outputSha256": "af327988dbc5dc81f394c506de56ed169f276b12d1cc83be9e2ded833a902b9e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeStraight.png",
+      "sourceSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "state": "pipeStraight",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeStraight_south.png",
+      "outputSha256": "02ec132e103fa744853146403860452fb30f56d178169cb491829ee8f4b18854",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeStraight.png",
+      "sourceSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "state": "pipeStraight",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeStraight_north.png",
+      "outputSha256": "02ec132e103fa744853146403860452fb30f56d178169cb491829ee8f4b18854",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeStraight.png",
+      "sourceSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "state": "pipeStraight",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeStraight_east.png",
+      "outputSha256": "b617ba3c884527cd0aef20a0097c7d4e744f731489cd950ecb2f8b4a0f9f5d44",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeStraight.png",
+      "sourceSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "state": "pipeStraight",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/pipe/pipeStraight_west.png",
+      "outputSha256": "c30fc0e72a3546eff37d7885549e4c1479f5d711c8282da1ad965ca39aa52286",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixer.png",
+      "sourceSha256": "1452aefb8b7953d49a69d0fab2d70c3aeaa51123d504554d63e737d39e77784d",
+      "state": "gasMixer",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasmixer/gasMixer_south.png",
+      "outputSha256": "9db4c3a1567b6296081a5fe080059ee8ca262581131783f3e0092ebb1c92730d",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixer.png",
+      "sourceSha256": "1452aefb8b7953d49a69d0fab2d70c3aeaa51123d504554d63e737d39e77784d",
+      "state": "gasMixer",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasmixer/gasMixer_north.png",
+      "outputSha256": "4730baf977febf7d65973880cc1e6c95d16025522e46c950886be25601339fe8",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixer.png",
+      "sourceSha256": "1452aefb8b7953d49a69d0fab2d70c3aeaa51123d504554d63e737d39e77784d",
+      "state": "gasMixer",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasmixer/gasMixer_east.png",
+      "outputSha256": "abd6f6983a2611afe3a0d64d581dff1310299fc8b075a2a3fbebf59159efc99b",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixer.png",
+      "sourceSha256": "1452aefb8b7953d49a69d0fab2d70c3aeaa51123d504554d63e737d39e77784d",
+      "state": "gasMixer",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasmixer/gasMixer_west.png",
+      "outputSha256": "5843bfd8819d6509a60ce0f273cb9e5de1233e1cc5c351c13c55cb1c89eb592d",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixerOn.png",
+      "sourceSha256": "fe3d41d074ac9be562bec9dae795eda467ffd5e5d12378e00471aad5125eaf77",
+      "state": "gasMixerOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasmixer/gasMixerOn_south.png",
+      "outputSha256": "e368e38c01d0bc6632bc581e801bad8e0956e5c5c402ac2b618686258dac7f11",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixerOn.png",
+      "sourceSha256": "fe3d41d074ac9be562bec9dae795eda467ffd5e5d12378e00471aad5125eaf77",
+      "state": "gasMixerOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasmixer/gasMixerOn_north.png",
+      "outputSha256": "529f123f5d9ba884e099b29b4ffeb75f9c84bd45fe2aa76abf33c29f914e7084",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixerOn.png",
+      "sourceSha256": "fe3d41d074ac9be562bec9dae795eda467ffd5e5d12378e00471aad5125eaf77",
+      "state": "gasMixerOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasmixer/gasMixerOn_east.png",
+      "outputSha256": "3d4341499f4196ec959f76737a442e039fc6beb6791fe9393a0560fe47551f4b",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixerOn.png",
+      "sourceSha256": "fe3d41d074ac9be562bec9dae795eda467ffd5e5d12378e00471aad5125eaf77",
+      "state": "gasMixerOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasmixer/gasMixerOn_west.png",
+      "outputSha256": "faabdf68cf50f7748cd41222fac494b36d996e4302e29be9ba276cab81bfbf7a",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilter.png",
+      "sourceSha256": "960f77034c305b327f69445e9c70b96bcc7d8c3006806f42aef32af6727aacf1",
+      "state": "gasFilter",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasfilter/gasFilter_south.png",
+      "outputSha256": "8356e2ebca635c6d847a99a6762c49a348c1925f2268eacd9d59caa4820a92e7",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilter.png",
+      "sourceSha256": "960f77034c305b327f69445e9c70b96bcc7d8c3006806f42aef32af6727aacf1",
+      "state": "gasFilter",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasfilter/gasFilter_north.png",
+      "outputSha256": "f9d45a2612f6b89ef6e1805f539ce4d084c1d5cafc921c7c58f0d24fa65080b4",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilter.png",
+      "sourceSha256": "960f77034c305b327f69445e9c70b96bcc7d8c3006806f42aef32af6727aacf1",
+      "state": "gasFilter",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasfilter/gasFilter_east.png",
+      "outputSha256": "77f81e3941a40734ddf13a2616667e0a02d0949fd9e4fd21f20c5d34ad59f133",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilter.png",
+      "sourceSha256": "960f77034c305b327f69445e9c70b96bcc7d8c3006806f42aef32af6727aacf1",
+      "state": "gasFilter",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasfilter/gasFilter_west.png",
+      "outputSha256": "7b8b46c6d87ec89b7e1f0792d5bcd2095f21a5d41e112049d50a84d87269012d",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilterOn.png",
+      "sourceSha256": "80b6852e3754287f8419131af509f3ba6f911963a558c0806e23dd1f49044f74",
+      "state": "gasFilterOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasfilter/gasFilterOn_south.png",
+      "outputSha256": "38a690cb4a6b3f1d50d404c6904224385d843f1740caaf8ccf9b38ad4cf7f473",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilterOn.png",
+      "sourceSha256": "80b6852e3754287f8419131af509f3ba6f911963a558c0806e23dd1f49044f74",
+      "state": "gasFilterOn",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasfilter/gasFilterOn_north.png",
+      "outputSha256": "7869749b33732fc0ab7bd99d1dab4420dd8f4af73e9166806abf99605c471af0",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilterOn.png",
+      "sourceSha256": "80b6852e3754287f8419131af509f3ba6f911963a558c0806e23dd1f49044f74",
+      "state": "gasFilterOn",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasfilter/gasFilterOn_east.png",
+      "outputSha256": "f6924dd1f063fc8a53cb580c8816f5c4bc44dbdf061894f7705c351a33949b23",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilterOn.png",
+      "sourceSha256": "80b6852e3754287f8419131af509f3ba6f911963a558c0806e23dd1f49044f74",
+      "state": "gasFilterOn",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/gasfilter/gasFilterOn_west.png",
+      "outputSha256": "736d1e179eb1af062c5c167e6eb9532f8a1be5b6c01e345346ce6bbc0310a185",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine.rsi/heaterOff.png",
+      "sourceSha256": "cb230593a1b5f1970a2c0ba7e08a815449efa5aa86afe6b91edc2b9c21c075fe",
+      "state": "heaterOff",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine/heaterOff_south.png",
+      "outputSha256": "6cd3a78bcb855b64e7fbe59d0fc07f3726dfe7851af155d56d9e4c7211a0413a",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine.rsi/heaterOn.png",
+      "sourceSha256": "da725920aaa40d65b1908ef01ebad369f432b43862baa1991b70911b12951759",
+      "state": "heaterOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine/heaterOn_south.png",
+      "outputSha256": "3ce1eeac1a7bc456eb832dd2b4207e3d7405b8db76bbb8352c8ead079ecaea83",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine.rsi/freezerOff.png",
+      "sourceSha256": "667992a88ad3bf4e41335707e9740c0fe51c39c019c5216ac23404d1823548ea",
+      "state": "freezerOff",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine/freezerOff_south.png",
+      "outputSha256": "1fc2c8932f83adb3af5e16efbd08f140799559f6192549510f9ca8260286d8a0",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine.rsi/freezerOn.png",
+      "sourceSha256": "ed1994b55f85e03d32722fe410676cc00eb4646c5359e7d4ffb6a07beff1b24a",
+      "state": "freezerOn",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine/freezerOn_south.png",
+      "outputSha256": "c05268a80448ace3423282bdb0712404b67e3d3c2abc947c2406a41bed73f12b",
+      "frames": 10,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine.rsi/pipe.png",
+      "sourceSha256": "89b7c1bfd62ee971f196cd697519ab55c58e0db08a4c3abf1239eb28b7ec2849",
+      "state": "pipe",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine/pipe_south.png",
+      "outputSha256": "71fadeb84c9e7eeb551b37734a24a0760a891005a89bd4f7390aea3a3fbc4452",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine.rsi/pipe.png",
+      "sourceSha256": "89b7c1bfd62ee971f196cd697519ab55c58e0db08a4c3abf1239eb28b7ec2849",
+      "state": "pipe",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine/pipe_north.png",
+      "outputSha256": "c32c2d1703909eece37884c55fd60f5ed0f40b08acef0df305c71c9c7fee5a47",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine.rsi/pipe.png",
+      "sourceSha256": "89b7c1bfd62ee971f196cd697519ab55c58e0db08a4c3abf1239eb28b7ec2849",
+      "state": "pipe",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine/pipe_east.png",
+      "outputSha256": "946a4e9766d29f241804d63a605d71dc817e63c7a2587231bc79bd2d7d37cd2e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine.rsi/pipe.png",
+      "sourceSha256": "89b7c1bfd62ee971f196cd697519ab55c58e0db08a4c3abf1239eb28b7ec2849",
+      "state": "pipe",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine/pipe_west.png",
+      "outputSha256": "de4f5e6f51a6f242c7461a238dbe82340a1d3eba900ec21357ebe6f4d6e0e3a1",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine_alt1.rsi/pipe.png",
+      "sourceSha256": "1d364b740c9686c5d37e7cb9acec4d0b6a0d3ba5f0a1ad51e74bd1bf438e515e",
+      "state": "pipe",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine_alt1/pipe_south.png",
+      "outputSha256": "5cce1de99baf415a63d942bcfafdfdc8794a98aedefaaabe3a0391ca2ac3ebac",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine_alt1.rsi/pipe.png",
+      "sourceSha256": "1d364b740c9686c5d37e7cb9acec4d0b6a0d3ba5f0a1ad51e74bd1bf438e515e",
+      "state": "pipe",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine_alt1/pipe_north.png",
+      "outputSha256": "eedb10e82de9baec0b862fee5a444afe989e724dc92e25d336a5f84e7c18ec7c",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine_alt1.rsi/pipe.png",
+      "sourceSha256": "1d364b740c9686c5d37e7cb9acec4d0b6a0d3ba5f0a1ad51e74bd1bf438e515e",
+      "state": "pipe",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine_alt1/pipe_east.png",
+      "outputSha256": "5763cb97665e7ed15063226c9129c7b88c9422a785b28bfb26d6d0ac009beac9",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine_alt1.rsi/pipe.png",
+      "sourceSha256": "1d364b740c9686c5d37e7cb9acec4d0b6a0d3ba5f0a1ad51e74bd1bf438e515e",
+      "state": "pipe",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine_alt1/pipe_west.png",
+      "outputSha256": "c5fbbd8ea2a033fd701dc1734838e5b0550e328f95011ceadce313186db23e89",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine_alt2.rsi/pipe.png",
+      "sourceSha256": "55ffa32f9b8961f9b98caf40eab181fafa6782875f2ad5ebba32c8679484aa87",
+      "state": "pipe",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine_alt2/pipe_south.png",
+      "outputSha256": "07874cf88a3eaac0d8feb67aa0ee049e2849404f6c135112cff11b19f3753995",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine_alt2.rsi/pipe.png",
+      "sourceSha256": "55ffa32f9b8961f9b98caf40eab181fafa6782875f2ad5ebba32c8679484aa87",
+      "state": "pipe",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine_alt2/pipe_north.png",
+      "outputSha256": "e893d90e8f6be647bed370d2e50e79d1afa7baf53b685bc0f9fcb07c542c84c0",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine_alt2.rsi/pipe.png",
+      "sourceSha256": "55ffa32f9b8961f9b98caf40eab181fafa6782875f2ad5ebba32c8679484aa87",
+      "state": "pipe",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine_alt2/pipe_east.png",
+      "outputSha256": "cfb125b20aaa807deed687c2709db0fa48cad58214c53053c7f49a02b30df887",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/thermomachine_alt2.rsi/pipe.png",
+      "sourceSha256": "55ffa32f9b8961f9b98caf40eab181fafa6782875f2ad5ebba32c8679484aa87",
+      "state": "pipe",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/thermomachine_alt2/pipe_west.png",
+      "outputSha256": "76571935b6dab6cfee1bf2f472ac604cb4c0168dd3fae36ceba20494871376bc",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/heatexchanger.rsi/heStraight.png",
+      "sourceSha256": "d74b19b0be0e235d24cb648a02550b2ce37e671bb976330a53d48b91d61ca417",
+      "state": "heStraight",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/piping/atmospherics/heatexchanger/heStraight_south.png",
+      "outputSha256": "74062beb4644cbddcc6bdb90a12353acac0e8bb4530137cf6de85dd59db7088c",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/heatexchanger.rsi/heStraight.png",
+      "sourceSha256": "d74b19b0be0e235d24cb648a02550b2ce37e671bb976330a53d48b91d61ca417",
+      "state": "heStraight",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/piping/atmospherics/heatexchanger/heStraight_north.png",
+      "outputSha256": "74062beb4644cbddcc6bdb90a12353acac0e8bb4530137cf6de85dd59db7088c",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/heatexchanger.rsi/heStraight.png",
+      "sourceSha256": "d74b19b0be0e235d24cb648a02550b2ce37e671bb976330a53d48b91d61ca417",
+      "state": "heStraight",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/piping/atmospherics/heatexchanger/heStraight_east.png",
+      "outputSha256": "d4de5bd7b4de0f362c21d0de61793dc934c47ef507f8bd920333356e701af675",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/piping/atmospherics/heatexchanger.rsi/heStraight.png",
+      "sourceSha256": "d74b19b0be0e235d24cb648a02550b2ce37e671bb976330a53d48b91d61ca417",
+      "state": "heStraight",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/piping/atmospherics/heatexchanger/heStraight_west.png",
+      "outputSha256": "d4de5bd7b4de0f362c21d0de61793dc934c47ef507f8bd920333356e701af675",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg.png",
+      "sourceSha256": "e7da43d4da09e1dfad3c505da444c7a78381c4ba47f299846f8d3fffd92f07b5",
+      "state": "teg",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg_south.png",
+      "outputSha256": "3723bf5ffb51527df9908b008e7b5b6525ec6d29bc6b70cce198d9c28649d9f1",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg.png",
+      "sourceSha256": "e7da43d4da09e1dfad3c505da444c7a78381c4ba47f299846f8d3fffd92f07b5",
+      "state": "teg",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg_north.png",
+      "outputSha256": "3723bf5ffb51527df9908b008e7b5b6525ec6d29bc6b70cce198d9c28649d9f1",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg.png",
+      "sourceSha256": "e7da43d4da09e1dfad3c505da444c7a78381c4ba47f299846f8d3fffd92f07b5",
+      "state": "teg",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg_east.png",
+      "outputSha256": "d19086ae719780db6d1a03969f34cd6f42cbf323cac97a79151970f9fcc31e22",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg.png",
+      "sourceSha256": "e7da43d4da09e1dfad3c505da444c7a78381c4ba47f299846f8d3fffd92f07b5",
+      "state": "teg",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg_west.png",
+      "outputSha256": "d19086ae719780db6d1a03969f34cd6f42cbf323cac97a79151970f9fcc31e22",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg_mid.png",
+      "sourceSha256": "7a4420b08d32e378840242e41800fa12b1b041c0ab303762a0053daf6dfac489",
+      "state": "teg_mid",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg_mid_south.png",
+      "outputSha256": "eae1e0ed1d3e2fb986fcf2f8d614b31cc9bb3f4f3fca5493220f80c32d8f7da2",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg_mid.png",
+      "sourceSha256": "7a4420b08d32e378840242e41800fa12b1b041c0ab303762a0053daf6dfac489",
+      "state": "teg_mid",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg_mid_north.png",
+      "outputSha256": "eae1e0ed1d3e2fb986fcf2f8d614b31cc9bb3f4f3fca5493220f80c32d8f7da2",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg_mid.png",
+      "sourceSha256": "7a4420b08d32e378840242e41800fa12b1b041c0ab303762a0053daf6dfac489",
+      "state": "teg_mid",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg_mid_east.png",
+      "outputSha256": "f83692144a893ca710a974900af51d3d84ad2e01e6693fac7044504bf2bd61e4",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg_mid.png",
+      "sourceSha256": "7a4420b08d32e378840242e41800fa12b1b041c0ab303762a0053daf6dfac489",
+      "state": "teg_mid",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg_mid_west.png",
+      "outputSha256": "f83692144a893ca710a974900af51d3d84ad2e01e6693fac7044504bf2bd61e4",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op1.png",
+      "sourceSha256": "fd496758fb9818f28f093360b9f50bbd7217c7b516d3411eb3fe633944328e61",
+      "state": "teg-op1",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op1_south.png",
+      "outputSha256": "6a44f2032de33956eec997c275bbb3ca89e6ac00bbd2c9bc07f7794e37c153bd",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op1.png",
+      "sourceSha256": "fd496758fb9818f28f093360b9f50bbd7217c7b516d3411eb3fe633944328e61",
+      "state": "teg-op1",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op1_north.png",
+      "outputSha256": "6a44f2032de33956eec997c275bbb3ca89e6ac00bbd2c9bc07f7794e37c153bd",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op1.png",
+      "sourceSha256": "fd496758fb9818f28f093360b9f50bbd7217c7b516d3411eb3fe633944328e61",
+      "state": "teg-op1",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op1_east.png",
+      "outputSha256": "a05d6c4c3c644887fef619edc7b5252e76b1b2367b9bdd9667c805047e2a28af",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op1.png",
+      "sourceSha256": "fd496758fb9818f28f093360b9f50bbd7217c7b516d3411eb3fe633944328e61",
+      "state": "teg-op1",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op1_west.png",
+      "outputSha256": "a05d6c4c3c644887fef619edc7b5252e76b1b2367b9bdd9667c805047e2a28af",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op2.png",
+      "sourceSha256": "d2a18fa1dd23aac2fe4854f378c73dc20a80f66539471290ec7540888457d1e8",
+      "state": "teg-op2",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op2_south.png",
+      "outputSha256": "3d61452f4c78545c679dbd9d0a7cd13874d0981a4c7bc3067c368019d575c9c2",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op2.png",
+      "sourceSha256": "d2a18fa1dd23aac2fe4854f378c73dc20a80f66539471290ec7540888457d1e8",
+      "state": "teg-op2",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op2_north.png",
+      "outputSha256": "3d61452f4c78545c679dbd9d0a7cd13874d0981a4c7bc3067c368019d575c9c2",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op2.png",
+      "sourceSha256": "d2a18fa1dd23aac2fe4854f378c73dc20a80f66539471290ec7540888457d1e8",
+      "state": "teg-op2",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op2_east.png",
+      "outputSha256": "5393dd965d84cdce95e8f92a421b711de07687d8534c007cc5619e9ad25241cd",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op2.png",
+      "sourceSha256": "d2a18fa1dd23aac2fe4854f378c73dc20a80f66539471290ec7540888457d1e8",
+      "state": "teg-op2",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op2_west.png",
+      "outputSha256": "5393dd965d84cdce95e8f92a421b711de07687d8534c007cc5619e9ad25241cd",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op3.png",
+      "sourceSha256": "c4ec01dcd872feb3219992b060c279aba262ab72469fe5fcc88e887221d35532",
+      "state": "teg-op3",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op3_south.png",
+      "outputSha256": "36788d558ce0acd8892508eb777cf171c8b2eb054b0a3e2b7c34f4ddec08a862",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op3.png",
+      "sourceSha256": "c4ec01dcd872feb3219992b060c279aba262ab72469fe5fcc88e887221d35532",
+      "state": "teg-op3",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op3_north.png",
+      "outputSha256": "36788d558ce0acd8892508eb777cf171c8b2eb054b0a3e2b7c34f4ddec08a862",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op3.png",
+      "sourceSha256": "c4ec01dcd872feb3219992b060c279aba262ab72469fe5fcc88e887221d35532",
+      "state": "teg-op3",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op3_east.png",
+      "outputSha256": "b2e2f6a5afc862b9772450bbdddcb4443c1970fa39c998fd19f19441fa3b79f7",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op3.png",
+      "sourceSha256": "c4ec01dcd872feb3219992b060c279aba262ab72469fe5fcc88e887221d35532",
+      "state": "teg-op3",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op3_west.png",
+      "outputSha256": "b2e2f6a5afc862b9772450bbdddcb4443c1970fa39c998fd19f19441fa3b79f7",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op4.png",
+      "sourceSha256": "c999d713364ebc78124ed179e2644a65ede45763be773eec167bfda4733a1b14",
+      "state": "teg-op4",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op4_south.png",
+      "outputSha256": "596dafeab59678fa3fb8000470d4929b1d2c46c020b1c738ba3a3da833acb1a1",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op4.png",
+      "sourceSha256": "c999d713364ebc78124ed179e2644a65ede45763be773eec167bfda4733a1b14",
+      "state": "teg-op4",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op4_north.png",
+      "outputSha256": "596dafeab59678fa3fb8000470d4929b1d2c46c020b1c738ba3a3da833acb1a1",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op4.png",
+      "sourceSha256": "c999d713364ebc78124ed179e2644a65ede45763be773eec167bfda4733a1b14",
+      "state": "teg-op4",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op4_east.png",
+      "outputSha256": "8114cde435c0e62ecb2e8ed31e80857a911a72c3cf4c5b22c24e297e876a31dc",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op4.png",
+      "sourceSha256": "c999d713364ebc78124ed179e2644a65ede45763be773eec167bfda4733a1b14",
+      "state": "teg-op4",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op4_west.png",
+      "outputSha256": "8114cde435c0e62ecb2e8ed31e80857a911a72c3cf4c5b22c24e297e876a31dc",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op5.png",
+      "sourceSha256": "78ac91282d724754ba25086883e75039e60e4baf2928ba9d69244bd45a58334d",
+      "state": "teg-op5",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op5_south.png",
+      "outputSha256": "b7e9c96bb96aa5f420c002754269723cac4d928f0ccd2ca5f44d257d2768e481",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op5.png",
+      "sourceSha256": "78ac91282d724754ba25086883e75039e60e4baf2928ba9d69244bd45a58334d",
+      "state": "teg-op5",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op5_north.png",
+      "outputSha256": "b7e9c96bb96aa5f420c002754269723cac4d928f0ccd2ca5f44d257d2768e481",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op5.png",
+      "sourceSha256": "78ac91282d724754ba25086883e75039e60e4baf2928ba9d69244bd45a58334d",
+      "state": "teg-op5",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op5_east.png",
+      "outputSha256": "30bfbad838b414cd012c4eead6ee21ef6f79a1fb0325f02adc6df9577ef82675",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op5.png",
+      "sourceSha256": "78ac91282d724754ba25086883e75039e60e4baf2928ba9d69244bd45a58334d",
+      "state": "teg-op5",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op5_west.png",
+      "outputSha256": "30bfbad838b414cd012c4eead6ee21ef6f79a1fb0325f02adc6df9577ef82675",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op6.png",
+      "sourceSha256": "d8b4243623789fbee353a333150083bae2a858a2c1b76c1258197e3cb9174134",
+      "state": "teg-op6",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op6_south.png",
+      "outputSha256": "c6bbc129d0b5793c7441b22d0640a2e99dbb6e64182c7cf7a263eb23d85e1c93",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op6.png",
+      "sourceSha256": "d8b4243623789fbee353a333150083bae2a858a2c1b76c1258197e3cb9174134",
+      "state": "teg-op6",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op6_north.png",
+      "outputSha256": "c6bbc129d0b5793c7441b22d0640a2e99dbb6e64182c7cf7a263eb23d85e1c93",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op6.png",
+      "sourceSha256": "d8b4243623789fbee353a333150083bae2a858a2c1b76c1258197e3cb9174134",
+      "state": "teg-op6",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op6_east.png",
+      "outputSha256": "abb5577393ac5a7cca2287e2db816d3cdd2fc5706453ddf25aa657d9e548ca44",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op6.png",
+      "sourceSha256": "d8b4243623789fbee353a333150083bae2a858a2c1b76c1258197e3cb9174134",
+      "state": "teg-op6",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op6_west.png",
+      "outputSha256": "abb5577393ac5a7cca2287e2db816d3cdd2fc5706453ddf25aa657d9e548ca44",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op7.png",
+      "sourceSha256": "2d9dc2c59fee64d262a8a2e5ee665d3e66010e2e916d93c768e260d44eda46ef",
+      "state": "teg-op7",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op7_south.png",
+      "outputSha256": "e22c5178f45a6eb836043957b46daa5b4f066801861cc2282a95ccd924786de7",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op7.png",
+      "sourceSha256": "2d9dc2c59fee64d262a8a2e5ee665d3e66010e2e916d93c768e260d44eda46ef",
+      "state": "teg-op7",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op7_north.png",
+      "outputSha256": "e22c5178f45a6eb836043957b46daa5b4f066801861cc2282a95ccd924786de7",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op7.png",
+      "sourceSha256": "2d9dc2c59fee64d262a8a2e5ee665d3e66010e2e916d93c768e260d44eda46ef",
+      "state": "teg-op7",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op7_east.png",
+      "outputSha256": "37bdc478344b0419266c5d3b47ec4747d583494c85198118c1563b9d0ef4d7f3",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op7.png",
+      "sourceSha256": "2d9dc2c59fee64d262a8a2e5ee665d3e66010e2e916d93c768e260d44eda46ef",
+      "state": "teg-op7",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op7_west.png",
+      "outputSha256": "37bdc478344b0419266c5d3b47ec4747d583494c85198118c1563b9d0ef4d7f3",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op8.png",
+      "sourceSha256": "f7178e3635c77d7d235dcb2e4df8fc8109b7d7af5d8281c23f0dac397c871a2b",
+      "state": "teg-op8",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op8_south.png",
+      "outputSha256": "58088e97df06c8e32a83879395b59e74ffd747ab0f23a07e104c06538e6eb19e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op8.png",
+      "sourceSha256": "f7178e3635c77d7d235dcb2e4df8fc8109b7d7af5d8281c23f0dac397c871a2b",
+      "state": "teg-op8",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op8_north.png",
+      "outputSha256": "58088e97df06c8e32a83879395b59e74ffd747ab0f23a07e104c06538e6eb19e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op8.png",
+      "sourceSha256": "f7178e3635c77d7d235dcb2e4df8fc8109b7d7af5d8281c23f0dac397c871a2b",
+      "state": "teg-op8",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op8_east.png",
+      "outputSha256": "8fe9a08198d3606bd7e4ec9955f456437a1329b2b3ed377e384f4615bb686b69",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op8.png",
+      "sourceSha256": "f7178e3635c77d7d235dcb2e4df8fc8109b7d7af5d8281c23f0dac397c871a2b",
+      "state": "teg-op8",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op8_west.png",
+      "outputSha256": "8fe9a08198d3606bd7e4ec9955f456437a1329b2b3ed377e384f4615bb686b69",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op9.png",
+      "sourceSha256": "3dd825a76936e4a1ff287d6b6485cb26d38a4159c02c2ba38569b717e0a43c29",
+      "state": "teg-op9",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op9_south.png",
+      "outputSha256": "767398804bfbabb2e595ab2c69c3025dfc81f8a7b354bb6b2bf80b86ecfe7cab",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op9.png",
+      "sourceSha256": "3dd825a76936e4a1ff287d6b6485cb26d38a4159c02c2ba38569b717e0a43c29",
+      "state": "teg-op9",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op9_north.png",
+      "outputSha256": "767398804bfbabb2e595ab2c69c3025dfc81f8a7b354bb6b2bf80b86ecfe7cab",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op9.png",
+      "sourceSha256": "3dd825a76936e4a1ff287d6b6485cb26d38a4159c02c2ba38569b717e0a43c29",
+      "state": "teg-op9",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op9_east.png",
+      "outputSha256": "df1cda0f4963f348e88cfd9ba1d827057fedc8f031c40c98906e00a8f4e5e280",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op9.png",
+      "sourceSha256": "3dd825a76936e4a1ff287d6b6485cb26d38a4159c02c2ba38569b717e0a43c29",
+      "state": "teg-op9",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op9_west.png",
+      "outputSha256": "df1cda0f4963f348e88cfd9ba1d827057fedc8f031c40c98906e00a8f4e5e280",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op10.png",
+      "sourceSha256": "56525d5d552ae1486f05652297d334b3c44bcf7393444178a2448d4475d1f82a",
+      "state": "teg-op10",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op10_south.png",
+      "outputSha256": "019e1ed6e0d6961b4c8413a7473ab889b9166934e9af118db45e54a1b4309669",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op10.png",
+      "sourceSha256": "56525d5d552ae1486f05652297d334b3c44bcf7393444178a2448d4475d1f82a",
+      "state": "teg-op10",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op10_north.png",
+      "outputSha256": "019e1ed6e0d6961b4c8413a7473ab889b9166934e9af118db45e54a1b4309669",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op10.png",
+      "sourceSha256": "56525d5d552ae1486f05652297d334b3c44bcf7393444178a2448d4475d1f82a",
+      "state": "teg-op10",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op10_east.png",
+      "outputSha256": "de36913d429e4963713e5c2eefbd6d25b149ab948812f57662319563b4bcf98e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op10.png",
+      "sourceSha256": "56525d5d552ae1486f05652297d334b3c44bcf7393444178a2448d4475d1f82a",
+      "state": "teg-op10",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op10_west.png",
+      "outputSha256": "de36913d429e4963713e5c2eefbd6d25b149ab948812f57662319563b4bcf98e",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op11.png",
+      "sourceSha256": "a577182cc547365750b90d27b29940f6196736f07c9d6a6a633fdf9e312e5b11",
+      "state": "teg-op11",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op11_south.png",
+      "outputSha256": "eec8ef5dd5f202a3d27e1bab2793e89612444c1c76fbd057fe009ae95f85e415",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op11.png",
+      "sourceSha256": "a577182cc547365750b90d27b29940f6196736f07c9d6a6a633fdf9e312e5b11",
+      "state": "teg-op11",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op11_north.png",
+      "outputSha256": "eec8ef5dd5f202a3d27e1bab2793e89612444c1c76fbd057fe009ae95f85e415",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op11.png",
+      "sourceSha256": "a577182cc547365750b90d27b29940f6196736f07c9d6a6a633fdf9e312e5b11",
+      "state": "teg-op11",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op11_east.png",
+      "outputSha256": "e6f6916c04558b84d39c8571c027e2af5918889edb938cdb6acc3e1977a989d1",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/teg-op11.png",
+      "sourceSha256": "a577182cc547365750b90d27b29940f6196736f07c9d6a6a633fdf9e312e5b11",
+      "state": "teg-op11",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/teg-op11_west.png",
+      "outputSha256": "e6f6916c04558b84d39c8571c027e2af5918889edb938cdb6acc3e1977a989d1",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-0.png",
+      "sourceSha256": "2b9263b95c4d122400c41a08194cb8da999ae47a61970cd784ef42908bf35539",
+      "state": "circ-0",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-0_south.png",
+      "outputSha256": "178f48c7c892ac9f808437b8ecd9ffeda92a4077290ee660a7af1a0dfb3a20d8",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-0.png",
+      "sourceSha256": "2b9263b95c4d122400c41a08194cb8da999ae47a61970cd784ef42908bf35539",
+      "state": "circ-0",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-0_north.png",
+      "outputSha256": "59265528525282f851f78274db97736799fabba25782ceeb8c4287d1ae7aee03",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-0.png",
+      "sourceSha256": "2b9263b95c4d122400c41a08194cb8da999ae47a61970cd784ef42908bf35539",
+      "state": "circ-0",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-0_east.png",
+      "outputSha256": "e12f43bff1331626d71687eddfddf95a19185b3b3dba916e233cf66e1b8f9841",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-0.png",
+      "sourceSha256": "2b9263b95c4d122400c41a08194cb8da999ae47a61970cd784ef42908bf35539",
+      "state": "circ-0",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-0_west.png",
+      "outputSha256": "2c14d2cb556ba08df2c9394c119cb510f82a05a913eb7a53be1427c7006afda1",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-1.png",
+      "sourceSha256": "1f31b3d3f7d13970dc48337734535e5f22889bac6e46de62a6df562f07662b94",
+      "state": "circ-1",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-1_south.png",
+      "outputSha256": "8a66e5da523263265f00f9a50ab6da7b97749cf480e38c5cec878b407690c0a1",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-1.png",
+      "sourceSha256": "1f31b3d3f7d13970dc48337734535e5f22889bac6e46de62a6df562f07662b94",
+      "state": "circ-1",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-1_north.png",
+      "outputSha256": "afe7c0c6018436af1685fafb783c1661549fcf94520cbb3d24f047a3f0e147ec",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-1.png",
+      "sourceSha256": "1f31b3d3f7d13970dc48337734535e5f22889bac6e46de62a6df562f07662b94",
+      "state": "circ-1",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-1_east.png",
+      "outputSha256": "836e4c2591a1b006bc41e5c476cc427635eabdda11ef6743a451397e33dfcada",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-1.png",
+      "sourceSha256": "1f31b3d3f7d13970dc48337734535e5f22889bac6e46de62a6df562f07662b94",
+      "state": "circ-1",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-1_west.png",
+      "outputSha256": "bb685c0b56d259680393ef5b1fb602cd02639ee67b2bd5c03be9d7dc778135d2",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-2.png",
+      "sourceSha256": "db6b18e1cebd191b329bc4844f3c58551879505c88015975028bbe3187887a8f",
+      "state": "circ-2",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-2_south.png",
+      "outputSha256": "063680b6c8db9633be08118cc123ec9db7996c9f4087501f686791238a129006",
+      "frames": 8,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-2.png",
+      "sourceSha256": "db6b18e1cebd191b329bc4844f3c58551879505c88015975028bbe3187887a8f",
+      "state": "circ-2",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-2_north.png",
+      "outputSha256": "24b6dfd27509f10b966be0bbcf2cfb6c9df583088553f3a0c8e99ffc72c135db",
+      "frames": 8,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-2.png",
+      "sourceSha256": "db6b18e1cebd191b329bc4844f3c58551879505c88015975028bbe3187887a8f",
+      "state": "circ-2",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-2_east.png",
+      "outputSha256": "4316a8a1e401af6e591d7cd49c3fefe7d7c436027e2e8171eee1fd62f84f4f05",
+      "frames": 8,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-2.png",
+      "sourceSha256": "db6b18e1cebd191b329bc4844f3c58551879505c88015975028bbe3187887a8f",
+      "state": "circ-2",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-2_west.png",
+      "outputSha256": "022ac0a606e5892869bb97a87fe4ca5a2bdec2766d7a96d5d0ca483f71bb7ed0",
+      "frames": 8,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-0-light.png",
+      "sourceSha256": "58af5d6ea33e42aece3c78bb2aaa9472dbdbe8c2c36e876716a4a8e605636013",
+      "state": "circ-0-light",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-0-light_south.png",
+      "outputSha256": "d7d45c115d97d059bf5612e92dfb5e9dd2a22350b6f3ea64415495fb977f0127",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-0-light.png",
+      "sourceSha256": "58af5d6ea33e42aece3c78bb2aaa9472dbdbe8c2c36e876716a4a8e605636013",
+      "state": "circ-0-light",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-0-light_north.png",
+      "outputSha256": "951637c258a5dac87917df69261696311e6e8208ef1cd891e4d0c5d1c9dc57e7",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-0-light.png",
+      "sourceSha256": "58af5d6ea33e42aece3c78bb2aaa9472dbdbe8c2c36e876716a4a8e605636013",
+      "state": "circ-0-light",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-0-light_east.png",
+      "outputSha256": "51b2c07552325789f7018003c8e550504398a6b103e5cde35244de56ffeb3984",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-0-light.png",
+      "sourceSha256": "58af5d6ea33e42aece3c78bb2aaa9472dbdbe8c2c36e876716a4a8e605636013",
+      "state": "circ-0-light",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-0-light_west.png",
+      "outputSha256": "6ac4550fce8250bd102b00b7dbe97e3f6e249758931c41756a1445face8c15e0",
+      "frames": 1,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-1-light.png",
+      "sourceSha256": "04cee69069810316af3679621fd2e085f1c5d0b2a7560f160257ae55e4b9cf0e",
+      "state": "circ-1-light",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-1-light_south.png",
+      "outputSha256": "c75a57123a5b7b2b3dc9be8b29be346e65a2c8510b0741777cd90cabd59e2fc8",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-1-light.png",
+      "sourceSha256": "04cee69069810316af3679621fd2e085f1c5d0b2a7560f160257ae55e4b9cf0e",
+      "state": "circ-1-light",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-1-light_north.png",
+      "outputSha256": "b6e8bbbc3e2624813f953448ebb06397f1a46a5a3d2d002bb83b1fa38713ff12",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-1-light.png",
+      "sourceSha256": "04cee69069810316af3679621fd2e085f1c5d0b2a7560f160257ae55e4b9cf0e",
+      "state": "circ-1-light",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-1-light_east.png",
+      "outputSha256": "ff017b8cb47545fb3722da40e3c366f206e4a7964f2ea10e1434da0861adb4d0",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-1-light.png",
+      "sourceSha256": "04cee69069810316af3679621fd2e085f1c5d0b2a7560f160257ae55e4b9cf0e",
+      "state": "circ-1-light",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-1-light_west.png",
+      "outputSha256": "880804e2ff3a1fb207d7b5e618023cfd91dd32d0f90fce556648fa0d8835d39c",
+      "frames": 4,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-2-light.png",
+      "sourceSha256": "f34eab6a6c596fa473e13e3217a60fa6070af399025e9be2f478e6e62610c61f",
+      "state": "circ-2-light",
+      "directionIndex": 0,
+      "direction": "south",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-2-light_south.png",
+      "outputSha256": "c694661c35275e9175142244c5af58505ef305721b8fc4bea2b3d89bbcb1908d",
+      "frames": 8,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-2-light.png",
+      "sourceSha256": "f34eab6a6c596fa473e13e3217a60fa6070af399025e9be2f478e6e62610c61f",
+      "state": "circ-2-light",
+      "directionIndex": 1,
+      "direction": "north",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-2-light_north.png",
+      "outputSha256": "c615362650e26e17dafc15cdc87d5737d4a016e338f040f08b201d76705d9f3a",
+      "frames": 8,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-2-light.png",
+      "sourceSha256": "f34eab6a6c596fa473e13e3217a60fa6070af399025e9be2f478e6e62610c61f",
+      "state": "circ-2-light",
+      "directionIndex": 2,
+      "direction": "east",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-2-light_east.png",
+      "outputSha256": "9b28c99e3ee4b04881a261bccc821ce8088f8515ddad2e318fe407bc5840d5bf",
+      "frames": 8,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "source": "textures/ss14/structures/power/generation/teg.rsi/circ-2-light.png",
+      "sourceSha256": "f34eab6a6c596fa473e13e3217a60fa6070af399025e9be2f478e6e62610c61f",
+      "state": "circ-2-light",
+      "directionIndex": 3,
+      "direction": "west",
+      "output": "textures/block/atmos_machine/power/generation/teg/circ-2-light_west.png",
+      "outputSha256": "1d185eb42270a69108c7a368d35e8a30953166ae8308f1e9b18ca94f6ce17ae5",
+      "frames": 8,
+      "frameSize": [
+        32,
+        32
+      ],
+      "delaysSeconds": [
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ]
+    }
+  ]
+}

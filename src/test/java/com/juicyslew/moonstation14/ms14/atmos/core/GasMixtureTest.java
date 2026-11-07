@@ -7,6 +7,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GasMixtureTest {
     @Test
@@ -128,6 +129,23 @@ class GasMixtureTest {
     }
 
     @Test
+    void mixtureVolumeMustRemainFiniteAtStoredFloatPrecision() {
+        assertEquals((double) Float.MAX_VALUE,
+                new GasMixture(Map.of(), 293.0, Float.MAX_VALUE).volumeCubicMeters());
+        assertEquals(0.0, new GasMixture(Map.of(), 293.0, 0.0).volumeCubicMeters());
+        assertThrows(IllegalArgumentException.class,
+                () -> new GasMixture(Map.of(), 293.0, 2.0 * Float.MAX_VALUE));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GasMixture(Map.of(), 293.0, Double.MAX_VALUE));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GasMixture(Map.of(), 293.0, Double.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GasMixture(Map.of(), 293.0, Double.POSITIVE_INFINITY));
+        assertThrows(IllegalArgumentException.class,
+                () -> new GasMixture(Map.of(), 293.0, -1.0));
+    }
+
+    @Test
     void explicitRemovalTemperatureComparesAtStoredFloatPrecision() {
         GasMixture mixture = new GasMixture(Map.of(GasType.OXYGEN, 2.0), 293.15);
         GasMixture removed = mixture.withGasDelta(GasType.OXYGEN, -1.0, 293.15);
@@ -187,5 +205,18 @@ class GasMixtureTest {
         assertEquals((37.5 * 300 + 2800 * 2.7) / (37.5 + 2800), spaceMerged.temperatureKelvin(), 0.01);
         assertEquals(10.0, spaceMerged.totalMoles()); // virtual capacity does not create gas
         assertThrows(IllegalArgumentException.class, () -> roomGas.mergedWith(immutableSpaceProfile, 0.0002));
+    }
+
+    @Test void splitRatioReportsOnlyFloatAmountsActuallyDroppedByCutoff() {
+        var source = new GasMixture(Map.of(GasType.WATER_VAPOR, 8e-8, GasType.OXYGEN, 2e-7), 300);
+        var split = source.splitRatio(.5);
+        assertEquals(0, split.removed().moles(GasType.WATER_VAPOR));
+        assertEquals(0, split.remaining().moles(GasType.WATER_VAPOR));
+        assertEquals((double)(float)8e-8, split.discardedMoles().get(GasType.WATER_VAPOR), 0);
+        assertEquals(0, split.discardedMoles().getOrDefault(GasType.OXYGEN, 0d));
+        assertTrue(split.discardedMoles().entrySet().stream().allMatch(e -> e.getValue() > 0));
+        assertTrue(new GasMixture.Removal(split.remaining(), split.removed(), Map.of()).discardedMoles().isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> new GasMixture.Removal(split.remaining(), split.removed(),
+                Map.of(GasType.WATER_VAPOR, 2 * GasMixture.GAS_MIN_MOLES)));
     }
 }

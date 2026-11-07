@@ -1,0 +1,1 @@
+{"kind":"passive_heat_exchanger","parent":"gas_binary_base","pipeLayers":{"count":1,"initialLayer":"Primary","locked":false,"changeDurationTicks":20},"heatExchanger":{"conductivityMolesPerKpaPerS":1,"convectionCoefficientJPerKPerS":8000,"radiationCoefficient":140},"visual":{"sprite":"Structures/Piping/Atmospherics/heatexchanger.rsi","state":"heStraight"}}

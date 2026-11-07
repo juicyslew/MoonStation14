@@ -27,7 +27,12 @@ public final class CableVisualClientCache {
         dimension = payload.dimension();
         long key = ChunkPos.asLong(payload.chunkX(), payload.chunkZ());
         ChunkVisual previous = chunks.get(key);
-        if (previous != null && payload.revision() <= previous.revision) return false;
+        // Unwatch removes the cached contents but keeps their revision as a fence against
+        // packets already in flight. A fresh watch snapshot may legitimately have that same
+        // revision (the chunk's authoritative data did not change while unwatched), so let an
+        // equal revision replace only an unload tombstone. Ordinary duplicates remain rejected.
+        if (previous != null && (payload.revision() < previous.revision
+                || payload.revision() == previous.revision && !previous.tombstone)) return false;
         if (!payload.resetSnapshot()) return false;
         if (previous != null) {
             cachedRecords -= previous.records.size();

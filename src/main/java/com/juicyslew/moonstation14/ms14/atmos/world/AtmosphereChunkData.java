@@ -9,6 +9,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +65,8 @@ public final class AtmosphereChunkData {
     private final NavigableMap<Position, GasMixture> cells = new TreeMap<>(AtmosphereChunkData::comparePositions);
     private final NavigableSet<Position> finiteClaims = new TreeSet<>(AtmosphereChunkData::comparePositions);
     private String codecError;
+    private final List<WriteObservation> writeObservations = new ArrayList<>();
+    private final List<NumericalCleanupObservation> cleanupObservations = new ArrayList<>();
 
     public AtmosphereChunkData() { }
 
@@ -81,14 +84,109 @@ public final class AtmosphereChunkData {
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(ambient, "ambient");
         GasMixture old = cells.get(position);
+        boolean changed;
         if (stateEquals(state, ambient)) {
             if (old == null) return false;
             cells.remove(position);
-            return true;
+            changed = true;
+        } else {
+            if (stateEquals(old, state)) return false;
+            cells.put(position, state);
+            changed = true;
         }
-        if (stateEquals(old, state)) return false;
-        cells.put(position, state);
-        return true;
+        // Observation is deliberately after the persisted mutation and cannot affect its result.
+        for (WriteObservation observation : writeObservations) observation.record(position, old,
+                cells.get(position), ambient);
+        return changed;
+    }
+
+    /** Optional, scoped accounting of persisted cell writes. */
+    public WriteObserver observeWrites(java.util.Set<CellPosition> trackedCells) {
+        Objects.requireNonNull(trackedCells, "trackedCells");
+        java.util.Set<Position> validated = new java.util.HashSet<>();
+        trackedCells.forEach(cell -> {
+            Objects.requireNonNull(cell, "cell");
+            if (!validated.add(position(cell.x(), cell.y(), cell.z())))
+                throw new IllegalArgumentException("duplicate tracked cell");
+        });
+        WriteObservation observation = new WriteObservation(validated);
+        writeObservations.add(observation);
+        return observation;
+    }
+
+    public interface WriteObserver extends AutoCloseable {
+        ObservationSnapshot snapshot();
+        @Override void close();
+    }
+
+    /** Records only solver-reported losses after their corresponding world transaction commits. */
+    public void recordCommittedNumericalCleanup(int localX, int y, int localZ, Map<GasType, Double> losses) {
+        Position p = position(localX, y, localZ);
+        Objects.requireNonNull(losses, "losses");
+        EnumMap<GasType, Double> validated = new EnumMap<>(GasType.class);
+        losses.forEach((gas, amount) -> {
+            Objects.requireNonNull(gas, "gas");
+            if (amount == null || !Double.isFinite(amount) || amount <= 0)
+                throw new IllegalArgumentException("cleanup amount must be finite and positive");
+            validated.put(gas, amount);
+        });
+        if (validated.isEmpty() || cleanupObservations.isEmpty()) return;
+        for (NumericalCleanupObservation observer : cleanupObservations) observer.record(p, validated);
+    }
+
+    public NumericalCleanupObserver observeNumericalCleanup(java.util.Set<CellPosition> trackedCells) {
+        Objects.requireNonNull(trackedCells, "trackedCells");
+        java.util.Set<Position> validated = new java.util.HashSet<>();
+        trackedCells.forEach(cell -> {
+            Objects.requireNonNull(cell, "tracked cell");
+            if (!validated.add(position(cell.x(), cell.y(), cell.z()))) throw new IllegalArgumentException("duplicate tracked cell");
+        });
+        NumericalCleanupObservation observation = new NumericalCleanupObservation(validated);
+        cleanupObservations.add(observation);
+        return observation;
+    }
+
+    public interface NumericalCleanupObserver extends AutoCloseable {
+        Map<GasType, Double> snapshot();
+        @Override void close();
+    }
+    private final class NumericalCleanupObservation implements NumericalCleanupObserver {
+        private final java.util.Set<Position> tracked;
+        private final Map<GasType, Double> totals = new EnumMap<>(GasType.class);
+        private boolean closed;
+        private NumericalCleanupObservation(java.util.Set<Position> tracked) { this.tracked = java.util.Set.copyOf(tracked); }
+        private void record(Position p, Map<GasType, Double> losses) {
+            if (closed || !tracked.contains(p)) return;
+            losses.forEach((gas, amount) -> totals.merge(gas, amount, Double::sum));
+        }
+        public Map<GasType, Double> snapshot() { return Map.copyOf(totals); }
+        public void close() { if (!closed) { closed = true; cleanupObservations.remove(this); } }
+    }
+
+    private final class WriteObservation implements WriteObserver {
+        private final java.util.Set<Position> tracked;
+        private final Map<GasType, Double> bounds = new java.util.EnumMap<>(GasType.class);
+        private long writes;
+        private boolean closed;
+        private WriteObservation(java.util.Set<Position> tracked) { this.tracked = java.util.Set.copyOf(tracked); }
+        private void record(Position p, GasMixture old, GasMixture now, GasMixture ambient) {
+            if (closed || !tracked.contains(p)) return;
+            // Sparse absence is the actual ambient mixture supplied to put.
+            GasMixture a = old == null ? ambient : old, b = now == null ? ambient : now;
+            writes++;
+            for (GasType gas : GasType.values()) {
+                float x = (float) a.moles(gas), y = (float) b.moles(gas);
+                bounds.merge(gas, 8.0 * Math.max(Math.ulp(x), Math.ulp(y)), Double::sum);
+            }
+        }
+        public ObservationSnapshot snapshot() {
+            for (double value : bounds.values()) if (!Double.isFinite(value)) throw new IllegalStateException("write bound overflow");
+            return new ObservationSnapshot(writes, Map.copyOf(bounds));
+        }
+        @Override public void close() { if (!closed) { closed = true; writeObservations.remove(this); } }
+    }
+    public record ObservationSnapshot(long writeCount, Map<GasType, Double> speciesBounds) {
+        public ObservationSnapshot { speciesBounds = Map.copyOf(speciesBounds); }
     }
 
     public int size() { return cells.size(); }

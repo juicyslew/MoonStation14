@@ -65,7 +65,7 @@ public final class PipeGasLedger {
         return Math.max(Math.ulp(stored) * 8.0, Math.ulp(energy) * 8.0);
     }
 
-    static boolean conservedSpecies(double before, double after) {
+    public static boolean conservedSpecies(double before, double after) {
         float storedBefore = (float) before, storedAfter = (float) after;
         return Double.isFinite(before) && Double.isFinite(after) && Float.isFinite(storedBefore)
                 && Float.isFinite(storedAfter)
@@ -73,7 +73,7 @@ public final class PipeGasLedger {
                 Math.ulp(storedAfter) * 8.0);
     }
 
-    static boolean conservedEnergy(double before, double after) {
+    public static boolean conservedEnergy(double before, double after) {
         double tolerance = Math.max(energyTolerance(before), energyTolerance(after));
         return Double.isFinite(before) && Double.isFinite(after) && Double.isFinite(tolerance)
                 && Math.abs(before - after) <= tolerance;
@@ -104,6 +104,18 @@ public final class PipeGasLedger {
                 || temperature > GasMixture.MAX_TEMPERATURE_KELVIN)
             throw new IllegalArgumentException("unrepresentable merged temperature");
         return new GasMixture(total, temperature);
+    }
+
+    /**
+     * Recombines packets into a container whose volume and existing empty-gas temperature belong to the first mixture.
+     * Later mixtures are incoming packets, not additional containers. The aggregate merge overload remains unchanged.
+     */
+    public static GasMixture merge(List<GasMixture> mixtures, double physicalVolumeM3) {
+        if (!Double.isFinite(physicalVolumeM3) || physicalVolumeM3 <= 0.0)
+            throw new IllegalArgumentException("physical volume must be positive and finite");
+        GasMixture merged = merge(mixtures);
+        double temperature=merged.heatCapacity()==0.0?Objects.requireNonNull(mixtures.get(0),"mixture").temperatureKelvin():merged.temperatureKelvin();
+        return new GasMixture(merged.gasMoles(), temperature, physicalVolumeM3);
     }
 }
 

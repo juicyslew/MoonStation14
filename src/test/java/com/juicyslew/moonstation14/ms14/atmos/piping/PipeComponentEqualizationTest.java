@@ -57,20 +57,17 @@ class PipeComponentEqualizationTest {
         for (int i = 0; i < 11; i++) {
             var entry = inventory.get(keys.get(i)).orElseThrow();
             nodes.add(new PipeComponentEqualization.Node(entry.node(), entry.incarnation(), entry.version(),
-                    entry.volume(), entry.mixture()));
+                    entry.volume(), inventory.nodeShare(entry.node())));
         }
         var plan = PipeComponentEqualization.plan(nodes);
         assertEquals(11, plan.size());
-        PipeGasInventory after = inventory.withBatchMixtures(plan);
         double totalPlasma = 0, totalEnergy = 0;
-        for (var node : nodes) {
-            var committed = after.get(node.key()).orElseThrow();
-            assertTrue(committed.mixture().moles(GasType.PLASMA) > 0.0,
-                    "every owner receives representable Plasma: " + committed.mixture());
-            assertEquals(node.incarnation(), committed.incarnation());
-            assertEquals(node.version() + 1, committed.version());
-            totalPlasma += committed.mixture().moles(GasType.PLASMA);
-            totalEnergy += committed.mixture().thermalEnergy();
+        for (var expected : plan.values()) {
+            var share = expected.gasAfter();
+            assertTrue(share.moles(GasType.PLASMA) > 0.0,
+                    "every owner receives representable Plasma: " + share);
+            totalPlasma += share.moles(GasType.PLASMA);
+            totalEnergy += share.thermalEnergy();
         }
         assertEquals(source.moles(GasType.PLASMA), totalPlasma,
                 Math.ulp((float) source.moles(GasType.PLASMA)) * 8.0);

@@ -1,7 +1,7 @@
 package com.juicyslew.moonstation14.ms14.power.cable.client;
 
-import com.juicyslew.moonstation14.MoonStation14;
-import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
+import com.juicyslew.moonstation14.ms14.power.cable.CableVisualGeometry;
+import com.juicyslew.moonstation14.ms14.power.cable.CableFacePresentation;
 import com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -28,9 +28,10 @@ public final class CableVisualRenderer {
         if (minecraft.level == null || minecraft.player == null) return;
         Camera camera = event.getCamera();
         var cameraPos = camera.getPosition();
-        var visible = cache.visible(minecraft.level.dimension().location(), cameraPos.x, cameraPos.y, cameraPos.z,
-                48, CableVisualClientCache.MAX_VISIBLE_RECORDS);
+        var visible = new java.util.ArrayList<>(cache.visible(minecraft.level.dimension().location(), cameraPos.x, cameraPos.y, cameraPos.z,
+                48, CableVisualClientCache.MAX_VISIBLE_RECORDS));
         if (visible.isEmpty()) return;
+        visible.sort(java.util.Comparator.comparingInt(entry -> CableVisualGeometry.drawPriority(entry.record().tier())));
         var pose = event.getPoseStack();
         Matrix4f matrix = pose != null ? pose.last().pose() : event.getModelViewMatrix();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
@@ -55,12 +56,9 @@ public final class CableVisualRenderer {
                 CableVisualPresentation.Rgb color = CableVisualPresentation.color(record.tier());
                 float cx = (float) (entry.x() - cameraPos.x), cy = (float) (entry.y() - cameraPos.y);
                 float cz = (float) (entry.z() - cameraPos.z);
-                addCenter(builder, matrix, cx, cy, cz, node, color.red(), color.green(), color.blue());
-                // Use every synchronized topology record, not the visible-record render budget.
-                for (CableFaceNode neighbor : cache.topologyNeighbors(node)) {
-                    addSpoke(builder, matrix, cx, cy, cz, node, neighbor,
-                            color.red(), color.green(), color.blue());
-                }
+                // Neighbor topology is complete even when its record is outside the render budget.
+                for (var quad : CableVisualGeometry.quads(node, cache.topologyNeighbors(node)))
+                    drawQuad(builder, matrix, cx, cy, cz, node.face(), quad, color.red(), color.green(), color.blue());
             }
             // In Minecraft 1.21.1 buildOrThrow() throws when the builder contains no vertices;
             // build() finalizes an empty builder and returns null instead.
@@ -75,35 +73,19 @@ public final class CableVisualRenderer {
     }
 
     private static boolean isVisible(Minecraft minecraft, BlockPos hostPos, Direction face) {
-        // Do not ask the client level for a block state in an unloaded chunk.
-        if (!minecraft.level.hasChunkAt(hostPos)) return false;
-        BlockState host = minecraft.level.getBlockState(hostPos);
-        if (host.isAir() || host.getCollisionShape(minecraft.level, hostPos).isEmpty()
-                || !host.isFaceSturdy(minecraft.level, hostPos, face)) return false;
-        boolean floor = host.getBlock() instanceof com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
-        boolean tileFinish = floor && host.getValue(com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock.TILE_FINISH)
-                != com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock.TileFinish.NONE;
-        return CableFacePresentation.isVisible(face, floor, tileFinish);
+        return CableFacePresentation.isVisible(minecraft.level, hostPos, face);
     }
 
-    private static void addCenter(BufferBuilder b, Matrix4f m, float cx, float cy, float cz, CableFaceNode node,
-                                  float r, float g, float blue) {
-        Direction face = node.face();
-        float ox = face.getStepX() * .502F, oy = face.getStepY() * .502F, oz = face.getStepZ() * .502F;
-        for (CableVisualGeometry.Vector3 corner : CableVisualGeometry.centerCorners(node, .05F))
-            vertex(b, m, cx + corner.x() + ox, cy + corner.y() + oy, cz + corner.z() + oz, r, g, blue);
+    private static void drawQuad(BufferBuilder b, Matrix4f m, float cx, float cy, float cz, Direction face,
+                                 java.util.List<CableVisualGeometry.Vector3> quad, float r, float g, float blue) {
+        float ox = face.getStepX() * CableVisualGeometry.SURFACE_OFFSET;
+        float oy = face.getStepY() * CableVisualGeometry.SURFACE_OFFSET;
+        float oz = face.getStepZ() * CableVisualGeometry.SURFACE_OFFSET;
+        for (var corner : quad) vertex(b, m, cx + corner.x() + ox, cy + corner.y() + oy, cz + corner.z() + oz, r, g, blue);
     }
     private static void vertex(BufferBuilder b, Matrix4f m, float x, float y, float z, float r, float g, float blue) {
         b.addVertex(m, x, y, z).setColor(r, g, blue, 1F);
     }
 
-    private static void addSpoke(BufferBuilder b, Matrix4f m, float cx, float cy, float cz, CableFaceNode node,
-        CableFaceNode neighbor, float r, float g, float blue) {
-        Direction face = node.face();
-        float nx = face.getStepX(), ny = face.getStepY(), nz = face.getStepZ();
-        for (CableVisualGeometry.Vector3 corner : CableVisualGeometry.spokeCorners(node, neighbor, .03F))
-            vertex(b, m, cx + corner.x() + nx * .502F, cy + corner.y() + ny * .502F,
-                    cz + corner.z() + nz * .502F, r, g, blue);
-    }
 }
 

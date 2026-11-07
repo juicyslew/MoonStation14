@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
+import com.juicyslew.moonstation14.ms14.power.cable.CableCutSelection;
 import com.juicyslew.moonstation14.ms14.power.floor.StationFloorBlock;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
@@ -30,7 +31,7 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 
 import java.util.UUID;
 
-@GameTestTags({"power", "storage", "persistence"})
+@GameTestTags({"power", "storage", "persistence", "cable-cut-visible"})
 @PrefixGameTestTemplate(false)
 public final class CableStorageGameTests {
     private CableStorageGameTests() { }
@@ -98,7 +99,7 @@ public final class CableStorageGameTests {
         player.setItemInHand(InteractionHand.MAIN_HAND, cutter);
         require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.SOUTH) == InteractionResult.FAIL,
                 "cutting a different face fails");
-        require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH).consumesAction(), "cut exact face");
+        require(useAt(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH, CableTier.HV).consumesAction(), "cut exact visible HV cap");
         require(CableStorage.get(level, host, Direction.NORTH) == null, "record removed");
         int spoolsAfterCut = matchingSpools(player, level, host);
         require(spoolsAfterCut == 1,
@@ -107,7 +108,7 @@ public final class CableStorageGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
-    public static void ambiguousCutRequiresMatchingOffhandCoil(GameTestHelper helper) {
+    public static void visibleLaneSelectsTierWithoutOffhandCoil(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos host = helper.absolutePos(new BlockPos(2, 1, 2));
         level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
@@ -116,20 +117,95 @@ public final class CableStorageGameTests {
         Player player = player(level, helper.absolutePos(new BlockPos(2, 2, 2)));
         ItemStack cutter = new ItemStack(ModItems.WIRECUTTER.get());
         player.setItemInHand(InteractionHand.MAIN_HAND, cutter);
-        require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH) == InteractionResult.FAIL,
-                "ambiguous cut fails closed");
-        require(CableStorage.has(level, host, Direction.NORTH, CableTier.HV)
-                && CableStorage.has(level, host, Direction.NORTH, CableTier.MV), "ambiguous cut preserves both cables");
+        require(useAt(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH, CableTier.HV).consumesAction(),
+                "HV lane selects tier on ambiguous face");
+        require(!CableStorage.has(level, host, Direction.NORTH, CableTier.HV)
+                && CableStorage.has(level, host, Direction.NORTH, CableTier.MV), "only HV lane cable removed");
         player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(ModItems.APC_CABLE_SPOOL.get()));
-        require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH) == InteractionResult.FAIL,
-                "wrong offhand tier cannot cut a sibling");
-        require(CableStorage.has(level, host, Direction.NORTH, CableTier.HV)
-                && CableStorage.has(level, host, Direction.NORTH, CableTier.MV), "wrong selector preserves both cables");
-        player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(ModItems.MV_CABLE_SPOOL.get()));
-        require(use(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH).consumesAction(),
-                "matching offhand spool selects tier");
-        require(CableStorage.has(level, host, Direction.NORTH, CableTier.HV)
-                && !CableStorage.has(level, host, Direction.NORTH, CableTier.MV), "only selected cable removed");
+        require(useAt(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH, CableTier.MV).consumesAction(),
+                "visible MV lane selects tier despite mismatched offhand");
+        require(!CableStorage.has(level, host, Direction.NORTH, CableTier.MV), "only selected cable removed");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
+    public static void allVisibleLanesRefundExactTierAndPreserveOtherFace(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos host = helper.absolutePos(new BlockPos(2, 1, 2));
+        level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
+        for (CableTier tier : CableTier.values())
+            require(CableStorage.place(level, host, Direction.NORTH, tier), "place NORTH " + tier);
+        require(CableStorage.place(level, host, Direction.SOUTH, CableTier.APC), "place separate SOUTH cable");
+        Player player = player(level, helper.absolutePos(new BlockPos(2, 2, 2)));
+        ItemStack cutter = new ItemStack(ModItems.WIRECUTTER.get());
+        player.setItemInHand(InteractionHand.MAIN_HAND, cutter);
+
+        int[] baselineRefunds = new int[CableTier.values().length];
+        for (CableTier tier : CableTier.values())
+            baselineRefunds[tier.ordinal()] = matchingSpools(player, level, host, tier);
+        for (Direction face : Direction.values()) {
+            Vec3 physicalHit = laneHit(host, face, CableTier.APC);
+            double expectedPlane = switch (face.getAxis()) {
+                case X -> host.getX() + (face.getStepX() > 0 ? 1 : 0);
+                case Y -> host.getY() + (face.getStepY() > 0 ? 1 : 0);
+                case Z -> host.getZ() + (face.getStepZ() > 0 ? 1 : 0);
+            };
+            double actualPlane = switch (face.getAxis()) {
+                case X -> physicalHit.x; case Y -> physicalHit.y; case Z -> physicalHit.z;
+            };
+            require(Math.abs(actualPlane - expectedPlane) < 1.0e-9,
+                    "lane hit lies on outward physical plane for " + face);
+        }
+        for (CableTier tier : CableTier.values()) {
+            int[] stepBeforeRefunds = new int[CableTier.values().length];
+            for (CableTier countTier : CableTier.values())
+                stepBeforeRefunds[countTier.ordinal()] = matchingSpools(player, level, host, countTier);
+            require(useAt(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH, tier).consumesAction(),
+                    "cut visible " + tier + " lane");
+            require(!CableStorage.has(level, host, Direction.NORTH, tier), "selected NORTH " + tier + " removed");
+            for (CableTier remaining : CableTier.values())
+                require(CableStorage.has(level, host, Direction.NORTH, remaining) == (remaining.ordinal() > tier.ordinal()),
+                        "exact remaining NORTH records after " + tier + ": " + remaining);
+            require(CableStorage.get(level, host, Direction.SOUTH) == CableTier.APC, "other face unchanged");
+            require(matchingSpools(player, level, host, tier) == stepBeforeRefunds[tier.ordinal()] + 1,
+                    "exactly one " + tier + " refund added");
+            for (CableTier other : CableTier.values()) if (other != tier)
+                require(matchingSpools(player, level, host, other) == stepBeforeRefunds[other.ordinal()],
+                        "no wrong-tier refund added: " + other);
+            require(useAt(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH, tier) == InteractionResult.FAIL,
+                    "repeat cut of removed " + tier + " lane fails");
+            require(matchingSpools(player, level, host, tier) == stepBeforeRefunds[tier.ordinal()] + 1,
+                    "repeat cut adds no refund");
+        }
+        for (CableTier tier : CableTier.values())
+            require(matchingSpools(player, level, host, tier) == baselineRefunds[tier.ordinal()] + 1,
+                    "one total refund for each tier after all cuts: " + tier);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20, templateNamespace = "moonstation14")
+    public static void cableCutRejectsMissNullHitAndCoveredFloorFace(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos host = helper.absolutePos(new BlockPos(2, 1, 2));
+        level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
+        require(CableStorage.place(level, host, Direction.NORTH, CableTier.APC), "place APC");
+        Player player = player(level, helper.absolutePos(new BlockPos(2, 2, 2)));
+        ItemStack cutter = new ItemStack(ModItems.WIRECUTTER.get());
+        player.setItemInHand(InteractionHand.MAIN_HAND, cutter);
+        require(useHit(ModItems.WIRECUTTER.get(), level, player, cutter, host, Direction.NORTH,
+                Vec3.atCenterOf(host)) == InteractionResult.FAIL, "off-lane center miss fails");
+        require(CableStorage.has(level, host, Direction.NORTH, CableTier.APC), "miss does not mutate record");
+        require(CableCutSelection.selectAt(level, host, Direction.NORTH, null).refusal()
+                == CableCutSelection.Refusal.MISSING, "null-hit helper rejects without fallback");
+        require(matchingSpools(player, level, host, CableTier.APC) == 0, "miss/null produce no refund");
+
+        BlockPos floor = host.east();
+        level.setBlock(floor, ModBlocks.STATION_FLOOR.get().defaultBlockState()
+                .setValue(StationFloorBlock.TILE_FINISH, StationFloorBlock.TileFinish.STEEL), 3);
+        require(CableStorage.place(level, floor, Direction.UP, CableTier.APC), "place under finished floor");
+        require(useAt(ModItems.WIRECUTTER.get(), level, player, cutter, floor, Direction.UP, CableTier.APC)
+                == InteractionResult.FAIL, "covered station-floor UP face denied");
+        require(CableStorage.has(level, floor, Direction.UP, CableTier.APC), "covered cable remains unchanged");
         helper.succeed();
     }
 
@@ -170,6 +246,26 @@ public final class CableStorageGameTests {
         return item.useOn(new UseOnContext(level, player, InteractionHand.MAIN_HAND, stack,
                 new BlockHitResult(Vec3.atCenterOf(pos), face, pos, false)));
     }
+    private static InteractionResult useAt(Item item, ServerLevel level, Player player, ItemStack stack,
+                                           BlockPos pos, Direction face, CableTier tier) {
+        return useHit(item, level, player, stack, pos, face, laneHit(pos, face, tier));
+    }
+    private static Vec3 laneHit(BlockPos pos, Direction face, CableTier tier) {
+        var corners = com.juicyslew.moonstation14.ms14.power.cable.CableVisualGeometry.centerCorners(
+                new com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode(pos, face, tier), .01F);
+        float x = 0, y = 0, z = 0;
+        for (var corner : corners) { x += corner.x(); y += corner.y(); z += corner.z(); }
+        var point = new com.juicyslew.moonstation14.ms14.power.cable.CableVisualGeometry.Vector3(
+                x / corners.size(), y / corners.size(), z / corners.size());
+        double normal = .5;
+        return Vec3.atCenterOf(pos).add(point.x() + face.getStepX() * normal,
+                point.y() + face.getStepY() * normal, point.z() + face.getStepZ() * normal);
+    }
+    private static InteractionResult useHit(Item item, ServerLevel level, Player player, ItemStack stack,
+                                            BlockPos pos, Direction face, Vec3 hit) {
+        return item.useOn(new UseOnContext(level, player, InteractionHand.MAIN_HAND, stack,
+                new BlockHitResult(hit, face, pos, false)));
+    }
     private static Player player(ServerLevel level, BlockPos pos) {
         Player player = new Player(level, pos, 0f, new GameProfile(UUID.randomUUID(), "cable-test")) {
             @Override public boolean isCreative() { return false; }
@@ -186,6 +282,17 @@ public final class CableStorageGameTests {
                 entity.getItem().is(ModItems.HV_CABLE_SPOOL.get())).stream()
                 .mapToInt(entity -> entity.getItem().getCount()).sum();
         return inventory + dropped;
+    }
+    private static int matchingSpools(Player player, ServerLevel level, BlockPos host, CableTier tier) {
+        Item item = switch (tier) {
+            case HV -> ModItems.HV_CABLE_SPOOL.get();
+            case MV -> ModItems.MV_CABLE_SPOOL.get();
+            case APC -> ModItems.APC_CABLE_SPOOL.get();
+        };
+        int inventory = player.getInventory().items.stream().filter(stack -> stack.is(item)
+                ).mapToInt(ItemStack::getCount).sum();
+        return inventory + level.getEntitiesOfClass(ItemEntity.class, new AABB(host).inflate(2), entity ->
+                entity.getItem().is(item)).stream().mapToInt(entity -> entity.getItem().getCount()).sum();
     }
     private static void require(boolean value, String message) {
         if (!value) throw new GameTestAssertException(message);

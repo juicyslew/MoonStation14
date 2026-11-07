@@ -350,10 +350,14 @@ public final class ExamineClient {
     }
 
     public static void tick() {
-        refreshSelection(false);
+        Minecraft mc = Minecraft.getInstance();
+        boolean chatKeepsLatch = ExamineClientPolicy.refreshExistingLatch(
+                mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen, requestedTarget != null);
+        if (!chatKeepsLatch) refreshSelection(false);
         if (requestedTarget != null && !popupDismissed) {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.level == null || (mc.screen != null && !(mc.screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen))) return;
+            if (mc.level == null || (mc.screen != null
+                    && !(mc.screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen)
+                    && !chatKeepsLatch)) return;
             long now = mc.level.getGameTime();
             Authority actor = authority();
             boolean allowed = localDetailsAllowed(actor);
@@ -433,6 +437,14 @@ public final class ExamineClient {
         }
         acceptedIdentity = pendingIdentity;
         response = incoming;
+        if (incoming.target().kind() == com.juicyslew.moonstation14.ms14.examine.ExamineTarget.Kind.BLOCK) {
+            var target = incoming.target().blockPos();
+            var state = mc.level.getBlockState(target);
+            if (state.is(com.juicyslew.moonstation14.block.ModBlocks.TEG_CIRCULATOR.get()))
+                com.juicyslew.moonstation14.ms14.atmos.teg.client.CirculatorExamineIndicator.show(
+                        target, state.getValue(com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineBlock.FACING),
+                        mc.level.dimension().location(), mc.level.getGameTime());
+        }
         if (followUp && requestedTarget != null && !popupDismissed) request(requestedTarget, false);
     }
 
@@ -479,15 +491,13 @@ public final class ExamineClient {
         int maxLines = ExamineClientPolicy.popupVisibleRows(availableHeight, lineHeight, wrapped.size());
         int height = ExamineClientPolicy.popupHeight(availableHeight, lineHeight, maxLines);
         int y = com.juicyslew.moonstation14.ms14.chat.client.TopRightHudLayout.examineTop(g.guiWidth(), g.guiHeight());
-        if (!lines.equals(popupScrollContent) || width != popupScrollWidth || availableHeight != popupScrollAvailable
-                || !Objects.equals(response.target(), popupScrollTarget) || showDetails != popupScrollDetailsAllowed) {
-            popupScrollOffset = 0;
-            popupScrollContent = List.copyOf(lines);
-            popupScrollWidth = width;
-            popupScrollAvailable = availableHeight;
-            popupScrollTarget = response.target();
-            popupScrollDetailsAllowed = showDetails;
-        }
+        popupScrollOffset = ExamineClientPolicy.updatePopupScrollOffset(popupScrollOffset, popupScrollTarget,
+                response.target(), wrapped.size(), Math.min(maxLines, wrapped.size()));
+        popupScrollContent = List.copyOf(lines);
+        popupScrollWidth = width;
+        popupScrollAvailable = availableHeight;
+        popupScrollTarget = response.target();
+        popupScrollDetailsAllowed = showDetails;
         popupVisibleLines = Math.min(maxLines, wrapped.size());
         popupScrollOffset = ExamineClientPolicy.clampScrollOffset(popupScrollOffset, wrapped.size(), popupVisibleLines);
         popupX=x; popupY=y; popupWidth=width; popupHeight=height;
@@ -657,4 +667,3 @@ public final class ExamineClient {
     public static boolean escape() { if (!hasPopup() || !POPUP.escape()) return false; dismiss(); return true; }
     public static void dismiss() { popupDismissed = true; detailGateInitialized = false; detailRetryAt = 0; POPUP.clear(); clearResponseState(); }
 }
-

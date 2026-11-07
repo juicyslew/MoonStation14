@@ -6,12 +6,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -23,19 +25,21 @@ import javax.annotation.Nullable;
 /** Static, inactive SS14 ventilation-device prototype. Deliberately has no BlockItem. */
 public final class VentilationDeviceBlock extends Block implements EntityBlock {
     public static final DirectionProperty FACING = net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING;
+    public static final IntegerProperty DISPLAY = IntegerProperty.create("display", 0, 3);
+    public static final IntegerProperty PIPE_LAYER = IntegerProperty.create("pipe_layer", 0, 2);
     private final VentilationDeviceConfig.Kind kind;
 
     public VentilationDeviceBlock(VentilationDeviceConfig.Kind kind, Properties properties) {
         super(properties);
         if (kind == null) throw new IllegalArgumentException("kind must not be null");
         this.kind = kind;
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(DISPLAY, 0).setValue(PIPE_LAYER, 0));
     }
 
     public VentilationDeviceConfig.Kind kind() { return kind; }
 
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, DISPLAY, PIPE_LAYER);
     }
 
     @Override public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
@@ -80,6 +84,15 @@ public final class VentilationDeviceBlock extends Block implements EntityBlock {
 
     @Nullable @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return ModBlockEntities.VENTILATION_DEVICE.get().create(pos, state);
+    }
+
+    @Nullable @Override public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
+                                                                                       net.minecraft.world.level.block.entity.BlockEntityType<T> type) {
+        if (type != ModBlockEntities.VENTILATION_DEVICE.get() || !level.isClientSide) return null;
+        return (world, pos, blockState, entity) -> {
+            if (entity instanceof VentilationDeviceBlockEntity ventilation)
+                com.juicyslew.moonstation14.ms14.atmos.machine.client.AtmosMachineAmbientClient.observe(ventilation);
+        };
     }
 
     @Override public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {

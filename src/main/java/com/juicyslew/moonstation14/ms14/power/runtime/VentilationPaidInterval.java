@@ -68,8 +68,8 @@ public final class VentilationPaidInterval {
     /** Number of currently tracked receiver identities. */
     public synchronized int trackedReceiverCount() { return lastAuthorizedEndTick.size(); }
 
-    private static boolean sameReceiver(ReceiverSignature a, ReceiverSignature b) {
-        return a.ventilationBE() != null && a.ventilationBE() == b.ventilationBE()
+    public static boolean sameReceiver(ReceiverSignature a, ReceiverSignature b) {
+        return a != null && b != null && a.ventilationBE() != null && a.ventilationBE() == b.ventilationBE()
                 && a.apcBE() != null && a.apcBE() == b.apcBE()
                 && a.breakerRevision() == b.breakerRevision()
                 && a.topologyGeneration() == b.topologyGeneration();

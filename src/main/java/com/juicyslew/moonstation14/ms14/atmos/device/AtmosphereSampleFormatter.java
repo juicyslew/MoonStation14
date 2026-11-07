@@ -35,5 +35,17 @@ public final class AtmosphereSampleFormatter {
                 ? "Provisional / classification pending | " + formatted
                 : formatted;
     }
+
+    /** Compact textual projection used until the analyzer's data-window UI lands. */
+    public static String format(com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSample sample) {
+        Objects.requireNonNull(sample, "sample");
+        StringBuilder result = new StringBuilder(String.format(Locale.ROOT,
+                "V: %.2f L | P: %.2f kPa | T: %.2f K / %.2f °C",
+                sample.volumeLitres(), sample.pressureKpa(), sample.temperatureKelvin(), sample.temperatureKelvin() - 273.15));
+        if (sample.gases().isEmpty()) result.append(" | gases: none");
+        else for (var gas : sample.gases()) result.append(String.format(Locale.ROOT,
+                " | %s: %.2f mol (%.2f%%)", gas.gas().id(), gas.moles(), gas.percentage()));
+        return result.toString();
+    }
 }
 

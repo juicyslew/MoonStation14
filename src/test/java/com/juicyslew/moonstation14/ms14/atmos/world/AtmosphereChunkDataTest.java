@@ -13,6 +13,62 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AtmosphereChunkDataTest {
+    @Test void numericalCleanupObservationIsScopedCumulativeAndTransient() {
+        AtmosphereChunkData data = new AtmosphereChunkData();
+        var watched = new AtmosphereChunkData.CellPosition(1, -4, 2);
+        var observer = data.observeNumericalCleanup(java.util.Set.of(watched));
+        assertThrows(IllegalArgumentException.class, () -> data.recordCommittedNumericalCleanup(1, -4, 2,
+                Map.of(GasType.WATER_VAPOR, Double.NaN)));
+        assertThrows(IllegalArgumentException.class, () -> data.recordCommittedNumericalCleanup(1, -4, 2,
+                Map.of(GasType.WATER_VAPOR, -1d)));
+        data.recordCommittedNumericalCleanup(2, -4, 2, Map.of(GasType.WATER_VAPOR, 2e-8));
+        data.recordCommittedNumericalCleanup(1, -4, 2, Map.of(GasType.WATER_VAPOR, 4e-8));
+        data.recordCommittedNumericalCleanup(1, -4, 2, Map.of(GasType.WATER_VAPOR, 4e-8));
+        var snapshot = observer.snapshot();
+        assertEquals(8e-8, snapshot.get(GasType.WATER_VAPOR), 1e-20);
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.put(GasType.OXYGEN, 1d));
+        assertTrue(data.snapshot().isEmpty());
+        observer.close();
+        data.recordCommittedNumericalCleanup(1, -4, 2, Map.of(GasType.WATER_VAPOR, 4e-8));
+        assertEquals(8e-8, observer.snapshot().get(GasType.WATER_VAPOR), 1e-20);
+    }
+    @Test
+    void writeObservationIsPassiveScopedAndUsesActualSparseAmbient() {
+        AtmosphereChunkData observed = new AtmosphereChunkData();
+        AtmosphereChunkData control = new AtmosphereChunkData();
+        var tracked = new AtmosphereChunkData.CellPosition(1, -4, 2);
+        var untracked = new AtmosphereChunkData.CellPosition(2, -4, 2);
+        var ambient = new GasMixture(Map.of(GasType.WATER_VAPOR, 0.125), 290);
+        var first = new GasMixture(Map.of(GasType.WATER_VAPOR, 0.25), 300);
+        var second = new GasMixture(Map.of(GasType.WATER_VAPOR, 0.5), 310);
+        var observer = observed.observeWrites(java.util.Set.of(tracked));
+        var other = observed.observeWrites(java.util.Set.of(tracked));
+
+        assertEquals(control.put(1, -4, 2, first, ambient), observed.put(1, -4, 2, first, ambient));
+        assertEquals(control.put(1, -4, 2, first, ambient), observed.put(1, -4, 2, first, ambient));
+        assertEquals(control.put(2, -4, 2, second, ambient), observed.put(2, -4, 2, second, ambient));
+        var frozen = observer.snapshot();
+        assertEquals(1, frozen.writeCount());
+
+        assertEquals(control.put(1, -4, 2, second, ambient), observed.put(1, -4, 2, second, ambient));
+        assertEquals(control.put(1, -4, 2, ambient, ambient), observed.put(1, -4, 2, ambient, ambient));
+        assertEquals(control.put(1, -4, 2, ambient, ambient), observed.put(1, -4, 2, ambient, ambient));
+        assertEquals(control.size(), observed.size());
+        assertEquals(control.get(1, -4, 2), observed.get(1, -4, 2));
+        assertEquals(3, observer.snapshot().writeCount());
+        assertEquals(1, frozen.writeCount());
+        assertEquals(3, other.snapshot().writeCount());
+        double expected = 8.0 * Math.max(Math.ulp((float) ambient.moles(GasType.WATER_VAPOR)), Math.ulp((float) first.moles(GasType.WATER_VAPOR)))
+                + 8.0 * Math.max(Math.ulp((float) first.moles(GasType.WATER_VAPOR)), Math.ulp((float) second.moles(GasType.WATER_VAPOR)))
+                + 8.0 * Math.max(Math.ulp((float) second.moles(GasType.WATER_VAPOR)), Math.ulp((float) ambient.moles(GasType.WATER_VAPOR)));
+        assertEquals(expected, observer.snapshot().speciesBounds().get(GasType.WATER_VAPOR));
+        observer.close(); observer.close();
+        observed.put(1, -4, 2, first, ambient);
+        assertEquals(3, observer.snapshot().writeCount());
+        assertEquals(4, other.snapshot().writeCount());
+        other.close();
+    }
+
     @Test
     void absentStateIsSparseAndMutationsOnlyReportChanges() {
         AtmosphereChunkData data = new AtmosphereChunkData();

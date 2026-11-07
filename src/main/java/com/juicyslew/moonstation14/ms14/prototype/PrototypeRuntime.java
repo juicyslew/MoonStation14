@@ -96,6 +96,8 @@ import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks;
 import com.juicyslew.moonstation14.ms14.atmos.tank.GasCanisterProfile;
 import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters;
 import com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles;
+import com.juicyslew.moonstation14.ms14.atmos.machine.ModAtmosMachines;
+import com.juicyslew.moonstation14.ms14.atmos.analyzer.ModGasAnalyzers;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -358,7 +360,10 @@ public final class PrototypeRuntime {
         manager.register(ModSignalControls.TYPE);
         manager.register(ModNetworkDeviceItems.TYPE);
         manager.register(ModGasTanks.TYPE);
-        manager.register(ModGasCanisters.TYPE);
+          manager.register(ModGasCanisters.TYPE);
+         manager.register(ModAtmosMachines.TYPE);
+         manager.register(ModGasAnalyzers.TYPE);
+         manager.register(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.radiation.ModRadiationCollectors.TYPE);
         return manager;
     }

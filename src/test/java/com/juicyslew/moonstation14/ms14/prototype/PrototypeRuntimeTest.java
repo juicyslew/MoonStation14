@@ -148,7 +148,8 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE);
-        expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.analyzer.ModGasAnalyzers.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE);
@@ -160,6 +161,9 @@ class PrototypeRuntimeTest {
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.SingularityGeneratorProfile.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.machine.ModAtmosMachines.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -302,7 +306,25 @@ class PrototypeRuntimeTest {
                 Map.of(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("localbase"), fixture("network_device_item", "localbase"),
                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("standardwireless15"), fixture("network_device_item", "standardwireless15"),
                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("configurator"), fixture("network_device_item", "configurator"),
-                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("advancedwireless50"), fixture("network_device_item", "advancedwireless50")));
+                          com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("advancedwireless50"), fixture("network_device_item", "advancedwireless50")));
+         var minerBase = new JsonObject();
+         minerBase.addProperty("id", "base_test");
+         minerBase.addProperty("abstract", true);
+         minerBase.addProperty("gas", "oxygen");
+         minerBase.addProperty("spawnAmount", 123.5);
+         minerBase.addProperty("spawnTemperatureKelvin", 280.0);
+         minerBase.addProperty("maxExternalPressureKpa", 250.0);
+         minerBase.addProperty("maxTotalMoles", 900.0);
+         var miner = new JsonObject();
+         miner.addProperty("id", "custom_test");
+         miner.addProperty("parent", "base_test");
+         miner.addProperty("spawnTemperatureKelvin", 315.0);
+         miner.addProperty("maxExternalPressureKpa", 450.0);
+         miner.addProperty("maxTotalMoles", 1200.0);
+         var minerId = com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.id("custom_test");
+         server.reload(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE,
+                 Map.of(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.id("base_test"), minerBase,
+                         minerId, miner));
          server.reload(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE, Map.of(
                  com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.BASE_ID,
                  fixture("singularity_beacon", "singularity_beacon_base"),
@@ -362,8 +384,23 @@ class PrototypeRuntimeTest {
                  com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.atmos.machine.ModAtmosMachines.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.atmos.analyzer.ModGasAnalyzers.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId()), exported.keySet());
+                 com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE.typeId()), exported.keySet());
+         assertEquals(1, exported.get(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE.typeId()).size());
+         var resolvedMiner = server.snapshot(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE)
+                 .get(minerId);
+         var baseMinerId = com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.id("base_test");
+         assertEquals(1, server.snapshot(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE).asMap().size());
+         assertFalse(server.snapshot(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE).contains(baseMinerId),
+                 "abstract parent is resolved for inheritance but not published as a concrete profile");
+         assertEquals(GasType.OXYGEN, resolvedMiner.gas());
+         assertEquals(123.5, resolvedMiner.spawnAmount(), "inherited parent value");
+         assertEquals(315.0, resolvedMiner.spawnTemperatureKelvin());
+         assertEquals(450.0, resolvedMiner.maxExternalPressureKpa());
+         assertEquals(1200.0, resolvedMiner.maxTotalMoles());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);
@@ -390,6 +427,20 @@ class PrototypeRuntimeTest {
         assertTrue(exported.get(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()).containsKey(id("source-test")));
 
          client.publishEncodedCatalogs(exported);
+         var clientMiner = client.snapshot(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE).get(minerId);
+         assertEquals(GasType.OXYGEN, clientMiner.gas());
+         assertEquals(123.5, clientMiner.spawnAmount());
+         assertEquals(315.0, clientMiner.spawnTemperatureKelvin());
+         assertEquals(450.0, clientMiner.maxExternalPressureKpa());
+         assertEquals(1200.0, clientMiner.maxTotalMoles());
+         assertEquals(resolvedMiner, clientMiner);
+         assertNotSame(resolvedMiner, clientMiner);
+         var minerDefaults = com.juicyslew.moonstation14.ms14.atmos.world.GasMinerProfile.CODEC
+                 .parse(JsonOps.INSTANCE, JsonParser.parseString("{\"gas\":\"oxygen\"}")).getOrThrow();
+         assertEquals(400.0, minerDefaults.spawnAmount());
+         assertEquals(293.15, minerDefaults.spawnTemperatureKelvin());
+         assertEquals(300.0, minerDefaults.maxExternalPressureKpa());
+         assertEquals(Double.POSITIVE_INFINITY, minerDefaults.maxTotalMoles());
          var serverBeacon = PrototypeRuntime.serverSingularityBeacons().get(
                  com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.DEFAULT_ID);
          var clientBeacon = PrototypeRuntime.clientSingularityBeacons().get(

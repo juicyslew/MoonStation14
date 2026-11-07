@@ -1,0 +1,7 @@
+# TEG R5 runtime asset provenance
+
+Runtime wrappers and geometry are the frozen R5 delivery `integrated_spine_r5-runtime-20261105`, public request `power-teg-r5-runtime-files-20261105` (SHA-256 `5497c982d448dcda52f54114627e08d6b6f1fb723c1dcca91b8a5691052e7c71`). Its 113-file runtime group was imported through the normal asset workflow; imported OBJ/MTL/PNG/mcmeta and JSON wrapper bytes are preserved unchanged. Exact owner import receipt: `build/agent-workflow/teg-sprint/owner-feedback-r21/r5-import/r5-runtime-owner-import-receipt.json` (SHA-256 `6e30745585f43060ef40b56bc64c7f4e9f1025df165fbe5f6a56acaced7db2e5`).
+
+Art-source attribution retained from the frozen candidate's `ATTRIBUTION.md`: source `Resources/Textures/Structures/Power/Generation/teg.rsi`, Baystation12 `power.dmi` at commit `fc2196fa74492570e5abb847085afca0e53f4ea8`, modified to split light layers; CC-BY-SA-3.0. R5 reuses existing MoonStation14 TEG/circulator models, textures, UVs and semantic parts from saved `terminal_support_r6`; original collection and accepted R6 remain unchanged. Full source attribution and source/license sidecars remain alongside the frozen candidate in the asset workspace.
+
+Native runtime binds one complete composed OBJ snapshot per semantic DISPLAY. R5 is not a new gameplay/physics implementation; collision and outline continue to be derived by the existing `AtmosMachineGeometry` OBJ-group parser. Native GPU rendering and in-game visual review are not asserted by this resource notice.

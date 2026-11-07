@@ -94,23 +94,36 @@ public final class AirAlarmPowerGameTests {
                     var physical = level.getChunkSource().getChunkNow(frontierChunk.x, frontierChunk.z);
                     require(physical instanceof LevelChunk, "frontier chunk remains FULL before missed-bookkeeping simulation");
                     PowerGraphService.onChunkUnload(new net.neoforged.neoforge.event.level.ChunkEvent.Unload(physical));
-                    var precondition = PowerGraphService.diagnostics(level, node);
-                    require(precondition.state().knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN
-                                    && precondition.unloadedPotentialNeighborChunks().contains(frontierChunk),
-                            "stored component frontier is unknown and includes FULL-but-unindexed chunk: " + precondition);
                     require(level.getChunkSource().getChunkNow(frontierChunk.x, frontierChunk.z) == physical,
                             "controlled bookkeeping miss did not unload physical chunk");
+                    var postUnload = PowerGraphService.diagnostics(level, node);
+                    require(postUnload.state().knowledge()
+                                    == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN,
+                            "controlled bookkeeping miss must fail closed before direct query: " + postUnload);
+                    if (postUnload.nodeIndexed() && !postUnload.rebuilding()) {
+                        require(postUnload.unloadedPotentialNeighborChunks().contains(frontierChunk),
+                                "indexed missing-frontier branch retains the FULL chunk frontier: " + postUnload);
+                    } else {
+                        require(postUnload.rebuilding() && postUnload.state().componentId() < 0,
+                                "alternate valid branch is invalidated/unindexed before rebuild: " + postUnload);
+                    }
                     var initial = PowerGraphService.state(level, node);
                     require(initial.knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN
                                     && !PowerGraphService.topologyReady(level),
-                            "direct state query queues reconciliation but remains UNKNOWN: " + initial);
-                    awaitDirectStateKnown(helper, level, node, 0);
+                            "direct state query from controlled UNKNOWN queues reconciliation without fabricating known state: " + initial);
+                    awaitDirectStateKnown(helper, level, node, physical, 0);
                 });
     }
 
-    private static void awaitDirectStateKnown(GameTestHelper helper, ServerLevel level, CableFaceNode node, int elapsed) {
+    private static void awaitDirectStateKnown(GameTestHelper helper, ServerLevel level, CableFaceNode node,
+                                              LevelChunk physical, int elapsed) {
+        require(level.getChunkSource().getChunkNow(physical.getPos().x, physical.getPos().z) == physical,
+                "direct state recovery preserves the controlled FULL chunk identity");
         var answer = PowerGraphService.state(level, node);
         if (answer.knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.KNOWN) {
+            var diagnostics = PowerGraphService.diagnostics(level, node);
+            require(diagnostics.nodeIndexed() && !diagnostics.rebuilding() && answer.componentId() >= 0,
+                    "direct state recovery ends on an indexed authoritative component: " + diagnostics);
             helper.succeed();
             return;
         }
@@ -118,7 +131,7 @@ public final class AirAlarmPowerGameTests {
                 + ", diagnostics=" + PowerGraphService.diagnostics(level, node)
                 + ", graph=" + PowerGraphService.diagnosticSnapshot(level));
         com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5,
-                () -> awaitDirectStateKnown(helper, level, node, elapsed + 5));
+                () -> awaitDirectStateKnown(helper, level, node, physical, elapsed + 5));
     }
 
     @GameTest(template = "empty", timeoutTicks = 40, templateNamespace = "moonstation14")

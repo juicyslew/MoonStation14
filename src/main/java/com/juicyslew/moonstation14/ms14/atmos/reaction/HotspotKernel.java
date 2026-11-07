@@ -24,8 +24,12 @@ public final class HotspotKernel {
 
     public record ProcessResult(GasMixture mixture, List<GasReactionEvaluator.Event> events,
                                 double fireExtentMoles, Optional<HotspotState> nextState,
-                                boolean spreadEligibleThisPass) {
-        public ProcessResult { events = List.copyOf(events); Objects.requireNonNull(nextState); }
+                                boolean spreadEligibleThisPass, java.util.Map<GasType, Double> discardedMoles) {
+        public ProcessResult(GasMixture mixture, List<GasReactionEvaluator.Event> events, double fireExtentMoles,
+                             Optional<HotspotState> nextState, boolean spreadEligibleThisPass) {
+            this(mixture, events, fireExtentMoles, nextState, spreadEligibleThisPass, java.util.Map.of());
+        }
+        public ProcessResult { events = List.copyOf(events); Objects.requireNonNull(nextState); discardedMoles = GasMixture.validatedDiscardedMoles(discardedMoles); }
     }
 
     /** State lifecycle: first due visit only clears skip; subsequent visits process metadata volume. */
@@ -59,7 +63,7 @@ public final class HotspotKernel {
         // Zero-volume continuation is intentional: the next due pass performs canonical extinction.
         HotspotState next = new HotspotState(nextVolume, fired.mixture().temperatureKelvin(), true, false);
         return new ProcessResult(merged, fired.events(), extent, Optional.of(next),
-                extent > 0 && fired.mixture().temperatureKelvin() > SPREAD_MINIMUM_KELVIN);
+                extent > 0 && fired.mixture().temperatureKelvin() > SPREAD_MINIMUM_KELVIN, split.discardedMoles());
     }
 
     /** Adds exposure metadata only; volume is multiplied by 25 exactly once for a new exposure. */

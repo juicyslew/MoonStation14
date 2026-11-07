@@ -1,0 +1,1 @@
+{"kind":"filter","parent":"gas_trinary_base","filter":{"transferRate":1000,"maxTransferRate":1000,"enabled":false},"ambientAudio":{"sound":"moonstation14:ss14/atmospherics/gas_hiss","volumeDb":-9,"range":5,"gate":"transfer"},"visual":{"sprite":"Structures/Piping/Atmospherics/gasfilter.rsi","state":"gasFilter"}}

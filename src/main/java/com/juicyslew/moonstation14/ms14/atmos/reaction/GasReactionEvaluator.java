@@ -21,7 +21,8 @@ public final class GasReactionEvaluator {
 
     /** Reference SS14 tile inventory converted to a 1,000 L Minecraft cell. */
     private static final double REFERENCE_TILE_TO_CELL = AtmosphereUnits.REFERENCE_INVENTORY_SCALE;
-    private static final float PLASMA_MINIMUM_TEMPERATURE = 373.15f;
+    public static final double PLASMA_MINIMUM_TEMPERATURE_KELVIN = (double) 373.15f;
+    private static final float PLASMA_MINIMUM_TEMPERATURE = (float) PLASMA_MINIMUM_TEMPERATURE_KELVIN;
     private static final float FREZON_PRODUCTION_MAX_EFFICIENCY_TEMPERATURE = 73.15f;
     private static final float FREZON_COOL_LOWER_TEMPERATURE = 23.15f;
     private static final float FREZON_COOL_MID_TEMPERATURE = 373.15f;

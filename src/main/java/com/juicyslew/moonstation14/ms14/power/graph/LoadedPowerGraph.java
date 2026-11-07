@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.power.graph;
 
 import com.juicyslew.moonstation14.ms14.power.topology.CableFaceNode;
+import com.juicyslew.moonstation14.ms14.power.topology.DevicePort;
 import com.juicyslew.moonstation14.ms14.power.topology.PowerTopology;
 import net.minecraft.core.BlockPos;
 
@@ -17,6 +18,7 @@ import java.util.Set;
 /** Incrementally-built, fail-closed cable topology for the currently loaded chunks. */
 public final class LoadedPowerGraph {
     private final Map<Object, List<CableFaceNode>> chunks = new LinkedHashMap<>();
+    private final Map<Object, List<DevicePort>> devicePorts = new LinkedHashMap<>();
     private final Map<CableFaceNode, Integer> components = new HashMap<>();
     private final ArrayDeque<CableFaceNode> frontier = new ArrayDeque<>();
     private final Set<CableFaceNode> queued = new HashSet<>();
@@ -29,6 +31,9 @@ public final class LoadedPowerGraph {
     private List<List<CableFaceNode>> buildChunks = List.of();
     private final List<CableFaceNode> buildingNodes = new ArrayList<>();
     private Set<CableFaceNode> buildingIndex = new HashSet<>();
+    private final Map<CableFaceNode, Set<CableFaceNode>> busNeighbors = new HashMap<>();
+    private final Map<CableFaceNode, Set<Long>> busPotentialChunks = new HashMap<>();
+    private final List<DevicePort> buildingPorts = new ArrayList<>();
     private int buildChunkCursor;
     private int buildNodeCursor;
     private boolean indexed;
@@ -43,6 +48,15 @@ public final class LoadedPowerGraph {
     /** Read-only explanation of a node's current fail-closed graph state. */
     public record NodeDiagnostics(NodeState state, boolean rebuilding, boolean nodeIndexed,
                                   List<net.minecraft.world.level.ChunkPos> unloadedPotentialNeighborChunks) { }
+    public record FrontierAttribution(net.minecraft.world.level.ChunkPos chunk, int sourceCount,
+                                      List<CableFaceNode> sources, boolean truncated,
+                                      int busSourceCount, List<CableFaceNode> busSources,
+                                      boolean busSourcesTruncated) { }
+    public record ComponentDiagnostics(NodeState state, int memberCount,
+                                       List<FrontierAttribution> missingFrontiers,
+                                       int missingChunkCount, boolean chunksTruncated,
+                                       int membersExamined, boolean membersTruncated,
+                                       int frontierEntriesExamined, boolean frontierTruncated) { }
     public record BuildProgress(boolean dirty, long revision, boolean indexed, int chunkCursor,
                                 int nodeCursor, int indexedNodes, int frontierNodes, int visitedNodes,
                                 int loadedNodes, int loadedChunks) { }
@@ -55,16 +69,23 @@ public final class LoadedPowerGraph {
 
     /** Chunk keys are opaque so the geometry core remains independent of a world. */
     public void replaceChunk(Object chunkKey, Collection<CableFaceNode> nodes) {
+        replaceChunk(chunkKey, nodes, List.of());
+    }
+
+    public void replaceChunk(Object chunkKey, Collection<CableFaceNode> nodes, Collection<DevicePort> ports) {
         List<CableFaceNode> replacement = List.copyOf(nodes);
+        List<DevicePort> replacementPorts = List.copyOf(ports);
         List<CableFaceNode> previous = chunks.get(chunkKey);
-        if (replacement.equals(previous)) return;
+        List<DevicePort> previousPorts = devicePorts.get(chunkKey);
+        if (replacement.equals(previous) && replacementPorts.equals(previousPorts)) return;
         // Empty space is represented by loadedChunks, not by an empty cable chunk.
         // Preserve replaceChunk's loaded-space contract for Minecraft chunk keys.
-        if (previous == null && replacement.isEmpty()) {
+        if (previous == null && replacement.isEmpty() && replacementPorts.isEmpty()) {
             if (chunkKey instanceof net.minecraft.world.level.ChunkPos pos) setChunkLoaded(pos, true);
             return;
         }
         chunks.put(chunkKey, replacement);
+        devicePorts.put(chunkKey, replacementPorts);
         if (chunkKey instanceof net.minecraft.world.level.ChunkPos pos) loadedChunks.add(pos.toLong());
         else for (CableFaceNode node : nodes) loadedChunks.add(chunkKey(node.host().getX() >> 4, node.host().getZ() >> 4));
         invalidate();
@@ -72,6 +93,7 @@ public final class LoadedPowerGraph {
 
     public void removeChunk(Object chunkKey) {
         List<CableFaceNode> removed = chunks.remove(chunkKey);
+        devicePorts.remove(chunkKey);
         if (removed == null) {
             if (chunkKey instanceof net.minecraft.world.level.ChunkPos pos) setChunkLoaded(pos, false);
             return;
@@ -109,6 +131,9 @@ public final class LoadedPowerGraph {
         queued.clear();
         visited.clear();
         componentInfo.clear();
+        busNeighbors.clear();
+        busPotentialChunks.clear();
+        buildingPorts.clear();
         potentialNeighborChunks.clear();
         componentId = 0;
         seedCursor = 0;
@@ -122,14 +147,32 @@ public final class LoadedPowerGraph {
         int processed = 0;
         while (processed < nodeBudget) {
             if (!indexed) {
-                if (buildChunks.isEmpty() && buildChunkCursor == 0 && buildNodeCursor == 0)
+                if (buildChunks.isEmpty() && buildChunkCursor == 0 && buildNodeCursor == 0) {
                     buildChunks = new ArrayList<>(chunks.values());
+                    devicePorts.values().forEach(buildingPorts::addAll);
+                }
                 while (buildChunkCursor < buildChunks.size()
                         && buildNodeCursor >= buildChunks.get(buildChunkCursor).size()) {
                     buildChunkCursor++;
                     buildNodeCursor = 0;
                 }
                 if (buildChunkCursor >= buildChunks.size()) {
+                    if (!buildingPorts.isEmpty()) {
+                        DevicePort port = buildingPorts.remove(0);
+                        List<CableFaceNode> contacts = PowerTopology.deviceContacts(port).stream()
+                                .filter(buildingIndex::contains).toList();
+                        for (CableFaceNode contact : contacts) {
+                            Set<CableFaceNode> neighbors = busNeighbors.computeIfAbsent(contact, ignored -> new HashSet<>());
+                            for (CableFaceNode other : contacts) if (!other.equals(contact)) neighbors.add(other);
+                        }
+                        for (CableFaceNode candidate : PowerTopology.deviceContacts(port)) {
+                            long key = chunkKey(candidate.host().getX() >> 4, candidate.host().getZ() >> 4);
+                            for (CableFaceNode contact : contacts)
+                                busPotentialChunks.computeIfAbsent(contact, ignored -> new HashSet<>()).add(key);
+                        }
+                        processed++;
+                        continue;
+                    }
                     ordered = buildingNodes;
                     nodeIndex = buildingIndex;
                     indexed = true;
@@ -166,7 +209,10 @@ public final class LoadedPowerGraph {
                 long key = chunkKey(candidate.host().getX() >> 4, candidate.host().getZ() >> 4);
                 info.potentialNeighborChunks.add(key);
             }
-            for (CableFaceNode candidate : nearby(current))
+            info.potentialNeighborChunks.addAll(busPotentialChunks.getOrDefault(current, Set.of()));
+            Set<CableFaceNode> adjacent = new HashSet<>(nearby(current));
+            adjacent.addAll(busNeighbors.getOrDefault(current, Set.of()));
+            for (CableFaceNode candidate : adjacent)
                 if (!visited.contains(candidate) && queued.add(candidate)) {
                     frontier.addLast(candidate);
                     queueHighWater = Math.max(queueHighWater, frontier.size());
@@ -182,6 +228,16 @@ public final class LoadedPowerGraph {
         ComponentInfo info = componentInfo.get(id);
         return info == null || info.potentialNeighborChunks.stream().anyMatch(key -> !loadedChunks.contains(key))
                 ? new NodeState(Knowledge.UNKNOWN, id) : new NodeState(Knowledge.KNOWN, id);
+    }
+
+    /** Resolve the one component joined by this authoritative loaded-port bus. */
+    public NodeState state(DevicePort port) {
+        if (port == null || dirty || !indexed) return new NodeState(Knowledge.UNKNOWN, -1);
+        for (CableFaceNode candidate : PowerTopology.deviceContacts(port)) {
+            if (!nodeIndex.contains(candidate)) continue;
+            return state(candidate);
+        }
+        return new NodeState(Knowledge.UNKNOWN, -1);
     }
 
     /** Bounded, rotating scan of one component's stored frontier. Each visited key
@@ -221,6 +277,97 @@ public final class LoadedPowerGraph {
         missing.sort(java.util.Comparator.comparingInt((net.minecraft.world.level.ChunkPos pos) -> pos.x)
                 .thenComparingInt(pos -> pos.z));
         return new NodeDiagnostics(current, dirty, indexed && nodeIndex.contains(node), List.copyOf(missing));
+    }
+
+    /** Read-only bounded attribution from the exact stored component frontier and its cable/bus sources. */
+    public ComponentDiagnostics componentDiagnostics(CableFaceNode node, int maxMembers, int maxFrontierEntries,
+                                                       int maxChunks, int maxSources) {
+        if (maxMembers < 1 || maxFrontierEntries < 1 || maxChunks < 1 || maxSources < 1)
+            throw new IllegalArgumentException("positive diagnostic bounds required");
+        NodeState current = state(node);
+        Integer id = dirty ? null : components.get(node);
+        ComponentInfo info = id == null ? null : componentInfo.get(id);
+        if (info == null) return new ComponentDiagnostics(current, 0, List.of(), 0, false, 0, false, 0, false);
+        var members = new HashSet<CableFaceNode>();
+        var queue = new ArrayDeque<CableFaceNode>();
+        members.add(node); queue.add(node);
+        while (!queue.isEmpty() && members.size() < maxMembers) {
+            CableFaceNode member = queue.removeFirst();
+            for (CableFaceNode adjacent : connectedNeighbors(member)) {
+                if (members.size() >= maxMembers) break;
+                if (components.getOrDefault(adjacent, -1) == id && members.add(adjacent)) queue.addLast(adjacent);
+            }
+        }
+        boolean membersTruncated = !queue.isEmpty();
+        var orderedMembers = members.stream().sorted(nodeOrder()).toList();
+        var missing = new java.util.TreeSet<net.minecraft.world.level.ChunkPos>(java.util.Comparator
+                .comparingInt((net.minecraft.world.level.ChunkPos pos) -> pos.x).thenComparingInt(pos -> pos.z));
+        int frontierEntriesExamined = 0;
+        for (long key : info.potentialNeighborChunks) {
+            if (frontierEntriesExamined >= maxFrontierEntries) break;
+            frontierEntriesExamined++;
+            if (!loadedChunks.contains(key)) missing.add(new net.minecraft.world.level.ChunkPos(key));
+        }
+        boolean frontierTruncated = frontierEntriesExamined < info.potentialNeighborChunks.size();
+        var selected = missing.stream().limit(maxChunks).toList();
+        var selectedKeys = selected.stream().map(net.minecraft.world.level.ChunkPos::toLong).collect(java.util.stream.Collectors.toSet());
+        var geometrySources = new HashMap<Long, java.util.TreeSet<CableFaceNode>>();
+        var busSourcesByChunk = new HashMap<Long, java.util.TreeSet<CableFaceNode>>();
+        var geometryCounts = new HashMap<Long, Integer>();
+        var busCounts = new HashMap<Long, Integer>();
+        var outputOrder = nodeOrder();
+        for (CableFaceNode member : orderedMembers) {
+            var memberGeometryChunks = new HashSet<Long>();
+            var memberBusChunks = new HashSet<Long>();
+            for (CableFaceNode candidate : potentialNeighbors(member)) {
+                long key = chunkKey(candidate.host().getX() >> 4, candidate.host().getZ() >> 4);
+                if (selectedKeys.contains(key)) memberGeometryChunks.add(key);
+            }
+            for (long key : busPotentialChunks.getOrDefault(member, Set.of()))
+                if (selectedKeys.contains(key)) memberBusChunks.add(key);
+            var allSourceChunks = new HashSet<>(memberGeometryChunks); allSourceChunks.addAll(memberBusChunks);
+            for (long key : allSourceChunks) {
+                addBoundedSource(geometrySources, key, member, outputOrder, maxSources);
+                geometryCounts.merge(key, 1, Integer::sum);
+            }
+            for (long key : memberBusChunks) {
+                addBoundedSource(busSourcesByChunk, key, member, outputOrder, maxSources);
+                busCounts.merge(key, 1, Integer::sum);
+            }
+        }
+        var attributions = new ArrayList<FrontierAttribution>();
+        for (var chunk : selected) {
+            long key = chunk.toLong();
+            var geometry = geometrySources.getOrDefault(key, new java.util.TreeSet<>(outputOrder));
+            var bus = busSourcesByChunk.getOrDefault(key, new java.util.TreeSet<>(outputOrder));
+            attributions.add(new FrontierAttribution(chunk, geometryCounts.getOrDefault(key, 0), List.copyOf(geometry),
+                    geometryCounts.getOrDefault(key, 0) > geometry.size(), busCounts.getOrDefault(key, 0),
+                    List.copyOf(bus), busCounts.getOrDefault(key, 0) > bus.size()));
+        }
+        int observedMissing = missing.size();
+        boolean chunksTruncated = missing.size() > maxChunks || frontierTruncated;
+        return new ComponentDiagnostics(current, orderedMembers.size(), List.copyOf(attributions), observedMissing,
+                chunksTruncated, orderedMembers.size(), membersTruncated, frontierEntriesExamined, frontierTruncated);
+    }
+
+    private java.util.Comparator<CableFaceNode> nodeOrder() {
+        return java.util.Comparator.comparingInt((CableFaceNode n) -> n.host().getX())
+                .thenComparingInt(n -> n.host().getY()).thenComparingInt(n -> n.host().getZ())
+                .thenComparingInt(n -> n.face().ordinal());
+    }
+
+    private static void addBoundedSource(Map<Long, java.util.TreeSet<CableFaceNode>> sources, long key,
+                                         CableFaceNode node, java.util.Comparator<CableFaceNode> order, int limit) {
+        var sample = sources.computeIfAbsent(key, ignored -> new java.util.TreeSet<>(order));
+        sample.add(node);
+        if (sample.size() > limit) sample.pollLast();
+    }
+
+    private List<CableFaceNode> connectedNeighbors(CableFaceNode node) {
+        Set<CableFaceNode> adjacent = new HashSet<>(nearby(node));
+        adjacent.addAll(busNeighbors.getOrDefault(node, Set.of()));
+        return adjacent.stream().filter(candidate -> components.getOrDefault(candidate, -1)
+                .equals(components.getOrDefault(node, -2))).toList();
     }
 
     public int loadedNodeCount() { return chunks.values().stream().mapToInt(List::size).sum(); }

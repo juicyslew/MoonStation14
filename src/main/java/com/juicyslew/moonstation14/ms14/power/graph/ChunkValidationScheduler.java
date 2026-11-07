@@ -20,6 +20,7 @@ final class ChunkValidationScheduler {
 
     void remove(ChunkPos pos) { queued.remove(pos); }
 
+
     boolean isEmpty() { return queued.isEmpty(); }
 }
 

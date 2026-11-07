@@ -4,12 +4,39 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 
 import java.util.Optional;
+import java.util.Map;
 import java.util.UUID;
 
 /** Independent finite-gas ownership for persisted sealed-wall lanes. */
 public final class LoadedSealedWallGasOwner {
     public enum RollbackResult { ROLLED_BACK, NOT_APPLICABLE, RECOVERY_REQUIRED }
     private LoadedSealedWallGasOwner() { }
+
+    /** Retire exact gas entries owned by current live sealed lanes immediately before host invalidation. */
+    public static boolean retireAtHostReplacement(ServerLevel level, BlockPos pos) {
+        LoadedPipeNetworks.invalidateTopology(level, pos);
+        if (level == null || !level.getServer().isSameThread()) return false;
+        Map<PipeTopology.NodeKey, UUID> owners = new java.util.HashMap<>();
+        for (PipeTopology.Layer lane : PipeTopology.Layer.values()) {
+            var record = LoadedSealedWallSegment.matchingLive(level, pos, lane).orElse(null);
+            if (record != null) owners.put(new PipeTopology.NodeKey(pos, lane), record.id());
+        }
+        if (owners.isEmpty()) return true;
+        PipeGasInventorySavedData data = PipeGasInventorySavedData.existing(level).orElse(null);
+        if (data == null) return true;
+        PipeGasInventory before = data.snapshot();
+        Map<PipeTopology.NodeKey, UUID> exact = new java.util.HashMap<>();
+        for (var owner : owners.entrySet()) {
+            PipeGasInventory.Entry entry = before.get(owner.getKey()).orElse(null);
+            if (entry != null && entry.incarnation().equals(owner.getValue()))
+                exact.put(owner.getKey(), owner.getValue());
+        }
+        if (exact.isEmpty()) return true;
+        try {
+            PipeGasInventory after = before.retireBatch(exact);
+            return data.replace(before.revision(), before, after);
+        } catch (RuntimeException failure) { return false; }
+    }
 
     /** Removes only the exact, untouched vacuum ownership created by fresh admission. */
     public static RollbackResult rollbackFreshVacuumOwner(ServerLevel level, BlockPos pos,
@@ -23,7 +50,7 @@ public final class LoadedSealedWallGasOwner {
         PipeGasInventory.Entry entry = before.get(key).orElse(null);
         if (entry == null || !entry.incarnation().equals(exactId) || !entry.active()
                 || entry.version() != 1) return RollbackResult.RECOVERY_REQUIRED;
-        if (!entry.mixture().gasMoles().isEmpty() || entry.mixture().thermalEnergy() != 0.0)
+        if (!before.nodeShare(key).gasMoles().isEmpty() || before.nodeShare(key).thermalEnergy() != 0.0)
             return RollbackResult.RECOVERY_REQUIRED;
         try {
             PipeGasInventory after = before.tombstoneEmpty(key, exactId);
@@ -35,6 +62,7 @@ public final class LoadedSealedWallGasOwner {
 
     /** Admit vacuum only for a newly persisted, currently matching wall record. */
     public static boolean createVacuumOwnerForTrustedAdmission(ServerLevel level, BlockPos pos, PipeTopology.Layer lane) {
+        LoadedPipeNetworks.invalidateTopology(level, pos);
         var record = LoadedSealedWallSegment.matchingLive(level, pos, lane).orElse(null);
         if (record == null) return false;
         UUID id = record.id();
@@ -52,6 +80,7 @@ public final class LoadedSealedWallGasOwner {
 
     /** Reactivate only an exact persisted matching record and its dormant owner. */
     public static boolean reconcileExisting(ServerLevel level, BlockPos pos, PipeTopology.Layer lane) {
+        LoadedPipeNetworks.invalidateTopology(level, pos);
         var record = LoadedSealedWallSegment.matchingLive(level, pos, lane).orElse(null);
         if (record == null) return false;
         PipeGasInventorySavedData data = PipeGasInventorySavedData.existing(level).orElse(null);

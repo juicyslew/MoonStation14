@@ -1,14 +1,9 @@
 package com.juicyslew.moonstation14.ms14.atmos.reaction;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.core.AtmosphereUnits;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog;
-import com.juicyslew.moonstation14.ms14.prototype.PrototypeManager;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,25 +12,8 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GasReactionEvaluatorTest {
-    private static final String[] NAMES = {"frezon_production", "ammonia_oxygen", "frezon_coolant",
-            "n2o_decomposition", "tritium_fire", "plasma_fire"};
-    private static final PrototypeCatalog<GasReactionData> BUNDLED_CATALOG = loadBundledCatalog();
-
-    private static PrototypeCatalog<GasReactionData> loadBundledCatalog() {
-        PrototypeManager manager = new PrototypeManager();
-        manager.register(ModGasReactions.GAS_REACTION_TYPE);
-        Map<ResourceLocation, JsonObject> definitions = new LinkedHashMap<>();
-        for (String name : NAMES) {
-            String path = "/data/moonstation14/moonstation14/gas_reaction/" + name + ".json";
-            try (var stream = GasReactionEvaluatorTest.class.getResourceAsStream(path)) {
-                assertNotNull(stream, path);
-                definitions.put(ResourceLocation.parse("moonstation14:" + name),
-                        JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject());
-            } catch (java.io.IOException ex) { throw new java.io.UncheckedIOException(ex); }
-        }
-        manager.reload(ModGasReactions.GAS_REACTION_TYPE, definitions);
-        return manager.snapshot(ModGasReactions.GAS_REACTION_TYPE);
-    }
+    private static final String[] NAMES = BundledGasReactionCatalog.names().toArray(String[]::new);
+    private static final PrototypeCatalog<GasReactionData> BUNDLED_CATALOG = BundledGasReactionCatalog.load();
 
     private static PrototypeCatalog<GasReactionData> catalog(String... names) {
         // The manager validates the complete bundled catalog; only pure evaluator tests
@@ -86,6 +64,18 @@ class GasReactionEvaluatorTest {
         assertSame(cold, run("n2o_decomposition", cold).mixture());
         var vacuum = GasMixture.vacuum();
         assertSame(vacuum, GasReactionEvaluator.evaluate(catalog(NAMES), vacuum).mixture());
+    }
+
+    @Test void waterVaporFixtureTracerIsVisibleAndHasNoRoomTemperatureReaction() {
+        var before=mix(293.15,GasType.WATER_VAPOR,240.0);
+        assertEquals(0,before.moles(GasType.OXYGEN));
+        var result=GasReactionEvaluator.evaluate(BUNDLED_CATALOG,before);
+        assertSame(before,result.mixture());
+        assertTrue(result.events().isEmpty());
+        assertEquals(0,result.energyDeltaJoules());
+        assertTrue(com.juicyslew.moonstation14.ms14.atmos.visual.GasVisibility.alphaByte(GasType.WATER_VAPOR,240d/18d,1d)>0);
+        assertNotEquals(com.juicyslew.moonstation14.ms14.atmos.visual.GasVisibility.tint(GasType.PLASMA),
+                com.juicyslew.moonstation14.ms14.atmos.visual.GasVisibility.tint(GasType.WATER_VAPOR));
     }
 
     private static GasReactionData noOpReaction(int priority) {

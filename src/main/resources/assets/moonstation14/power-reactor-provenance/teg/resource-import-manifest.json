@@ -1,0 +1,888 @@
+{
+  "upstreamRepository": "space-station-14",
+  "upstreamRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "assets": [
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/circ-0-light.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/circ-0-light.png",
+      "sourceSha256": "58af5d6ea33e42aece3c78bb2aaa9472dbdbe8c2c36e876716a4a8e605636013",
+      "runtimeSha256": "58af5d6ea33e42aece3c78bb2aaa9472dbdbe8c2c36e876716a4a8e605636013",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/circ-0.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/circ-0.png",
+      "sourceSha256": "2b9263b95c4d122400c41a08194cb8da999ae47a61970cd784ef42908bf35539",
+      "runtimeSha256": "2b9263b95c4d122400c41a08194cb8da999ae47a61970cd784ef42908bf35539",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/circ-1-light.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/circ-1-light.png",
+      "sourceSha256": "04cee69069810316af3679621fd2e085f1c5d0b2a7560f160257ae55e4b9cf0e",
+      "runtimeSha256": "04cee69069810316af3679621fd2e085f1c5d0b2a7560f160257ae55e4b9cf0e",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/circ-1.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/circ-1.png",
+      "sourceSha256": "1f31b3d3f7d13970dc48337734535e5f22889bac6e46de62a6df562f07662b94",
+      "runtimeSha256": "1f31b3d3f7d13970dc48337734535e5f22889bac6e46de62a6df562f07662b94",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/circ-2-light.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/circ-2-light.png",
+      "sourceSha256": "f34eab6a6c596fa473e13e3217a60fa6070af399025e9be2f478e6e62610c61f",
+      "runtimeSha256": "f34eab6a6c596fa473e13e3217a60fa6070af399025e9be2f478e6e62610c61f",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/circ-2.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/circ-2.png",
+      "sourceSha256": "db6b18e1cebd191b329bc4844f3c58551879505c88015975028bbe3187887a8f",
+      "runtimeSha256": "db6b18e1cebd191b329bc4844f3c58551879505c88015975028bbe3187887a8f",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/meta.json",
+      "sourceSha256": "976771f48af5f5ef24642680eb7689148ef78455ed1e4d1068f88efadba07264",
+      "runtimeSha256": "976771f48af5f5ef24642680eb7689148ef78455ed1e4d1068f88efadba07264",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/static.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/static.png",
+      "sourceSha256": "0477858f7828c012ae32d0c804bab67dfecccabba760a05564c34f20d49413c3",
+      "runtimeSha256": "0477858f7828c012ae32d0c804bab67dfecccabba760a05564c34f20d49413c3",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-oc00.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-oc00.png",
+      "sourceSha256": "09ba79fa9427dc24f33d47701e1b395a6f199edf61d197013ff7f4ba2a9c5623",
+      "runtimeSha256": "09ba79fa9427dc24f33d47701e1b395a6f199edf61d197013ff7f4ba2a9c5623",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-oc01.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-oc01.png",
+      "sourceSha256": "9ec529112a4a3a78c06bcca9e48d8b49102626a0f40a544eeb3934eebcf8b6f2",
+      "runtimeSha256": "9ec529112a4a3a78c06bcca9e48d8b49102626a0f40a544eeb3934eebcf8b6f2",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-oc10.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-oc10.png",
+      "sourceSha256": "c12a6e8f595854f644e94549743ee1d7f61c2e925d68abe1fb5bd2e914225d49",
+      "runtimeSha256": "c12a6e8f595854f644e94549743ee1d7f61c2e925d68abe1fb5bd2e914225d49",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-oc11.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-oc11.png",
+      "sourceSha256": "c66bda99a5b90f171ce0fca57f492fb7f1e7b9822b2d12a4011d2bf8d805e27a",
+      "runtimeSha256": "c66bda99a5b90f171ce0fca57f492fb7f1e7b9822b2d12a4011d2bf8d805e27a",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op1.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op1.png",
+      "sourceSha256": "fd496758fb9818f28f093360b9f50bbd7217c7b516d3411eb3fe633944328e61",
+      "runtimeSha256": "fd496758fb9818f28f093360b9f50bbd7217c7b516d3411eb3fe633944328e61",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op10.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op10.png",
+      "sourceSha256": "56525d5d552ae1486f05652297d334b3c44bcf7393444178a2448d4475d1f82a",
+      "runtimeSha256": "56525d5d552ae1486f05652297d334b3c44bcf7393444178a2448d4475d1f82a",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op11.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op11.png",
+      "sourceSha256": "a577182cc547365750b90d27b29940f6196736f07c9d6a6a633fdf9e312e5b11",
+      "runtimeSha256": "a577182cc547365750b90d27b29940f6196736f07c9d6a6a633fdf9e312e5b11",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op2.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op2.png",
+      "sourceSha256": "d2a18fa1dd23aac2fe4854f378c73dc20a80f66539471290ec7540888457d1e8",
+      "runtimeSha256": "d2a18fa1dd23aac2fe4854f378c73dc20a80f66539471290ec7540888457d1e8",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op3.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op3.png",
+      "sourceSha256": "c4ec01dcd872feb3219992b060c279aba262ab72469fe5fcc88e887221d35532",
+      "runtimeSha256": "c4ec01dcd872feb3219992b060c279aba262ab72469fe5fcc88e887221d35532",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op4.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op4.png",
+      "sourceSha256": "c999d713364ebc78124ed179e2644a65ede45763be773eec167bfda4733a1b14",
+      "runtimeSha256": "c999d713364ebc78124ed179e2644a65ede45763be773eec167bfda4733a1b14",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op5.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op5.png",
+      "sourceSha256": "78ac91282d724754ba25086883e75039e60e4baf2928ba9d69244bd45a58334d",
+      "runtimeSha256": "78ac91282d724754ba25086883e75039e60e4baf2928ba9d69244bd45a58334d",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op6.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op6.png",
+      "sourceSha256": "d8b4243623789fbee353a333150083bae2a858a2c1b76c1258197e3cb9174134",
+      "runtimeSha256": "d8b4243623789fbee353a333150083bae2a858a2c1b76c1258197e3cb9174134",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op7.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op7.png",
+      "sourceSha256": "2d9dc2c59fee64d262a8a2e5ee665d3e66010e2e916d93c768e260d44eda46ef",
+      "runtimeSha256": "2d9dc2c59fee64d262a8a2e5ee665d3e66010e2e916d93c768e260d44eda46ef",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op8.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op8.png",
+      "sourceSha256": "f7178e3635c77d7d235dcb2e4df8fc8109b7d7af5d8281c23f0dac397c871a2b",
+      "runtimeSha256": "f7178e3635c77d7d235dcb2e4df8fc8109b7d7af5d8281c23f0dac397c871a2b",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg-op9.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg-op9.png",
+      "sourceSha256": "3dd825a76936e4a1ff287d6b6485cb26d38a4159c02c2ba38569b717e0a43c29",
+      "runtimeSha256": "3dd825a76936e4a1ff287d6b6485cb26d38a4159c02c2ba38569b717e0a43c29",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg.png",
+      "sourceSha256": "e7da43d4da09e1dfad3c505da444c7a78381c4ba47f299846f8d3fffd92f07b5",
+      "runtimeSha256": "e7da43d4da09e1dfad3c505da444c7a78381c4ba47f299846f8d3fffd92f07b5",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Power/Generation/teg.rsi/teg_mid.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/power/generation/teg.rsi/teg_mid.png",
+      "sourceSha256": "7a4420b08d32e378840242e41800fa12b1b041c0ab303762a0053daf6dfac489",
+      "runtimeSha256": "7a4420b08d32e378840242e41800fa12b1b041c0ab303762a0053daf6dfac489",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/meta.json",
+      "sourceSha256": "3aec4a5b8299ec03fc5a703aff55f15aaff9d38fdab6ddd06a33f1097bb8be9b",
+      "runtimeSha256": "3aec4a5b8299ec03fc5a703aff55f15aaff9d38fdab6ddd06a33f1097bb8be9b",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpDigitalValve.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpDigitalValve.png",
+      "sourceSha256": "26d46f4c43de4abf25fa4d6949415b9fafdc01e059661f39406dff4e012df49c",
+      "runtimeSha256": "26d46f4c43de4abf25fa4d6949415b9fafdc01e059661f39406dff4e012df49c",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpManualValve.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpManualValve.png",
+      "sourceSha256": "8da85f4d2b8a4c42feeda0f30834d28cf7fdbb79b14bef6f4102c5a0840f8462",
+      "runtimeSha256": "8da85f4d2b8a4c42feeda0f30834d28cf7fdbb79b14bef6f4102c5a0840f8462",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpManualValveOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpManualValveOn.png",
+      "sourceSha256": "f00d1474d6e6439d6da61f685e45106ea3b75e4d5533ac39be1e8da27e7710ca",
+      "runtimeSha256": "f00d1474d6e6439d6da61f685e45106ea3b75e4d5533ac39be1e8da27e7710ca",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpPassiveGate.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPassiveGate.png",
+      "sourceSha256": "c2a42283c9e1ff76c28f5c0740873f0cd97f58608c8390f497c42147057156f2",
+      "runtimeSha256": "c2a42283c9e1ff76c28f5c0740873f0cd97f58608c8390f497c42147057156f2",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpPassiveGateOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPassiveGateOn.png",
+      "sourceSha256": "550f470581dc844bc657d397e25a7fcf84ae7ec1d0f34f6ac0c834835164005b",
+      "runtimeSha256": "550f470581dc844bc657d397e25a7fcf84ae7ec1d0f34f6ac0c834835164005b",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpPressure.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressure.png",
+      "sourceSha256": "5264479bfb8928c3995172987c566581835559a7354bd4ace1b394a31840a985",
+      "runtimeSha256": "5264479bfb8928c3995172987c566581835559a7354bd4ace1b394a31840a985",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpPressureOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressureOn.png",
+      "sourceSha256": "81d84913d67851cc33a8119b063b3f4a653705013464a41ddbc6ad0dac643f3c",
+      "runtimeSha256": "81d84913d67851cc33a8119b063b3f4a653705013464a41ddbc6ad0dac643f3c",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpPressureRegulator.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressureRegulator.png",
+      "sourceSha256": "323f94026f3c07a267d6824b03860dda17376ddcb0bda5075b2bd2dc8cdb7279",
+      "runtimeSha256": "323f94026f3c07a267d6824b03860dda17376ddcb0bda5075b2bd2dc8cdb7279",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpPressureRegulatorOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpPressureRegulatorOn.png",
+      "sourceSha256": "cd9b638c2892777b3e8cf09ffc582569950fb322b39f52e6f39c522f2073152d",
+      "runtimeSha256": "cd9b638c2892777b3e8cf09ffc582569950fb322b39f52e6f39c522f2073152d",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpSignalValve.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpSignalValve.png",
+      "sourceSha256": "01a178f7a2ca5edd95b6529d8a474c0cc6b4a46ada534aca6ef361b7abc57da4",
+      "runtimeSha256": "01a178f7a2ca5edd95b6529d8a474c0cc6b4a46ada534aca6ef361b7abc57da4",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpSignalValveOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpSignalValveOn.png",
+      "sourceSha256": "2f9f609b6f3df49eed083c41e0e5ee4b0cdac1ec1afc03c75e8d687c823c9f3e",
+      "runtimeSha256": "2f9f609b6f3df49eed083c41e0e5ee4b0cdac1ec1afc03c75e8d687c823c9f3e",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpVolume.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolume.png",
+      "sourceSha256": "c2e37506b20688f6bc1f5b7153f0c2ed385ad9e6db6d0decec352bf4a614f3d9",
+      "runtimeSha256": "c2e37506b20688f6bc1f5b7153f0c2ed385ad9e6db6d0decec352bf4a614f3d9",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpVolumeBlocked.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "833f8c2b6a97d238fcdd3e67836a4069c51a0ca3c8ebd26aa2ad6b4bd42b15e9",
+      "runtimeSha256": "833f8c2b6a97d238fcdd3e67836a4069c51a0ca3c8ebd26aa2ad6b4bd42b15e9",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump.rsi/pumpVolumeOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump.rsi/pumpVolumeOn.png",
+      "sourceSha256": "96a7deee9f8519814379466b6aaa16ba9d4643595558852b07412263d945f2f2",
+      "runtimeSha256": "96a7deee9f8519814379466b6aaa16ba9d4643595558852b07412263d945f2f2",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/meta.json",
+      "sourceSha256": "013628bb8153d09ce87950d0ff1231ba0f21314722bcbff839e44b1ca0517aff",
+      "runtimeSha256": "013628bb8153d09ce87950d0ff1231ba0f21314722bcbff839e44b1ca0517aff",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpDigitalValve.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpDigitalValve.png",
+      "sourceSha256": "42fb9cfc584ba7db444cf71c24aa63d4fd23408f69ee9e1011358a727582bda3",
+      "runtimeSha256": "42fb9cfc584ba7db444cf71c24aa63d4fd23408f69ee9e1011358a727582bda3",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpManualValve.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpManualValve.png",
+      "sourceSha256": "44c34c6dc8d782a4e59106507b6757ab31261bb0d1ece8fffeea3719380490f9",
+      "runtimeSha256": "44c34c6dc8d782a4e59106507b6757ab31261bb0d1ece8fffeea3719380490f9",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpManualValveOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpManualValveOn.png",
+      "sourceSha256": "21427b65d38a8e4a84168b09c76bae5655560b261cfd1b22155b74fe010c08aa",
+      "runtimeSha256": "21427b65d38a8e4a84168b09c76bae5655560b261cfd1b22155b74fe010c08aa",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpPassiveGate.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPassiveGate.png",
+      "sourceSha256": "4490a18de8d45babd72fb9107fcf017a8e56ac220d00a27cb16e1c2c22646f72",
+      "runtimeSha256": "4490a18de8d45babd72fb9107fcf017a8e56ac220d00a27cb16e1c2c22646f72",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpPassiveGateOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPassiveGateOn.png",
+      "sourceSha256": "458b04de84a6f46fe739af4e9b453df3dec8d90f3ea6c0b9a7ee0169047b8cab",
+      "runtimeSha256": "458b04de84a6f46fe739af4e9b453df3dec8d90f3ea6c0b9a7ee0169047b8cab",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpPressure.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressure.png",
+      "sourceSha256": "71328f7398f4f813158babce78150445fddb69df2ba867f0762cb7d942e21a16",
+      "runtimeSha256": "71328f7398f4f813158babce78150445fddb69df2ba867f0762cb7d942e21a16",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpPressureOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressureOn.png",
+      "sourceSha256": "1b53676399207eb6391bfb0e33f0790adc5313fa8c2978936fe11e9730c1a1d6",
+      "runtimeSha256": "1b53676399207eb6391bfb0e33f0790adc5313fa8c2978936fe11e9730c1a1d6",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpPressureRegulator.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressureRegulator.png",
+      "sourceSha256": "5d278d25b774fe3cf76055c26924735f396b309f02faa397aaea63dab82c8e3d",
+      "runtimeSha256": "5d278d25b774fe3cf76055c26924735f396b309f02faa397aaea63dab82c8e3d",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpPressureRegulatorOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpPressureRegulatorOn.png",
+      "sourceSha256": "65f3ad8e60f7db9629ef24feec610d2ef90f244ee55254aaf908c3c373407cca",
+      "runtimeSha256": "65f3ad8e60f7db9629ef24feec610d2ef90f244ee55254aaf908c3c373407cca",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpSignalValve.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpSignalValve.png",
+      "sourceSha256": "5767d5054a045a3b4877cf111749bc191e4e3e40b2fa30fdc065ebe4fcfc3362",
+      "runtimeSha256": "5767d5054a045a3b4877cf111749bc191e4e3e40b2fa30fdc065ebe4fcfc3362",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpSignalValveOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpSignalValveOn.png",
+      "sourceSha256": "f3e414641fe4b2c717bde2623def40352c55e0d88f93587f9f903202efe7c559",
+      "runtimeSha256": "f3e414641fe4b2c717bde2623def40352c55e0d88f93587f9f903202efe7c559",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpVolume.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolume.png",
+      "sourceSha256": "008daab764585a611b360cfe5f06306239838162fe9fa06830b6014bae232f34",
+      "runtimeSha256": "008daab764585a611b360cfe5f06306239838162fe9fa06830b6014bae232f34",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpVolumeBlocked.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "2e332597cc1ed8def77fa48168b6b522c980acbfac90c27b7a592c86e83c9ae6",
+      "runtimeSha256": "2e332597cc1ed8def77fa48168b6b522c980acbfac90c27b7a592c86e83c9ae6",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt1.rsi/pumpVolumeOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt1.rsi/pumpVolumeOn.png",
+      "sourceSha256": "6bad6b9cb12bf1702612cd736c7be132e965df5f92adbfbdbcf4fc714fc2bf60",
+      "runtimeSha256": "6bad6b9cb12bf1702612cd736c7be132e965df5f92adbfbdbcf4fc714fc2bf60",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/meta.json",
+      "sourceSha256": "013628bb8153d09ce87950d0ff1231ba0f21314722bcbff839e44b1ca0517aff",
+      "runtimeSha256": "013628bb8153d09ce87950d0ff1231ba0f21314722bcbff839e44b1ca0517aff",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpDigitalValve.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpDigitalValve.png",
+      "sourceSha256": "fac1e89b1480ee0ca8d0944c0a92c2b0d2597361ca32a354ead9c57a6a7cda18",
+      "runtimeSha256": "fac1e89b1480ee0ca8d0944c0a92c2b0d2597361ca32a354ead9c57a6a7cda18",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpManualValve.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpManualValve.png",
+      "sourceSha256": "dcbe57605329917f926f85c617e5a33746c2ce0143ffaa5c7430b7612f879f6a",
+      "runtimeSha256": "dcbe57605329917f926f85c617e5a33746c2ce0143ffaa5c7430b7612f879f6a",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpManualValveOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpManualValveOn.png",
+      "sourceSha256": "67cf247bcdd11d66ecc3bb96fe0f090569677b79fb9cbab0331f5d7c4d3c21eb",
+      "runtimeSha256": "67cf247bcdd11d66ecc3bb96fe0f090569677b79fb9cbab0331f5d7c4d3c21eb",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpPassiveGate.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPassiveGate.png",
+      "sourceSha256": "bc8bc341d34065d92b46b3aa3ab7fdd1f1c198d0c4a903b17eaf4f46360b76bb",
+      "runtimeSha256": "bc8bc341d34065d92b46b3aa3ab7fdd1f1c198d0c4a903b17eaf4f46360b76bb",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpPassiveGateOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPassiveGateOn.png",
+      "sourceSha256": "cd48c9627fe5e28428b60ed471d596cb14be9bdaa2794436e0942d3ef4355d64",
+      "runtimeSha256": "cd48c9627fe5e28428b60ed471d596cb14be9bdaa2794436e0942d3ef4355d64",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpPressure.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressure.png",
+      "sourceSha256": "8cd1d7f0f22a7c397abfe6e56d9e2f4a09abe30d29267203323f76e76e9d622b",
+      "runtimeSha256": "8cd1d7f0f22a7c397abfe6e56d9e2f4a09abe30d29267203323f76e76e9d622b",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpPressureOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressureOn.png",
+      "sourceSha256": "40d315d4d9521c53c626bf8d67ea655412389abd8f6692768d60a908fb455e64",
+      "runtimeSha256": "40d315d4d9521c53c626bf8d67ea655412389abd8f6692768d60a908fb455e64",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpPressureRegulator.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressureRegulator.png",
+      "sourceSha256": "7f443ce5175a0e1bfdd8107c4b51cd7afc450e6e3eba66a5a545ee8cc6ccd2e4",
+      "runtimeSha256": "7f443ce5175a0e1bfdd8107c4b51cd7afc450e6e3eba66a5a545ee8cc6ccd2e4",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpPressureRegulatorOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpPressureRegulatorOn.png",
+      "sourceSha256": "4baebf8a8e91aa302a5ef9f0b6b9b51218e58d5b5071c6605902675a80ac0461",
+      "runtimeSha256": "4baebf8a8e91aa302a5ef9f0b6b9b51218e58d5b5071c6605902675a80ac0461",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpSignalValve.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpSignalValve.png",
+      "sourceSha256": "44848ccd3c15736faad71ca731476b718f71daf8d78b04880d0fed4e5670f3ab",
+      "runtimeSha256": "44848ccd3c15736faad71ca731476b718f71daf8d78b04880d0fed4e5670f3ab",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpSignalValveOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpSignalValveOn.png",
+      "sourceSha256": "877b0e3d2dabf4c0ebf48c4e2555cbc55e301ca45290dcb28ed66cfa110fdb69",
+      "runtimeSha256": "877b0e3d2dabf4c0ebf48c4e2555cbc55e301ca45290dcb28ed66cfa110fdb69",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpVolume.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolume.png",
+      "sourceSha256": "9a022477c34c7648e1506735d808c719f8213a0a44fdbbe97b84e068b4f6773b",
+      "runtimeSha256": "9a022477c34c7648e1506735d808c719f8213a0a44fdbbe97b84e068b4f6773b",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpVolumeBlocked.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolumeBlocked.png",
+      "sourceSha256": "98bfa34d5742d0ec2bf3a65fcff1a215eb5b34ff8830b1470e394755e2e67d60",
+      "runtimeSha256": "98bfa34d5742d0ec2bf3a65fcff1a215eb5b34ff8830b1470e394755e2e67d60",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pump_alt2.rsi/pumpVolumeOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pump_alt2.rsi/pumpVolumeOn.png",
+      "sourceSha256": "e26f22a55eee0a2863a4496473c2afe4f25edfa147ac32d6f483ce6b62c2a2ac",
+      "runtimeSha256": "e26f22a55eee0a2863a4496473c2afe4f25edfa147ac32d6f483ce6b62c2a2ac",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/Bend-inhand-left.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/Bend-inhand-left.png",
+      "sourceSha256": "e641cb58ee4b05c7ded9229e5231778c14630f6fca12a9f85bfea6b8ace4905e",
+      "runtimeSha256": "e641cb58ee4b05c7ded9229e5231778c14630f6fca12a9f85bfea6b8ace4905e",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/Bend-inhand-right.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/Bend-inhand-right.png",
+      "sourceSha256": "4121d01cd104fbf701ba30a44f27f432da7d397f7d3feffa6a3d92e67a7e58c5",
+      "runtimeSha256": "4121d01cd104fbf701ba30a44f27f432da7d397f7d3feffa6a3d92e67a7e58c5",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/Fourway-inhand-left.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/Fourway-inhand-left.png",
+      "sourceSha256": "0906996dab87c8ba2fb47892957286a0945bea75eb3ef83f16855ee41eadc474",
+      "runtimeSha256": "0906996dab87c8ba2fb47892957286a0945bea75eb3ef83f16855ee41eadc474",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/Fourway-inhand-right.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/Fourway-inhand-right.png",
+      "sourceSha256": "ec271bfed0b14284e98a3321b4e3ac38d1770361a3541a38b9b85cdc56a94ed1",
+      "runtimeSha256": "ec271bfed0b14284e98a3321b4e3ac38d1770361a3541a38b9b85cdc56a94ed1",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/inhand-left.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/inhand-left.png",
+      "sourceSha256": "ff7e0a4fc1e6c4357492759d02ef76428e293f7327c2483d561d10d9ffd9c48c",
+      "runtimeSha256": "ff7e0a4fc1e6c4357492759d02ef76428e293f7327c2483d561d10d9ffd9c48c",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/inhand-right.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/inhand-right.png",
+      "sourceSha256": "3e55b740b745ea01889e6236b0285b4d4bfb2876250dfb20da0b3e2790f32b2b",
+      "runtimeSha256": "3e55b740b745ea01889e6236b0285b4d4bfb2876250dfb20da0b3e2790f32b2b",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/meta.json",
+      "sourceSha256": "44febdd1207ed7ba7d1c96b179c60d7a4d82d0ea4f6128fbe2eaf1d75b250c38",
+      "runtimeSha256": "44febdd1207ed7ba7d1c96b179c60d7a4d82d0ea4f6128fbe2eaf1d75b250c38",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/pipeBend.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeBend.png",
+      "sourceSha256": "44ae0f4dec151cb1b62935fa3b2a009bfa8d24c2f30dd9ea0fa8e5f83a115283",
+      "runtimeSha256": "44ae0f4dec151cb1b62935fa3b2a009bfa8d24c2f30dd9ea0fa8e5f83a115283",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/pipeBinaryConnectors.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeBinaryConnectors.png",
+      "sourceSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "runtimeSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/pipeBroken.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeBroken.png",
+      "sourceSha256": "fa510c59749b6ec41286d8d237eeb9f7fd508dd1eff9c2a83ad013d8d39d8f07",
+      "runtimeSha256": "fa510c59749b6ec41286d8d237eeb9f7fd508dd1eff9c2a83ad013d8d39d8f07",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/pipeConnector.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeConnector.png",
+      "sourceSha256": "ab6f4657ccd7dcf9b5c310987e856dd385e05de3aa3cfe7cc112f40eae52eb70",
+      "runtimeSha256": "ab6f4657ccd7dcf9b5c310987e856dd385e05de3aa3cfe7cc112f40eae52eb70",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/pipeFourway.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeFourway.png",
+      "sourceSha256": "663931e8d28583454ad4bfeef3d731f6e79eab7372ea501d8e0b469e06e5e46d",
+      "runtimeSha256": "663931e8d28583454ad4bfeef3d731f6e79eab7372ea501d8e0b469e06e5e46d",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/pipeHalf.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeHalf.png",
+      "sourceSha256": "9bdfa044fae38b49252ef7cc3e4e4c09e62053989311056dd06e7425a149f735",
+      "runtimeSha256": "9bdfa044fae38b49252ef7cc3e4e4c09e62053989311056dd06e7425a149f735",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/pipeStraight.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeStraight.png",
+      "sourceSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "runtimeSha256": "dc00ddadfcf5b781524ec3595098776d20aa9017345d02b1421641e95409f5d3",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/pipeTJunction.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeTJunction.png",
+      "sourceSha256": "1663de6893d45efb2be0c16600c3f2af2af292b20aee78537adbc6155467241f",
+      "runtimeSha256": "1663de6893d45efb2be0c16600c3f2af2af292b20aee78537adbc6155467241f",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/pipeTrinaryConnectors.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeTrinaryConnectors.png",
+      "sourceSha256": "e082970e678f661bbb3a05b9c53795456ed20a39f510401222c89cfc6907b5c1",
+      "runtimeSha256": "e082970e678f661bbb3a05b9c53795456ed20a39f510401222c89cfc6907b5c1",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/pipeUnaryConnectors.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/pipeUnaryConnectors.png",
+      "sourceSha256": "9bdfa044fae38b49252ef7cc3e4e4c09e62053989311056dd06e7425a149f735",
+      "runtimeSha256": "9bdfa044fae38b49252ef7cc3e4e4c09e62053989311056dd06e7425a149f735",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/storageBend.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/storageBend.png",
+      "sourceSha256": "1d93c3b9ff950e53488444743f5257503d326f331e7f106ceb7246b79a34b880",
+      "runtimeSha256": "1d93c3b9ff950e53488444743f5257503d326f331e7f106ceb7246b79a34b880",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/storageFourway.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/storageFourway.png",
+      "sourceSha256": "4045a37752bf4758a33983a9faafdc51c495899c05527e0df2a784a85198978f",
+      "runtimeSha256": "4045a37752bf4758a33983a9faafdc51c495899c05527e0df2a784a85198978f",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/storageHalf.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/storageHalf.png",
+      "sourceSha256": "4b1b42e2cfcaf7c36faa40e35d7ba4e807da3d8be6d41f7a9ead50f38ddcb835",
+      "runtimeSha256": "4b1b42e2cfcaf7c36faa40e35d7ba4e807da3d8be6d41f7a9ead50f38ddcb835",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/storageStraight.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/storageStraight.png",
+      "sourceSha256": "0048d10a12759db65ab0ba5e4afa3e7c00eef4934ab0e29ea0d3f7b4212c5a83",
+      "runtimeSha256": "0048d10a12759db65ab0ba5e4afa3e7c00eef4934ab0e29ea0d3f7b4212c5a83",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/storageTJunction.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/storageTJunction.png",
+      "sourceSha256": "78d33bbc56996c2c8fbee981ed3f1450f5a2b0c00e0d2e6fb446086fdce0e820",
+      "runtimeSha256": "78d33bbc56996c2c8fbee981ed3f1450f5a2b0c00e0d2e6fb446086fdce0e820",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/TJunction-inhand-left.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/TJunction-inhand-left.png",
+      "sourceSha256": "7cfbc3c4cbc7296af9f6932bd6ae988b87e4fff6653b64b8bb740f6381b4a495",
+      "runtimeSha256": "7cfbc3c4cbc7296af9f6932bd6ae988b87e4fff6653b64b8bb740f6381b4a495",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pipe.rsi/TJunction-inhand-right.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pipe.rsi/TJunction-inhand-right.png",
+      "sourceSha256": "0d93eaba24fc22044bd44b6e8f8de2b5e88e9f4bfa4a0feb1f6f59ae5c7515a0",
+      "runtimeSha256": "0d93eaba24fc22044bd44b6e8f8de2b5e88e9f4bfa4a0feb1f6f59ae5c7515a0",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/gasfilter.rsi/gasFilter.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilter.png",
+      "sourceSha256": "960f77034c305b327f69445e9c70b96bcc7d8c3006806f42aef32af6727aacf1",
+      "runtimeSha256": "960f77034c305b327f69445e9c70b96bcc7d8c3006806f42aef32af6727aacf1",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/gasfilter.rsi/gasFilterF.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilterF.png",
+      "sourceSha256": "c23918f23d0ab14b48b90431708718e5926929f49c308e2ac36e534d3488ac96",
+      "runtimeSha256": "c23918f23d0ab14b48b90431708718e5926929f49c308e2ac36e534d3488ac96",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/gasfilter.rsi/gasFilterFOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilterFOn.png",
+      "sourceSha256": "f1d22f24e2f66510b216cbc8ef9902327d7991f5048d01b8733a1dace09df38a",
+      "runtimeSha256": "f1d22f24e2f66510b216cbc8ef9902327d7991f5048d01b8733a1dace09df38a",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/gasfilter.rsi/gasFilterOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/gasfilter.rsi/gasFilterOn.png",
+      "sourceSha256": "80b6852e3754287f8419131af509f3ba6f911963a558c0806e23dd1f49044f74",
+      "runtimeSha256": "80b6852e3754287f8419131af509f3ba6f911963a558c0806e23dd1f49044f74",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/gasfilter.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/gasfilter.rsi/meta.json",
+      "sourceSha256": "75453cb30fc54726b2e843aaa613df3a0dd611102d98eab2f92d114305d1c3d7",
+      "runtimeSha256": "75453cb30fc54726b2e843aaa613df3a0dd611102d98eab2f92d114305d1c3d7",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/gasmixer.rsi/gasMixer.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixer.png",
+      "sourceSha256": "1452aefb8b7953d49a69d0fab2d70c3aeaa51123d504554d63e737d39e77784d",
+      "runtimeSha256": "1452aefb8b7953d49a69d0fab2d70c3aeaa51123d504554d63e737d39e77784d",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/gasmixer.rsi/gasMixerF.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixerF.png",
+      "sourceSha256": "f89e5aee873c90929e64d60dd62f6c293c9673695ad23457b64f31034bfc90c3",
+      "runtimeSha256": "f89e5aee873c90929e64d60dd62f6c293c9673695ad23457b64f31034bfc90c3",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/gasmixer.rsi/gasMixerFOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixerFOn.png",
+      "sourceSha256": "9dd263d0c809f002ae239146a881a1e670183f4b89b63e205b94e19d97ce8787",
+      "runtimeSha256": "9dd263d0c809f002ae239146a881a1e670183f4b89b63e205b94e19d97ce8787",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/gasmixer.rsi/gasMixerOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/gasmixer.rsi/gasMixerOn.png",
+      "sourceSha256": "fe3d41d074ac9be562bec9dae795eda467ffd5e5d12378e00471aad5125eaf77",
+      "runtimeSha256": "fe3d41d074ac9be562bec9dae795eda467ffd5e5d12378e00471aad5125eaf77",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/gasmixer.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/gasmixer.rsi/meta.json",
+      "sourceSha256": "de5d1255ee47b5379470b7f11bd42eebd80652446c7a3330d4cc6a75a7ec3b4b",
+      "runtimeSha256": "de5d1255ee47b5379470b7f11bd42eebd80652446c7a3330d4cc6a75a7ec3b4b",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pneumaticvalve.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pneumaticvalve.rsi/meta.json",
+      "sourceSha256": "64ae4baaf0002d320ec15110e2b7847fe9250dbe2a27ba4bfc3a20eacb7a2c2c",
+      "runtimeSha256": "64ae4baaf0002d320ec15110e2b7847fe9250dbe2a27ba4bfc3a20eacb7a2c2c",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pneumaticvalve.rsi/off.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pneumaticvalve.rsi/off.png",
+      "sourceSha256": "e2e6640e87936486ebcfc3082756ba5fecdb8696e27008ee56a1d579a42412d0",
+      "runtimeSha256": "e2e6640e87936486ebcfc3082756ba5fecdb8696e27008ee56a1d579a42412d0",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/pneumaticvalve.rsi/on.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/pneumaticvalve.rsi/on.png",
+      "sourceSha256": "0a7f67f1dae4169c11dd41659a2853840ba0292248dcf6b19d147691b54936f1",
+      "runtimeSha256": "0a7f67f1dae4169c11dd41659a2853840ba0292248dcf6b19d147691b54936f1",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine.rsi/freezerOff.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine.rsi/freezerOff.png",
+      "sourceSha256": "667992a88ad3bf4e41335707e9740c0fe51c39c019c5216ac23404d1823548ea",
+      "runtimeSha256": "667992a88ad3bf4e41335707e9740c0fe51c39c019c5216ac23404d1823548ea",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine.rsi/freezerOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine.rsi/freezerOn.png",
+      "sourceSha256": "ed1994b55f85e03d32722fe410676cc00eb4646c5359e7d4ffb6a07beff1b24a",
+      "runtimeSha256": "ed1994b55f85e03d32722fe410676cc00eb4646c5359e7d4ffb6a07beff1b24a",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine.rsi/freezerPanelOpen.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine.rsi/freezerPanelOpen.png",
+      "sourceSha256": "139aac1ae59aecdee3b65f94ae4132bafae0e75a826deb9d271f641bc718a04f",
+      "runtimeSha256": "139aac1ae59aecdee3b65f94ae4132bafae0e75a826deb9d271f641bc718a04f",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine.rsi/heaterOff.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine.rsi/heaterOff.png",
+      "sourceSha256": "cb230593a1b5f1970a2c0ba7e08a815449efa5aa86afe6b91edc2b9c21c075fe",
+      "runtimeSha256": "cb230593a1b5f1970a2c0ba7e08a815449efa5aa86afe6b91edc2b9c21c075fe",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine.rsi/heaterOn.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine.rsi/heaterOn.png",
+      "sourceSha256": "da725920aaa40d65b1908ef01ebad369f432b43862baa1991b70911b12951759",
+      "runtimeSha256": "da725920aaa40d65b1908ef01ebad369f432b43862baa1991b70911b12951759",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine.rsi/heaterPanelOpen.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine.rsi/heaterPanelOpen.png",
+      "sourceSha256": "478f0c22adfa3e674a57ecda5f9de54186afd146aee9737529ba56925011b334",
+      "runtimeSha256": "478f0c22adfa3e674a57ecda5f9de54186afd146aee9737529ba56925011b334",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine.rsi/meta.json",
+      "sourceSha256": "d5b7f34ab5a7d34ac52ec7b860c7fa82807c1f241feaec5e8379ac53235e71bd",
+      "runtimeSha256": "d5b7f34ab5a7d34ac52ec7b860c7fa82807c1f241feaec5e8379ac53235e71bd",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine.rsi/pipe.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine.rsi/pipe.png",
+      "sourceSha256": "89b7c1bfd62ee971f196cd697519ab55c58e0db08a4c3abf1239eb28b7ec2849",
+      "runtimeSha256": "89b7c1bfd62ee971f196cd697519ab55c58e0db08a4c3abf1239eb28b7ec2849",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine_alt1.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine_alt1.rsi/meta.json",
+      "sourceSha256": "7abe442fbd9b41d2c9ec18f1b011b5578d280458b9a59b13e39599dd1ecf91d0",
+      "runtimeSha256": "7abe442fbd9b41d2c9ec18f1b011b5578d280458b9a59b13e39599dd1ecf91d0",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine_alt1.rsi/pipe.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine_alt1.rsi/pipe.png",
+      "sourceSha256": "1d364b740c9686c5d37e7cb9acec4d0b6a0d3ba5f0a1ad51e74bd1bf438e515e",
+      "runtimeSha256": "1d364b740c9686c5d37e7cb9acec4d0b6a0d3ba5f0a1ad51e74bd1bf438e515e",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine_alt2.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine_alt2.rsi/meta.json",
+      "sourceSha256": "7abe442fbd9b41d2c9ec18f1b011b5578d280458b9a59b13e39599dd1ecf91d0",
+      "runtimeSha256": "7abe442fbd9b41d2c9ec18f1b011b5578d280458b9a59b13e39599dd1ecf91d0",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/thermomachine_alt2.rsi/pipe.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/thermomachine_alt2.rsi/pipe.png",
+      "sourceSha256": "55ffa32f9b8961f9b98caf40eab181fafa6782875f2ad5ebba32c8679484aa87",
+      "runtimeSha256": "55ffa32f9b8961f9b98caf40eab181fafa6782875f2ad5ebba32c8679484aa87",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/heatexchanger.rsi/heBend.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/heatexchanger.rsi/heBend.png",
+      "sourceSha256": "17f5c4c00aedd97b25de85672dfe2897eae6ffcb5cf5562ecb01c1bb70d25a2b",
+      "runtimeSha256": "17f5c4c00aedd97b25de85672dfe2897eae6ffcb5cf5562ecb01c1bb70d25a2b",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/heatexchanger.rsi/heStraight.png",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/heatexchanger.rsi/heStraight.png",
+      "sourceSha256": "d74b19b0be0e235d24cb648a02550b2ce37e671bb976330a53d48b91d61ca417",
+      "runtimeSha256": "d74b19b0be0e235d24cb648a02550b2ce37e671bb976330a53d48b91d61ca417",
+      "identical": true
+    },
+    {
+      "source": "Resources/Textures/Structures/Piping/Atmospherics/heatexchanger.rsi/meta.json",
+      "runtime": "src/main/resources/assets/moonstation14/textures/ss14/structures/piping/atmospherics/heatexchanger.rsi/meta.json",
+      "sourceSha256": "f0fc3b37ed1700a9dfac7e5184122fd5388bc4d056e94777a36df5a3d252b036",
+      "runtimeSha256": "f0fc3b37ed1700a9dfac7e5184122fd5388bc4d056e94777a36df5a3d252b036",
+      "identical": true
+    },
+    {
+      "source": "Resources/Audio/Ambience/Objects/gas_pump.ogg",
+      "runtime": "src/main/resources/assets/moonstation14/sounds/ss14/atmospherics/gas_pump.ogg",
+      "sourceSha256": "dbbc35a182029bef350e876c3533d41914362974860f3250dbef718bbc3b0750",
+      "runtimeSha256": "dbbc35a182029bef350e876c3533d41914362974860f3250dbef718bbc3b0750",
+      "identical": true,
+      "license": "CC0-1.0",
+      "copyright": "Taken from source",
+      "attributionSource": "https://freesound.org/people/karinalarasart/sounds/441419/"
+    },
+    {
+      "source": "Resources/Audio/Ambience/Objects/gas_hiss.ogg",
+      "runtime": "src/main/resources/assets/moonstation14/sounds/ss14/atmospherics/gas_hiss.ogg",
+      "sourceSha256": "5b6290940f9966230f28cfd98f8fe447975baa9f490e8f4d44f495a8e8b47c24",
+      "runtimeSha256": "5b6290940f9966230f28cfd98f8fe447975baa9f490e8f4d44f495a8e8b47c24",
+      "identical": true,
+      "license": "CC-BY-4.0",
+      "copyright": "Taken from source",
+      "attributionSource": "https://freesound.org/people/geodylabs/sounds/122803/"
+    },
+    {
+      "source": "Resources/Audio/Ambience/Objects/vending_machine_hum.ogg",
+      "runtime": "src/main/resources/assets/moonstation14/sounds/ss14/atmospherics/vending_machine_hum.ogg",
+      "sourceSha256": "1f13c219aef1f1aaa6ff3edb03d30222e8555f92cd19cf467a1849602edc3c00",
+      "runtimeSha256": "1f13c219aef1f1aaa6ff3edb03d30222e8555f92cd19cf467a1849602edc3c00",
+      "identical": true,
+      "attributionStatus": "unknown; no per-file attribution found in pinned upstream Objects/attributions.yml"
+    }
+  ]
+}

@@ -675,6 +675,9 @@
       "moonstation14:ss14/atmos/squeak3"
     ]
   },
+  "ss14/atmospherics/gas_pump": {"sounds":["moonstation14:ss14/atmospherics/gas_pump"]},
+  "ss14/atmospherics/gas_hiss": {"sounds":["moonstation14:ss14/atmospherics/gas_hiss"]},
+  "ss14/atmospherics/vending_machine_hum": {"sounds":["moonstation14:ss14/atmospherics/vending_machine_hum"]},
   "tesla/ambient": {
     "sounds": [
       {
@@ -693,6 +696,7 @@
       "moonstation14:tesla/tesla_consume"
     ]
   },
+  "ss14/atmospherics/gas_vent": { "sounds": ["moonstation14:ss14/atmospherics/gas_vent"] },
   "tesla/lightning_shock": {
     "sounds": [
       "moonstation14:lightning/lightningshock"

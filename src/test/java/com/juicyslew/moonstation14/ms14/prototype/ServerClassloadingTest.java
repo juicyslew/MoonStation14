@@ -79,7 +79,6 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/hands/client/SelectedLooseOutlineRenderer.java",
             "com/juicyslew/moonstation14/ms14/hands/client/ItemUiRenderer.java",
             "com/juicyslew/moonstation14/ms14/hands/client/ItemUiAppearance.java",
-            "com/juicyslew/moonstation14/ms14/atmos/piping/alarm/ui/client/AirAlarmScreen.java",
             "com/juicyslew/moonstation14/ms14/disposal/client/DisposalTubeVisualRenderer.java",
              "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalConstructionPreview.java",
              "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalConstructionClient.java",
@@ -139,6 +138,11 @@ class ServerClassloadingTest {
             for (Path source : files.filter(path -> path.toString().endsWith(".java")).toList()) {
                 String relativePath = sourceRoot.relativize(source).toString().replace('\\', '/');
                 if (CLIENT_ONLY_SOURCES.contains(relativePath) || relativePath.startsWith(CLIENT_UI_SOURCE_PREFIX)
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/atmos/machine/ui/client/")
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/atmos/machine/client/")
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/atmos/analyzer/client/")
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/atmos/piping/alarm/ui/client/")
+                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/atmos/teg/client/")
                         || relativePath.startsWith(CLIENT_LOOSE_OBJECT_SOURCE_PREFIX)
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/medical_observer/client/")
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/examine/client/")

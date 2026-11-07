@@ -42,6 +42,8 @@ public class VisualPipeBlockEntity extends BlockEntity {
     @Override public void onLoad() {
         super.onLoad();
         refreshConcealedJoins();
+        if (level instanceof net.minecraft.server.level.ServerLevel server)
+            LoadedPipeNetworks.invalidateTopology(server, worldPosition);
     }
 
     public static void refreshLoadedAdjacent(net.minecraft.server.level.ServerLevel level, BlockPos pos) {
@@ -106,7 +108,32 @@ public class VisualPipeBlockEntity extends BlockEntity {
                 && level.getBlockEntity(neighbor) instanceof VisualPipeBlockEntity other && other.hasLayer(layer);
         if (visual) return true;
         if ((concealedJoinMask & concealedBit(layer, direction)) == 0 || !level.hasChunkAt(neighbor)) return false;
-        return level.getBlockState(neighbor).is(com.juicyslew.moonstation14.block.ModBlocks.STEEL_WALL_BLOCK.get());
+        if (level.getBlockState(neighbor).is(com.juicyslew.moonstation14.block.ModBlocks.STEEL_WALL_BLOCK.get())) return true;
+        return machinePortJoin(level, neighbor, layer, direction.getOpposite());
+    }
+
+    /** Shared endpoint result consumed by all primary block-state and extra-lane render paths. */
+    public boolean hasVisualEndpointArm(int layer, Direction direction) {
+        if (!validLayer(layer) || !hasLayer(layer) || level == null) return false;
+        BlockPos neighbor = worldPosition.relative(direction);
+        if (!level.hasChunkAt(neighbor)) return false;
+        if (level.getBlockState(neighbor).is(getBlockState().getBlock())
+                && level.getBlockEntity(neighbor) instanceof VisualPipeBlockEntity other && other.hasLayer(layer)) return true;
+        return (concealedJoinMask & concealedBit(layer, direction)) != 0;
+    }
+
+    static boolean matchesMachinePort(Iterable<PipeGasPortHost.Port> ports, int layer, Direction outward) {
+        PipeTopology.Layer expected = layer == PRIMARY ? PipeTopology.Layer.PRIMARY
+                : layer == SECONDARY ? PipeTopology.Layer.SECONDARY : PipeTopology.Layer.TERTIARY;
+        for (PipeGasPortHost.Port port : ports)
+            if (port.layer() == expected && port.directions().contains(outward)) return true;
+        return false;
+    }
+
+    private static boolean machinePortJoin(Level level, BlockPos pos, int layer, Direction outward) {
+        if (!(level.getBlockEntity(pos) instanceof PipeGasPortHost host)) return false;
+        try { return matchesMachinePort(host.gasPorts(), layer, outward); }
+        catch (RuntimeException unavailable) { return false; }
     }
 
     private static int concealedBit(int layer, Direction direction) {
@@ -126,14 +153,18 @@ public class VisualPipeBlockEntity extends BlockEntity {
                 BlockPos neighbor = worldPosition.relative(direction);
                 if (!server.hasChunkAt(neighbor)) continue;
                 var sealed = LoadedSealedWallSegment.matchingLive(server, neighbor, type).orElse(null);
-                if (sealed == null) continue;
-                if (LoadedSealedWallGasOwner.activeSnapshot(server, neighbor, type).isEmpty()) continue;
                 int outward = 1 << direction.getOpposite().ordinal();
-                if ((sealed.ports() & outward) != 0) next |= concealedBit(lane, direction);
+                if (sealed != null && LoadedSealedWallGasOwner.activeSnapshot(server, neighbor, type).isPresent()
+                        && (sealed.ports() & outward) != 0
+                        || machinePortJoin(server, neighbor, lane, direction.getOpposite()))
+                    next |= concealedBit(lane, direction);
             }
         }
         if (next != concealedJoinMask) {
+        if (concealedJoinMask != next) {
             concealedJoinMask = next;
+            LoadedPipeNetworks.invalidateTopology(server, worldPosition);
+        }
             setChanged();
             server.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
         }
@@ -145,8 +176,7 @@ public class VisualPipeBlockEntity extends BlockEntity {
                         && server.getBlockState(worldPosition.relative(direction)).is(state.getBlock())
                         && server.getBlockEntity(worldPosition.relative(direction)) instanceof VisualPipeBlockEntity other
                         && other.hasLayer(PRIMARY);
-                boolean connected = hasLayer(PRIMARY)
-                        && (sameBlock || (next & concealedBit(PRIMARY, direction)) != 0);
+                boolean connected = hasLayer(PRIMARY) && (sameBlock || (next & concealedBit(PRIMARY, direction)) != 0);
                 updated = updated.setValue(ExposedPipeVisualBlock.property(direction), connected);
             }
             if (!updated.equals(state)) server.setBlock(worldPosition, updated, 3);

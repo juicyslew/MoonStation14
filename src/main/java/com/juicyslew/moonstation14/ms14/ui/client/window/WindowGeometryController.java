@@ -52,7 +52,6 @@ public final class WindowGeometryController {
     }
 
     public void setBounds(int x, int y, int width, int height) {
-        cancelPointer();
         this.width = clamp(width, Math.min(minWidth, screenWidth), screenWidth);
         this.height = clamp(height, Math.min(minHeight, screenHeight), screenHeight);
         this.x = clamp(x, 0, screenWidth - this.width);

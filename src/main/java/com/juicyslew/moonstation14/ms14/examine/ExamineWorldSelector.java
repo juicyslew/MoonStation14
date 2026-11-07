@@ -21,6 +21,71 @@ public final class ExamineWorldSelector {
     }
     private ExamineWorldSelector() { }
 
+    public enum CellRayStatus { SELECTED, BLOCKED, UNLOADED }
+    public record CellRayResult(CellRayStatus status, BlockPos cell) { }
+
+    /** Loaded-only finite-cell selection using the same visual shape and transparency policy as examine. */
+    public static CellRayResult selectLoadedCell(Level level, Vec3 origin,
+                                                  Vec3 rayDirection, int distance) {
+        if (level == null || origin == null || rayDirection == null || distance < 0
+                || !Double.isFinite(origin.x) || !Double.isFinite(origin.y) || !Double.isFinite(origin.z)
+                || !Double.isFinite(rayDirection.x) || !Double.isFinite(rayDirection.y) || !Double.isFinite(rayDirection.z)
+                || rayDirection.lengthSqr() < 1.0e-12) return new CellRayResult(CellRayStatus.UNLOADED, null);
+        Vec3 direction = normalized(rayDirection), end = origin.add(direction.scale(distance));
+        int x = floor(origin.x), y = floor(origin.y), z = floor(origin.z);
+        int sx = sign(direction.x), sy = sign(direction.y), sz = sign(direction.z);
+        double tx = firstBoundary(origin.x, direction.x, x, sx), ty = firstBoundary(origin.y, direction.y, y, sy),
+                tz = firstBoundary(origin.z, direction.z, z, sz);
+        double dx = delta(direction.x), dy = delta(direction.y), dz = delta(direction.z);
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        BlockPos previous = null;
+        for (int cells = 0; cells < distance * 3 + 4; cells++) {
+            pos.set(x, y, z);
+            if (level.isOutsideBuildHeight(pos) || !level.hasChunkAt(pos))
+                return new CellRayResult(CellRayStatus.UNLOADED, null);
+            BlockState state = level.getBlockState(pos);
+            if (!state.isAir() && !ExamineVision.isTransparent(state)) {
+                if(distance==0) {
+                    boolean containsOrigin;
+                    if(state.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock) {
+                        BlockPos root=canonicalRoot(level,state,pos);
+                        containsOrigin=com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.worldBounds(root,
+                                state.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.FACING),
+                                airlockOpenness(level,root,state),airlockPanelOpen(level,root)).stream().anyMatch(box->box.contains(origin));
+                    } else {
+                        containsOrigin=visualShape(state,level,pos).toAabbs().stream().map(box->box.move(pos)).anyMatch(box->box.contains(origin));
+                    }
+                    if(containsOrigin)return new CellRayResult(CellRayStatus.BLOCKED,pos.immutable());
+                }
+                boolean blocked;
+                if (state.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock) {
+                    BlockPos root = canonicalRoot(level, state, pos);
+                    var facing = state.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.FACING);
+                    blocked = com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.worldBounds(root, facing,
+                                    airlockOpenness(level, root, state), airlockPanelOpen(level, root)).stream()
+                            .anyMatch(box -> box.clip(origin, end).filter(point -> origin.distanceTo(point) <= distance + 1e-7).isPresent());
+                } else {
+                    var hit = visualShape(state, level, pos).clip(origin, end, pos);
+                    blocked = hit != null && origin.distanceTo(hit.getLocation()) <= distance + 1e-7;
+                }
+                if (blocked) return previous == null
+                        ? new CellRayResult(CellRayStatus.BLOCKED, null)
+                        : new CellRayResult(CellRayStatus.SELECTED, previous);
+            }
+            previous = pos.immutable();
+            double next = Math.min(tx, Math.min(ty, tz));
+            if (!Double.isFinite(next) || next > distance) break;
+            if (tx <= next + 1e-10) { x += sx; tx += dx; }
+            if (ty <= next + 1e-10) { y += sy; ty += dy; }
+            if (tz <= next + 1e-10) { z += sz; tz += dz; }
+        }
+        if(distance==0) return new CellRayResult(CellRayStatus.SELECTED, BlockPos.containing(origin));
+        BlockPos target = BlockPos.containing(end);
+        if (level.isOutsideBuildHeight(target) || !level.hasChunkAt(target))
+            return new CellRayResult(CellRayStatus.UNLOADED, null);
+        return new CellRayResult(CellRayStatus.SELECTED, target);
+    }
+
     /** Resolves live outline/eligibility geometry without depending on the current camera ray. */
     public static AABB currentBounds(Level level, ExamineTarget target) {
         if (level == null || target == null) return null;
@@ -200,4 +265,3 @@ public final class ExamineWorldSelector {
     private static double delta(double v){return v==0?Double.POSITIVE_INFINITY:Math.abs(1/v);}
     private static double firstBoundary(double origin,double direction,int cell,int step){return step==0?Double.POSITIVE_INFINITY:((step>0?cell+1.0:cell)-origin)/direction;}
 }
-

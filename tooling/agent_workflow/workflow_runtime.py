@@ -704,9 +704,14 @@ def cmd_gate_validate(a,root):
     print(json.dumps({k:job.get(k) for k in ('state','job_id','candidate_id','snapshot_key','reason')},indent=2))
 
 def execution_argv(repo, argv, *, os_name=None):
-    """Resolve only the supported Windows Gradle wrapper spelling to its actual launcher."""
+    """Resolve the supported Gradle wrapper and keep its managed daemon job finite."""
     result=list(argv)
-    if (os_name or os.name)=='nt' and result and result[0] in ('./gradlew','gradlew'):
+    wrapper_names=('./gradlew','gradlew','gradlew.bat')
+    if result and result[0] in wrapper_names:
+        if '--daemon' in result[1:]:
+            raise ValueError('managed Gradle checks may not request a persistent daemon')
+        if '--no-daemon' not in result[1:]: result.append('--no-daemon')
+    if (os_name or os.name)=='nt' and result and result[0] in wrapper_names:
         wrapper=Path(repo)/'gradlew.bat'
         if wrapper.is_file(): result[0]=str(wrapper.resolve())
     return result

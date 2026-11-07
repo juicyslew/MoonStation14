@@ -15,23 +15,42 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /** GameTest-owned entity-ticking tickets for fixtures extending beyond the root chunk. */
 public final class FixtureChunkTickets {
     private static final TicketType<UUID> TYPE = TicketType.create("moonstation14_gametest_fixture",
             Comparator.<UUID>naturalOrder());
+    // Empty ServerLevels stop ticking entities/block entities after 300 unoccupied ticks
+    // without a vanilla forced chunk; custom region tickets do not satisfy that rule.
+    private static final Map<ServerLevel, WakeAnchorState> WAKE_ANCHORS = new WeakHashMap<>();
 
     private FixtureChunkTickets() { }
 
     /** Add exact, uniquely-owned level-31 region tickets to each chunk in the fixture footprint. */
     public static Lease acquire(GameTestHelper helper, AABB bounds) {
-        ServerLevel level = helper.getLevel();
+        return acquire(helper, helper.getLevel(), bounds);
+    }
+
+    public static Lease acquire(GameTestHelper helper, AABB bounds, Runnable beforeClose) {
+        return acquire(helper, helper.getLevel(), bounds, beforeClose);
+    }
+
+    /** Add fixture tickets to an explicitly selected server level (including non-template dimensions). */
+    public static Lease acquire(GameTestHelper helper, ServerLevel level, AABB bounds) {
+        return acquire(helper, level, bounds, () -> { });
+    }
+
+    /** Add fixture tickets with cleanup that runs before ticket release on every lease close. */
+    public static Lease acquire(GameTestHelper helper, ServerLevel level, AABB bounds, Runnable beforeClose) {
         int minX = net.minecraft.util.Mth.floor(bounds.minX) >> 4;
         int maxX = net.minecraft.util.Mth.floor(bounds.maxX) >> 4;
         int minZ = net.minecraft.util.Mth.floor(bounds.minZ) >> 4;
         int maxZ = net.minecraft.util.Mth.floor(bounds.maxZ) >> 4;
         UUID key = UUID.randomUUID();
         Set<ChunkPos> chunks = new HashSet<>();
+        WakeAnchorClaim wakeAnchorClaim = null;
         try {
             for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++) {
                 ChunkPos chunk = new ChunkPos(x, z);
@@ -39,12 +58,14 @@ public final class FixtureChunkTickets {
                 level.getChunkSource().addRegionTicket(TYPE, chunk, 2, key);
                 level.getChunk(chunk.x, chunk.z);
             }
+            wakeAnchorClaim = acquireWakeAnchor(level, chunks);
         } catch (RuntimeException | Error failure) {
+            if (wakeAnchorClaim != null) wakeAnchorClaim.close();
             for (ChunkPos chunk : chunks)
                 level.getChunkSource().removeRegionTicket(TYPE, chunk, 2, key);
             throw failure;
         }
-        Lease lease = new Lease(level, chunks, key);
+        Lease lease = new Lease(level, chunks, key, wakeAnchorClaim, beforeClose);
         helper.testInfo.addListener(new GameTestListener() {
             @Override public void testStructureLoaded(GameTestInfo ignored) { }
             @Override public void testPassed(GameTestInfo ignored, GameTestRunner runner) { lease.close(); }
@@ -54,6 +75,47 @@ public final class FixtureChunkTickets {
             }
         });
         return lease;
+    }
+
+    static synchronized WakeAnchorClaim acquireWakeAnchor(ServerLevel level, Set<ChunkPos> chunks) {
+        WakeAnchorState state = WAKE_ANCHORS.get(level);
+        if (state == null) {
+            ChunkPos anchor = chunks.stream().min(Comparator.comparingInt((ChunkPos c) -> c.x)
+                    .thenComparingInt(c -> c.z)).orElseThrow();
+            boolean wasForced = level.getForcedChunks().contains(anchor.toLong());
+            if (!wasForced) level.setChunkForced(anchor.x, anchor.z, true);
+            state = new WakeAnchorState(anchor, !wasForced);
+            WAKE_ANCHORS.put(level, state);
+        }
+        state.claims++;
+        return new WakeAnchorClaim(level, state);
+    }
+
+    private static final class WakeAnchorState {
+        final ChunkPos chunk;
+        final boolean forceOwned;
+        int claims;
+        WakeAnchorState(ChunkPos chunk, boolean forceOwned) { this.chunk = chunk; this.forceOwned = forceOwned; }
+    }
+
+    static final class WakeAnchorClaim implements AutoCloseable {
+        private final ServerLevel level;
+        private final WakeAnchorState state;
+        private boolean closed;
+        WakeAnchorClaim(ServerLevel level, WakeAnchorState state) { this.level = level; this.state = state; }
+        boolean owns() { return state.forceOwned; }
+        boolean active() { return level.getForcedChunks().contains(state.chunk.toLong()); }
+        boolean isReleased() { return closed; }
+        @Override public void close() {
+            synchronized (FixtureChunkTickets.class) {
+                if (closed) return;
+                closed = true;
+                if (--state.claims == 0) {
+                    WAKE_ANCHORS.remove(level, state);
+                    if (state.forceOwned) level.setChunkForced(state.chunk.x, state.chunk.z, false);
+                }
+            }
+        }
     }
 
     public static Lease around(GameTestHelper helper, BlockPos first, BlockPos second, double padding) {
@@ -87,12 +149,23 @@ public final class FixtureChunkTickets {
         private final ServerLevel level;
         private final Set<ChunkPos> chunks;
         private final UUID key;
-        private boolean closed;
+        private final WakeAnchorClaim wakeAnchorClaim;
+        private final LeaseCloseAction closeAction;
 
-        private Lease(ServerLevel level, Set<ChunkPos> chunks, UUID key) {
+        private Lease(ServerLevel level, Set<ChunkPos> chunks, UUID key, WakeAnchorClaim wakeAnchorClaim,
+                      Runnable beforeClose) {
             this.level = level;
             this.chunks = Set.copyOf(chunks);
             this.key = key;
+            this.wakeAnchorClaim = wakeAnchorClaim;
+            this.closeAction = new LeaseCloseAction(beforeClose, () -> {
+                try {
+                    for (ChunkPos chunk : this.chunks)
+                        level.getChunkSource().removeRegionTicket(TYPE, chunk, 2, key);
+                } finally {
+                    wakeAnchorClaim.close();
+                }
+            });
         }
 
         public boolean entityTicking(BlockPos position) { return level.isPositionEntityTicking(position); }
@@ -102,13 +175,45 @@ public final class FixtureChunkTickets {
             return position + " chunk=" + new ChunkPos(position) + " loaded=" + level.hasChunkAt(position)
                     + " entityTicking=" + entityTicking(position);
         }
-        public boolean isClosed() { return closed; }
+        public boolean isClosed() { return closeAction.closed; }
+        /** True when its shared vanilla forced chunk keeps this server level active. */
+        public boolean levelAwake() { return wakeAnchorClaim.active(); }
+        public boolean ownsWakeAnchor() { return wakeAnchorClaim.owns(); }
+        /** True once this lease's claim was released, regardless of other owners of the shared anchor. */
+        public boolean wakeAnchorClaimReleased() { return wakeAnchorClaim.isReleased(); }
 
-        @Override public void close() {
+        @Override public void close() { closeAction.close(); }
+    }
+
+    /** The same idempotent cleanup/release sequence used by every live lease close. */
+    static final class LeaseCloseAction {
+        private final Runnable beforeRelease;
+        private final Runnable release;
+        private boolean closed;
+
+        LeaseCloseAction(Runnable beforeRelease, Runnable release) {
+            this.beforeRelease = java.util.Objects.requireNonNull(beforeRelease);
+            this.release = java.util.Objects.requireNonNull(release);
+        }
+
+        void close() {
             if (closed) return;
             closed = true;
-            for (ChunkPos chunk : chunks)
-                level.getChunkSource().removeRegionTicket(TYPE, chunk, 2, key);
+            Throwable failure = null;
+            try {
+                beforeRelease.run();
+            } catch (RuntimeException | Error cleanupFailure) {
+                failure = cleanupFailure;
+            } finally {
+                try {
+                    release.run();
+                } catch (RuntimeException | Error releaseFailure) {
+                    if (failure != null) failure.addSuppressed(releaseFailure);
+                    else failure = releaseFailure;
+                }
+            }
+            if (failure instanceof RuntimeException runtimeFailure) throw runtimeFailure;
+            if (failure instanceof Error errorFailure) throw errorFailure;
         }
     }
 }

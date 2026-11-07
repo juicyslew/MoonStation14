@@ -20,6 +20,10 @@ public final class ExamineClientPolicy {
     public static boolean worldClickAllowed(boolean noScreen, boolean storageHost, boolean overInteractiveStorage) {
         return noScreen || (storageHost && !overInteractiveStorage);
     }
+    /** Chat owns new world selection input, but does not invalidate an already latched examine. */
+    public static boolean refreshExistingLatch(boolean chatScreen, boolean hasLatchedTarget) {
+        return chatScreen && hasLatchedTarget;
+    }
     public static boolean popupClickAllowed(boolean noScreen, boolean storageHost) {
         return noScreen || storageHost;
     }
@@ -33,6 +37,12 @@ public final class ExamineClientPolicy {
     }
     public static int clampScrollOffset(int offset, int totalLines, int visibleLines) {
         return Math.max(0, Math.min(Math.max(0, offset), Math.max(0, totalLines - Math.max(0, visibleLines))));
+    }
+    /** Content and viewport updates retain pixel-row position for the same examine identity. */
+    public static int updatePopupScrollOffset(int offset, ExamineTarget previousTarget, ExamineTarget target,
+                                              int totalLines, int visibleLines) {
+        return clampScrollOffset(java.util.Objects.equals(previousTarget, target) ? offset : 0,
+                totalLines, visibleLines);
     }
     public static int scrollOffset(int offset, int direction, int totalLines, int visibleLines) {
         return clampScrollOffset(offset + Integer.signum(direction), totalLines, visibleLines);

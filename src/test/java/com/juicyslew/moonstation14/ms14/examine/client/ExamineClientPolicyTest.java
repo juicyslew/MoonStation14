@@ -114,6 +114,22 @@ class ExamineClientPolicyTest {
         assertEquals(13, reached.size());
     }
 
+    @Test void chatBlocksRetargetingButKeepsOnlyAnExistingLatchEligibleForRefresh() {
+        assertFalse(ExamineClientPolicy.worldClickAllowed(false, false, false));
+        assertFalse(ExamineClientPolicy.refreshExistingLatch(true, false));
+        assertTrue(ExamineClientPolicy.refreshExistingLatch(true, true));
+        assertFalse(ExamineClientPolicy.refreshExistingLatch(false, true));
+    }
+
+    @Test void livePopupContentAndViewportUpdatesRetainAndClampOffsetOnlyForSameTarget() {
+        var other = ExamineTarget.block(new BlockPos(4, 5, 6));
+        assertEquals(7, ExamineClientPolicy.updatePopupScrollOffset(7, target, target, 20, 5));
+        assertEquals(2, ExamineClientPolicy.updatePopupScrollOffset(7, target, target, 7, 5));
+        assertEquals(7, ExamineClientPolicy.updatePopupScrollOffset(7, target, target, 20, 10));
+        assertEquals(0, ExamineClientPolicy.updatePopupScrollOffset(7, target, other, 20, 5));
+        assertEquals(0, ExamineClientPolicy.updatePopupScrollOffset(7, null, target, 20, 5));
+    }
+
     @Test void explicitReplacementAndProductionCorrelationKeepRefreshSlotOwnedByLatestLatch() {
         var refresh = new ExamineRefreshPolicy();
         var latch = new ExamineLatchSession();

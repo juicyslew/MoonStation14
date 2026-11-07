@@ -14,6 +14,7 @@ public class ModSounds {
             DeferredRegister.create(BuiltInRegistries.SOUND_EVENT, MoonStation14.MOD_ID);
 
     public static final Supplier<SoundEvent> CROWBAR_USE = registerSoundEvent("crowbar_use");
+    public static final Supplier<SoundEvent> GAS_VENT_AMBIENT = registerSoundEvent("ss14/atmospherics/gas_vent");
     public static final Supplier<SoundEvent> TOOL_WRENCH = registerSoundEvent("ss14/tools/ratchet");
     public static final Supplier<SoundEvent> TOOL_CROWBAR = registerSoundEvent("ss14/tools/crowbar");
     public static final Supplier<SoundEvent> TOOL_SCREWDRIVER = registerSoundEvent("ss14/tools/screwdriver");
@@ -134,6 +135,9 @@ public class ModSounds {
     public static final Supplier<SoundEvent> ITEM_SLOT_INSERT = registerSoundEvent("item_slot_insert");
     public static final Supplier<SoundEvent> ITEM_SLOT_EJECT = registerSoundEvent("item_slot_eject");
     public static final Supplier<SoundEvent> GAS_VALVE_TOGGLE = registerSoundEvent("gas_valve_toggle");
+    public static final Supplier<SoundEvent> ATMOS_GAS_PUMP = registerFixedRangeSoundEvent("ss14/atmospherics/gas_pump", 5f);
+    public static final Supplier<SoundEvent> ATMOS_GAS_HISS = registerFixedRangeSoundEvent("ss14/atmospherics/gas_hiss", 5f);
+    public static final Supplier<SoundEvent> ATMOS_VENDING_HUM = registerFixedRangeSoundEvent("ss14/atmospherics/vending_machine_hum", 6f);
     private static final java.util.Map<String, Supplier<SoundEvent>> EMOTES = java.util.Map.ofEntries(
             java.util.Map.entry("cough", registerSoundEvent("emote/cough")),
             java.util.Map.entry("crying", registerSoundEvent("emote/crying")),

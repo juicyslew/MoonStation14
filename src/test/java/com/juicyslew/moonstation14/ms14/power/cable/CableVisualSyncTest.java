@@ -1,10 +1,10 @@
 package com.juicyslew.moonstation14.ms14.power.cable;
 
-import com.juicyslew.moonstation14.ms14.power.cable.client.CableFacePresentation;
+import com.juicyslew.moonstation14.ms14.power.cable.CableFacePresentation;
 import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualAdjacency;
 import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualClientCache;
 import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualPendingSnapshots;
-import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualGeometry;
+import com.juicyslew.moonstation14.ms14.power.cable.CableVisualGeometry;
 import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualPresentation;
 import com.juicyslew.moonstation14.ms14.power.cable.client.CableVisualResyncScheduler;
 import com.juicyslew.moonstation14.ms14.power.cable.network.CableVisualPayload;
@@ -109,6 +109,41 @@ final class CableVisualSyncTest {
         assertEquals(16, cache.chunkCount());
         assertFalse(cache.hasUsableSnapshot(DIMENSION, 0, 0), "oldest chunk is evicted at the aggregate cap");
         assertTrue(cache.hasUsableSnapshot(DIMENSION, 16, 0), "newest snapshot remains usable");
+    }
+
+    @Test void evictedLoadedChunkIsResyncedAndRestoresSameRevisionVisibilityAndTopology() {
+        CableVisualClientCache cache = new CableVisualClientCache();
+        CableVisualResyncScheduler scheduler = new CableVisualResyncScheduler();
+        var seamLeft = new CableChunkData.Record(15, 4, 3, Direction.UP, CableTier.HV);
+        var seamRight = new CableChunkData.Record(0, 4, 3, Direction.UP, CableTier.HV);
+        List<CableChunkData.Record> full = new java.util.ArrayList<>(CableVisualPayload.MAX_RECORDS);
+        full.add(seamLeft);
+        for (int i = 1; i < CableVisualPayload.MAX_RECORDS; i++)
+            full.add(new CableChunkData.Record(i & 15, i, i >>> 4 & 15, Direction.NORTH, CableTier.MV));
+
+        assertTrue(cache.apply(new CableVisualPayload(DIMENSION, 0, 0, 12, true, full)));
+        assertTrue(cache.apply(new CableVisualPayload(DIMENSION, 1, 0, 12, true, List.of(seamRight))));
+        for (int chunk = 2; chunk < 17; chunk++)
+            assertTrue(cache.apply(new CableVisualPayload(DIMENSION, chunk, 0, 12, true, full)));
+        assertFalse(cache.hasUsableSnapshot(DIMENSION, 0, 0), "record-cap eviction removes the oldest chunk");
+
+        var missing = new CableVisualResyncScheduler.Chunk(0, 0);
+        var loadedWindow = List.of(missing);
+        assertTrue(cache.hasUsableSnapshot(DIMENSION, 1, 0), "keep the seam neighbor recent while restoring the evicted chunk");
+        assertEquals(List.of(missing), scheduler.select(DIMENSION, loadedWindow,
+                chunk -> cache.hasUsableSnapshot(DIMENSION, chunk.x(), chunk.z()), 0),
+                "the existing nearby-loaded-window resync selects the evicted chunk");
+
+        var unchangedRevision = new CableVisualPayload(DIMENSION, 0, 0, 12, true, full);
+        assertTrue(cache.apply(unchangedRevision), "same authoritative revision is accepted after eviction");
+        assertEquals(1, cache.visible(DIMENSION, 15.5, 4.5, 3.5, 1, 2048).stream()
+                .filter(record -> record.record().equals(seamLeft)).count());
+        var node = new CableFaceNode(new net.minecraft.core.BlockPos(15, 4, 3), Direction.UP, CableTier.HV);
+        assertEquals(List.of(new CableFaceNode(new net.minecraft.core.BlockPos(16, 4, 3), Direction.UP, CableTier.HV)),
+                cache.topologyNeighbors(node), "resync restores the cross-chunk topology neighbor");
+        assertFalse(cache.apply(unchangedRevision), "restored snapshot is now an ordinary duplicate");
+        assertFalse(cache.apply(new CableVisualPayload(DIMENSION, 0, 0, 11, true, List.of())),
+                "stale revision remains rejected after restoration");
     }
 
     @Test void reconnectClearsRevisionHistoryAndOutOfOrderSnapshotsStayRejected() {
@@ -229,6 +264,20 @@ final class CableVisualSyncTest {
         assertTrue(cache.hasUsableSnapshot(DIMENSION, 2, 3), "fresh revision replaces unload tombstone");
         assertFalse(cache.apply(new CableVisualPayload(DIMENSION, 2, 3, 5, true, List.of())),
                 "unload retains same-dimension revision fence");
+    }
+
+    @Test void rewatchSnapshotAtSameRevisionReplacesUnloadTombstone() {
+        CableVisualClientCache cache = new CableVisualClientCache();
+        var record = new CableChunkData.Record(1, 4, 1, Direction.NORTH, CableTier.MV);
+        var snapshot = new CableVisualPayload(DIMENSION, 2, 3, 5, true, List.of(record));
+        assertTrue(cache.apply(snapshot));
+        assertTrue(cache.removeChunk(DIMENSION, 2, 3));
+        assertFalse(cache.hasUsableSnapshot(DIMENSION, 2, 3));
+
+        assertTrue(cache.apply(snapshot), "rewatch can replay unchanged authoritative chunk revision");
+        assertTrue(cache.hasUsableSnapshot(DIMENSION, 2, 3));
+        assertEquals(1, cache.visible(DIMENSION, 33.5, 4.5, 49.5, 48, 2048).size());
+        assertFalse(cache.apply(snapshot), "duplicate snapshot after restoration is still rejected");
     }
 
     @Test void unrelatedUnloadsDoNotResetResyncCursorOrCooldownProgress() {

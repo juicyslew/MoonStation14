@@ -62,6 +62,18 @@ class HotspotKernelTest {
                 result.spreadEligibleThisPass());
     }
 
+    @Test void partialHotspotExposesActualTraceCleanupWithoutChangingReactionOutput() {
+        var base = new GasMixture(Map.of(GasType.TRITIUM, 1d, GasType.OXYGEN, 1d,
+                GasType.WATER_VAPOR, 1e-7), 300);
+        var result = HotspotKernel.process(CATALOG, base, ready(250, 400), 0);
+        assertEquals((double)(float)2.5e-8, result.discardedMoles().get(GasType.WATER_VAPOR), 0);
+        var withoutTrace = new GasMixture(Map.of(GasType.TRITIUM, 1d, GasType.OXYGEN, 1d), 300);
+        var ordinary = HotspotKernel.process(CATALOG, withoutTrace, ready(250, 400), 0);
+        assertEquals(ordinary.events(), result.events());
+        assertEquals(ordinary.fireExtentMoles(), result.fireExtentMoles(), 0);
+        assertEquals(ordinary.mixture().moles(GasType.WATER_VAPOR), result.mixture().moles(GasType.WATER_VAPOR), 1e-7);
+    }
+
     @Test void partialSpreadRequiresPositiveFireExtentAndHotLocalFlame() {
         var gas = mix(300, 1, 0, 1, 0);
         var hot = HotspotKernel.process(CATALOG, gas, ready(250, 900), 0);

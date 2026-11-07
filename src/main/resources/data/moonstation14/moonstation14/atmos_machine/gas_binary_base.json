@@ -1,0 +1,1 @@
+{"abstract":true,"parent":"gas_pipe_base","ports":[{"name":"inlet","direction":"North"},{"name":"outlet","direction":"South"}]}

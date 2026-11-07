@@ -101,6 +101,21 @@ class PipeGasTransactionTest {
         assertEquals(energy, source.gas.thermalEnergy() + destination.gas.thermalEnergy(), 1e-8);
     }
 
+    @Test void preparedPairValidatesBothBeforeWritingAndCompensatesBeforePublishing() {
+        var a=source(); var b=destination();
+        var left=PipeGasTransaction.prepare(a,a.gas,new GasMixture(Map.of(GasType.OXYGEN,3.0,GasType.PLASMA,2.0),800));
+        var right=PipeGasTransaction.prepare(b,b.gas,new GasMixture(Map.of(GasType.NITROGEN,4.0),200));
+        GasMixture beforeA=a.gas, beforeB=b.gas;
+        b.version++;
+        assertThrows(IllegalStateException.class,()->PipeGasTransaction.commit(left,right));
+        assertEquals(0,a.writes+b.writes);
+        b.version--;
+        b.failWrite=1;
+        assertThrows(IllegalStateException.class,()->PipeGasTransaction.commit(left,right));
+        assertTrue(same(beforeA,a.gas)); assertTrue(same(beforeB,b.gas));
+        assertEquals(0,a.publications+b.publications);
+    }
+
     @Test void ordinaryResolvedVentAndScrubberPacketsSurviveTransactionalCap() {
         // These are the authored default gas inventories used by the paid finite-vent fixtures.
         var definitions = resolvedVentilationDefinitions();
@@ -114,12 +129,12 @@ class PipeGasTransactionTest {
         for (double elapsedSeconds : new double[]{0.05, 1.0}) {
             // Fresh endpoints model each independent paid interval, including the full 20-tick solve.
             var ventReference = VentilationGasFlow.planVentRelease(ventPipe, vacuumRoom, 0.2, 1.0,
-                    elapsedSeconds, ventSettings).orElseThrow();
+                    elapsedSeconds, ventSettings, ventDefinition.gasVentPump()).orElseThrow();
             var ventSource = new MemoryEndpoint(ventPipe);
             var ventDestination = new MemoryEndpoint(vacuumRoom);
             var ventTransaction = PipeGasTransaction.plan(ventSource, ventDestination, 0.2, 1.0,
                     ventReference.packet().totalMoles(),
-                    Math.min(ventSettings.externalPressureBoundKPa(), ventSettings.targetPressureKPa()),
+                    VentilationGasFlow.releaseDestinationPressureLimit(ventSettings, ventDefinition.gasVentPump()),
                     Set.of(GasType.values())).orElseThrow();
             assertPacketNoGreaterThanReference("vent elapsedSeconds=" + elapsedSeconds + " targetKPa="
                     + ventSettings.targetPressureKPa() + " pressureChangeKPaPerSecond="
@@ -138,6 +153,73 @@ class PipeGasTransactionTest {
                 scrubberReference.packet().totalMoles(), 5_066.25, scrubberSettings.gasesToScrub()).orElseThrow();
         assertPacketNoGreaterThanReference("scrubber elapsedSeconds=1.0 volumeRateM3PerSecond="
                 + scrubberSettings.volumeRateM3PerSecond(), scrubberReference, scrubberTransaction.transfer());
+    }
+
+    @Test void r17WasteMixturesReproduceOrRuleOutSecondVentPlanRejection() {
+        var definitions = resolvedVentilationDefinitions();
+        var ventSettings = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT,
+                definitions.get(ModVentilationDevices.VENT)).settings();
+        assertTrue(ventSettings.configuredEnabled());
+        var waste = Map.of(GasType.OXYGEN, 3.797210872, GasType.PLASMA, .082425514,
+                GasType.CARBON_DIOXIDE, .422419949, GasType.TRITIUM, .024867844,
+                GasType.WATER_VAPOR, .008497368);
+        int validReferenceCases = 0;
+        for (double scale : new double[]{.001,.002,.005,.01,.02,.05,.1,.2,1})
+            for (double temperature : new double[]{293.15,600,700,767})
+                for (double elapsed : new double[]{.6,1.0}) {
+                    var source = new GasMixture(waste.entrySet().stream().collect(
+                            java.util.stream.Collectors.toMap(Map.Entry::getKey, e -> e.getValue()*scale)), temperature);
+                    var vacuum = GasMixture.vacuum();
+                    var reference = VentilationGasFlow.planVentRelease(source, vacuum, .2, 1.0, elapsed,
+                            ventSettings, definitions.get(ModVentilationDevices.VENT).gasVentPump()).orElse(null);
+                    if (reference == null) continue;
+                    validReferenceCases++;
+                    var actual = PipeGasTransfer.plan(source, vacuum, .2, 1.0,
+                            reference.packet().totalMoles(), VentilationGasFlow.releaseDestinationPressureLimit(ventSettings,
+                                    definitions.get(ModVentilationDevices.VENT).gasVentPump()), Set.of(GasType.values())).orElse(null);
+                    boolean rejected = actual == null;
+                    if (actual != null) {
+                        for (GasType gas : GasType.values())
+                            rejected |= actual.perGasMoved().getOrDefault(gas, 0.0)
+                                    > reference.perGasMoved().getOrDefault(gas, 0.0);
+                        rejected |= actual.packet().totalMoles() > reference.packet().totalMoles()
+                                || actual.energyMoved() > reference.energyMoved();
+                    }
+                    assertFalse(rejected, "r17 reference unexpectedly rejected/exceeded: scale=" + scale
+                            + " T=" + temperature + " elapsed=" + elapsed + " reference="
+                            + transferValues(reference) + " actual=" + (actual == null ? "EMPTY" : transferValues(actual)));
+                }
+        assertEquals(72, validReferenceCases, "every specified sweep input should produce a valid reference");
+    }
+
+    @Test void exportReceiptConservationUsesWholeInventoryPrecisionDomain() {
+        double temperature = 310.0;
+        double sourceVolume = 0.2;
+        double roomVolume = 1.0;
+        double ambientKpa = 0.0;
+        double boundKpa = ambientKpa + 0.05;
+        double sourcePressureKpa = boundKpa / 2.0 + 10.0;
+        double sourceMoles = sourcePressureKpa * sourceVolume * 1000.0
+                / (8.31446261815324 * temperature);
+        var before = new GasMixture(Map.of(GasType.OXYGEN, sourceMoles), temperature);
+        var exterior = GasMixture.vacuum();
+        double independentBudget = (boundKpa - ambientKpa) * roomVolume * 1000.0
+                / (8.31446261815324 * temperature);
+        var plan = PipeGasTransfer.plan(before, exterior, sourceVolume, roomVolume,
+                independentBudget * 2.0, boundKpa, Set.of(GasType.OXYGEN)).orElseThrow();
+        var after = plan.sourceAfter();
+        var packet = plan.packet();
+
+        assertTrue(after.totalMoles() < before.totalMoles());
+        assertTrue(packet.totalMoles() <= independentBudget + 8.0 * Math.max(
+                Math.ulp((float) packet.totalMoles()), Math.ulp((float) independentBudget)));
+        assertFalse(PipeGasTransfer.close(before.thermalEnergy() - after.thermalEnergy(), plan.energyMoved()),
+                "small subtraction loses float-backed inventory precision");
+        for (GasType gas : GasType.values())
+            assertTrue(PipeGasTransfer.close(before.moles(gas), after.moles(gas) + packet.moles(gas)),
+                    "whole-inventory species conservation: " + gas);
+        assertTrue(PipeGasTransfer.close(before.thermalEnergy(), after.thermalEnergy() + plan.energyMoved()),
+                "whole-inventory enthalpy conservation uses shared predicate");
     }
 
     static com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog<

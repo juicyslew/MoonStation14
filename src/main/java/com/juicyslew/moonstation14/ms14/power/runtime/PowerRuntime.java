@@ -71,7 +71,8 @@ public final class PowerRuntime {
     private static final Map<ServerLevel, Map<BlockPos, ApcOutputSample>> APC_OUTPUT_SAMPLES = new WeakHashMap<>();
     private static long serverTickSequence;
     private record ApcOutputSample(long sampleTick, long topologyGeneration, boolean graphKnown,
-                                   double outputWatts, PowerDeviceBlockEntity device, long breakerRevision,
+                                   double inputWatts, double outputWatts, double energyBeforeJoules,
+                                   double energyAfterJoules, PowerDeviceBlockEntity device, long breakerRevision,
                                    ApcVisualState visualState, long visualTick, long visualGeneration) { }
     private record VentMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
                                      VentilationDeviceBlockEntity vent, PowerDeviceBlockEntity apc, long breakerRevision) { }
@@ -108,9 +109,23 @@ public final class PowerRuntime {
     public record MvPowerObservation(boolean known, double deliveredWatts) {
         public static final MvPowerObservation UNKNOWN = new MvPowerObservation(false, 0);
     }
+    /** Topology-only APC connection; this is not evidence of paid or delivered power. */
+    public record ApcConnectionObservation(boolean known, BlockPos provider, long topologyGeneration, String reason) {
+        public ApcConnectionObservation {
+            provider = provider == null ? null : provider.immutable();
+            reason = Objects.requireNonNull(reason);
+        }
+    }
     private PowerRuntime() { }
 
     public static void register(IEventBus bus) { bus.register(PowerRuntime.class); }
+
+    /** Authoritative server-thread clock used by power allocation samples and freshness leases. */
+    public static long currentSampleTick(ServerLevel level) {
+        if (level == null || !level.getServer().isSameThread())
+            throw new IllegalStateException("power sample clock is server-thread owned");
+        return serverTickSequence;
+    }
 
     public static void deviceChanged(ServerLevel level, BlockPos pos) {
                 PowerGraphService.invalidateLampChoice(level, pos);
@@ -120,6 +135,80 @@ public final class PowerRuntime {
         APC_RUNTIME_METERS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
         invalidateRuntimeNode(level, pos);
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+
+    /**
+     * Reads a receiver's unique live APC provider from reconciled loaded topology only.
+     * Does not solve, allocate energy, advance time, or load chunks.
+     */
+    public static ApcConnectionObservation apcConnection(ServerLevel level, BlockEntity expected) {
+        if (level == null || expected == null || !level.getServer().isSameThread())
+            return new ApcConnectionObservation(false, null, 0, "invalid-level-or-thread");
+        long generation = PowerGraphService.topologyGeneration(level);
+        if (!PowerGraphService.topologyReady(level))
+            return finishApcConnection(level, generation, null, "topology-unready");
+        String reason = "receiver-unsupported";
+        PowerDeviceBlockEntity receiverDevice = null;
+        LoadedPowerGraph.NodeState receiverState = null;
+        BlockPos receiverPos = expected.getBlockPos();
+        LevelChunk receiverChunk = loadedFullChunk(level, receiverPos);
+        if (expected.isRemoved() || receiverChunk == null || receiverChunk.getBlockEntity(receiverPos) != expected)
+            reason = "receiver-not-live-full";
+        else if (expected instanceof VentilationDeviceBlockEntity vent) {
+            receiverState = ventilationReceiverState(level, vent);
+            reason = "receiver-topology-unknown";
+        } else if (expected instanceof PowerDeviceBlockEntity device
+                && device.getBlockState().getBlock() instanceof PowerDeviceBlock block) {
+            if (block.kind().isLamp()) {
+                CableFaceNode node = PowerGraphService.nearestLampNode(level, receiverPos);
+                receiverState = node == null ? unknownNodeState() : PowerGraphService.state(level, node);
+                reason = "receiver-topology-unknown";
+            } else reason = "receiver-unsupported-kind";
+        } else if (expected instanceof PowerRuntimeNode node) {
+            List<DevicePort> ports = node.powerRuntimePorts();
+            List<DevicePort> apcPorts = ports == null ? List.of() : ports.stream()
+                    .filter(Objects::nonNull).filter(port -> port.device().equals(receiverPos)
+                            && port.tier() == CableTier.APC).toList();
+            if (apcPorts.size() == 1) {
+                receiverState = PowerGraphService.state(level, apcPorts.get(0));
+                reason = "receiver-topology-unknown";
+            } else reason = "receiver-apc-port-count";
+        }
+        if (receiverState == null || receiverState.knowledge() != LoadedPowerGraph.Knowledge.KNOWN)
+            return finishApcConnection(level, generation, null, reason);
+
+        Set<BlockPos> indexed = DEVICES.get(level);
+        List<PowerDeviceBlockEntity> matches = new ArrayList<>();
+        if (indexed != null) for (BlockPos pos : indexed) {
+            LevelChunk chunk = loadedFullChunk(level, pos);
+            if (chunk == null || !(chunk.getBlockEntity(pos) instanceof PowerDeviceBlockEntity apc)
+                    || apc.isRemoved() || !(apc.getBlockState().getBlock() instanceof PowerDeviceBlock block)
+                    || block.kind() != PowerDeviceKind.APC) continue;
+            List<DevicePort> ports = apc.ports();
+            if (ports == null) continue;
+            List<DevicePort> apcPorts = ports.stream().filter(Objects::nonNull)
+                    .filter(port -> port.device().equals(pos) && port.tier() == CableTier.APC).toList();
+            if (apcPorts.size() != 1) continue;
+            LoadedPowerGraph.NodeState state = PowerGraphService.state(level, apcPorts.get(0));
+            if (state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                    && state.componentId() == receiverState.componentId()) matches.add(apc);
+        }
+        if (matches.size() != 1) return finishApcConnection(level, generation, null,
+                matches.isEmpty() ? "provider-missing" : "provider-ambiguous");
+        PowerDeviceBlockEntity provider = matches.get(0);
+        if (!provider.breakerClosed()) return finishApcConnection(level, generation, null, "provider-breaker-open");
+        return finishApcConnection(level, generation, provider.getBlockPos(), "connected");
+    }
+
+    private static LoadedPowerGraph.NodeState unknownNodeState() {
+        return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1);
+    }
+
+    private static ApcConnectionObservation finishApcConnection(ServerLevel level, long generation,
+                                                                  BlockPos provider, String reason) {
+        if (!PowerGraphService.topologyReady(level) || PowerGraphService.topologyGeneration(level) != generation)
+            return new ApcConnectionObservation(false, null, generation, "topology-changed-or-unready");
+        return new ApcConnectionObservation(provider != null, provider, generation, reason);
     }
 
     public static void ventilationDeviceChanged(ServerLevel level, BlockPos pos) {
@@ -533,6 +622,17 @@ public final class PowerRuntime {
         return ventilationMeterCheck(level, expectedBE).observation();
     }
 
+    /** Current validated receiver identity observation; this is not a prepaid gas grant. */
+    public static Optional<VentilationPaidInterval.ReceiverSignature> ventilationReceiverSignature(
+            ServerLevel level, VentilationDeviceBlockEntity expectedBE) {
+        if (level == null || !level.getServer().isSameThread() || expectedBE == null) return Optional.empty();
+        VentMeterCheck check = ventilationMeterCheck(level, expectedBE);
+        VentMeterSample sample = check.sample();
+        if (!check.observation().known() || sample == null) return Optional.empty();
+        return Optional.of(new VentilationPaidInterval.ReceiverSignature(sample.vent(), sample.apc(),
+                sample.breakerRevision(), sample.topologyGeneration(), true, true, true, sample.sampleTick()));
+    }
+
     public static String ventilationMeterDiagnostic(ServerLevel level, VentilationDeviceBlockEntity expectedBE) {
         VentMeterCheck check = ventilationMeterCheck(level, expectedBE);
         VentMeterSample sample = check.sample();
@@ -613,14 +713,17 @@ public final class PowerRuntime {
     }
 
     /** Fresh solve-backed APC output observation for diagnostics/tests; never triggers a solve. */
-    public record ApcOutputObservation(boolean known, double outputWatts, long sampleTick, long topologyGeneration) {
-        public static final ApcOutputObservation UNKNOWN = new ApcOutputObservation(false, 0, -1, -1);
+    public record ApcOutputObservation(boolean known, double inputWatts, double outputWatts,
+                                       double energyBeforeJoules, double energyAfterJoules,
+                                       long sampleTick, long topologyGeneration) {
+        public static final ApcOutputObservation UNKNOWN = new ApcOutputObservation(false, 0, 0, 0, 0, -1, -1);
     }
 
     public static ApcOutputObservation apcOutputObservation(ServerLevel level, PowerDeviceBlockEntity device) {
         ApcOutputSample sample = currentApcOutputSample(level, device);
         return sample == null ? ApcOutputObservation.UNKNOWN : new ApcOutputObservation(true,
-                sample.outputWatts(), sample.sampleTick(), sample.topologyGeneration());
+                sample.inputWatts(), sample.outputWatts(), sample.energyBeforeJoules(), sample.energyAfterJoules(),
+                sample.sampleTick(), sample.topologyGeneration());
     }
 
     private static ApcOutputSample currentApcOutputSample(ServerLevel level, PowerDeviceBlockEntity device) {
@@ -729,6 +832,8 @@ public final class PowerRuntime {
             for (BlockEntity be : chunk.getBlockEntities().values()) {
                 if (be instanceof VentilationDeviceBlockEntity vent) VentilationGasRuntime.forgetDevice(level, vent);
                 if (be instanceof PowerRuntimeNode node) {
+                    if (be instanceof com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineBlockEntity machine)
+                        machine.beginPowerChunkUnload();
                     node.receiveMvPowerAllocation(0, false, serverTickSequence);
                     node.receiveApcPowerAllocation(0, false, serverTickSequence);
                 }
@@ -795,6 +900,9 @@ public final class PowerRuntime {
                 solve(level, Math.min(TICKS_PER_SOLVE, Math.max(1, now - before)), now);
             }
             observeApcOutputs(level, now);
+            Set<BlockPos> indexedVents = VENTILATION_DEVICES.get(level);
+            if (indexedVents != null && !indexedVents.isEmpty())
+                VentilationGasRuntime.tickKnownDevices(level, now, List.copyOf(indexedVents));
         }
     }
 
@@ -981,10 +1089,7 @@ public final class PowerRuntime {
                 continue;
             }
             for (DevicePort port : device.ports()) {
-                CableFaceNode node = new CableFaceNode(port.device().relative(port.face()), port.face().getOpposite(), port.tier());
-                LoadedPowerGraph.NodeState state = PowerTopology.deviceAdjacent(port, node)
-                        ? PowerGraphService.state(level, node)
-                        : new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1);
+                LoadedPowerGraph.NodeState state = PowerGraphService.state(level, port);
                 boolean isKnown = state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN;
                 deviceKnown.put(port.tier(), isKnown);
                 deviceComponents.put(port.tier(), isKnown ? state.componentId() : -1);
@@ -1003,11 +1108,7 @@ public final class PowerRuntime {
             if (ports != null) for (DevicePort port : ports) {
                 if (port == null || !port.device().equals(entity.getBlockPos())) continue;
                 portCounts.merge(port.tier(), 1, Integer::sum);
-                CableFaceNode faceNode = new CableFaceNode(port.device().relative(port.face()),
-                        port.face().getOpposite(), port.tier());
-                LoadedPowerGraph.NodeState state = PowerTopology.deviceAdjacent(port, faceNode)
-                        ? PowerGraphService.state(level, faceNode)
-                        : new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1);
+                LoadedPowerGraph.NodeState state = PowerGraphService.state(level, port);
                 portStates.put(port.tier(), state);
             }
             runtimePortStates.put(entity, new RuntimePortState(node, portStates, portCounts));
@@ -1093,13 +1194,17 @@ public final class PowerRuntime {
             PowerRuntimeNode.SupplierOffer offer = node.powerSupplierOffer(elapsedTicks);
             Double demand = node.mvPowerDemandWatts();
             Double apcDemand = node.apcPowerDemandWatts();
-            boolean conflictingRoles = (offer != null ? 1 : 0) + (demand != null ? 1 : 0) + (apcDemand != null ? 1 : 0) > 1;
+            // A dual-port TEG may independently supply HV and consume APC power. MV
+            // participation remains exclusive, as do all other combinations.
+            boolean hvSupplierAndApcConsumer = offer != null && demand == null && apcDemand != null;
+            boolean conflictingRoles = !hvSupplierAndApcConsumer
+                    && (offer != null ? 1 : 0) + (demand != null ? 1 : 0) + (apcDemand != null ? 1 : 0) > 1;
             if (conflictingRoles) conflictingNodes.add(entity);
             if (offer != null && !conflictingRoles && portState.hasExactlyOne(CableTier.HV)) {
                 LoadedPowerGraph.NodeState state = portState.states().get(CableTier.HV);
                 if (Double.isFinite(offer.currentWatts()) && offer.currentWatts() >= 0
                         && Double.isFinite(offer.ratedMaximumWatts()) && offer.ratedMaximumWatts() >= 0)
-                    { sourceOffers.add(new PowerLiveLoop.Source(id(entity), state.componentId(),
+                    { sourceOffers.add(new PowerLiveLoop.Source(PowerRuntimeNode.allocationId(id(entity), CableTier.HV), state.componentId(),
                             state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN,
                             offer.currentWatts(), offer.ratedMaximumWatts()));
                     validHvSuppliers.add(entity); }
@@ -1110,7 +1215,7 @@ public final class PowerRuntime {
                         && portState.hasExactlyOne(CableTier.MV);
                 LoadedPowerGraph.NodeState state = portState.states().get(CableTier.MV);
                 boolean isKnown = valid && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN;
-                mvConsumers.add(new PowerLiveLoop.MvConsumer(id(entity), isKnown ? state.componentId() : -1,
+                mvConsumers.add(new PowerLiveLoop.MvConsumer(PowerRuntimeNode.allocationId(id(entity), CableTier.MV), isKnown ? state.componentId() : -1,
                         isKnown, valid ? demand : 0));
             }
             if (apcDemand != null) {
@@ -1121,7 +1226,7 @@ public final class PowerRuntime {
                         && apcs.stream().anyMatch(apc -> isKnown(known, apc, CableTier.APC)
                         && component(components, apc, CableTier.APC) == state.componentId() && apc.breakerClosed());
                 boolean isKnown = valid && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN && hasProvider;
-                apcConsumers.add(new PowerLiveLoop.ApcConsumer(id(entity), isKnown ? state.componentId() : -1, isKnown, valid ? apcDemand : 0));
+                apcConsumers.add(new PowerLiveLoop.ApcConsumer(PowerRuntimeNode.allocationId(id(entity), CableTier.APC), isKnown ? state.componentId() : -1, isKnown, valid ? apcDemand : 0));
             }
         }
         var input = new PowerLiveLoop.Input(sourceOffers,
@@ -1174,7 +1279,7 @@ public final class PowerRuntime {
             boolean graphKnown = validHvSuppliers.contains(entity) && !conflictingNodes.contains(entity)
                     && PowerGraphService.topologyReady(level) && state != null
                     && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN;
-            node.receivePowerSupplyAllocation(graphKnown ? result.hvSourceWatts().getOrDefault(id(entity), 0.0) : 0,
+            node.receivePowerSupplyAllocation(graphKnown ? result.hvSourceWatts().getOrDefault(PowerRuntimeNode.allocationId(id(entity), CableTier.HV), 0.0) : 0,
                     graphKnown, elapsedTicks, sampleTick);
         }
         Map<BlockPos, MvRuntimeMeterSample> runtimeMeters = MV_RUNTIME_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
@@ -1193,7 +1298,7 @@ public final class PowerRuntime {
             boolean graphKnown = !conflictingNodes.contains(entity) && Double.isFinite(demand) && demand >= 0
                     && portState.hasExactlyOne(CableTier.MV)
                     && PowerGraphService.topologyReady(level) && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN;
-            double actual = graphKnown ? result.mvConsumerWatts().getOrDefault(id(entity), 0.0) : 0;
+            double actual = graphKnown ? result.mvConsumerWatts().getOrDefault(PowerRuntimeNode.allocationId(id(entity), CableTier.MV), 0.0) : 0;
             runtimeMeters.put(entity.getBlockPos().immutable(), new MvRuntimeMeterSample(sampleTick, runtimeTopologyGeneration,
                     actual, demand, node, entity, graphKnown));
             node.receiveMvPowerAllocation(actual, graphKnown, sampleTick);
@@ -1211,7 +1316,7 @@ public final class PowerRuntime {
             boolean graphKnown = !conflictingNodes.contains(entity) && Double.isFinite(demand) && demand >= 0
                     && portState.hasExactlyOne(CableTier.APC) && PowerGraphService.topologyReady(level)
                     && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN && hasProvider;
-            double actual = graphKnown ? result.apcConsumerWatts().getOrDefault(id(entity), 0.0) : 0;
+            double actual = graphKnown ? result.apcConsumerWatts().getOrDefault(PowerRuntimeNode.allocationId(id(entity), CableTier.APC), 0.0) : 0;
             java.util.UUID identity = node.apcPowerIdentity();
             if (identity != null) apcRuntimeMeters.put(entity.getBlockPos().immutable(), new ApcRuntimeMeterSample(
                     sampleTick, runtimeTopologyGeneration, actual, demand, node, entity, identity, graphKnown));
@@ -1298,6 +1403,9 @@ public final class PowerRuntime {
                         apc.breakerRevision(), generation, ready, ready, apc.breakerClosed(), sampleTick));
             }
         }
+        // Ambient eligibility consumes the freshly completed receiver meter; it does not
+        // add a load, and deliberately has no gas-transfer/pressure-lockout condition.
+        for (VentilationDeviceBlockEntity vent : vents) vent.refreshAmbientEligibility(level);
         Map<BlockPos, CompletedVentBudget> budgets = COMPLETED_VENT_BUDGETS.computeIfAbsent(level, ignored -> new HashMap<>());
         budgets.clear();
         Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.computeIfAbsent(level,
@@ -1306,11 +1414,14 @@ public final class PowerRuntime {
             boolean graphKnown = isKnown(known, apc, CableTier.MV) && isKnown(known, apc, CableTier.APC);
             String apcId = id(apc);
             double output = result.apcOutputWatts().getOrDefault(apcId, 0.0);
+            double energyBefore = apc.energyJoules();
+            double energyAfter = result.batteryEnergyJoules().getOrDefault(apcId, energyBefore);
             ApcVisualState visual = ApcVisualState.fromSolve(isKnown(known, apc, CableTier.MV),
                     isKnown(known, apc, CableTier.APC), result.apcInputWatts().getOrDefault(apcId, 0.0),
                     output, apc.energyJoules(), result.batteryEnergyJoules().getOrDefault(apcId, apc.energyJoules()));
             samples.put(apc.getBlockPos().immutable(), new ApcOutputSample(sampleTick,
-                    PowerGraphService.topologyGeneration(level), graphKnown, output,
+                    PowerGraphService.topologyGeneration(level), graphKnown,
+                    result.apcInputWatts().getOrDefault(apcId, 0.0), output, energyBefore, energyAfter,
                     apc, apc.breakerRevision(), visual, sampleTick, PowerGraphService.topologyGeneration(level)));
         }
         projectPowerDeviceAppearances(level, devices, sources, substations, components, known, result);
@@ -1367,9 +1478,8 @@ public final class PowerRuntime {
         for (PowerDeviceBlockEntity lamp : lamps)
             setLit(level, lamp.getBlockPos(), result.lampWatts().getOrDefault(id(lamp), 0.0)
                     >= ((PowerDeviceBlock) lamp.getBlockState().getBlock()).kind().lampDemandWatts());
-        // Gas work is authorized only after APC battery billing and single-use budgets exist.
-        for (VentilationDeviceBlockEntity vent : vents)
-            VentilationGasRuntime.onCompletedPaidSolve(level, vent);
+        // Completed per-vent budgets are consumed for credits here; gas work runs later on the device cadence.
+        for (VentilationDeviceBlockEntity vent : vents) VentilationGasRuntime.onCompletedPaidSolve(level, vent);
     }
 
     /** Project native display states from the authoritative solve; DISPLAY never changes topology. */
@@ -1456,12 +1566,6 @@ public final class PowerRuntime {
             boolean wasClosed = apc.breakerClosed();
             apc.observeActualApcOutput(serverTick, sample == null ? Long.MIN_VALUE : sample.sampleTick(),
                     knownAndFresh, sample == null ? 0 : sample.outputWatts());
-            if (!apc.breakerClosed()) entry.setValue(new ApcOutputSample(serverTick,
-                    PowerGraphService.topologyGeneration(level), sample != null && sample.graphKnown(), 0,
-                    apc, sample == null ? apc.breakerRevision() : sample.breakerRevision(),
-                    sample == null ? ApcVisualState.UNKNOWN : sample.visualState(),
-                    sample == null ? serverTick : sample.visualTick(),
-                    sample == null ? PowerGraphService.topologyGeneration(level) : sample.visualGeneration()));
             if (wasClosed && !apc.breakerClosed()) RESOLVE_AFTER_TRIP.add(level);
         }
     }

@@ -39,6 +39,7 @@ final class AtmosphereCycle {
     private final Set<BlockPos> reactionSources = new LinkedHashSet<>();
     private final Set<BlockPos> deferredReactions = new LinkedHashSet<>();
     private final Map<BlockPos, GasReactionStep.WholeAirResult> wholeAir = new LinkedHashMap<>();
+    private final Map<BlockPos, AtmosphereService.CommittedHotspotDiagnostic> hotspots = new LinkedHashMap<>();
 
     /** One stage opportunity every 1/15 second; each default chain occupies nine opportunities. */
     boolean beginWhenDue() {
@@ -58,6 +59,7 @@ final class AtmosphereCycle {
         reactionVisited.clear();
         deferredReactions.clear();
         wholeAir.clear();
+        hotspots.clear();
         reactionsPending = false;
         reactionsStarted = false;
         reactionSources.clear();
@@ -136,6 +138,7 @@ final class AtmosphereCycle {
         reactionSources.clear();
     }
     Map<BlockPos, GasReactionStep.WholeAirResult> wholeAir() { return wholeAir; }
+    Map<BlockPos, AtmosphereService.CommittedHotspotDiagnostic> hotspots() { return hotspots; }
 
     void invalidateTopology(BlockPos changed) {
         archive.remove(changed);
@@ -196,6 +199,7 @@ final class AtmosphereCycle {
             reactionVisited.clear();
             deferredReactions.clear();
             wholeAir.clear();
+            hotspots.clear();
             lindaRemaining = -1;
             reactionsStarted = false;
             reactionSources.clear();

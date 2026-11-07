@@ -303,7 +303,30 @@ def readinessCatalog = [
     preview: ['com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest']
 ]
 readinessCatalog.interaction.add('com.juicyslew.moonstation14.ms14.botany.BotanyInspectCommandTest')
+readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.ui.client.paint.MachineTextFieldPaintTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineLayoutTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmPaintLayoutTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineOverlayPointerTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineOverlayDraftTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmOverlayPointerTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmOverlaySequenceTest',
+    'com.juicyslew.moonstation14.ms14.ui.preview.AtmosUiPreviewTest'
+])
+readinessCatalog.preview.add('com.juicyslew.moonstation14.ms14.ui.preview.AtmosUiPreviewTest')
+readinessCatalog.prediction.addAll([
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlProtocolTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmOverlaySequenceTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineOverlayDraftTest'
+])
 readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyMachineActivationDispatchTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlProtocolTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineControlProtocolTest'
+])
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.power.cable.CableCutSelectionTest',
+    'com.juicyslew.moonstation14.ms14.power.cable.CableCutGeometryTest',
     'com.juicyslew.moonstation14.ms14.prototype.NettleProductCatalogCandidateTest',
     'com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageTest',
     'com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageRuntimeTest',
@@ -385,6 +408,44 @@ readinessCatalog.ui.addAll([
     'com.juicyslew.moonstation14.ms14.combat.CombatModeHudPolicyTest'
 ])
 readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRendererAlphaTest')
+readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicyTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineRefreshPolicyTest',
+    'com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspaceTest',
+    'com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerInputPolicyTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.fixture.AtmosMachineryThermalGaugeTest'
+])
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerProfileTest',
+    'com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSnapshotTest',
+    'com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSessionPolicyTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineGeometryTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.fixture.AtmosMachineryFixtureCommandSelectionTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.fixture.AtmosMachineryFixtureSavedDataTest'
+])
+readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspaceTest')
+readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.examine.ExamineNumbersTest')
+readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineLayoutTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineClientModelTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineControlProtocolTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineOverlayPointerTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineOverlayDraftTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmOverlayPointerTest'
+])
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineControlProtocolTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlProtocolTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachinePrototypeTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmOverlaySequenceTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyMachineActivationDispatchTest'
+])
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.atmos.machine.fixture.AtmosMachineryFixtureCommandSelectionTest',
+    'com.juicyslew.moonstation14.ms14.atmos.machine.fixture.AtmosMachineryFixtureSavedDataTest'
+])
+readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineClientModelTest')
+readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachinePrototypeTest')
 readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest',
     'com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest',
@@ -429,6 +490,8 @@ if (project.hasProperty('ms14Readiness')) {
     def readinessOutputFile = reportFile.get().asFile
     def readinessProjectRoot = projectDir.absolutePath
     def previewManifestFile = new File(projectDir, 'build/reports/feature-readiness/previews/manifest.json')
+    def atmosPreviewManifestFile = new File(projectDir, 'build/reports/feature-readiness/previews/atmos/manifest.json')
+    def analyzerPreviewManifestFile = new File(projectDir, 'build/reports/feature-readiness/previews/analyzer/manifest.json')
     def readinessStartedFile = layout.buildDirectory.file('reports/feature-readiness/current-run-started.txt').get().asFile
     def gameResourcesJar = providers.gradleProperty('moonstation14.gameResourcesJar')
         .orElse(providers.systemProperty('moonstation14.gameResourcesJar'))
@@ -441,6 +504,8 @@ if (project.hasProperty('ms14Readiness')) {
             readinessStartedFile.parentFile.mkdirs()
             readinessStartedFile.text = "${started}\nselection=${selected.join(',')}\ncatalog=${selectedTests.join(',')}\nresources=${gameResourcesJar}\n"
             if (selected.contains('preview') && previewManifestFile.exists()) java.nio.file.Files.delete(previewManifestFile.toPath())
+            if (selected.contains('preview') && atmosPreviewManifestFile.exists()) java.nio.file.Files.delete(atmosPreviewManifestFile.toPath())
+            if (selected.contains('preview') && analyzerPreviewManifestFile.exists()) java.nio.file.Files.delete(analyzerPreviewManifestFile.toPath())
             readinessOutputFile.parentFile.mkdirs()
             readinessOutputFile.text = """# Feature readiness run
 
@@ -465,6 +530,7 @@ if (project.hasProperty('ms14Readiness')) {
         dependsOn readinessBegin
         filter { selectedTests.each { includeTestsMatching(it) } }
         systemProperty 'moonstation14.gameResourcesJar', gameResourcesJar
+        if (selected.contains('preview')) systemProperty 'moonstation14.atmosPreviewOutput', 'build/reports/feature-readiness/previews/atmos'
         binaryResultsDirectory = resultBinaryDirectory
         reports.junitXml.outputLocation = resultXmlDirectoryProvider
         reports.html.outputLocation = layout.buildDirectory.dir('reports/tests/featureReadiness')
@@ -502,6 +568,7 @@ if (project.hasProperty('ms14Readiness')) {
                 def sheets = allCases.findAll { it.contactSheet }
                 def expectedViewports = [[320, 240], [640, 360]]
                 def failures = []
+                def previewUnverified = false
                 if (!manifest.source?.contains('ChemMasterPaint.paint') || !manifest.source?.contains('AirlockWirePaint.paint')) failures << 'source does not identify both production painters'
                 if (fullCases.size() != 72) failures << "expected 72 full cases, found ${fullCases.size()}"
                 if (fullCases.collect { it.screen }.toSet() != (['chemmaster', 'airlock-wire'] as Set)) failures << 'full cases do not cover both expected screens'
@@ -517,6 +584,25 @@ if (project.hasProperty('ms14Readiness')) {
                 def previewRoot = new File(readinessProjectRoot, 'build/reports/feature-readiness/previews').canonicalFile.toPath()
                 def imageCount = 0
                 def requiredImages = []
+                def checkPreviewImage = { String reference, String label, List problems, String expectedSha256 = null ->
+                    try {
+                        def imagePath = java.nio.file.Paths.get(reference)
+                        def resolved = (imagePath.isAbsolute() ? imagePath : new File(readinessProjectRoot, reference).toPath()).toFile().canonicalFile
+                        if (!resolved.toPath().startsWith(previewRoot)) problems << "${label} path escapes preview output: ${reference}"
+                        else if (!resolved.isFile() || resolved.length() == 0) problems << "missing/empty ${label} image: ${reference}"
+                        else {
+                            if (expectedSha256) {
+                                def digest = java.security.MessageDigest.getInstance('SHA-256')
+                                def actualSha256 = java.util.HexFormat.of().formatHex(digest.digest(java.nio.file.Files.readAllBytes(resolved.toPath())))
+                                if (!actualSha256.equalsIgnoreCase(expectedSha256)) problems << "${label} SHA-256 mismatch: ${reference}"
+                            }
+                            def dimensions = javax.imageio.ImageIO.read(resolved)
+                            if (dimensions == null || dimensions.width <= 0 || dimensions.height <= 0) problems << "undecodable/invalid ${label} image: ${reference}"
+                            else imageCount++
+                            dimensions?.flush()
+                        }
+                    } catch (Exception invalidImage) { problems << "invalid ${label} image path/content ${reference}: ${invalidImage.message}" }
+                }
                 fullCases.each { item ->
                     // Every fixture record must carry its schema-required artifacts; never skip a missing path.
                     ['full', 'detail'].each { key ->
@@ -531,23 +617,111 @@ if (project.hasProperty('ms14Readiness')) {
                 requiredImages.each { pair ->
                     def item = pair[0]
                     def key = pair[1]
-                    try {
-                        def imagePath = java.nio.file.Paths.get(item[key].toString())
-                        def resolved = (imagePath.isAbsolute() ? imagePath : new File(readinessProjectRoot, item[key].toString()).toPath()).toFile().canonicalFile
-                        if (!resolved.toPath().startsWith(previewRoot)) failures << "${key} path escapes preview output: ${item[key]}"
-                        else if (!resolved.isFile() || resolved.length() == 0) failures << "missing/empty ${key} image: ${item[key]}"
-                        else {
-                            def dimensions = javax.imageio.ImageIO.read(resolved)
-                            if (dimensions == null || dimensions.width <= 0 || dimensions.height <= 0) failures << "undecodable/invalid ${key} image: ${item[key]}"
-                            else imageCount++
-                            dimensions?.flush()
-                        }
-                    } catch (Exception invalidImage) {
-                        failures << "invalid ${key} image path/content ${item[key]}: ${invalidImage.message}"
-                    }
+                    checkPreviewImage(item[key].toString(), key, failures)
                 }
-                previewValidation = failures ? 'FAIL' : 'PASS'
-                previewDetails = failures ? failures.join('; ') : "72 full cases and 2 contact sheets; ${imageCount} listed PNGs exist and decode under preview output"
+                def atmosManifestFile = atmosPreviewManifestFile
+                def analyzerManifestFile = analyzerPreviewManifestFile
+                def atmosSuite = 'com.juicyslew.moonstation14.ms14.ui.preview.AtmosUiPreviewTest'
+                if (!suitesByClass.containsKey(atmosSuite) || suitesByClass[atmosSuite].tests == 0) {
+                    previewUnverified = true
+                } else if (suitesByClass[atmosSuite].failures || suitesByClass[atmosSuite].errors) {
+                    failures << 'Atmos preview producer test failed in the current invocation'
+                } else if (!atmosManifestFile.isFile()) {
+                    previewUnverified = true
+                } else {
+                    def atmos = new JsonSlurper().parse(atmosManifestFile)
+                    def atmosCases = atmos.images instanceof List ? atmos.images : []
+                    def caseIds = atmosCases.collect { it.caseId }.findAll { it instanceof String }.toSet()
+                    def expectedPainters = ['AtmosMachinePaint.paint', 'AirAlarmPaint.paint'] as Set
+                    if (atmos.producer != atmosSuite + '#generateAtmosProductionPreviews') failures << 'Atmos manifest producer/source is not the current production generator'
+                    if (!atmos.source?.contains('AtmosMachinePaint.paint') || !atmos.source?.contains('AirAlarmPaint.paint')) failures << 'Atmos manifest omits current production painters'
+                    if (atmosCases.size() != 210 || caseIds.size() != 35) failures << "Atmos manifest must contain 210 cases across 35 unique state IDs; found ${atmosCases.size()}/${caseIds.size()}"
+                    if (atmosCases.collect { it.painter }.toSet() != expectedPainters) failures << 'Atmos manifest does not identify both production painters'
+                    def expectedAtmosCaseIds = [] as Set
+                    ['pressure_pump', 'volume_pump', 'mixer', 'filter', 'heater', 'freezer'].each { kind ->
+                        def states = ['normal', 'pending', 'rejected', 'numeric-focused']
+                        if (kind == 'mixer') states << 'mixer-PERCENT-focused'
+                        if (kind == 'filter') states.addAll(['filter-search', 'filter-list'])
+                        states.each { state -> expectedAtmosCaseIds << "atmos-machine-${kind}-${state}" }
+                    }
+                    ['vent-controls', 'scrubber-filters', 'disabled', 'pending', 'rejected', 'search-idle', 'search-focused', 'numeric-focused'].each { state -> expectedAtmosCaseIds << "air-alarm-${state}" }
+                    if (caseIds != expectedAtmosCaseIds) failures << 'Atmos case IDs do not exactly match the expected 35 production states'
+                    def expectedAtmosGroups = (1..3).collectMany { scale -> [[320, 240], [640, 360]].collect { viewport -> [scale, viewport] } }.toSet()
+                    def atmosGroups = atmosCases.groupBy { [it.guiScale as int, it.viewport?.collect { dimension -> dimension as int }] }
+                    if (atmosGroups.keySet() != expectedAtmosGroups || atmosGroups.any { key, entries -> entries.size() != 35 || entries.collect { it.caseId }.toSet() != expectedAtmosCaseIds }) failures << 'Atmos cases must cover all 35 expected states in each exact viewport/scale combination'
+                    atmosCases.each { item ->
+                        if (!item.image) failures << 'Atmos case missing image path: ' + item.caseId
+                        else checkPreviewImage(item.image.toString(), 'Atmos ' + item.caseId, failures, item.sha256?.toString())
+                    }
+                    if (!atmos.contactSheet) failures << 'Atmos manifest missing contact sheet path'
+                    else checkPreviewImage(atmos.contactSheet.toString(), 'Atmos contact sheet', failures)
+                }
+                def analyzerSuite = previewSuite
+                if (!suitesByClass.containsKey(analyzerSuite) || suitesByClass[analyzerSuite].tests == 0) {
+                    previewUnverified = true
+                } else if (suitesByClass[analyzerSuite].failures || suitesByClass[analyzerSuite].errors) {
+                    failures << 'analyzer preview producer test failed in the current invocation'
+                } else if (!analyzerManifestFile.isFile()) {
+                    previewUnverified = true
+                } else {
+                    def analyzer = new JsonSlurper().parse(analyzerManifestFile)
+                    def analyzerCases = analyzer.cases instanceof List ? analyzer.cases : []
+                    def states = ['distance-0', 'remote-graph', 'empty', 'blocked', 'waiting', 'retarget-waiting', 'distance-6', 'long-gas-list', 'pipe-vacuum', 'pipe-mixed', 'device-mixer', 'device-mixer-scrolled', 'unary-vent'] as Set
+                    def viewports = [[320, 240], [640, 360]] as Set
+                    def protoIds = ['moonstation14:atmosphere_analyzer'] as Set
+                    if (analyzer.producer != 'com.juicyslew.moonstation14.ms14.ui.preview.GasAnalyzerProductionPreview') failures << 'analyzer manifest producer is not the production painter generator'
+                    if (analyzer.source != 'GasAnalyzerPaint.paint production painter; resolved analyzer profile; immutable server-snapshot DTO fixtures') failures << 'analyzer manifest source does not identify production paint/profile fixtures'
+                    if (analyzer.prototypeIds?.toSet() != protoIds) failures << 'analyzer manifest prototype identity is not atmosphere_analyzer'
+                    def analyzerSourceFiles = [
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/analyzer/client/GasAnalyzerPaint.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/analyzer/client/GasAnalyzerLayout.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/analyzer/client/GasAnalyzerWorkspace.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/analyzer/client/GasAnalyzerRows.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/analyzer/client/GasAnalyzerInputPolicy.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/analyzer/GasAnalyzerSessionService.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/analyzer/GasAnalyzerSessionPolicy.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/analyzer/GasAnalyzerSnapshot.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/analyzer/GasAnalyzerPipeSamples.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/analyzer/GasAnalyzerSample.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/piping/Ss14VentilationDefaults.java',
+                        'src/main/java/com/juicyslew/moonstation14/ms14/atmos/visual/GasVisibility.java',
+                        'src/main/resources/data/moonstation14/moonstation14/gas_analyzer/gas_analyzer_base.json',
+                        'src/main/resources/data/moonstation14/moonstation14/gas_analyzer/atmosphere_analyzer.json',
+                        'src/main/resources/assets/moonstation14/lang/en_us.json',
+                        'src/test/java/com/juicyslew/moonstation14/ms14/ui/preview/GasAnalyzerProductionPreview.java',
+                        'src/main/resources/data/moonstation14/moonstation14/atmos_machine/atmos_machine_base.json',
+                        'src/main/resources/data/moonstation14/moonstation14/atmos_machine/gas_pipe_sans_layers.json',
+                        'src/main/resources/data/moonstation14/moonstation14/atmos_machine/gas_pipe_base.json',
+                        'src/main/resources/data/moonstation14/moonstation14/atmos_machine/gas_trinary_base.json',
+                        'src/main/resources/data/moonstation14/moonstation14/atmos_machine/gas_mixer.json'
+                    ]
+                    def sourceDigest = java.security.MessageDigest.getInstance('SHA-256')
+                    analyzerSourceFiles.each { name ->
+                        sourceDigest.update(name.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                        sourceDigest.update(java.nio.file.Files.readAllBytes(new File(readinessProjectRoot, name).toPath()))
+                    }
+                    def expectedAnalyzerSourceHash = java.util.HexFormat.of().formatHex(sourceDigest.digest())
+                    if (analyzer.sourceHashSha256 != expectedAnalyzerSourceHash) failures << 'analyzer manifest source hash is not current'
+                    def expectedAnalyzerCaseCount = states.size() * viewports.size() * 3
+                    if (analyzer.expectedCaseCount != expectedAnalyzerCaseCount || analyzerCases.size() != expectedAnalyzerCaseCount) failures << "analyzer manifest must contain ${expectedAnalyzerCaseCount} cases, found ${analyzerCases.size()}"
+                    if (analyzer.matrix?.states?.toSet() != states || analyzer.matrix?.viewports?.collect { it as List }?.toSet() != viewports || analyzer.matrix?.guiScales?.collect { it as int }?.toSet() != ([1, 2, 3] as Set)) failures << 'analyzer declared state/viewport/scale matrix is incomplete'
+                    def analyzerIds = analyzerCases.collect { it.caseId }.toSet()
+                    def expectedIds = (1..3).collectMany { scale -> [[320,240],[640,360]].collectMany { vp -> states.collect { state -> "${state}-${vp[0]}x${vp[1]}-scale${scale}" } } }.toSet()
+                    if (analyzerIds.size() != expectedAnalyzerCaseCount || analyzerIds != expectedIds || analyzer.caseIds?.toSet() != expectedIds) failures << 'analyzer case IDs do not exactly cover the declared 78-case matrix'
+                    if (analyzerCases.any { it.prototypeIds?.toSet() != protoIds }) failures << 'analyzer case has missing/incorrect prototype identity'
+                    def analyzerGroups = analyzerCases.groupBy { [it.guiScale as int, it.viewportGui] }
+                    if (analyzerGroups.size() != 6 || analyzerGroups.any { key, entries -> entries.size() != states.size() || entries.collect { it.state }.toSet() != states }) failures << 'analyzer cases must cover thirteen states in each of six viewport/scale combinations'
+                    analyzerCases.each { item ->
+                        if (!item.png || !item.pngSha256) failures << "analyzer case missing PNG path/hash: ${item.caseId}"
+                        else checkPreviewImage(item.png.toString(), 'analyzer ' + item.caseId, failures, item.pngSha256.toString())
+                        if (item.canvasPx != [item.viewportGui[0] * item.guiScale, item.viewportGui[1] * item.guiScale]) failures << "analyzer canvas dimensions mismatch: ${item.caseId}"
+                    }
+                    if (!(analyzer.contactSheet instanceof Map) || !analyzer.contactSheet.path || !analyzer.contactSheet.sha256) failures << 'analyzer manifest missing contact sheet path/hash'
+                    else checkPreviewImage(analyzer.contactSheet.path.toString(), 'analyzer contact sheet', failures, analyzer.contactSheet.sha256.toString())
+                    if (!(analyzer.nonVisibleStates?.closed instanceof String) || !analyzer.nonVisibleStates.closed.contains('no closed window is painted')) failures << 'analyzer manifest must explain that closed is not a painted state'
+                }
+                previewValidation = failures ? 'FAIL' : (previewUnverified ? 'UNVERIFIED' : 'PASS')
+                previewDetails = failures ? failures.join('; ') : (previewUnverified ? 'current Atmos/analyzer output absent; missing evidence remains UNVERIFIED' : "72 ChemMaster/wire, 210 Atmos, and 72 analyzer cases with contact sheets; ${imageCount} listed PNGs exist, decode, and match recorded hashes under preview output")
                 previewStatus = "${previewValidation}: manifest `${previewManifestFile}`; ${previewDetails}. This validates generated artifacts, not visual/aesthetic acceptance."
             } else if (selected.contains('preview') && suitesByClass.containsKey(previewSuite) && (suitesByClass[previewSuite].failures || suitesByClass[previewSuite].errors)) {
                 previewValidation = 'FAIL'

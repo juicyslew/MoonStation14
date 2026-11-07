@@ -1,0 +1,17 @@
+Asset: static atmosphere analyzer item icon (upstream RSI state `icon`; upstream working animation and in-hand states are not imported).
+
+Upstream repository: https://github.com/space-wizards/space-station-14
+Pinned SS14 commit: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Upstream path: Resources/Textures/Objects/Specific/Atmos/gasanalyzer.rsi/icon.png
+SS14 file metadata: Resources/Textures/Objects/Specific/Atmos/gasanalyzer.rsi/meta.json
+Upstream bytes: 487
+Upstream SHA-256: bec3fdff9b0def074b2edf003d1018c0bc730854c84248b718f17d0c18b05e0b
+Destination: src/main/resources/assets/moonstation14/textures/item/atmosphere_analyzer.png
+Destination bytes: 487
+Destination SHA-256: bec3fdff9b0def074b2edf003d1018c0bc730854c84248b718f17d0c18b05e0b
+Edited or converted: no; exact original bytes copied.
+
+File-specific license: CC-BY-SA-3.0
+License URL: https://creativecommons.org/licenses/by-sa/3.0/
+Copyright/attribution (verbatim): Taken from baystation at https://github.com/Baystation12/Baystation12/commit/ded74aff42136a7953c551a2a94cebc81f62f9fb, Inhand sprites by onesch
+Attribution chain: Baystation12 commit ded74aff42136a7953c551a2a94cebc81f62f9fb; in-hand sprites credited to onesch in the upstream per-file metadata. In-hand assets are not included here.

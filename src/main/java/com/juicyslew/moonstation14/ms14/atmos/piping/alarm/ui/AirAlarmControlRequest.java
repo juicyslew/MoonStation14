@@ -16,13 +16,13 @@ public record AirAlarmControlRequest(int containerId, UUID session, long request
                                   Operation operation, boolean desired, int enumIndex) {
         this(containerId, session, requestId, deviceId, expectedRevision, operation, desired, enumIndex, 0);
     }
-    public enum Operation { QUERY, PAIR, UNPAIR, SET_ENABLED, SET_SCRUBBER_MODE, SET_FILTER_GAS, SET_EXTERNAL_PRESSURE_BOUND, SET_VOLUME_RATE }
+    public enum Operation { QUERY, PAIR, UNPAIR, SET_ENABLED, SET_SCRUBBER_MODE, SET_FILTER_GAS, SET_EXTERNAL_PRESSURE_BOUND, SET_VOLUME_RATE, CLOSE }
     public static final Type<AirAlarmControlRequest> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("moonstation14", "air_alarm_control"));
     public static final StreamCodec<RegistryFriendlyByteBuf, AirAlarmControlRequest> STREAM_CODEC = StreamCodec.of(
-            (b, v) -> { b.writeVarInt(v.containerId); b.writeUUID(v.session); b.writeVarLong(v.requestId);
+            (b, v) -> { b.writeUUID(v.session); b.writeVarLong(v.requestId);
                 b.writeUUID(v.deviceId); b.writeVarLong(v.expectedRevision); b.writeEnum(v.operation);
                 b.writeBoolean(v.desired); b.writeVarInt(v.enumIndex); b.writeDouble(v.numericValue); },
-            b -> new AirAlarmControlRequest(b.readVarInt(), b.readUUID(), b.readVarLong(), b.readUUID(),
+            b -> new AirAlarmControlRequest(0, b.readUUID(), b.readVarLong(), b.readUUID(),
                     b.readVarLong(), b.readEnum(Operation.class), b.readBoolean(), b.readVarInt(), b.readDouble()));
 
     public AirAlarmControlRequest {

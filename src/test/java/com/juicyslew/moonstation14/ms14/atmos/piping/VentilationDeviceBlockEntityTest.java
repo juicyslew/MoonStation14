@@ -1,5 +1,7 @@
 package com.juicyslew.moonstation14.ms14.atmos.piping;
 
+import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
+
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -9,6 +11,19 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class VentilationDeviceBlockEntityTest {
+    @Test
+    void appearanceProjectsOnlySupportedVentilationModesAndLayer() {
+        VentilationDeviceConfig c = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT);
+        var s = c.settings();
+        assertEquals("off", VentilationDeviceAppearance.project(VentilationDeviceConfig.Kind.VENT, s, false, true));
+        assertEquals("vent_out", VentilationDeviceAppearance.project(VentilationDeviceConfig.Kind.VENT, s, true, true));
+        assertEquals("off", VentilationDeviceAppearance.project(VentilationDeviceConfig.Kind.VENT, s, true, false));
+        var scrub = new VentilationDeviceConfig.Settings(0, true, 0, 0, 0, 0,
+                VentilationDeviceConfig.ScrubberMode.SIPHON, java.util.Set.of(), VentilationDeviceConfig.Layer.TERTIARY);
+        assertEquals("scrub_purge", VentilationDeviceAppearance.project(VentilationDeviceConfig.Kind.SCRUBBER, scrub, true, true));
+        assertEquals(2, VentilationDeviceAppearance.layer(scrub));
+    }
+
     @Test
     void settingsRoundTripAndLegacyDefaultsAreKindSpecific() {
         VentilationDeviceConfig original = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.SCRUBBER);
@@ -90,8 +105,27 @@ class VentilationDeviceBlockEntityTest {
 
     @Test
     void deviceConfigHasNoGasInventoryOrMutationApi() {
-        assertTrue(java.util.Arrays.stream(VentilationDeviceBlockEntity.class.getDeclaredFields())
-                .noneMatch(field -> field.getType().getSimpleName().toLowerCase().contains("gas")));
+        var type = VentilationDeviceBlockEntity.class;
+        assertTrue(java.util.Arrays.stream(type.getDeclaredFields()).noneMatch(field ->
+                exposesGasAuthority(field.getType())), "device fields must not own physical gas state");
+        var cadence = assertDoesNotThrow(() -> type.getDeclaredField("gasCadence"));
+        assertTrue(java.lang.reflect.Modifier.isPrivate(cadence.getModifiers()));
+        var accessor = assertDoesNotThrow(() -> type.getDeclaredMethod("gasCadence"));
+        assertFalse(java.lang.reflect.Modifier.isPublic(accessor.getModifiers()));
+        for (var method : type.getDeclaredMethods()) {
+            if (!java.lang.reflect.Modifier.isPublic(method.getModifiers())) continue;
+            assertFalse(exposesGasAuthority(method.getReturnType()),
+                    () -> "public API exposes physical gas authority: " + method);
+            for (var parameter : method.getParameterTypes())
+                assertFalse(exposesGasAuthority(parameter),
+                        () -> "public API accepts physical gas authority: " + method);
+        }
+    }
+
+    private static boolean exposesGasAuthority(Class<?> type) {
+        return GasMixture.class.isAssignableFrom(type) || PipeGasInventory.class.isAssignableFrom(type)
+                || PipeGasInventorySavedData.class.isAssignableFrom(type)
+                || PipeGasTransaction.Endpoint.class.isAssignableFrom(type);
     }
 
     @Test
@@ -106,10 +140,6 @@ class VentilationDeviceBlockEntityTest {
                     ModBlocks.GAS_VENT.get().defaultBlockState().setValue(VentilationDeviceBlock.FACING, facing));
             assertEquals(room, origin.relative(entity.roomFacePos()));
             assertEquals(pipe, entity.pipePortPos());
-            assertTrue(java.util.Arrays.stream(VentilationDeviceBlockEntity.class.getDeclaredMethods())
-                    .noneMatch(method -> method.getName().toLowerCase().contains("gas")
-                            || method.getName().toLowerCase().contains("air")
-                            || method.getName().toLowerCase().contains("block")));
         }
     }
 
