@@ -204,11 +204,13 @@ public final class BodyWorldItemActions {
                 || stack.is(ModItems.PLASTIC) || stack.is(ModItems.SCREWDRIVER) || stack.is(ModItems.WELDER)
                 || stack.is(ModItems.WRENCH))
             return BodyConstructionItemUse.use(new BodyUseItemContext(actor, authority, hands, request.handId(),
-                    request.expectedToken(), request.expectedRevision(), stack, admission.hit().pos(), admission.hit().face()));
+                    request.expectedToken(), request.expectedRevision(), stack, admission.hit().pos(), admission.hit().face(),
+                    admission.hit().location()));
         if (BodyBlockItemPlacement.supports(stack)) return BodyBlockItemPlacement.place(actor, request, admission);
         if (stack.getItem() instanceof AtmosphereAnalyzerItem) {
-            AtmosphereAnalyzerItem.reportForBody(level, actor, body, admission.hit().pos(), admission.hit().face());
-            return BodyBlockUseResult.Outcome.NO_CHANGE;
+            var opened = com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSessionService.scanTarget(actor,
+                    admission, request.handId(), request.expectedToken(), request.expectedRevision());
+            return opened == BodyHandActionResult.Reason.OK ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
         }
         return BodyBlockUseResult.Outcome.DENIED;
     }
@@ -248,7 +250,7 @@ public final class BodyWorldItemActions {
             if (com.juicyslew.moonstation14.ms14.doors.AirlockInteraction.activate(actor,request, admission))
                 return BodyBlockUseResult.Outcome.NO_CHANGE;
             if (com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService
-                    .open(actor, request, admission)) return BodyBlockUseResult.Outcome.NO_CHANGE;
+                    .openWorkspace(actor, request, admission) != null) return BodyBlockUseResult.Outcome.NO_CHANGE;
             var level=admission.authority().body().level();
             if(level instanceof net.minecraft.server.level.ServerLevel server
                     && server.getBlockEntity(admission.hit().pos()) instanceof com.juicyslew.moonstation14.ms14.devicenet.control.WallSignalControlBlockEntity control

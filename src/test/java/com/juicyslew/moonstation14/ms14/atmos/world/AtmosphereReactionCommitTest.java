@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionEvaluator;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionStep;
 import com.juicyslew.moonstation14.ms14.atmos.reaction.HotspotState;
+import com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,14 @@ class AtmosphereReactionCommitTest {
     private static final GasReactionEvaluator.Result RESULT =
             new GasReactionEvaluator.Result(AFTER, Map.of(GasType.TRITIUM, -2.0, GasType.WATER_VAPOR, 2.0),
                      100, List.of());
+
+    @Test void hotspotChannelProjectionRemovesOnlyCommittedPrefixAndKeepsFallbackAndEqualLocalEvent() {
+        var same=new GasReactionEvaluator.Event(net.minecraft.resources.ResourceLocation.withDefaultNamespace("same"),
+                GasReactionData.EffectType.PLASMA_FIRE,99,Map.of(GasType.PLASMA,-1d),160000);
+        assertEquals(List.of(same),AtmosphereService.projectHotspotChannelEvents(List.of(same,same),List.of(same),true));
+        assertEquals(List.of(same,same),AtmosphereService.projectHotspotChannelEvents(List.of(same,same),List.of(same),false));
+        assertThrows(IllegalArgumentException.class,()->AtmosphereService.projectHotspotChannelEvents(List.of(),List.of(same),true));
+    }
 
     @Test
     void excitedGroupResetRequiresCommittedAlreadyProcessedHotspotIncludingFizzle() {
@@ -160,7 +169,7 @@ class AtmosphereReactionCommitTest {
                 com.juicyslew.moonstation14.ms14.atmos.reaction.GasReactionData.EffectType.TRITIUM_FIRE,
                 .01, Map.of(GasType.TRITIUM, -.01), 100);
         var step = new GasReactionStep.Result(AFTER, RESULT.speciesDelta(), 100,
-                List.of(event), Optional.of(next), true);
+                List.of(event), Optional.of(next), true, 0, false, Map.of(GasType.WATER_VAPOR, 8e-8));
         var evaluator = (java.util.function.Function<GasMixture, GasReactionStep.Result>) before -> {
             evaluations.incrementAndGet();
             assertSame(BEFORE, cell.get());
@@ -178,6 +187,7 @@ class AtmosphereReactionCommitTest {
         assertEquals(List.of(event), result.result().events());
         assertEquals(RESULT.speciesDelta(), result.result().speciesDelta());
         assertEquals(100, result.result().energyDeltaJoules());
+        assertEquals(Map.of(GasType.WATER_VAPOR, 8e-8), result.discardedMoles());
         assertSame(next, work.hotspot(pos));
         assertTrue(work.commitOnce(42, pos, commit).isEmpty());
         assertEquals(1, evaluations.get());
@@ -191,7 +201,8 @@ class AtmosphereReactionCommitTest {
         HotspotState old = new HotspotState(300, 900, true, false);
         work.setHotspot(pos, Optional.of(old));
         var step = new GasReactionStep.Result(AFTER, RESULT.speciesDelta(), 100,
-                List.of(), Optional.of(new HotspotState(500, 1200, true, false)), true);
+                List.of(), Optional.of(new HotspotState(500, 1200, true, false)), true, 0, false,
+                Map.of(GasType.WATER_VAPOR, 8e-8));
         for (boolean preflight : new boolean[] {false, true}) {
             AtomicInteger writes = new AtomicInteger();
             assertTrue(AtmosphereService.commitHotspotCyclePass(pos, BEFORE, work.hotspot(pos), before -> step,

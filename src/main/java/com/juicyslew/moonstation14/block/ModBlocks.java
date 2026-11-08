@@ -33,6 +33,9 @@ import com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlock;
 import com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlock;
 import com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlock;
 import com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlock;
+import com.juicyslew.moonstation14.ms14.combat.WeaponCapacitorRechargerBlock;
+import com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineBlock;
+import com.juicyslew.moonstation14.ms14.atmos.world.GasMinerBlock;
 import com.juicyslew.moonstation14.item.custom.CatalogOnlyDisposalPipeBlockItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
@@ -51,6 +54,13 @@ import java.util.function.Supplier;
 
 public class ModBlocks {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MoonStation14.MOD_ID);
+
+    public static final DeferredBlock<GasMinerBlock> GAS_MINER_OXYGEN = BLOCKS.register("gas_miner_oxygen", () -> new GasMinerBlock("oxygen_station", BlockBehaviour.Properties.of().strength(4f).sound(SoundType.METAL)));
+    public static final DeferredBlock<GasMinerBlock> GAS_MINER_NITROGEN = BLOCKS.register("gas_miner_nitrogen", () -> new GasMinerBlock("nitrogen_station", BlockBehaviour.Properties.of().strength(4f).sound(SoundType.METAL)));
+    public static final DeferredBlock<GasMinerBlock> GAS_MINER_PLASMA = BLOCKS.register("gas_miner_plasma", () -> new GasMinerBlock("plasma_station", BlockBehaviour.Properties.of().strength(4f).sound(SoundType.METAL)));
+    static { registerBlockItem("gas_miner_oxygen", GAS_MINER_OXYGEN); registerBlockItem("gas_miner_nitrogen", GAS_MINER_NITROGEN); registerBlockItem("gas_miner_plasma", GAS_MINER_PLASMA); }
+    public static final DeferredBlock<WeaponCapacitorRechargerBlock> WEAPON_CAPACITOR_RECHARGER = registerBlock("weapon_capacitor_recharger",
+            () -> new WeaponCapacitorRechargerBlock(BlockBehaviour.Properties.of().strength(2f).noOcclusion()));
 
     public static final DeferredBlock<Block> STEEL_WALL_BLOCK = registerBlock("steel_wall_block",
             () -> new ConstructionStructureBlock("wall_solid", BlockBehaviour.Properties.of()
@@ -123,6 +133,18 @@ public class ModBlocks {
     public static final DeferredBlock<AtmosphereTestDeviceBlock> ATMOS_COOLER = registerBlock("atmos_cooler",
             () -> new AtmosphereTestDeviceBlock(AtmosphereDeviceRules.Device.COOLER, BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER)));
 
+    public static final DeferredBlock<AtmosMachineBlock> TEG_CENTER = registerAtmosMachine("teg_center");
+    public static final DeferredBlock<AtmosMachineBlock> TEG_CIRCULATOR = registerAtmosMachine("teg_circulator");
+    public static final DeferredBlock<AtmosMachineBlock> GAS_PRESSURE_PUMP = registerAtmosMachine("gas_pressure_pump");
+    public static final DeferredBlock<AtmosMachineBlock> GAS_VOLUME_PUMP = registerAtmosMachine("gas_volume_pump");
+    public static final DeferredBlock<AtmosMachineBlock> GAS_VALVE = registerAtmosMachine("gas_valve");
+    public static final DeferredBlock<AtmosMachineBlock> GAS_MIXER = registerAtmosMachine("gas_mixer");
+    public static final DeferredBlock<AtmosMachineBlock> GAS_FILTER = registerAtmosMachine("gas_filter");
+    public static final DeferredBlock<AtmosMachineBlock> GAS_THERMO_HEATER = registerAtmosMachine("gas_thermo_heater");
+    public static final DeferredBlock<AtmosMachineBlock> GAS_THERMO_FREEZER = registerAtmosMachine("gas_thermo_freezer");
+    public static final DeferredBlock<AtmosMachineBlock> PASSIVE_HEAT_EXCHANGER = registerAtmosMachine("passive_heat_exchanger");
+    public static final DeferredBlock<AtmosMachineBlock> GAS_PIPE_MANIFOLD = registerAtmosMachine("gas_pipe_manifold");
+
     public static final DeferredBlock<PowerDeviceBlock> HV_SOURCE = registerPowerDevice(PowerDeviceKind.HV_SOURCE);
     public static final DeferredBlock<PowerDeviceBlock> HV_MV_SUBSTATION = registerPowerDevice(PowerDeviceKind.HV_MV_SUBSTATION);
     public static final DeferredBlock<PowerDeviceBlock> APC = registerPowerDevice(PowerDeviceKind.APC);
@@ -172,6 +194,11 @@ public class ModBlocks {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);
         registerBlockItem(name, toReturn);
         return toReturn;
+    }
+
+    private static DeferredBlock<AtmosMachineBlock> registerAtmosMachine(String profileIdentity) {
+        return registerBlock(profileIdentity, () -> new AtmosMachineBlock(profileIdentity,
+                BlockBehaviour.Properties.of().strength(3f).sound(SoundType.COPPER).noOcclusion()));
     }
 
     private static DeferredBlock<AtmosphereTestDeviceBlock> registerGasProducer(GasType gas) {

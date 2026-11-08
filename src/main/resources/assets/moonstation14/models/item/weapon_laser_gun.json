@@ -1,0 +1,10 @@
+{
+  "parent": "moonstation14:item/guns/weapon_laser_gun_charge4",
+  "overrides": [
+    { "predicate": { "moonstation14:ammo_fill": 0 }, "model": "moonstation14:item/guns/weapon_laser_gun_charge0" },
+    { "predicate": { "moonstation14:ammo_fill": 0.000001 }, "model": "moonstation14:item/guns/weapon_laser_gun_charge1" },
+    { "predicate": { "moonstation14:ammo_fill": 0.333334 }, "model": "moonstation14:item/guns/weapon_laser_gun_charge2" },
+    { "predicate": { "moonstation14:ammo_fill": 0.666667 }, "model": "moonstation14:item/guns/weapon_laser_gun_charge3" },
+    { "predicate": { "moonstation14:ammo_fill": 1 }, "model": "moonstation14:item/guns/weapon_laser_gun_charge4" }
+  ]
+}

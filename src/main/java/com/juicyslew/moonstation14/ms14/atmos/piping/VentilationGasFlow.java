@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.atmos.piping;
 
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
+import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -8,39 +9,67 @@ import java.util.Optional;
 /** Pure SS14-derived transfer planning for room-facing vents and scrubbers. */
 public final class VentilationGasFlow {
     private static final double GAS_CONSTANT = 8.31446261815324;
+    private static final double PRESSURE_LOCKOUT_KPA = 80.0;
+    private static final double UNDERPRESSURE_LEAK_COEFFICIENT = (double) 0.0001f;
     // GasVentScrubberSystem.cs destination guard: 50 atmospheres. This is not pump burst pressure.
     private static final double SCRUBBER_OUTLET_PRESSURE_CAP_KPA = 5_066.25;
 
     private VentilationGasFlow() { }
 
-    /** Plan release from pipe to room, bounded by the configured pressure target and rate. */
+    /** Settings-only compatibility entry point for callers without a resolved device profile. */
     public static Optional<PipeGasTransfer.Plan> planVentRelease(
             GasMixture pipeBefore, GasMixture roomBefore, double pipeVolumeM3, double roomVolumeM3,
             double elapsedSeconds, VentilationDeviceConfig.Settings settings) {
+        return planVentRelease(pipeBefore, roomBefore, pipeVolumeM3, roomVolumeM3, elapsedSeconds, settings,
+                new VentilationDeviceData.GasVentPump(settings.targetPressureChangeKPaPerSecond(),
+                        settings.externalPressureBoundKPa(), 2,
+                        VentilationDeviceData.PressureChecks.EXTERNAL, 0));
+    }
+
+    /** Plan release from pipe to room, bounded by the configured pressure target and rate. */
+    public static Optional<PipeGasTransfer.Plan> planVentRelease(
+            GasMixture pipeBefore, GasMixture roomBefore, double pipeVolumeM3, double roomVolumeM3,
+            double elapsedSeconds, VentilationDeviceConfig.Settings settings, VentilationDeviceData.GasVentPump profile) {
         validate(pipeBefore, roomBefore, pipeVolumeM3, roomVolumeM3, elapsedSeconds, settings);
+        Objects.requireNonNull(profile, "profile");
         if (!settings.configuredEnabled() || pipeBefore.totalMoles() == 0.0) return Optional.empty();
         double roomPressure = roomBefore.pressureKpa(roomVolumeM3);
-        if (!settings.pressureLockoutOverride() && roomPressure < 80.0) {
-            // Upstream component stores the leak coefficient as float (0.0001f).
-            double leakMoles = elapsedSeconds * Math.max(0.0,
-                    pipeBefore.pressureKpa(pipeVolumeM3) - roomPressure) * (double) 0.0001f;
-            if (!(leakMoles > 0.0)) return Optional.empty();
-            return PipeGasTransfer.plan(pipeBefore, roomBefore, pipeVolumeM3, roomVolumeM3,
-                    leakMoles, settings.externalPressureBoundKPa(), java.util.Set.of(com.juicyslew.moonstation14.ms14.atmos.core.GasType.values()));
-        }
-        // GasVentPumpSystem uses PumpPower=2 to limit supply from a low-pressure pipe,
-        // independently of the external destination ceiling.
-        double effectiveTarget = Math.min(Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa()),
-                pipeBefore.pressureKpa(pipeVolumeM3) * 2.0);
-        double remainingPressure = effectiveTarget - roomPressure;
-        if (!(remainingPressure > Math.ulp((float) Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa())))
-                || roomBefore.temperatureKelvin() <= 0.0) return Optional.empty();
+        double destinationPressureLimit = releaseDestinationPressureLimit(settings, profile);
+        double remainingPressure = destinationPressureLimit - roomPressure;
+        if (!(remainingPressure > Math.ulp((float) destinationPressureLimit))
+                || roomBefore.temperatureKelvin() <= 0.0 || pipeBefore.temperatureKelvin() <= 0.0) return Optional.empty();
+        var checks = profile.pressureChecks();
+        double pipePressure = pipeBefore.pressureKpa(pipeVolumeM3);
+        double sourcePressureCap = checks == VentilationDeviceData.PressureChecks.EXTERNAL
+                || checks == VentilationDeviceData.PressureChecks.BOTH
+                ? Math.min(pipePressure * profile.pumpPower(), settings.externalPressureBoundKPa()) : Double.POSITIVE_INFINITY;
+        double sourcePressureDelta = sourcePressureCap - roomPressure;
+        if (!(sourcePressureDelta > 0)) return Optional.empty();
         double maxMoles = Math.min(settings.targetPressureChangeKPaPerSecond() * elapsedSeconds,
-                remainingPressure) * 1000.0 * roomVolumeM3
-                / (GAS_CONSTANT * roomBefore.temperatureKelvin());
-        double destinationMaxPressureKpa = Math.min(settings.externalPressureBoundKPa(), settings.targetPressureKPa());
+                Math.min(remainingPressure, sourcePressureDelta)) * 1000.0 * roomVolumeM3
+                / (GAS_CONSTANT * pipeBefore.temperatureKelvin());
+        // GasVentPumpSystem applies its low-room-pressure leak behavior after ordinary
+        // pressure gates. The external destination bound remains an intentional local safety cap.
+        if (!settings.pressureLockoutOverride() && roomPressure < PRESSURE_LOCKOUT_KPA) {
+            maxMoles = elapsedSeconds * (pipePressure - roomPressure) * UNDERPRESSURE_LEAK_COEFFICIENT;
+            if (!(maxMoles > 0.0)) return Optional.empty();
+        }
+        if (checks == VentilationDeviceData.PressureChecks.INTERNAL || checks == VentilationDeviceData.PressureChecks.BOTH) {
+            double internalMoles = Math.max(0, pipePressure - profile.internalPressureBoundKPa()) * 1000.0 * pipeVolumeM3
+                    / (GAS_CONSTANT * pipeBefore.temperatureKelvin());
+            maxMoles = Math.min(maxMoles, internalMoles);
+        }
+        double destinationMaxPressureKpa = destinationPressureLimit;
         return PipeGasTransfer.plan(pipeBefore, roomBefore, pipeVolumeM3, roomVolumeM3, maxMoles,
                 destinationMaxPressureKpa, java.util.Set.of(com.juicyslew.moonstation14.ms14.atmos.core.GasType.values()));
+    }
+
+    static double releaseDestinationPressureLimit(VentilationDeviceConfig.Settings settings,
+            VentilationDeviceData.GasVentPump profile) {
+        return switch (profile.pressureChecks()) {
+            case EXTERNAL, BOTH -> Math.min(settings.targetPressureKPa(), settings.externalPressureBoundKPa());
+            case NO, INTERNAL -> settings.targetPressureKPa();
+        };
     }
 
     /** Plan room capture, filtering selected gases unless configured for siphon mode. */

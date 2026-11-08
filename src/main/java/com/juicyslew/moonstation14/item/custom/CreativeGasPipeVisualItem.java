@@ -22,7 +22,7 @@ import net.neoforged.neoforge.common.util.FakePlayer;
 
 import java.util.List;
 
-/** Creative-only visual fixture; deliberately has no gas-network behavior. */
+/** Creative inventory placement is visual-only; body-held placement is handled by the functional pipe path. */
 public class CreativeGasPipeVisualItem extends BlockItem {
     private final int lane;
 
@@ -48,7 +48,7 @@ public class CreativeGasPipeVisualItem extends BlockItem {
     @Override
     public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         super.appendHoverText(stack, context, tooltip, flag);
-        tooltip.add(Component.translatable("item.moonstation14.gas_pipe_visual.tooltip.visual_only"));
+        tooltip.add(Component.translatable("item.moonstation14.gas_pipe_visual.tooltip.placement_paths"));
         tooltip.add(Component.translatable("item.moonstation14.gas_pipe_visual.tooltip.lane_" + lane));
     }
 

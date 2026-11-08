@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "moonstation14:block/atmos_interfaces/gas_vent/vent_off_l0_north",
   "textures": {
     "layer0": "moonstation14:block/gas_vent"
   }

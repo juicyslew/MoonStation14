@@ -796,7 +796,12 @@ def cmd_gate_validate(a,root):
 def execution_argv(repo, argv, *, os_name=None):
     """Resolve launcher and make recognized Gradle checks finite before launch."""
     result=list(argv)
-    if (os_name or os.name)=='nt' and result and result[0] in ('./gradlew','gradlew'):
+    wrapper_names=('./gradlew','gradlew','gradlew.bat')
+    if result and result[0] in wrapper_names:
+        if '--daemon' in result[1:]:
+            raise ValueError('persistent Gradle daemon request (--daemon) is not allowed; check was not launched')
+        if '--no-daemon' not in result[1:]: result.append('--no-daemon')
+    if (os_name or os.name)=='nt' and result and result[0] in wrapper_names:
         wrapper=Path(repo)/'gradlew.bat'
         if wrapper.is_file(): result[0]=str(wrapper.resolve())
     launcher = Path(result[0]).name.lower() if result else ''

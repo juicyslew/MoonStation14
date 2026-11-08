@@ -58,6 +58,21 @@ class NativeFixturePolicyTests(unittest.TestCase):
             self.assertEqual('UNVERIFIED',record['evidence']['status'])
             self.assertEqual(0,record['evidence']['counts']['tests'])
 
+    def test_finite_gametest_preflight_failure_is_captured_as_failed_not_unverified(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo=Path(tmp); script=repo/'fake-gradle.py'
+            script.write_text("import sys\nprint('Unknown GameTest tags: shuttle-bay-light')\nsys.exit(1)\n",encoding='utf-8')
+            fixture='build/workflow-fixtures/fixture-a'
+            check={'kind':'gametest','argv':[sys.executable,str(script)],'covers':['gametest'],
+                   'rationale':'preflight regression','log':fixture+'/logs/latest.log'}
+            record=workflow_runtime.run_finite_checks(repo,{'checks':[check]},repo/'capture')[0]
+            self.assertEqual(1,record['exit_code'])
+            self.assertEqual('FAIL',record['evidence']['status'])
+            self.assertEqual(0,record['evidence']['counts']['tests'] or 0)
+            self.assertIn('GameTest process exited before producer log; server execution is not evidenced',
+                          record['evidence']['findings'])
+            self.assertFalse((repo/fixture/'logs/latest.log').exists())
+
     def test_native_preflight_requires_exact_authorized_adapted_plan(self):
         digest='a'*64
         unit={'kind':'junit','selectors':['org.example.Test'],'argv':['./gradlew','test','--tests','org.example.Test','--no-daemon'],'covers':['unit']}
@@ -188,8 +203,20 @@ class NativeFixturePolicyTests(unittest.TestCase):
         self.assertFalse(workflow_native_fixtures.verify_original_execution(check,digest,1,record,provenance,'.',run_id='r2',generation=1,task_id='t1'))
         altered=dict(record,executed_argv=['evil.exe'])
         self.assertFalse(workflow_native_fixtures.verify_original_execution(check,digest,1,altered,provenance,'.',run_id='r1',generation=1,task_id='t1'))
-        with self.assertRaisesRegex(ValueError,'executed argv or log'):
+        with self.assertRaisesRegex(ValueError,'executed argv differs'):
             workflow_native_fixtures.execution_binding(check,digest,1,dict(record,argv=['evil']),a[0],repo='.')
+        failed=dict(record,exit_code=1,evidence={'status':'FAIL','artifacts':[]})
+        failed_binding=workflow_native_fixtures.execution_binding(check,digest,1,failed,a[0],repo='.')
+        self.assertEqual('FAILED_BEFORE_PRODUCER_LOG',failed_binding['execution_outcome'])
+        self.assertFalse(workflow_native_fixtures.verify_original_execution(
+            check,digest,1,failed,failed_binding,'.',run_id='r1',generation=1,task_id='t1'))
+        for invalid in (dict(record,exit_code=0,evidence={'status':'PASS','artifacts':[]}),
+                        dict(record,exit_code=1,evidence={'status':'UNVERIFIED','artifacts':[]})):
+            with self.assertRaisesRegex(ValueError,'producer log missing'):
+                workflow_native_fixtures.execution_binding(check,digest,1,invalid,a[0],repo='.')
+        with self.assertRaisesRegex(ValueError,'executed argv'):
+            workflow_native_fixtures.execution_binding(check,digest,1,
+                dict(failed,executed_argv=['evil.exe']),a[0],repo='.')
         accepted=workflow_native_fixtures.accepted_binding(check,digest,1)
         self.assertEqual('ACCEPTED_ORIGINAL',accepted['mode'])
 

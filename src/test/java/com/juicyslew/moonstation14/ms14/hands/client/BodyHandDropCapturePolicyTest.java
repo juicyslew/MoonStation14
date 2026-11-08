@@ -58,8 +58,9 @@ class BodyHandDropCapturePolicyTest {
         String service = read("src/main/java/com/juicyslew/moonstation14/ms14/hands/network/BodyHandRequestService.java");
         assertTrue(service.contains("request.expectedRevision(), request.throwTarget(), spawned::set"));
         String transfer = read("src/main/java/com/juicyslew/moonstation14/ms14/hands/live/BodyHandItemTransfer.java");
-        assertTrue(transfer.contains("target == null\n                        ? BodyItemTargetProbe.resolveDrop"));
-        assertTrue(transfer.contains("BodyItemTargetProbe.resolveDrop(level, body, excludedCarrier, profile.physicalWidth(), profile.physicalHeight(), target)"));
+        String normalizedTransfer = transfer.replaceAll("\\s+", " ");
+        assertTrue(normalizedTransfer.matches("(?s).*target == null \\? BodyItemTargetProbe\\.resolveDrop\\(level, body, excludedCarrier, profile\\.physicalWidth\\(\\), profile\\.physicalHeight\\(\\)\\) : BodyItemTargetProbe\\.resolveDrop\\(level, body, excludedCarrier, profile\\.physicalWidth\\(\\), profile\\.physicalHeight\\(\\), target\\).*"),
+                "ordinary drops resolve without a captured target; captured drops forward the target");
     }
 
     private static String read(String relative) throws Exception {

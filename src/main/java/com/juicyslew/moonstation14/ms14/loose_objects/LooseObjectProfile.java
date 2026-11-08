@@ -169,17 +169,39 @@ public record LooseObjectProfile(float mass, float friction, float restitution, 
                     throwLandDamage, destructionThreshold, destructionSound, spillCurrentReagents, destructionOutputs, null);
         }
     }
+    public record ModelRest(float rotationEulerX, float rotationEulerY, float rotationEulerZ,
+                            float horizontalOffsetX, float horizontalOffsetZ) {
+        public static final ModelRest IDENTITY = new ModelRest(0, 0, 0, 0, 0);
+        public static final Codec<ModelRest> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.FLOAT.optionalFieldOf("rotation_euler_x", 0f).forGetter(ModelRest::rotationEulerX),
+                Codec.FLOAT.optionalFieldOf("rotation_euler_y", 0f).forGetter(ModelRest::rotationEulerY),
+                Codec.FLOAT.optionalFieldOf("rotation_euler_z", 0f).forGetter(ModelRest::rotationEulerZ),
+                Codec.FLOAT.optionalFieldOf("horizontal_offset_x", 0f).forGetter(ModelRest::horizontalOffsetX),
+                Codec.FLOAT.optionalFieldOf("horizontal_offset_z", 0f).forGetter(ModelRest::horizontalOffsetZ)
+        ).apply(i, ModelRest::new));
+        public ModelRest {
+            if (!range(rotationEulerX, -360, 360) || !range(rotationEulerY, -360, 360)
+                    || !range(rotationEulerZ, -360, 360) || !range(horizontalOffsetX, -4, 4)
+                    || !range(horizontalOffsetZ, -4, 4)) throw new IllegalArgumentException("invalid model rest");
+        }
+    }
     public record VisualTuning(float spriteScaleX, float spriteScaleY, float spriteOffsetX,
-                               float spriteOffsetY, float modelScale, float modelFloorOffset) {
+                               float spriteOffsetY, float modelScale, float modelFloorOffset, ModelRest modelRest) {
         public static final Codec<VisualTuning> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.FLOAT.fieldOf("sprite_scale_x").forGetter(VisualTuning::spriteScaleX),
                 Codec.FLOAT.fieldOf("sprite_scale_y").forGetter(VisualTuning::spriteScaleY),
                 Codec.FLOAT.fieldOf("sprite_offset_x").forGetter(VisualTuning::spriteOffsetX),
                 Codec.FLOAT.fieldOf("sprite_offset_y").forGetter(VisualTuning::spriteOffsetY),
                 Codec.FLOAT.fieldOf("model_scale").forGetter(VisualTuning::modelScale),
-                Codec.FLOAT.fieldOf("model_floor_offset").forGetter(VisualTuning::modelFloorOffset)
+                Codec.FLOAT.fieldOf("model_floor_offset").forGetter(VisualTuning::modelFloorOffset),
+                ModelRest.CODEC.optionalFieldOf("model_rest", ModelRest.IDENTITY).forGetter(VisualTuning::modelRest)
         ).apply(i, VisualTuning::new));
+        public VisualTuning(float spriteScaleX, float spriteScaleY, float spriteOffsetX,
+                            float spriteOffsetY, float modelScale, float modelFloorOffset) {
+            this(spriteScaleX, spriteScaleY, spriteOffsetX, spriteOffsetY, modelScale, modelFloorOffset, ModelRest.IDENTITY);
+        }
         public VisualTuning {
+            if (modelRest == null) modelRest = ModelRest.IDENTITY;
             if (!bounded(spriteScaleX, 0, 4) || !bounded(spriteScaleY, 0, 4)
                     || !bounded(spriteOffsetX, -2, 2) || !bounded(spriteOffsetY, -2, 2)
                     || !bounded(modelScale, 0, 4) || !Float.isFinite(modelFloorOffset)
@@ -189,6 +211,9 @@ public record LooseObjectProfile(float mass, float friction, float restitution, 
     }
     private static boolean bounded(float value, float min, float max) {
         return Float.isFinite(value) && value > min && value <= max;
+    }
+    private static boolean range(float value, float min, float max) {
+        return Float.isFinite(value) && value >= min && value <= max;
     }
     public float visualWidth() { return visual.spriteScaleX(); }
     public float visualHeight() { return visual.spriteScaleY(); }

@@ -1205,6 +1205,7 @@ public final class AtmosphereRoomGameTests {
         helper.succeed();
     }
 
+    @GameTestTags({"atmos-wall-opening"})
     @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "atmosphere_wall_opening", timeoutTicks = 100)
     public static void fullWallOpeningDrainsMoreThanOneBlockOpening(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();

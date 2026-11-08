@@ -65,4 +65,15 @@ class EquipmentPlaceholderGeometryTest {
         assertTrue(EquipmentPlaceholderGeometry.SHOES_BOTTOM > 12F);
         assertTrue(EquipmentPlaceholderGeometry.PANTS_BOTTOM > 9F); // shoe cuff begins at local y=9
     }
+
+    @Test void articulatedPlaceholderArmPiecesAreSplitAtElbowForAllArmWearSlots() {
+        for (String slot : new String[]{"jumpsuit", "outerClothing", "gloves"})
+            for (boolean slim : new boolean[]{false,true})
+                for (var arm : new EquipmentRenderPlan.Anchor[]{EquipmentRenderPlan.Anchor.LEFT_ARM,EquipmentRenderPlan.Anchor.RIGHT_ARM}) {
+                    var upper=EquipmentPlaceholderGeometry.cachedArmSegmentForTest(slot,arm,slim,false);
+                    var lower=EquipmentPlaceholderGeometry.cachedArmSegmentForTest(slot,arm,slim,true);
+                    assertNotNull(upper); assertNotNull(lower);
+                    assertNotSame(upper,lower);
+                }
+    }
 }

@@ -17,7 +17,7 @@ class PipeGasInventorySavedDataTest {
         assertTrue(data.replace(before.revision(), before, initial));
         var admitted = initial.get(node).orElseThrow();
         initial = initial.withMixture(node, id, admitted.version(),
-                new GasMixture(java.util.Map.of(GasType.OXYGEN, 2.5, GasType.NITROGEN, 7.5), 312.0));
+                new GasMixture(java.util.Map.of(GasType.OXYGEN, 2.5, GasType.NITROGEN, 7.5), 312.0, 2.0));
         PipeGasInventory admittedSnapshot = data.snapshot();
         assertTrue(data.replace(admittedSnapshot.revision(), admittedSnapshot, initial));
         CompoundTag saved = data.save(new CompoundTag(), null);
@@ -25,11 +25,9 @@ class PipeGasInventorySavedDataTest {
         assertEquals(initial.revision(), loaded.revision());
         assertEquals(initial.size(), loaded.snapshot().size());
         assertEquals(initial.get(node).orElseThrow().version(), loaded.snapshot().get(node).orElseThrow().version());
-        assertEquals(initial.get(node).orElseThrow().mixture().gasMoles(),
-                loaded.snapshot().get(node).orElseThrow().mixture().gasMoles());
+        assertEquals(initial.mixture(node).gasMoles(), loaded.snapshot().mixture(node).gasMoles());
         assertEquals(initial.get(node).orElseThrow().incarnation(), loaded.snapshot().get(node).orElseThrow().incarnation());
-        assertEquals(initial.get(node).orElseThrow().mixture().thermalEnergy(),
-                loaded.snapshot().get(node).orElseThrow().mixture().thermalEnergy());
+        assertEquals(initial.mixture(node).thermalEnergy(), loaded.snapshot().mixture(node).thermalEnergy());
 
         PipeGasInventory loadedBefore = loaded.snapshot();
         assertFalse(loadedBefore.get(node).orElseThrow().active());
@@ -42,10 +40,8 @@ class PipeGasInventorySavedDataTest {
         assertFalse(loaded.replace(activeSnapshot.revision(), activeSnapshot, activeSnapshot));
         assertEquals(newer.revision(), loaded.revision());
         assertFalse(loaded.snapshot().get(node).orElseThrow().active());
-        assertEquals(initial.get(node).orElseThrow().mixture().gasMoles(),
-                loaded.snapshot().get(node).orElseThrow().mixture().gasMoles());
-        assertEquals(initial.get(node).orElseThrow().mixture().thermalEnergy(),
-                loaded.snapshot().get(node).orElseThrow().mixture().thermalEnergy());
+        assertEquals(initial.mixture(node).gasMoles(), loaded.snapshot().mixture(node).gasMoles());
+        assertEquals(initial.mixture(node).thermalEnergy(), loaded.snapshot().mixture(node).thermalEnergy());
     }
 
     @Test void replaceRequiresCurrentSnapshotAndExactlyNextRevision() {

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.lang.reflect.Proxy;
 
 class ExposedPipeVisualBlockTest {
     private final ExposedPipeVisualBlock block = ModBlocks.GAS_PIPE_VISUAL.get();
@@ -56,15 +57,19 @@ class ExposedPipeVisualBlockTest {
     @Test
     void updateShapeSetsOnlySameBlockNeighborAndClearsOtherBlock() {
         BlockState state = block.defaultBlockState();
+        BlockPos pos = BlockPos.ZERO;
+        var level = (net.minecraft.world.level.LevelAccessor) Proxy.newProxyInstance(
+                net.minecraft.world.level.LevelAccessor.class.getClassLoader(),
+                new Class<?>[]{net.minecraft.world.level.LevelAccessor.class},
+                (proxy, method, args) -> null);
         for (Direction direction : Direction.values()) {
-            BlockPos pos = BlockPos.ZERO;
-            BlockState connected = block.updateShape(state, direction, block.defaultBlockState(), null,
+            BlockState connected = block.updateShape(state, direction, block.defaultBlockState(), level,
                     pos, pos.relative(direction));
             assertTrue(connected.getValue(property(direction)));
             assertFalse(state.getValue(property(direction)));
 
             BlockState cleared = block.updateShape(connected, direction, ModBlocks.STEEL_WALL_BLOCK.get().defaultBlockState(),
-                    null, pos, pos.relative(direction));
+                    level, pos, pos.relative(direction));
             assertFalse(cleared.getValue(property(direction)));
         }
     }
@@ -73,8 +78,14 @@ class ExposedPipeVisualBlockTest {
     void disconnectedPrimaryDoesNotConnectToPrimaryNeighbor() {
         Direction direction = Direction.NORTH;
         BlockState disconnected = block.defaultBlockState().setValue(ExposedPipeVisualBlock.PRIMARY_CONNECTED, false);
-        BlockState result = block.updateShape(disconnected, direction, block.defaultBlockState(), null,
-                BlockPos.ZERO, BlockPos.ZERO.relative(direction));
+        BlockPos pos = BlockPos.ZERO;
+        var entity = new VisualPipeBlockEntity(pos, disconnected);
+        var level = (net.minecraft.world.level.LevelAccessor) Proxy.newProxyInstance(
+                net.minecraft.world.level.LevelAccessor.class.getClassLoader(),
+                new Class<?>[]{net.minecraft.world.level.LevelAccessor.class},
+                (proxy, method, args) -> method.getName().equals("getBlockEntity") && pos.equals(args[0]) ? entity : null);
+        BlockState result = block.updateShape(disconnected, direction, block.defaultBlockState(), level,
+                pos, pos.relative(direction));
         assertFalse(result.getValue(property(direction)));
     }
 

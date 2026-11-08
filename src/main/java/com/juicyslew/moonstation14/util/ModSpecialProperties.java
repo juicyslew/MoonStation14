@@ -38,6 +38,45 @@ public class ModSpecialProperties {
         registerBeakerFill(ModItems.BEAKER.get());
         registerBeakerFill(ModItems.BEAKER_LARGE.get());
         registerNetworkConfiguratorProperty();
+        registerGunAppearanceProperties();
+        registerCartridgeSpentProperty(ModItems.CARTRIDGE_PISTOL.get());
+        registerCartridgeSpentProperty(ModItems.CARTRIDGE_RIFLE.get());
+        registerCartridgeSpentProperty(ModItems.CARTRIDGE_MAGNUM.get());
+        registerCartridgeSpentProperty(ModItems.CARTRIDGE_LIGHT_RIFLE.get());
+        registerCartridgeSpentProperty(ModItems.SHELL_SHOTGUN.get());
+    }
+
+    private static void registerGunAppearanceProperties() {
+        var items = java.util.List.of(ModItems.WEAPON_PISTOL_MK58.get(), ModItems.WEAPON_RIFLE_LECTER.get(),
+                ModItems.WEAPON_REVOLVER_INSPECTOR.get(), ModItems.WEAPON_SHOTGUN_KAMMERER.get(),
+                ModItems.WEAPON_SNIPER_MOSIN.get(), ModItems.WEAPON_LASER_GUN.get(),
+                ModItems.WEAPON_ENERGY_SHOTGUN.get(), ModItems.WEAPON_LASER_SVALINN.get(),
+                ModItems.MAGAZINE_PISTOL.get(), ModItems.MAGAZINE_RIFLE.get(), ModItems.SPEEDLOADER_MAGNUM.get(),
+                ModItems.POWER_CELL_SMALL.get());
+        registerGunProperty(items, "magazine_absent", p -> p.magazineAbsent() ? 1 : 0);
+        registerGunProperty(items, "bolt_open", p -> p.boltOpen() ? 1 : 0);
+        registerGunProperty(items, "ammo_fill", com.juicyslew.moonstation14.ms14.combat.GunItemAppearance.Projection::containerFill);
+        registerGunProperty(items, "charge", com.juicyslew.moonstation14.ms14.combat.GunItemAppearance.Projection::chargeFraction);
+        registerGunProperty(items, "cell_absent", p -> p.cellAbsent() ? 1 : 0);
+        registerGunProperty(items, "battery_mode", com.juicyslew.moonstation14.ms14.combat.GunItemAppearance.Projection::batteryMode);
+        ItemProperties.register(ModItems.WEAPON_SNIPER_MOSIN.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "solution_present"),
+                (stack, level, entity, seed) -> com.juicyslew.moonstation14.util.MapOperations.getTotal(
+                        stack.getOrDefault(ModDataComponents.REAGENT.get(), new ReagentComponent()).contents()) > 0 ? 1f : 0f);
+    }
+    private static void registerGunProperty(java.util.List<Item> items, String name,
+            java.util.function.ToDoubleFunction<com.juicyslew.moonstation14.ms14.combat.GunItemAppearance.Projection> value) {
+        var key = ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, name);
+        for (Item item : items) ItemProperties.register(item, key, (stack, level, entity, seed) -> {
+            var appearance = com.juicyslew.moonstation14.ms14.combat.GunItemAppearance.project(stack,
+                    com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.clientCatalog().asMap(),
+                    com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.clientCatalog().asMap(),
+                    com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.clientCatalog().asMap());
+            return (float) value.applyAsDouble(appearance);
+        });
+    }
+    private static void registerCartridgeSpentProperty(Item item) {
+        ItemProperties.register(item, ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "cartridge_spent"),
+                (stack, level, entity, seed) -> com.juicyslew.moonstation14.ms14.combat.SharedCartridgeItemPresentation.spent(stack));
     }
     private static void registerBeakerFill(com.juicyslew.moonstation14.item.custom.BeakerItem item) {
         ItemProperties.register(item, ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "fill"),
@@ -82,4 +121,3 @@ public class ModSpecialProperties {
         );
     }
 }
-

@@ -14,6 +14,7 @@ public class ModSounds {
             DeferredRegister.create(BuiltInRegistries.SOUND_EVENT, MoonStation14.MOD_ID);
 
     public static final Supplier<SoundEvent> CROWBAR_USE = registerSoundEvent("crowbar_use");
+    public static final Supplier<SoundEvent> GAS_VENT_AMBIENT = registerSoundEvent("ss14/atmospherics/gas_vent");
     public static final Supplier<SoundEvent> TOOL_WRENCH = registerSoundEvent("ss14/tools/ratchet");
     public static final Supplier<SoundEvent> TOOL_CROWBAR = registerSoundEvent("ss14/tools/crowbar");
     public static final Supplier<SoundEvent> TOOL_SCREWDRIVER = registerSoundEvent("ss14/tools/screwdriver");
@@ -47,12 +48,39 @@ public class ModSounds {
     public static final Supplier<SoundEvent> EAT = registerSoundEvent("ss14/items/eat");
     public static final Supplier<SoundEvent> FOOD_CHOP = registerSoundEvent("ss14/items/chop");
     public static final Supplier<SoundEvent> GUNSHOT_REVOLVER = registerSoundEvent("ss14/weapons/guns/gunshots/revolver");
+    public static final Supplier<SoundEvent> GUNSHOT_PISTOL = registerSoundEvent("ss14/weapons/guns/gunshots/pistol");
+    public static final Supplier<SoundEvent> GUNSHOT_RIFLE = registerSoundEvent("ss14/weapons/guns/gunshots/rifle");
+    public static final Supplier<SoundEvent> GUNSHOT_SHOTGUN = registerSoundEvent("ss14/weapons/guns/gunshots/shotgun");
+    public static final Supplier<SoundEvent> GUNSHOT_SNIPER = registerSoundEvent("ss14/weapons/guns/gunshots/sniper");
+    public static final Supplier<SoundEvent> GUNSHOT_LASER = registerSoundEvent("ss14/weapons/guns/gunshots/laser");
+    public static final Supplier<SoundEvent> GUNSHOT_LASER_CANNON = registerSoundEvent("ss14/weapons/guns/gunshots/laser_cannon");
+    public static final Supplier<SoundEvent> GUNSHOT_TASER2 = registerSoundEvent("ss14/weapons/guns/gunshots/taser2");
+    public static final Supplier<SoundEvent> GUN_PISTOL_COCK = registerSoundEvent("ss14/weapons/guns/cock/pistol_cock");
+    public static final Supplier<SoundEvent> GUN_SF_RIFLE_COCK = registerSoundEvent("ss14/weapons/guns/cock/sf_rifle_cock");
+    public static final Supplier<SoundEvent> GUN_LTRIFLE_COCK = registerSoundEvent("ss14/weapons/guns/cock/ltrifle_cock");
+    public static final Supplier<SoundEvent> GUN_SMG_COCK = registerSoundEvent("ss14/weapons/guns/cock/smg_cock");
+    public static final Supplier<SoundEvent> GUN_RIFLE_BOLT_CLOSED = registerSoundEvent("ss14/weapons/guns/bolt/rifle_bolt_closed");
+    public static final Supplier<SoundEvent> GUN_RIFLE_BOLT_OPEN = registerSoundEvent("ss14/weapons/guns/bolt/rifle_bolt_open");
+    public static final Supplier<SoundEvent> GUN_PISTOL_MAGIN = registerSoundEvent("ss14/weapons/guns/magin/pistol_magin");
+    public static final Supplier<SoundEvent> GUN_PISTOL_MAGOUT = registerSoundEvent("ss14/weapons/guns/magout/pistol_magout");
+    public static final Supplier<SoundEvent> GUN_LTRIFLE_MAGIN = registerSoundEvent("ss14/weapons/guns/magin/ltrifle_magin");
+    public static final Supplier<SoundEvent> GUN_LTRIFLE_MAGOUT = registerSoundEvent("ss14/weapons/guns/magout/ltrifle_magout");
+    public static final Supplier<SoundEvent> GUN_BULLET_INSERT = registerSoundEvent("ss14/weapons/guns/magin/bullet_insert");
+    public static final Supplier<SoundEvent> GUN_SHOTGUN_INSERT = registerSoundEvent("ss14/weapons/guns/magin/shotgun_insert");
+    public static final Supplier<SoundEvent> GUN_BATRIFLE_MAGIN = registerSoundEvent("ss14/weapons/guns/magin/batrifle_magin");
+    public static final Supplier<SoundEvent> GUN_BATRIFLE_MAGOUT = registerSoundEvent("ss14/weapons/guns/magout/batrifle_magout");
+    public static final Supplier<SoundEvent> GUN_SELECTOR = registerSoundEvent("ss14/weapons/guns/misc/selector");
     public static final Supplier<SoundEvent> GUN_EMPTY = registerSoundEvent("ss14/weapons/guns/empty");
     public static final Supplier<SoundEvent> GUN_REVOLVER_MAGOUT = registerSoundEvent("ss14/weapons/guns/magout/revolver_magout");
     public static final Supplier<SoundEvent> GUN_REVOLVER_MAGIN = registerSoundEvent("ss14/weapons/guns/magin/revolver_magin");
     public static final Supplier<SoundEvent> GUN_REVOLVER_SPIN = registerSoundEvent("ss14/weapons/guns/misc/revolver_spin");
     public static final Supplier<SoundEvent> GUN_BULLET_HIT = registerSoundEvent("ss14/weapons/guns/hits/bullet_hit");
     public static final Supplier<SoundEvent> GUN_BULLET_MISS = registerSoundEvent("ss14/weapons/guns/miss/bullet_miss");
+    public static final Supplier<SoundEvent> GUN_ENERGY_MISS = registerSoundEvent("ss14/weapons/guns/miss/energy_miss");
+    public static final Supplier<SoundEvent> CASING_FALL_1 = registerSoundEvent("ss14/weapons/guns/casings/casing_fall_1");
+    public static final Supplier<SoundEvent> CASING_FALL_2 = registerSoundEvent("ss14/weapons/guns/casings/casing_fall_2");
+    public static final Supplier<SoundEvent> CASING_FALL_3 = registerSoundEvent("ss14/weapons/guns/casings/casing_fall_3");
+    public static final Supplier<SoundEvent> SHOTGUN_SHELL_FALL = registerSoundEvent("ss14/weapons/guns/casings/shotgun_fall");
     public static final Supplier<SoundEvent> SLIP = registerSoundEvent("ss14/effects/slip");
     public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
     public static final Supplier<SoundEvent> INTERNALS_TOGGLE = registerSoundEvent("internals");
@@ -154,6 +182,9 @@ public class ModSounds {
     public static final Supplier<SoundEvent> ITEM_SLOT_INSERT = registerSoundEvent("item_slot_insert");
     public static final Supplier<SoundEvent> ITEM_SLOT_EJECT = registerSoundEvent("item_slot_eject");
     public static final Supplier<SoundEvent> GAS_VALVE_TOGGLE = registerSoundEvent("gas_valve_toggle");
+    public static final Supplier<SoundEvent> ATMOS_GAS_PUMP = registerFixedRangeSoundEvent("ss14/atmospherics/gas_pump", 5f);
+    public static final Supplier<SoundEvent> ATMOS_GAS_HISS = registerFixedRangeSoundEvent("ss14/atmospherics/gas_hiss", 5f);
+    public static final Supplier<SoundEvent> ATMOS_VENDING_HUM = registerFixedRangeSoundEvent("ss14/atmospherics/vending_machine_hum", 6f);
     public static final Supplier<SoundEvent> FIRE_ALARM = registerSoundEvent("atmos/fire_alarm");
     private static final java.util.Map<String, Supplier<SoundEvent>> EMOTES = java.util.Map.ofEntries(
             java.util.Map.entry("cough", registerSoundEvent("emote/cough")),

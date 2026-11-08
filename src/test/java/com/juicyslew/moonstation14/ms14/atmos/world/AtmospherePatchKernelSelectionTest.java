@@ -5,6 +5,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.core.ImmutableAtmosphereBoundary;
 import com.juicyslew.moonstation14.ms14.atmos.core.LindaGasSharing;
+import com.juicyslew.moonstation14.ms14.atmos.core.MonstermosPressureEqualization;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -19,6 +20,70 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class AtmospherePatchKernelSelectionTest {
+    @Test
+    void actualPressureCleanupPublishesOnlyAfterAcceptedPatchTransaction() {
+        BlockPos first = new BlockPos(0, 0, 0), second = new BlockPos(1, 0, 0);
+        Map<BlockPos, GasMixture> before = Map.of(first,
+                new GasMixture(Map.of(GasType.OXYGEN, 2d, GasType.WATER_VAPOR, 6e-8), 293),
+                second, GasMixture.vacuum());
+        var pressure = MonstermosPressureEqualization.equalizeDiscovered(before,
+                Map.of(first, Set.of(second), second, Set.of(first)), first, Set.of());
+        assertFalse(pressure.discardedByCell().isEmpty());
+        Map<BlockPos, GasMixture> after = pressure.transport().states();
+        Set<BlockPos> finite = Set.of(first, second);
+        Set<BlockPos> included = pressure.transport().includedCells();
+
+        for (int mode = 0; mode < 4; mode++) {
+            AtmosphereChunkData data = new AtmosphereChunkData();
+            for (BlockPos pos : finite) data.put(pos.getX(), pos.getY(), pos.getZ(), before.get(pos), GasMixture.vacuum());
+            var watched = data.observeNumericalCleanup(Set.of(new AtmosphereChunkData.CellPosition(0, 0, 0),
+                    new AtmosphereChunkData.CellPosition(1, 0, 0)));
+            Map<BlockPos, GasMixture> world = new HashMap<>(before);
+            boolean committed;
+            if (mode == 0) {
+                committed = AtmosphereService.applyValidatedPatchTransaction(true, List.of(first, second), before, after,
+                        (pos, state) -> { world.put(pos, state); data.put(pos.getX(), pos.getY(), pos.getZ(), state, GasMixture.vacuum()); return true; },
+                        () -> AtmosphereService.publishNumericalCleanup(pressure.discardedByCell(), finite, included,
+                                (pos, losses) -> data.recordCommittedNumericalCleanup(pos.getX(), pos.getY(), pos.getZ(), losses)));
+                assertTrue(committed);
+                assertTrue(watched.snapshot().get(GasType.WATER_VAPOR) > 0);
+                assertEquals(before.get(first).moles(GasType.WATER_VAPOR),
+                        data.get(0, 0, 0).moles(GasType.WATER_VAPOR) + data.get(1, 0, 0).moles(GasType.WATER_VAPOR)
+                                + watched.snapshot().get(GasType.WATER_VAPOR),
+                        Math.ulp((float) before.get(first).moles(GasType.WATER_VAPOR)) * 2);
+            } else if (mode == 1) {
+                committed = AtmosphereService.applyValidatedPatchTransaction(true, List.of(first, second), before, after,
+                        (pos, state) -> { if (pos.equals(second)) return false; world.put(pos, state); return true; },
+                        () -> AtmosphereService.publishNumericalCleanup(pressure.discardedByCell(), finite, included,
+                                (pos, losses) -> data.recordCommittedNumericalCleanup(pos.getX(), pos.getY(), pos.getZ(), losses)));
+                assertFalse(committed);
+                assertTrue(watched.snapshot().isEmpty());
+                assertEquals(before, world);
+            } else if (mode == 2) {
+                assertThrows(RuntimeException.class, () -> AtmosphereService.applyValidatedPatchTransaction(true, List.of(first, second), before, after,
+                        (pos, state) -> { if (pos.equals(second)) throw new RuntimeException("write failure"); world.put(pos, state); return true; },
+                        () -> AtmosphereService.publishNumericalCleanup(pressure.discardedByCell(), finite, included,
+                                (pos, losses) -> data.recordCommittedNumericalCleanup(pos.getX(), pos.getY(), pos.getZ(), losses))));
+                assertTrue(watched.snapshot().isEmpty());
+            } else if (mode == 3) {
+                committed = AtmosphereService.applyValidatedPatchTransaction(false, List.of(first, second), before, after,
+                        (pos, state) -> { world.put(pos, state); return true; },
+                        () -> AtmosphereService.publishNumericalCleanup(pressure.discardedByCell(), finite, included,
+                                (pos, losses) -> data.recordCommittedNumericalCleanup(pos.getX(), pos.getY(), pos.getZ(), losses)));
+                assertFalse(committed);
+                assertTrue(watched.snapshot().isEmpty());
+                assertEquals(before, world);
+            } else {
+                AtmosphereService.publishNumericalCleanup(pressure.discardedByCell(), Set.of(second), Set.of(second),
+                        (pos, losses) -> data.recordCommittedNumericalCleanup(pos.getX(), pos.getY(), pos.getZ(), losses));
+                watched.close();
+                AtmosphereService.publishNumericalCleanup(pressure.discardedByCell(), finite, included,
+                        (pos, losses) -> data.recordCommittedNumericalCleanup(pos.getX(), pos.getY(), pos.getZ(), losses));
+                assertTrue(watched.snapshot().isEmpty());
+            }
+            watched.close();
+        }
+    }
     @Test
     void onlyVerifiedExteriorFacesInVacuumDimensionsSelectSpaceFlow() {
         for (boolean vacuumDimension : new boolean[] {false, true}) {

@@ -6,14 +6,15 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.List;
 /** Fieldwise merge for partial inherited gun component data. */
 public final class GunProfileMergeStrategy implements PrototypeMergeStrategy {
-    @Override public boolean handles(String field) { return field.equals("gun") || field.equals("revolver_ammo_provider") || field.equals("pacifism_allowed") || field.equals("ammo_counter"); }
+    @Override public boolean handles(String field) { return field.equals("gun") || field.equals("revolver_ammo_provider") || field.equals("pacifism_allowed") || field.equals("ammo_counter") || field.equals("magazine_chamber_provider") || field.equals("ballistic_provider") || field.equals("battery_ammo_provider") || field.equals("wield_bonus") || field.equals("wieldable") || field.equals("requires_wield") || field.equals("gun_spread_modifier") || field.equals("cell_slot") || field.equals("battery_fire_modes"); }
     @Override public JsonElement merge(String field, ResourceLocation id, JsonObject child, List<JsonObject> parents) {
         if (!handles(field)) return null;
-        if (field.equals("pacifism_allowed") || field.equals("ammo_counter")) {
+        if (field.equals("pacifism_allowed") || field.equals("ammo_counter") || field.equals("requires_wield") || field.equals("gun_spread_modifier")) {
             JsonElement selected = child.get(field);
             if (selected == null) for (JsonObject parent : parents) if (parent.has(field)) { selected = parent.get(field); break; }
             return selected == null ? null : selected.deepCopy();
         }
+        if(field.equals("battery_fire_modes")) { JsonElement selected=child.get(field); if(selected==null) for(JsonObject parent:parents)if(parent.has(field)){selected=parent.get(field);break;} return selected==null?null:selected.deepCopy(); }
         JsonObject result = new JsonObject();
         for (JsonObject parent : parents) add(result, parent.get(field), false);
         add(result, child.get(field), true);

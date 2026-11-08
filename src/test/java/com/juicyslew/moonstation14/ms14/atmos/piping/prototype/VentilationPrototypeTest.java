@@ -14,7 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
-class VentilationPrototypeTest {
+public class VentilationPrototypeTest {
     private static JsonObject resource(String name) {
         String path = "/data/moonstation14/moonstation14/ventilation_device/" + name + ".json";
         try (var reader = new InputStreamReader(
@@ -25,7 +25,7 @@ class VentilationPrototypeTest {
         }
     }
 
-    private static Map<ResourceLocation, JsonObject> bundled() {
+    static Map<ResourceLocation, JsonObject> bundled() {
         Map<ResourceLocation, JsonObject> raw = new LinkedHashMap<>();
         raw.put(ModVentilationDevices.BASE, resource("gas_unary_base"));
         raw.put(ModVentilationDevices.VENT, resource("gas_vent"));
@@ -33,10 +33,16 @@ class VentilationPrototypeTest {
         return raw;
     }
 
-    private static PrototypeManager manager() {
+    static PrototypeManager manager() {
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModVentilationDevices.VENTILATION_DEVICE_TYPE);
         return manager;
+    }
+
+    public static com.juicyslew.moonstation14.ms14.prototype.PrototypeCatalog<VentilationDeviceData> resolvedCatalog() {
+        PrototypeManager manager = manager();
+        manager.reload(ModVentilationDevices.VENTILATION_DEVICE_TYPE, bundled());
+        return manager.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE);
     }
 
     @Test void bundledDefinitionsResolveAndRoundTrip() {
@@ -49,25 +55,84 @@ class VentilationPrototypeTest {
         assertEquals(VentilationDeviceData.Kind.VENT, vent.kind());
         assertEquals(VentilationDeviceData.PipeLane.PRIMARY, vent.pipeLane());
         assertEquals(5.0, vent.apcPowerReceiver().requestedWatts());
+        assertEquals(0.6, vent.deviceIntervalSeconds());
+        assertEquals(0.6, catalog.get(ModVentilationDevices.SCRUBBER).deviceIntervalSeconds());
         assertEquals(3, vent.extensionCableReceiver().localReachBlocks());
         assertEquals(new VentilationDeviceData.FixtureGeometry(0.75, 0.75, 0.125, true, true), vent.fixtureGeometry());
         assertEquals(101.325, vent.gasVentPump().targetPressureChangeKPaPerSecond());
         assertEquals(101.325, vent.gasVentPump().externalPressureBoundKPa());
+        assertEquals(2.0, vent.gasVentPump().pumpPower());
+        assertEquals(VentilationDeviceData.PressureChecks.EXTERNAL, vent.gasVentPump().pressureChecks());
+        assertEquals(0.0, vent.gasVentPump().internalPressureBoundKPa());
+        var cue = vent.ambientAudio().orElseThrow();
+        assertEquals("moonstation14:ss14/atmospherics/gas_vent", cue.sound());
+        assertEquals(-12f, cue.volumeDb());
+        assertEquals(5f, cue.range());
+        assertEquals(com.juicyslew.moonstation14.ms14.atmos.audio.AtmosAmbientAudio.Gate.ENABLED_POWERED, cue.gate());
         assertNull(vent.gasVentScrubber());
         assertEquals("VNT-", vent.deviceComponents().network().orElseThrow().addressPrefix());
+        assertEquals(java.util.Set.of("GasVent"), vent.atmosAlarmable().sourceTags());
         assertTrue(vent.deviceComponents().network().orElseThrow().broadcastHook());
         assertFalse(vent.deviceComponents().network().orElseThrow().requiresPower());
         assertTrue(vent.deviceComponents().connection().orElseThrow().wired());
         assertFalse(vent.deviceComponents().connection().orElseThrow().wireless());
         var scrubber = catalog.get(ModVentilationDevices.SCRUBBER);
         assertEquals(0.2, scrubber.gasVentScrubber().volumeRateM3PerSecond());
+        assertEquals(cue, scrubber.ambientAudio().orElseThrow());
         assertEquals(Ss14VentilationDefaults.DEFAULT_SCRUBBED_GASES,
                 java.util.Set.copyOf(scrubber.gasVentScrubber().filteredGases()));
         assertNull(scrubber.gasVentPump());
         assertEquals("SCR-", scrubber.deviceComponents().network().orElseThrow().addressPrefix());
+        assertEquals(java.util.Set.of("GasScrubber"), scrubber.atmosAlarmable().sourceTags());
         PrototypeManager copy = manager();
         copy.publishEncodedCatalogs(manager.encodePublishedCatalogs());
         assertEquals(catalog.asMap(), copy.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE).asMap());
+    }
+
+    @Test void childPumpOverrideResolvesAndFeedsLiveConfigurationDefaults() {
+        var raw = bundled();
+        var pump = raw.get(ModVentilationDevices.VENT).getAsJsonObject("gasVentPump");
+        pump.addProperty("pumpPower", 3.0);
+        pump.addProperty("pressureChecks", "BOTH");
+        pump.addProperty("internalPressureBoundKPa", 12.0);
+        PrototypeManager manager = manager();
+        manager.reload(ModVentilationDevices.VENTILATION_DEVICE_TYPE, raw);
+        var resolved = manager.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE).get(ModVentilationDevices.VENT);
+        assertEquals(3, resolved.gasVentPump().pumpPower());
+        assertEquals(VentilationDeviceData.PressureChecks.BOTH, resolved.gasVentPump().pressureChecks());
+        assertEquals(12, resolved.gasVentPump().internalPressureBoundKPa());
+        assertTrue(new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT, resolved).settings().configuredEnabled());
+    }
+
+    @Test void optionalCueCanBeAbsentInOlderDefinitions() {
+        var raw = bundled();
+        raw.get(ModVentilationDevices.BASE).remove("ambientAudio");
+        PrototypeManager manager = manager();
+        manager.reload(ModVentilationDevices.VENTILATION_DEVICE_TYPE, raw);
+        assertTrue(manager.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE).get(ModVentilationDevices.VENT).ambientAudio().isEmpty());
+    }
+
+    @Test void rejectsInvalidAmbientCue() {
+        var raw = bundled();
+        raw.get(ModVentilationDevices.BASE).getAsJsonObject("ambientAudio").addProperty("range", -1);
+        rejects(raw);
+    }
+
+    @Test void intervalIsInheritedCanBeOverriddenAndMustBeFinitePositive() {
+        var raw = bundled();
+        raw.get(ModVentilationDevices.VENT).addProperty("deviceIntervalSeconds", 0.3);
+        PrototypeManager manager = manager();
+        manager.reload(ModVentilationDevices.VENTILATION_DEVICE_TYPE, raw);
+        var resolved = manager.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE);
+        assertEquals(0.3, resolved.get(ModVentilationDevices.VENT).deviceIntervalSeconds());
+        assertEquals(0.6, resolved.get(ModVentilationDevices.SCRUBBER).deviceIntervalSeconds());
+        raw = bundled();
+        raw.get(ModVentilationDevices.BASE).addProperty("deviceIntervalSeconds", Double.POSITIVE_INFINITY);
+        var infinite = raw;
+        rejects(infinite);
+        raw = bundled();
+        raw.get(ModVentilationDevices.BASE).addProperty("deviceIntervalSeconds", 0);
+        rejects(raw);
     }
 
     @Test void childAddressPrefixOverridePreservesInheritedNetworkPolicy() {

@@ -4,6 +4,8 @@ import com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
 import com.juicyslew.moonstation14.ms14.atmos.piping.LoadedPipeGasOwner;
+import com.juicyslew.moonstation14.ms14.atmos.piping.PipeGasInventorySavedData;
+import com.juicyslew.moonstation14.ms14.atmos.piping.PipeTopology;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VisualPipeBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
@@ -63,6 +65,8 @@ public final class SableOperatingEnvelopeGameTests {
                         scenario + ": existing authored builder creates resolved live cabin owners");
                 var doorId = door.identity();
                 var pipeBefore = LoadedPipeGasOwner.activeSnapshot(level, pipePos, VisualPipeBlockEntity.PRIMARY).orElseThrow();
+                var pipeKey = new PipeTopology.NodeKey(pipePos, PipeTopology.Layer.PRIMARY);
+                var pipeGasBefore = PipeGasInventorySavedData.existing(level).orElseThrow().snapshot().nodeShare(pipeKey);
                 var roomCell = cabin.roomCells().getFirst();
                 var roomBefore = AtmosphereService.INSTANCE.readAtmosphere(level, roomCell).orElseThrow().mixture();
                 var engineId = plot.engineId();
@@ -118,8 +122,9 @@ public final class SableOperatingEnvelopeGameTests {
                                                                 + PowerRuntime.airlockPowerDiagnostic(level, door) + ", graph="
                                                                 + PowerGraphService.diagnosticSnapshot(level));
                                                 require(LoadedPipeGasOwner.activeSnapshot(level, pipePos, VisualPipeBlockEntity.PRIMARY)
-                                                                .map(now -> now.incarnation().equals(pipeBefore.incarnation())
-                                                                        && now.mixture().equals(pipeBefore.mixture())).orElse(false),
+                                                                .map(now -> now.incarnation().equals(pipeBefore.incarnation())).orElse(false)
+                                                                && PipeGasInventorySavedData.existing(level).orElseThrow().snapshot()
+                                                                .nodeShare(pipeKey).equals(pipeGasBefore),
                                                         scenario + ": finite pipe mixture and owner UUID remain unchanged");
                                                 var roomAfter = AtmosphereService.INSTANCE.readAtmosphere(level, roomCell)
                                                         .orElseThrow().mixture();

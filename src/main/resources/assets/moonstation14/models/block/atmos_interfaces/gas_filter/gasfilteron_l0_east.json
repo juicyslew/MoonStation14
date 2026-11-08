@@ -1,0 +1,12 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/block/atmos_interfaces/gas_filter/gasfilteron_l0_east.obj",
+  "textures": {
+    "atlas": "moonstation14:block/atmos_interfaces/gas_filter/gasfilteron",
+    "particle": "moonstation14:block/atmos_interfaces/gas_filter/gasfilteron"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "render_type": "minecraft:cutout"
+}

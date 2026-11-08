@@ -6,6 +6,9 @@ import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.HandState;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.LiveWieldSystem;
+import com.juicyslew.moonstation14.ms14.hands.live.WieldHandPolicy;
+import com.juicyslew.moonstation14.ms14.hands.live.WieldState;
 import com.juicyslew.moonstation14.ms14.storage.pouch.PouchContents;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
 import com.juicyslew.moonstation14.item.ModItems;
@@ -79,7 +82,8 @@ public final class BodyHandStateService {
             var equipment = equipment(hands, authority.body(), slots);
             var snapshot = new BodyHandStateSnapshot(0, 0, BodyHandStateSnapshot.Reason.OK,
                     actor.getUUID(), authority.body().getUUID(), authority.epoch(), hands.revision(), hands.activeHand(),
-                    slots, equipment, grids(hands, authority.body()), true, null, actor.level().getGameTime());
+                    slots, equipment, grids(hands, authority.body()), true, null, actor.level().getGameTime(),
+                    wieldProjection(authority.body(), hands));
             if (HandActorAuthority.revalidate(actor, authority)
                     && authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands) {
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(actor, snapshot);
@@ -157,7 +161,7 @@ public final class BodyHandStateService {
             grids = grids(hands, authority.body());
             summary = new BodyHandStateSnapshot(query.epoch(), query.sequence(), BodyHandStateSnapshot.Reason.OK,
                     actor.getUUID(), authority.body().getUUID(), authority.epoch(), hands.revision(), hands.activeHand(), slots, equipment, grids, false,
-                    templateId(authority.body()), actor.level().getGameTime());
+                    templateId(authority.body()), actor.level().getGameTime(), wieldProjection(authority.body(), hands));
         } catch (RuntimeException invalidSummary) {
             return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NOT_READY);
         }
@@ -166,6 +170,15 @@ public final class BodyHandStateService {
             return BodyHandStateSnapshot.rejected(query, BodyHandStateSnapshot.Reason.NO_AUTHORITY);
         gate.issue(authority.body(), authority.epoch());
         return summary;
+    }
+
+    /** Only exports a live lease when it validates against the exact hands object being serialized. */
+    private static BodyHandStateSnapshot.WieldProjection wieldProjection(LivingEntity body, LiveHands hands) {
+        WieldState state = body == null ? null : body.getExistingDataOrNull(ModDataAttachments.WIELD_STATE.get());
+        if (state == null || !WieldHandPolicy.validates(body, hands, state)
+                || !LiveWieldSystem.isWielded(body, state.sourceHand(), state.sourceToken())) return null;
+        return new BodyHandStateSnapshot.WieldProjection(state.sourceHand(), state.sourceToken(),
+                state.supportHand(), state.proof());
     }
 
     private static net.minecraft.resources.ResourceLocation templateId(LivingEntity body) {

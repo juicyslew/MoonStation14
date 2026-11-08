@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.gametest.support.FixtureChunkTickets;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.gametest.support.PowerFixtureReadiness;
 import com.juicyslew.moonstation14.ms14.atmos.piping.LoadedPipeGasOwner;
+import com.juicyslew.moonstation14.ms14.atmos.piping.PipeGasInventorySavedData;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VisualPipeBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity;
@@ -77,9 +78,12 @@ public final class ShuttleCabinFixtureGameTests {
 
             var pipe = (VisualPipeBlockEntity) level.getBlockEntity(cabin.at(ShuttleCabinFixture.PIPE));
             var pipeBefore = LoadedPipeGasOwner.activeSnapshot(level, pipe.getBlockPos(), VisualPipeBlockEntity.PRIMARY).orElseThrow();
+            var pipeGasBefore = PipeGasInventorySavedData.existing(level).orElseThrow().snapshot().nodeShare(
+                    new com.juicyslew.moonstation14.ms14.atmos.piping.PipeTopology.NodeKey(pipe.getBlockPos(),
+                            com.juicyslew.moonstation14.ms14.atmos.piping.PipeTopology.Layer.PRIMARY));
             require(pipeBefore.incarnation().equals(cabin.pipeIdentity())
-                            && pipeBefore.mixture().gasMoles().getOrDefault(com.juicyslew.moonstation14.ms14.atmos.core.GasType.OXYGEN, 0d) == .75
-                            && pipeBefore.mixture().temperatureKelvin() == 307.0,
+                            && pipeGasBefore.gasMoles().getOrDefault(com.juicyslew.moonstation14.ms14.atmos.core.GasType.OXYGEN, 0d) == .75
+                            && pipeGasBefore.temperatureKelvin() == 307.0,
                     "finite pipe gas retains species, thermal state and existing lane incarnation");
             CabinGasInventorySnapshot cabinGasBefore = CabinGasInventorySnapshot.capture(level, cabin);
             long cabinGasStartTick = level.getGameTime();

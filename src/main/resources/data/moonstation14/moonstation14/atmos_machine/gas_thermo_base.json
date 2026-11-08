@@ -1,0 +1,1 @@
+{"abstract":true,"parent":["atmos_machine_base_powered","constructible_machine_base"],"ports":[{"name":"pipe","direction":"South"}],"pipeLayers":{"count":3,"initialLayer":"Primary","locked":false,"changeDurationTicks":20}}

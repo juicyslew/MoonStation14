@@ -13,6 +13,12 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class PipeTopologyTest {
+    @Test void devicePortKeysAreRejectedByOrdinaryPipeGraph() {
+        var key = new PipeTopology.NodeKey(new BlockPos(0, 0, 0), PipeTopology.Layer.PRIMARY, "inlet");
+        var segment = new PipeTopology.Segment(key.position(), 1, Set.of(Direction.EAST), PipeTopology.Kind.EXPOSED);
+        assertThrows(IllegalArgumentException.class, () -> PipeTopology.componentsLayered(Map.of(key, segment)));
+    }
+
     @Test void sixWayGraphSupportsBendsTeeVerticalRisersAndSeams() {
         Map<BlockPos, PipeTopology.Segment> map = new LinkedHashMap<>();
         add(map, -1, 15, 0, Set.of(Direction.EAST), PipeTopology.Kind.EXPOSED);

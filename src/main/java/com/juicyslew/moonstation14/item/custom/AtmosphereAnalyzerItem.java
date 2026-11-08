@@ -3,6 +3,8 @@ package com.juicyslew.moonstation14.item.custom;
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereSampleFormatter;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereReading;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSample;
+import com.juicyslew.moonstation14.ms14.atmos.analyzer.ModGasAnalyzers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -30,32 +32,14 @@ public class AtmosphereAnalyzerItem extends Item {
     @Override
     public InteractionResultHolder<net.minecraft.world.item.ItemStack> use(Level level, Player player, InteractionHand hand) {
         var stack = player.getItemInHand(hand);
-        if (level.isClientSide) return InteractionResultHolder.sidedSuccess(stack, true);
-        if (level instanceof ServerLevel serverLevel) {
-            BlockPos target = eyeTarget(player.getEyePosition());
-            reportForBody(serverLevel, player, player, target, null);
-        }
-        return InteractionResultHolder.sidedSuccess(stack, false);
+        // The carrier inventory is not body-hand authority. All active analyzer use is
+        // dispatched through BodyHandRequestService and its authenticated held token.
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
     }
 
     @Override
     public InteractionResult useOn(UseOnContext context) {
-        Level level = context.getLevel();
-        if (level.isClientSide) return InteractionResult.sidedSuccess(true);
-        if (level instanceof ServerLevel serverLevel && context.getPlayer() != null) {
-            reportForBody(serverLevel, context.getPlayer(), context.getPlayer(), context.getClickedPos(), context.getClickedFace());
-        }
-        return InteractionResult.sidedSuccess(false);
-    }
-
-    public static void reportForBody(ServerLevel level, Player recipient, LivingEntity body, BlockPos clicked, Direction face) {
-        TargetSample<AtmosphereReading> result = sampleTarget(true, clicked, face,
-                pos -> AtmosphereService.INSTANCE.readAtmosphere(level, pos));
-        if (result.sample().isPresent()) {
-            recipient.sendSystemMessage(Component.literal(AtmosphereSampleFormatter.format(result.sample().get())));
-        } else {
-            recipient.sendSystemMessage(Component.literal(face == null ? UNAVAILABLE_MESSAGE : "No gas cell on the clicked side"));
-        }
+        return InteractionResult.sidedSuccess(context.getLevel().isClientSide);
     }
 
     /** Selects a probe cell from the represented body's eye position, not its carrier's camera. */

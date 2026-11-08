@@ -142,6 +142,16 @@ public class ModDataComponents {
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<RevolverState>> REVOLVER_STATE =
             register_component("revolver_state", builder -> builder.persistent(RevolverState.CODEC)
                     .networkSynchronized(RevolverState.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.juicyslew.moonstation14.ms14.combat.AmmoContainerState>> AMMO_CONTAINER_STATE =
+            register_component("ammo_container_state", builder -> builder.persistent(com.juicyslew.moonstation14.ms14.combat.AmmoContainerState.CODEC).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.fromCodec(com.juicyslew.moonstation14.ms14.combat.AmmoContainerState.CODEC)));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.juicyslew.moonstation14.ms14.combat.BallisticState>> BALLISTIC_STATE =
+            register_component("ballistic_state", builder -> builder.persistent(com.juicyslew.moonstation14.ms14.combat.BallisticState.CODEC).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.fromCodec(com.juicyslew.moonstation14.ms14.combat.BallisticState.CODEC)));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.juicyslew.moonstation14.ms14.combat.BatteryState>> BATTERY_STATE =
+            register_component("battery_state", builder -> builder.persistent(com.juicyslew.moonstation14.ms14.combat.BatteryState.CODEC).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.fromCodec(com.juicyslew.moonstation14.ms14.combat.BatteryState.CODEC)));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.juicyslew.moonstation14.ms14.combat.MagazineChamberState>> MAGAZINE_CHAMBER_STATE =
+            register_component("magazine_chamber_state", builder -> builder.persistent(com.juicyslew.moonstation14.ms14.combat.MagazineChamberState.CODEC).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.fromCodecWithRegistries(com.juicyslew.moonstation14.ms14.combat.MagazineChamberState.CODEC)));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.juicyslew.moonstation14.ms14.combat.GunPowerCellSlotState>> POWER_CELL_SLOT_STATE =
+            register_component("power_cell_slot_state", builder -> builder.persistent(com.juicyslew.moonstation14.ms14.combat.GunPowerCellSlotState.CODEC).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.fromCodecWithRegistries(com.juicyslew.moonstation14.ms14.combat.GunPowerCellSlotState.CODEC)));
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.juicyslew.moonstation14.ms14.combat.GunRuntimeState>> GUN_RUNTIME_STATE =
             register_component("gun_runtime_state", builder -> builder.persistent(com.juicyslew.moonstation14.ms14.combat.GunRuntimeState.CODEC)
                     .networkSynchronized(com.juicyslew.moonstation14.ms14.combat.GunRuntimeState.STREAM_CODEC));

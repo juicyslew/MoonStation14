@@ -1,1 +1,1 @@
-{"abstract":true,"parent":"moonstation14:base_cartridge","projectile":"moonstation14:bullet_magnum","tags":["moonstation14:magnum"]}
+{"abstract":true,"parent":"moonstation14:base_cartridge","projectile":"moonstation14:bullet_magnum","tags":["moonstation14:magnum"],"spent_presentation":{"sprite":"moonstation14:ss14/weapons/objects/weapons/guns/ammunition/casings/ammo_casing.rsi/base-spent","landing_cue":{"event":"moonstation14:ss14/weapons/guns/casings/casing_fall_2","volume_db":-1}}}

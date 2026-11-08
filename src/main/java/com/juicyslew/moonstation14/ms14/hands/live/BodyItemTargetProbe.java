@@ -270,64 +270,76 @@ public final class BodyItemTargetProbe {
      */
     @Nullable
     public static Vec3 loadedAimPoint(ServerLevel level, LivingEntity body, double reach) {
-        return loadedAimPoint(level, body, reach, body == null ? null : body.getLookAngle());
+        return loadedAimPointAlongDirection(level, body, reach, body == null ? null : body.getLookAngle());
     }
 
-    /** Loaded-only aim ray with an explicit normalized direction for server-authorized forced throws. */
-    public static Vec3 loadedAimPointAlongDirection(ServerLevel level, LivingEntity body, double reach, Vec3 direction) {
-        if (level == null || body == null || !level.getServer().isSameThread()
-                || body.level() != level || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
-                || level.getEntity(body.getUUID()) != body || !Double.isFinite(reach)
-
-                || reach <= 0 || reach > MAX_THROW_REACH) return null;
-        Vec3 from = body.getEyePosition(), look = body.getLookAngle();
-        if (!finite(from) || !finite(look) || look.lengthSqr() < .99 || look.lengthSqr() > 1.01) return null;
-        Vec3 to = from.add(look.scale(reach));
-        if (!finite(to) || !inside(level, from) || !inside(level, to)) return null;
-        return clipLoadedAim(level, body, from, to);
-    }
-
-    /** Resolve a captured hand coordinate against the current frame pose, then clip the bounded ray. */
+    /** Resolve captured frame/world coordinate against current pose, then clip the bounded ray. */
     @Nullable
     public static Vec3 loadedAimPoint(ServerLevel level, LivingEntity body, double reach,
             com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget target) {
-        if (level == null || body == null || target == null || !Double.isFinite(reach)
-                || reach <= 0 || reach > MAX_THROW_REACH || body.level() != level
-                || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
-                || level.getEntity(body.getUUID()) != body || !level.getServer().isSameThread()) return null;
+        if (!validAimContext(level, body, reach) || target == null) return null;
         Vec3 captured = LoadedFrameRayQuery.resolveCapturedTarget(level, target);
         return loadedAimPoint(level, body, reach, captured);
     }
 
-    /** Aim toward an already-resolved captured coordinate, preserving one geometry snapshot per transaction. */
+    /** Resolve toward an already-resolved captured coordinate, retaining captured target semantics. */
     @Nullable
     public static Vec3 loadedAimPoint(ServerLevel level, LivingEntity body, double reach, Vec3 captured) {
-        if (level == null || body == null || captured == null || !Double.isFinite(reach)
-                || reach <= 0 || reach > MAX_THROW_REACH || body.level() != level
-                || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
-                || level.getEntity(body.getUUID()) != body || !level.getServer().isSameThread()) return null;
-        Vec3 from = body.getEyePosition();
-        if (!finite(from) || !finite(captured) || !inside(level, from)) return null;
-        Vec3 delta = captured.subtract(from);
-        if (!finite(delta) || delta.lengthSqr() < 1.0e-8) return null;
-        Vec3 to = from.add(delta.normalize().scale(Math.min(reach, delta.length())));
-        if (!finite(to) || !inside(level, to)) return null;
-        return clipLoadedAim(level, body, from, to);
+        if (!validAimContext(level, body, reach) || captured == null || !finite(captured)) return null;
+        Vec3 from = body.getEyePosition(), delta = captured.subtract(from);
+        if (!finite(from) || !finite(delta) || delta.lengthSqr() < 1.0e-8) return null;
+        return loadedRayEndpointInternal(level, body, from, delta.normalize(), Math.min(reach, delta.length()), false, MAX_THROW_REACH);
     }
 
-    private static Vec3 clipLoadedAim(ServerLevel level, LivingEntity body, Vec3 from, Vec3 to) {
+    /** Explicit direction is authoritative (forced throws must not silently use body look). */
+    @Nullable
+    public static Vec3 loadedAimPointAlongDirection(ServerLevel level, LivingEntity body, double reach, Vec3 direction) {
+        if (!validAimContext(level, body, reach)) return null;
+        return loadedRayEndpointInternal(level, body, body.getEyePosition(), direction, reach, false, MAX_THROW_REACH);
+    }
+
+    /** General loaded-only ray endpoint, with optional hitscan opacity rather than collider filtering. */
+    @Nullable
+    public static Vec3 loadedRayEndpoint(ServerLevel level, LivingEntity requester, Vec3 origin,
+                                         Vec3 normalizedDirection, double reach, boolean opaqueOnly) {
+        return loadedRayEndpointInternal(level, requester, origin, normalizedDirection, reach, opaqueOnly, Double.POSITIVE_INFINITY);
+    }
+
+    private static boolean validAimContext(ServerLevel level, LivingEntity body, double reach) {
+        return level != null && body != null && level.getServer() != null && level.getServer().isSameThread()
+                && body.level() == level && !body.isRemoved() && body.isAlive() && body.isAddedToLevel()
+                && level.getEntity(body.getUUID()) == body && Double.isFinite(reach) && reach > 0 && reach <= MAX_THROW_REACH;
+    }
+
+    private static Vec3 loadedRayEndpointInternal(ServerLevel level, LivingEntity body, Vec3 from,
+            Vec3 direction, double reach, boolean opaqueOnly, double maxReach) {
+        if (level == null || body == null || level.getServer() == null || !level.getServer().isSameThread()
+                || body.level() != level || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
+                || level.getEntity(body.getUUID()) != body || !Double.isFinite(reach) || reach <= 0 || reach > maxReach
+                || from == null || direction == null || !finite(from) || !finite(direction)
+                || direction.lengthSqr() < .99 || direction.lengthSqr() > 1.01
+                || !inside(level, from)) return null;
+        Vec3 requested = from.add(direction.scale(reach));
+        if (!finite(requested) || !level.getWorldBorder().isWithinBounds(requested)) return null;
+        Vec3 to = boundedRayEndpoint(from, requested, level.getMinBuildHeight(), level.getMaxBuildHeight());
+        if (to == null || !inside(level, to)) return null;
         try {
-            var query=LoadedFrameRayQuery.clip(level,from,to,MAX_CHUNKS,.125,0,
-                    (getter,rayFrom,rayTo)->new ClipContext(rayFrom,rayTo,ClipContext.Block.COLLIDER,ClipContext.Fluid.NONE,body));
-            if(query.state()==LoadedFrameRayQuery.State.UNKNOWN)return null;
-            Vec3 aim=query.frameHit()!=null?query.frameHit().worldPoint()
-                    :query.worldHit()!=null&&query.worldHit().getType()==HitResult.Type.BLOCK?query.worldHit().getLocation():to;
+            var query = LoadedFrameRayQuery.clip(level, from, to, MAX_CHUNKS, .125, 0,
+                    (getter, rayFrom, rayTo) -> new ClipContext(rayFrom, rayTo, ClipContext.Block.COLLIDER,
+                            ClipContext.Fluid.NONE, body) {
+                        @Override public net.minecraft.world.phys.shapes.VoxelShape getBlockShape(
+                                BlockState state, BlockGetter world, BlockPos pos) {
+                            return opaqueOnly && !HitscanOpacityPolicy.keepsBlock(state)
+                                    ? Shapes.empty() : super.getBlockShape(state, world, pos);
+                        }
+                    });
+            if (query.state() == LoadedFrameRayQuery.State.UNKNOWN) return null;
+            Vec3 aim = query.frameHit() != null ? query.frameHit().worldPoint()
+                    : query.worldHit() != null && query.worldHit().getType() == HitResult.Type.BLOCK
+                    ? query.worldHit().getLocation() : to;
             return finite(aim) ? aim : null;
-        } catch (LoadedBlockGetter.UnknownChunk ignored) {
-            return null;
-        }
+        } catch (RuntimeException unavailable) { return null; }
     }
-
     /** Clips only the endpoint Y-boundary, preserving the original ray line and finite inputs. */
     static Vec3 boundedRayEndpoint(Vec3 from, Vec3 requestedEnd, int minBuildHeight, int maxBuildHeight) {
         if (from == null || requestedEnd == null || !finite(from) || !finite(requestedEnd)
@@ -789,5 +801,6 @@ public final class BodyItemTargetProbe {
         return !level.isOutsideBuildHeight(BlockPos.containing(vec))
                 && level.getWorldBorder().isWithinBounds(vec);
     }
+
 
 }

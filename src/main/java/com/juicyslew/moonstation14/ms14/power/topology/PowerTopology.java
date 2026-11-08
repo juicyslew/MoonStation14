@@ -80,8 +80,21 @@ public final class PowerTopology {
     /** Exact opposing-face device port contact; no plug, rendering, or world lookup. */
     public static boolean deviceAdjacent(DevicePort port, CableFaceNode cable) {
         return port != null && cable != null && port.tier() == cable.tier()
-                && cable.face() == port.face().getOpposite()
-                && cable.host().equals(port.device().relative(port.face()));
+                && (port.tier() == com.juicyslew.moonstation14.ms14.power.cable.CableTier.APC
+                    ? cable.face() == port.face().getOpposite()
+                        && cable.host().equals(port.device().relative(port.face()))
+                    : cable.host().equals(port.device().relative(cable.face().getOpposite())));
+    }
+
+    /** The six physically touching host-face contacts for a station distribution port. */
+    public static List<CableFaceNode> deviceContacts(DevicePort port) {
+        if (port == null) throw new NullPointerException("port");
+        List<CableFaceNode> contacts = new ArrayList<>(Direction.values().length);
+        if (port.tier() == com.juicyslew.moonstation14.ms14.power.cable.CableTier.APC) {
+            contacts.add(new CableFaceNode(port.device().relative(port.face()), port.face().getOpposite(), port.tier()));
+        } else for (Direction face : Direction.values())
+            contacts.add(new CableFaceNode(port.device().relative(face), face.getOpposite(), port.tier()));
+        return List.copyOf(contacts);
     }
 }
 

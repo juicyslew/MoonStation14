@@ -22,6 +22,9 @@ import com.juicyslew.moonstation14.ms14.devicenet.control.WallSignalControlBlock
 import com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity;
 import com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity;
 import com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlockEntity;
+import com.juicyslew.moonstation14.ms14.combat.WeaponCapacitorRechargerBlockEntity;
+import com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineBlockEntity;
+import com.juicyslew.moonstation14.ms14.atmos.world.GasMinerBlockEntity;
 import com.juicyslew.moonstation14.block.custom.MagicBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import net.minecraft.core.BlockPos;
@@ -56,6 +59,13 @@ public class ModBlockEntities {
                     ModBlocks.ATMOS_WATER_VAPOR_PRODUCER.get(), ModBlocks.ATMOS_AMMONIA_PRODUCER.get(), ModBlocks.ATMOS_NITROUS_OXIDE_PRODUCER.get(),
                     ModBlocks.ATMOS_FREZON_PRODUCER.get(), ModBlocks.ATMOS_GAS_SINK.get(), ModBlocks.ATMOS_HEATER.get(), ModBlocks.ATMOS_COOLER.get()).build(null)
     );
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AtmosMachineBlockEntity>> ATMOS_MACHINE = BLOCK_ENTITY_TYPES.register("atmos_machine",
+            () -> BlockEntityType.Builder.of(AtmosMachineBlockEntity::new, ModBlocks.TEG_CENTER.get(), ModBlocks.TEG_CIRCULATOR.get(),
+                    ModBlocks.GAS_PRESSURE_PUMP.get(), ModBlocks.GAS_VOLUME_PUMP.get(), ModBlocks.GAS_VALVE.get(), ModBlocks.GAS_MIXER.get(),
+                    ModBlocks.GAS_FILTER.get(), ModBlocks.GAS_THERMO_HEATER.get(), ModBlocks.GAS_THERMO_FREEZER.get(),
+                    ModBlocks.PASSIVE_HEAT_EXCHANGER.get(), ModBlocks.GAS_PIPE_MANIFOLD.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GasMinerBlockEntity>> GAS_MINER = BLOCK_ENTITY_TYPES.register("gas_miner",
+            () -> BlockEntityType.Builder.of(GasMinerBlockEntity::new, ModBlocks.GAS_MINER_OXYGEN.get(), ModBlocks.GAS_MINER_NITROGEN.get(), ModBlocks.GAS_MINER_PLASMA.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PowerDeviceBlockEntity>> POWER_DEVICE = BLOCK_ENTITY_TYPES.register("power_device",
             () -> BlockEntityType.Builder.of(PowerDeviceBlockEntity::new,
                     ModBlocks.HV_SOURCE.get(), ModBlocks.HV_MV_SUBSTATION.get(), ModBlocks.APC.get(),
@@ -102,6 +112,8 @@ public class ModBlockEntities {
             () -> BlockEntityType.Builder.of(SeedExtractorBlockEntity::new, ModBlocks.SEED_EXTRACTOR.get()).build(null));
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ReagentGrinderBlockEntity>> REAGENT_GRINDER = BLOCK_ENTITY_TYPES.register("reagent_grinder",
             () -> BlockEntityType.Builder.of(ReagentGrinderBlockEntity::new, ModBlocks.REAGENT_GRINDER.get()).build(null));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<WeaponCapacitorRechargerBlockEntity>> WEAPON_CAPACITOR_RECHARGER = BLOCK_ENTITY_TYPES.register("weapon_capacitor_recharger",
+            () -> BlockEntityType.Builder.of(WeaponCapacitorRechargerBlockEntity::new, ModBlocks.WEAPON_CAPACITOR_RECHARGER.get()).build(null));
 
     public static void register(IEventBus eventBus){
         BLOCK_ENTITY_TYPES.register(eventBus);

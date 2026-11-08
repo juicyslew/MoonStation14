@@ -39,6 +39,7 @@ import com.juicyslew.moonstation14.ms14.puddle.ModPuddles;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
+import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -54,7 +55,41 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@GameTestTags({"prototype", "interaction"})
 class PrototypeRuntimeTest {
+    @Test
+    void ammoContainerAndBatteryFamiliesResolveInheritanceAndSynchronize() {
+        var manager = new PrototypeManager();
+        var ammoType = com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.TYPE;
+        var batteryType = com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.TYPE;
+        manager.register(ammoType);
+        manager.register(batteryType);
+        var tagA = id("tag_a");
+        var tagB = id("tag_b");
+        JsonObject ammoParent = JsonParser.parseString("{\"abstract\":true,\"capacity\":12,\"accepted_tags\":[\"moonstation14:tag_a\"],\"magazine_tags\":[\"moonstation14:tag_a\"],\"fill_cartridge_prototype\":\"moonstation14:round\"}").getAsJsonObject();
+        JsonObject ammoChild = JsonParser.parseString("{\"parent\":\"moonstation14:ammo_parent\",\"capacity\":20,\"accepted_tags\":[\"moonstation14:tag_b\"]}").getAsJsonObject();
+        JsonObject batteryParent = JsonParser.parseString("{\"abstract\":true,\"capacity\":100.0,\"starting_charge\":75.0,\"tags\":[\"moonstation14:tag_a\"]}").getAsJsonObject();
+        JsonObject batteryChild = JsonParser.parseString("{\"parent\":\"moonstation14:battery_parent\",\"tags\":[\"moonstation14:tag_b\"]}").getAsJsonObject();
+        manager.reload(ammoType, Map.of(id("ammo_parent"), ammoParent, id("ammo_child"), ammoChild));
+        manager.reload(batteryType, Map.of(id("battery_parent"), batteryParent, id("battery_child"), batteryChild));
+        var ammo = manager.snapshot(ammoType).get(id("ammo_child"));
+        var battery = manager.snapshot(batteryType).get(id("battery_child"));
+        assertEquals(20, ammo.capacity());
+        assertEquals(Set.of(tagB), ammo.acceptedTags());
+        assertEquals(Set.of(tagA), ammo.magazineTags());
+        assertEquals(id("round"), ammo.fillCartridgePrototype());
+        assertEquals(100f, battery.capacity());
+        assertEquals(75f, battery.startingCharge());
+        assertEquals(Set.of(tagB), battery.tags());
+
+        var client = new PrototypeManager();
+        client.register(ammoType);
+        client.register(batteryType);
+        client.publishEncodedCatalogs(manager.encodePublishedCatalogs());
+        assertEquals(ammo, client.snapshot(ammoType).get(id("ammo_child")));
+        assertEquals(battery, client.snapshot(batteryType).get(id("battery_child")));
+    }
+
     @Test
     void canisterResourcesResolveAbstractBaseAndConcreteProfilesIntoLiveState() {
         var manager = new PrototypeManager();
@@ -143,6 +178,9 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModChargerProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE);
@@ -152,7 +190,8 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE);
-        expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.analyzer.ModGasAnalyzers.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE);
@@ -167,6 +206,8 @@ class PrototypeRuntimeTest {
          expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.throwing.ModThrownItemProfiles.TYPE);
          expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.machine.ModAtmosMachines.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -311,7 +352,25 @@ class PrototypeRuntimeTest {
                 Map.of(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("localbase"), fixture("network_device_item", "localbase"),
                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("standardwireless15"), fixture("network_device_item", "standardwireless15"),
                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("configurator"), fixture("network_device_item", "configurator"),
-                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("advancedwireless50"), fixture("network_device_item", "advancedwireless50")));
+                          com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("advancedwireless50"), fixture("network_device_item", "advancedwireless50")));
+         var minerBase = new JsonObject();
+         minerBase.addProperty("id", "base_test");
+         minerBase.addProperty("abstract", true);
+         minerBase.addProperty("gas", "oxygen");
+         minerBase.addProperty("spawnAmount", 123.5);
+         minerBase.addProperty("spawnTemperatureKelvin", 280.0);
+         minerBase.addProperty("maxExternalPressureKpa", 250.0);
+         minerBase.addProperty("maxTotalMoles", 900.0);
+         var miner = new JsonObject();
+         miner.addProperty("id", "custom_test");
+         miner.addProperty("parent", "base_test");
+         miner.addProperty("spawnTemperatureKelvin", 315.0);
+         miner.addProperty("maxExternalPressureKpa", 450.0);
+         miner.addProperty("maxTotalMoles", 1200.0);
+         var minerId = com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.id("custom_test");
+         server.reload(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE,
+                 Map.of(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.id("base_test"), minerBase,
+                         minerId, miner));
          server.reload(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE, Map.of(
                  com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.BASE_ID,
                  fixture("singularity_beacon", "singularity_beacon_base"),
@@ -327,7 +386,12 @@ class PrototypeRuntimeTest {
                  "minecraft:stone", new com.juicyslew.moonstation14.ms14.damage.DamageModifierData(
                          Map.of("blunt", 0.5f), Map.of()));
          server.publishDecoded(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE,
-                 Map.of(id("stone"), contactPolicy));
+                  Map.of(id("stone"), contactPolicy));
+          var chargerProfile = new com.juicyslew.moonstation14.ms14.combat.ChargerProfile(1f, 20f,
+                  true, "charger_slot", Set.of(com.juicyslew.moonstation14.ms14.combat.ChargerCapability.BATTERY_AMMO_PROVIDER,
+                  com.juicyslew.moonstation14.ms14.combat.ChargerCapability.POWER_CELL));
+          server.publishDecoded(com.juicyslew.moonstation14.ms14.combat.ModChargerProfiles.TYPE,
+                  Map.of(id("weapon_capacitor_recharger"), chargerProfile));
          Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
@@ -360,7 +424,10 @@ class PrototypeRuntimeTest {
                  com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE.typeId(),
-                 com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.ModChargerProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE.typeId(),
                  com.juicyslew.moonstation14.ms14.botany.ModPlantMutations.TYPE.typeId(),
@@ -383,11 +450,26 @@ class PrototypeRuntimeTest {
                  com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE.typeId(),
-                  com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE.typeId(),
-                  com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId(),
-                 ModActionPrototypes.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.atmos.machine.ModAtmosMachines.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.atmos.analyzer.ModGasAnalyzers.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE.typeId(),
+                  ModActionPrototypes.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE.typeId(),
                   com.juicyslew.moonstation14.ms14.combat.throwing.ModThrownItemProfiles.TYPE.typeId()), exported.keySet());
+         assertEquals(1, exported.get(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE.typeId()).size());
+         var resolvedMiner = server.snapshot(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE)
+                 .get(minerId);
+         var baseMinerId = com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.id("base_test");
+         assertEquals(1, server.snapshot(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE).asMap().size());
+         assertFalse(server.snapshot(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE).contains(baseMinerId),
+                 "abstract parent is resolved for inheritance but not published as a concrete profile");
+         assertEquals(GasType.OXYGEN, resolvedMiner.gas());
+         assertEquals(123.5, resolvedMiner.spawnAmount(), "inherited parent value");
+         assertEquals(315.0, resolvedMiner.spawnTemperatureKelvin());
+         assertEquals(450.0, resolvedMiner.maxExternalPressureKpa());
+         assertEquals(1200.0, resolvedMiner.maxTotalMoles());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);
@@ -415,10 +497,26 @@ class PrototypeRuntimeTest {
         assertTrue(exported.get(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()).containsKey(id("source-test")));
 
          client.publishEncodedCatalogs(exported);
+         var clientMiner = client.snapshot(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE).get(minerId);
+         assertEquals(GasType.OXYGEN, clientMiner.gas());
+         assertEquals(123.5, clientMiner.spawnAmount());
+         assertEquals(315.0, clientMiner.spawnTemperatureKelvin());
+         assertEquals(450.0, clientMiner.maxExternalPressureKpa());
+         assertEquals(1200.0, clientMiner.maxTotalMoles());
+         assertEquals(resolvedMiner, clientMiner);
+         assertNotSame(resolvedMiner, clientMiner);
+         var minerDefaults = com.juicyslew.moonstation14.ms14.atmos.world.GasMinerProfile.CODEC
+                 .parse(JsonOps.INSTANCE, JsonParser.parseString("{\"gas\":\"oxygen\"}")).getOrThrow();
+         assertEquals(400.0, minerDefaults.spawnAmount());
+         assertEquals(293.15, minerDefaults.spawnTemperatureKelvin());
+         assertEquals(300.0, minerDefaults.maxExternalPressureKpa());
+         assertEquals(Double.POSITIVE_INFINITY, minerDefaults.maxTotalMoles());
          assertEquals(contactPolicy, PrototypeRuntime.serverBlockStructuralContacts().get(id("stone")));
-         assertEquals(contactPolicy, PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
+          assertEquals(contactPolicy, PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
          assertNotSame(PrototypeRuntime.serverBlockStructuralContacts().get(id("stone")),
-                 PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
+                  PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
+          assertEquals(chargerProfile, PrototypeRuntime.clientChargerProfiles().get(id("weapon_capacitor_recharger")));
+          assertNotSame(chargerProfile, PrototypeRuntime.clientChargerProfiles().get(id("weapon_capacitor_recharger")));
          var serverActions = ModActionPrototypes.serverCatalog();
          var clientActions = ModActionPrototypes.clientCatalog();
          var combatAction = id("combat_mode_toggle");

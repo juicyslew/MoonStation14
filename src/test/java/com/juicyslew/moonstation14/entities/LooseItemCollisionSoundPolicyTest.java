@@ -32,4 +32,13 @@ class LooseItemCollisionSoundPolicyTest {
         assertTrue(policy.terrain(PROFILE, 2, new Vec3(1, 0, 0), 101).isPresent());
         assertTrue(new LooseItemCollisionSoundPolicy().body(null, Vec3.ZERO, 1).isEmpty());
     }
+
+    @Test void explicitLandingCueUsesTerrainEntryAndSharedCooldown() {
+        var policy = new LooseItemCollisionSoundPolicy();
+        var cue = new ThrownItemProfile.CollisionSoundData(new PositionalSoundCue(ResourceLocation.withDefaultNamespace("entity.item.pickup"), -2), .5f, .2f);
+        assertTrue(policy.terrain(cue, 2, new Vec3(0, -.025, 0), 1).isPresent());
+        assertTrue(policy.terrain(cue, 2, new Vec3(0, -.5, 0), 2).isEmpty());
+        assertTrue(policy.terrain(cue, 0, Vec3.ZERO, 3).isEmpty());
+        assertTrue(policy.terrain(cue, 2, new Vec3(0, -.5, 0), 4).isEmpty());
+    }
 }

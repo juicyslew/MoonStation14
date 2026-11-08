@@ -30,6 +30,8 @@ public final class BodyHandActionNetworking {
     public static void registerPayloadHandlers(RegisterPayloadHandlersEvent event) {
         NeoForge.EVENT_BUS.addListener(BodyHandRequestService::logout);
         NeoForge.EVENT_BUS.addListener(BodyHandStateService::logout);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSessionService::logout);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSessionService::serverTick);
         NeoForge.EVENT_BUS.addListener(BodyWorldGridService::logout);
         event.registrar("1").executesOn(HandlerThread.MAIN)
                 .playToServer(BodyBlockUseRequest.TYPE, BodyBlockUseRequest.STREAM_CODEC, (request, context) -> {
@@ -115,6 +117,19 @@ public final class BodyHandActionNetworking {
                         (result, context) -> {
                             if (FMLEnvironment.dist == Dist.CLIENT) BodyHandActionResult.deliverClient(result);
                         })
+                .playToServer(com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerControl.TYPE,
+                        com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerControl.STREAM_CODEC,
+                        (control, context) -> {
+                            if (context.player() instanceof ServerPlayer actor && actor.connection != null
+                                    && actor.getServer() != null && actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
+                                com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSessionService.control(actor, control);
+                        })
+                .playToClient(com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSnapshot.TYPE,
+                        com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerSnapshot.STREAM_CODEC,
+                        (snapshot, context) -> {
+                            if (FMLEnvironment.dist == Dist.CLIENT)
+                                com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerClientState.accept(snapshot);
+                        })
                 .playToServer(BodyHandStateQuery.TYPE, BodyHandStateQuery.STREAM_CODEC, (query, context) -> {
                     if (!(context.player() instanceof ServerPlayer actor) || actor.connection == null) return;
                     if (actor.getServer() == null || actor.getServer().getPlayerList().getPlayer(actor.getUUID()) != actor)
@@ -197,17 +212,20 @@ public final class BodyHandActionNetworking {
                     }
                       var inspection = BodyHandRequestService.inspectBlockUse(actor, request);
                       var admission = inspection.admission();
-                     if (contained && admission != null
-                             && !(admission.authority().body().level().getBlockEntity(admission.hit().pos())
-                                  instanceof DisposalUnitBlockEntity)) admission = null;
+                      if (contained && admission != null
+                              && !(admission.authority().body().level().getBlockEntity(admission.hit().pos())
+                                   instanceof DisposalUnitBlockEntity)) admission = null;
+                      final var admittedAction = admission;
                       BodyBlockUseResult.Outcome outcome = !contained && admission == null
                              && inspection.failure() == BodyHandRequestService.BlockUseFailure.TARGET_NOT_ADMITTED
                              ? BodyBlockUseResult.Outcome.TARGET_NOT_ADMITTED : BodyBlockUseResult.Outcome.DENIED;
                      if (admission != null && request.intent() == BodyBlockUseRequest.Intent.USE) {
                          var held = admission.hands().stackCopy(request.handId()).orElse(null);
                           var body = admission.authority().body();
-                          var targetEntity = body.level().getBlockEntity(admission.hit().pos());
-                            if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity extractor) {
+                           var targetEntity = body.level().getBlockEntity(admission.hit().pos());
+                             if (targetEntity instanceof com.juicyslew.moonstation14.ms14.combat.WeaponCapacitorRechargerBlockEntity charger) {
+                                 outcome = com.juicyslew.moonstation14.ms14.combat.CapacitorRechargerHandUseService.use(actor, request, admission, charger, held);
+                             } else if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity extractor) {
                                 outcome = com.juicyslew.moonstation14.ms14.botany.SeedExtractorHandUseService.use(
                                         actor, request, admission, extractor, held);
                             } else if (targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayBlockEntity tray) {
@@ -315,9 +333,12 @@ public final class BodyHandActionNetworking {
                            } else if (held != null && held.is(ModItems.WRENCH.get())) {
                                outcome = BodyDisposalTubeAnchorUse.begin(actor, request, admission)
                                        ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
-                           } else if (held != null && held.is(ModItems.SCREWDRIVER.get())) {
-                               outcome = BodyDisposalTubeJunctionUse.begin(actor, request, admission)
-                                       ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
+                            } else if (held != null && com.juicyslew.moonstation14.ms14.tools.ToolQualities.has(
+                                    held, com.juicyslew.moonstation14.ms14.tools.ToolProfile.Quality.SCREWING)) {
+                                outcome = com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineLayerUse.start(actor, request, admission, held)
+                                        ? BodyBlockUseResult.Outcome.NO_CHANGE
+                                        : BodyDisposalTubeJunctionUse.begin(actor, request, admission)
+                                        ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyWorldItemActions.use(actor, request, admission);
                             } else if (held != null && held.is(ModItems.WELDER.get())) {
                                 var target = body.level().getBlockEntity(admission.hit().pos());
                                 outcome = target instanceof com.juicyslew.moonstation14.ms14.tesla.TeslaMachineBlockEntity
@@ -345,7 +366,7 @@ public final class BodyHandActionNetworking {
                             var result = FunctionalExposedPipePlacement.place(actor, request, admission);
                             outcome = result == FunctionalExposedPipePlacement.Result.INSTALLED ? BodyBlockUseResult.Outcome.PLACED
                                     : result == FunctionalExposedPipePlacement.Result.RECOVERY_REQUIRED ? BodyBlockUseResult.Outcome.RECOVERY_REQUIRED : BodyBlockUseResult.Outcome.DENIED;
-                          } else if (held != null && DisposalBuildMenuService.matchesActiveMaterial(admission.authority(), held)) {
+                         } else if (held != null && DisposalBuildMenuService.matchesActiveMaterial(admission.authority(), held)) {
                                  String sharedRecipe=com.juicyslew.moonstation14.ms14.construction.world.ConstructionWorldService
                                          .selectedRecipe(actor,body);
                                  if(sharedRecipe!=null) {
@@ -362,16 +383,29 @@ public final class BodyHandActionNetworking {
                                                     liveHands == null ? null : liveHands.revision())
                                             : BodyWorldItemActions.use(actor, request, admission);
                                 }
-                        } else if (held == null) {
-                            boolean opened = AirAlarmMenuService.open(actor, request, admission);
-                            if (opened) outcome = BodyBlockUseResult.Outcome.NO_CHANGE;
+                         } else if (held == null && request.intent() == BodyBlockUseRequest.Intent.USE) {
+                              var machineOutcome = dispatchMachineActivation(request,
+                                       () -> AirAlarmMenuService.openWorkspace(actor, request, admittedAction) != null,
+                                      () -> com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineMenuService
+                                               .openWorkspace(actor, request, admittedAction) != null,
+                                      () -> com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineMenuService
+                                               .activateValve(actor, request, admittedAction));
+                              outcome = machineOutcome == null ? BodyWorldItemActions.use(actor, request, admission) : machineOutcome;
                           } else {
                                outcome = BodyWorldItemActions.use(actor, request, admission);
-                        }
-                       } else if (admission != null) {
-                          var targetEntity = admission.authority().body().level().getBlockEntity(admission.hit().pos());
-                          var held = admission.hands().stackCopy(request.handId()).orElse(null);
-                            if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                     }
+                     } else if (admission != null) {
+                           var targetEntity = admission.authority().body().level().getBlockEntity(admission.hit().pos());
+                           var held = admission.hands().stackCopy(request.handId()).orElse(null);
+                           var machineOutcome = held == null && request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
+                                   ? dispatchMachineActivation(request,
+                                            () -> AirAlarmMenuService.openWorkspace(actor, request, admittedAction) != null,
+                                           () -> com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineMenuService
+                                                    .openWorkspace(actor, request, admittedAction) != null,
+                                           () -> com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineMenuService
+                                                    .activateValve(actor, request, admittedAction)) : null;
+                           if (machineOutcome != null) outcome = machineOutcome;
+                           else if (request.intent() == BodyBlockUseRequest.Intent.ACTIVATE_WORLD
                                     && targetEntity instanceof com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlockEntity grinder
                                     && com.juicyslew.moonstation14.ms14.botany.ui.GrinderSessionService.open(actor, grinder,
                                         snapshot -> com.juicyslew.moonstation14.ms14.botany.ui.GrinderNetworking.send(actor, snapshot)) != null)
@@ -425,6 +459,17 @@ public final class BodyHandActionNetworking {
                     if (actor.getServer().getPlayerList().getPlayer(actor.getUUID()) == actor)
                         PacketDistributor.sendToPlayer(actor, new BodyBlockUseResult(request.epoch(), request.sequence(), outcome));
                     return outcome;
+     }
+
+    /** Shared empty-hand machine entry for normal USE and client-target ACTIVATE intents. */
+    static BodyBlockUseResult.Outcome dispatchMachineActivation(BodyBlockUseRequest request,
+            java.util.function.BooleanSupplier openAlarm, java.util.function.BooleanSupplier openAtmos,
+            java.util.function.BooleanSupplier activateValve) {
+        if(request==null||request.intent()!=BodyBlockUseRequest.Intent.USE
+                &&request.intent()!=BodyBlockUseRequest.Intent.ACTIVATE_WORLD)return null;
+        if(openAlarm.getAsBoolean()||openAtmos.getAsBoolean()||activateValve.getAsBoolean())
+            return BodyBlockUseResult.Outcome.NO_CHANGE;
+        return null;
     }
 
 }

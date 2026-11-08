@@ -97,6 +97,12 @@ public class MoonStation14 {
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalRideDamageDiagnostics::onTypedDamage);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService::serverStopped);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineMenuService::logout);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineMenuService::serverTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineMenuService::serverStopped);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService::logout);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService::serverTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService::serverStopped);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService::serverTick);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService::logout);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.interaction.ChemMasterDumpService::logout);
@@ -117,6 +123,7 @@ public class MoonStation14 {
         ModRecipes.register(modEventBus);
         ModEntities.register(modEventBus);
         com.juicyslew.moonstation14.entities.ModEmitterImpactParticles.register(modEventBus);
+        com.juicyslew.moonstation14.entities.ModSpentCasingParticles.register(modEventBus);
         modEventBus.addListener(PrototypeCatalogNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.ghost_roles.server.GhostRoleNetworking::registerPayloadHandlers);
         com.juicyslew.moonstation14.ms14.ghost_roles.server.GhostRoleNetworking.installDefaultServerHandler();
@@ -134,6 +141,7 @@ public class MoonStation14 {
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(ApcNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.ui.DisposalBuildNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.ui.DisposalConstructionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitNetworking::registerPayloadHandlers);
@@ -282,6 +290,7 @@ public class MoonStation14 {
     @SubscribeEvent
     public void onLevelTickPost(net.neoforged.neoforge.event.tick.LevelTickEvent.Post event) {
         if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+            com.juicyslew.moonstation14.ms14.hands.live.LiveWieldSystem.tick(level);
             com.juicyslew.moonstation14.ms14.singularity.fixture.SingularityFixtureService.tick(level);
             com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level).tick();
             com.juicyslew.moonstation14.ms14.explosion.server.QueuedExplosionSystem.tick(level);

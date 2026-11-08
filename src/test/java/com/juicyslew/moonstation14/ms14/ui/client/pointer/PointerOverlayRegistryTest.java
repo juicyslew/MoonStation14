@@ -11,6 +11,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class PointerOverlayRegistryTest {
     @AfterEach void resetRegistry() { PointerOverlayRegistry.resetOwnedContext(); }
 
+    @Test void bodyInventoryIsApprovedHostButDoesNotOwnSeparateInputStream() {
+        var screen = new com.juicyslew.moonstation14.ms14.hands.client.BodyInventoryScreen();
+        assertTrue(PointerOverlayRegistry.allowsHost(screen));
+        assertFalse(PointerOverlayRegistry.inputBelongsToScreen(screen));
+        assertTrue(PointerOverlayRegistry.allowsHost(null));
+    }
+
     @Test void registrationIsUniqueAndReversePaintOrderOwnsOverlappingClicks() {
         var back = new Window(); var front = new Window();
         back.visible = front.visible = true;

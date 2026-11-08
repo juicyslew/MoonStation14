@@ -5,6 +5,9 @@
   "atmosAlarmable": { "sourceTags": ["GasVent"] },
   "gasVentPump": {
     "targetPressureChangeKPaPerSecond": 101.325,
-    "externalPressureBoundKPa": 101.325
+    "externalPressureBoundKPa": 101.325,
+    "pumpPower": 2.0,
+    "pressureChecks": "EXTERNAL",
+    "internalPressureBoundKPa": 0.0
   }
 }

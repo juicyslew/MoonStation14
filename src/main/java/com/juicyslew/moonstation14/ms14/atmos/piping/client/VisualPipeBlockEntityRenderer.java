@@ -34,24 +34,18 @@ public final class VisualPipeBlockEntityRenderer implements BlockEntityRenderer<
     private static void renderLane(VisualPipeBlockEntity pipe, int layer, int minimum,
                                    BlockState material, PoseStack poseStack, MultiBufferSource buffers,
                                    int packedLight, int packedOverlay) {
-        float low = minimum / 16.0F;
-        float high = (minimum + 2) / 16.0F;
-        drawBox(material, low, low, low, high, high, high, poseStack, buffers, packedLight, packedOverlay);
+        drawBox(material, VisualPipeLaneGeometry.center(minimum), poseStack, buffers, packedLight, packedOverlay);
 
         for (Direction direction : Direction.values()) {
             if (!pipe.hasLayerArm(layer, direction)) continue;
-            float x1 = low, y1 = low, z1 = low;
-            float x2 = high, y2 = high, z2 = high;
-            switch (direction) {
-                case WEST -> x1 = 0;
-                case EAST -> x2 = 1;
-                case DOWN -> y1 = 0;
-                case UP -> y2 = 1;
-                case NORTH -> z1 = 0;
-                case SOUTH -> z2 = 1;
-            }
-            drawBox(material, x1, y1, z1, x2, y2, z2, poseStack, buffers, packedLight, packedOverlay);
+            drawBox(material, VisualPipeLaneGeometry.arm(minimum, direction), poseStack, buffers, packedLight, packedOverlay);
         }
+    }
+
+    private static void drawBox(BlockState material, VisualPipeLaneGeometry.Bounds bounds, PoseStack poseStack,
+                                MultiBufferSource buffers, int packedLight, int packedOverlay) {
+        drawBox(material, bounds.minX(), bounds.minY(), bounds.minZ(), bounds.maxX(), bounds.maxY(), bounds.maxZ(),
+                poseStack, buffers, packedLight, packedOverlay);
     }
 
     private static void drawBox(BlockState material, float minX, float minY, float minZ,

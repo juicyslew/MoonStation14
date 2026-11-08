@@ -10,8 +10,14 @@ import java.util.WeakHashMap;
 /** Authenticated body-owned request adapter to the existing gun fire system. */
 public final class GunShotRequestService {
     private static final Map<ServerPlayer,BodyActionSequenceGate> GATES=new WeakHashMap<>();
+    private static final Map<ServerPlayer,GunTriggerPolicy> TRIGGERS=new WeakHashMap<>();
     private GunShotRequestService(){}
-    public static void logout(PlayerEvent.PlayerLoggedOutEvent e){if(e.getEntity() instanceof ServerPlayer p)GATES.remove(p);}
+    public static void logout(PlayerEvent.PlayerLoggedOutEvent e){if(e.getEntity() instanceof ServerPlayer p){GATES.remove(p);TRIGGERS.remove(p);}}
+    public static void stop(ServerPlayer player,GunStopShootRequest request){
+        var authority=BodyActionAuthority.resolve(player).orElse(null);if(authority==null||request==null||authority.identity().epoch()!=request.epoch())return;
+        if(!BodyActionAuthority.revalidate(player,authority))return;
+        TRIGGERS.computeIfAbsent(player,p->new GunTriggerPolicy()).stop(request.epoch(),request.triggerId(),request.hand(),request.token());
+    }
     public static GunShotReply handle(ServerPlayer player,GunShotRequest request){
         if(request==null)return reply(null,0,0,GunFireSystem.Status.REJECTED,false,null,0,0);
         var authority=BodyActionAuthority.resolve(player).orElse(null);
@@ -23,7 +29,10 @@ public final class GunShotRequestService {
         if(!BodyActionAuthority.revalidate(player,authority))return reply(body.getUUID(),epoch,request.sequence(),GunFireSystem.Status.REJECTED,false,null,0,0);
         if(selected==null||selected.handRevision()!=request.expectedHandRevision()||!selected.activeHand().equals(request.activeHand())||!selected.itemToken().equals(request.expectedItemToken()))
             return actualReply(player,body,epoch,request.sequence(),GunFireSystem.Status.REJECTED,false);
-        var result=com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.batch(()->GunFireSystem.fire(player,authority,selected,request.nominatedAimPoint()));
+        var runtime=GunWeaponResolver.readOwned(body,selected).map(owned->owned.stack().getOrDefault(com.juicyslew.moonstation14.component.ModDataComponents.GUN_RUNTIME_STATE.get(),GunRuntimeState.INITIAL)).orElse(null);
+        var mode=runtime==null?null:GunModePolicy.effectiveFireMode(runtime,selected.profile());
+        if(runtime==null||!TRIGGERS.computeIfAbsent(player,p->new GunTriggerPolicy()).admit(body.getUUID(),epoch,request.triggerId(),selected.activeHand(),selected.itemToken(),mode,request.start()))return actualReply(player,body,epoch,request.sequence(),GunFireSystem.Status.REJECTED,false);
+         var result=com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.batch(()->GunFireSystem.fire(player,authority,selected,request.nominatedAimPoint(),request.sequence()));
         boolean consumed=consumedSource(result.status());
         if(!BodyActionAuthority.revalidate(player,authority))return reply(body.getUUID(),epoch,request.sequence(),GunFireSystem.Status.REJECTED,consumed,null,0,0);
         return actualReply(player,body,epoch,request.sequence(),result.status(),consumed);

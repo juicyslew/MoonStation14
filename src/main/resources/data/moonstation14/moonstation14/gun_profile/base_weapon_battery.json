@@ -1,0 +1,1 @@
+{"abstract":true,"id":"base_weapon_battery","gun":{"fire_rate":2,"projectile_speed":40,"use_key":true,"firing_mode":"SEMI_AUTO","available_modes":["SEMI_AUTO"]},"ammo_counter":true}

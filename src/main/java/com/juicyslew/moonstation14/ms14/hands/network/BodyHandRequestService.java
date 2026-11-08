@@ -715,10 +715,29 @@ public final class BodyHandRequestService {
             return result(request, com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerServer.activateLoose(
                     actor, authority, hands, request, loose), authority);
         }
-        if (hands.token(request.handId()).filter(request.expectedToken()::equals).isEmpty())
+        if (BodyHandActionRequest.isHeldGunControl(request.action()) && request.pickupTarget()!=null
+                || request.action()==BodyHandActionRequest.Action.GUN_EMPTY||request.action()==BodyHandActionRequest.Action.GUN_SPIN) {
+            if(!worldGunActorProofMatches(request.expectedToken(),hands.token(request.handId()).orElse(null),
+                    request.handId(),hands.activeHand(),hands.reservation(request.handId()).isPresent()))
+                return result(request,BodyHandActionResult.Reason.STALE_HAND,authority);
+            var gun = nominatedLoose(authority, request);
+            if (gun == null) return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            var outcome = com.juicyslew.moonstation14.ms14.combat.GunWorldUseSystem.tryControl(actor,authority,hands,gun,request.action());
+            return result(request, outcome == com.juicyslew.moonstation14.ms14.combat.GunWorldUseSystem.Result.SUCCESS
+                    ? BodyHandActionResult.Reason.OK : outcome == com.juicyslew.moonstation14.ms14.combat.GunWorldUseSystem.Result.RECOVERY
+                    ? BodyHandActionResult.Reason.RECOVERY_REQUIRED : BodyHandActionResult.Reason.DENIED, authority);
+        }
+        if (request.pickupTarget()==null&&hands.token(request.handId()).filter(request.expectedToken()::equals).isEmpty())
             return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
         if (!HandActorAuthority.revalidate(actor, authority))
             return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+
+        if (BodyHandActionRequest.isHeldGunControl(request.action())) {
+            var held = hands.stackCopy(request.handId()).orElse(null);
+            var control = com.juicyslew.moonstation14.ms14.combat.GunUseSystem.tryControl(
+                    actor, authority, request, hands, held);
+            return result(request, control == null ? BodyHandActionResult.Reason.DENIED : control, authority);
+        }
 
         java.util.concurrent.atomic.AtomicReference<java.util.UUID> spawned = new java.util.concurrent.atomic.AtomicReference<>();
         if (request.action() == BodyHandActionRequest.Action.THROW_ITEM) {
@@ -754,6 +773,31 @@ public final class BodyHandRequestService {
                         ? BodyHandActionResult.Reason.DENIED : BodyHandActionResult.Reason.OK, authority);
             }
             var looseTarget = nominatedLoose(authority, request);
+            if (looseTarget != null && held != null && !held.isEmpty()) {
+                var cartridgeId = BuiltInRegistries.ITEM.getKey(held.getItem());
+                var gunId = BuiltInRegistries.ITEM.getKey(looseTarget.getItem().getItem());
+                boolean source = cartridgeId != null && (com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.serverCatalog().get(cartridgeId) != null
+                        || com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.serverCatalog().get(cartridgeId) != null
+                        || com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.serverCatalog().get(cartridgeId) != null);
+                var gun = gunId == null ? null : com.juicyslew.moonstation14.ms14.combat.ModGunProfiles
+                        .serverCatalog().get(gunId);
+                var targetContainer = gunId == null ? null : com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.serverCatalog().get(gunId);
+                boolean refill = held != null && cartridgeId != null
+                        && com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.serverCatalog().get(cartridgeId) != null
+                        && targetContainer != null;
+                if (source && (gun != null || refill)) {
+                    var outcome = com.juicyslew.moonstation14.ms14.combat.GunWorldUseSystem.insertHeldCartridge(
+                            actor, authority, hands, request.handId(), new com.juicyslew.moonstation14.ms14.hands.ItemToken(
+                                    hands.token(request.handId()).orElseThrow()),
+                            request.expectedRevision(), looseTarget);
+                    BodyHandActionResult.Reason reason = outcome == com.juicyslew.moonstation14.ms14.combat.GunWorldUseSystem.Result.SUCCESS
+                            ? BodyHandActionResult.Reason.OK : outcome == com.juicyslew.moonstation14.ms14.combat.GunWorldUseSystem.Result.RECOVERY
+                            ? BodyHandActionResult.Reason.RECOVERY_REQUIRED : BodyHandActionResult.Reason.DENIED;
+                    if (outcome != com.juicyslew.moonstation14.ms14.combat.GunWorldUseSystem.Result.DENIED)
+                        BodyHandStateService.requireFreshQuery(actor);
+                    return result(request, reason, authority);
+                }
+            }
             if (looseTarget != null && com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems
                     .isSignaller(looseTarget.getItem()))
                 return result(request, com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerServer.activateLoose(
@@ -806,6 +850,9 @@ public final class BodyHandRequestService {
             if (com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.isSignaller(stack))
                 return result(request, com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerServer.activate(
                         actor, request.handId(), request.expectedToken(), request.expectedRevision()), authority);
+            var gunUse = com.juicyslew.moonstation14.ms14.combat.GunUseSystem.tryUseInHand(
+                    actor, authority, request, hands, stack);
+            if (gunUse != null) return result(request, gunUse, authority);
             var medicalId = BuiltInRegistries.ITEM.getKey(stack.getItem());
             try {
                 var medical = medicalId == null ? null : com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
@@ -888,6 +935,13 @@ public final class BodyHandRequestService {
             return response;
         }
 
+        if (request.action() == BodyHandActionRequest.Action.USE_ON_HAND) {
+            BodyHandActionResult.Reason reason = com.juicyslew.moonstation14.ms14.hands.live.BodyHeldItemInteraction
+                    .use(actor, authority, request, hands);
+            if (reason == BodyHandActionResult.Reason.OK) BodyHandStateService.requireFreshQuery(actor);
+            return result(request, reason, authority);
+        }
+
         if (!isDropAction(request.action()))
             return result(request, BodyHandActionResult.Reason.DENIED, authority);
         BodyHandItemTransfer.Result outcome = BodyHandItemTransfer.drop(actor, request.handId(),
@@ -898,6 +952,12 @@ public final class BodyHandRequestService {
         return result(request, dropReason, authority, dropReason == BodyHandActionResult.Reason.OK && spawned.get() != null
                  ? new BodyHandActionResult.HostTransition(BodyHandActionResult.HostTransition.Direction.DROP,
                      spawned.get(), request.expectedToken()) : null);
+    }
+
+    static boolean worldGunActorProofMatches(String expectedToken,String currentToken,String requestHand,
+                                              String activeHand,boolean reserved) {
+        return !reserved&&requestHand!=null&&requestHand.equals(activeHand)
+                &&java.util.Objects.equals(expectedToken,currentToken);
     }
 
     /** Missing medical entry is the normal route for generic reagent containers. */

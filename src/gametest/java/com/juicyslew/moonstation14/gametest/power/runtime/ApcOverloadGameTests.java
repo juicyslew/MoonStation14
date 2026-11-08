@@ -577,6 +577,8 @@ public final class ApcOverloadGameTests {
         var recentSamples = new java.util.ArrayDeque<String>();
         var expectedEpoch = new java.util.concurrent.atomic.AtomicLong(Long.MIN_VALUE);
         var expectedDeadline = new java.util.concurrent.atomic.AtomicLong(Long.MAX_VALUE);
+        var preRecloseSampleTick = new java.util.concurrent.atomic.AtomicLong(-1);
+        var recloseTick = new java.util.concurrent.atomic.AtomicInteger(-1);
         for (int tick = 1; tick <= maxTripObservationTick + CONNECTED_OVERLOAD_CLEANUP_TICKS; tick++) {
             final int checkTick = tick;
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, tick, () -> {
@@ -662,6 +664,8 @@ public final class ApcOverloadGameTests {
                 } else if (checkTick == tripped + 25) {
                     require(!level.getBlockState(sampleLamp).getValue(PowerDeviceBlock.LIT),
                             "post-trip live solve turns connected lamp off");
+                    var baseline = PowerRuntime.apcOutputObservation(level, apcEntity);
+                    preRecloseSampleTick.set(baseline.known() ? baseline.sampleTick() : -1);
                     Player player = new Player(level, apcPos, 0,
                             new GameProfile(UUID.randomUUID(), "wired-overload-test")) {
                         @Override public boolean isCreative() { return true; }
@@ -674,18 +678,38 @@ public final class ApcOverloadGameTests {
                     var saved = apcEntity.saveWithFullMetadata(level.registryAccess());
                     require(saved.getBoolean("BreakerClosed") && !saved.getBoolean("TripLatched"),
                             "APC breaker state serializes after manual reclose");
-                } else if (checkTick == tripped + 50) {
-                    require(level.getBlockState(sampleLamp).getValue(PowerDeviceBlock.LIT),
-                            "fresh scheduled solve restores lamp after manual reclose");
-                    BlockPos mvCable = heavyPos(helper, 2, 1, 5);
-                    require(CableStorage.remove(level, mvCable, Direction.EAST, CableTier.MV) == CableTier.MV,
-                            "remove real MV cable after overload accumulation has begun");
-                    cutTick.set(checkTick);
+                    recloseTick.set(checkTick);
+                } else if (recloseTick.get() >= 0 && cutTick.get() < 0) {
+                    var observed = PowerRuntime.apcOutputObservation(level, apcEntity);
+                    boolean topologyReady = PowerFixtureReadiness.topologyReadyWithKnownPorts(level, output, spine);
+                    long currentGeneration = PowerGraphService.topologyGeneration(level);
+                    boolean freshFullRestore = topologyReady && observed.known()
+                            && observed.sampleTick() > preRecloseSampleTick.get()
+                            && observed.topologyGeneration() == currentGeneration
+                            && observed.outputWatts() >= fullFixtureDemandWatts
+                            && apcEntity.breakerClosed() && !apcEntity.tripLatched()
+                            && level.getBlockState(sampleLamp).getValue(PowerDeviceBlock.LIT);
+                    int cutoffTick = maxTripObservationTick + CONNECTED_OVERLOAD_CLEANUP_TICKS - 85;
+                     if (freshFullRestore) {
+                         BlockPos mvCable = heavyPos(helper, 2, 1, 5);
+                         tracePowerMutation(level,helper,"actual-mv-cut","BEFORE",mvCable);
+                         require(CableStorage.remove(level, mvCable, Direction.EAST, CableTier.MV) == CableTier.MV,
+                                 "remove real MV cable after overload accumulation has begun");
+                         tracePowerMutation(level,helper,"actual-mv-cut","AFTER",mvCable);
+                        cutTick.set(checkTick);
+                    } else if (checkTick >= cutoffTick) {
+                        require(false, "no fresh full-demand post-reclose APC output observation by cutoff="
+                                + cutoffTick + ": overloadState=" + overloadState(level, apcEntity, output, spine)
+                                + ",observed=" + observed + ",topologyReady=" + topologyReady
+                                + ",baselineSampleTick=" + preRecloseSampleTick.get()
+                                + ",recloseTick=" + recloseTick.get());
+                    }
                 } else if (cutTick.get() >= 0 && checkTick == cutTick.get() + 85) {
                     require(apcEntity.breakerClosed() && !apcEntity.tripLatched(),
                             "disconnected circuit does not trip from stale overload samples");
                     require(!level.getBlockState(sampleLamp).getValue(PowerDeviceBlock.LIT),
                             "zero-battery lamp turns off after disconnected circuit resolves");
+                    tracePowerMutation(level,helper,"phase-completion","BEFORE",apcPos);
                     helper.succeed();
                 }
             });
@@ -729,5 +753,11 @@ public final class ApcOverloadGameTests {
 
     private static void require(boolean condition, String message) {
         if (!condition) throw new GameTestAssertException(message);
+    }
+
+    private static void tracePowerMutation(ServerLevel level, GameTestHelper helper, String op, String edge, BlockPos pos) {
+        MoonStation14.LOGGER.info("TEG_POWER_MUTATION case=connectedCablePathLampLoadTripsApcAndManualRecloseRestoresIt op={} edge={} root={} template=power_overload_clear pos={} worldTick={} sampleTick={} generation={} graph={}",
+                op, edge, helper.absolutePos(BlockPos.ZERO), pos, level.getGameTime(), PowerRuntime.currentSampleTick(level),
+                PowerGraphService.topologyGeneration(level), PowerGraphService.diagnosticSnapshot(level));
     }
 }

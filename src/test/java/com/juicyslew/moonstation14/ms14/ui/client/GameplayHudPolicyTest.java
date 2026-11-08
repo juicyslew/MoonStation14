@@ -20,5 +20,7 @@ class GameplayHudPolicyTest {
         assertTrue(GameplayHudPolicy.hudPaintsWorkspace(new ChatScreen("")));
         assertTrue(GameplayHudPolicy.hudPaintsWire(null));
         assertTrue(GameplayHudPolicy.hudPaintsWire(new ChatScreen("")));
+        assertFalse(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(
+                new ChatScreen("")));
     }
 }

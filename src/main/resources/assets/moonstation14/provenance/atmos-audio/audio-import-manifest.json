@@ -1,0 +1,13 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "assets": [
+    {
+      "source": "Resources/Audio/Ambience/Objects/gas_vent.ogg",
+      "runtime": "sounds/ss14/atmospherics/gas_vent.ogg",
+      "sha256": "35100ebd27f45ae08a2a15bf9422088b1cb09fb4ef0751f9d61f0a4111e4b72a",
+      "license": "CC0-1.0",
+      "attribution": "Taken from source",
+      "sourceUrl": "https://freesound.org/people/kyles/sounds/453642/"
+    }
+  ]
+}

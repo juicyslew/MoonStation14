@@ -39,6 +39,19 @@ public class TypedProjectileEntity extends Projectile {
 
     public TypedProjectileEntity(EntityType<? extends TypedProjectileEntity> type, Level level) { super(type, level); }
 
+    /** Use the entity's configured tracking range for presentation, not its tiny collision box. */
+    @Override public boolean shouldRenderAtSqrDistance(double distance) {
+        return withinTrackingRenderDistance(distance, getType().clientTrackingRange(), Entity.getViewScale());
+    }
+
+    /** Local presentation adaptation: use tracking range rather than projectile collision bounds. */
+    public static boolean withinTrackingRenderDistance(double distanceSquared, int trackingChunks, double viewScale) {
+        if (!Double.isFinite(distanceSquared) || distanceSquared < 0.0 || trackingChunks < 0
+                || !Double.isFinite(viewScale) || viewScale <= 0.0) return false;
+        double range = trackingChunks * 16.0 * viewScale;
+        return distanceSquared < range * range;
+    }
+
     public static TypedProjectileEntity create(ServerLevel level, String prototypeId, ProjectileProfile profile,
                                                 LivingEntity shooter, Vec3 position, Vec3 velocity) {
         Objects.requireNonNull(level); Objects.requireNonNull(profile); Objects.requireNonNull(shooter);
@@ -71,12 +84,12 @@ public class TypedProjectileEntity extends Projectile {
         if (++age >= ProjectileImpactPolicy.lifetimeTicks(profile)) { discard(); return; }
         Vec3 delta = getDeltaMovement();
         if (!server.hasChunkAt(BlockPos.containing(position())) || !server.hasChunkAt(BlockPos.containing(position().add(delta)))) return;
-        HitResult hit = ProjectileUtil.getHitResultOnMoveVector(this, candidate -> candidate != getOwner()
+        HitResult hit = ProjectileUtil.getHitResultOnMoveVector(this, candidate -> (!profile.ignoreShooter() || candidate != getOwner())
                 && candidate.level() == level() && CommonMeleeTargetEligibility.damageable(candidate));
         if (hit.getType() == HitResult.Type.MISS) { setPos(position().add(delta)); return; }
         publishImpact(server,hit,motion);
         if (hit instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof LivingEntity living)
-            DamageSystem.applyHealthChangeDetailed(living, profile.damage(), 1f, profile.ignoreResistances(), DamageSystem.Cause.COMBAT, getOwner());
+            com.juicyslew.moonstation14.ms14.combat.GunImpactEffects.apply(living, profile, getOwner() instanceof LivingEntity owner ? owner : null);
         else if (hit instanceof EntityHitResult entityHit && entityHit.getEntity() instanceof LooseItemEntity loose)
             loose.applyTypedItemDamage(server, profile.damage(), profile.ignoreResistances());
         if (ProjectileImpactPolicy.consumeCollision(profile)) discard();
@@ -94,11 +107,10 @@ public class TypedProjectileEntity extends Projectile {
     }
 
     private static String encodeVisual(ProjectileProfile profile) {
-        if(profile.sprite()==null) return "";
-        return profile.sprite().texture()+"|"+profile.sprite().state()+"|"+profile.sprite().frameWidth()+"|"+profile.sprite().frameHeight()+"|"+profile.sprite().frameCount()+"|"+profile.sprite().frameSeconds()+"|"+profile.sprite().unshaded()+"|"+profile.sprite().noRot();
+        return com.juicyslew.moonstation14.ms14.combat.ProjectileVisualSyncCodec.encode(profile.sprite());
     }
     public ProjectileProfile.SpriteData visual() {
-        try { String[] p=entityData.get(VISUAL).split("\\|",-1); return p.length==8?new ProjectileProfile.SpriteData(net.minecraft.resources.ResourceLocation.parse(p[0]),p[1],Integer.parseInt(p[2]),Integer.parseInt(p[3]),Integer.parseInt(p[4]),Float.parseFloat(p[5]),Boolean.parseBoolean(p[6]),Boolean.parseBoolean(p[7])):null; } catch(RuntimeException e) { return null; }
+        return com.juicyslew.moonstation14.ms14.combat.ProjectileVisualSyncCodec.decode(entityData.get(VISUAL));
     }
     private static String encodeFlyBy(ProjectileProfile profile) {
         if(profile.flyBySound()==null)return "";

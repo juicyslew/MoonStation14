@@ -16,6 +16,35 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LooseObjectProfileTest {
+    @Test void modelRestDefaultsRoundTripsAndTransformsAfterScaleWithFloorOffset() {
+        JsonObject raw = JsonParser.parseString("""
+                {"id":"moonstation14:rest_test","mass":1,"friction":0.2,"restitution":0.3,"throw_speed":0.75,"throw_spin":0,
+                 "geometry":"cube","render_kind":"block_model","break_on_impact":false,"break_threshold":0,
+                 "throw_range":8,"minimum_throw_range":0.1,"throw_cooldown":10,"physical_width":1,"physical_height":1,
+                 "visual":{"sprite_scale_x":1,"sprite_scale_y":1,"sprite_offset_x":0,"sprite_offset_y":0,"model_scale":2,"model_floor_offset":0.25}}
+                """).getAsJsonObject();
+        var identity = decode(raw);
+        assertEquals(LooseObjectProfile.ModelRest.IDENTITY, identity.visual().modelRest());
+        assertEquals(identity.visual(), LooseObjectProfile.CODEC.parse(JsonOps.INSTANCE,
+                LooseObjectProfile.CODEC.encodeStart(JsonOps.INSTANCE, identity).getOrThrow()).getOrThrow().visual());
+        raw.getAsJsonObject("visual").add("model_rest", JsonParser.parseString(
+                "{\"rotation_euler_z\":90,\"horizontal_offset_x\":0.5}").getAsJsonObject());
+        var rotated = decode(raw);
+        var result = com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRenderer
+                .transformBlockModelVertex(new org.joml.Vector3f(1f, 0.5f, 0.5f), rotated);
+        assertEquals(1f, result.x, .0001f);
+        assertEquals(1.25f, result.y, .0001f);
+        assertEquals(0f, result.z, .0001f);
+        var otherAxis = com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRenderer
+                .transformBlockModelVertex(new org.joml.Vector3f(.5f, .5f, 1f), rotated);
+        assertEquals(1f, otherAxis.x, .0001f);
+        assertEquals(.25f, otherAxis.y, .0001f);
+        assertEquals(1f, otherAxis.z, .0001f);
+        var bottom = com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRenderer
+                .transformBlockModelVertex(new org.joml.Vector3f(.5f, .5f, 0f), rotated);
+        assertEquals(0.25f, bottom.y, .0001f);
+    }
+
     @Test void productionJugDestructionOutputProbabilityAndSoundDecodeAndRuntimePolicy() throws Exception {
         Path path = projectPath("src/main/resources/data/moonstation14/moonstation14/loose_object_profile").resolve("jug.json");
         var raw = JsonParser.parseString(Files.readString(path)).getAsJsonObject();
@@ -62,10 +91,34 @@ class LooseObjectProfileTest {
         }
         var resolved = PrototypeResolver.resolve(raw, ModLooseObjectProfiles.PROFILE_TYPE.mergeStrategy().orElseThrow());
         LooseObjectProfile generic = decode(resolved.get(ModLooseObjectProfiles.GENERIC_ID));
+        assertNull(resolved.get(ResourceLocation.parse("moonstation14:cartridge_base")), "abstract prototype is excluded from runtime catalog");
+        var cartridgeBaseJson = raw.get(ResourceLocation.parse("moonstation14:cartridge_base"));
+        assertTrue(cartridgeBaseJson.get("abstract").getAsBoolean());
+        for (String id : java.util.List.of("cartridge_pistol", "cartridge_rifle", "cartridge_light_rifle", "shell_shotgun")) {
+            var cartridge = decode(resolved.get(ResourceLocation.parse("moonstation14:" + id)));
+            assertEquals(.24f, cartridge.friction());
+            assertEquals("flat_sprite", cartridge.renderKind());
+            assertEquals(.4f, cartridge.visualWidth());
+            assertTrue(cartridge.physicalWidth() <= .13f && cartridge.physicalHeight() <= .05f);
+        }
         assertNull(generic.slippery(), "absent slippery composition remains disabled");
         LooseObjectProfile jug = decode(resolved.get(ModLooseObjectProfiles.JUG_ID));
         LooseObjectProfile grenade = decode(resolved.get(ModLooseObjectProfiles.GRENADE_ID));
         LooseObjectProfile blockModel = decode(resolved.get(LooseObjectProfile.BLOCK_MODEL_ID));
+        for (String id : java.util.List.of("weapon_pistol_mk58", "weapon_sniper_mosin")) {
+            LooseObjectProfile artist = decode(resolved.get(ResourceLocation.fromNamespaceAndPath("moonstation14", id)));
+            assertEquals("block_model", artist.renderKind());
+            assertEquals(1f, artist.modelScale());
+            assertEquals(5f, artist.mass());
+        }
+        var mk58 = decode(resolved.get(ResourceLocation.parse("moonstation14:weapon_pistol_mk58")));
+        assertEquals(.0475f, mk58.modelFloorOffset());
+        assertEquals(.44125f, mk58.physicalWidth());
+        assertEquals(.09875f, mk58.physicalHeight());
+        var mosin = decode(resolved.get(ResourceLocation.parse("moonstation14:weapon_sniper_mosin")));
+        assertEquals(.046875f, mosin.modelFloorOffset());
+        assertEquals(1.5875f, mosin.physicalWidth());
+        assertEquals(.155625f, mosin.physicalHeight());
         LooseObjectProfile canister = decode(resolved.get(LooseObjectProfile.GAS_CANISTER_ID));
         LooseObjectProfile bananaPeel = decode(resolved.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "trash_banana_peel")));
         LooseObjectProfile mimanaPeel = decode(resolved.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "trash_mimana_peel")));
@@ -118,6 +171,28 @@ class LooseObjectProfileTest {
         assertNull(resolved.get(ResourceLocation.withDefaultNamespace("absent")));
         var catalog = new PrototypeCatalog<>(resolved.asMap().entrySet().stream().collect(
                 java.util.stream.Collectors.toMap(Map.Entry::getKey, entry -> decode(entry.getValue()))));
+        var bindings = java.util.List.of(
+                com.juicyslew.moonstation14.item.ModItems.WEAPON_PISTOL_MK58,
+                com.juicyslew.moonstation14.item.ModItems.WEAPON_RIFLE_LECTER,
+                com.juicyslew.moonstation14.item.ModItems.WEAPON_REVOLVER_INSPECTOR,
+                com.juicyslew.moonstation14.item.ModItems.WEAPON_SHOTGUN_KAMMERER,
+                com.juicyslew.moonstation14.item.ModItems.WEAPON_SNIPER_MOSIN,
+                com.juicyslew.moonstation14.item.ModItems.WEAPON_LASER_GUN,
+                com.juicyslew.moonstation14.item.ModItems.WEAPON_ENERGY_SHOTGUN,
+                com.juicyslew.moonstation14.item.ModItems.WEAPON_LASER_SVALINN,
+                com.juicyslew.moonstation14.item.ModItems.MAGAZINE_PISTOL,
+                com.juicyslew.moonstation14.item.ModItems.MAGAZINE_RIFLE,
+                com.juicyslew.moonstation14.item.ModItems.SPEEDLOADER_MAGNUM,
+                com.juicyslew.moonstation14.item.ModItems.POWER_CELL_SMALL);
+        for (var deferred : bindings) {
+            var stack = new net.minecraft.world.item.ItemStack(deferred.get());
+            var profileId = stack.get(com.juicyslew.moonstation14.component.ModDataComponents.LOOSE_OBJECT_PROFILE.get());
+            assertNotNull(profileId, "missing default loose profile on " + deferred.getId());
+            LooseObjectProfile profile = ModLooseObjectProfiles.require(catalog, profileId);
+            assertEquals("block_model", profile.renderKind(), deferred.getId().toString());
+            assertEquals("moonstation14:weapon_energy_shotgun".equals(deferred.getId().toString()) ? .7f : "moonstation14:weapon_laser_svalinn".equals(deferred.getId().toString()) ? .65f : 1f,
+                    profile.modelScale(), deferred.getId().toString());
+        }
         assertEquals(generic, ModLooseObjectProfiles.require(catalog, null));
         assertThrows(IllegalArgumentException.class, () -> ModLooseObjectProfiles.require(catalog,
                 ResourceLocation.fromNamespaceAndPath("moonstation14", "unknown")));

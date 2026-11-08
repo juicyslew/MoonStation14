@@ -17,8 +17,14 @@ public final class PacificationSystem {
     public static boolean mayFire(LivingEntity entity, GunProfile gun) {
         return mayFire(isPacified(entity), gun);
     }
+    public static boolean mayFire(LivingEntity entity, GunProfile gun, GunRuntimeState runtime) {
+        return mayFire(isPacified(entity), gun, runtime);
+    }
     public static boolean mayFire(boolean pacified, GunProfile gun) {
-        return !pacified || gun != null && gun.pacifismAllowed();
+        return mayFire(pacified, gun, GunRuntimeState.INITIAL);
+    }
+    public static boolean mayFire(boolean pacified, GunProfile gun, GunRuntimeState runtime) {
+        return !pacified || GunModePolicy.effectivePacifismAllowed(runtime, gun);
     }
     public static boolean mayMelee(boolean pacified, boolean disarm, net.minecraft.world.entity.Entity target,
                                    java.util.Map<String, Float> rawDamage) {
@@ -33,8 +39,14 @@ public final class PacificationSystem {
     }
     @SubscribeEvent
     public static void onShotAttempted(GunAttackEvents.ShotAttemptedEvent event) {
-        if (event.scope() == GunAttackEvents.Scope.USER
-                && !mayFire(event.user(), event.gun().selection().profile())) event.setCanceled(true);
+        if (event.scope() == GunAttackEvents.Scope.USER) {
+            var selection = event.gun().selection();
+            var owned = GunWeaponResolver.readOwned(event.user(), selection).orElse(null);
+            var stack = owned == null ? null : owned.stack();
+            var runtime = stack == null ? GunRuntimeState.INITIAL
+                    : stack.getOrDefault(com.juicyslew.moonstation14.component.ModDataComponents.GUN_RUNTIME_STATE.get(), GunRuntimeState.INITIAL);
+            if (!mayFire(event.user(), selection.profile(), runtime)) event.setCanceled(true);
+        }
     }
     @SubscribeEvent
     public static void onMeleeAttempt(MeleeAttackEvents.SharedMeleeAttackAttemptEvent event) {

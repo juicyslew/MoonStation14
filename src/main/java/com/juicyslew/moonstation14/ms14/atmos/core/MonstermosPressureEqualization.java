@@ -24,7 +24,14 @@ public final class MonstermosPressureEqualization {
             MonstermosEqualization.MAX_TRANSFER_OPERATIONS, 1e-6, .001);
     public record Diagnostics(double pressureSpanBefore, double pressureSpanAfter, int routes,
                               int scalarPreviewSteps, boolean converged) { }
-    public record Result(MonstermosEqualization.Result transport, Diagnostics diagnostics) { }
+    public record Result(MonstermosEqualization.Result transport, Diagnostics diagnostics,
+                         Map<BlockPos, Map<GasType, Double>> discardedByCell) {
+        public Result {
+            Map<BlockPos, Map<GasType, Double>> copy = new LinkedHashMap<>();
+            discardedByCell.forEach((position, gases) -> copy.put(position.immutable(), Map.copyOf(gases)));
+            discardedByCell = Map.copyOf(copy);
+        }
+    }
 
     public static Result equalizeDiscovered(Map<BlockPos, GasMixture> all, Map<BlockPos, Set<BlockPos>> adjacency,
                                              BlockPos seed, Set<BlockPos> immutable) {
@@ -76,6 +83,7 @@ public final class MonstermosPressureEqualization {
         int generation = 0;
         double before=span(pressure); int searches=0, ops=0, routes=0, previews=0; Map<MonstermosEqualization.DirectedEdge,Double> flows=new LinkedHashMap<>();
         EnumMap<GasType,Double> ledger=new EnumMap<>(GasType.class); double energyLedger=0;
+        Map<BlockPos, Map<GasType, Double>> discardedByCell = new LinkedHashMap<>();
         while(routes<settings.routes && searches<settings.searchWork && ops<settings.transferOperations) {
             BlockPos hi = null, lo = null;
             int highIndex = -1, lowIndex = -1;
@@ -156,6 +164,10 @@ public final class MonstermosPressureEqualization {
                 if (!fixed[fromIndex]) {
                     GasMixture src=state.get(from); double fraction=Math.min(1,packet.totalMoles()/src.totalMoles());
                     GasMixture.Removal split=src.splitRatio(fraction); packet=split.removed(); state.put(from,split.remaining());
+                    if (!split.discardedMoles().isEmpty()) {
+                        Map<GasType, Double> receipts = discardedByCell.computeIfAbsent(from, ignored -> new EnumMap<>(GasType.class));
+                        split.discardedMoles().forEach((gas, discardedAmount) -> receipts.merge(gas, discardedAmount, Double::sum));
+                    }
                 }
                 if(!fixed[toIndex]) state.put(to,thermalMerge(state.get(to),packet));
                 else { packet.gasMoles().forEach((g,v)->ledger.merge(g,v,Double::sum)); energyLedger+=packet.thermalEnergy(); }
@@ -171,7 +183,7 @@ public final class MonstermosPressureEqualization {
         var transport=new MonstermosEqualization.Result(Map.copyOf(state),Map.copyOf(flows),
                 new MonstermosEqualization.Work(bfs.size(),searches,ops,converged,converged?"pressure-tolerance":"pressure-budget-or-residual"),
                 new MonstermosEqualization.BoundaryExchange(ledger,energyLedger),Set.copyOf(selected));
-        return new Result(transport,new Diagnostics(before,after,routes,previews,converged));
+        return new Result(transport,new Diagnostics(before,after,routes,previews,converged),discardedByCell);
     }
 
     private static int[][] buildIncludedAdjacency(List<BlockPos> nodes, Map<BlockPos, Integer> nodeIndex,

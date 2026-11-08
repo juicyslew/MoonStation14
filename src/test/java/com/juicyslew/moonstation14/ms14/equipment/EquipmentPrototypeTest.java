@@ -540,4 +540,41 @@ class EquipmentPrototypeTest {
         assertEquals(Map.of("caustic", .95f), ModEquipmentItems.require(client,
                 ModInventoryTemplates.id("clothing_head_hat_holy_watermelon")).armor().orElseThrow().coefficients());
     }
+
+    @Test void bundledGunProfilesResolveTheirEquipmentAdmissionAndNativeRenderDefaults() throws Exception {
+        var manager = new PrototypeManager(); manager.register(ModEquipmentItems.TYPE);
+        var raw = new LinkedHashMap<ResourceLocation, JsonObject>();
+        for (String name : java.util.List.of("base_item", "base_clothing", "base_gun_small", "base_gun_long",
+                "weapon_pistol_mk58", "weapon_revolver_inspector", "weapon_laser_gun", "weapon_rifle_lecter", "weapon_shotgun_kammerer", "weapon_sniper_mosin", "weapon_energy_shotgun", "weapon_laser_svalinn"))
+            raw.put(ModInventoryTemplates.id(name), resource("equipment_item", name));
+        manager.reload(ModEquipmentItems.TYPE, raw);
+        var catalog = manager.snapshot(ModEquipmentItems.TYPE);
+        var belt = java.util.List.of(InventoryTemplateData.SlotFlag.BELT, InventoryTemplateData.SlotFlag.SUITSTORAGE);
+        var back = java.util.List.of(InventoryTemplateData.SlotFlag.BACK, InventoryTemplateData.SlotFlag.SUITSTORAGE);
+        for (String id : java.util.List.of("weapon_pistol_mk58", "weapon_revolver_inspector", "weapon_laser_gun"))
+            assertGunProfile(catalog.get(ModInventoryTemplates.id(id)), "Small", belt, id);
+        assertGunProfile(catalog.get(ModInventoryTemplates.id("weapon_rifle_lecter")), "Huge", back, "weapon_rifle_lecter");
+        for (String id : java.util.List.of("weapon_shotgun_kammerer", "weapon_sniper_mosin", "weapon_energy_shotgun"))
+            assertGunProfile(catalog.get(ModInventoryTemplates.id(id)), "Large", back, id);
+        assertGunProfile(catalog.get(ModInventoryTemplates.id("weapon_laser_svalinn")), "Small",
+                java.util.List.of(InventoryTemplateData.SlotFlag.BELT), "weapon_laser_svalinn");
+        var ordinary = EquipmentItemData.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                JsonParser.parseString("{\"item\":{\"size\":\"Normal\"},\"clothing\":{\"slot_flags\":[\"HEAD\"],\"region\":\"HEAD\",\"color\":-1}}" )).getOrThrow();
+        assertFalse(ordinary.clothing().orElseThrow().renderItemModel());
+    }
+
+    private static void assertGunProfile(EquipmentItemData data, String size,
+                                         java.util.List<InventoryTemplateData.SlotFlag> flags, String id) {
+        assertNotNull(data, id);
+        assertEquals(size, data.item().size(), id);
+        var clothing = data.clothing().orElseThrow();
+        assertEquals(flags, clothing.slotFlags(), id);
+        assertFalse(clothing.quickEquip(), id);
+        assertTrue(clothing.renderItemModel(), id);
+        assertTrue(data.armor().isEmpty(), id);
+        assertTrue(data.protectedFromStepTriggers().isEmpty(), id);
+        assertTrue(data.contactDamageProtection().isEmpty(), id);
+        assertTrue(data.pressureProtection().isEmpty(), id);
+        assertTrue(data.temperatureProtection().isEmpty(), id);
+    }
 }

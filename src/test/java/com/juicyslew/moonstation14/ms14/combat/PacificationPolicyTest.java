@@ -28,6 +28,19 @@ class PacificationPolicyTest {
         assertTrue(PacificationSystem.mayFire(true, gun(true))); // cap/fake including lethal AP fill
     }
 
+    @Test void selectedBatteryModeControlsPacifismWithInvalidIndexFallingBackToFirstMode() {
+        var modes = java.util.List.of(new GunProfile.BatteryFireModeData(
+                        ResourceLocation.withDefaultNamespace("arrow"), 100f, false),
+                new GunProfile.BatteryFireModeData(ResourceLocation.withDefaultNamespace("spectral_arrow"), 100f, true));
+        var profile = new GunProfile(new GunProfile.GunData(2, 40, true, "SEMI_AUTO", Optional.empty(), Optional.empty()),
+                Optional.empty(), false, false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                Optional.empty(), false, 1f, Optional.empty(), Optional.of(modes));
+        assertFalse(PacificationSystem.mayFire(true, profile, GunRuntimeState.INITIAL));
+        assertTrue(PacificationSystem.mayFire(true, profile, GunRuntimeState.INITIAL.withBatteryModeIndex(1)));
+        assertFalse(PacificationSystem.mayFire(true, gun(false), GunRuntimeState.INITIAL));
+        assertFalse(PacificationSystem.mayFire(true, profile, GunRuntimeState.INITIAL.withBatteryModeIndex(99)));
+    }
+
     @Test void meleePolicyPreservesSourceExceptionsAndFiltersEveryLivingWideCandidate() {
         var mob = org.mockito.Mockito.mock(net.minecraft.world.entity.LivingEntity.class);
         var loose = org.mockito.Mockito.mock(net.minecraft.world.entity.Entity.class);

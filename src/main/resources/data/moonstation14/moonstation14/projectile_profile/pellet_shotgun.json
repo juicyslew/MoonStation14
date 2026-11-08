@@ -1,0 +1,5 @@
+{
+  "id": "pellet_shotgun",
+  "parent": "moonstation14:base_bullet",
+  "damage": { "piercing": 10 }
+}

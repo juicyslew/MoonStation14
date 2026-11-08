@@ -1,6 +1,8 @@
 {
   "parent": "minecraft:item/generated",
+  "overrides": [{"predicate": {"moonstation14:cartridge_spent": 1}, "model": "moonstation14:item/cartridge_magnum_spent"}],
   "textures": {
-    "layer0": "moonstation14:ss14/weapons/objects/weapons/guns/ammunition/casings/ammo_casing.rsi/base"
+    "layer0": "moonstation14:ss14/weapons/objects/weapons/guns/ammunition/casings/ammo_casing.rsi/base",
+    "layer1": "moonstation14:ss14/weapons/objects/weapons/guns/ammunition/casings/ammo_casing.rsi/tip"
   }
 }

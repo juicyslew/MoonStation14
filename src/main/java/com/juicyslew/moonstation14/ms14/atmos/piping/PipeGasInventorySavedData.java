@@ -105,7 +105,8 @@ public final class PipeGasInventorySavedData extends SavedData {
         if (!tag.contains("inventory", CompoundTag.TAG_COMPOUND))
             throw new IllegalArgumentException("Missing pipe gas inventory compound");
         PipeGasInventory decoded = PipeGasInventory.CODEC.parse(NbtOps.INSTANCE, tag.get("inventory"))
-                .getOrThrow(message -> new IllegalArgumentException("Invalid pipe gas inventory: " + message));
+                .getOrThrow(message -> new IllegalArgumentException("Invalid pipe gas inventory: " + message
+                        + ". This save uses an incompatible pipe-gas schema; reset/remove '" + DATA_NAME + "' to continue (no migration is available)."));
         return new PipeGasInventorySavedData(decoded);
     }
 

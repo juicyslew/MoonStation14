@@ -26,7 +26,9 @@ public final class BodyBlockItemPlacement {
         if (stack == null || stack.isEmpty() || !(stack.getItem() instanceof BlockItem item)
                 || stack.getItem() instanceof JugItem || stack.getItem() instanceof CreativeGasPipeVisualItem) return false;
         Block block = item.getBlock();
-        return block == ModBlocks.STEEL_WALL_BLOCK.get() || block == ModBlocks.STATION_FLOOR.get()
+        return block instanceof com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineBlock
+                || block instanceof com.juicyslew.moonstation14.ms14.atmos.world.GasMinerBlock
+                || block == ModBlocks.STEEL_WALL_BLOCK.get() || block == ModBlocks.STATION_FLOOR.get()
                 || block == ModBlocks.STEEL_WALL_GIRDER_BLOCK.get() || block == ModBlocks.MAGIC_BLOCK.get()
                 || block == ModBlocks.ATMOS_AIR_PRODUCER.get() || block == ModBlocks.ATMOS_OXYGEN_PRODUCER.get()
                 || block == ModBlocks.ATMOS_NITROGEN_PRODUCER.get() || block == ModBlocks.ATMOS_CARBON_DIOXIDE_PRODUCER.get()

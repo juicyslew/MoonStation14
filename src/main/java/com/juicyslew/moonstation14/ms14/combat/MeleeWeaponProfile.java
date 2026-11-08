@@ -8,12 +8,16 @@ import java.util.Optional;
 
 /** Resolved catalog wrapper for supported melee weapon statistics. */
 public record MeleeWeaponProfile(MeleeWeaponData weapon, Map<String, Float> damageOnHit,
-                                 Optional<MeleeChemicalInjectorData> chemicalInjector) {
+                                 Optional<MeleeChemicalInjectorData> chemicalInjector, boolean requiresWield) {
     public static final Codec<MeleeWeaponProfile> CODEC = RecordCodecBuilder.create(i -> i.group(
             MeleeWeaponData.CODEC.fieldOf("weapon").forGetter(MeleeWeaponProfile::weapon),
             Codec.unboundedMap(Codec.STRING, Codec.FLOAT).optionalFieldOf("damage_on_hit", Map.of()).forGetter(MeleeWeaponProfile::damageOnHit),
-            MeleeChemicalInjectorData.CODEC.optionalFieldOf("chemical_injector").forGetter(MeleeWeaponProfile::chemicalInjector)
+            MeleeChemicalInjectorData.CODEC.optionalFieldOf("chemical_injector").forGetter(MeleeWeaponProfile::chemicalInjector),
+            Codec.BOOL.optionalFieldOf("requires_wield", false).forGetter(MeleeWeaponProfile::requiresWield)
     ).apply(i, MeleeWeaponProfile::new));
+    public MeleeWeaponProfile(MeleeWeaponData weapon, Map<String, Float> damageOnHit, Optional<MeleeChemicalInjectorData> chemicalInjector) {
+        this(weapon, damageOnHit, chemicalInjector, false);
+    }
     public MeleeWeaponProfile {
         if (damageOnHit != null && damageOnHit.values().stream().anyMatch(value -> value == null || !Float.isFinite(value) || value <= 0f))
             throw new IllegalArgumentException("hit damage must be finite and positive");

@@ -10,9 +10,13 @@ public final class LooseItemCollisionSoundPolicy {
     private int previousTerrainMask;
 
     public Optional<PositionalSoundCue> terrain(ThrownItemProfile profile, int mask, Vec3 velocity, long tick) {
+        return terrain(profile == null ? null : profile.collisionSound().orElse(null), mask, velocity, tick);
+    }
+
+    public Optional<PositionalSoundCue> terrain(ThrownItemProfile.CollisionSoundData data, int mask, Vec3 velocity, long tick) {
         boolean entering = (mask & ~previousTerrainMask) != 0;
         previousTerrainMask = mask;
-        return entering ? contact(profile, velocity, tick) : Optional.empty();
+        return entering ? contact(data, velocity, tick) : Optional.empty();
     }
 
     public Optional<PositionalSoundCue> body(ThrownItemProfile profile, Vec3 velocity, long tick) {
@@ -20,8 +24,11 @@ public final class LooseItemCollisionSoundPolicy {
     }
 
     private Optional<PositionalSoundCue> contact(ThrownItemProfile profile, Vec3 velocity, long tick) {
-        if (profile == null || velocity == null || !Double.isFinite(velocity.length())) return Optional.empty();
-        var data = profile.collisionSound().orElse(null);
+        return contact(profile == null ? null : profile.collisionSound().orElse(null), velocity, tick);
+    }
+
+    private Optional<PositionalSoundCue> contact(ThrownItemProfile.CollisionSoundData data, Vec3 velocity, long tick) {
+        if (velocity == null || !Double.isFinite(velocity.length())) return Optional.empty();
         double speed = velocity.length() * 20.0;
         if (data == null || speed < data.minimumVelocity() || tick < nextAllowedTick) return Optional.empty();
         long cooldown = (long)Math.ceil(data.cooldownSeconds() * 20f);

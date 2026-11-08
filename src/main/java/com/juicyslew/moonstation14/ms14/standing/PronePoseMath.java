@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.standing;
 import net.minecraft.world.phys.Vec3;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import org.joml.Vector3f;
 
 /** Shared prone model basis. Coordinates are physical upright-model offsets from the feet. */
 public final class PronePoseMath {
@@ -42,6 +43,18 @@ public final class PronePoseMath {
         poseStack.translate(0, nativeRootCenterOffset(modelScale), 0);
     }
 
+    /** Converts a world-space look vector into the exact upright model basis used by the prone renderer. */
+    public static Vec3 worldDirectionToModel(Vec3 worldDirection, float movementFacingYaw, boolean faceUp) {
+        PoseStack root=new PoseStack();
+        root.mulPose(Axis.YP.rotationDegrees(180.0F-movementFacingYaw));
+        applyRenderPose(root,0,1,faceUp);
+        // LivingEntityRenderer's native humanoid scale is applied after setupRotations.
+        root.scale(-1,-1,1);
+        Vector3f local=root.last().pose().invert(new org.joml.Matrix4f())
+                .transformDirection(new Vector3f((float)worldDirection.x,(float)worldDirection.y,(float)worldDirection.z));
+        return new Vec3(local.x,local.y,local.z);
+    }
+
     /** Maps upright head-up/front (-Z) basis through vanilla's outer (-1,-1,1) scale and body yaw. */
     public static Vec3 transform(Vec3 position, Vec3 uprightOffset, float bodyYaw, boolean faceUp) {
         double yaw = Math.toRadians(180.0 - bodyYaw);
@@ -65,4 +78,3 @@ public final class PronePoseMath {
         return posture != null && posture.down() && !posture.ownCrawling();
     }
 }
-

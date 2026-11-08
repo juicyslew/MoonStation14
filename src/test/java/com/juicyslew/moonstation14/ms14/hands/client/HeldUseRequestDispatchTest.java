@@ -16,6 +16,103 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 class HeldUseRequestDispatchTest {
+    @Test void rackCaptureUsesOrdinaryZModifierAdmission() {
+        assertTrue(HeldUseRequestDispatch.mayCaptureRackPress(true,false,false,false));
+        assertFalse(HeldUseRequestDispatch.mayCaptureRackPress(true,false,true,false));
+        assertFalse(HeldUseRequestDispatch.mayCaptureRackPress(true,false,false,true));
+        assertFalse(HeldUseRequestDispatch.mayCaptureRackPress(true,true,false,false));
+        assertFalse(HeldUseRequestDispatch.mayCaptureRackPress(false,false,false,false));
+    }
+    @Test void rackReplayUsesRealDispatchPolicyAndFreshProofForEachDistinctPress() {
+        UUID account=UUID.randomUUID(), body=UUID.randomUUID();
+        String dimension=ResourceLocation.withDefaultNamespace("overworld").toString();
+        var policy=new BodyHandClientPolicy(); policy.bind(account,body,7);
+        var queue=new HeldUseRequestDispatch.RackIntentQueue();
+        var left=new BodyHandStateSnapshot.Hand("left","rack-token","moonstation14:weapon_pistol_mk58",1);
+        var right=new BodyHandStateSnapshot.Hand("right",null,null,0);
+        long q=policy.query(1);
+        assertTrue(policy.accept(new BodyHandStateSnapshot(0,q,BodyHandStateSnapshot.Reason.OK,account,body,7,20,"left",List.of(left,right),List.of())));
+        var requests=new java.util.ArrayList<BodyHandActionRequest>();
+        long rack=HeldUseRequestDispatch.dispatch(policy,policy.snapshot(),left,2,0,requests::add,ignored->{});
+        assertTrue(rack>0);
+        for(int i=0;i<3;i++) assertTrue(queue.capture(true,body,7,dimension,20,"left","rack-token",3+i));
+        assertTrue(policy.result(new com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult(7,rack,true,
+                com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK,false,0,null,null,null,0),8));
+        for(int i=0;i<3;i++) {
+            long base=10+10*i;
+            long refresh=policy.query(base);
+            assertTrue(policy.accept(new BodyHandStateSnapshot(0,refresh,BodyHandStateSnapshot.Reason.OK,account,body,7,21+i,"left",List.of(left,right),List.of())));
+            int before=requests.size();
+            assertTrue(queue.dispatchReady(true,true,base+2,body,7,dimension,policy.snapshot(),
+                    () -> HeldUseRequestDispatch.dispatch(policy,policy.snapshot(),left,base+2,0,requests::add,ignored->{})>0));
+            assertEquals(before+1,requests.size());
+            var replay=requests.getLast();
+            assertEquals(21+i,replay.expectedRevision());
+            assertEquals("left",replay.handId());
+            assertEquals("rack-token",replay.expectedToken());
+            if(i<2) assertTrue(policy.result(new com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult(7,replay.sequence(),true,
+                    com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK,false,0,null,null,null,0),base+3));
+        }
+        assertEquals(4,requests.size());
+        assertEquals(0,queue.size());
+    }
+    @Test void deferredRackPressesAreFifoOnceOnlyAndRequireFreshAcceptedIdentityProof() {
+        UUID body = UUID.randomUUID();
+        var dimension = ResourceLocation.withDefaultNamespace("overworld").toString();
+        var queue = new HeldUseRequestDispatch.RackIntentQueue();
+        for (int i = 0; i < 3; i++)
+            assertTrue(queue.capture(true, body, 7, dimension, 20, "left", "gun-token", 10 + i));
+        assertFalse(queue.capture(false, body, 7, dimension, 20, "left", "gun-token", 13),
+                "wield, battery mode and timed use are never queueable");
+        var stale = rackProof(body, 7, 19, "left", "gun-token");
+        assertNull(queue.takeReady(true, true, 20, body, 7, dimension, stale));
+        var fresh = rackProof(body, 7, 21, "left", "gun-token");
+        assertNotNull(queue.takeReady(true, true, 20, body, 7, dimension, fresh));
+        assertEquals(2, queue.size());
+        assertNotNull(queue.takeReady(true, true, 20, body, 7, dimension, fresh));
+        assertNotNull(queue.takeReady(true, true, 20, body, 7, dimension, fresh));
+        assertNull(queue.takeReady(true, true, 20, body, 7, dimension, fresh), "each press is consumed once");
+        assertEquals(0, queue.size());
+    }
+
+    @Test void deferredRackIntentsAreDroppedOnRejectionContextOrHeldIdentityChange() {
+        UUID body = UUID.randomUUID();
+        String dimension = ResourceLocation.withDefaultNamespace("overworld").toString();
+        var queue = new HeldUseRequestDispatch.RackIntentQueue();
+        assertTrue(queue.capture(true, body, 4, dimension, 8, "left", "token", 1));
+        assertNull(queue.takeReady(false, true, 2, body, 4, dimension, rackProof(body, 4, 9, "left", "token")));
+        assertEquals(0, queue.size());
+        assertTrue(queue.capture(true, body, 4, dimension, 8, "left", "token", 3));
+        assertNull(queue.takeReady(true, false, 4, body, 4, dimension, rackProof(body, 4, 9, "left", "token")));
+        assertTrue(queue.capture(true, body, 4, dimension, 8, "left", "token", 5));
+        assertNull(queue.takeReady(true, true, 6, body, 4, dimension, rackProof(body, 4, 9, "right", "token")));
+        assertEquals(0, queue.size());
+        assertTrue(queue.capture(true, body, 4, dimension, 8, "left", "token", 7));
+        assertNull(queue.takeReady(true, true, 47, body, 4, dimension, rackProof(body, 4, 9, "left", "token")),
+                "intent expires at the bounded input TTL");
+    }
+
+    @Test void rackIntentRemainsUntilProductionDispatchActuallySucceeds() {
+        UUID body=UUID.randomUUID(); String dimension=ResourceLocation.withDefaultNamespace("overworld").toString();
+        var queue=new HeldUseRequestDispatch.RackIntentQueue();
+        var proof=rackProof(body,3,12,"left","token");
+        assertTrue(queue.capture(true,body,3,dimension,10,"left","token",1));
+        int[] sends={0};
+        assertFalse(queue.dispatchReady(true,true,2,body,3,dimension,proof,()->{sends[0]++;return false;}));
+        assertEquals(1,queue.size());
+        assertTrue(queue.dispatchReady(true,true,3,body,3,dimension,proof,()->{sends[0]++;return true;}));
+        assertEquals(0,queue.size());
+        assertEquals(2,sends[0]);
+        assertFalse(queue.dispatchReady(true,true,4,body,3,dimension,proof,()->{sends[0]++;return true;}));
+        assertEquals(2,sends[0]);
+    }
+
+    private static BodyHandStateSnapshot rackProof(UUID body, long epoch, long revision, String active, String token) {
+        return new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, UUID.randomUUID(), body,
+                epoch, revision, active, List.of(new BodyHandStateSnapshot.Hand("left", token, "test:gun", 1),
+                new BodyHandStateSnapshot.Hand("right", null, null, 0)), List.of());
+    }
+
     @Test void configuredSpawnItemsUseIsInstantWithoutChangingOrdinaryDurations() {
         assertEquals(0, HeldUseRequestDispatch.predictionDuration(true, 20));
         assertEquals(20, HeldUseRequestDispatch.predictionDuration(false, 20));

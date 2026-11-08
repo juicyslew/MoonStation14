@@ -32,6 +32,13 @@ class BodyTargetActionSnapshotTest {
         assertThrows(IllegalArgumentException.class, () -> new BodyTargetActionSnapshot.ActionEntry(BodyTargetActionSnapshot.ActionId.BUTCHER, Component.literal("x"), true, Component.literal("bad")));
     }
 
+    @Test void revolverActionsMapToExistingWorldActionRoutes() {
+        assertEquals(BodyHandActionRequest.Action.GUN_EMPTY,
+                BodyTargetActionSnapshot.ActionId.EMPTY_REVOLVER.requestAction());
+        assertEquals(BodyHandActionRequest.Action.GUN_SPIN,
+                BodyTargetActionSnapshot.ActionId.SPIN_REVOLVER.requestAction());
+    }
+
     @Test void clientHandlerBridgeDeliversAndToleratesMissingHandler() {
         var snapshot = new BodyTargetActionSnapshot(3, 8, 12, "right", "token", UUID.randomUUID(),
                 Component.literal("gun"), List.of(new BodyTargetActionSnapshot.ActionEntry(

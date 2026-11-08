@@ -100,6 +100,8 @@ import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks;
 import com.juicyslew.moonstation14.ms14.atmos.tank.GasCanisterProfile;
 import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters;
 import com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles;
+import com.juicyslew.moonstation14.ms14.atmos.machine.ModAtmosMachines;
+import com.juicyslew.moonstation14.ms14.atmos.analyzer.ModGasAnalyzers;
 
 /** Common access point for the independent server and client prototype runtimes. */
 public final class PrototypeRuntime {
@@ -236,7 +238,13 @@ public final class PrototypeRuntime {
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.GunProfile> serverGunProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.GunProfile> clientGunProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.CartridgeProfile> serverCartridgeProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE); }
-    public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.CartridgeProfile> clientCartridgeProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.CartridgeProfile> clientCartridgeProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.AmmoContainerProfile> serverAmmoContainerProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.AmmoContainerProfile> clientAmmoContainerProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.BatteryProfile> serverBatteryProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.TYPE); }
+     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.BatteryProfile> clientBatteryProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.TYPE); }
+      public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.ChargerProfile> serverChargerProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModChargerProfiles.TYPE); }
+      public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.ChargerProfile> clientChargerProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModChargerProfiles.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.ProjectileProfile> serverProjectileProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.ProjectileProfile> clientProjectileProfiles() { return CLIENT_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE); }
     public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.combat.MeleeArcProfile> serverMeleeArcProfiles() { return SERVER_MANAGER.snapshot(com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE); }
@@ -304,7 +312,7 @@ public final class PrototypeRuntime {
      public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.tesla.TeslaMachineProfile> serverTeslaMachines() { return SERVER_MANAGER.snapshot(ModTeslaProfiles.MACHINE_TYPE); }
      public static PrototypeCatalog<com.juicyslew.moonstation14.ms14.tesla.TeslaMachineProfile> clientTeslaMachines() { return CLIENT_MANAGER.snapshot(ModTeslaProfiles.MACHINE_TYPE); }
 
-    private static PrototypeManager createManager() {
+    static PrototypeManager createManager() {
         PrototypeManager manager = new PrototypeManager();
         manager.register(ModReagents.REAGENT_TYPE);
         manager.register(ModStatusEffects.STATUS_EFFECT_TYPE);
@@ -338,7 +346,10 @@ public final class PrototypeRuntime {
         manager.register(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.combat.throwing.ModThrownItemProfiles.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE);
-        manager.register(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE);
+         manager.register(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE);
+         manager.register(com.juicyslew.moonstation14.ms14.combat.ModAmmoContainerProfiles.TYPE);
+          manager.register(com.juicyslew.moonstation14.ms14.combat.ModBatteryProfiles.TYPE);
+         manager.register(com.juicyslew.moonstation14.ms14.combat.ModChargerProfiles.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE);
         manager.register(ModBotanyMachineProfiles.TYPE);
@@ -375,7 +386,10 @@ public final class PrototypeRuntime {
         manager.register(ModSignalControls.TYPE);
         manager.register(ModNetworkDeviceItems.TYPE);
         manager.register(ModGasTanks.TYPE);
-        manager.register(ModGasCanisters.TYPE);
+          manager.register(ModGasCanisters.TYPE);
+         manager.register(ModAtmosMachines.TYPE);
+         manager.register(ModGasAnalyzers.TYPE);
+         manager.register(com.juicyslew.moonstation14.ms14.atmos.world.ModGasMiners.TYPE);
         manager.register(com.juicyslew.moonstation14.ms14.radiation.ModRadiationCollectors.TYPE);
         return manager;
     }

@@ -13,7 +13,7 @@ public final class ExamineCollector {
     private boolean nameLocked;
     public ExamineCollector(boolean detailsAllowed, Component fallbackName) {
         this.detailsAllowed = detailsAllowed;
-        this.name = java.util.Objects.requireNonNull(fallbackName);
+        this.name = ExamineNumbers.normalize(java.util.Objects.requireNonNull(fallbackName));
     }
     /** Apply prototype name only when present; native Minecraft identity remains the fallback. */
     public void metadata(com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata metadata) {
@@ -21,8 +21,9 @@ public final class ExamineCollector {
         if (metadata.hasName() && !nameLocked) name = Component.literal(metadata.name());
         if (metadata.hasDescription()) description = Component.literal(metadata.description());
     }
-    public Component name() { return name; }
-    public Component description() { return description; }
+    public Component name() { return ExamineNumbers.normalize(name); }
+    public Component description() { return ExamineNumbers.normalize(description); }
+    public void description(Component value) { if (value != null && !value.getString().isBlank()) description = ExamineNumbers.normalize(value); }
     public void preserveName() { nameLocked = true; }
     public void publicEntry(Component text, String group, int priority) {
         add(ExamineEntry.publicText(text, group, priority));
@@ -34,7 +35,7 @@ public final class ExamineCollector {
         if (entry.visibility() == ExamineEntry.Visibility.DETAIL && !detailsAllowed) return;
         if (entry.group().length() > 128 || entry.text().getString().length() > 2048) return;
         if (entries.size() >= ExamineResponse.MAX_ENTRIES) return;
-        entries.add(entry);
+        entries.add(new ExamineEntry(entry.visibility(), ExamineNumbers.normalize(entry.text()), entry.group(), entry.priority()));
     }
     private final boolean detailsAllowed;
     public ExamineCollector(boolean detailsAllowed) { this(detailsAllowed, Component.empty()); }

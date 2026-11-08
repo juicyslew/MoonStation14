@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.power.topology;
 
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
+import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import org.junit.jupiter.api.Test;
@@ -103,7 +104,57 @@ final class PowerTopologyTest {
         assertFalse(PowerTopology.deviceAdjacent(null, touching));
     }
 
-    @Test void careWingLampCablePlanHasExactTurnRunAndDeviceContact() {
+    @Test void stationPortsContactAllSixFacesWhileApcRemainsOriented() {
+        for (Direction facing : List.of(Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST)) {
+            for (CableTier tier : List.of(CableTier.HV, CableTier.MV)) {
+                DevicePort port = new DevicePort(BlockPos.ZERO, facing, tier);
+                assertEquals(6, PowerTopology.deviceContacts(port).size());
+                for (Direction physical : Direction.values()) {
+                    CableFaceNode candidate = new CableFaceNode(BlockPos.ZERO.relative(physical),
+                            physical.getOpposite(), tier);
+                    assertTrue(PowerTopology.deviceAdjacent(port, candidate));
+                    assertTrue(PowerTopology.deviceContacts(port).contains(candidate));
+                }
+                assertFalse(PowerTopology.deviceAdjacent(port,
+                        new CableFaceNode(BlockPos.ZERO, Direction.UP, tier)));
+                assertFalse(PowerTopology.deviceAdjacent(port,
+                        new CableFaceNode(BlockPos.ZERO.relative(Direction.UP).relative(Direction.NORTH),
+                                Direction.DOWN, tier)));
+                assertFalse(PowerTopology.deviceAdjacent(port,
+                        new CableFaceNode(BlockPos.ZERO.relative(Direction.UP), Direction.NORTH, tier)));
+                assertFalse(PowerTopology.deviceAdjacent(port,
+                        new CableFaceNode(BlockPos.ZERO.relative(Direction.UP), Direction.DOWN,
+                                tier == CableTier.HV ? CableTier.MV : CableTier.HV)));
+            }
+            DevicePort apc = new DevicePort(BlockPos.ZERO, facing, CableTier.APC);
+            var oriented = new CableFaceNode(BlockPos.ZERO.relative(facing), facing.getOpposite(), CableTier.APC);
+            assertEquals(List.of(oriented), PowerTopology.deviceContacts(apc));
+            assertTrue(PowerTopology.deviceAdjacent(apc, oriented));
+            for (Direction physical : Direction.values()) {
+                var node = new CableFaceNode(BlockPos.ZERO.relative(physical), physical.getOpposite(), CableTier.APC);
+                assertEquals(PowerTopology.deviceContacts(apc).contains(node), PowerTopology.deviceAdjacent(apc, node));
+            }
+        }
+    }
+
+    @Test void resolvedDeviceKindsUseTheSameContactMatrixForTheirTypedPorts() {
+        for (Direction facing : List.of(Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST)) {
+            for (PowerDeviceKind kind : List.of(PowerDeviceKind.HV_SOURCE, PowerDeviceKind.HV_MV_SUBSTATION,
+                    PowerDeviceKind.APC)) {
+                for (DevicePort port : kind.ports(BlockPos.ZERO, facing)) {
+                    int expected = port.tier() == CableTier.APC ? 1 : 6;
+                    assertEquals(expected, PowerTopology.deviceContacts(port).size(), kind + " " + port.tier());
+                    for (Direction physical : Direction.values()) {
+                        var cable = new CableFaceNode(BlockPos.ZERO.relative(physical), physical.getOpposite(), port.tier());
+                        assertEquals(expected == 6 || physical == port.face(),
+                                PowerTopology.deviceAdjacent(port, cable), kind + " " + facing + " " + physical);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test void careWingLampCablePlanHasExactTurnRunWithoutInventingDirectLampContact() {
         var main = new BlockPos(0, 0, 0);
         var plan = com.juicyslew.moonstation14.ms14.botany.SmallBotanyFixtureLayout.careLightingCablePlan(main);
         var first = new CableFaceNode(plan.get(0).pos(), plan.get(0).face(), CableTier.APC);
@@ -120,7 +171,8 @@ final class PowerTopologyTest {
         var lamp = com.juicyslew.moonstation14.ms14.botany.SmallBotanyFixtureLayout.careLamp(wing);
         var port = new DevicePort(lamp, Direction.NORTH, CableTier.APC);
         var last = plan.get(plan.size() - 1);
-        assertTrue(PowerTopology.deviceAdjacent(port, new CableFaceNode(last.pos(), last.face(), CableTier.APC)));
+        assertFalse(PowerTopology.deviceAdjacent(port, new CableFaceNode(last.pos(), last.face(), CableTier.APC)),
+                "the cable route ends seven blocks from the lamp; extension lookup is a separate reach contract");
         var footprint = com.juicyslew.moonstation14.ms14.botany.SmallBotanyFixtureLayout.plannedFootprint(main);
         assertTrue(plan.stream().allMatch(node -> footprint.contains(node.pos())));
         assertTrue(footprint.contains(lamp));

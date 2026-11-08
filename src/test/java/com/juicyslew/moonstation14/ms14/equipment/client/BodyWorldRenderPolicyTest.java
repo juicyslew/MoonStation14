@@ -11,4 +11,13 @@ class BodyWorldRenderPolicyTest {
         assertTrue(BodyWorldRenderPolicy.allowOrdinaryPass(true, false, true));
         assertTrue(BodyWorldRenderPolicy.allowOrdinaryPass(true, true, false)); // F5 third person
     }
+
+    @Test void ownedGunArmsAdmissionRequiresExactOwnedFirstPersonCommittedGunContext() {
+        assertTrue(BodyWorldRenderPolicy.allowOwnedGunArmsPass(true, true, true, true));
+        assertFalse(BodyWorldRenderPolicy.allowOrdinaryPass(true, true, true));
+        assertFalse(BodyWorldRenderPolicy.allowOwnedGunArmsPass(true, true, true, false));
+        assertFalse(BodyWorldRenderPolicy.allowOwnedGunArmsPass(false, true, true, true));
+        assertFalse(BodyWorldRenderPolicy.allowOwnedGunArmsPass(true, false, true, true));
+        assertFalse(BodyWorldRenderPolicy.allowOwnedGunArmsPass(true, true, false, true));
+    }
 }

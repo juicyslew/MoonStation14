@@ -44,9 +44,10 @@ public final class SableFixtureLifecycleGameTests {
         BlockPos pipePos = authored.result().at(ShuttleCabinFixture.PIPE);
         var saved = PipeGasInventorySavedData.existing(level).orElseThrow();
         var key = new PipeTopology.NodeKey(pipePos, PipeTopology.Layer.PRIMARY);
-        var live = saved.snapshot().get(key).orElseThrow();
+        var image = saved.snapshot();
+        var live = image.get(key).orElseThrow();
         var oldId = live.incarnation();
-        var mixture = live.mixture();
+        var mixture = image.nodeShare(key);
         var oldSubLevelId = authored.plot().engineId();
         BlockPos sentinel = helper.absolutePos(new BlockPos(2, 1, 2));
         require(level.getBlockState(sentinel).isAir(), "foreign sentinel cell is initially empty");
@@ -130,8 +131,10 @@ public final class SableFixtureLifecycleGameTests {
         ShuttleCabinFixture.Built cabin = authored.result();
         var nodeKeys = new java.util.ArrayList<>(cabin.supplyPipeNodes());
         nodeKeys.addAll(cabin.returnPipeNodes());
+        var beforeImage = saved.snapshot();
         var old = new LinkedHashMap<PipeTopology.NodeKey, PipeGasInventory.Entry>();
-        for (var key : nodeKeys) old.put(key, saved.snapshot().get(key).orElseThrow());
+        var oldGas = new LinkedHashMap<PipeTopology.NodeKey, GasMixture>();
+        for (var key : nodeKeys) { old.put(key, beforeImage.get(key).orElseThrow()); oldGas.put(key, beforeImage.nodeShare(key)); }
         require(old.size() == 16, "all 13 Primary and 3 Secondary cabin lane owners captured");
         var returnKey = cabin.returnPipeNodes().getLast();
         var oldSubLevelId = authored.plot().engineId();
@@ -139,7 +142,9 @@ public final class SableFixtureLifecycleGameTests {
         require(LoadedPipeGasOwner.setGasForTrustedFixture(level, returnKey.position(), VisualPipeBlockEntity.SECONDARY,
                         returnOwner.incarnation(), new GasMixture(Map.of(GasType.CARBON_DIOXIDE, 1.0), 293.0)),
                 "finite CO2 seeded on exposed Secondary host");
-        old.put(returnKey, saved.snapshot().get(returnKey).orElseThrow());
+        var seededImage = saved.snapshot();
+        old.put(returnKey, seededImage.get(returnKey).orElseThrow());
+        oldGas.put(returnKey, seededImage.nodeShare(returnKey));
         CabinGasInventorySnapshot.capture(level, cabin);
 
         var foreignKey = new PipeTopology.NodeKey(foreignPos, PipeTopology.Layer.PRIMARY);
@@ -156,8 +161,9 @@ public final class SableFixtureLifecycleGameTests {
         });
         require(LoadedPipeGasOwner.setGasForTrustedFixture(level, foreignPos, VisualPipeBlockEntity.PRIMARY, foreignId,
                 new GasMixture(Map.of(GasType.NITROGEN, 2.0), 293.0)), "foreign owner seeded");
-        var foreignBefore = saved.snapshot().get(foreignKey).orElseThrow();
-        var foreignGas = foreignBefore.mixture();
+        var foreignBefore = saved.snapshot();
+        var foreignIdBefore = foreignBefore.get(foreignKey).orElseThrow();
+        var foreignGas = foreignBefore.mixture(foreignKey);
         BlockPos storage = authored.plot().storageOrigin();
         authored.plot().close();
         require(SubLevelContainer.getContainer(level).getSubLevel(oldSubLevelId) == null
@@ -168,16 +174,16 @@ public final class SableFixtureLifecycleGameTests {
         for (var e : old.entrySet()) {
             require(after.get(e.getKey()).isEmpty(), "old cabin lane absent from live inventory: " + e.getKey());
             var archived = after.retiredSnapshot().get(e.getValue().incarnation());
-            if (!e.getValue().mixture().gasMoles().isEmpty() || e.getValue().mixture().thermalEnergy() != 0.0)
-                require(archived != null && !archived.active()
-                                && archived.mixture().gasMoles().equals(e.getValue().mixture().gasMoles())
-                                && Double.compare(archived.mixture().thermalEnergy(), e.getValue().mixture().thermalEnergy()) == 0,
+            var gas = oldGas.get(e.getKey());
+            if (!gas.gasMoles().isEmpty() || gas.thermalEnergy() != 0.0)
+                require(archived != null && archived.node().equals(e.getKey()) && archived.incarnation().equals(e.getValue().incarnation())
+                                && archived.mixture().gasMoles().equals(gas.gasMoles())
+                                && Double.compare(archived.mixture().thermalEnergy(), gas.thermalEnergy()) == 0,
                         "nonvacuum cabin owner archived exactly by old UUID");
             else require(archived == null, "vacuum owner has no fabricated archive record");
         }
-        require(after.get(foreignKey).filter(e -> e.incarnation().equals(foreignId) && e.active()
-                        && e.mixture().gasMoles().equals(foreignGas.gasMoles())
-                        && Double.compare(e.mixture().thermalEnergy(), foreignGas.thermalEnergy()) == 0).isPresent(),
+        require(after.get(foreignKey).filter(e -> e.incarnation().equals(foreignId)).isPresent()
+                        && after.mixture(foreignKey).equals(foreignGas),
                 "outside live owner remains unchanged");
 
         var replacement = authorCabin(level, origin.offset(1, 0, 0));
@@ -187,29 +193,31 @@ public final class SableFixtureLifecycleGameTests {
                 "SABLE_CANONICAL_CABIN_LIFECYCLE oldStorage={} newStorage={} reused={}",
                 storage, replacement.plot().storageOrigin(), reusedStorage);
         for (var key : replacement.result().supplyPipeNodes()) require(saved.snapshot().get(key)
-                .filter(e -> e.active() && old.values().stream().noneMatch(previous -> previous.incarnation().equals(e.incarnation()))).isPresent(),
+                .filter(e -> old.values().stream().noneMatch(previous -> previous.incarnation().equals(e.incarnation()))).isPresent(),
                 "replacement Primary node has fresh active UUID: " + key);
         for (var key : replacement.result().returnPipeNodes()) require(saved.snapshot().get(key)
-                .filter(e -> e.active() && old.values().stream().noneMatch(previous -> previous.incarnation().equals(e.incarnation()))).isPresent(),
+                .filter(e -> old.values().stream().noneMatch(previous -> previous.incarnation().equals(e.incarnation()))).isPresent(),
                 "replacement Secondary node has fresh active UUID: " + key);
         if (reusedStorage) for (var e : old.entrySet()) {
             var fresh = saved.snapshot().get(e.getKey()).orElseThrow();
-            require(fresh.active() && !fresh.incarnation().equals(e.getValue().incarnation()),
+            require(!fresh.incarnation().equals(e.getValue().incarnation()),
                     "reused storage key now belongs to a fresh active UUID: " + e.getKey());
         }
-        for (var e : old.values()) {
-            var archive = saved.snapshot().retiredSnapshot().get(e.incarnation());
-            if (!e.mixture().gasMoles().isEmpty() || e.mixture().thermalEnergy() != 0.0)
-                require(archive != null && archive.mixture().gasMoles().equals(e.mixture().gasMoles())
-                                && Double.compare(archive.mixture().thermalEnergy(), e.mixture().thermalEnergy()) == 0,
+        for (var e : old.entrySet()) {
+            var archive = saved.snapshot().retiredSnapshot().get(e.getValue().incarnation());
+            var gas = oldGas.get(e.getKey());
+            if (!gas.gasMoles().isEmpty() || gas.thermalEnergy() != 0.0)
+                require(archive != null && archive.node().equals(e.getKey()) && archive.incarnation().equals(e.getValue().incarnation())
+                                && archive.mixture().gasMoles().equals(gas.gasMoles())
+                                && Double.compare(archive.mixture().thermalEnergy(), gas.thermalEnergy()) == 0,
                         "rebuild preserves the original retired gas archive");
         }
-        require(saved.snapshot().get(foreignKey).filter(e -> e.incarnation().equals(foreignId) && e.active()).isPresent(),
+        require(saved.snapshot().get(foreignKey).filter(e -> e.incarnation().equals(foreignId)).isPresent(),
                 "foreign owner survives replacement construction");
         clearOwnedForeignPipe(level, saved, foreignPos, foreignKey, foreignId);
         var foreignArchive = saved.snapshot().retiredSnapshot().get(foreignId);
         require(saved.snapshot().get(foreignKey).isEmpty()
-                        && foreignArchive != null && !foreignArchive.active()
+                        && foreignArchive != null && foreignArchive.incarnation().equals(foreignId)
                         && foreignArchive.mixture().gasMoles().equals(foreignGas.gasMoles())
                         && Double.compare(foreignArchive.mixture().thermalEnergy(), foreignGas.thermalEnergy()) == 0,
                 "owned foreign pipe normal removal releases its key and archives exact gas");

@@ -230,7 +230,7 @@ class AtmosphereOwnershipSchedulerTest {
                 : AtmosphereOwnershipSearch.ProbeResult.BLOCKED, 1);
         assertEquals(AtmosphereOwnershipSearch.Status.IN_PROGRESS, progress.status());
 
-        OwnershipClaimPlan plan = new OwnershipClaimPlan(java.util.List.of(planSeed, planSeed.above()));
+        OwnershipClaimPlan plan = new OwnershipClaimPlan(java.util.List.of(planSeed, planSeed.above(), planSeed.north()));
         assertEquals(1, plan.advance(1, ignored -> true));
         assertTrue(work.queueClaimPlan(planSeed, plan));
 
@@ -246,8 +246,8 @@ class AtmosphereOwnershipSchedulerTest {
         assertEquals(java.util.List.of(activeSeed), retrySeeds,
                 "active search seed must be retried; finite plan retries its uncommitted positions");
         java.util.List<BlockPos> tail = new java.util.ArrayList<>();
-        assertEquals(1, work.retryCandidates.drain(2, pos -> { tail.add(pos); return true; }));
-        assertEquals(java.util.List.of(planSeed.above()), tail,
+        assertEquals(2, work.retryCandidates.drain(2, pos -> { tail.add(pos); return true; }));
+        assertEquals(java.util.List.of(planSeed.above(), planSeed.north()), tail,
                 "the already-committed prefix must not be retried");
     }
 
@@ -265,14 +265,70 @@ class AtmosphereOwnershipSchedulerTest {
         assertEquals(1, plan.advance(1, ignored -> true));
         assertTrue(work.queueClaimPlan(planSeed, plan));
 
-        for (int i = 0; i < 20; i++)
-            assertTrue(work.onChunkLifecycle(new ChunkPos(100 + i, 100)).isEmpty());
+        for (int i = 0; i < 20; i++) {
+            work.onTopologyChanged(new BlockPos((100 + i) * 16, 64, 1600));
+            int before = search.activeCandidateCount();
+            search.step(pos -> AtmosphereOwnershipSearch.ProbeResult.OPEN_COVERED, 1);
+            assertTrue(search.activeCandidateCount() >= before);
+        }
 
         assertSame(search, work.activeSearchForTesting());
         assertFalse(search.step(pos -> AtmosphereOwnershipSearch.ProbeResult.OPEN_COVERED, 1).status()
                 == AtmosphereOwnershipSearch.Status.CANCELLED);
         assertEquals(1, plan.cursor());
         assertFalse(plan.isCancelled());
+        assertEquals(1, plan.advance(2, ignored -> true));
+        assertTrue(plan.isComplete(), "unrelated topology events must not prevent claim publication");
+    }
+
+    @Test
+    void blockTopologyInvalidationPreservesUnrelatedWorkAndCancelsObservedBoundaryDependencies() {
+        AtmosphereService.OwnershipWork work = new AtmosphereService.OwnershipWork();
+        BlockPos seed = new BlockPos(0, 64, 0);
+        work.offer(seed);
+        work.startNext();
+        AtmosphereOwnershipSearch search = work.activeSearchForTesting();
+        search.step(pos -> AtmosphereOwnershipSearch.ProbeResult.OPEN_COVERED, 8);
+        work.onTopologyChanged(new BlockPos(1600, 64, 1600));
+        assertSame(search, work.activeSearchForTesting());
+        work.onTopologyChanged(new BlockPos(1, 64, 0));
+        assertFalse(work.hasActive());
+        assertEquals(java.util.Set.of(seed, new BlockPos(1600, 64, 1600), new BlockPos(1, 64, 0)),
+                work.seeds, "dependent seed is retried once alongside the retained changed-position offers");
+    }
+
+    @Test
+    void finiteClaimPlanDependsOnBlockedBoundaryChunksAsWellAsMemberCells() {
+        BlockPos seed = BlockPos.ZERO;
+        AtmosphereOwnershipSearch completed = new AtmosphereOwnershipSearch(seed);
+        var proof = completed.step(pos ->
+                (pos.equals(seed) || pos.equals(seed.east())) ? AtmosphereOwnershipSearch.ProbeResult.OPEN_COVERED
+                        : AtmosphereOwnershipSearch.ProbeResult.BLOCKED, 16);
+        assertEquals(AtmosphereOwnershipSearch.Status.FINITE, proof.status());
+        BlockPos nonmemberBoundary = new BlockPos(-1, 64, 0);
+        assertFalse(proof.visitedOpenCells().contains(nonmemberBoundary));
+        OwnershipClaimPlan plan = new OwnershipClaimPlan(proof.visitedOpenCells(), completed.touchedChunks());
+        assertTrue(plan.dependsOn(new ChunkPos(nonmemberBoundary)));
+        BlockPos tail = proof.visitedOpenCells().get(1);
+        assertEquals(1, plan.advance(1, ignored -> true));
+        assertEquals(java.util.List.of(tail), plan.uncommittedPositions());
+        AtmosphereService.OwnershipWork work = new AtmosphereService.OwnershipWork();
+        assertTrue(work.queueClaimPlan(seed, plan));
+        work.onTopologyChanged(nonmemberBoundary);
+        assertTrue(plan.isCancelled());
+        assertEquals(java.util.List.of(tail), plan.uncommittedPositions());
+        java.util.List<BlockPos> retries = new java.util.ArrayList<>();
+        assertEquals(1, work.retryCandidates.drain(2, pos -> { retries.add(pos); return true; }));
+        assertEquals(java.util.List.of(tail), retries);
+        assertNotEquals(tail, seed);
+
+        OwnershipClaimPlan unloadPlan = new OwnershipClaimPlan(proof.visitedOpenCells(), completed.touchedChunks());
+        unloadPlan.advance(1, ignored -> true);
+        AtmosphereService.OwnershipWork unloadWork = new AtmosphereService.OwnershipWork();
+        unloadWork.queueClaimPlan(seed, unloadPlan);
+        unloadWork.onChunkLifecycle(new ChunkPos(nonmemberBoundary));
+        assertTrue(unloadPlan.isCancelled(), "unloading an observed blocked-boundary chunk cancels publication too");
+        assertEquals(java.util.List.of(tail), unloadPlan.uncommittedPositions());
     }
 
     @Test

@@ -10,6 +10,8 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.ModAirAlarm
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
+import com.juicyslew.moonstation14.ms14.power.cable.CableChunkData;
+import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
@@ -78,10 +80,9 @@ public final class AirAlarmPowerGameTests {
     public static void directStateReconcilesAlreadyLoadedMissingComponentFrontier(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos anchor = helper.absolutePos(new BlockPos(2, 8, 2));
-        int chunkX = anchor.getX() >> 4;
-        int chunkZ = anchor.getZ() >> 4;
-        BlockPos host = new BlockPos(chunkX * 16 + 15, anchor.getY() + 4, chunkZ * 16 + 8);
-        ChunkPos frontierChunk = new ChunkPos(chunkX + 1, chunkZ);
+        BlockPos[] fixture = findEmptyFrontier(level, anchor);
+        BlockPos host = fixture[0];
+        ChunkPos frontierChunk = new ChunkPos(fixture[1].getX() >> 4, fixture[1].getZ() >> 4);
         BlockPos frontierPos = new BlockPos(frontierChunk.getMinBlockX() + 8, host.getY(), host.getZ());
         FixtureChunkTickets.around(helper, host, frontierPos, 0);
         level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
@@ -93,24 +94,68 @@ public final class AirAlarmPowerGameTests {
                 () -> "initial border node index: " + PowerGraphService.diagnosticSnapshot(level), () -> {
                     var physical = level.getChunkSource().getChunkNow(frontierChunk.x, frontierChunk.z);
                     require(physical instanceof LevelChunk, "frontier chunk remains FULL before missed-bookkeeping simulation");
+                    require(cableRecords(level, frontierChunk).isEmpty(), "frontier cable snapshot empty immediately before unload: " + cableRecords(level, frontierChunk));
                     PowerGraphService.onChunkUnload(new net.neoforged.neoforge.event.level.ChunkEvent.Unload(physical));
-                    var precondition = PowerGraphService.diagnostics(level, node);
-                    require(precondition.state().knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN
-                                    && precondition.unloadedPotentialNeighborChunks().contains(frontierChunk),
-                            "stored component frontier is unknown and includes FULL-but-unindexed chunk: " + precondition);
                     require(level.getChunkSource().getChunkNow(frontierChunk.x, frontierChunk.z) == physical,
                             "controlled bookkeeping miss did not unload physical chunk");
+                    var postUnload = PowerGraphService.diagnostics(level, node);
+                    require(postUnload.state().knowledge()
+                                    == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN,
+                            "controlled bookkeeping miss must fail closed before direct query: " + postUnload);
+                    if (postUnload.nodeIndexed() && !postUnload.rebuilding()) {
+                        require(postUnload.unloadedPotentialNeighborChunks().contains(frontierChunk),
+                                "indexed missing-frontier branch retains the FULL chunk frontier: " + postUnload);
+                    } else {
+                        require(postUnload.rebuilding() && postUnload.state().componentId() < 0,
+                                "alternate valid branch is invalidated/unindexed before rebuild: " + postUnload);
+                    }
                     var initial = PowerGraphService.state(level, node);
                     require(initial.knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN
                                     && !PowerGraphService.topologyReady(level),
-                            "direct state query queues reconciliation but remains UNKNOWN: " + initial);
-                    awaitDirectStateKnown(helper, level, node, 0);
+                            "direct state query from controlled UNKNOWN queues reconciliation without fabricating known state: " + initial);
+                    awaitDirectStateKnown(helper, level, node, physical, 0);
                 });
     }
 
-    private static void awaitDirectStateKnown(GameTestHelper helper, ServerLevel level, CableFaceNode node, int elapsed) {
+    private static BlockPos[] findEmptyFrontier(ServerLevel level, BlockPos anchor) {
+        int baseX = anchor.getX() >> 4;
+        int baseZ = anchor.getZ() >> 4;
+        for (int offset = 8; offset < 24; offset += 2) {
+            int cx = baseX + offset;
+            int cz = baseZ + offset;
+            ChunkPos hostChunk = new ChunkPos(cx, cz);
+            ChunkPos frontier = new ChunkPos(cx + 1, cz);
+            var hc = level.getChunk(cx, cz);
+            var fc = level.getChunk(frontier.x, frontier.z);
+            if (!(hc instanceof LevelChunk hostLevelChunk) || !(fc instanceof LevelChunk frontierLevelChunk)) continue;
+            if (!cableRecords(hostLevelChunk).isEmpty() || !cableRecords(frontierLevelChunk).isEmpty()
+                    || !hostLevelChunk.getBlockEntities().isEmpty() || !frontierLevelChunk.getBlockEntities().isEmpty()) continue;
+            BlockPos host = new BlockPos(cx * 16 + 15, anchor.getY() + 4, cz * 16 + 8);
+            BlockPos frontierPos = new BlockPos(frontier.getMinBlockX() + 8, host.getY(), host.getZ());
+            if (level.getBlockState(host).isAir()) return new BlockPos[]{host, frontierPos};
+        }
+        throw new GameTestAssertException("No bounded empty adjacent power chunk pair available for frontier fixture");
+    }
+
+    private static java.util.List<CableChunkData.Record> cableRecords(ServerLevel level, ChunkPos pos) {
+        var chunk = level.getChunkSource().getChunk(pos.x, pos.z, net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+        return chunk instanceof LevelChunk levelChunk ? cableRecords(levelChunk) : java.util.List.of();
+    }
+
+    private static java.util.List<CableChunkData.Record> cableRecords(LevelChunk chunk) {
+        CableChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.POWER_CABLE_CHUNK.get());
+        return data == null ? java.util.List.of() : data.snapshot();
+    }
+
+    private static void awaitDirectStateKnown(GameTestHelper helper, ServerLevel level, CableFaceNode node,
+                                              LevelChunk physical, int elapsed) {
+        require(level.getChunkSource().getChunkNow(physical.getPos().x, physical.getPos().z) == physical,
+                "direct state recovery preserves the controlled FULL chunk identity");
         var answer = PowerGraphService.state(level, node);
         if (answer.knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.KNOWN) {
+            var diagnostics = PowerGraphService.diagnostics(level, node);
+            require(diagnostics.nodeIndexed() && !diagnostics.rebuilding() && answer.componentId() >= 0,
+                    "direct state recovery ends on an indexed authoritative component: " + diagnostics);
             helper.succeed();
             return;
         }
@@ -118,7 +163,7 @@ public final class AirAlarmPowerGameTests {
                 + ", diagnostics=" + PowerGraphService.diagnostics(level, node)
                 + ", graph=" + PowerGraphService.diagnosticSnapshot(level));
         com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5,
-                () -> awaitDirectStateKnown(helper, level, node, elapsed + 5));
+                () -> awaitDirectStateKnown(helper, level, node, physical, elapsed + 5));
     }
 
     @GameTest(template = "empty", timeoutTicks = 40, templateNamespace = "moonstation14")

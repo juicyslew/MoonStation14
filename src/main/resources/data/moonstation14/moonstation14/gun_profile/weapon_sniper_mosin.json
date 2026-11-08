@@ -1,0 +1,1 @@
+{"id":"weapon_sniper_mosin","parent":["base_weapon_sniper","base_gun_wieldable"],"requires_wield":true,"gun":{"gunshot_sound":{"event":"moonstation14:ss14/weapons/guns/gunshots/sniper","volume_db":0,"pitch_variation":0}}}

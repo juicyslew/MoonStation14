@@ -181,9 +181,17 @@ class ClientSupportedHeadingTest {
 
         var renderer=java.nio.file.Files.readString(projectRoot().resolve(
                 "src/main/java/com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/character/client/PlayerCharacterHarnessRenderer.java"));
-        assertTrue(renderer.contains("presentationYawOffset(entity,partialTick)"));
-        assertTrue(renderer.contains("modelRootRotationDegrees(yBodyRot,posture==null?0f:posture.data().movementFacingYaw()"));
-        assertTrue(renderer.contains("posture!=null,presentationOffset"));
+        String normalizedRenderer = renderer.replaceAll("\\s+", " ");
+        assertTrue(normalizedRenderer.contains(".presentationYawOffset(entity, partialTick)"));
+        assertTrue(normalizedRenderer.contains("composePresentationYaw(entity.getYRot(), -presentationOffset)"),
+                "gun aim reverses the committed model-heading presentation offset");
+        assertTrue(normalizedRenderer.contains("float physicalAimYaw = com.juicyslew.moonstation14.ms14.player_body_control.client.SupportedBodyCameraClient .composePresentationYaw(entity.getYRot(), -presentationOffset)"));
+        assertTrue(java.util.regex.Pattern.compile("GunProneAimPresentation\\s*\\.\\s*effectivePosture\\(entity,\\s*physicalAimYaw\\)")
+                        .matcher(normalizedRenderer).find(),
+                "posture must be selected using physical aim after the committed heading offset");
+        assertEquals(1, java.util.regex.Pattern.compile("modelRootRotationDegrees\\(yBodyRot, posture\\.movementFacingYaw\\(\\), true, presentationOffset\\)")
+                .matcher(normalizedRenderer).results().count(), "posture root receives committed offset exactly once");
+        assertTrue(normalizedRenderer.contains("modelRootRotationDegrees(yBodyRot, posture.movementFacingYaw(), true, presentationOffset)"));
     }
 
     private static java.nio.file.Path projectRoot(){

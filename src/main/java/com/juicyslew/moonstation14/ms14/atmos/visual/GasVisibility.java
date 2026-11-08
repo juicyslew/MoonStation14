@@ -71,6 +71,18 @@ public final class GasVisibility {
         };
     }
 
+    /** Shared per-species bar palette; existing overlay hues are preserved and non-overlay gases receive stable UI colors. */
+    public static Rgb displayTint(GasType gas) {
+        Objects.requireNonNull(gas, "gas");
+        return tint(gas).orElseGet(() -> switch (gas) {
+            case OXYGEN -> new Rgb(0x58,0xa6,0xff);
+            case NITROGEN -> new Rgb(0xa7,0xb2,0xc2);
+            case CARBON_DIOXIDE -> new Rgb(0x9b,0x86,0xaa);
+            case NITROUS_OXIDE -> new Rgb(0x3e,0xcc,0xc4);
+            default -> new Rgb(0x9b,0xa9,0xb0);
+        });
+    }
+
     /**
      * Computes an opacity byte for an amount of gas in a cell. The amount and
      * volume must be finite and nonnegative (volume must be greater than zero).

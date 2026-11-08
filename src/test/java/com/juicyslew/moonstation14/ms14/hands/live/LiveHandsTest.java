@@ -604,4 +604,41 @@ class LiveHandsTest {
         assertTrue(restored.reservation("left").isEmpty());
         assertEquals(reserved.revision(), restored.revision());
     }
+
+    @Test
+    void wieldLeaseRequiresFreeSupportAndReleasesOnlyItsExactReservation() {
+        LiveHands source = parse("{\"hands\":[{\"id\":\"left\",\"occupant\":{\"token\":\"gun\",\"stack\":{\"id\":\"minecraft:diamond\"}}},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        var acquired = WieldHandPolicy.acquire(source, "left", "gun", "right").orElseThrow();
+        assertTrue(WieldHandPolicy.validates(acquired.hands(), acquired.wield()));
+        assertTrue(acquired.hands().stackCopy("right").isEmpty());
+        assertFalse(acquired.hands().isHandAvailable("right"));
+        assertTrue(WieldHandPolicy.acquire(acquired.hands(), "left", "gun", "right").isEmpty());
+        LiveHands released = WieldHandPolicy.release(acquired.hands(), acquired.wield()).orElseThrow();
+        assertTrue(released.isHandAvailable("right"));
+        assertTrue(WieldHandPolicy.release(released, acquired.wield()).isEmpty());
+
+        // A pull lease on the support hand is neither wieldable nor releasable by a wield proof.
+        var pullId = UUID.randomUUID();
+        LiveHands pull = source.reserveHand(0, "right", pullId).orElseThrow();
+        assertTrue(WieldHandPolicy.acquire(pull, "left", "gun", "right").isEmpty());
+        WieldState forged = new WieldState("left", "gun", "right", UUID.randomUUID());
+        assertFalse(WieldHandPolicy.validates(pull, forged));
+        assertTrue(WieldHandPolicy.release(pull, forged).isEmpty());
+        assertEquals(Optional.of(pullId), pull.reservation("right"));
+
+        // Replacing the source invalidates the proof; cleanup still removes only the exact support lease.
+        LiveHands replaced = acquired.hands().clearHeldWhole(acquired.hands().revision(), "left", new ItemToken("gun")).orElseThrow();
+        assertFalse(WieldHandPolicy.validates(replaced, acquired.wield()));
+        assertTrue(WieldHandPolicy.release(replaced, acquired.wield()).orElseThrow().isHandAvailable("right"));
+    }
+
+    @Test
+    void wieldRequiresOneOwnedItemAndRejectsFullHands() {
+        LiveHands empty = parse("{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\"left\",\"revision\":0}");
+        assertTrue(WieldHandPolicy.acquire(empty, "left", "missing", "right").isEmpty());
+        LiveHands full = empty.putWhole(0,"left",new ItemToken("gun"),new ItemStack(Items.DIAMOND)).state()
+                .putWhole(1,"right",new ItemToken("other"),new ItemStack(Items.EMERALD)).state();
+        assertTrue(WieldHandPolicy.acquire(full,"left","gun","right").isEmpty());
+        assertTrue(full.isHandAvailable("left") == false);
+    }
 }

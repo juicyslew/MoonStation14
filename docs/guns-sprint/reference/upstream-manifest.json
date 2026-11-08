@@ -1,0 +1,1077 @@
+{
+  "source": "Space Station 14",
+  "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "purpose": "Temporary bounded read-only source context for gun implementers; not production assets or code. Preserve original headers/licenses.",
+  "files": [
+    {
+      "path": "Content.Client/Input/ContentContexts.cs",
+      "sha256": "edb544c58091ff8624665e7a30be7f10b24937ddb75795d2bda3aae249a8d847"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Commands/ShowSpreadCommand.cs",
+      "sha256": "c50319af52d5f75d2f53464b704a00e1dbfdaa2c917d4ae71f218377abf7aa1e"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Components/AmmoCounterComponent.cs",
+      "sha256": "97ada1efa3364637a0c301f1a03ee7d6f1a5ce7b3c8707293cc1bf7192be6089"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Components/MagazineVisualsComponent.cs",
+      "sha256": "ba79aa30842cc684a27d902ce4afcf9cdeb54230fbf283155f67e0273c18a74d"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Components/SpentAmmoVisualsComponent.cs",
+      "sha256": "433cd55adaf5bafeb10a890040715e7d2d5f915009d8d09614625b547c0f1659"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/GunSpreadOverlay.cs",
+      "sha256": "5ceb08a1765ddf374b3688d2e8989d0c7c2bfdad46e8c5937d95a39df2a92267"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/ItemStatus/BulletRender.cs",
+      "sha256": "35ebf93e85312d248b237e567d7532a25a33fa771457b765b1fac1b60dc0bb4e"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/FlyBySoundSystem.cs",
+      "sha256": "4479dd8f35667f52d00045a20b375cb0452124249de8bb22289e7f7a13d0bb1a"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/GunSystem.AmmoCounter.cs",
+      "sha256": "fc8e490ce0e36e76862f5c9479b55c2f364f2b1a439003df9043a4c4f941a47b"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/GunSystem.Ballistic.cs",
+      "sha256": "2bd80a61d021e1da1c9eccb557455cf008ec5aecd4cc6fb72b4da79a6058a9af"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/GunSystem.BasicEntity.cs",
+      "sha256": "d969d7986fda80c062b4c9685b969d81712c56fc67d97e92a3fb158a16a01c76"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/GunSystem.Battery.cs",
+      "sha256": "774e782982f5e59eb1430b0a0b9bde71e74085a4517178743e65d2378ae85d17"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/GunSystem.ChamberMagazine.cs",
+      "sha256": "e0fff3394b0a9b2644de387955f667d91098d031c9b66b4661a40009e3de23c1"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/GunSystem.Magazine.cs",
+      "sha256": "7fed6853f6852f040145fb992db9295ded84e5bcbef80862fd8c429306c4f70f"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/GunSystem.MagazineVisuals.cs",
+      "sha256": "15ef5fe021674eae152c6d47f9be7be7049174fc4ae528ef61f31fae98c41d6e"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/GunSystem.Revolver.cs",
+      "sha256": "31166e57090096484becdd8b183d9ca2a645135d76ef5ecf1132f09427368a23"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/GunSystem.SpentAmmo.cs",
+      "sha256": "81932e6b5fc1315fca14b915c07807af45db2853bc8e93078a9ad5c1e675190d"
+    },
+    {
+      "path": "Content.Client/Weapons/Ranged/Systems/GunSystem.cs",
+      "sha256": "b589e771405f504b140cc0755576f3a375f154fbf6eb830aedf7fa949356ac73"
+    },
+    {
+      "path": "Content.Server/Chemistry/Components/BaseSolutionInjectOnEventComponent.cs",
+      "sha256": "e421abcd2c44dc5c2d9930db595a94edeaccc9c9db7d97c1ead91c5c118a5615"
+    },
+    {
+      "path": "Content.Server/Chemistry/Components/MeleeChemicalInjectorComponent.cs",
+      "sha256": "be1c884315b8fe3d321fdeecd42b32d0c850d75a6d80ddde6a8cbebe9e026a19"
+    },
+    {
+      "path": "Content.Server/Chemistry/EntitySystems/SolutionInjectOnEventSystem.cs",
+      "sha256": "b6eb9084d88fd558165040f465bcc403547b97ac81435ab780e1bbea72eb29fa"
+    },
+    {
+      "path": "Content.Server/Power/Components/BatteryChargerComponent.cs",
+      "sha256": "3e22ad7cbc864741409a7e78b32e2e4305cc3622e097ffe5c1de0f2931a900b4"
+    },
+    {
+      "path": "Content.Server/Power/Components/BatteryDischargerComponent.cs",
+      "sha256": "1e5097441007a23992ed61a4f53485c51c84320dd0efa4b6531c24cade438831"
+    },
+    {
+      "path": "Content.Server/Power/Components/BatteryInterfaceComponent.cs",
+      "sha256": "5c1334b403e284edbfaa8e3ac58803d73b715934e95dc732b919ed7453d88195"
+    },
+    {
+      "path": "Content.Server/Power/Components/PowerNetworkBatteryComponent.cs",
+      "sha256": "7885d7eb849e2842434a676f2326bca0047bf7a4c388a6390b463121bdaaf2e4"
+    },
+    {
+      "path": "Content.Server/Power/EntitySystems/BatteryInterfaceSystem.cs",
+      "sha256": "739c560cf0c13edb9f66c607039b76c519d282e8394d42998128d2e47de23071"
+    },
+    {
+      "path": "Content.Server/Power/EntitySystems/BatterySystem.cs",
+      "sha256": "eca20dcb5f58fff3730ca59930a939e33049e2c76df0d26e1128ab4a62402bad"
+    },
+    {
+      "path": "Content.Server/Power/Pow3r/BatteryRampPegSolver.cs",
+      "sha256": "3f59b2621aecdd4ce3c70a3dfc9cd9c95cd613133d0d226d486e0c97e9173432"
+    },
+    {
+      "path": "Content.Server/Power/SetBatteryPercentCommand.cs",
+      "sha256": "2f5a0154467e59a4563f445db6edb78efa0d064d99530eeae79982bb8b8323ed"
+    },
+    {
+      "path": "Content.Server/Weapons/Ranged/Components/AmmoCounterComponent.cs",
+      "sha256": "ee286d6e9ef920f31cf0270e18be3ad72bddfc7f5125d4771e64fe1845685c83"
+    },
+    {
+      "path": "Content.Server/Weapons/Ranged/Components/ChemicalAmmoComponent.cs",
+      "sha256": "679f0a1e18e584d32a146e65df40d97b6e7142a0730a201d6b1c052ae96cca7c"
+    },
+    {
+      "path": "Content.Server/Weapons/Ranged/Components/RangedDamageSoundComponent.cs",
+      "sha256": "094a526f78313195d31620c74d5bcac7a6856ff83e0a4ca1fc6d150d4b95f6c2"
+    },
+    {
+      "path": "Content.Server/Weapons/Ranged/Systems/ChemicalAmmoSystem.cs",
+      "sha256": "4d507c890077f0e88249a2d764cdfc45d2ca3466ef6e26e7235157c3b8539a83"
+    },
+    {
+      "path": "Content.Server/Weapons/Ranged/Systems/FlyBySoundSystem.cs",
+      "sha256": "5454e2727e548188cdec7f9d161335fe3a37d755563f807653843e626b43e199"
+    },
+    {
+      "path": "Content.Server/Weapons/Ranged/Systems/GunSystem.AutoFire.cs",
+      "sha256": "6726e2e7b62502a99e0d9070889f9c8d0bb97c448a371dbc2709f9b98be063e1"
+    },
+    {
+      "path": "Content.Server/Weapons/Ranged/Systems/GunSystem.Ballistic.cs",
+      "sha256": "c10f50c96e5943937f2bf72a819de93fce6d1db5d5084c38425631f423438e7d"
+    },
+    {
+      "path": "Content.Server/Weapons/Ranged/Systems/GunSystem.Revolver.cs",
+      "sha256": "09ba1dd387bbd920c65e4c47f7dab4d446569abcef8a486a6cdac3319198262c"
+    },
+    {
+      "path": "Content.Server/Weapons/Ranged/Systems/GunSystem.Solution.cs",
+      "sha256": "1f78dd40da55653abf2a46ca87435ec71360e6a428e44a0d3ed987f6d011bdeb"
+    },
+    {
+      "path": "Content.Server/Weapons/Ranged/Systems/GunSystem.cs",
+      "sha256": "ee2137ff947d0c4a2331912efaea325184f1fe155bc37d2df9de21dedf3f7511"
+    },
+    {
+      "path": "Content.Shared/Chemistry/Components/RefillableSolutionComponent.cs",
+      "sha256": "d9f40bc18b1faee83d4d21a57ce953da58bd70a6e52771da4bf0db35002a08e3"
+    },
+    {
+      "path": "Content.Shared/Chemistry/Components/SolutionManager/InjectableSolutionComponent.cs",
+      "sha256": "fc395d944d0f14b9a5d4ae88373cf626b18c5f6973a12ddcb69b2f0dd019af3d"
+    },
+    {
+      "path": "Content.Shared/Chemistry/Components/SolutionManager/SolutionContainerManagerComponent.cs",
+      "sha256": "81399437a92bcccaa7ae738379785628761bc92c56ece5da3a9c3f0994b319fb"
+    },
+    {
+      "path": "Content.Shared/Chemistry/Components/SolutionTransferComponent.cs",
+      "sha256": "894c063e7087200002aafe046b94f2b39925eeafa901cba1241f7899ca0784dc"
+    },
+    {
+      "path": "Content.Shared/Chemistry/EntitySystems/SolutionTransferSystem.cs",
+      "sha256": "3fa4194aca6fc5abd423ab08f3cb89e27990ae877e711a4d5062d54797fc3da2"
+    },
+    {
+      "path": "Content.Shared/Containers/ItemSlot/ItemSlotsComponent.cs",
+      "sha256": "94e657b66553c277ad9fd012b127b7236b5b4ac762d119e464b3bf70a30a2098"
+    },
+    {
+      "path": "Content.Shared/Containers/ItemSlot/ItemSlotsSystem.cs",
+      "sha256": "790b85bdcea1b700ed39c64b2e09517b457a103b08fa5eaca665b7f40dfdde93"
+    },
+    {
+      "path": "Content.Shared/Damage/Components/ActiveStaminaComponent.cs",
+      "sha256": "d842a10dba6a52c9bf5b70744c7d856fd2dde3330fce619e54f9a15a43da7fe0"
+    },
+    {
+      "path": "Content.Shared/Damage/Components/StaminaComponent.cs",
+      "sha256": "d123ddbc3045c9f583cea2f4e240c5a3b4dcefae21b5c8e8ac680990385faa9c"
+    },
+    {
+      "path": "Content.Shared/Damage/Components/StaminaDamageOnCollideComponent.cs",
+      "sha256": "77cc3fc20651f791dd8b080decc1225074d58cf2fb76ccad354b3c238a7df78b"
+    },
+    {
+      "path": "Content.Shared/Damage/Components/StaminaDamageOnEmbedComponent.cs",
+      "sha256": "091eba101c9f7f55419b756e9ab215d1d8adedcc9776d516bde16ee7489589ad"
+    },
+    {
+      "path": "Content.Shared/Damage/Components/StaminaDamageOnHitComponent.cs",
+      "sha256": "907805aa2e185a2b5cd23a2cca3641720b68097e30a2930bc16c393fa3a07338"
+    },
+    {
+      "path": "Content.Shared/Damage/Components/StaminaModifierStatusEffectComponent.cs",
+      "sha256": "f55804ed4292bc0fa15515fce4adbfa3c4dfc38f4b5846f6881ff9d86507de93"
+    },
+    {
+      "path": "Content.Shared/Damage/Components/StaminaResistanceComponent.cs",
+      "sha256": "7e4beb6b1036015f8b2d9fa7d2554b80347c379fbde5856c2f060abf3897f06d"
+    },
+    {
+      "path": "Content.Shared/Damage/Systems/SharedStaminaSystem.Modifier.cs",
+      "sha256": "339f36198a1b49786f138a72b13c5df3d39b95fd19f6e3f2467736842f1ed70d"
+    },
+    {
+      "path": "Content.Shared/Damage/Systems/SharedStaminaSystem.Resistance.cs",
+      "sha256": "9f413f5430f0dc9e9803164b416f0496432eb2aca2b91624e21966b0a4ad4450"
+    },
+    {
+      "path": "Content.Shared/Damage/Systems/SharedStaminaSystem.cs",
+      "sha256": "4508f0ff0c5fd1462d13472dd066bd2c42c53d9628f36987bfd1d18de61b27df"
+    },
+    {
+      "path": "Content.Shared/Hands/Components/ExtraHandsEquipmentComponent.cs",
+      "sha256": "6c218c8eb68dae28636ec113d14526ac75e790ea01f4865c203d836180ef4adb"
+    },
+    {
+      "path": "Content.Shared/Hands/Components/HandsComponent.cs",
+      "sha256": "3694718eacd5c29be50d05d2050203d768d68f2e8800d844b786e59c8dafce1d"
+    },
+    {
+      "path": "Content.Shared/Hands/EntitySystems/ExtraHandsEquipmentSystem.cs",
+      "sha256": "0a15a1e12034123354ed24eee78ec557b86f411e96e2a1bfb89d25cbf9a323c3"
+    },
+    {
+      "path": "Content.Shared/Hands/EntitySystems/SharedHandsSystem.AI.cs",
+      "sha256": "b0889eaaffbb7f8a0f1e00be7e938616e37153626bcaf8fe6d299f3aeb908665"
+    },
+    {
+      "path": "Content.Shared/Hands/EntitySystems/SharedHandsSystem.Drop.cs",
+      "sha256": "9a2d6f5533879dc05d0058564db8a9cc2f2358c89f39fa5a7c89b88f946c549f"
+    },
+    {
+      "path": "Content.Shared/Hands/EntitySystems/SharedHandsSystem.EventListeners.cs",
+      "sha256": "0e002478898d4b5ebe68bb523cf0a93c6f66111c176195ce85e6b4f8c583056d"
+    },
+    {
+      "path": "Content.Shared/Hands/EntitySystems/SharedHandsSystem.Interactions.cs",
+      "sha256": "d28132d0be3a9f7b422f551d77759626fc8d424c80edd9d72b9c042c32b71030"
+    },
+    {
+      "path": "Content.Shared/Hands/EntitySystems/SharedHandsSystem.Pickup.cs",
+      "sha256": "b3aee81349f907656019bb0765772ff3deb27a9bf806c2a8474a37d98f37453a"
+    },
+    {
+      "path": "Content.Shared/Hands/EntitySystems/SharedHandsSystem.Relay.cs",
+      "sha256": "b0a0e34b8b09fa464748aed0b49012abb06663092be399ce0c2fbc955c4fb2f7"
+    },
+    {
+      "path": "Content.Shared/Hands/EntitySystems/SharedHandsSystem.Whitelist.cs",
+      "sha256": "5a472933da6506994a9855e7ab8faaeb205ef0a8323fbc91d1860710878e67db"
+    },
+    {
+      "path": "Content.Shared/Hands/EntitySystems/SharedHandsSystem.cs",
+      "sha256": "cc3a4849a66113c20062a1947aef56e03cb52888fd402ed649baaa38166884be"
+    },
+    {
+      "path": "Content.Shared/Hands/HandEvents.cs",
+      "sha256": "46cdec4b202be69e4a84fcaf8b4eae5c0da6016b60404b04606a07be683ef9eb"
+    },
+    {
+      "path": "Content.Shared/Input/ContentKeyFunctions.cs",
+      "sha256": "b228b49b20feafed1a35ccd65b1223f3c7c530c5e9719a6c19b6c8f70f1eeb4a"
+    },
+    {
+      "path": "Content.Shared/Inventory/VirtualItem/SharedVirtualItemSystem.cs",
+      "sha256": "2240a1e8ff304d4c645c1cf013602e6fe73480df3dc20c116001b287397aebe3"
+    },
+    {
+      "path": "Content.Shared/Inventory/VirtualItem/VirtualItemComponent.cs",
+      "sha256": "133dc79abc08b1a74ee0dda245cb87135d2a1d136ae91c43056adb0489a57402"
+    },
+    {
+      "path": "Content.Shared/Power/Components/ApcPowerReceiverBatteryComponent.cs",
+      "sha256": "6b4a2f326a9031ae834131e147ba3d639d73e5da5ac71439e0af235e5b754e7e"
+    },
+    {
+      "path": "Content.Shared/Power/Components/BatteryComponent.cs",
+      "sha256": "6560459dd507ccba556b5787f0cbbd1f4b988c74857ab89f27a239e0322e296c"
+    },
+    {
+      "path": "Content.Shared/Power/Components/BatterySelfRechargerComponent.cs",
+      "sha256": "d6ad6e404199c2fceaddd84bbd360e59b62d722462bc43c0f1c6ab2b28674729"
+    },
+    {
+      "path": "Content.Shared/Power/Components/BatteryVisualsComponent.cs",
+      "sha256": "3850e3d18f68cabc9190642932bfcaaef0fc699c660c7e2482478f3118b635b5"
+    },
+    {
+      "path": "Content.Shared/Power/Components/ExaminableBatteryComponent.cs",
+      "sha256": "195572a6bcf338c8e8a9940fcb6e2163529e54fee46f12747f5249659d4fe9c6"
+    },
+    {
+      "path": "Content.Shared/Power/EntitySystems/SharedBatterySystem.API.cs",
+      "sha256": "0b36bc507ecee5bd3bbe538b8fa18fd9406015dc972f11f425e79fe37bd0c20d"
+    },
+    {
+      "path": "Content.Shared/Power/EntitySystems/SharedBatterySystem.cs",
+      "sha256": "48df64a6e02f83492830f57ca235e166d67702f0d25e43b8438094d7f7ab260c"
+    },
+    {
+      "path": "Content.Shared/Power/SharedBattery.cs",
+      "sha256": "dea06b2c7926ed33e4cdc85c45dd875033a97a39df3338a77183c91db71a2cbd"
+    },
+    {
+      "path": "Content.Shared/PowerCell/Components/PowerCellComponent.cs",
+      "sha256": "6fe4890c551f5f1a0610df1953b26fee593db4254e10c1f493f4300d5307db34"
+    },
+    {
+      "path": "Content.Shared/PowerCell/Components/PowerCellDrawComponent.cs",
+      "sha256": "b47a375e2246f610d51fdd42e719ce1feeaa3b41abd14018f8ca586e7f47438d"
+    },
+    {
+      "path": "Content.Shared/PowerCell/Components/PowerCellSlotComponent.cs",
+      "sha256": "647b5e24f3cbe105650097b954291b16e25ce8ea57220334e124f99d90f88fe7"
+    },
+    {
+      "path": "Content.Shared/PowerCell/Components/ToggleCellDrawComponent.cs",
+      "sha256": "40063b26b85f5817693e3d97436d9f815e8923b61addce29d54422d65beaba86"
+    },
+    {
+      "path": "Content.Shared/PowerCell/PowerCellEvents.cs",
+      "sha256": "f8b9e907b719364d304b2fedd79ee2198e51374557ad716a9887bbbc47a12184"
+    },
+    {
+      "path": "Content.Shared/PowerCell/PowerCellSystem.API.cs",
+      "sha256": "acbec3fe52a73b11f7ab072dd061af9ebac5601a7c14eadc4248d5bfeda1d7e8"
+    },
+    {
+      "path": "Content.Shared/PowerCell/PowerCellSystem.Draw.cs",
+      "sha256": "3a43048300ed556da5d23438493a278fb5f846598cffe6fff6602e6635053344"
+    },
+    {
+      "path": "Content.Shared/PowerCell/PowerCellSystem.Relay.cs",
+      "sha256": "21b1d932b695001892521519058c1e1c3a7488154d78cbe8a802e7ca70185902"
+    },
+    {
+      "path": "Content.Shared/PowerCell/PowerCellSystem.cs",
+      "sha256": "e44ebb497b4f2a6a09f2b6a7f496adba2e37be60ca799f2f457f6bb993fb4ebb"
+    },
+    {
+      "path": "Content.Shared/PowerCell/ToggleCellDrawSystem.cs",
+      "sha256": "c756463a3800c5b8c1d57cf76661609c42ed151963b45c0a717f06db110c9cda"
+    },
+    {
+      "path": "Content.Shared/Projectiles/EmbedEvents.cs",
+      "sha256": "e7ad9d9d9434c4aeee9e13a4c6720f6c33a7021a78ac414466f22c9a69435e68"
+    },
+    {
+      "path": "Content.Shared/Projectiles/EmbeddableProjectileComponent.cs",
+      "sha256": "929956ed6eb433e8cd758c8533ebf3832710e4ae848a5dc08a669d396f9fd62f"
+    },
+    {
+      "path": "Content.Shared/Projectiles/EmbeddedContainerComponent.cs",
+      "sha256": "ba48e005c363a1c4cddd90eec1f2f234f0e7efc90df16e3236bd719390bdd9af"
+    },
+    {
+      "path": "Content.Shared/Projectiles/ProjectileComponent.cs",
+      "sha256": "1cdeefa9fdbea1e1e172c94a61ec9a4df7a7c6e606be560ab56805ffa8a30d27"
+    },
+    {
+      "path": "Content.Shared/Projectiles/ProjectileEmbedEvent.cs",
+      "sha256": "1875beccd3b8a7e465acf5ae9df37352ca3744f808a10fe635066fdb5aa875ef"
+    },
+    {
+      "path": "Content.Shared/Projectiles/ProjectileSpreadComponent.cs",
+      "sha256": "682dfb23499c604b39d53872c8eeae6ecd40d2ed7206e9e3067039e6a4de2bad"
+    },
+    {
+      "path": "Content.Shared/Projectiles/SharedProjectileSystem.cs",
+      "sha256": "b7fd3d340e5a33cd754da253d7fd22a79ac58379636c2fab5617071c49d23293"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Components/HitscanAmmoComponent.cs",
+      "sha256": "8664ffb4ea30ac65c6ff630f7a6db7ad79216441d2ff122e1c34229b7621505c"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Components/HitscanBasicDamageComponent.cs",
+      "sha256": "015fad6fab0575300571b132879a2dc39e4272d7cc299fe6ece68e7a6bcca3e9"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Components/HitscanBasicEffectsComponent.cs",
+      "sha256": "e390df05dbe0494dcab1157615cbd84fe41dca47975d5ca8bd1833a353195a2f"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Components/HitscanBasicRaycastComponent.cs",
+      "sha256": "234b601c8a03d7e9d03ea151e7a4091caa5db4b632a85eba3954ebda5e005c22"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Components/HitscanBasicVisualsComponent.cs",
+      "sha256": "74528d8ea52461ea79bed9ef4cb75359b4ce43676adba4f9b645f71c411f8ee5"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Components/HitscanReflectComponent.cs",
+      "sha256": "6d793f1fb5f5b043e18553314796a054a580d14f9bcb37febb6524617ec7ac28"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Components/HitscanStaminaDamageComponent.cs",
+      "sha256": "42d11774b056ff07ccd899e0b25ee9ef1ecf19659b0839fc708bf6be92e686f5"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Events/HitscanEvents.cs",
+      "sha256": "0810187dde988fe1e1329b9b0133c044514fc3ecc0385d8deb10e6992144fff1"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Systems/HitscanBasicDamageSystem.cs",
+      "sha256": "857b6b66252ee0389f3dcad9efadd91b3f9f43964a191ab5ce1eef85f75524a1"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Systems/HitscanBasicEffectsSystem.cs",
+      "sha256": "fa99f1d3b9d016cd927e3edfc8ad1abf0155b306610c3ae2647f8f59fe543923"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Systems/HitscanBasicRaycastSystem.cs",
+      "sha256": "76b960f052aabc5182af9e5e62d5bd5cd5ef4c966d15e5299395eaad168c3376"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Systems/HitscanReflectSystem.cs",
+      "sha256": "55805e353bc0cd3d3f2f822ef57aab42072b61a3e03b0569cb45fae2e06871f6"
+    },
+    {
+      "path": "Content.Shared/Weapons/Hitscan/Systems/HitscanStunSystem.cs",
+      "sha256": "a1895b5155223f07e7e5666f56d8a145366989283d443d07b531a14f17730744"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/ActionGunComponent.cs",
+      "sha256": "030219e591097aa8c86f44aff2deead88f81ed32733c49bc071fa2f850cf1c10"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/AmmoComponent.cs",
+      "sha256": "9b231299d33b694cf9e94592e830b3503b7267d54d13a8073192bba360904275"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/AmmoProviderComponent.cs",
+      "sha256": "39d095b4c6443ff0e0de88b200694b00eab411f507132a1decabb7b3f3c9ac90"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/AutoShootGunComponent.cs",
+      "sha256": "b00a8992f852ec51086f6d20606cb98705d98332325a811526da8e590ced98e7"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/BallisticAmmoInteractLoaderComponent.cs",
+      "sha256": "1d28072e50049167572e72cab7f15bcd12b385596cad0e0b9b709684206926c7"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/BallisticAmmoProviderComponent.cs",
+      "sha256": "35d7a2a2979cecedd5382d028d3b37ba85ac3881d00736ee504b08695d3eeddd"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/BallisticAmmoSelfRefillerComponent.cs",
+      "sha256": "2f1f3bf702f1c1bdc4372bd487c65b1f02a1937c5b8cfadd745f31a1a7cfe915"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/BasicEntityAmmoProviderComponent.cs",
+      "sha256": "ecd292fd85d027069b0ff2916a74febc87f8309f2faaeab271b8a6f70fb3dcb3"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/BatteryAmmoProviderComponent.cs",
+      "sha256": "fe88364dfa0e3f85159571698896756d62649c8bc738ac76d05f307ae129a426"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/BatteryWeaponFireModesComponent.cs",
+      "sha256": "4675fc8138d7dd6daba3d90fa322c40b6a7bc04f0caa9bbfbdff47bcf2b6fd2f"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/ChamberMagazineAmmoProviderComponent.cs",
+      "sha256": "4e39dded584ba7d82c2c6ff157ba6f3ea309417dd77e4778f076b251605fe811"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/ClothingSlotAmmoProviderComponent.cs",
+      "sha256": "93431d7f1dd776260890f4a671f1b901d05f6f797954a8041bff7f6477624f95"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/ContainerAmmoProviderComponent.cs",
+      "sha256": "0bbd21bd7644dc4bf0669e20e51147affa28bf98a3f07af201c00242e6d3f422"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/FlyBySoundComponent.cs",
+      "sha256": "a10d68db3f17dcc5e1c8210067e88cc71c9a1c9cf2409d40f820cadce3c195fa"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/GrapplingGunComponent.cs",
+      "sha256": "175f6e0309eabb8ea1088bef135bcd340bd96fd8b03f695ab7ce00e82ddd58ab"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/GunComponent.cs",
+      "sha256": "d0af7bf7026ec0c2e6bc8ab8b12290a835c472977ca76333bd93bae45b4de571"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/GunRequiresWieldComponent.cs",
+      "sha256": "85dc496fd06be975e481b7e273544ef91e30ddf24f2f92ec6ddeb471d4141f80"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/GunSpreadModifierComponent.cs",
+      "sha256": "e050055c98dddbe37c01f71bab4a3e083bf6495ea4ee2e98bb5454f225dfd27a"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/GunWieldBonusComponent.cs",
+      "sha256": "36ef5a8057ee65b9ec447024e3571d2bd8900ffd0205e8f81f5b99665302cad9"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/MagazineAmmoProviderComponent.cs",
+      "sha256": "212b3639eba2f44d4234b394c2e5711376840a9e586a0ad881379d257d31e120"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/RechargeBasicEntityAmmoComponent.cs",
+      "sha256": "c4ba8d46b963101b57a5f8bae6e4f44ed30e1eb352da11fe4cace1fb78bc73d2"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/RechargeCycleAmmoComponent.cs",
+      "sha256": "94c909c77c973e80cc7df70f4dee247f12cd94e2e7a453fc7cc160453f1bcee6"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/ReflectiveComponent.cs",
+      "sha256": "de49e1149b25890a56294342cbd075b3db3fc1671c09ba55285798aee5d9717d"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/RevolverAmmoProviderComponent.cs",
+      "sha256": "8406d31b4239d626fc777b745760b7720d5228fee00349fbb7acf0034619c826"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/SharedAmmoCounterComponent.cs",
+      "sha256": "de8ba1250aed25c4de8babac2ea8565f382beaf8b3efb1431c326e7f614175f7"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/SolutionAmmoProviderComponent.cs",
+      "sha256": "5343751e083e5b911a954d600ac5ef0a30922e82dc7925394e9c88617a6d8420"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/SpeedLoaderComponent.cs",
+      "sha256": "db7f8c9c048f23f1f65572e2b3cb35125baae4f34ba77037f29ce43605261836"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/TargetedProjectileComponent.cs",
+      "sha256": "d9c034ee7e69cd3a559b972c0e8457ce5888310c99f4c6bf30edf5ea24b3261e"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Components/UseDelayOnShootComponent.cs",
+      "sha256": "498324f3dd3f02a91245793f4dd42fb9bd704225d6cc021c63efdc8a93fe007c"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/AmmoShotEvent.cs",
+      "sha256": "fd71939c55dbdfccff0227ae366d5b191d5b020414ff624dc7ec36d22d18a338"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/BeforeAmmoLoadedEvent.cs",
+      "sha256": "766b524924cc072e8a5d90045a7e90099c5819bf5f42d90c9c8b91154beef24c"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/BeforeGunShootEvent.cs",
+      "sha256": "91cc73ac0767c425eda10d030abaf94e083263c83f7feb8b1a347a66e86e4900"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/GetAmmoCountEvent.cs",
+      "sha256": "077a16558a6340c33b9654d9155fbe34cb00c1d0c73fc2e0dd5e44925cbb18e6"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/GunCycledEvent.cs",
+      "sha256": "38c806530fa4ab0272ed9ea29be158224331e228740c5c7e64e6e65246e34d6c"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/GunGetAmmoSpreadEvent.cs",
+      "sha256": "3c6862a88a60de714865aab5ebdb9999164ff3487f53bbdf6b6343e38fcae784"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/GunMuzzleFlashAttemptEvent.cs",
+      "sha256": "320aa9fd8128687c852c44dcae4f6882c1c715249b10b500851878db3bcb9371"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/GunRefreshModifiersEvent.cs",
+      "sha256": "d4dbd75d1e8cb739f191f22e59f7bb1436f01ed7c8a45834772aeb42bcd0b1b1"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/HitScanReflectAttempt.cs",
+      "sha256": "fe0bb15c155ec71c409a6b4a0317ad959243ce8b8c0aa6522d71637c08bd2f89"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/MuzzleFlashEvent.cs",
+      "sha256": "cc119d40b3066660743d294d69d2e9b36186eb875a7f7e2c9398384ae6ffc63d"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/OnEmptyGunShotEvent.cs",
+      "sha256": "ee7cdabbd537d50259e51972c4864e5f4ca27a2993d3fe15564b37826b0fb01a"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/RequestShootEvent.cs",
+      "sha256": "a200ba237004c999f36619dcfdfe5f3c31889e65f35f22a872debd1e38a9e58c"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/RequestStopShootEvent.cs",
+      "sha256": "0c02f99fd4735db42c0c3d757d8f38dd2df8e2771de2739fbbe423eee786f75a"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/ShotAttemptedEvent.cs",
+      "sha256": "fb5464046c4488fde4725a49add32595b0ccb3d58d81c42529e9fa340f11ab5a"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Events/TakeAmmoEvent.cs",
+      "sha256": "7cd6e1360a58ad889839bdc7c4cc91d5c60cce42677cfed4e9c01ff0eb52f62e"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/IShootable.cs",
+      "sha256": "b461675369053930904bb3944d4cf85ca79ffb1196bdeff335d44259ca61eaae"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/ActionGunSystem.cs",
+      "sha256": "125374a3b5efeacd2154dc29001409c449a0ccda9699da72fc915fa314d887b3"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/BatteryWeaponFireModesSystem.cs",
+      "sha256": "48cd8e2fbccfcbf950a37a97f96cbc79aa01bc9c7f2928b76275e93726fa9151"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/GunSpreadModifierSystem.cs",
+      "sha256": "b965ca15dcbf374a13cb57c796be349d561f52d3f9e83b1e4858521f358b7f63"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/RechargeBasicEntityAmmoSystem.cs",
+      "sha256": "615937075222f062eebc5dc84b56c2b252045aaced086e55ba1f482679c797c8"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/RechargeCycleAmmoSystem.cs",
+      "sha256": "87e75bcbf5bfa8881c24d8affcf04b3c7e292738c3d4bd29a51c6c6997e8c5e5"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedFlyBySoundSystem.cs",
+      "sha256": "55d4f0b4c3107d3e4dc5e3d27c260cfa95d2ea70195c0a4354b0acd9b0c9ab6b"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.AutoFire.cs",
+      "sha256": "eb19c8e8e06c531a49b03238ee86326888fc859863fc4d2521e5cf3dcc89f336"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.Ballistic.cs",
+      "sha256": "4bccc4553d43d1027b06bab8d1959eabd8234f91e78ddec7145913bd4f179018"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.BasicEntity.cs",
+      "sha256": "d3e6d10f0f3a7176f72a94748de287e54d580b847c8f8b76b537d27a85e3370b"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.Battery.cs",
+      "sha256": "777e863aa1a6dc330e55611cf0f5ee4f15f30443253c387872ae89debfc9f90e"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.Cartridges.cs",
+      "sha256": "46fce4195e84e7a581c12eaa1488ef6faccdce9eb7dd2a734cb32950a3e59301"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.ChamberMagazine.cs",
+      "sha256": "51273dffe49c44aad2446400236d2a8f4af7ffca886059e80ce1ea4894db1cac"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.Clothing.cs",
+      "sha256": "d3291994ec235c076dfe87f637cf163e0d4a42067907e53a0d25e52156cfd231"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.Container.cs",
+      "sha256": "0eeb9170164169ee8245bc186d8031f73c7b06a7feec6825c548ac2f581eb31e"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.Interactions.cs",
+      "sha256": "d28a510784f6557a3d730fbc254d07fa70362c671ad74fbbaf449ecf33a4ef4e"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.Magazine.cs",
+      "sha256": "78865a59b6826978bf2c12203683e4d79afdf404e6383218b0f82898712ba94e"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.Revolver.cs",
+      "sha256": "148cf22dc677dee82b8f6610830b83ebb220b7b116b013ac911e9b10224d6f89"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.Solution.cs",
+      "sha256": "28b2b9626f7c7aae39bf7bdd44cefa4b00cf2d08aa7ba912e57f7338bc897e9a"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/SharedGunSystem.cs",
+      "sha256": "b7cad9033f677b5363e852c4563a6adc27a99c33071f0262b1e4c4f910960058"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Systems/UseDelayOnShootSystem.cs",
+      "sha256": "b7b1ed125eacec487524da629c777a31a85099f7defc3c34fd942b3d23f495be"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Upgrades/Components/GunUpgradeComponent.cs",
+      "sha256": "03c6be88392f5b6a8227f7a05d8cbd153649f16d34f4c7408d3c9424120d0726"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Upgrades/Components/GunUpgradeDamageComponent.cs",
+      "sha256": "bd80dbc9140b5b1d165967b01b87d6f44290ea71312c95b01f6650f4597cf2fc"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Upgrades/Components/GunUpgradeFireRateComponent.cs",
+      "sha256": "94e00b066e8c069a0cf588669c754bb1daf27b44ffde80f884aa4834528b68a0"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Upgrades/Components/GunUpgradeSpeedComponent.cs",
+      "sha256": "8c812e53ecb5ec37434cebb1a046022b4e0c29499de4aa38830c17e88a7561a8"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Upgrades/Components/UpgradeableGunComponent.cs",
+      "sha256": "7f8ea9705f7db85e78ce8a92fe6a8da89689853b0bf60aa9829527c7474938fb"
+    },
+    {
+      "path": "Content.Shared/Weapons/Ranged/Upgrades/GunUpgradeSystem.cs",
+      "sha256": "ff82187ebff5da942a9b8a9fd299f47cdf029fdbc82d8270a17ef0da009a05c2"
+    },
+    {
+      "path": "Content.Shared/Wieldable/Components/IncreaseDamageOnWieldComponent.cs",
+      "sha256": "566fd7f300b341e40b74ba885e25168c3a406697eab780b99cd3440ad092afa8"
+    },
+    {
+      "path": "Content.Shared/Wieldable/Components/WieldableComponent.cs",
+      "sha256": "4fdf7f1a807a8d064a527eede5a87d47d4036d5320fe7ce5c4e48af29fd2c1f7"
+    },
+    {
+      "path": "Content.Shared/Wieldable/Components/WieldingBlockerComponent.cs",
+      "sha256": "5e42e094cb40d3f44e97bd53a34961c8b1dba76d07915cd142add4af22608100"
+    },
+    {
+      "path": "Content.Shared/Wieldable/Events.cs",
+      "sha256": "85e977f2840bd397e492f9746cdbb8b933c0fd70ae061bf0393558b87b923714"
+    },
+    {
+      "path": "Content.Shared/Wieldable/SharedWieldableSystem.cs",
+      "sha256": "57eb29760f3ea3be00609e4697954d197fb3d06f80891743105b4b4c1bc1873b"
+    },
+    {
+      "path": "LICENSE.TXT",
+      "sha256": "50aa6339ba77eb03e3a5cd9a6572578a7f4f60977c2cea7fbc505637ec3ba010"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Power/powercells.yml",
+      "sha256": "cf9870c35b95693adb95328e85c9eed1da48f8009f6fce1bda6ee83240a0e2da"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Boxes/antimateriel.yml",
+      "sha256": "281e2cde4b5a75713b73bc8ff2f21812e4a39398f43821f17d2ed2f2ac88c2fa"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Boxes/caseless_rifle.yml",
+      "sha256": "ed7726d80a0aad8c8086d3678df5ccda8a9ebec76417c71f8310265b04b81885"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Boxes/light_rifle.yml",
+      "sha256": "f7f5cbffaf9ecce512ff30ced2230263ba9db153414fd592032bee005d45d14c"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Boxes/magnum.yml",
+      "sha256": "f46e95764316b61a8b4787d2b642f91f5e8258a7b707cf0c36f8ab3dc35108dc"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Boxes/pistol.yml",
+      "sha256": "2ee7536ca43daf4389c0d985aea42617d5692b51a7d9638d010ce4facbe858ae"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Boxes/rifle.yml",
+      "sha256": "0b50c18c3ac36635578bcb14550dda1d4ec9c4c97cb5a6ea483e0b7fea33f23e"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Boxes/shotgun.yml",
+      "sha256": "598ac6952d367dd23481795d7ff14e51bb5b312fa7c0f0aec7ff2153609ec619"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Boxes/toy.yml",
+      "sha256": "539043c768e5cb7754e7002b6d71eabd746eed0003eba925fe029dd1a925247b"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Cartridges/antimateriel.yml",
+      "sha256": "00b405af6c2e91ff16a110b6aa8450e8473d27cd589586e38c71aefc32d9586b"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Cartridges/base_cartridge.yml",
+      "sha256": "06428ce53358d6515b96f0a4c6530f86a474b25986d69e816210ac7c38cea975"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Cartridges/caseless_rifle.yml",
+      "sha256": "d3c89044000202990ca635bcdce19b14c16d36a0e1545c86861272c5480d3781"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Cartridges/heavy_rifle.yml",
+      "sha256": "e7697730992c78e1ab3c6f749b32a252bd8651156bca7306b297f99bc1b4a5ee"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Cartridges/light_rifle.yml",
+      "sha256": "fea4a9988c64edff0eb71759e6cf8b27b01b39e7c168117b6d7ea4887aea2210"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Cartridges/magnum.yml",
+      "sha256": "ba851409c40adeb2e6fb33bfb7858fe5cca684261da506d6bbb5aa2c2d967d77"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Cartridges/pistol.yml",
+      "sha256": "56785c37709955b28c2856f172f207f21ba4d7d0c947fbeb282d6dd1277c5e50"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Cartridges/rifle.yml",
+      "sha256": "1edf06539960c523c4490a56e3cd5419ff9d2431d6a920b28aca8b842934f3c6"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Cartridges/shotgun.yml",
+      "sha256": "200e411a14c6ce8525f47a5ace642719f17531f678df6d74c39c290ee07b66da"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Cartridges/toy.yml",
+      "sha256": "913054925c381609961488a2da586d5c42dcf809792f62e20c4598422fe134cb"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Magazines/caseless_rifle.yml",
+      "sha256": "5ca6a68de8f94808c9a8a8e4c40b278fd6680eeffb15f588dde433a8c31faa77"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Magazines/grenade.yml",
+      "sha256": "435b7559608e9e5d905bc2631f9c12f8f0b5698cda7b00335f769a508d78671b"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Magazines/light_rifle.yml",
+      "sha256": "d22e07a6232bafcdef1eb37e02ccb7542e2510d8f667e78409931f28e1f1b415"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Magazines/magnum.yml",
+      "sha256": "009d0d54f10ca1f84f955776242cf18a70e9e74deb8cc8106eaf73222dfcaa87"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Magazines/pistol.yml",
+      "sha256": "172d34ebb1080fb3dce54a8a7ff6ea439f489e29a18a9813698b2ff105f99ed2"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Magazines/rifle.yml",
+      "sha256": "5addab2198fa4a71cc0117157aad8b15cdd1c311ef7e301bfc4b9b930127326f"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Magazines/shotgun.yml",
+      "sha256": "3c829603c24fb0539f3b4f04f08b071baca8053cb22ba1eec52578436cd7e296"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Magazines/toy.yml",
+      "sha256": "c64bbdae38badc1214367ef7a1841479a92a233d1c5421d19fbd47a4320ea2f7"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Projectiles/antimateriel.yml",
+      "sha256": "9db912a3437be0520c05f4bdb0cf9c95695d8a8a41416cfc4f824f76175a01d1"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Projectiles/caseless_rifle.yml",
+      "sha256": "66915fddf2405766346e4e1af5ffd629f1af48346872625a2d13dc8efc07ee51"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Projectiles/grenade.yml",
+      "sha256": "112b5b44aad075efafcf3643d96534290045a033d9f4dae58d50ee2c476c110f"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Projectiles/heavy_rifle.yml",
+      "sha256": "35ba4c92b4904cab2ccfff733b6045dc96d05a9758893b91537728014c2ab22e"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Projectiles/light_rifle.yml",
+      "sha256": "e3a8b2354f533642a0b76b3c02fdf1997395f9b0bb2743fa2432a7c8a5431ac0"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Projectiles/magnum.yml",
+      "sha256": "72d80aedff77f1557e322ee6328ead9880f965c6af1390440bae02d8681af7ef"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Projectiles/pistol.yml",
+      "sha256": "2693068c6ad71b86f7d730c3b7ef2288b3efa1b9675710dd6d37a1fd130295dd"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Projectiles/rifle.yml",
+      "sha256": "9b4e988d9814defa0dadd6a287524b9bb0880d1a077969cfc5f0e3b2f9c5c912"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Projectiles/shotgun.yml",
+      "sha256": "db1a46a46455dbf1b720cdecc94aec6c0857b12514bbb8003d93604f4e149e94"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/Projectiles/toy.yml",
+      "sha256": "734c31dfa7db22098baad03fe06ad2265d54ad2b3a6239c7e851f818c80e4ad9"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/SpeedLoaders/magnum.yml",
+      "sha256": "9c5a15c37dc94e87acf7555eafed5ed0963d84b2a123bc847032680ee78d9571"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/SpeedLoaders/rifle_light.yml",
+      "sha256": "31aa9d5550eb793c8ea01fe9b009e0e4294c77ea8b33e17db2bcf43f707f3372"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/SpeedLoaders/toy.yml",
+      "sha256": "58b772b4ec3e8810a6fc905c7febad0c3971869a416edc9fd38854d68037088a"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/explosives.yml",
+      "sha256": "be88da5b5eab634a90d3d8fe6ded4487ec436ec390327c26b71ef9cc92553333"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Ammunition/sound_collections.yml",
+      "sha256": "1e572d9d5dc83cd90e6753c2b65d7bfc96af2aaff3179fc32c2d296346ae269c"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Basic/base_pka.yml",
+      "sha256": "89821d4bb90ae15b53c41a68869e18f3f20020f758ac652ff72625cca632b6ae"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Basic/base_staff.yml",
+      "sha256": "af3f0c7e1508b87c9abe228225570af795ef56c04e87064a81821e5d52ef1d92"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Basic/base_wand.yml",
+      "sha256": "fbb5d522dbc29eef9da74b07f83fd607a3f07412a01e72515df74dfc32d7d1b1"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Basic/base_wieldable.yml",
+      "sha256": "308d61a70b880cc4fc8e0f9e3aef5ff1d6534a0b5ecc2d4512204f5b0ffac340"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Basic/energy_crossbow.yml",
+      "sha256": "e04c234ea7863c6a23365eca263c32092adc0d2595df52b545edc083e55bd44c"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Basic/pka.yml",
+      "sha256": "26f7e55e9e45fc468a5c599a1a492cc5b2dde2eead5c27126e0219ba0e47f03f"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Basic/spraynozzle.yml",
+      "sha256": "10ffee7a26205a0f42adf5f555e9e51f65c9d14bd2c487138eba2eea25c5642a"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Basic/staves.yml",
+      "sha256": "f01a6da1346b9694d9557e408a52f9269e6e85b951552e193e8728b02ed7737f"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Basic/wands.yml",
+      "sha256": "abcc4e3881085a836ad1c8e19e9927bc9b1c0e49b07cb9db4c5481a5f1a6f297"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Basic/watergun.yml",
+      "sha256": "bd9cb236f882309fcc512067fd771d5cc08e4db74e6d76bf344d2dbf2a87ed7b"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Battery/battery_guns.yml",
+      "sha256": "31a8a49fc5b82ae184f2da12ecb270abe6c38bcfe6eac7e7c311ee7e4d8e414d"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Bow/bow.yml",
+      "sha256": "0b81fcb8fc10f805cd47699671f56371ab055cb1f026ec696f66be200e6ca981"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/HMGs/hmgs.yml",
+      "sha256": "f333b9be26eaf96fe3e83948b0552c61454a51d6741c9523ec29a9112cd3976b"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/LMGs/lmgs.yml",
+      "sha256": "9f4640b41c1e0e65ca1bcf88bb4ae0c1e6e3329ffc22fe5a20afdbd22e4804ee"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Launchers/launchers.yml",
+      "sha256": "dbc11a1cc97be49252c7249210638ad10414f9e0386b40164205aa13dfbb5f17"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Pistols/pistols.yml",
+      "sha256": "0d18f255c1c5c1982619d7b8b9f26e49434e2df6e2eb2868d888d6c265b884ca"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Projectiles/arrows.yml",
+      "sha256": "75d1a5ad099671ebf3f7942048e5def02807e0840514e548ec59f56f9c4cf17c"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Projectiles/hitscan.yml",
+      "sha256": "e7913f4cca102c0e10d78fee6a677ea84480e513de461564bae13c383137179e"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Projectiles/impacts.yml",
+      "sha256": "cc869146704c6a4d094c20925ce6f31002fa2a42257a5f0ff5bfe08a03ab953c"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Projectiles/magic.yml",
+      "sha256": "ff7558f4a38e855efe0bdf50333d27d0ecf50c92c7a288209aac9ed3afbb384e"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Projectiles/meteors.yml",
+      "sha256": "0b7ceeb886322be1d6da7e39c4d644039ad69bcb11b515c3a671dcc62bbb461b"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Projectiles/projectiles.yml",
+      "sha256": "29f8e79e99721c8c1ccfe71efd478a6463721da9707bc592c467feaee1706382"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Revolvers/revolvers.yml",
+      "sha256": "fd072273bbd16b4a665880d413b34a8701f2f91ac0c472ab0ecbeef5911af776"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Rifles/rifles.yml",
+      "sha256": "10147f697758685dfed6e74f3bef21837433c043a77db8e94648ce255de7f96e"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/SMGs/smgs.yml",
+      "sha256": "a8a062fbe5d64302b0bc7fbb357e30bb3cc779c60de09c1e75024a8ec05a50f7"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Shotguns/shotguns.yml",
+      "sha256": "e2a07720b01253d176e2d0fce2b74c20d04c372bb8795c5d1f1584349674ee45"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Snipers/snipers.yml",
+      "sha256": "b3d7dbeeb5bf17bc0978b64f6e2237cb0e6eabfceaba99cf82addc0c9c54c5ba"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Turrets/turrets_ballistic.yml",
+      "sha256": "00baaf3530e822531d101b61213dd67b43f6fc399b2193b340fe3300556838a6"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Turrets/turrets_base.yml",
+      "sha256": "6a3e719168865114dbae8f183476477e25e72eefcf7507b88efd952e6c44d24f"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Turrets/turrets_broken.yml",
+      "sha256": "14d64be454780d07d8574c83ca4779f8621177b9205ffd34a028a3e8e2cb4962"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/Turrets/turrets_energy.yml",
+      "sha256": "a0347658e5a2225023343dd430d4ecb63b8ce73c06d85d85c80e7b33b4920bda"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/flare_gun.yml",
+      "sha256": "ac9e1758f8f4d97a6ca52d533a77d2e5d0563e8d7a28990fb8f44110f62db0c4"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/pneumatic_cannon.yml",
+      "sha256": "0d1d71411d30341c146e2f6a6dcb298e6e82ca1eab2a73d25457b25120c7c69c"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/Weapons/Guns/tile_gun.yml",
+      "sha256": "be1eecf61f4777aad57b084c073e05ea18fc21887b5fc38f4f51f5f61f29b772"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/base_contraband.yml",
+      "sha256": "d7795fda8cac9d629100015b97efaed4ba4eb186e38bea95d42c2d232c8e2670"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Objects/base_item.yml",
+      "sha256": "bd1367801f6bcfe6aefb4b4f6f224000013847c094db4ba45e97769a7da4fe6a"
+    },
+    {
+      "path": "Resources/Prototypes/SoundCollections/gun_sounds.yml",
+      "sha256": "426dce082f3806fe3b219538b9e0cf6e6121b389a5c382e3c6624e8e97c2ef1e"
+    },
+    {
+      "path": "Resources/Prototypes/item_size.yml",
+      "sha256": "b139c86527e25268afb1cdd82dd0e549fd059379914395d8548e6434065b3a20"
+    }
+  ],
+  "optional_missing_directories": [
+    "Content.Server/PowerCell",
+    "Content.Shared/Reflect",
+    "Content.Shared/Stamina",
+    "Content.Shared/VirtualItem"
+  ]
+}

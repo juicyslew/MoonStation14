@@ -1,5 +1,7 @@
 # Interaction readiness contract
 
+Gun/target-action interaction additions cover gun world-use policy, hand action request construction, target-action policy/snapshot behavior, and prone-aim policy with posture data. They assert local admission/request and posture composition rules only—not authenticated live admission, connected gameplay, or owner acceptance.
+
 The same `interaction` catalog also selects `FixedCropOutputCompositionTest` and `HeldItemConversionTest`: resolved fixed-output composition, real fresh stacks/no refill, packaged source assets, one-use profile defaults/inheritance and fresh-output preflight. These do not establish ordinary conversion admission, source commit/last-output pickup in a running server, or final primary-item binding; the registered-player fixtures remain the relevant native boundary. Do not substitute a temporary tomato-profile fixture for Meatwheat/CocoaPod acquisition evidence.
 
 `ItemFoodSolutionProfileTest` and `FruitPitProductCatalogCandidateTest` cover independent resolved food-solution composition, inherited source defaults, guarded one-time materialization, and separation from ingestion/extraction/Produce/Seed capability. Existing runtime, factory and raw-source comparison selections exercise the shared owner. Candidate resolution is not activation: unregistered fixed-trash outputs must still fail production admission. These JVM checks do not establish live cob/pit acquisition, authenticated planting, command execution or owner acceptance.

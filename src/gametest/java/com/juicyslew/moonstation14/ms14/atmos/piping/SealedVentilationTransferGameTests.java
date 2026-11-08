@@ -78,7 +78,8 @@ public final class SealedVentilationTransferGameTests {
         helper.setBlock(new BlockPos(4, 1, 2), ModBlocks.STEEL_WALL_BLOCK.get());
         require(!FiniteVentilationTransfer.executeTrustedAfterPaidInterval(f.level, f.atmosphere, f.vent, 1).moved(),
                 "replacement host invalidates old sealed owner");
-        require(same(retained, f.savedGas()), "replacement preserves old finite sealed gas");
+        var retired = f.saved.snapshot().retiredSnapshot().get(f.wallIncarnation);
+        require(retired != null && same(retained, retired.mixture()), "replacement preserves old finite sealed gas under retiring incarnation");
         helper.succeed();
     }
 
@@ -112,8 +113,9 @@ public final class SealedVentilationTransferGameTests {
         var before = saved.snapshot();
         var key = new PipeTopology.NodeKey(first, PipeTopology.Layer.PRIMARY);
         var entry = before.get(key).orElseThrow();
-        GasMixture seed = new GasMixture(Map.of(GasType.OXYGEN, 12.0), 240.0);
+        GasMixture seed = new GasMixture(Map.of(GasType.OXYGEN, 12.0), 240.0, entry.volume());
         require(saved.replace(before.revision(), before, before.withMixture(key, entry.incarnation(), entry.version(), seed)), "seed exposed pipe oxygen");
+        require(LoadedPipeNetworks.network(level, key).isPresent(), "normal network read reconciles sealed/exposed topology");
 
         var device = f.vent;
         var defaults = device.config().settings();
@@ -124,18 +126,22 @@ public final class SealedVentilationTransferGameTests {
         var component = LoadedPipeComponent.discover(level, f.wall, VisualPipeBlockEntity.PRIMARY).orElseThrow();
         require(component.nodes().size() == 2, "one exposed visual node connects to sealed-wall owner");
         GasMixture equalizationBefore = componentMixture(saved.snapshot(), component);
+        require(close(equalizationBefore.moles(GasType.OXYGEN), 24.0)
+                        && close(equalizationBefore.moles(GasType.NITROGEN), 45.0)
+                        && close(equalizationBefore.volumeCubicMeters(), 0.4),
+                "reconciled full network retains both sealed and exposed finite gas");
         require(LoadedPipeEqualization.equalize(level, device), "live device consumer equalizes exposed and sealed wall lanes");
         var equalized = saved.snapshot();
         GasMixture equalizationAfter = componentMixture(equalized, component);
         for (GasType gas : GasType.values())
             require(close(equalizationBefore.moles(gas), equalizationAfter.moles(gas)), "equalization conserves " + gas);
         require(close(equalizationBefore.thermalEnergy(), equalizationAfter.thermalEnergy()), "equalization conserves enthalpy");
-        require(close(equalized.get(key).orElseThrow().mixture().moles(GasType.OXYGEN), 12.0)
-                        && close(equalized.get(key).orElseThrow().mixture().moles(GasType.NITROGEN), 22.5),
-                "sealed primary lane receives equal share from exposed component");
-        require(equalized.get(new PipeTopology.NodeKey(first, PipeTopology.Layer.PRIMARY)).orElseThrow().mixture()
-                        .gasMoles().equals(equalized.get(key).orElseThrow().mixture().gasMoles()),
-                "exposed primary lane has the same equalized gas mixture");
+        var shared=equalized.mixture(key);
+        require(close(shared.moles(GasType.OXYGEN),24.0)&&close(shared.moles(GasType.NITROGEN),45.0)
+                        &&close(shared.volumeCubicMeters(),0.4),
+                "resolved exposed/sealed component reads one shared full-network mixture");
+        require(equalized.network(key).orElseThrow().id().equals(equalized.network(new PipeTopology.NodeKey(first,PipeTopology.Layer.PRIMARY)).orElseThrow().id()),
+                "exposed and sealed lane are aliases of the same resolved network");
         require(equalized.get(new PipeTopology.NodeKey(first, PipeTopology.Layer.SECONDARY)).isEmpty(),
                 "consumer does not create or mutate another lane");
         GasMixture pipeBefore = componentMixture(saved.snapshot(), component);
@@ -147,6 +153,16 @@ public final class SealedVentilationTransferGameTests {
         GasMixture roomAfter = f.atmosphere.sample(level, f.room).orElseThrow();
         conserve(pipeBefore, roomBefore, pipeAfter, roomAfter);
 
+        var wallKey = new PipeTopology.NodeKey(f.wall, PipeTopology.Layer.PRIMARY);
+        var retiredEntry = afterTransfer.get(wallKey).orElseThrow();
+        var retiringNetwork = afterTransfer.network(wallKey).orElseThrow();
+        var retirementMembers = retiringNetwork.members().stream().sorted(java.util.Comparator.comparing(member ->
+                member.position().getX()+","+member.position().getY()+","+member.position().getZ()+","+member.layer().name()+","+member.portId())).toList();
+        double[] retirementVolumes = retirementMembers.stream().mapToDouble(member -> afterTransfer.get(member).orElseThrow().volume()).toArray();
+        var retirementShares = PipeGasLedger.split(retiringNetwork.mixture(), retirementVolumes);
+        int retiredIndex = retirementMembers.indexOf(wallKey);
+        var expectedArchive = new GasMixture(retirementShares.get(retiredIndex).gasMoles(),
+                retirementShares.get(retiredIndex).temperatureKelvin(), retiredEntry.volume());
         var hostState = level.getBlockState(f.wall);
         var hostShape = hostState.getCollisionShape(level, f.wall);
         require(hostState.is(ModBlocks.STEEL_WALL_BLOCK.get()), "host remains steel wall");
@@ -154,7 +170,18 @@ public final class SealedVentilationTransferGameTests {
         helper.setBlock(new BlockPos(4, 1, 2), ModBlocks.STEEL_WALL_BLOCK.get());
         require(LoadedPipeComponent.discover(level, f.wall, VisualPipeBlockEntity.PRIMARY).isEmpty(), "same-type host replacement invalidates graph");
         require(level.getBlockState(f.wall).getCollisionShape(level, f.wall).equals(hostShape), "steel host collision unchanged");
-        require(same(pipeAfter, componentMixture(saved.snapshot(), component)), "replacement retains saved oxygen");
+        var retiredNode = saved.snapshot().retiredSnapshot().get(f.wallIncarnation);
+        require(retiredNode != null && retiredNode.node().equals(wallKey)
+                        && Double.compare(retiredNode.volume(), retiredEntry.volume()) == 0
+                        && sameStored(expectedArchive, retiredNode.mixture()), "replacement archives exact retiring wall share");
+        var survivorShares = new java.util.ArrayList<>(retirementShares);
+        survivorShares.remove(retiredIndex);
+        var mergedSurvivor = PipeGasLedger.merge(survivorShares);
+        double survivorVolume = retirementMembers.stream().filter(member -> !member.equals(wallKey))
+                .mapToDouble(member -> afterTransfer.get(member).orElseThrow().volume()).sum();
+        var expectedSurvivor = new GasMixture(mergedSurvivor.gasMoles(), mergedSurvivor.temperatureKelvin(), survivorVolume);
+        var liveSurvivor = LoadedPipeNetworks.network(level, key).orElseThrow().mixture();
+        require(same(expectedSurvivor, liveSurvivor), "live exposed survivor plus exact archive preserves ledger split");
         helper.succeed();
         MoonStation14.LOGGER.info("VENTILATION_JOIN_PASS actualDeviceEqualization");
     }
@@ -166,15 +193,10 @@ public final class SealedVentilationTransferGameTests {
     }
 
     private static GasMixture componentMixture(PipeGasInventory inventory, LoadedPipeComponent.Snapshot component) {
-        var moles = new java.util.EnumMap<GasType, Double>(GasType.class);
-        double energy = 0;
-        for (var node : component.nodes()) {
-            GasMixture mixture = inventory.get(node.key()).orElseThrow().mixture();
-            for (GasType gas : GasType.values()) moles.merge(gas, mixture.moles(gas), Double::sum);
-            energy += mixture.thermalEnergy();
-        }
-        GasMixture result = new GasMixture(moles, 300.0);
-        return result.totalMoles() == 0 ? result : result.withThermalEnergy(energy);
+        var keys = component.nodes().stream().map(LoadedPipeComponent.Node::key).collect(java.util.stream.Collectors.toSet());
+        var network = inventory.network(keys.iterator().next()).orElseThrow();
+        require(network.members().equals(keys), "measured component covers the complete authoritative network");
+        return network.mixture();
     }
 
     private static Fixture fixture(GameTestHelper helper, boolean wrongAxis) {
@@ -198,7 +220,7 @@ public final class SealedVentilationTransferGameTests {
         var key = new PipeTopology.NodeKey(wall, PipeTopology.Layer.PRIMARY);
         var before = saved.snapshot();
         var owner = before.get(key).orElseThrow();
-        GasMixture seed = new GasMixture(Map.of(GasType.OXYGEN, 12.0, GasType.NITROGEN, 45.0), 310);
+        GasMixture seed = new GasMixture(Map.of(GasType.OXYGEN, 12.0, GasType.NITROGEN, 45.0), 310, owner.volume());
         require(saved.replace(before.revision(), before, before.withMixture(key, owner.incarnation(), owner.version(), seed)), "seed sealed inventory");
         BlockPos room = helper.absolutePos(new BlockPos(2, 1, 2));
         for (int i = 0; i < 12 && atmosphere.sample(level, room).isEmpty(); i++)
@@ -206,22 +228,28 @@ public final class SealedVentilationTransferGameTests {
         require(atmosphere.sample(level, room).isPresent(), "finite room classified");
         var vent = (VentilationDeviceBlockEntity) level.getBlockEntity(ventPos);
         require(vent != null, "vent exists");
-        return new Fixture(level, atmosphere, room, wall, vent, saved);
+        return new Fixture(level, atmosphere, room, wall, vent, saved, owner.incarnation());
     }
 
     private record Fixture(ServerLevel level, AtmosphereService atmosphere, BlockPos room, BlockPos wall,
-                           VentilationDeviceBlockEntity vent, PipeGasInventorySavedData saved) {
-        GasMixture pipe() { return LoadedSealedWallGasOwner.activeSnapshot(level, wall, PipeTopology.Layer.PRIMARY).orElseThrow().mixture(); }
-        GasMixture savedGas() { return saved.snapshot().get(new PipeTopology.NodeKey(wall, PipeTopology.Layer.PRIMARY)).orElseThrow().mixture(); }
+                           VentilationDeviceBlockEntity vent, PipeGasInventorySavedData saved, UUID wallIncarnation) {
+        GasMixture pipe() { return saved.snapshot().mixture(new PipeTopology.NodeKey(wall, PipeTopology.Layer.PRIMARY)); }
+        GasMixture savedGas() { return saved.snapshot().mixture(new PipeTopology.NodeKey(wall, PipeTopology.Layer.PRIMARY)); }
     }
     private static void conserve(GasMixture p0, GasMixture r0, GasMixture p1, GasMixture r1) {
         for (GasType gas : GasType.values()) require(close(p0.moles(gas) + r0.moles(gas), p1.moles(gas) + r1.moles(gas)), "conserve " + gas);
-        require(close(p0.thermalEnergy() + r0.thermalEnergy(), p1.thermalEnergy() + r1.thermalEnergy()), "conserve energy");
+        require(PipeGasLedger.conservedEnergy(p0.thermalEnergy() + r0.thermalEnergy(),
+                p1.thermalEnergy() + r1.thermalEnergy()), "conserve energy within canonical float ledger budget");
     }
     private static boolean same(GasMixture a, GasMixture b) {
         if (!close(a.thermalEnergy(), b.thermalEnergy())) return false;
         for (GasType gas : GasType.values()) if (!close(a.moles(gas), b.moles(gas))) return false;
         return true;
+    }
+    private static boolean sameStored(GasMixture a, GasMixture b) {
+        return a.gasMoles().equals(b.gasMoles())
+                && Double.compare(a.temperatureKelvin(), b.temperatureKelvin()) == 0
+                && Double.compare(a.volumeCubicMeters(), b.volumeCubicMeters()) == 0;
     }
     private static boolean close(double a, double b) { return Math.abs(a - b) < 1e-8 * Math.max(1, Math.max(Math.abs(a), Math.abs(b))); }
     private static void require(boolean value, String message) { if (!value) throw new GameTestAssertException(message); }

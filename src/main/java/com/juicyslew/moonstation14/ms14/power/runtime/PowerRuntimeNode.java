@@ -1,11 +1,17 @@
 package com.juicyslew.moonstation14.ms14.power.runtime;
 
 import com.juicyslew.moonstation14.ms14.power.topology.DevicePort;
+import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 
 import java.util.List;
 
 /** Narrow opt-in bridge for loaded block entities with an explicit typed power port. */
 public interface PowerRuntimeNode {
+    /** Solver allocation IDs are global across roles; retain ownership while disambiguating typed ports. */
+    static String allocationId(String ownerId, CableTier tier) {
+        if (ownerId == null || ownerId.isBlank() || tier == null) throw new IllegalArgumentException("Owner and tier required");
+        return ownerId + ":power:" + tier.name().toLowerCase(java.util.Locale.ROOT);
+    }
     /** Ports must use this BE's own position; call {@link PowerRuntime#deviceChanged} after port changes. */
     List<DevicePort> powerRuntimePorts();
 

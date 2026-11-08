@@ -15,6 +15,7 @@ import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import java.util.UUID;
 import java.util.Arrays;
+import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LoadedFrameRayQueryCaptureTest {
@@ -75,15 +76,23 @@ class LoadedFrameRayQueryCaptureTest {
 
     @Test void characterPredictionTemporalUnavailableHandlerDoesNotCommitOrPublish() throws Exception {
         var node = compiled(com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.class);
-        MethodNode method = node.methods.stream().filter(m -> m.name.equals("predictCharacter")).findFirst().orElseThrow();
+        List<MethodNode> candidates = node.methods.stream().filter(m -> m.name.equals("predictCharacter")
+                && m.tryCatchBlocks.stream().anyMatch(block -> block.type != null
+                && block.type.endsWith("OwnedFrameSimulationScope$TemporalUnavailableException"))
+                && Arrays.stream(m.instructions.toArray()).filter(MethodInsnNode.class::isInstance)
+                .map(MethodInsnNode.class::cast).anyMatch(call -> call.name.equals("commit"))).toList();
+        assertEquals(1, candidates.size(), "select the scoped prediction overload with handler and normal commit");
+        MethodNode method = candidates.get(0);
         var insns = method.instructions.toArray();
         var handlers = method.tryCatchBlocks.stream().filter(block -> block.type != null
                 && block.type.endsWith("OwnedFrameSimulationScope$TemporalUnavailableException")).toList();
-        assertFalse(handlers.isEmpty());
         for (var handler : handlers) {
             int start = method.instructions.indexOf(handler.handler);
             int end = insns.length;
-            for (int i = start + 1; i < insns.length; i++) if (insns[i].getOpcode() == Opcodes.RETURN) { end = i; break; }
+            for (int i = start + 1; i < insns.length; i++) {
+                int opcode = insns[i].getOpcode();
+                if (opcode == Opcodes.RETURN || opcode == Opcodes.ARETURN || opcode == Opcodes.ATHROW) { end = i + 1; break; }
+            }
             boolean reset = false, pause = false, barrier = false;
             for (int i = start; i < end; i++) if (insns[i] instanceof MethodInsnNode call) {
                 assertFalse(call.name.equals("commit") || call.name.equals("publish"), "unavailable handler cannot commit/publish");

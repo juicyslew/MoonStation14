@@ -27,6 +27,10 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.entity.player.Player;
 import com.mojang.authlib.GameProfile;
 import java.util.UUID;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -396,6 +400,134 @@ public final class PowerDeviceGameTests {
                         + PowerGraphService.state(level, wrongTier) + ", topologyReady="
                         + PowerGraphService.topologyReady(level) + ", indexedDevices="
                         + PowerRuntime.indexedDeviceCount(level), ready);
+    }
+
+    @GameTest(template = "power_live_chain_clear", timeoutTicks = 1200, templateNamespace = "moonstation14")
+    @GameTestTags({"station-power-contacts"})
+    public static void floorMvContactFeedsEmptyApcAndPaidLampFromRealSource(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlockPos source = helper.absolutePos(new BlockPos(3, 1, 2));
+        BlockPos substation = helper.absolutePos(new BlockPos(3, 1, 4));
+        BlockPos apc = helper.absolutePos(new BlockPos(3, 1, 6));
+        BlockPos lamp = helper.absolutePos(new BlockPos(3, 1, 8));
+        BlockPos sourceHost = helper.absolutePos(new BlockPos(4, 1, 2));
+        BlockPos hvMiddle = helper.absolutePos(new BlockPos(4, 1, 3));
+        BlockPos stationHost = helper.absolutePos(new BlockPos(4, 1, 4));
+        BlockPos stationMvHost = helper.absolutePos(new BlockPos(3, 0, 4));
+        BlockPos apcMvHost = apc.below();
+        BlockPos mvMiddleHost = helper.absolutePos(new BlockPos(3, 0, 5));
+        BlockPos apcOutputHost = helper.absolutePos(new BlockPos(3, 1, 7));
+        BlockPos apcCeilingHost = apc.above();
+        Map<BlockPos, BlockEntity> ownedDevices = new LinkedHashMap<>();
+        Map<CableFaceNode, CableTier> ownedCables = new LinkedHashMap<>();
+        AtomicBoolean cleaned = new AtomicBoolean();
+        Runnable cleanup = () -> {
+            if (!cleaned.compareAndSet(false, true)) return;
+            ownedCables.forEach((node, tier) -> {
+                if (CableStorage.get(level, node.host(), node.face()) == tier)
+                    CableStorage.remove(level, node.host(), node.face(), tier);
+            });
+            ownedDevices.forEach((pos, entity) -> {
+                if (level.getBlockEntity(pos) == entity) level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+            });
+        };
+        helper.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener() {
+            public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo i) { }
+            public void testPassed(net.minecraft.gametest.framework.GameTestInfo i, net.minecraft.gametest.framework.GameTestRunner r) { cleanup.run(); }
+            public void testFailed(net.minecraft.gametest.framework.GameTestInfo i, net.minecraft.gametest.framework.GameTestRunner r) { cleanup.run(); }
+            public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo a, net.minecraft.gametest.framework.GameTestInfo b, net.minecraft.gametest.framework.GameTestRunner r) { cleanup.run(); }
+        });
+        for (BlockPos host : new BlockPos[]{sourceHost, hvMiddle, stationHost})
+            level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
+        for (BlockPos host : new BlockPos[]{stationMvHost, mvMiddleHost, apcMvHost})
+            level.setBlock(host, ModBlocks.STATION_FLOOR.get().defaultBlockState(), 3);
+        level.setBlock(apcOutputHost, Blocks.STONE.defaultBlockState(), 3);
+        level.setBlock(apcCeilingHost, Blocks.STONE.defaultBlockState(), 3);
+        placeDevice(level, source, PowerDeviceKind.HV_SOURCE, Direction.EAST);
+        ownedDevices.put(source, level.getBlockEntity(source));
+        placeDevice(level, substation, PowerDeviceKind.HV_MV_SUBSTATION, Direction.EAST);
+        ownedDevices.put(substation, level.getBlockEntity(substation));
+        placeDevice(level, apc, PowerDeviceKind.APC, Direction.NORTH);
+        ownedDevices.put(apc, level.getBlockEntity(apc));
+        placeDevice(level, lamp, PowerDeviceKind.LAMP, Direction.SOUTH);
+        ownedDevices.put(lamp, level.getBlockEntity(lamp));
+        PowerDeviceBlockEntity battery = (PowerDeviceBlockEntity) level.getBlockEntity(apc);
+        // Eliminate the device's default charge: success must come from this live source.
+        battery.setEnergyJoules(0);
+        ((PowerDeviceBlockEntity) level.getBlockEntity(substation)).setEnergyJoules(0);
+        for (CableFaceNode node : new CableFaceNode[]{
+                new CableFaceNode(sourceHost, Direction.WEST, CableTier.HV),
+                new CableFaceNode(hvMiddle, Direction.WEST, CableTier.HV),
+                new CableFaceNode(stationHost, Direction.WEST, CableTier.HV),
+                new CableFaceNode(stationMvHost, Direction.UP, CableTier.MV),
+                new CableFaceNode(mvMiddleHost, Direction.UP, CableTier.MV),
+                new CableFaceNode(apcMvHost, Direction.UP, CableTier.MV),
+                new CableFaceNode(apcCeilingHost, Direction.DOWN, CableTier.MV),
+                new CableFaceNode(apcOutputHost, Direction.NORTH, CableTier.APC)}) {
+            require(CableStorage.place(level, node.host(), node.face(), node.tier()), "place owned cable " + node);
+            ownedCables.put(node, node.tier());
+        }
+        var sourcePort = new CableFaceNode(sourceHost, Direction.WEST, CableTier.HV);
+        var stationHvPort = new CableFaceNode(stationHost, Direction.WEST, CableTier.HV);
+        var stationMvPort = new CableFaceNode(stationMvHost, Direction.UP, CableTier.MV);
+        var apcMvPort = new CableFaceNode(apcMvHost, Direction.UP, CableTier.MV);
+        var mvMiddlePort = new CableFaceNode(mvMiddleHost, Direction.UP, CableTier.MV);
+        var outputPort = new CableFaceNode(apcOutputHost, Direction.NORTH, CableTier.APC);
+        var ceilingStub = new CableFaceNode(apcCeilingHost, Direction.DOWN, CableTier.MV);
+        PowerFixtureReadiness.await(helper, level, 600,
+                () -> PowerFixtureReadiness.topologyReadyWithKnownPorts(level, sourcePort, stationHvPort,
+                        stationMvPort, mvMiddlePort, apcMvPort, ceilingStub, outputPort)
+                        && PowerGraphService.state(level, ceilingStub).componentId()
+                                == PowerGraphService.state(level, apcMvPort).componentId()
+                        && PowerRuntime.apcOutputObservation(level, battery).known()
+                        && PowerRuntime.apcOutputObservation(level, battery).inputWatts() > 0
+                        && battery.energyJoules() >= 1000 && level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT),
+                () -> "source=" + PowerGraphService.state(level, sourcePort) + ", stationHV="
+                        + PowerGraphService.state(level, stationHvPort) + ", stationMV="
+                        + PowerGraphService.state(level, stationMvPort) + ", APCMV="
+                        + PowerGraphService.state(level, apcMvPort) + ", battery=" + battery.energyJoules()
+                        + ", lamp=" + level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT)
+                        + ", " + PowerRuntime.lastSolveDiagnostic(level), () -> {
+                    require(battery.energyJoules() > 0,
+                            "fresh APC storage growth proves paid accepted energy from the live HV source");
+                     assertLamp(level, lamp, true, "orientation-independent floor MV contact powers APC and lamp");
+                     var beforeCut = PowerRuntime.apcOutputObservation(level, battery);
+                     require(beforeCut.known() && beforeCut.inputWatts() > 0 && battery.energyJoules() >= 1000,
+                             "capture fresh powered APC sample before isolating its input");
+                     require(CableStorage.remove(level, mvMiddleHost, Direction.UP, CableTier.MV) == CableTier.MV,
+                             "cut only middle floor MV cable");
+                     PowerFixtureReadiness.await(helper, level, 120,
+                             () -> {
+                                 var sample = PowerRuntime.apcOutputObservation(level, battery);
+                                 return sample.known() && sample.sampleTick() > beforeCut.sampleTick()
+                                         && sample.inputWatts() == 0 && sample.outputWatts() >= 100
+                                         && sample.energyAfterJoules() < beforeCut.energyAfterJoules()
+                                         && level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT);
+                             },
+                             () -> "isolated APC sample=" + PowerRuntime.apcOutputObservation(level, battery)
+                                     + ", prior=" + beforeCut + ", lamp=" + level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT),
+                             () -> {
+                                 var isolated = PowerRuntime.apcOutputObservation(level, battery);
+                                 require(isolated.known(), "isolated APC sample remains fresh before reconnection");
+                                 require(CableStorage.place(level, mvMiddleHost, Direction.UP, CableTier.MV),
+                                         "restore middle floor MV cable");
+                                 ownedCables.put(mvMiddlePort, CableTier.MV);
+                                 PowerFixtureReadiness.await(helper, level, 120,
+                                         () -> {
+                                             var sample = PowerRuntime.apcOutputObservation(level, battery);
+                                             return sample.known() && sample.sampleTick() > isolated.sampleTick()
+                                                     && sample.inputWatts() > 0
+                                                     && sample.energyAfterJoules() > isolated.energyAfterJoules()
+                                                     && sample.energyAfterJoules() > sample.energyBeforeJoules()
+                                                     && level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT);
+                                         },
+                                         () -> "reconnected APC sample=" + PowerRuntime.apcOutputObservation(level, battery),
+                                         () -> {
+                                             cleanup.run();
+                                             helper.succeed();
+                                         });
+                             });
+                });
     }
 
     private static boolean replacementLampReady(ServerLevel level, BlockPos lamp, CableFaceNode output) {

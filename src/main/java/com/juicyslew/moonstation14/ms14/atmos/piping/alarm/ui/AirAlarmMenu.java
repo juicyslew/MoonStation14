@@ -47,6 +47,8 @@ public final class AirAlarmMenu extends AbstractContainerMenu {
 
     public UUID session() { return session; }
     public HandActorAuthority.Snapshot bodyAuthority() { return authority; }
+    BlockPos pos() { return pos; }
+    HandActorAuthority.Snapshot authority() { return authority; }
     AirAlarmBlockEntity alarm() { return alarm; }
     ServerLevel serverLevel() { return level; }
     public UUID expectedFrameId() { return expectedFrameId; }
@@ -79,4 +81,3 @@ public final class AirAlarmMenu extends AbstractContainerMenu {
         AirAlarmMenuService.closed(this);
     }
 }
-

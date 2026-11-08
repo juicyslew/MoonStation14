@@ -51,12 +51,13 @@ public final class LoadedPipeGasOwnerGameTests {
         var key = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY);
         var before = saved.snapshot();
         var entry = before.get(key).orElseThrow();
-        var gas = new GasMixture(Map.of(GasType.OXYGEN, 2.0), 120.0);
+        var gas = new GasMixture(Map.of(GasType.OXYGEN, 2.0), 120.0, entry.volume());
         require(saved.replace(before.revision(), before, before.withMixture(key, id, entry.version(), gas)), "seed gas");
         require(!LoadedPipeGasOwner.rollbackFreshVacuumLane(level, pos, VisualPipeBlockEntity.PRIMARY, id), "seeded lane rejected");
         var retained = saved.snapshot().get(key).orElseThrow();
-        require(retained.mixture().gasMoles().equals(gas.gasMoles())
-                && Double.compare(retained.mixture().thermalEnergy(), gas.thermalEnergy()) == 0, "seeded gas preserved");
+        var retainedGas=saved.snapshot().mixture(key);
+        require(retainedGas.gasMoles().equals(gas.gasMoles())
+                && Double.compare(retainedGas.thermalEnergy(), gas.thermalEnergy()) == 0, "seeded gas preserved");
         require(((VisualPipeBlockEntity) level.getBlockEntity(pos)).functionalIdentity(VisualPipeBlockEntity.PRIMARY).orElseThrow().equals(id), "identity preserved");
         helper.succeed();
     }
@@ -77,10 +78,10 @@ public final class LoadedPipeGasOwnerGameTests {
         var saved = PipeGasInventorySavedData.existing(level).orElseThrow();
         var before = saved.snapshot();
         var initial = before.get(secondaryKey).orElseThrow();
-        var finite = new GasMixture(Map.of(GasType.OXYGEN, 2.5, GasType.NITROGEN, 7.5), 312.0);
+        var finite = new GasMixture(Map.of(GasType.OXYGEN, 2.5, GasType.NITROGEN, 7.5), 312.0, initial.volume());
         var seeded = before.withMixture(secondaryKey, second.orElseThrow(), initial.version(), finite);
         require(saved.replace(before.revision(), before, seeded), "seed finite mixture");
-        var expected = seeded.get(secondaryKey).orElseThrow().mixture();
+        var expected = seeded.mixture(secondaryKey);
         require(LoadedPipeGasOwner.deactivate(level, pos, VisualPipeBlockEntity.SECONDARY), "deactivate");
         require(LoadedPipeGasOwner.activeSnapshot(level, pos, VisualPipeBlockEntity.SECONDARY).isEmpty(), "dormant lane hidden");
 
@@ -96,13 +97,15 @@ public final class LoadedPipeGasOwnerGameTests {
         require(reloadedVisual.functionalIdentity(VisualPipeBlockEntity.SECONDARY).equals(second), "secondary identity restored");
         require(reloadedVisual.functionalIdentity(VisualPipeBlockEntity.TERTIARY).equals(third), "tertiary identity restored");
         require(PipeGasInventorySavedData.load(inventoryTag, level.registryAccess()).snapshot()
-                .get(secondaryKey).orElseThrow().mixture().gasMoles().equals(expected.gasMoles()), "saved-data gas decoded");
+                .mixture(secondaryKey).gasMoles().equals(expected.gasMoles()), "saved-data gas decoded");
         require(LoadedPipeGasOwner.reconcileExisting(level, pos, VisualPipeBlockEntity.SECONDARY), "reconcile persisted lane");
         var restored = LoadedPipeGasOwner.activeSnapshot(level, pos, VisualPipeBlockEntity.SECONDARY).orElseThrow();
-        require(restored.mixture().gasMoles().equals(expected.gasMoles())
-                && Double.compare(restored.mixture().thermalEnergy(), expected.thermalEnergy()) == 0, "gas and energy retained");
+        var restoredGas=saved.snapshot().mixture(secondaryKey);
+        require(restoredGas.gasMoles().equals(expected.gasMoles())
+                && Double.compare(restoredGas.thermalEnergy(), expected.thermalEnergy()) == 0, "gas and energy retained");
         var thirdEntry = LoadedPipeGasOwner.activeSnapshot(level, pos, VisualPipeBlockEntity.TERTIARY).orElseThrow();
-        require(thirdEntry.mixture().gasMoles().isEmpty() && thirdEntry.mixture().thermalEnergy() == 0.0, "third lane remains vacuum");
+        var thirdGas=saved.snapshot().mixture(new PipeTopology.NodeKey(pos,PipeTopology.Layer.TERTIARY));
+        require(thirdGas.gasMoles().isEmpty() && thirdGas.thermalEnergy() == 0.0, "third lane remains vacuum");
         helper.succeed();
     }
 
@@ -116,7 +119,7 @@ public final class LoadedPipeGasOwnerGameTests {
         var key = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY);
         var before = saved.snapshot();
         var admitted = before.get(key).orElseThrow();
-        var finite = new GasMixture(Map.of(GasType.OXYGEN, 2.5, GasType.NITROGEN, 7.5), 312.0);
+        var finite = new GasMixture(Map.of(GasType.OXYGEN, 2.5, GasType.NITROGEN, 7.5), 312.0, admitted.volume());
         var seeded = before.withMixture(key, id, admitted.version(), finite);
         require(saved.replace(before.revision(), before, seeded), "seed finite primary mixture");
 
@@ -130,7 +133,7 @@ public final class LoadedPipeGasOwnerGameTests {
         require(!fresh.equals(id), "fresh incarnation admitted after retirement");
         var snapshot = saved.snapshot();
         var retained = snapshot.retiredSnapshot().get(id);
-        require(retained != null && !retained.active() && retained.mixture().gasMoles().equals(finite.gasMoles())
+        require(retained != null && retained.mixture().gasMoles().equals(finite.gasMoles())
                 && Double.compare(retained.mixture().thermalEnergy(), finite.thermalEnergy()) == 0, "stale gas archived intact");
         require(snapshot.get(key).orElseThrow().incarnation().equals(fresh), "new live owner does not reconnect stale primary");
         require(!LoadedPipeGasOwner.reconcileExisting(level, pos, VisualPipeBlockEntity.PRIMARY), "replacement identity absent, old owner never reconciles");
@@ -147,7 +150,7 @@ public final class LoadedPipeGasOwnerGameTests {
         var key = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY);
         var before = saved.snapshot();
         var admitted = before.get(key).orElseThrow();
-        var finite = new GasMixture(Map.of(GasType.OXYGEN, 4.0), 208.0);
+        var finite = new GasMixture(Map.of(GasType.OXYGEN, 4.0), 208.0, admitted.volume());
         var seeded = before.withMixture(key, id, admitted.version(), finite);
         require(saved.replace(before.revision(), before, seeded), "seed mismatch mixture");
 
@@ -177,19 +180,19 @@ public final class LoadedPipeGasOwnerGameTests {
         var key = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY);
         var before = saved.snapshot();
         var entry = before.get(key).orElseThrow();
-        var gas = new GasMixture(Map.of(GasType.OXYGEN, 4.0), 208.0);
+        var gas = new GasMixture(Map.of(GasType.OXYGEN, 4.0), 208.0, entry.volume());
         require(saved.replace(before.revision(), before, before.withMixture(key, id, entry.version(), gas)), "seed removal gas");
         level.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
         var retired = saved.snapshot();
         require(retired.get(key).isEmpty(), "removed live owner absent");
         var archive = retired.retiredSnapshot().get(id);
-        require(archive != null && !archive.active() && archive.mixture().gasMoles().equals(gas.gasMoles())
+        require(archive != null && archive.mixture().gasMoles().equals(gas.gasMoles())
                 && Double.compare(archive.mixture().thermalEnergy(), gas.thermalEnergy()) == 0, "removed gas archived intact");
         level.setBlock(pos, ModBlocks.GAS_PIPE_VISUAL.get().defaultBlockState(), 3);
         UUID fresh = LoadedPipeGasOwner.createVacuumLane(level, pos, VisualPipeBlockEntity.PRIMARY).orElseThrow();
         require(!fresh.equals(id), "replacement incarnation is fresh");
-        var replacement = saved.snapshot().get(key).orElseThrow();
-        require(replacement.mixture().gasMoles().isEmpty() && replacement.mixture().thermalEnergy() == 0.0,
+        var replacementInventory = saved.snapshot();
+        require(replacementInventory.mixture(key).gasMoles().isEmpty() && replacementInventory.mixture(key).thermalEnergy() == 0.0,
                 "archived gas not reused by replacement");
         helper.succeed();
         MoonStation14.LOGGER.info("VENTILATION_REGRESSION_PASS physicalRemovalArchivesFiniteGasAndAllowsFreshIncarnation");
@@ -228,7 +231,7 @@ public final class LoadedPipeGasOwnerGameTests {
         var saved = PipeGasInventorySavedData.forMutation(level);
         var key = new PipeTopology.NodeKey(pos, PipeTopology.Layer.PRIMARY);
         var before = saved.snapshot(); var entry = before.get(key).orElseThrow();
-        var gas = new GasMixture(Map.of(GasType.OXYGEN, 4.0, GasType.NITROGEN, 9.0), 208.0);
+        var gas = new GasMixture(Map.of(GasType.OXYGEN, 4.0, GasType.NITROGEN, 9.0), 208.0, entry.volume());
         require(saved.replace(before.revision(), before, before.withMixture(key, id, entry.version(), gas)), "seed finite removal gas");
 
         FakePlayer player = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "pipe-removal-engine-fixture"));
@@ -248,7 +251,7 @@ public final class LoadedPipeGasOwnerGameTests {
         level.setBlock(pos, ModBlocks.GAS_PIPE_VISUAL.get().defaultBlockState(), 3);
         UUID replacementId = LoadedPipeGasOwner.createVacuumLane(level, pos, VisualPipeBlockEntity.PRIMARY).orElseThrow();
         require(!replacementId.equals(id)
-                && saved.snapshot().get(key).orElseThrow().mixture().gasMoles().isEmpty()
+                && saved.snapshot().mixture(key).gasMoles().isEmpty()
                 && !saved.snapshot().retiredSnapshot().containsKey(id), "spilled gas is not reused or archived");
         helper.succeed();
         MoonStation14.LOGGER.info("VENTILATION_REGRESSION_PASS creativeFakePlayerRemovalSpillsIntoProvenFiniteRoom");
@@ -272,7 +275,7 @@ public final class LoadedPipeGasOwnerGameTests {
             old[i] = UUID.randomUUID();
             var key = new PipeTopology.NodeKey(pos, layers[i]);
             var before = saved.snapshot();
-            var gas = new GasMixture(Map.of(GasType.OXYGEN, i + 1.0), 250 + i);
+            var gas = new GasMixture(Map.of(GasType.OXYGEN, i + 1.0), 250 + i, Ss14VentilationDefaults.PIPE_NODE_VOLUME_M3);
             require(saved.replace(before.revision(), before, before.admit(key, old[i], Ss14VentilationDefaults.PIPE_NODE_VOLUME_M3)), "seed legacy owner " + i);
             var seeded = saved.snapshot(); var entry = seeded.get(key).orElseThrow();
             require(saved.replace(seeded.revision(), seeded, seeded.withMixture(key, old[i], entry.version(), gas)), "seed stale lane " + i);
@@ -295,7 +298,7 @@ public final class LoadedPipeGasOwnerGameTests {
         }
         var finalInventory = saved.snapshot();
         for (int i = 0; i < lanes.length; i++) {
-            require(finalInventory.get(new PipeTopology.NodeKey(pos, layers[i])).orElseThrow().mixture().gasMoles().isEmpty(), "fresh vacuum lane " + i);
+            require(finalInventory.mixture(new PipeTopology.NodeKey(pos, layers[i])).gasMoles().isEmpty(), "fresh vacuum lane " + i);
             require(finalInventory.retiredSnapshot().containsKey(old[i]), "stale gas archived " + i);
         }
         require(finalInventory.get(siblingKey).orElseThrow().incarnation().equals(siblingId), "sibling position owner unchanged");

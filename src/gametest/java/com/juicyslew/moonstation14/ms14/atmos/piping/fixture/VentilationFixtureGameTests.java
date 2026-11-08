@@ -10,6 +10,10 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.VisualPipeBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 import com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceIdentity;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime;
+import com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkTransport;
+import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosDevicePayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -25,10 +29,51 @@ import java.util.Set;
 import java.util.HashSet;
 
 /** End-to-end coverage of the explicitly-built fixture through normal server systems. */
-@GameTestTags({"ventilation", "atmosphere", "power"})
+@GameTestTags({"ventilation", "atmosphere", "power", "atmos-pipe-equalization-runtime"})
 @PrefixGameTestTemplate(false)
 public final class VentilationFixtureGameTests {
     private VentilationFixtureGameTests() { }
+    private record RoomChunkSnapshot(com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData data,
+            int claims, java.util.Map<com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereChunkData.CellPosition,
+            com.juicyslew.moonstation14.ms14.atmos.core.GasMixture> cells) { }
+
+    @GameTest(template = "atmos_large_empty", batch = "ventilation_fixture", timeoutTicks = 300, templateNamespace = "moonstation14")
+    @GameTestTags({"ventilation", "atmosphere", "trusted-setup-activation"})
+    public static void preparedTokenCannotActivatePhysicallyClosedButUnownedRooms(GameTestHelper helper) {
+        ServerLevel level=helper.getLevel();
+        VentilationFixturePlan plan=VentilationFixturePlan.standard();
+        BlockPos origin=freshUnownedOrigin(helper,plan);
+        BlockPos max=origin.offset(VentilationFixturePlan.WIDTH-1,VentilationFixturePlan.HEIGHT-1,VentilationFixturePlan.DEPTH-1);
+        Set<Long> newlyForced=new HashSet<>();
+        for(int cx=(origin.getX()>>4)-1;cx<=(max.getX()>>4)+1;cx++)for(int cz=(origin.getZ()>>4)-1;cz<=(max.getZ()>>4)+1;cz++) {
+            long key=ChunkPos.asLong(cx,cz);
+            if(!level.getForcedChunks().contains(key)){level.setChunkForced(cx,cz,true);newlyForced.add(key);}
+            level.getChunk(cx,cz);
+        }
+        try {
+            require(VentilationFixtureService.build(level,origin).startsWith("Built finite ventilation fixture"),"fixture build for activation guard");
+            var entry=VentilationFixtureSavedData.existing(level).flatMap(d->d.entry(origin)).orElseThrow();
+            require(AtmosphereService.INSTANCE.trustedSetupRoomReady(level,plan.sourceCells().stream().map(origin::offset).toList(),null),
+                    "closed unowned room admits authoring proof");
+            require(VentilationFixtureSavedData.forMutation(level).markInitialized(origin,entry.scrubberUUID(),entry.ventUUID(),entry.fixtureUUID()),
+                    "fixture can be given prepared token for strict activation check");
+            var guardedEntry=VentilationFixtureSavedData.existing(level).flatMap(d->d.entry(origin)).orElseThrow();
+            var roomCells=new java.util.ArrayList<BlockPos>();
+            plan.sourceCells().forEach(p->roomCells.add(origin.offset(p)));
+            plan.recipientCells().forEach(p->roomCells.add(origin.offset(p)));
+            var beforeActivation=roomChunkSnapshot(level,roomCells);
+            String activated=VentilationFixtureService.activateLaboratoryTransfer(level,origin);
+            require(activated.contains("Source room is not fully finite/owned"),"prepared unowned room must refuse activation: "+activated);
+            require(beforeActivation.equals(roomChunkSnapshot(level,roomCells))
+                    &&guardedEntry.equals(VentilationFixtureSavedData.existing(level).flatMap(d->d.entry(origin)).orElse(null)),
+                    "strict activation refusal preserves room ownership/gas and prepared saved identity");
+            var scrub=(VentilationDeviceBlockEntity)level.getBlockEntity(origin.offset(plan.scrubber()));
+            var vent=(VentilationDeviceBlockEntity)level.getBlockEntity(origin.offset(plan.vent()));
+            require(scrub!=null&&vent!=null&&!scrub.config().settings().configuredEnabled()&&!vent.config().settings().configuredEnabled(),
+                    "failed strict activation leaves both transfer devices disabled");
+        } finally { unforce(level,newlyForced); }
+        helper.succeed();
+    }
 
     @GameTestTags("suite-stabilization")
     @GameTest(template = "atmos_large_empty", batch = "ventilation_fixture", timeoutTicks = 600, templateNamespace = "moonstation14")
@@ -56,6 +101,42 @@ public final class VentilationFixtureGameTests {
                         require(level.getBlockState(origin.offset(x, y, z)).isAir(),
                                 "remote footprint must start empty at " + origin.offset(x, y, z));
             require(VentilationFixtureService.build(level, origin).startsWith("Built finite ventilation fixture"), "service builds real fixture");
+            var sourceCells = plan.sourceCells().stream().map(origin::offset).toList();
+            var unownedCell = sourceCells.getFirst();
+            require(atmos.finiteRoomEndpointForTrustedSimulation(level, unownedCell).isEmpty(),
+                    "fresh built source cell must not already be finite-owned");
+            var sourceChunk = level.getChunkSource().getChunkNow(unownedCell.getX() >> 4, unownedCell.getZ() >> 4);
+            require(sourceChunk != null, "source proof chunk loaded");
+            var beforeData = sourceChunk.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.ATMOSPHERE_CHUNK.get());
+            var beforeClaims = beforeData == null ? 0 : beforeData.claimCount();
+            var beforeCells = beforeData == null ? java.util.Map.of() : beforeData.snapshot();
+            boolean beforeDirty = sourceChunk.isUnsaved();
+            var setupEntryBefore=VentilationFixtureSavedData.existing(level).flatMap(d->d.entry(origin)).orElseThrow();
+            var fullProofCells=new java.util.ArrayList<BlockPos>(sourceCells);
+            plan.recipientCells().stream().map(origin::offset).forEach(fullProofCells::add);
+            var rejectionSnapshot=roomChunkSnapshot(level,fullProofCells);
+            require(atmos.trustedSetupRoomReady(level, sourceCells, null), "closed unowned source room is trusted-setup ready");
+            var afterData = sourceChunk.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.ATMOSPHERE_CHUNK.get());
+            require(afterData == beforeData && (afterData == null || afterData.claimCount() == beforeClaims && afterData.snapshot().equals(beforeCells))
+                    && sourceChunk.isUnsaved() == beforeDirty, "read-only room proof must not create attachment, claim, gas, or dirty chunk");
+            require(sourceCells.stream().allMatch(p -> atmos.finiteRoomEndpointForTrustedSimulation(level, p).isEmpty()),
+                    "successful trusted setup proof must not claim its cells");
+            require(!atmos.trustedSetupRoomReady(level, java.util.List.of(), null), "empty trusted setup room rejected");
+            require(!atmos.trustedSetupRoomReady(level, java.util.List.of(unownedCell, unownedCell), null), "duplicate trusted setup cells rejected");
+            require(!atmos.trustedSetupRoomReady(level, java.util.Collections.nCopies(8193, unownedCell), null), "oversized trusted setup room rejected");
+            require(!atmos.trustedSetupRoomReady(level, sourceCells.subList(1, sourceCells.size()), null), "incomplete supplied component rejected");
+            BlockPos opening = plan.sourceCells().stream().map(origin::offset)
+                    .flatMap(cell -> java.util.Arrays.stream(Direction.values()).map(cell::relative))
+                    .filter(p -> level.getBlockState(p).is(net.minecraft.world.level.block.Blocks.GLASS))
+                    .findFirst().orElseThrow(() -> new GameTestAssertException("source room has no glass boundary"));
+            var priorWall = level.getBlockState(opening);
+            level.setBlock(opening, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            try { require(!atmos.trustedSetupRoomReady(level, sourceCells, null), "open loaded room rejected by trusted proof"); }
+            finally { level.setBlock(opening, priorWall, 3); }
+            require(rejectionSnapshot.equals(roomChunkSnapshot(level,fullProofCells)),
+                    "all rejected proofs preserve attachment identity, claims, and gas after restoring the test wall");
+            require(setupEntryBefore.equals(VentilationFixtureSavedData.existing(level).flatMap(d->d.entry(origin)).orElse(null)),
+                    "rejected proofs preserve uninitialized fixture guard");
             helper.runAtTickTime(5, () -> initializeWhenReady(helper, level, origin, plan, 5, newlyForced));
         } catch (RuntimeException | Error failure) {
             unforce(level, newlyForced);
@@ -77,21 +158,35 @@ public final class VentilationFixtureGameTests {
                 return;
             }
             var liveScrubber = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.scrubber()));
+            var liveVent = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.vent()));
             var alarm = (AirAlarmBlockEntity) level.getBlockEntity(origin.offset(plan.alarm()));
-            if (liveScrubber == null || alarm == null
+            if (liveScrubber == null || liveVent == null || alarm == null
                     || !PowerRuntime.ventilationMeter(level, liveScrubber).known()
+                    || !PowerRuntime.ventilationMeter(level, liveVent).known()
                     || !PowerRuntime.airAlarmMeter(level, alarm).known()) {
                 if (tick >= 300) throw new GameTestAssertException("live scrubber/alarm paid meter did not settle before one-shot fixture initialization; scrubber="
                         + (liveScrubber == null ? "missing" : PowerRuntime.ventilationMeter(level, liveScrubber))
-                        + " alarm=" + (alarm == null ? "missing" : PowerRuntime.airAlarmMeter(level, alarm))
+                         + " vent=" + (liveVent == null ? "missing" : PowerRuntime.ventilationMeter(level, liveVent))
+                         + " alarm=" + (alarm == null ? "missing" : PowerRuntime.airAlarmMeter(level, alarm))
                         + " indexedDevices=" + PowerRuntime.indexedDeviceCount(level));
                 helper.runAtTickTime(tick + 5, () -> initializeWhenReady(helper, level, origin, plan, tick + 5, newlyForced));
                 return;
             }
+            startManualControllerBarrier(helper, level, origin, plan, tick, newlyForced, alarm, liveScrubber, liveVent);
+        } catch (RuntimeException | Error failure) {
+            unforce(level, newlyForced);
+            throw failure;
+        }
+    }
+
+    private static void initializeGasAfterManualController(GameTestHelper helper, ServerLevel level, BlockPos origin,
+            VentilationFixturePlan plan, Set<Long> newlyForced, AirAlarmBlockEntity alarm) {
+        try {
             String initialized = VentilationFixtureService.initialize(level, origin);
             require(initialized.startsWith("Initialized 18 finite room cells") && initialized.contains("2 mol Plasma per cell"), "initialize service: " + initialized);
             require(VentilationFixtureService.initialize(level, origin).contains("already initialized"), "repeat initialization is guarded");
             String status = VentilationFixtureService.status(level, origin);
+            require(!alarm.automaticMode(), "fixture alarm remains in manual ownership before gas-flow scenario");
             require(status.contains("source 18/18 finite cells") && status.contains("recipient 18/18 finite cells"), "status reports measured finite rooms: " + status);
             require(status.contains("connected nodes Plasma=") && status.contains("concealed pipe=owner active Plasma="), "status reports actual pipe inventories: " + status);
             require(status.contains("alarm power=meter known delivered=") && status.contains("scrubber power=meter known delivered="), "status reports live delivered power: " + status);
@@ -119,12 +214,82 @@ public final class VentilationFixtureGameTests {
         }
     }
 
+    private static void startManualControllerBarrier(GameTestHelper helper, ServerLevel level, BlockPos origin,
+            VentilationFixturePlan plan, int tick, Set<Long> newlyForced, AirAlarmBlockEntity alarm,
+            VentilationDeviceBlockEntity scrubber, VentilationDeviceBlockEntity vent) {
+        var transport = DeviceNetworkRuntime.forLevel(level).transport();
+        var alarmEndpoint = transport.lookup(new DeviceIdentity(alarm.controllerId()));
+        var alarmId = new DeviceIdentity(alarm.controllerId());
+        var scrubId = new DeviceIdentity(scrubber.deviceId());
+        var ventId = new DeviceIdentity(vent.deviceId());
+        var tracker = new ManualPresetAckTracker(Set.of(scrubber.deviceId(), vent.deviceId()));
+        var scrubEndpoint = transport.lookup(scrubId);
+        var ventEndpoint = transport.lookup(ventId);
+        require(alarmEndpoint != null && scrubEndpoint != null && ventEndpoint != null,
+                "fixture alarm/devices registered before manual preset barrier");
+        var observers = new java.util.ArrayList<AutoCloseable>();
+        observers.add(transport.observeDelivery(alarmId, null, attempt -> {
+            if (attempt.outcome() != DeviceNetworkTransport.DeliveryOutcome.ENDPOINT_CALLED
+                    || attempt.receiverDeviceIdentity() == null || !(attempt.packet().payload() instanceof AtmosDevicePayload.SetState command)) return;
+            var id = attempt.receiverDeviceIdentity().value();
+            if (trackerExpected(id, scrubber.deviceId(), vent.deviceId())) tracker.commandDelivered(id, command.requestId(), command.enabled());
+        }));
+        observers.add(transport.observeDelivery(scrubId, alarmId, attempt -> {
+            if (attempt.outcome() == DeviceNetworkTransport.DeliveryOutcome.ENDPOINT_CALLED
+                    && attempt.packet().payload() instanceof AtmosDevicePayload.CommandResult result && result.current() != null)
+                tracker.resultDelivered(scrubber.deviceId(), result.requestId(), result.applied(), result.current().enabled());
+        }));
+        observers.add(transport.observeDelivery(ventId, alarmId, attempt -> {
+            if (attempt.outcome() == DeviceNetworkTransport.DeliveryOutcome.ENDPOINT_CALLED
+                    && attempt.packet().payload() instanceof AtmosDevicePayload.CommandResult result && result.current() != null)
+                tracker.resultDelivered(vent.deviceId(), result.requestId(), result.applied(), result.current().enabled());
+        }));
+        require(alarm.setAutomaticMode(false) && alarm.setMode(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.NONE),
+                "fixture alarm manual NONE ownership established");
+        helper.runAtTickTime(tick + 1, () -> pollManualControllerBarrier(helper, level, origin, plan, tick + 1,
+                newlyForced, alarm, scrubber, vent, tracker, observers));
+    }
+
+    private static boolean trackerExpected(java.util.UUID id, java.util.UUID scrubber, java.util.UUID vent) {
+        return id.equals(scrubber) || id.equals(vent);
+    }
+
+    private static void pollManualControllerBarrier(GameTestHelper helper, ServerLevel level, BlockPos origin,
+            VentilationFixturePlan plan, int elapsed, Set<Long> newlyForced, AirAlarmBlockEntity alarm,
+            VentilationDeviceBlockEntity scrubber, VentilationDeviceBlockEntity vent, ManualPresetAckTracker tracker,
+            java.util.List<AutoCloseable> observers) {
+        try {
+            boolean settingsOff = !scrubber.config().settings().configuredEnabled() && !vent.config().settings().configuredEnabled();
+            if (tracker.ready() && settingsOff && !alarm.automaticMode()
+                    && alarm.currentMode() == com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.NONE) {
+                closeObservers(observers);
+                initializeGasAfterManualController(helper, level, origin, plan, newlyForced, alarm);
+                return;
+            }
+            if (elapsed >= 80) throw new GameTestAssertException("manual NONE controller acknowledgement timeout: "
+                    + tracker.diagnostic() + " alarmAuto=" + alarm.automaticMode() + " alarmMode=" + alarm.currentMode()
+                    + " scrubber=" + scrubber.config().settings() + " vent=" + vent.config().settings());
+            helper.runAtTickTime(elapsed + 1, () -> pollManualControllerBarrier(helper, level, origin, plan, elapsed + 1,
+                    newlyForced, alarm, scrubber, vent, tracker, observers));
+        } catch (RuntimeException | Error failure) {
+            closeObservers(observers);
+            unforce(level, newlyForced);
+            throw failure;
+        }
+    }
+
+    private static void closeObservers(java.util.List<AutoCloseable> observers) {
+        for (var observer : observers) try { observer.close(); } catch (Exception ignored) { }
+        observers.clear();
+    }
+
     private record GasTotals(double source, double recipient, double pipe,
                              AtmospherePrecisionBudget.Inventory allInventory,
                              AtmospherePrecisionBudget.Inventory transportInventory,
+                             AtmospherePrecisionBudget.Inventory sourcePipeInventory,
                              AtmospherePrecisionBudget.Inventory sourceInventory,
                              AtmospherePrecisionBudget.Inventory pipeInventory, String pipeDetail,
-                             int pipeFacePairs) {
+                             int pipeFacePairs, int pipeNodeCount) {
         double totalTestGas() { return source + recipient + pipe; }
     }
 
@@ -133,15 +298,22 @@ public final class VentilationFixtureGameTests {
                 "fixture control volumes include the passable scrubber and vent cells");
         double source = roomGas(level, origin, plan.sourceCells(), plan.testGas());
         double recipient = roomGas(level, origin, plan.recipientCells(), plan.testGas());
-        var sourceInventory = AtmospherePrecisionBudget.Inventory.capture(roomMixtures(level, origin, plan.sourceCells()));
-        java.util.List<com.juicyslew.moonstation14.ms14.atmos.core.GasMixture> all = new java.util.ArrayList<>(
-                roomMixtures(level, origin, plan.sourceCells()));
-        all.addAll(roomMixtures(level, origin, plan.recipientCells()));
+        var sourceMixtures = roomMixtures(level, origin, plan.sourceCells());
+        var recipientMixtures = roomMixtures(level, origin, plan.recipientCells());
+        var sourceInventory = AtmospherePrecisionBudget.Inventory.capture(sourceMixtures);
+        java.util.List<com.juicyslew.moonstation14.ms14.atmos.core.GasMixture> all = new java.util.ArrayList<>(sourceMixtures);
+        all.addAll(recipientMixtures);
         BlockPos first = origin.offset(plan.pipes().stream().filter(p -> !p.concealed()).findFirst().orElseThrow().position());
         var component = LoadedPipeComponent.discover(level, first, VisualPipeBlockEntity.PRIMARY)
                 .orElseThrow(() -> new GameTestAssertException("fixture pipe component unavailable during test-gas conservation check"));
-        double pipe = component.nodes().stream().mapToDouble(n -> n.mixture().moles(plan.testGas())).sum();
-        var pipeMixtures = component.nodes().stream().map(LoadedPipeComponent.Node::mixture).toList();
+        var inventory = com.juicyslew.moonstation14.ms14.atmos.piping.PipeGasInventorySavedData.existing(level)
+                .map(com.juicyslew.moonstation14.ms14.atmos.piping.PipeGasInventorySavedData::snapshot)
+                .orElseThrow(() -> new GameTestAssertException("fixture pipe inventory unavailable during test-gas conservation check"));
+        var representative = component.nodes().getFirst().key();
+        var networkGas = inventory.network(representative).orElseThrow(
+                () -> new GameTestAssertException("fixture pipe network unavailable during test-gas conservation check")).mixture();
+        double pipe = networkGas.moles(plan.testGas());
+        var pipeMixtures = component.nodes().stream().map(n -> inventory.nodeShare(n.key())).toList();
         StringBuilder pipeDetail = new StringBuilder();
         for (var node : component.nodes()) {
             if (pipeDetail.length() > 0) pipeDetail.append("; ");
@@ -149,17 +321,18 @@ public final class VentilationFixtureGameTests {
             pipeDetail.append(node.key().position()).append("[").append(visual ? "visual" : "concealed")
                     .append(",volume=").append(node.volume()).append(",active=").append(node.entry().active())
                     .append(",version=").append(node.entry().version()).append(",owner=").append(node.incarnation())
-                    .append(",Plasma=").append(node.mixture().moles(plan.testGas()))
-                    .append(",energy=").append(node.mixture().thermalEnergy()).append(']');
+                    .append(",Plasma=").append(inventory.nodeShare(node.key()).moles(plan.testGas()))
+                    .append(",energy=").append(inventory.nodeShare(node.key()).thermalEnergy()).append(']');
         }
         all.addAll(pipeMixtures);
-        var transport = new java.util.ArrayList<com.juicyslew.moonstation14.ms14.atmos.core.GasMixture>(
-                roomMixtures(level, origin, plan.recipientCells()));
+        var transport = new java.util.ArrayList<com.juicyslew.moonstation14.ms14.atmos.core.GasMixture>(recipientMixtures);
         transport.addAll(pipeMixtures);
+        var sourcePipe = new java.util.ArrayList<com.juicyslew.moonstation14.ms14.atmos.core.GasMixture>(sourceMixtures);
+        sourcePipe.addAll(pipeMixtures);
         return new GasTotals(source, recipient, pipe, AtmospherePrecisionBudget.Inventory.capture(all),
-                AtmospherePrecisionBudget.Inventory.capture(transport), sourceInventory,
+                AtmospherePrecisionBudget.Inventory.capture(transport), AtmospherePrecisionBudget.Inventory.capture(sourcePipe), sourceInventory,
                 AtmospherePrecisionBudget.Inventory.capture(pipeMixtures), pipeDetail.toString(),
-                facePairs(component.nodes().stream().map(node -> node.key().position()).toList()));
+                facePairs(component.nodes().stream().map(node -> node.key().position()).toList()), component.nodes().size());
     }
 
     /** Selects a deterministic untouched slot instead of reusing stale test-owned SavedData/blocks. */
@@ -195,6 +368,19 @@ public final class VentilationFixtureGameTests {
         throw new GameTestAssertException("no deterministic empty unowned remote fixture slot is available");
     }
 
+    private static java.util.Map<Long,RoomChunkSnapshot> roomChunkSnapshot(ServerLevel level,java.util.List<BlockPos> cells) {
+        var chunks=new java.util.LinkedHashMap<Long,RoomChunkSnapshot>();
+        for(BlockPos cell:cells) {
+            int cx=cell.getX()>>4,cz=cell.getZ()>>4;long key=ChunkPos.asLong(cx,cz);
+            if(chunks.containsKey(key))continue;
+            var chunk=level.getChunkSource().getChunkNow(cx,cz);
+            if(chunk==null)throw new GameTestAssertException("room snapshot chunk unloaded: "+cell);
+            var data=chunk.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.ATMOSPHERE_CHUNK.get());
+            chunks.put(key,new RoomChunkSnapshot(data,data==null?0:data.claimCount(),data==null?java.util.Map.of():data.snapshot()));
+        }
+        return java.util.Map.copyOf(chunks);
+    }
+
     private static java.util.List<com.juicyslew.moonstation14.ms14.atmos.core.GasMixture> roomMixtures(
             ServerLevel level, BlockPos origin, java.util.List<BlockPos> cells) {
         java.util.List<com.juicyslew.moonstation14.ms14.atmos.core.GasMixture> result = new java.util.ArrayList<>();
@@ -225,18 +411,23 @@ public final class VentilationFixtureGameTests {
                                            com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereRuntimeTelemetry.Snapshot countersBefore,
                                            int elapsed) {
         try {
-            GasTotals now = totals(level, origin, plan);
+                GasTotals now = totals(level, origin, plan);
             if (now.source() < initial.source() - 1e-6 && now.pipe() > initial.pipe() + 1e-6) {
                 var countersAfter = AtmosphereService.INSTANCE.diagnosticRuntime(level);
-                double operations = AtmospherePrecisionBudget.operations(
-                        countersAfter.completedCycles() - countersBefore.completedCycles(), fixtureFacePairs(plan), 1);
-                requireConserved(initial.allInventory(), now.allInventory(), operations, "scrubber capture phase");
-                double budget = initial.allInventory().moleBudget(plan.testGas(), now.allInventory(), operations);
+                VentilationDeviceBlockEntity scrubber = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.scrubber()));
+                double operations = AtmospherePrecisionBudget.aggregateOperations(
+                        countersAfter.completedCycles() - countersBefore.completedCycles(), plan.sourceCells().size(),
+                        now.pipeNodeCount(), elapsed, scrubber.prototype().deviceIntervalSeconds());
+                require(AtmospherePrecisionBudget.conservedAndSignalExceedsBudget(
+                                initial.sourcePipeInventory(), now.sourcePipeInventory(), plan.testGas(),
+                                now.pipe() - initial.pipe(), operations),
+                        "source-plus-pipe aggregate conservation/budget must prove captured packet; captured="
+                                + (now.pipe() - initial.pipe()) + " operations=" + operations);
+                double budget = initial.sourcePipeInventory().moleBudget(plan.testGas(), now.sourcePipeInventory(), operations);
                 double capturedMoles = now.pipe() - initial.pipe();
-                require(budget < capturedMoles, "local precision budget must remain below measured captured gas; captured="
+                require(budget < capturedMoles, "source-plus-pipe precision budget must remain below measured captured gas; captured="
                         + capturedMoles + " budget=" + budget + " operations=" + operations);
                 require(now.recipient() == 0.0, "disabled vent keeps recipient at zero test gas; recipient=" + now.recipient());
-                VentilationDeviceBlockEntity scrubber = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.scrubber()));
                 var current = scrubber.config().settings();
                 var disabled = new VentilationDeviceConfig.Settings(current.revision(), false, current.externalPressureBoundKPa(),
                         current.targetPressureChangeKPaPerSecond(), current.targetPressureKPa(), current.volumeRateM3PerSecond(),
@@ -248,7 +439,31 @@ public final class VentilationFixtureGameTests {
                         newlyForced, initial, now, disabledCounters));
                 return;
             }
-            if (elapsed >= 200) throw new GameTestAssertException("normal paid scrubber did not capture source test gas; source=" + now.source() + " pipe=" + now.pipe());
+            if (elapsed >= 200) {
+                var scrubber = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.scrubber()));
+                var sourcePos = origin.offset(plan.sourceCells().getFirst());
+                var sourceEndpoint = AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, sourcePos);
+                int localReach = scrubber == null || scrubber.prototype() == null ? 0
+                        : scrubber.prototype().extensionCableReceiver().localReachBlocks();
+                throw new GameTestAssertException("normal paid scrubber did not capture source test gas; source=" + now.source()
+                        + " pipe=" + now.pipe() + " worldTick=" + level.getGameTime()
+                        + " sampleTick=" + PowerRuntime.currentSampleTick(level)
+                        + " meter=" + (scrubber == null ? "missing" : PowerRuntime.ventilationMeter(level, scrubber))
+                        + " powerDiagnostic=" + (scrubber == null ? "missing" : PowerRuntime.ventilationMeterDiagnostic(level, scrubber))
+                        + " connection=" + (scrubber == null ? "missing" : PowerRuntime.apcConnection(level, scrubber))
+                        + " settings=" + (scrubber == null ? "missing" : scrubber.config().settings())
+                        + " prototype=" + (scrubber == null ? "missing" : scrubber.prototype())
+                        + " transfer={species=" + (scrubber == null ? "missing" : scrubber.transferObservation().speciesMoles())
+                        + ",thermalJoules=" + (scrubber == null ? "missing" : scrubber.transferObservation().thermalJoules()) + "}"
+                        + " sourceEndpoint={present=" + sourceEndpoint.isPresent()
+                        + (sourceEndpoint.isPresent() ? ",endpoint=" + sourceEndpoint.get() : "") + "}"
+                        + " sourceMixture=" + AtmosphereService.INSTANCE.readAtmosphere(level, sourcePos)
+                        + " pipeBackport=" + now.pipeDetail()
+                        + " receiverGraph=" + PowerGraphService.diagnosticSnapshot(level,
+                                scrubber == null ? origin.offset(plan.scrubber()) : scrubber.getBlockPos(), localReach,
+                                com.juicyslew.moonstation14.ms14.power.cable.CableTier.APC)
+                        + " graph=" + PowerGraphService.diagnosticSnapshot(level));
+            }
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> captureScrubbedGas(helper, level, origin, plan,
                     newlyForced, initial, countersBefore, elapsed + 10));
         } catch (RuntimeException | Error failure) { unforce(level, newlyForced); throw failure; }
@@ -277,8 +492,11 @@ public final class VentilationFixtureGameTests {
             var current = vent.config().settings();
             var enabled = new VentilationDeviceConfig.Settings(current.revision(), true, current.externalPressureBoundKPa(),
                     current.targetPressureChangeKPaPerSecond(), current.targetPressureKPa(), current.volumeRateM3PerSecond(),
-                    current.scrubberMode(), current.filteredGases(), current.selectedLayer());
-            if (!current.configuredEnabled()) require(vent.compareAndSetSettings(current.revision(), enabled), "enable vent through revision-checked device settings");
+                    current.scrubberMode(), current.filteredGases(), current.selectedLayer(), true, current.wideNet());
+            if (!current.configuredEnabled() || !current.pressureLockoutOverride())
+                require(vent.compareAndSetSettings(current.revision(), enabled), "enable vent with explicit fill override through revision-checked device settings");
+            require(vent.config().settings().configuredEnabled() && vent.config().settings().pressureLockoutOverride(),
+                    "manual paid vent release explicitly overrides low-pressure fill lockout; settings=" + vent.config().settings());
             GasTotals releaseStart = totals(level, origin, plan);
             var releaseCounters = AtmosphereService.INSTANCE.diagnosticRuntime(level);
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> pollVentRelease(helper, level, origin, plan, newlyForced,
@@ -293,18 +511,21 @@ public final class VentilationFixtureGameTests {
         try {
             GasTotals now = totals(level, origin, plan);
             var vent = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.vent()));
+            var scrubber = (VentilationDeviceBlockEntity) level.getBlockEntity(origin.offset(plan.scrubber()));
+            var alarm = (AirAlarmBlockEntity) level.getBlockEntity(origin.offset(plan.alarm()));
+            require(alarm != null && !alarm.automaticMode(), "fixture alarm remains manually owned during vent release");
+            require(scrubber != null && !scrubber.config().settings().configuredEnabled(),
+                    "scrubber remains disabled during vent release; settings=" + (scrubber == null ? "missing" : scrubber.config().settings()));
             var countersAfter = AtmosphereService.INSTANCE.diagnosticRuntime(level);
             long cycles = countersAfter.completedCycles() - countersBefore.completedCycles();
             double operations = AtmospherePrecisionBudget.operations(cycles, fixtureFacePairs(plan),
                     Math.max(1, (elapsed + PowerRuntime.TICKS_PER_SOLVE - 1) / PowerRuntime.TICKS_PER_SOLVE));
-            if (now.recipient() > releaseStart.recipient() && now.pipe() < releaseStart.pipe()) {
+            double released = releaseStart.pipe() - now.pipe();
+            double received = now.recipient() - releaseStart.recipient();
+            double budget = releaseStart.transportInventory().moleBudget(
+                    plan.testGas(), now.transportInventory(), operations);
+            if (released > 0 || received > 0) {
                 requireConserved(releaseStart.allInventory(), now.allInventory(), operations, "vent release phase");
-                double budget = releaseStart.transportInventory().moleBudget(
-                        plan.testGas(), now.transportInventory(), operations);
-                double released = releaseStart.pipe() - now.pipe();
-                double received = now.recipient() - releaseStart.recipient();
-                require(budget < released, "local precision budget below measured vent release; released=" + released
-                        + " budget=" + budget + " operations=" + operations);
                 require(Math.abs(released - received) <= budget,
                         "packet control-volume transfer conserves released Plasma; pipeLoss=" + released
                                 + " recipientGain=" + received + " budget=" + budget + " operations=" + operations);
@@ -312,10 +533,12 @@ public final class VentilationFixtureGameTests {
                         "vent packet control volume");
                 requireConserved(releaseStart.sourceInventory(), now.sourceInventory(), operations,
                         "scrubber remains disabled during vent release");
-                System.out.println("VENTILATION_FIXTURE_PASS finite-vent-release");
-                require(VentilationFixtureService.initialize(level, origin).contains("already initialized"), "gas initialization remains one-shot after transfer");
-                unforce(level, newlyForced);
-                helper.succeed(); return;
+                if (VentReleaseDecision.shouldComplete(released, received, budget)) {
+                    System.out.println("VENTILATION_FIXTURE_PASS finite-vent-release");
+                    require(VentilationFixtureService.initialize(level, origin).contains("already initialized"), "gas initialization remains one-shot after transfer");
+                    unforce(level, newlyForced);
+                    helper.succeed(); return;
+                }
             }
             if (elapsed >= 200) throw new GameTestAssertException("normal paid vent did not release captured gas before deadline; elapsed="
                     + elapsed + " pipePlasma=" + now.pipe() + " recipientPlasma=" + now.recipient()
@@ -324,16 +547,29 @@ public final class VentilationFixtureGameTests {
                     + " topologyReady=" + PowerGraphService.topologyReady(level) + " topologyGeneration="
                     + PowerGraphService.topologyGeneration(level) + " indexedDevices=" + PowerRuntime.indexedDeviceCount(level)
                     + " settingsValid=" + (vent != null && vent.settingsValid())
-                    + " settings=" + (vent == null ? "missing" : vent.config().settings())
+                     + " settings=" + (vent == null ? "missing" : vent.config().settings())
+                     + " scrubberSettings=" + (scrubber == null ? "missing" : scrubber.config().settings())
+                     + " alarmAutomatic=" + (alarm == null ? "missing" : alarm.automaticMode())
+                     + " alarmMode=" + (alarm == null ? "missing" : alarm.currentMode())
+                     + " sourcePlasmaDelta=" + (now.source() - releaseStart.source())
                     + " roomFiniteEndpoint=" + AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level,
                             origin.offset(plan.vent().relative(Direction.SOUTH))).isPresent()
                     + " fixtureStatus=" + VentilationFixtureService.status(level, origin)
                     + " pipeNodes=" + now.pipeDetail()
-                    + " energyDelta=" + (now.allInventory().energy() - releaseStart.allInventory().energy())
-                    + " operations=" + operations);
+                     + " energyDelta=" + (now.allInventory().energy() - releaseStart.allInventory().energy())
+                     + " released=" + released + " received=" + received + " budget=" + budget
+                     + " cycles=" + cycles + " operations=" + operations);
             com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 10, () -> pollVentRelease(helper, level, origin, plan, newlyForced,
                     releaseStart, countersBefore, elapsed + 10));
         } catch (RuntimeException | Error failure) { unforce(level, newlyForced); throw failure; }
+    }
+
+    public static final class VentReleaseDecision {
+        private VentReleaseDecision() { }
+
+        public static boolean shouldComplete(double released, double received, double budget) {
+            return released > 0 && received > 0 && budget < released && Math.abs(released - received) <= budget;
+        }
     }
 
     private static void unforce(ServerLevel level, Set<Long> chunks) {

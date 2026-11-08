@@ -2,8 +2,10 @@ package com.juicyslew.moonstation14.ms14.combat.client;
 
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.combat.ProjectileSpriteFrames;
+import com.juicyslew.moonstation14.ms14.combat.ProjectileSpritePose;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.CameraType;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -36,15 +38,34 @@ public final class GunMuzzleFlashRenderer {
             var entry=sample.entry(); var sprite=entry.effect().sprite();
             ResourceLocation texture=ResourceLocation.fromNamespaceAndPath(sprite.texture().getNamespace(),"textures/"+sprite.texture().getPath()+"/"+sprite.state()+".png");
             PoseStack pose=event.getPoseStack(); pose.pushPose();
-            try {
-                Vec3 p=entry.position(); pose.translate(p.x-camera.x,p.y-camera.y,p.z-camera.z);
-                pose.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
-                pose.mulPose(com.mojang.math.Axis.ZP.rotation(com.juicyslew.moonstation14.ms14.combat.ProjectileSpritePose.rotation(entry.direction(),mc.getEntityRenderDispatcher().cameraOrientation(),sprite.noRot())));
+             try {
+                  sample=GunMuzzleFlashClient.resolveSample(sample,com.juicyslew.moonstation14.ms14.equipment.client.BodyAppearanceItemRenderer.currentRenderGeneration());
+                  if(sample==null)continue;
+                  Vec3 direction=sample.direction().normalize(); Vec3 visualPosition=entry.endpoint()!=null?sample.origin():sample.pointOrigin();
+                  if(entry.endpoint()!=null){
+                     if(!sample.hasForwardTravel(1.0e-4))continue;
+                     Vec3 beamFrom=visualPosition,beamTo=entry.endpoint();
+                     if(beamFrom.distanceTo(beamTo)<=1.0e-5)continue;
+                     Vec3 end=beamTo.subtract(camera); float alpha=sample.alpha(); int light=sprite.unshaded()?15728880:LightTexture.FULL_BRIGHT;
+                    var frame=ProjectileSpriteFrames.at(sprite,(int)(com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.localClock()-entry.startTick()),partial);
+                    var consumer=buffers.getBuffer(RenderType.entityTranslucent(texture)); var mat=pose.last().pose(); var norm=pose.last();
+                     Vec3 start=beamFrom.subtract(camera);
+                     var alphaFrame=ProjectileVolumeCache.alphaFrame(texture,sprite.frameWidth(),sprite.frameHeight(),sprite.frameColumns(),frame.index(),frame.u0(),frame.u1(),frame.v0(),frame.v1());
+                     float capU=alphaFrame.coreU(),capV=alphaFrame.coreV();
+                     double radius=Math.max(1,alphaFrame.opaqueShortSpan())/64.0;
+                     ClosedEffectMesh.emitQuads(pose.last(),consumer,ClosedEffectMesh.tube(start,end,radius,alphaFrame.u0(),alphaFrame.u1(),alphaFrame.v0(),alphaFrame.v1(),capU,capV),sprite.color(),Math.max(0,Math.min(255,Math.round(alpha*255))),light,sprite.unshaded()); continue;
+                }
+                 Vec3 p=visualPosition; pose.translate(p.x-camera.x,p.y-camera.y,p.z-camera.z);
+                   if(entry.effect().worldAligned()) { if(!sprite.noRot()) { Vec3 up=sample.sourceFrame()!=null?sample.sourceFrame().up():new Vec3(0,1,0); pose.mulPose(ProjectileSpritePose.volumeRotation(direction,up,sprite.rotationOffset())); } }
+                   else if(!sprite.noRot()) pose.mulPose(ProjectileSpritePose.volumeRotation(direction,new Vec3(0,1,0),sprite.rotationOffset()));
                 var frame=ProjectileSpriteFrames.at(sprite,(int)(com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.localClock()-entry.startTick()),partial);
-                var consumer=buffers.getBuffer(RenderType.entityTranslucent(texture));
-                ProjectileSpriteQuadRenderer.emit(pose,consumer,frame,sample.alpha(),sprite.unshaded(),15728880);
+                 var consumer=buffers.getBuffer(RenderType.entityTranslucent(texture));
+                 var mesh=ProjectileVolumeCache.frame(texture,sprite.frameWidth(),sprite.frameHeight(),sprite.frameColumns(),frame.index(),frame.u0(),frame.u1(),frame.v0(),frame.v1());
+                 int effectAlpha=Math.max(0,Math.min(255,Math.round(255*sample.alpha())));
+                 ClosedEffectMesh.emitQuads(pose.last(),consumer,mesh,sprite.color(),effectAlpha,15728880,sprite.unshaded());
             } finally { pose.popPose(); }
         }
         buffers.endBatch();
     }
+    private static void beamVertex(com.mojang.blaze3d.vertex.VertexConsumer out,org.joml.Matrix4f matrix,com.mojang.blaze3d.vertex.PoseStack.Pose pose,Vec3 p,float u,float v,float alpha,int light,int color){out.addVertex(matrix,(float)p.x,(float)p.y,(float)p.z).setColor((color>>>16)&255,(color>>>8)&255,color&255,Math.max(0,Math.min(255,Math.round(((color>>>24)&255)*alpha)))).setUv(u,v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose,0,0,1);}
 }

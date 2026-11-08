@@ -28,6 +28,18 @@ public final class BodyDropPlacementGameTestEntry {
         BodyDropPlacementGameTests.containedRefusalDropsAtOwnerPosition(helper);
     }
 
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
+    @GameTestTags({"medical-corrections-regression", "hands", "guns"})
+    public static void containedGunRefusalDropsAsProfiledLooseItemAtOwnerPosition(GameTestHelper helper) {
+        BodyDropPlacementGameTests.containedGunRefusalDropsAsProfiledLooseItemAtOwnerPosition(helper);
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty")
+    @GameTestTags({"medical-corrections-regression", "hands", "guns"})
+    public static void containedGunTransitStageUsesCapturedOwnerPosition(GameTestHelper helper) {
+        BodyDropPlacementGameTests.containedGunTransitStageUsesCapturedOwnerPosition(helper);
+    }
+
     @GameTest(templateNamespace = "moonstation14", template = "disposal_clear", batch = "disposals", timeoutTicks = 30)
     public static void containedHandDropMovesWholeStackIntoTransitHolder(GameTestHelper helper) {
         BodyDropPlacementGameTests.containedHandDropMovesWholeStackIntoTransitHolder(helper);

@@ -1,0 +1,1 @@
+{"kind":"freezer","parent":"gas_thermo_base","thermostat":{"mode":"freezer","inputPowerWatts":5000,"coefficientOfPerformance":-3.9,"minimumTemperatureK":73.15,"toleranceK":2,"targetK":293.15},"visual":{"sprite":"Structures/Piping/Atmospherics/thermomachine.rsi","state":"freezer"}}

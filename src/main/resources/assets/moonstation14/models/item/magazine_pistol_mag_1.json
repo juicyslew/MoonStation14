@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "moonstation14:ss14/guns/magazine_pistol_base",
+    "layer1": "moonstation14:ss14/guns/magazine_pistol_mag_1"
+  }
+}

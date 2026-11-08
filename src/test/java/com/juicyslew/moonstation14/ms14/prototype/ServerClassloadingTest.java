@@ -88,7 +88,6 @@ class ServerClassloadingTest {
             "com/juicyslew/moonstation14/ms14/hands/client/SelectedLooseOutlineRenderer.java",
             "com/juicyslew/moonstation14/ms14/hands/client/ItemUiRenderer.java",
             "com/juicyslew/moonstation14/ms14/hands/client/ItemUiAppearance.java",
-            "com/juicyslew/moonstation14/ms14/atmos/piping/alarm/ui/client/AirAlarmScreen.java",
             "com/juicyslew/moonstation14/ms14/disposal/client/DisposalTubeVisualRenderer.java",
              "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalConstructionPreview.java",
              "com/juicyslew/moonstation14/ms14/disposal/ui/client/DisposalConstructionClient.java",
@@ -126,7 +125,8 @@ class ServerClassloadingTest {
               "com/juicyslew/moonstation14/entities/client/EmitterBoltRenderer.java",
               "com/juicyslew/moonstation14/entities/client/ParticleAcceleratorParticleRenderer.java",
               "com/juicyslew/moonstation14/entities/client/ProjectileBillboard.java",
-             "com/juicyslew/moonstation14/ms14/singularity/containment/client/FieldFaceRenderer.java"
+              "com/juicyslew/moonstation14/ms14/singularity/containment/client/FieldFaceRenderer.java",
+             "com/juicyslew/moonstation14/ms14/combat/GunAmmoCounterPainter.java"
     );
     private static final Pattern CLIENT_IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?(?:net\\.minecraft\\.client|"
@@ -175,6 +175,11 @@ class ServerClassloadingTest {
                 String relativePath = sourceRoot.relativize(source).toString().replace('\\', '/');
                 if (CLIENT_ONLY_SOURCES.contains(relativePath) || relativePath.startsWith(CLIENT_UI_SOURCE_PREFIX)
                         || relativePath.startsWith("com/juicyslew/moonstation14/mixin/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/atmos/machine/ui/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/atmos/machine/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/atmos/teg/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/atmos/analyzer/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/atmos/piping/alarm/ui/client/")
                         || relativePath.startsWith(CLIENT_LOOSE_OBJECT_SOURCE_PREFIX)
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/medical_observer/client/")
                         || relativePath.startsWith("com/juicyslew/moonstation14/ms14/examine/client/")
@@ -195,7 +200,8 @@ class ServerClassloadingTest {
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/mouse/client/")
                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mobs/client/")
                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/mob/animals/client/")
-                          || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")
+                        || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/client/")
+                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/character/client/")
                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/botany/client/")
                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/actions/client/")
                           || relativePath.startsWith("com/juicyslew/moonstation14/ms14/tesla/client/")

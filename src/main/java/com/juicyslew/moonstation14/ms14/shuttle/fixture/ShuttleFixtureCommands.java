@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.shuttle.fixture;
 
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.ms14.atmos.piping.LoadedPipeGasOwner;
+import com.juicyslew.moonstation14.ms14.atmos.piping.PipeGasInventorySavedData;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VisualPipeBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
@@ -152,8 +153,13 @@ public final class ShuttleFixtureCommands {
         String alarm = alarmBE instanceof AirAlarmBlockEntity be ? PowerRuntime.airAlarmMeter(level, be).toString() : "unknown/unavailable";
         String hatch = airlockBE instanceof AirlockBlockEntity be ? PowerRuntime.airlockPower(level, be).toString() : "unknown/unavailable";
         String pipe = loaded(level, pipePos) ? LoadedPipeGasOwner.activeSnapshot(level, pipePos, VisualPipeBlockEntity.PRIMARY)
-                .map(entry -> "owner=" + entry.incarnation() + ", active=" + entry.active() + ", version=" + entry.version()
-                        + ", gas=" + mixture(entry.mixture())).orElse("unknown/unavailable") : "unloaded";
+                .map(entry -> {
+                    var nodeShare = PipeGasInventorySavedData.existing(level)
+                            .map(data -> data.snapshot().nodeShare(entry.node())).orElse(null);
+                    return "owner=" + entry.incarnation() + ", active=" + entry.active() + ", version=" + entry.version()
+                            + (nodeShare == null ? ", nodeShare=unknown/unavailable"
+                            : ", nodeShare=" + mixture(nodeShare) + " (projection; PipeNet owns authoritative gas)");
+                }).orElse("unknown/unavailable") : "unloaded";
         String sdkSubsteps = physics == null ? "unavailable" : Integer.toString(physics.getConfig().substepsPerTick);
         String result = displayId(level, sub.getUniqueId()) + " (Sable UUID=" + sub.getUniqueId() + "), dimension=" + level.dimension().location()
                 + ", worldOrigin=" + pose.transformPosition(new Vector3d(storage.getX(), storage.getY(), storage.getZ()))

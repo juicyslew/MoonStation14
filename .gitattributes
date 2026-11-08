@@ -14,3 +14,4 @@ src/generated/**/*.json text eol=lf
 *.bat text eol=crlf
 *.png binary
 *.ogg binary
+src/main/resources/assets/moonstation14/textures/ss14/weapons/**/*.rsi/meta.json -text whitespace=cr-at-eol

@@ -3,8 +3,10 @@
   "pipeLane": "PRIMARY",
   "apcPowerReceiver": { "requestedWatts": 5.0 },
   "extensionCableReceiver": { "localReachBlocks": 3 }
+  ,"deviceIntervalSeconds": 0.6
   ,"fixtureGeometry": { "width": 0.75, "height": 0.75, "depth": 0.125, "nonColliding": true, "allowVerticalMounts": true },
   "deviceComponents": { "deviceNetwork": { "network": "moonstation14:atmos_devices", "transmitFrequency": "moonstation14:atmos_monitor", "receiveFrequency": "moonstation14:atmos_monitor", "broadcastHook": true }, "deviceConnection": { "wired": true } },
+  "ambientAudio": { "sound": "moonstation14:ss14/atmospherics/gas_vent", "volumeDb": -12.0, "range": 5.0, "gate": "ENABLED_POWERED" },
   "atmosMonitor": {
     "pressureThreshold": "moonstation14:stationpressure",
     "temperatureThreshold": "moonstation14:stationtemperature",

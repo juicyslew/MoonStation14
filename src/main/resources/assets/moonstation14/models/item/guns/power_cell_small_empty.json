@@ -1,0 +1,136 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/item/guns/power_cell_small_empty.obj",
+  "textures": {
+    "atlas": "moonstation14:item/guns/power_cell_small_empty",
+    "particle": "moonstation14:item/guns/power_cell_small_empty"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "emissive_ambient": false,
+  "ambientocclusion": false,
+  "render_type": "minecraft:solid",
+  "gui_light": "front",
+  "display": {
+    "gui": {
+      "rotation": [
+        -90,
+        55,
+        180
+      ],
+      "translation": [
+        -1.6228909146275784e-15,
+        9.030164425102413e-16,
+        23.104
+      ],
+      "scale": [
+        3.2,
+        3.2,
+        3.2
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        -90,
+        90,
+        180
+      ],
+      "translation": [
+        -5.414132815409306e-32,
+        4.420974944921945e-16,
+        7.22
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0.0,
+        4.332,
+        0.0
+      ],
+      "scale": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        180,
+        0,
+        -90
+      ],
+      "translation": [
+        5.808,
+        -2.0000000000000004,
+        -2.66
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -35,
+        90
+      ],
+      "translation": [
+        -4.8494073030466325,
+        -1.9999999999999996,
+        -5.700267615240637
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        180,
+        0,
+        90
+      ],
+      "translation": [
+        -5.808,
+        -2.0000000000000004,
+        -2.66
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        35,
+        -90
+      ],
+      "translation": [
+        4.8494073030466325,
+        -1.9999999999999996,
+        -5.700267615240637
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    }
+  }
+}

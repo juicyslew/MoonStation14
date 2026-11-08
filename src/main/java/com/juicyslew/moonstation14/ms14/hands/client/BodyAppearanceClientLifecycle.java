@@ -13,13 +13,12 @@ import net.minecraft.world.entity.Entity;
 @EventBusSubscriber(modid="moonstation14", value=Dist.CLIENT)
 public final class BodyAppearanceClientLifecycle {
     private BodyAppearanceClientLifecycle() { }
-    @SubscribeEvent public static void disconnected(ClientPlayerNetworkEvent.LoggingOut event) { BodyHandNetworking.clientCache().clear(); }
+    @SubscribeEvent public static void disconnected(ClientPlayerNetworkEvent.LoggingOut event) { BodyHandNetworking.clientCache().clear(); com.juicyslew.moonstation14.ms14.equipment.client.BodyAppearanceItemRenderer.clearMuzzleFrames(); }
     @SubscribeEvent public static void entityLeft(EntityLeaveLevelEvent event) {
         if (event.getLevel().isClientSide) BodyHandNetworking.clientCache().remove(event.getLevel().dimension().location(),event.getEntity().getUUID(),event.getEntity().getId());
     }
     @SubscribeEvent public static void levelUnloaded(LevelEvent.Unload event) {
         if (event.getLevel() instanceof net.minecraft.world.level.Level level && level.isClientSide)
-            BodyHandNetworking.clientCache().clearDimension(level.dimension().location());
+            { BodyHandNetworking.clientCache().clearDimension(level.dimension().location()); com.juicyslew.moonstation14.ms14.equipment.client.BodyAppearanceItemRenderer.clearMuzzleFrames(); }
     }
 }
-

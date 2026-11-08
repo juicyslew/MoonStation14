@@ -212,6 +212,13 @@ public final class LiveHands {
                 .orElseThrow(() -> new IllegalArgumentException("unknown hand")).reservation();
     }
 
+    /** Read-only hand availability. Reservations of every owner (pull, carry, wield) block admission. */
+    public boolean isHandAvailable(String hand) {
+        Slot slot = hands.stream().filter(value -> value.id().equals(hand)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("unknown hand"));
+        return slot.occupant().isEmpty() && slot.reservation().isEmpty();
+    }
+
     public Optional<LiveHands> reserveHand(long expectedRevision, String hand, java.util.UUID target) {
         if (revision != expectedRevision || revision == Long.MAX_VALUE || target == null) return Optional.empty();
         int index = handIds().indexOf(hand);
@@ -747,9 +754,14 @@ public final class LiveHands {
     /** Pure bounded in-place use mutation; unlike insertion this cannot add a new item or increase quantity. */
     Optional<LiveHands> replaceActiveUseStack(long expectedRevision, String hand, String expectedToken,
                                                ItemStack expectedBefore, ItemStack after) {
+        if (!active.equals(hand)) return Optional.empty();
+        return replaceHandUseStack(expectedRevision, hand, expectedToken, expectedBefore, after);
+    }
+
+    Optional<LiveHands> replaceHandUseStack(long expectedRevision, String hand, String expectedToken,
+                                               ItemStack expectedBefore, ItemStack after) {
         if (revision != expectedRevision || revision == Long.MAX_VALUE || hand == null || expectedToken == null
-                || expectedBefore == null || expectedBefore.isEmpty() || after == null
-                || !active.equals(hand)) return Optional.empty();
+                || expectedBefore == null || expectedBefore.isEmpty() || after == null) return Optional.empty();
         int index = handIds().indexOf(hand);
         if (index < 0) return Optional.empty();
         Optional<Occupant> occupant = hands.get(index).occupant();

@@ -16,8 +16,11 @@ public abstract class LivingEntityProneDimensionsMixin {
         LivingEntity self = (LivingEntity)(Object)this;
         if (pose == Pose.SWIMMING && PostureSystem.isDownPosture(self)) {
             EntityDimensions normal = ((LivingEntity)(Object)this).getDimensions(Pose.STANDING);
-            cir.setReturnValue(EntityDimensions.scalable(normal.width(), .6f).withEyeHeight(.4f));
+            var posture = self.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.POSTURE.get());
+            boolean aimed = posture != null && posture.data().supportedGunAim();
+            cir.setReturnValue(EntityDimensions.scalable(normal.width(), aimed
+                    ? com.juicyslew.moonstation14.ms14.standing.GunProneAimGeometry.HEIGHT : .6f)
+                    .withEyeHeight(aimed ? com.juicyslew.moonstation14.ms14.standing.GunProneAimGeometry.EYE_HEIGHT : .4f));
         }
     }
 }
-

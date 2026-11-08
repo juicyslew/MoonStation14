@@ -30,6 +30,8 @@ The tile is normally cosmetic for power: installation/removal does not connect, 
 
 Devices connect by the approved adjacency/contact rule between device connection faces and cable faces. No rendered plug is necessary or permitted as a topology prerequisite. Device orientation and supported tier must still be validated server-side. Keep rendering independent from network membership so a missing optional asset cannot break power.
 
+Station distribution HV/MV ports contact matching-tier cable on any of the six physically adjacent device faces, independent of machine facing. The bounded contact set is the six adjacent host positions with the cable face opposing the device; same-host cable, noncontact, and wrong-tier candidates are excluded. This permits floor cable directly below a machine without changing cable-to-cable geometry. A published matching-tier device port is a common bus: all its physical contacts join in the bounded graph build. APC/LV receiver contact remains its existing oriented single contact. Port records are sourced from loaded device owners and removed with their chunk; no virtual persisted nodes or cross-tier merging are introduced.
+
 Floor-to-floor continuity is never automatic. A riser is an explicit assembly of cable-face segments across actual host faces / intervening positions according to the final topology truth table. A riser test must fail if any required segment is absent. No arbitrary long-range vertical search, same-X/Z shortcut, or connection through intervening solids.
 
 ## Network identity and evaluation

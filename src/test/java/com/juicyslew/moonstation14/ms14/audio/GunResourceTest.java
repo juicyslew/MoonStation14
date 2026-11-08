@@ -10,6 +10,44 @@ import java.security.MessageDigest;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GunResourceTest {
+    @Test void bundledGunProfileCuesResolveRegisteredEventsAndSoundSampleFiles() throws Exception {
+        var registered = new java.util.HashSet<String>();
+        com.juicyslew.moonstation14.sounds.ModSounds.SOUND_EVENTS.getEntries()
+                .forEach(holder -> registered.add(holder.getId().toString()));
+        var sounds = JsonParser.parseString(new String(resource("assets/moonstation14/sounds.json"), StandardCharsets.UTF_8)).getAsJsonObject();
+        var manager = new com.juicyslew.moonstation14.ms14.prototype.PrototypeManager();
+        manager.register(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE);
+        var prepared = manager.stage(java.util.Map.of(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE,
+                com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogCandidateTest.mainResourcesAll("gun_profile")));
+        assertTrue(manager.commit(prepared));
+        var profiles = manager.snapshot(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE);
+        assertTrue(profiles.contains(net.minecraft.resources.ResourceLocation.parse("moonstation14:weapon_pistol_mk58")));
+        profiles.asMap().forEach((profileId, gun) -> collectGunCues(gun).forEach(cue -> {
+            String event = cue.event().toString();
+            assertTrue(registered.contains(event), profileId + " unregistered cue " + event);
+            String path = cue.event().getPath();
+            assertTrue(sounds.has(path), profileId + " missing sounds.json event " + event);
+            for (var sample : sounds.getAsJsonObject(path).getAsJsonArray("sounds")) {
+                String id = sample.isJsonPrimitive() ? sample.getAsString() : sample.getAsJsonObject().get("name").getAsString();
+                var location = net.minecraft.resources.ResourceLocation.parse(id);
+                assertNotNull(getClass().getClassLoader().getResource("assets/" + location.getNamespace() + "/sounds/" + location.getPath() + ".ogg"), profileId + " missing " + id);
+            }
+        }));
+    }
+
+    private static java.util.stream.Stream<com.juicyslew.moonstation14.ms14.combat.PositionalSoundCue> collectGunCues(
+            com.juicyslew.moonstation14.ms14.combat.GunProfile gun) {
+        var cues = new java.util.ArrayList<com.juicyslew.moonstation14.ms14.combat.PositionalSoundCue>();
+        add(cues, gun.gun().gunshotSound()); add(cues, gun.gun().emptySound()); add(cues, gun.gun().modeSound());
+        gun.wieldable().ifPresent(v -> add(cues, v.wieldSound()));
+        gun.magazineChamberProvider().ifPresent(v -> { add(cues,v.rackSound()); add(cues,v.boltOpenSound()); add(cues,v.boltCloseSound()); add(cues,v.magazineInsertSound()); add(cues,v.magazineEjectSound()); add(cues,v.chamberInsertSound()); });
+        gun.revolverAmmoProvider().ifPresent(v -> { add(cues,v.insertSound()); add(cues,v.ejectSound()); add(cues,v.spinSound()); });
+        gun.ballisticProvider().ifPresent(v -> { add(cues,v.insertSound()); add(cues,v.cycleSound()); });
+        gun.cellSlot().ifPresent(v -> { add(cues,v.insertSound()); add(cues,v.ejectSound()); });
+        return cues.stream();
+    }
+    private static void add(java.util.List<com.juicyslew.moonstation14.ms14.combat.PositionalSoundCue> out,
+                            java.util.Optional<com.juicyslew.moonstation14.ms14.combat.PositionalSoundCue> cue) { cue.ifPresent(out::add); }
     @Test void sourceAssetsAndSoundEventArePackaged() throws Exception {
         String root = "assets/moonstation14/textures/ss14/weapons/";
         for (String[] asset : new String[][]{
@@ -133,13 +171,14 @@ class GunResourceTest {
     }
 
     @Test void registeredGunItemModelsResolveAuthenticIcons() throws Exception {
-        assertIconModel("weapon_revolver_python", "moonstation14:ss14/weapons/objects/weapons/guns/revolvers/python.rsi/icon");
+        assertNull(getClass().getClassLoader().getResource("assets/moonstation14/models/item/weapon_revolver_python.json"));
+        assertTrue(com.juicyslew.moonstation14.item.ModItems.ITEMS.getEntries().stream()
+                .noneMatch(item -> item.getId().equals(ResourceLocation.fromNamespaceAndPath("moonstation14", "weapon_revolver_python"))));
         assertIconModel("revolver_cap_gun", "moonstation14:ss14/weapons/objects/fun/capgun.rsi/icon");
         try (var in = getClass().getClassLoader().getResourceAsStream("assets/moonstation14/models/item/revolver_cap_gun_fake.json")) {
             var fake = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
             assertModelParent(fake.get("parent").getAsString(), "moonstation14:item/revolver_cap_gun");
         }
-        assertTextureResource("moonstation14:ss14/weapons/objects/weapons/guns/revolvers/python.rsi/icon", "moonstation14:ss14/weapons/objects/weapons/guns/revolvers/python.rsi/icon");
         assertTextureResource("moonstation14:ss14/weapons/objects/fun/capgun.rsi/icon", "moonstation14:ss14/weapons/objects/fun/capgun.rsi/icon");
     }
 
@@ -149,7 +188,9 @@ class GunResourceTest {
                 new String[]{"base", "tip", "base-spent"});
         assertCartridgeSource(root + "capgun_casing.rsi/meta.json", "92acd56e25b49672d4cb9aa9c11e83ada4fc1cc5c4ad6ad462e321fe89b38cca",
                 new String[]{"base", "base-spent"});
-        assertCartridgeModel("cartridge_magnum", "moonstation14:ss14/weapons/objects/weapons/guns/ammunition/casings/ammo_casing.rsi/base");
+        assertLayeredCartridgeModel("cartridge_magnum", "moonstation14:ss14/weapons/objects/weapons/guns/ammunition/casings/ammo_casing.rsi/base",
+                "moonstation14:ss14/weapons/objects/weapons/guns/ammunition/casings/ammo_casing.rsi/tip");
+        assertCartridgeModel("cartridge_magnum_spent", "moonstation14:ss14/weapons/objects/weapons/guns/ammunition/casings/ammo_casing.rsi/base-spent");
         assertCartridgeModel("cartridge_cap", "moonstation14:ss14/weapons/objects/weapons/guns/ammunition/casings/capgun_casing.rsi/base");
         assertCartridgeModel("cartridge_magnum_ap", "moonstation14:item/cartridge_magnum_ap");
         assertEquals("92a3890b0162a48e3a6467001d4ca24360c7077b7ba5fe7208d12a5f9e945db0",
@@ -219,6 +260,16 @@ class GunResourceTest {
             var model = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
             assertModelParent(model.get("parent").getAsString(), model.get("parent").getAsString());
             assertTextureResource(model.getAsJsonObject("textures").get("layer0").getAsString(), texture);
+        }
+    }
+
+    private void assertLayeredCartridgeModel(String item, String base, String tip) throws Exception {
+        try (var in = getClass().getClassLoader().getResourceAsStream("assets/moonstation14/models/item/" + item + ".json")) {
+            var model = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            assertModelParent(model.get("parent").getAsString(), model.get("parent").getAsString());
+            var textures = model.getAsJsonObject("textures");
+            assertTextureResource(textures.get("layer0").getAsString(), base);
+            assertTextureResource(textures.get("layer1").getAsString(), tip);
         }
     }
 

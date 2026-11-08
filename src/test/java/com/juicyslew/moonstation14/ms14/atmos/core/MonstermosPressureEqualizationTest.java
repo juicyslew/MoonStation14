@@ -252,6 +252,24 @@ class MonstermosPressureEqualizationTest {
         assertTrue(result.transport().work().edgeSearchWork() <= MonstermosEqualization.MAX_EDGE_SEARCH_WORK);
     }
 
+    @Test void actualSelectedTransferReportsOnlySplitCutoffReceiptsByDonor() {
+        var input = Map.of(A, new GasMixture(Map.of(GasType.OXYGEN, 2.0, GasType.WATER_VAPOR, 6e-8), 293),
+                B, GasMixture.vacuum());
+        var result = MonstermosPressureEqualization.equalizeDiscovered(input, pair(), A, Set.of());
+        assertFalse(result.transport().edgeFlows().isEmpty());
+        assertEquals(Set.of(A), result.discardedByCell().keySet());
+        double loss = result.discardedByCell().get(A).getOrDefault(GasType.WATER_VAPOR, 0d);
+        double actualLoss = input.get(A).moles(GasType.WATER_VAPOR)
+                - result.transport().states().get(A).moles(GasType.WATER_VAPOR)
+                - result.transport().states().get(B).moles(GasType.WATER_VAPOR);
+        assertTrue(loss > 0);
+        assertEquals(actualLoss, loss, Math.ulp((float) input.get(A).moles(GasType.WATER_VAPOR)) * 2);
+
+        var noOps = MonstermosPressureEqualization.equalizeDiscovered(input, pair(), A, Set.of(),
+                new MonstermosPressureEqualization.Settings(1, 1, 1, 0, 0));
+        assertTrue(noOps.discardedByCell().isEmpty());
+    }
+
     private static void assertSpeciesEnergyConserved(Map<BlockPos, GasMixture> before,
                                                        Map<BlockPos, GasMixture> after,double tolerance) {
         for (GasType type : GasType.values()) {

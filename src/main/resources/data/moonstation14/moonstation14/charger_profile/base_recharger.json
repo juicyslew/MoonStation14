@@ -1,0 +1,1 @@
+{"id":"base_recharger","abstract":true,"idle_power":1,"charge_rate":20,"eject_on_interact":true,"slot_id":"charger_slot","accepted_capabilities":["battery_ammo_provider","power_cell"]}

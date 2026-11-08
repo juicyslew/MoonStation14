@@ -38,6 +38,23 @@ import java.util.function.Consumer;
 public final class EmitterFiringGameTests {
     private EmitterFiringGameTests() { }
 
+    static record ShotObservation(long tick, long epochStartedAt, int epochResetIndex,
+                                   Vec3 launchVelocity, boolean meterKnown, double deliveredWatts) { }
+
+    static void assertEpochCadence(List<ShotObservation> shots, int firstDelay, int spacing, long watts) {
+        java.util.Map<String, List<ShotObservation>> epochs = new java.util.HashMap<>();
+        for (ShotObservation shot : shots) {
+            check(shot.meterKnown() && shot.deliveredWatts() == watts, "each shot has full known MV demand");
+            String key = shot.epochStartedAt() + ":" + shot.epochResetIndex();
+            List<ShotObservation> epoch = epochs.computeIfAbsent(key, ignored -> new ArrayList<>());
+            if (epoch.isEmpty()) check(shot.tick() - shot.epochStartedAt() == firstDelay,
+                    "each power epoch first shot waits resolved maximum delay");
+            else check(shot.tick() - epoch.get(epoch.size() - 1).tick() == spacing,
+                    "shots within each epoch use resolved burst spacing");
+            epoch.add(shot);
+        }
+    }
+
     private static void check(boolean value, String message) {
         if (!value) throw new GameTestAssertException(message);
     }
@@ -50,7 +67,7 @@ public final class EmitterFiringGameTests {
 
     /** Source and substation are registered production devices; no runtime offer or emitter allocation is injected. */
     @GameTestTags("reactor-models")
-    @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=1000)
+     @GameTest(templateNamespace="moonstation14", template="power_live_chain_clear", timeoutTicks=1000, batch="emitter_powered_epoch_cadence")
      public static void realMvPowerSchedulesFourShotsThenOutageCancelsWhileIntentPersists(GameTestHelper h) {
         ServerLevel level=(ServerLevel)h.getLevel();
         BlockPos source=absolute(h,3,1,2), sub=absolute(h,3,1,4);
@@ -97,49 +114,59 @@ public final class EmitterFiringGameTests {
                         &&PowerRuntime.mvPowerMeter(level,emitter).known()
                          &&PowerRuntime.mvPowerMeter(level,emitter).deliveredWatts()==emitter.resolvedProfile().offWatts(),
                 ()->{
-                     List<Long> shots=new ArrayList<>();
-                     List<EmitterBoltEntity> firedBolts=new ArrayList<>();
+                      List<ShotObservation> shots=new ArrayList<>();
                     Consumer<EntityJoinLevelEvent> listener=event->{
                          if(event.getLevel()==level&&event.getEntity() instanceof EmitterBoltEntity bolt
                                  &&Objects.equals(bolt.emitterIdentity(),emitter.placementIdentity())) {
-                             shots.add(level.getGameTime()); firedBolts.add(bolt);
+                              var shotMeter=PowerRuntime.mvPowerMeter(level,emitter);
+                               ShotObservation shot = new ShotObservation(level.getGameTime(), emitter.poweredEpochStartedAt(),
+                                       emitter.poweredEpochResets(), bolt.getDeltaMovement(), shotMeter.known(),
+                                       shotMeter.deliveredWatts());
+                               shots.add(shot);
                          }
                     };
                     NeoForge.EVENT_BUS.addListener(listener);
                     h.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener() {
                         @Override public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo info) { }
-                        @Override public void testPassed(net.minecraft.gametest.framework.GameTestInfo info, net.minecraft.gametest.framework.GameTestRunner runner) { NeoForge.EVENT_BUS.unregister(listener); }
-                        @Override public void testFailed(net.minecraft.gametest.framework.GameTestInfo info, net.minecraft.gametest.framework.GameTestRunner runner) { NeoForge.EVENT_BUS.unregister(listener); }
-                        @Override public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo oldTest, net.minecraft.gametest.framework.GameTestInfo newTest, net.minecraft.gametest.framework.GameTestRunner runner) { NeoForge.EVENT_BUS.unregister(listener); }
+                         @Override public void testPassed(net.minecraft.gametest.framework.GameTestInfo info, net.minecraft.gametest.framework.GameTestRunner runner) { emitter.setRequestedOn(false); NeoForge.EVENT_BUS.unregister(listener); }
+                         @Override public void testFailed(net.minecraft.gametest.framework.GameTestInfo info, net.minecraft.gametest.framework.GameTestRunner runner) { emitter.setRequestedOn(false); NeoForge.EVENT_BUS.unregister(listener); }
+                         @Override public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo oldTest, net.minecraft.gametest.framework.GameTestInfo newTest, net.minecraft.gametest.framework.GameTestRunner runner) { emitter.setRequestedOn(false); NeoForge.EVENT_BUS.unregister(listener); }
                     });
                     emitter.setRequestedOn(true); // same authoritative state transition used by empty-hand interaction
-                    int[] outageTicks={0}; int[] chargeAtOutage={-1}; int[] outageNoPowerTicks={0};
+                     int[] outageTicks={0}; int[] chargeAtOutage={-1}; int[] outageNoPowerTicks={0}; int[] outageShotCount={-1};
                     final Runnable[] tick={null};
-                    tick[0]=()->{
-                        var meter=PowerRuntime.mvPowerMeter(level,emitter);
-                              if(shots.size()>=emitter.resolvedProfile().burstSize()&&outageTicks[0]==0) {
+                     tick[0]=()->{
+                         assertEpochCadence(shots, emitter.resolvedProfile().firstDelayMaxTicks(),
+                                 emitter.resolvedProfile().burstDelayTicks(), (long) emitter.resolvedProfile().onWatts());
+                         var meter=PowerRuntime.mvPowerMeter(level,emitter);
+                              long poweredAt=emitter.poweredEpochStartedAt();
+                              int resetIndex=emitter.poweredEpochResets();
+                              List<ShotObservation> epochShots=shots.stream()
+                                      .filter(shot->shot.epochStartedAt()==poweredAt&&shot.epochResetIndex()==resetIndex).toList();
+                               if(epochShots.size()>=emitter.resolvedProfile().burstSize()&&outageTicks[0]==0) {
                              check(level.getBlockState(emitterPos).getValue(com.juicyslew.moonstation14.block.custom.EmitterBlock.VISUAL)
                                              ==com.juicyslew.moonstation14.block.custom.EmitterBlock.Visual.ON,
                                      "actual fresh MV meter projects emitter On");
-                            long poweredAt=emitter.poweredEpochStartedAt();
-                            check(poweredAt>=0,"actual continuous powered epoch starts firing schedule");
-                             long first=shots.get(0);
+                             check(poweredAt>=0,"actual continuous powered epoch starts firing schedule");
+                              check(epochShots.get(0).meterKnown()&&epochShots.get(0).deliveredWatts()==emitter.resolvedProfile().onWatts(),
+                                      "first shot in selected epoch has a fresh full-demand meter");
+                              long first=epochShots.get(0).tick();
                              check(first-poweredAt==emitter.resolvedProfile().firstDelayMaxTicks(),"first shot waits resolved maximum 10-second delay: first="+first+", poweredAt="+poweredAt+", resets="+emitter.poweredEpochResets());
                               for(int i=1;i<emitter.resolvedProfile().burstSize();i++)
-                                  check(shots.get(i)-shots.get(i-1)==emitter.resolvedProfile().burstDelayTicks(),"resolved 40-tick burst cadence: "+shots);
-                              check(!firedBolts.isEmpty()
-                                              &&Math.abs(firedBolts.get(0).getDeltaMovement().z
-                                              -DisposalsEjection.blocksPerSecondToBlocksPerTick(emitter.resolvedProfile().boltSpeed()))<0.001
-                                              &&Math.abs(firedBolts.get(0).getDeltaMovement().x)<0.001
-                                              &&Math.abs(firedBolts.get(0).getDeltaMovement().y)<0.001,
+                                   check(epochShots.get(i).tick()-epochShots.get(i-1).tick()==emitter.resolvedProfile().burstDelayTicks(),"resolved 40-tick burst cadence: "+epochShots);
+                               check(Math.abs(epochShots.get(0).launchVelocity().z
+                                               -DisposalsEjection.blocksPerSecondToBlocksPerTick(emitter.resolvedProfile().boltSpeed()))<0.001
+                                               &&Math.abs(epochShots.get(0).launchVelocity().x)<0.001
+                                               &&Math.abs(epochShots.get(0).launchVelocity().y)<0.001,
                                       "live SOUTH-facing emitter converts resolved blocks/second speed to blocks/tick");
-                             check(southGenerator.snapshot().charge()>0,
+                              check(southGenerator.snapshot().charge()>0,
                                      "live emitter bolt charges the actual generator south of the emitter");
                             check(((FieldGeneratorBlockEntity)level.getBlockEntity(genPos)).snapshot().charge()==0,
                                     "cadence observation lane is separate from the dedicated collision lane");
                             check(CableStorage.remove(level,absolute(h,2,4,5),Direction.EAST)==CableTier.MV,
                                     "remove the actual loaded MV path to interrupt power");
-                            chargeAtOutage[0]=((FieldGeneratorBlockEntity)level.getBlockEntity(genPos)).snapshot().charge();
+                             chargeAtOutage[0]=((FieldGeneratorBlockEntity)level.getBlockEntity(genPos)).snapshot().charge();
+                             outageShotCount[0]=shots.size();
                             outageTicks[0]=1;
                         } else if(outageTicks[0]>0) {
                             outageTicks[0]++;
@@ -147,7 +174,7 @@ public final class EmitterFiringGameTests {
                             if(outageTicks[0]>=220) {
                                 check(emitter.requestedOn(),"loss of MV power does not clear on intent");
                                 check(emitter.currentDemandWatts()==600,"requested-on emitter still requests profile demand");
-                      check(shots.size()==emitter.resolvedProfile().burstSize(),"power outage cancels the post-burst wait without another free burst");
+                      check(shots.size()==outageShotCount[0],"power outage cancels the post-burst wait without another free burst");
                                  check(level.getBlockState(emitterPos).getValue(com.juicyslew.moonstation14.block.custom.EmitterBlock.VISUAL)
                                                  ==com.juicyslew.moonstation14.block.custom.EmitterBlock.Visual.UNDERPOWERED,
                                          "real meter outage projects underpowered without clearing requested-on");

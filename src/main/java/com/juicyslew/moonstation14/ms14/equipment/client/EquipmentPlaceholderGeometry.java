@@ -12,6 +12,7 @@ import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.client.ArticulatedHarnessModel;
 import net.minecraft.resources.ResourceLocation;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,7 +25,8 @@ public final class EquipmentPlaceholderGeometry {
     static final float PANTS_BOTTOM = 9.5F;
     static final float SHOES_BOTTOM = 12.25F;
     public static final ResourceLocation WHITE_TEXTURE = ResourceLocation.fromNamespaceAndPath("moonstation14", "textures/entity/equipment/white.png");
-    private record Key(String slot, EquipmentRenderPlan.Anchor anchor, boolean slim, EquipmentItemData.AppearanceRegion region) { }
+    private enum ArmSegment { WHOLE, UPPER, LOWER }
+    private record Key(String slot, EquipmentRenderPlan.Anchor anchor, boolean slim, EquipmentItemData.AppearanceRegion region, ArmSegment segment) { }
     private static final Map<Key, ModelPart> PIECES = new ConcurrentHashMap<>();
     private EquipmentPlaceholderGeometry() { }
 
@@ -62,7 +64,22 @@ public final class EquipmentPlaceholderGeometry {
         pose.pushPose();
         try {
             bone.translateAndRotate(pose);
-            piece(g.slot(), anchor, g.region(), slim).render(pose, consumer, light, 0, g.color());
+            if ((anchor == EquipmentRenderPlan.Anchor.LEFT_ARM || anchor == EquipmentRenderPlan.Anchor.RIGHT_ARM) && bone.hasChild("forearm")) {
+                pose.pushPose();
+                try {
+                    if (bone.hasChild(ArticulatedHarnessModel.UPPER_GEOMETRY_CHILD)) bone.getChild(ArticulatedHarnessModel.UPPER_GEOMETRY_CHILD).translateAndRotate(pose);
+                    piece(g.slot(), anchor, g.region(), slim, ArmSegment.UPPER).render(pose, consumer, light, 0, g.color());
+                } finally { pose.popPose(); }
+                pose.pushPose();
+                try {
+                    var forearm = bone.getChild("forearm");
+                    forearm.translateAndRotate(pose);
+                    if (forearm.hasChild(ArticulatedHarnessModel.LOWER_GEOMETRY_CHILD))
+                        forearm.getChild(ArticulatedHarnessModel.LOWER_GEOMETRY_CHILD).translateAndRotate(pose);
+                    pose.translate(0, -.25, 0);
+                    piece(g.slot(), anchor, g.region(), slim, ArmSegment.LOWER).render(pose, consumer, light, 0, g.color());
+                } finally { pose.popPose(); }
+            } else piece(g.slot(), anchor, g.region(), slim).render(pose, consumer, light, 0, g.color());
         } finally { pose.popPose(); }
     }
 
@@ -82,16 +99,22 @@ public final class EquipmentPlaceholderGeometry {
                 : (a == EquipmentRenderPlan.Anchor.LEFT_ARM ? -1 : -3);
     }
     static ModelPart cachedPieceForTest(String slot, EquipmentRenderPlan.Anchor anchor, boolean slim,
-                                       EquipmentItemData.AppearanceRegion region) { return piece(slot, anchor, region, slim); }
+                                        EquipmentItemData.AppearanceRegion region) { return piece(slot, anchor, region, slim); }
+    static ModelPart cachedArmSegmentForTest(String slot, EquipmentRenderPlan.Anchor anchor, boolean slim, boolean lower) {
+        return piece(slot,anchor,EquipmentItemData.AppearanceRegion.TORSO,slim,lower?ArmSegment.LOWER:ArmSegment.UPPER);
+    }
     static boolean regionFits(String slot, EquipmentItemData.AppearanceRegion region) {
         return EquipmentRenderPlan.regionFits(slot, region);
     }
 
     private static ModelPart piece(String slot, EquipmentRenderPlan.Anchor a, EquipmentItemData.AppearanceRegion region, boolean slim) {
-        return PIECES.computeIfAbsent(new Key(slot, a, slim, region), key -> bake(key.slot(), key.anchor(), key.region(), key.slim()));
+        return piece(slot,a,region,slim,ArmSegment.WHOLE);
+    }
+    private static ModelPart piece(String slot, EquipmentRenderPlan.Anchor a, EquipmentItemData.AppearanceRegion region, boolean slim, ArmSegment segment) {
+        return PIECES.computeIfAbsent(new Key(slot, a, slim, region, segment), key -> bake(key.slot(), key.anchor(), key.region(), key.slim(), key.segment()));
     }
 
-    private static ModelPart bake(String slot, EquipmentRenderPlan.Anchor a, EquipmentItemData.AppearanceRegion region, boolean slim) {
+    private static ModelPart bake(String slot, EquipmentRenderPlan.Anchor a, EquipmentItemData.AppearanceRegion region, boolean slim, ArmSegment segment) {
         MeshDefinition mesh = new MeshDefinition(); PartDefinition root = mesh.getRoot();
         CubeListBuilder cubes = CubeListBuilder.create();
         switch (slot) {
@@ -105,17 +128,17 @@ public final class EquipmentPlaceholderGeometry {
                 if (a == EquipmentRenderPlan.Anchor.LEFT_ARM || a == EquipmentRenderPlan.Anchor.RIGHT_ARM) {
                     int width = armWidth(slim);
                     float x = armMinX(slim, a);
-                    cubes.texOffs(0,0).addBox(x-0.025F,-1,-2.225F,width+0.05F,7,4.45F);
+                    cubes.texOffs(0,0); armBox(cubes,x-0.025F,-1,-2.225F,width+0.05F,7,4.45F,segment);
                 }
                 if (a == EquipmentRenderPlan.Anchor.LEFT_LEG || a == EquipmentRenderPlan.Anchor.RIGHT_LEG) cubes.texOffs(0,0).addBox(-2.1F,0,-2.1F,4.2F,PANTS_BOTTOM,4.2F);
             }
             case "outerClothing" -> {
                 if (a == EquipmentRenderPlan.Anchor.TORSO) cubes.texOffs(0,0).addBox(-4.4F,-1.3F,-2.5F,8.8F,12.3F,5);
                 else { int width = armWidth(slim); float x = armMinX(slim, a);
-                    cubes.texOffs(0,0).addBox(x-0.35F,-1.3F,-2.4F,width+0.7F,7.5F,4.8F); }
+                    cubes.texOffs(0,0); armBox(cubes,x-0.35F,-1.3F,-2.4F,width+0.7F,7.5F,4.8F,segment); }
             }
             case "gloves" -> { int width = armWidth(slim); float x = armMinX(slim, a);
-                cubes.texOffs(0,0).addBox(x-0.45F,5.25F,-2.6F,width+0.9F,4.8F,5.2F); }
+                cubes.texOffs(0,0); armBox(cubes,x-0.45F,5.25F,-2.6F,width+0.9F,4.8F,5.2F,segment); }
             case "shoes" -> cubes.texOffs(0,0).addBox(-2.2F,9,-3,4.4F,SHOES_BOTTOM-9,6);
             case "back" -> cubes.texOffs(0,0).addBox(-4,0,2,8,9,3);
             case "belt" -> cubes.texOffs(0,0).addBox(-4.2F,8,-2.5F,8.4F,2,5);
@@ -126,5 +149,10 @@ public final class EquipmentPlaceholderGeometry {
         root.addOrReplaceChild("garment", cubes, PartPose.ZERO);
         return LayerDefinition.create(mesh, 64, 64).bakeRoot();
     }
+    private static void armBox(CubeListBuilder cubes,float x,float y,float z,float width,float height,float depth,ArmSegment segment) {
+        float top=Math.max(y,4), bottom=Math.min(y+height,4);
+        if(segment==ArmSegment.WHOLE) cubes.addBox(x,y,z,width,height,depth);
+        else if(segment==ArmSegment.UPPER && y<4) cubes.addBox(x,y,z,width,top-y,depth);
+        else if(segment==ArmSegment.LOWER && y+height>4) cubes.addBox(x,bottom,z,width,y+height-bottom,depth);
+    }
 }
-

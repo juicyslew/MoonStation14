@@ -207,12 +207,23 @@ public final class DisposalTransportGameTests {
             var unit = (com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity) level.getBlockEntity(unitPos);
             unit.setPowerSwitch(false);
             require(unit != null && unit.prototype() != null && unit.reservoirAir() != null, "real resolved unit reservoir exists");
+            var records = DisposalTubeWorldData.forMutation(level);
+            require(level.getBlockState(entry).isAir(), "room entry begins as passable air");
+            require(records.installExposed(level, new DisposalTubeRecord(UUID.randomUUID(), entry, "disposal_trunk",
+                    new com.juicyslew.moonstation14.ms14.disposal.domain.DisposalOrientation(Direction.NORTH, Direction.UP), true, "", "", 0,
+                    DisposalTubeRecord.HostKind.EXPOSED, "", null)), "real exposed trunk installed into room air");
+            require(level.getBlockState(entry).is(com.juicyslew.moonstation14.block.ModBlocks.DISPOSAL_TUBE.get()),
+                    "entry has actual disposal tube owner block");
             long synthetic = Math.floorDiv(level.getGameTime(), (long) atmos.TICK_CADENCE) * atmos.TICK_CADENCE;
             for (int i = 0; i < 12 && atmos.finiteRoomEndpointForTrustedSimulation(level, unitPos.above()).isEmpty(); i++) {
                 atmos.sample(level, unitPos.above());
                 atmos.tick(level, synthetic += atmos.TICK_CADENCE);
             }
             require(atmos.finiteRoomEndpointForTrustedSimulation(level, unitPos.above()).isPresent(), "sealed room proven finite by atmosphere service");
+            BlockPos sourceAirPos = unitPos.above();
+            BlockPos destinationAirPos = entry.above();
+            require(atmos.finiteRoomEndpointForTrustedSimulation(level, sourceAirPos).isPresent(), "source finite after final topology");
+            require(atmos.finiteRoomEndpointForTrustedSimulation(level, destinationAirPos).isPresent(), "first eligible release candidate finite after final topology");
             require(atmos.addGas(level, unitPos.above(), GasType.OXYGEN, 8, 300), "seed finite room oxygen");
             require(atmos.addGas(level, unitPos.above(), GasType.NITROGEN, 24, 300), "seed finite room nitrogen");
             GasMixture roomBefore = atmos.sample(level, unitPos.above()).orElseThrow();
@@ -222,19 +233,10 @@ public final class DisposalTransportGameTests {
             GasMixture reservoirAfterPrepare = unit.reservoirAir().sample().orElseThrow().mixture();
             assertConserved(roomBefore, reservoirBefore, roomAfterPrepare, reservoirAfterPrepare);
 
-            var records = DisposalTubeWorldData.forMutation(level);
-            require(level.getBlockState(entry).isAir(), "room entry begins as passable air");
-            require(records.installExposed(level, new DisposalTubeRecord(UUID.randomUUID(), entry, "disposal_trunk",
-                    new com.juicyslew.moonstation14.ms14.disposal.domain.DisposalOrientation(Direction.NORTH, Direction.UP), true, "", "", 0,
-                    DisposalTubeRecord.HostKind.EXPOSED, "", null)), "real exposed trunk installed into room air");
-            require(level.getBlockState(entry).is(com.juicyslew.moonstation14.block.ModBlocks.DISPOSAL_TUBE.get()),
-                    "entry has actual disposal tube owner block");
             var holder = DisposalTransitHolder.spawnFlushed(level, entry, holderAir).orElseThrow(() -> new GameTestAssertException("actual holder spawned from recorded trunk"));
             require(close(holder.finiteAir().orElseThrow().sample().orElseThrow().volumeCubicMeters(), 0.07), "resolved holder owns 0.07 cubic metre finite sample");
             var reservoirSample = unit.reservoirAir().sample().orElseThrow();
             require(unit.reservoirAir().replaceInventory(reservoirSample.mixture(), new GasMixture(java.util.Map.of(), reservoirSample.temperatureKelvin())), "flush transfers owned reservoir into holder");
-            BlockPos sourceAirPos = unitPos.above();
-            BlockPos destinationAirPos = entry.above();
             GasMixture beforeReleaseRooms = sampleRoomSum(atmos, level, sourceAirPos, destinationAirPos);
             GasMixture beforeReleaseHolder = holder.finiteAir().orElseThrow().sample().orElseThrow().mixture();
             holder.disconnectAt(holder.position(), entry, null);

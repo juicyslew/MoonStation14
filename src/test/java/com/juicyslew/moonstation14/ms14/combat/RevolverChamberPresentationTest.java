@@ -27,7 +27,7 @@ class RevolverChamberPresentationTest {
         assertEquals(2, view.currentIndex());
         assertEquals(List.of(0, 1, 2, 3), view.chambers().stream().map(RevolverChamberPresentation.ChamberIcon::index).toList());
         assertEquals(List.of(RevolverChamberPresentation.Status.LOADED, RevolverChamberPresentation.Status.SPENT,
-                RevolverChamberPresentation.Status.MISSING, RevolverChamberPresentation.Status.MISSING),
+                RevolverChamberPresentation.Status.MISSING, RevolverChamberPresentation.Status.SPENT),
                 view.chambers().stream().map(RevolverChamberPresentation.ChamberIcon::status).toList());
         assertTrue(view.chambers().get(2).current());
         assertEquals(0xffd7df60, view.chambers().get(0).tint());

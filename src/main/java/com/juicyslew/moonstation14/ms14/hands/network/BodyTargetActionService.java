@@ -47,9 +47,26 @@ public final class BodyTargetActionService {
                 Component.translatable("moonstation14.target_action.butcher"), availability.enabled(), availability.disabledReason()));
         var gunId = BuiltInRegistries.ITEM.getKey(source.getItem().getItem());
         var gun = gunId == null ? null : com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.serverCatalog().get(gunId);
-        if (gun != null && gun.revolverAmmoProvider().isPresent()) {
-            var state = source.getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.REVOLVER_STATE.get());
-            entries.addAll(gunAvailability(gun, state));
+        if (gun != null) {
+            var rows=com.juicyslew.moonstation14.ms14.combat.GunControlAvailability.rows(gun,source.getItem(),
+                    com.juicyslew.moonstation14.ms14.combat.GunControlAvailability.SourceKind.WORLD);
+            for(var row:rows){
+                var id=switch(row.action()){
+                    case GUN_EMPTY_CYLINDER -> BodyTargetActionSnapshot.ActionId.EMPTY_REVOLVER;
+                    case GUN_SPIN_CYLINDER -> BodyTargetActionSnapshot.ActionId.SPIN_REVOLVER;
+                    case GUN_CYCLE_FIRE_MODE -> BodyTargetActionSnapshot.ActionId.GUN_CYCLE_MODE;
+                    case GUN_EJECT_MAGAZINE -> BodyTargetActionSnapshot.ActionId.GUN_EJECT_MAGAZINE;
+                    case GUN_TOGGLE_BOLT -> BodyTargetActionSnapshot.ActionId.GUN_TOGGLE_BOLT;
+                    case GUN_EJECT_CELL -> BodyTargetActionSnapshot.ActionId.GUN_EJECT_CELL;
+                    case GUN_CYCLE_ACTION -> BodyTargetActionSnapshot.ActionId.GUN_CYCLE_ACTION;
+                    case GUN_CYCLE_BATTERY_MODE -> BodyTargetActionSnapshot.ActionId.GUN_CYCLE_BATTERY_MODE;
+                    default -> null;
+                };
+                if(id!=null)entries.add(new BodyTargetActionSnapshot.ActionEntry(id,Component.translatable(row.labelKey()),row.enabled(),
+                        row.reasonKey()==null?null:Component.translatable(row.reasonKey())));
+            }
+            if(entries.isEmpty())entries.add(new BodyTargetActionSnapshot.ActionEntry(BodyTargetActionSnapshot.ActionId.GUN_STATUS,
+                    Component.translatable("moonstation14.gun.status.read_only"),false,Component.translatable("moonstation14.gun.status.read_only")));
         }
         return new BodyTargetActionSnapshot(query.bodyEpoch(), query.sequence(), query.expectedRevision(),
                 query.handId(), query.expectedToken(), query.targetId(), source.getItem().getHoverName(), entries);

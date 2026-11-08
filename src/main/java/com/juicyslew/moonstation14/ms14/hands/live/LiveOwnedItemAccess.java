@@ -48,6 +48,16 @@ public final class LiveOwnedItemAccess {
     }
 
     public static Optional<Committed> commitComponents(OwnerView view, ItemStack replacement, BooleanSupplier stillValid) {
+        Optional<LiveHands> candidate = stageComponents(view, replacement, stillValid);
+        if (candidate.isEmpty()) return Optional.empty();
+        LivingEntity body = view.body(); LiveHands hands = view.hands();
+        try { LiveHandsCommitGateway.commitOwned(body, hands, candidate.orElseThrow()); }
+        catch (IllegalStateException rejected) { return Optional.empty(); }
+        return Optional.of(new Committed(candidate.orElseThrow(), candidate.orElseThrow().revision()));
+    }
+
+    /** Validate the exact owner snapshot and prepare its component replacement without publishing it. */
+    public static Optional<LiveHands> stageComponents(OwnerView view, ItemStack replacement, BooleanSupplier stillValid) {
         if (view == null || replacement == null || replacement.isEmpty() || stillValid == null) return Optional.empty();
         LivingEntity body = view.body(); LiveHands hands = view.hands(); Binding binding = view.binding();
         if (!(body.level() instanceof ServerLevel) || body.level().getServer() == null || !body.level().getServer().isSameThread()
@@ -66,8 +76,6 @@ public final class LiveOwnedItemAccess {
                 ? hands.replaceOwnedComponents(binding.revision(), binding.slotId(), itemToken, replacement)
                 : hands.replaceEquipmentOwnedComponents(binding.revision(), binding.slotId(), itemToken, replacement)).orElse(null);
         if (candidate == null) return Optional.empty();
-        try { LiveHandsCommitGateway.commitOwned(body, hands, candidate); }
-        catch (IllegalStateException rejected) { return Optional.empty(); }
-        return Optional.of(new Committed(candidate, candidate.revision()));
+        return Optional.of(candidate);
     }
 }

@@ -14,6 +14,12 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+    @Test void bodyInventoryRetainsProofWithoutTreatingOtherScreensAsApproved() {
+        assertTrue(BodyHandClientPolicy.keepsProofForScreen(false, false, true));
+        assertTrue(BodyHandClientPolicy.keepsProofForScreen(true, false, false));
+        assertTrue(BodyHandClientPolicy.keepsProofForScreen(false, true, false));
+        assertFalse(BodyHandClientPolicy.keepsProofForScreen(false, false, false));
+    }
     @Test
     void attachedEmptyHandPickupUsesAlternateTargetWithoutChangingNomination() {
         assertEquals(BodyHandActionRequest.Action.ALTERNATE_TARGET,

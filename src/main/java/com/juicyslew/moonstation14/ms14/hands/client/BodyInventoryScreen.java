@@ -19,6 +19,8 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
     private long selectionEpoch = -1;
     private int selectedRow = -1, cellX = -1, cellY = -1, rotation, scroll;
     private boolean placement;
+    private String handPressTarget;
+    private double handPressX, handPressY;
 
     public BodyInventoryScreen() { super(Component.translatable("gui.moonstation14.inventory.title")); }
 
@@ -210,8 +212,27 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
     }
 
     @Override public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 1) {
+            var view = updateButtons();
+            if (view != null) {
+                var activeTile = firstId != null && firstId.equals(view.activeHand()) ? first : second;
+                if (activeTile != null && mouseX >= activeTile.getX() && mouseX < activeTile.getX() + activeTile.getWidth()
+                        && mouseY >= activeTile.getY() && mouseY < activeTile.getY() + activeTile.getHeight()
+                        && BodyHandClient.openActiveHeldGunControls()) return true;
+            }
+        }
         if (button == 0) {
             var view = updateButtons();
+            if (view != null) {
+                var target = view.first(); var targetButton = first;
+                if (secondId != null && mouseX >= second.getX() && mouseX < second.getX() + second.getWidth()) { target=view.second(); targetButton=second; }
+                if (mouseY >= targetButton.getY() && mouseY < targetButton.getY()+targetButton.getHeight()
+                        && mouseX >= targetButton.getX() && mouseX < targetButton.getX()+targetButton.getWidth()
+                        && target.token()!=null && !target.id().equals(view.activeHand())) {
+                    handPressTarget=target.id(); handPressX=mouseX; handPressY=mouseY;
+                    return true;
+                }
+            }
             if (view != null) for (int row = 0; row < 2; row++) {
                 var g = grid(view, row);
                 if (g == null) continue;
@@ -234,6 +255,19 @@ public final class BodyInventoryScreen extends net.minecraft.client.gui.screens.
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override public boolean mouseReleased(double x, double y, int button) {
+        if (button == 0 && handPressTarget != null) {
+            String target=handPressTarget; handPressTarget=null;
+            HandEquipmentGesture.DispatchResult outcome=HandEquipmentGesture.DispatchResult.BLOCKED;
+            if (Math.abs(x-handPressX)<5 && Math.abs(y-handPressY)<5) {
+                outcome=BodyHandClient.handClick(target);
+            }
+            if (HandEquipmentGesture.resolveHandClick(outcome, () -> BodyHandClient.selectInventoryHand(target))) return true;
+            return true;
+        }
+        return super.mouseReleased(x,y,button);
     }
 
     private String text(String key) { return Component.translatable("gui.moonstation14.inventory." + key).getString(); }

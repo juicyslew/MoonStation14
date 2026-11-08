@@ -38,6 +38,10 @@ public record CabinGasInventorySnapshot(AtmospherePrecisionBudget.Inventory inve
         var identities = new LinkedHashMap<PipeTopology.NodeKey, UUID>();
         var keys = new LinkedHashSet<PipeTopology.NodeKey>();
         keys.addAll(cabin.supplyPipeNodes()); keys.addAll(cabin.returnPipeNodes());
+        var ports = keys.stream().map(LoadedPipeGasWork.Port::new).toList();
+        var work = LoadedPipeGasWork.capture(level, ports).orElseThrow(
+                () -> new GameTestAssertException("could not capture consistent cabin pipe network image"));
+        var countedNetworks = new HashSet<UUID>();
         for (var key : keys) {
             BlockEntity be = level.getBlockEntity(key.position());
             int lane = switch (key.layer()) {
@@ -50,9 +54,14 @@ public record CabinGasInventorySnapshot(AtmospherePrecisionBudget.Inventory inve
                     : LoadedSealedWallGasOwner.activeSnapshot(level, key.position(), key.layer()).orElse(null);
             if (entry == null)
                 throw new GameTestAssertException(missingOwnerDiagnostic(level, key, lane, expected.get(key)));
-            if (entry.mixture() == null || identities.put(key, entry.incarnation()) != null)
+            if (identities.put(key, entry.incarnation()) != null)
                 throw new GameTestAssertException("invalid/duplicate cabin pipe gas owner at node " + key + " lane " + key.layer());
-            (cabin.supplyPipeNodes().contains(key) ? supply : returns).add(entry.mixture());
+            var resolved = work.inventory().get(key).filter(PipeGasInventory.Entry::active).orElse(null);
+            if (resolved == null || !resolved.incarnation().equals(entry.incarnation()))
+                throw new GameTestAssertException("cabin pipe owner changed during network capture at " + key);
+            var network = work.inventory().network(key).orElseThrow();
+            if (countedNetworks.add(network.id()))
+                (cabin.supplyPipeNodes().contains(key) ? supply : returns).add(network.mixture());
         }
         var all = new ArrayList<GasMixture>(room); all.addAll(supply); all.addAll(returns);
         return new CabinGasInventorySnapshot(AtmospherePrecisionBudget.Inventory.capture(all),
@@ -79,7 +88,7 @@ public record CabinGasInventorySnapshot(AtmospherePrecisionBudget.Inventory inve
         var keyEntry = inventory == null ? null : inventory.get(key).orElse(null);
         String saved = keyEntry == null ? "absent" : "id=" + keyEntry.incarnation() + ",active=" + keyEntry.active()
                 + ",version=" + keyEntry.version() + ",volume=" + keyEntry.volume() + ",species="
-                + keyEntry.mixture().gasMoles().keySet() + ",heat=" + keyEntry.mixture().thermalEnergy();
+                + inventory.mixture(key).gasMoles().keySet() + ",heat=" + inventory.mixture(key).thermalEnergy();
         String diagnostic = "missing active cabin pipe gas owner node=" + key + " loaded=" + loadedState + " block=" + block
                 + " be=" + be + " removed=" + removed + " hasLayer=" + hasLayer + " functionalId=" + functionalId
                 + " saved=" + saved + " expected=" + expected + " retired="

@@ -34,6 +34,24 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MoonStation14.MOD_ID);
+    // Gun content identities are registered while approved baked models are being produced.
+    // Keep these items model-neutral: no sprite/placeholder fallback is assigned here.
+    public static final DeferredItem<Item> WEAPON_PISTOL_MK58 = ITEMS.register("weapon_pistol_mk58", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "weapon_pistol_mk58"))));
+    public static final DeferredItem<Item> WEAPON_RIFLE_LECTER = ITEMS.register("weapon_rifle_lecter", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "weapon_rifle_lecter"))));
+    public static final DeferredItem<Item> WEAPON_REVOLVER_INSPECTOR = ITEMS.register("weapon_revolver_inspector", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "weapon_revolver_inspector"))));
+    public static final DeferredItem<Item> WEAPON_SHOTGUN_KAMMERER = ITEMS.register("weapon_shotgun_kammerer", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "weapon_shotgun_kammerer"))));
+    public static final DeferredItem<Item> WEAPON_SNIPER_MOSIN = ITEMS.register("weapon_sniper_mosin", () -> new com.juicyslew.moonstation14.item.custom.ItemFoodSolutionItem(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "weapon_sniper_mosin"))));
+    public static final DeferredItem<Item> WEAPON_LASER_GUN = ITEMS.register("weapon_laser_gun", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "weapon_laser_gun"))));
+    public static final DeferredItem<Item> WEAPON_ENERGY_SHOTGUN = ITEMS.register("weapon_energy_shotgun", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "weapon_energy_shotgun"))));
+    public static final DeferredItem<Item> WEAPON_LASER_SVALINN = ITEMS.register("weapon_laser_svalinn", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "weapon_laser_svalinn"))));
+    public static final DeferredItem<Item> MAGAZINE_PISTOL = ITEMS.register("magazine_pistol", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "magazine_pistol"))));
+    public static final DeferredItem<Item> MAGAZINE_RIFLE = ITEMS.register("magazine_rifle", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "magazine_rifle"))));
+    public static final DeferredItem<Item> SPEEDLOADER_MAGNUM = ITEMS.register("speedloader_magnum", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "speedloader_magnum"))));
+    public static final DeferredItem<Item> POWER_CELL_SMALL = ITEMS.register("power_cell_small", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "power_cell_small"))));
+    public static final DeferredItem<Item> CARTRIDGE_PISTOL = ITEMS.register("cartridge_pistol", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "cartridge_pistol"))));
+    public static final DeferredItem<Item> CARTRIDGE_RIFLE = ITEMS.register("cartridge_rifle", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "cartridge_rifle"))));
+    public static final DeferredItem<Item> CARTRIDGE_LIGHT_RIFLE = ITEMS.register("cartridge_light_rifle", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "cartridge_light_rifle"))));
+    public static final DeferredItem<Item> SHELL_SHOTGUN = ITEMS.register("shell_shotgun", () -> new Item(new Item.Properties().stacksTo(1).component(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "shell_shotgun"))));
     /** Internal transport key only; valid instances must also carry PORTABLE_BODY_REFERENCE. */
     public static final DeferredItem<Item> PORTABLE_BODY_KEY = ITEMS.register("portable_body_key",
             () -> new Item(new Item.Properties().stacksTo(1).component(
@@ -85,7 +103,6 @@ public class ModItems {
     public static final DeferredItem<Item> BOTANY_HOE = ITEMS.register("botany_hoe", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> BOTANY_SPADE = ITEMS.register("botany_spade", () -> new Item(new Item.Properties().stacksTo(1)));
     // Source-equivalent item identities only; firearm behavior is intentionally not activated here.
-    public static final DeferredItem<Item> WEAPON_REVOLVER_PYTHON = ITEMS.register("weapon_revolver_python", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> REVOLVER_CAP_GUN = ITEMS.register("revolver_cap_gun", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> REVOLVER_CAP_GUN_FAKE = ITEMS.register("revolver_cap_gun_fake", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final DeferredItem<Item> CARTRIDGE_MAGNUM = ITEMS.register("cartridge_magnum", () -> new Item(new Item.Properties().stacksTo(1)));

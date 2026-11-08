@@ -1,0 +1,30 @@
+{
+  "kind": "compact source-derived test oracle; never loaded by runtime",
+  "sources": {
+    "r4": {
+      "path": "build/guns-sprint/artist-import/guns-cartridge-handle-20261105-r4/provenance/anchors.json",
+      "sha256": "05f410b7c9b17f744b3f47bc8de6809c9ad7d260c7b0fcca50bed860df05b025",
+      "coordinates": "OBJ_blocks, copied directly"
+    },
+    "manual_feed_r1": {
+      "path": "build/guns-sprint/artist-import/guns-manual-feed-20261105-r1/provenance/assets/Objects/Weapons/Guns/ManualFeed/candidates/source_family_r1/anchors_and_placement.json",
+      "sha256": "38224224f626a48dcadc545cc4cdb356263e92822774b26ac3521ccf8a279919",
+      "coordinates": "anchors.*.OBJ_blocks, copied directly"
+    },
+    "energy_svalinn_r3": {
+      "path": "build/guns-sprint/artist-import/guns-energy-svalinn-barrel-texture-20261105-r3/provenance/model_spec.json",
+      "sha256": "c105366bdb50d8ee1bb929966e504651055fbfd0859cc4be5d72e905a30d6d8a",
+      "coordinates": "anchors_pixels, raw artist pixels; runtime conversion is [(x+8)/16,y/16,(z+8)/16]"
+    }
+  },
+  "items": {
+    "weapon_pistol_mk58": {"source":"r4","grip":[0.5,0.115625,0.34187500000000004],"muzzle":[0.5,0.26375,0.69875]},
+    "weapon_rifle_lecter": {"source":"r4","grip":[0.5,0.115625,0.30625],"support":[0.5,0.165625,0.6625],"muzzle":[0.5,0.3,1.03]},
+    "weapon_revolver_inspector": {"source":"manual_feed_r1","grip":[0.55,0.5,0.33125],"muzzle":[0.346875,0.5,0.84375]},
+    "weapon_shotgun_kammerer": {"source":"manual_feed_r1","grip":[0.5125,0.5,0.29375],"support":[0.465625,0.5,0.7875],"muzzle":[0.37875000000000003,0.5,1.125]},
+    "weapon_sniper_mosin": {"source":"manual_feed_r1","grip":[0.49375,0.5,0.2375],"support":[0.44375,0.5,0.70625],"muzzle":[0.3875,0.5,1.11875]},
+    "weapon_laser_gun": {"source":"energy_svalinn_r3","grip":[-1.5987986031466646,2.1999999999999997,-7.175000000000001],"muzzle":[4.6512013968533354,2.2,12.875]},
+    "weapon_energy_shotgun": {"source":"energy_svalinn_r3","grip":[0.6122882985657441,2.2,-9.65],"support":[1.5122882985657444,2.2,-0.6500000000000001],"muzzle":[4.512288298565744,2.2000000000000006,16.05]},
+    "weapon_laser_svalinn": {"source":"energy_svalinn_r3","grip":[-0.6046558281263472,2.0,-6.175],"muzzle":[3.9953441718736524,2.0000000000000004,11.075]}
+  }
+}

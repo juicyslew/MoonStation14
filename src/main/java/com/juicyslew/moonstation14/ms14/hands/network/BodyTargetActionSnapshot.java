@@ -19,11 +19,19 @@ public record BodyTargetActionSnapshot(long bodyEpoch, long sequence, long expec
                                        String handId, String expectedToken, UUID targetId,
                                        Component targetName, List<ActionEntry> actions) implements CustomPacketPayload {
     public enum ActionId {
-        BUTCHER, EMPTY_REVOLVER, SPIN_REVOLVER;
+        BUTCHER, EMPTY_REVOLVER, SPIN_REVOLVER, GUN_CYCLE_MODE, GUN_EJECT_MAGAZINE, GUN_TOGGLE_BOLT, GUN_EJECT_CELL, GUN_STATUS,
+        GUN_CYCLE_ACTION, GUN_CYCLE_BATTERY_MODE;
         public BodyHandActionRequest.Action requestAction() { return switch (this) {
             case BUTCHER -> BodyHandActionRequest.Action.BUTCHER;
             case EMPTY_REVOLVER -> BodyHandActionRequest.Action.GUN_EMPTY;
             case SPIN_REVOLVER -> BodyHandActionRequest.Action.GUN_SPIN;
+            case GUN_CYCLE_MODE -> BodyHandActionRequest.Action.GUN_CYCLE_FIRE_MODE;
+            case GUN_EJECT_MAGAZINE -> BodyHandActionRequest.Action.GUN_EJECT_MAGAZINE;
+            case GUN_TOGGLE_BOLT -> BodyHandActionRequest.Action.GUN_TOGGLE_BOLT;
+            case GUN_EJECT_CELL -> BodyHandActionRequest.Action.GUN_EJECT_CELL;
+            case GUN_STATUS -> throw new IllegalStateException("Read-only status row has no request");
+            case GUN_CYCLE_ACTION -> BodyHandActionRequest.Action.GUN_CYCLE_ACTION;
+            case GUN_CYCLE_BATTERY_MODE -> BodyHandActionRequest.Action.GUN_CYCLE_BATTERY_MODE;
         }; }
     }
     public record ActionEntry(ActionId id, Component label, boolean enabled, Component disabledReason) {

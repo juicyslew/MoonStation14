@@ -1,0 +1,78 @@
+{
+  "textures": {
+    "casing": "minecraft:block/gray_concrete",
+    "surface": "moonstation14:block/atmos_machine/piping/atmospherics/gasfilter/gasFilter_south",
+    "particle": "moonstation14:block/atmos_machine/piping/atmospherics/gasfilter/gasFilter_south"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        12,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#casing"
+        },
+        "south": {
+          "texture": "#casing"
+        },
+        "east": {
+          "texture": "#casing"
+        },
+        "west": {
+          "texture": "#casing"
+        },
+        "up": {
+          "texture": "#casing"
+        },
+        "down": {
+          "texture": "#casing"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        12.02,
+        0
+      ],
+      "to": [
+        16,
+        12.021,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#surface",
+          "tintindex": -1
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        0,
+        16
+      ],
+      "to": [
+        16,
+        12,
+        16.01
+      ],
+      "faces": {
+        "south": {
+          "texture": "#surface"
+        }
+      }
+    }
+  ],
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

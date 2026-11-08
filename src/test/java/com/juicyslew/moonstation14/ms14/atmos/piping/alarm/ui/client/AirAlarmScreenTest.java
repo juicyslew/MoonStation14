@@ -20,31 +20,41 @@ class AirAlarmScreenTest {
         var device = new AirAlarmControlSnapshot.Device(DEVICE, VentilationDeviceConfig.Kind.VENT,
                 new BlockPos(1,2,3), true, true, true, 0, 0, 900, 0, 0);
         for (var mode : AirAlarmMode.values()) {
-            var request = AirAlarmScreen.buildIntent(4, SESSION, mode.ordinal(),
-                    AirAlarmControlRequest.Operation.SET_ALARM_MODE, false, mode.ordinal(), 0, snapshot, device);
+            var request = AirAlarmOverlay.buildIntent(4, SESSION, mode.ordinal(),
+                    AirAlarmControlRequest.Operation.SET_ALARM_MODE, false, mode.ordinal(), 0, snapshot, device.id(), device.revision());
             assertEquals(23, request.expectedRevision());
             assertEquals(new UUID(0,0), request.deviceId());
             assertEquals(mode.ordinal(), request.enumIndex());
         }
-        var toggle = AirAlarmScreen.buildIntent(4, SESSION, 10, AirAlarmControlRequest.Operation.SET_AUTO_MODE,
-                false, 0, 0, snapshot, device);
+        var toggle = AirAlarmOverlay.buildIntent(4, SESSION, 10, AirAlarmControlRequest.Operation.SET_AUTO_MODE,
+                false, 0, 0, snapshot, device.id(), device.revision());
         assertEquals(23, toggle.expectedRevision());
         assertFalse(toggle.desired());
-        var configIntent = AirAlarmScreen.buildIntent(4, SESSION, 11,
-                AirAlarmControlRequest.Operation.SET_ENABLED, false, 0, 0, snapshot, device);
+        var configIntent = AirAlarmOverlay.buildIntent(4, SESSION, 11,
+                AirAlarmControlRequest.Operation.SET_ENABLED, false, 0, 0, snapshot, device.id(), device.revision());
         assertEquals(900, configIntent.expectedRevision());
         assertEquals(DEVICE, configIntent.deviceId());
     }
 
-    @Test void onlyCorrelatedPendingAcceptedOrRejectedSnapshotsCanReplaceState() {
-        var accepted = new AirAlarmControlSnapshot(4, SESSION, 9, true, true, AtmosAlarmSeverity.DANGER,
+    @Test void overlaySnapshotAdmissionUsesSessionAndRequestOrdering() {
+        var sent = new java.util.ArrayList<AirAlarmControlRequest>();
+        var overlay = new AirAlarmOverlay(null, SESSION, 400, 300, () -> true, sent::add, id -> {}, () -> 1L, org.mockito.Mockito.mock(net.minecraft.client.gui.Font.class));
+        var refresh = AirAlarmPaintLayout.forContent(304,224,0,0).refresh();
+        overlay.mouseClicked(80+refresh.x()+1,75+refresh.y()+1,0);
+        assertTrue(overlay.testView().pending());
+        var accepted = new AirAlarmControlSnapshot(0, SESSION, sent.get(0).requestId(), true, true, AtmosAlarmSeverity.DANGER,
                 AirAlarmMode.WIDE_FILTERING, false, 24, List.of(), List.of());
-        var rejected = new AirAlarmControlSnapshot(4, SESSION, 10, false, false, AtmosAlarmSeverity.NORMAL,
+        overlay.snapshot(new AirAlarmControlSnapshot(0, UUID.randomUUID(), accepted.requestId(), true, true,
+                AtmosAlarmSeverity.NORMAL, AirAlarmMode.FILTERING, true, 23, List.of(), List.of()));
+        assertTrue(overlay.testView().pending());
+        overlay.snapshot(accepted);
+        assertFalse(overlay.testView().pending());
+        assertEquals(AirAlarmMode.WIDE_FILTERING, overlay.testView().snapshot().currentMode());
+        overlay.mouseClicked(80+refresh.x()+1,75+refresh.y()+1,0);
+        var stale = new AirAlarmControlSnapshot(0, SESSION, accepted.requestId(), true, false, AtmosAlarmSeverity.NORMAL,
                 AirAlarmMode.FILTERING, true, 23, List.of(), List.of());
-        assertTrue(AirAlarmScreen.correlatedResponse(4, SESSION, 9, -1, -1, accepted));
-        assertTrue(AirAlarmScreen.correlatedResponse(4, SESSION, 10, -1, -1, rejected));
-        assertFalse(AirAlarmScreen.correlatedResponse(5, SESSION, 9, -1, -1, accepted));
-        assertFalse(AirAlarmScreen.correlatedResponse(4, UUID.randomUUID(), 9, -1, -1, accepted));
-        assertFalse(AirAlarmScreen.correlatedResponse(4, SESSION, 8, -1, -1, accepted));
+        overlay.snapshot(stale);
+        assertTrue(overlay.testView().pending());
+        assertEquals(AirAlarmMode.WIDE_FILTERING, overlay.testView().snapshot().currentMode());
     }
 }

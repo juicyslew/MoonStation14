@@ -1,0 +1,1530 @@
+{
+  "source": "Space Station 14",
+  "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "purpose": "Selected gun/ammo/effect RSI and referenced sound context; import only required assets with attribution, not a gun model substitute.",
+  "selected_entities": [
+    "WeaponPistolMk58",
+    "WeaponRifleLecter",
+    "WeaponRevolverInspector",
+    "WeaponShotgunKammerer",
+    "WeaponSniperMosin",
+    "WeaponLaserGun",
+    "WeaponEnergyShotgun",
+    "WeaponLaserSvalinn",
+    "MagazinePistol",
+    "MagazineRifle",
+    "SpeedLoaderMagnum",
+    "PowerCellSmall",
+    "CartridgePistol",
+    "CartridgeRifle",
+    "CartridgeMagnum",
+    "CartridgeLightRifle",
+    "ShellShotgun",
+    "BulletPistol",
+    "BulletRifle",
+    "BulletMagnum",
+    "BulletLightRifle",
+    "PelletShotgunSpread",
+    "PelletShotgun",
+    "BulletLaserSpreadNarrow",
+    "BulletLaser",
+    "BulletDisablerSmgSpread",
+    "BulletDisablerSmg",
+    "RedMediumLaser",
+    "RedLightLaser",
+    "BasicHitscan"
+  ],
+  "resolved_entities": [
+    "BaseBullet",
+    "BaseCartridge",
+    "BaseCartridgeLightRifle",
+    "BaseCartridgeMagnum",
+    "BaseCartridgePistol",
+    "BaseCartridgeRifle",
+    "BaseGunWieldable",
+    "BaseItem",
+    "BaseMagazinePistol",
+    "BaseMagazineRifle",
+    "BaseMajorContraband",
+    "BasePowerCell",
+    "BaseRestrictedContraband",
+    "BaseSecurityContraband",
+    "BaseShellShotgun",
+    "BaseSpeedLoaderMagnum",
+    "BaseWeaponBattery",
+    "BaseWeaponBatterySmall",
+    "BaseWeaponPistol",
+    "BaseWeaponPowerCell",
+    "BaseWeaponPowerCellSmall",
+    "BaseWeaponRevolver",
+    "BaseWeaponRifle",
+    "BaseWeaponShotgun",
+    "BaseWeaponSniper",
+    "BasicHitscan",
+    "BulletDisablerSmg",
+    "BulletDisablerSmgSpread",
+    "BulletLaser",
+    "BulletLaserSpreadNarrow",
+    "BulletLightRifle",
+    "BulletMagnum",
+    "BulletPistol",
+    "BulletRifle",
+    "CartridgeLightRifle",
+    "CartridgeMagnum",
+    "CartridgePistol",
+    "CartridgeRifle",
+    "MagazinePistol",
+    "MagazineRifle",
+    "PelletShotgun",
+    "PelletShotgunSpread",
+    "PowerCellSmall",
+    "RedLightLaser",
+    "RedMediumLaser",
+    "ShellShotgun",
+    "SpeedLoaderMagnum",
+    "WeaponEnergyShotgun",
+    "WeaponLaserGun",
+    "WeaponLaserSvalinn",
+    "WeaponPistolMk58",
+    "WeaponRevolverInspector",
+    "WeaponRifleLecter",
+    "WeaponShotgunKammerer",
+    "WeaponSniperMosin"
+  ],
+  "missing_entities": [],
+  "missing_assets": [],
+  "files": [
+    {
+      "path": "LICENSE.TXT",
+      "sha256": "50aa6339ba77eb03e3a5cd9a6572578a7f4f60977c2cea7fbc505637ec3ba010"
+    },
+    {
+      "path": "Resources/Audio/Effects/attributions.yml",
+      "sha256": "c8b6959197c074052a15d81afafe280b0cecdb72d47c1a10b9bc6422f4fbc024"
+    },
+    {
+      "path": "Resources/Audio/Effects/drop.ogg",
+      "sha256": "b0797b26b87ccd282d2124f31dba4a3f53ff721206dfda694a64838d08d7ac49"
+    },
+    {
+      "path": "Resources/Audio/Effects/thudswoosh.ogg",
+      "sha256": "519b7a4693681a2a62a061ac6f437897b0710a5dbf629cfe6ac50f87a2335c56"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Bolt/rifle_bolt_closed.ogg",
+      "sha256": "8ebd059288fc582312cf63c21a37d46399999a159535e019b0623c36cc87a838"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Bolt/rifle_bolt_open.ogg",
+      "sha256": "2153a3bf14c9f3656ecb54d1a910645c71ebc088951bd55ed9310dc84258683e"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Casings/casing_fall_2.ogg",
+      "sha256": "03eaf52a831e51573015a6e0d9f9bd1bf8ab9d095f026a9d85c07d6ccf31b7c2"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Cock/ltrifle_cock.ogg",
+      "sha256": "bb7858e05cec18db1a4e5b5504c5d32956ecede80782a9228968b36f50fb45bf"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Cock/pistol_cock.ogg",
+      "sha256": "8d4acde0f7f8302e303ca9e6dbf8b092551e5298794ad7747272c8fcc656dbd2"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Cock/sf_rifle_cock.ogg",
+      "sha256": "f516aafb662678125fbf6ab17b7caf45b2c031b5ea7f24b93193ff7309742d3d"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Cock/smg_cock.ogg",
+      "sha256": "a43ddb8e4c4ffe9a14346d411933951ec73124e4f9e674b2bc663c8d46b1a6f6"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Empty/attributions.yml",
+      "sha256": "b946f2df66efa2de10bb103cc278b3a4e3663afa8616110c60dc206b3f7fa308"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Empty/empty.ogg",
+      "sha256": "a47dd0ce367b04651e23d1dc5e67867326791bf02477960caf1a01bee36912df"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/Magic/attributions.yml",
+      "sha256": "41a2525f843ee7ab2cad2a3326afcea92b7a522492be1c1c8ae3a170d0246338"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/attributions.yml",
+      "sha256": "18660119a13e59753e267587956e40ce34b76c6f9fa2fde72bd55106d7c2d45c"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/batrifle.ogg",
+      "sha256": "218e7ff62b0aec9b0e93ac9a55b2ed2e6b3447213d9b0cf66f4aa00216f1238e"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/laser.ogg",
+      "sha256": "baa2dffeb3f098decdb2a830ac58645602faec817a07d0bec04be926e68df2ee"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/laser_cannon.ogg",
+      "sha256": "9c27678010686770d1d4107e461383236266e9729e62636e2b42260c2d6b1d4d"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/ltrifle.ogg",
+      "sha256": "0e73b949ba7bcf28499fd09f8e96cc37a5c46385ff1bc3438d1d8cf438c10eb1"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/mk58.ogg",
+      "sha256": "74eb860d0df08e0c9281f90227381272736f03f2c6fd58776b0bd8af3fde8f30"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/pistol.ogg",
+      "sha256": "eb402a9a51206f45d79d65b3490c6e4d044d4d5ab6728687ebab93577cdbe21c"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/revolver.ogg",
+      "sha256": "f77277216bbc595904e3375cf097b8432314e935f0ce0d8c78006aadc88a33cd"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/shotgun.ogg",
+      "sha256": "9825881f7103545788dde0f1c71a925c6c2b16571a00f1546f0b0b2e86124cd3"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/smg.ogg",
+      "sha256": "e4ada18dd3babcc8382602d0878a649b571cedb7a36f16a1717a33ab9580eeab"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/sniper.ogg",
+      "sha256": "735a32adec9a2ec722acdfccf767023140437fa1c2046416a999c691d33e61a4"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Gunshots/taser2.ogg",
+      "sha256": "007f4e31a46eb2703fb3cce082271371589a1ae5b169196a3420f26f33a3ec2e"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Hits/attributions.yml",
+      "sha256": "24a72237196477ad48dfd811a9b979955588adea00bb6a073026b5ddba3c8270"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Hits/bullet_hit.ogg",
+      "sha256": "979954a8c41f6d33c9e5ae45edd09c380600620174decc0fa11cbeededcb6039"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Hits/taser_hit.ogg",
+      "sha256": "eeb7e7af4a1d39edbc195ed90b8d4547c288bd06f895cfa76042c4ee138490ed"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagIn/attributions.yml",
+      "sha256": "128c3625bf082877a54c8a2ba4756b8d8c69263c47c8340d62ca359d0e6895ad"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagIn/batrifle_magin.ogg",
+      "sha256": "cfda42b33b8334c00d518857be47831f8bcc0bbe746c069c5163e61591ec3888"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagIn/bullet_insert.ogg",
+      "sha256": "7193a5df6b8a65b647da81786acda7e3cf1ea7e61fca5dc134317724744ffd89"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagIn/ltrifle_magin.ogg",
+      "sha256": "dff54689a9724210d77519d2ab6d6a3b6cf9b9fce6258c1dd2eb09fcbb969ddd"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagIn/pistol_magin.ogg",
+      "sha256": "6c44f8c2102480d33d7b96c725ea73928dd9499c681a7e57ed47f918ee57e02f"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagIn/revolver_magin.ogg",
+      "sha256": "05ac8ef3a1219e504b36ecb902df3745301072db487a32d2cef8e62991cb17a2"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagIn/shotgun_insert.ogg",
+      "sha256": "2fa57f4d139277ad62f2d3444092dbc818fef57bea0b9c65b5ac4eac279b6ed4"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagOut/batrifle_magout.ogg",
+      "sha256": "497be407a49b33874c70b2bf254ce35db091a60e54414ce9acaa73bb52cf4b99"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagOut/ltrifle_magout.ogg",
+      "sha256": "bdbe5c278fef20c8ff288529efe16bf135f58e81683dd77f5ef09e556772d508"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagOut/pistol_magout.ogg",
+      "sha256": "eba4fa6a43e701bb832c11dddfa7c848da53c88275cb2471a507cabd8231f989"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/MagOut/revolver_magout.ogg",
+      "sha256": "c87b4a5115e46fb90bda415a2bb5258ec880cd5cc717e6c1785b2da94ddaa75c"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Misc/attributions.yml",
+      "sha256": "122a5b2256dc5cee5eb61183070c16a114df456014be3fab14b41592d2173ac5"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Misc/revolver_spin.ogg",
+      "sha256": "980e4998fab2dfda930582f759aa3d398eb41c49979ffe646c2e55c115fc39d5"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Misc/selector.ogg",
+      "sha256": "94eb7e7558dbe95aeea99b8ec61a56725aa7799bc1d57946566e876477382914"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Miss/attributions.yml",
+      "sha256": "abc4c3a0a5c5b991b642713f7df3f56fed6d178624aa7d32a93f094179906e55"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/Miss/energy_miss1.ogg",
+      "sha256": "1b71450917bbef7eacd4592ecb8e72cc299fdf80119ede9c7776d47dff3f4fc2"
+    },
+    {
+      "path": "Resources/Audio/Weapons/Guns/sources.json",
+      "sha256": "203eae251ee1f8dcfaed514ecdf1fc7e4b646d9969d4c3eebe937ff22aca7cd1"
+    },
+    {
+      "path": "Resources/Audio/Weapons/bladeslice.ogg",
+      "sha256": "db21312f6df87e93972accc4133f84414c25a352507265aab380677b53f16f93"
+    },
+    {
+      "path": "Resources/Textures/Objects/Fun/capgun.rsi/meta.json",
+      "sha256": "033c48f482143bf71d56fff56380ed5a782d2296506898b191bd2785846880e5"
+    },
+    {
+      "path": "Resources/Textures/Objects/Power/power_cells.rsi/antique.png",
+      "sha256": "012411189a6734fc18f7c303c880ceaaf5e3dc2a279d76adbb6f3212839d1e48"
+    },
+    {
+      "path": "Resources/Textures/Objects/Power/power_cells.rsi/high.png",
+      "sha256": "86e0f3eec6acbdb1853277cdcbe9441f2bb93100c5e1378fb576a5e25e68ae8c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Power/power_cells.rsi/hyper.png",
+      "sha256": "0b6c01c9e36c16f3f7f4e3ff1b7078295220fe495df48ba2c07491774922ce0c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Power/power_cells.rsi/medium.png",
+      "sha256": "65d51ac8df86749081cba325d61b766c1f945b05300a3f415a94d8c11c7d4f66"
+    },
+    {
+      "path": "Resources/Textures/Objects/Power/power_cells.rsi/meta.json",
+      "sha256": "8b6e3d759891c4ed4ec45a40df32eb8db3413475270c36582b30dc6d73e6d433"
+    },
+    {
+      "path": "Resources/Textures/Objects/Power/power_cells.rsi/microreactor.png",
+      "sha256": "7df2ee33f17b96935ec117b7f9978572182631ff6d305315bae8beeab32a4a2f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Power/power_cells.rsi/o1.png",
+      "sha256": "94b6e087545d75f96a5349ddeaa3212de9ea2d5746170dc79f12e2ed74c28e4a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Power/power_cells.rsi/o2.png",
+      "sha256": "01a6b3de7e767ebef1330e61ecad394f21bf824808d047be123ea6d32da1eb42"
+    },
+    {
+      "path": "Resources/Textures/Objects/Power/power_cells.rsi/potato.png",
+      "sha256": "2ac81e980740bbb955a5fa308b837e91d3322b125cf9ee6042c7460af4c209ec"
+    },
+    {
+      "path": "Resources/Textures/Objects/Power/power_cells.rsi/small.png",
+      "sha256": "1d1fdd17ae927b71dd5b680e164afb7543857a746dbe1d32b931267790c6d277"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/ammo_casing.rsi/base-spent.png",
+      "sha256": "594b91ffc1dea09177ccfdf0f9159f14c104aca674dbc14e63b62a753a76ced0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/ammo_casing.rsi/base.png",
+      "sha256": "08cef75d290968f0bc5ac0a9781cf915d78c8c15da9052c4b80a7c5a3cfc901b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/ammo_casing.rsi/meta.json",
+      "sha256": "76fc6037883997a89ed16b13c4255587348e4bac464e81d9c46265b415909df6"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/ammo_casing.rsi/tip.png",
+      "sha256": "de3a73087fee22cc1f65c407a92e594e50ae493ec06c777f3b9df12106f86b2b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/capgun_casing.rsi/meta.json",
+      "sha256": "92acd56e25b49672d4cb9aa9c11e83ada4fc1cc5c4ad6ad462e321fe89b38cca"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/base-spent.png",
+      "sha256": "68f96867614301dff68fecdebbbd5bf103ce18bf95f2abc3ce391212731a8d5b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/base.png",
+      "sha256": "74a3417993a6723bb4e9e8fbbba4eed62773f15b187bc1d1cfdb534e0569bcf1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/beanbag-spent.png",
+      "sha256": "33afd6abdf3d7a6837b137abc15846a9f38a973547adf459e489b26d32c98572"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/beanbag.png",
+      "sha256": "c2e61237c8c6de3e0f0b6166bf99c4beb61b55fa965d4ed7df979af2060640cd"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/blank-spent.png",
+      "sha256": "12db5ce80c76c7056b8975c129240557130929a265f2acb465a89f21f4bd201e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/blank.png",
+      "sha256": "5fd42405259748e39198461ef9efdd0dc46dbc0dae97b67feefff77f8c2bff2e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/depleted-uranium-spent.png",
+      "sha256": "de8d1cbbf72a6fd82825283fb1cd74af21dd5d5291e58d153d6363e3b29fe989"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/depleted-uranium.png",
+      "sha256": "714099a74447f8d05128f6b1d9883b6004fb653b9c485e604dd203ce447fccfc"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/flare-spent.png",
+      "sha256": "a3d2319a5009cbf2d9af1373f7cf9bc5df9d0ac28e70fc0ea4e1fc3193bbc96f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/flare.png",
+      "sha256": "f956d31bb0ee4239464bd0351aaa52d710fc50670dc6292a54e00e1174ea89b5"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/improvised-spent.png",
+      "sha256": "9c12199cd35bebb870a555716aab08d1e80dba1b9e9f1df9f53de1f4299b7ca7"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/improvised.png",
+      "sha256": "a44743279a8b45f73a832956632f5ebc42027131baec8bd227cddd5c27639665"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/incendiary-spent.png",
+      "sha256": "b7ec1ca2cd882a82a9519f911229138b263fa349a868c9a853bbdfd6c9490d1d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/incendiary.png",
+      "sha256": "11a80c9fc5f633ae2fe73ff7290ce7ecb43fb405fc87b71cc7d15fab7a8443fb"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/meta.json",
+      "sha256": "0e8846f2175e04c03428d86292c92c6d2f8144318dc757534729bd84e1ec279c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/practice-spent.png",
+      "sha256": "97a478f4f9c7e95b6d0eab3c4e391d7c76b11a10e9c6ccfb18b1c330f1e9b43a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/practice.png",
+      "sha256": "f464ea742cee65d009b703c1e9128a001639d8e65abf64629f9cdb493cf1f62f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/slug-spent.png",
+      "sha256": "80dc7ed62d0884d6db2aeebd3af5dcfb369d0262720fa17631a61839d069c755"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/slug.png",
+      "sha256": "bbe8b16b2a20f442f512c1448e2fca471abbda5263f3b1727425f80be41786a4"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/tranquilizer-spent.png",
+      "sha256": "bb2f8fa3b4cffe7ffe2acd80483040819a94b0dae4e18a17301a73d63b31f7d8"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Casings/shotgun_shell.rsi/tranquilizer.png",
+      "sha256": "6adead13673ca055827393728667db2483e854348aacc50cde6f5e82ead67f95"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/base.png",
+      "sha256": "0bb0bdcc3109c32d41a3501e0a19f6c667a8f092bc3055f3538ef49f684d9a7e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/inhand-left-mag.png",
+      "sha256": "934195577ca13a82a60640662f5d9ed9b4565463606c241a964e28bf0e20fafb"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/inhand-left-stripe.png",
+      "sha256": "1a4149e2e897774f3118072bffc1b15efaa97e2717b280f88bb724e7fa9ec668"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/inhand-right-mag.png",
+      "sha256": "f45e4ba6642f7bc7f2f493f8b112a259ff5373256f828a952e80f53fc526b0fe"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/inhand-right-stripe.png",
+      "sha256": "84b9dbfc8c90c73fc4249a29e34ad94174fa2ba67b87faeba0edcf86dc96ad7e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/mag-1.png",
+      "sha256": "55c0cb40795a41a00241c1bc75654141c2acf0976153633b919b95a97ecb22db"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/mag-2.png",
+      "sha256": "563ed50e84af2b769407f82a9a924552365a85d64691dde39953bac281bd43c2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/mag-3.png",
+      "sha256": "ff8f1c8cf9012278743072b9c077f97c1e2abdeb368b507d938bfd12296cb84c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/mag-4.png",
+      "sha256": "eee086494a142d45abe5759b8e3d52c550e2e30e1e18f966e456cf7f2067cc30"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/mag-5.png",
+      "sha256": "e1d4e39b94782efd21db102d449c49880de270f5092673e9699839d366a707b4"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/meta.json",
+      "sha256": "48e576c726c5f02edb7d19a1adc61956a18923e1bcdaac23fa0b1982b99d6928"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/red-icon.png",
+      "sha256": "1d90e81ef11142b08a1a23c39d80157a394cde53fccdb0ec6e7f76184467dd8a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Pistol/pistol_mag.rsi/stripe.png",
+      "sha256": "634a1006d9fbcda255b415c73724d329efc4e9711049429d73d283077fb21b6d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Rifle/rifle_mag.rsi/base.png",
+      "sha256": "d6cd0c3ef5a7a75737ccde27ea4abf3518e577c300b1adfc1413ed4b1db3098b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Rifle/rifle_mag.rsi/inhand-left-mag.png",
+      "sha256": "663848718a78a3971cfb64e1ee0b8d134941148396d292ae09b8e46ca8fefbe0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Rifle/rifle_mag.rsi/inhand-left-stripe.png",
+      "sha256": "862e00826a2956ff35dae4df51ae1fc19569cfc294513f8e916914d655db6e4e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Rifle/rifle_mag.rsi/inhand-right-mag.png",
+      "sha256": "fe1b7226cd3009ca27b699baa3589a672c57ad5f279360219a2af439cd83b928"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Rifle/rifle_mag.rsi/inhand-right-stripe.png",
+      "sha256": "d74fd4c5f7b2505c02cbf51c1166c682e6d6ca72fc7236f102f02e24f32236fb"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Rifle/rifle_mag.rsi/mag-1.png",
+      "sha256": "1126c914b1f6458e4e0565db6f5dc49686874b87732edd6b6b650b5e498acaac"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Rifle/rifle_mag.rsi/meta.json",
+      "sha256": "829cb423bc7c3716222872c5fc2201783469c7365ae44447e995b0aaf1d3b25b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/Magazine/Rifle/rifle_mag.rsi/stripe.png",
+      "sha256": "923024ae3f1d65cb270a77d1df14df4ab608061cbbb34eb9779da381a761148a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/base-1.png",
+      "sha256": "93d050607fde05f0d98ed4065239f7ea38f8a6a5d9040532bd81e9475949996a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/base-2.png",
+      "sha256": "64b1d6438b9f607fb45cf5bb82e3d54a5b1b054c332ea0f64b90ceea9df16388"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/base-3.png",
+      "sha256": "d9f53a78d11ddf532f82c15e3933b1636ccd5ebf31e7081ce69bbb5a9fb01b50"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/base-4.png",
+      "sha256": "05c0a23d39b541714b6d34f54508cb6b0873ee1adbf414fa00b801a879c3f8a2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/base-5.png",
+      "sha256": "fca4402d628f424bd7b9e87ffd37c9e20495f121393c36e96186a9cfdc4e818e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/base-6.png",
+      "sha256": "ce2ebdf44e389b1aa32e173e47b44900dccd4b8832821cc58f32db2cd54ccb0e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/base.png",
+      "sha256": "9e427c0084f309844ef1aa73262471ddbb9dc89dc6da483dc42b9e9d5759ac0d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/icon.png",
+      "sha256": "e639b3a12e70ac2ab9630654bb1afe38028c51306ee41b1b95b6008ef21b85c0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/inhand-left-ammo.png",
+      "sha256": "499694efeaa9cf325eb8d6adc48071ae82c0e2cd24a09589fce8b1ec7ef291ea"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/inhand-left-mag.png",
+      "sha256": "117871e3d124d73ccbde272f0dd975b3e57e0d684177e7cdb38e376d23f63b47"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/inhand-left-stripe.png",
+      "sha256": "ab84b35a118ac6e53202b806de0378dcec628d80d3d8fc62a4a6b2165d3d7912"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/inhand-right-ammo.png",
+      "sha256": "bce1a676fdfc6cd6b0d3f9f23663d79bb9d44b71bfb3b4a1610e98959806beac"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/inhand-right-mag.png",
+      "sha256": "bde09039933ccc9b55b591e85d0ef7826d4dc92ab3b902dfa302a553ed5cbef7"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/inhand-right-stripe.png",
+      "sha256": "d24e2925f5caf8ee9224ad571021249ca9e128573690db79ecf563cb9092bbb5"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/meta.json",
+      "sha256": "07822b80a2455aafa7c98ccf6b94cd0678c8dcdf9ee9a0fe39590e51c35328d2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/piercing-1.png",
+      "sha256": "3416eb8617c3301e7023660b2cf2223119eb113a19cb7f72f23981fb1d7d8c56"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/piercing-2.png",
+      "sha256": "116e4dfdbfff95471a010520d8d21723973fe0a7ab59fb677f7c9b298bdba15e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/piercing-3.png",
+      "sha256": "adb7edb6147285cf78dac1fba8d39047c07a5b07f76f80b70bc84e8de687073a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/piercing-4.png",
+      "sha256": "27d5ca348d5cfd93b3fcf3a3f6f9a938bce08409652ec48590e8003ba9d190cd"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/piercing-5.png",
+      "sha256": "608c90da6e9e5bbdef54eafa726359421ac0f50fe98584963b178b2a724c4cf6"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/piercing-6.png",
+      "sha256": "991ff3ff2e19da71303ffb88f7c7cf5460aa12ef121141d4e8ce7857c5de911e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/practice-1.png",
+      "sha256": "ce6c480e6fe1d65dedf571f6f2e3223737895e29cfe1dc8f65b0a4140903590f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/practice-2.png",
+      "sha256": "6ec06ed247c9492d73a3643d7f8f2683ca6e303c98150186e4dcd1bd36bacb74"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/practice-3.png",
+      "sha256": "69ccff87d181e5e633d1d625aed6d3829d7076e041d3013f298c691525b7b5df"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/practice-4.png",
+      "sha256": "596f99177475a72d68f26a6a2c337a11aba6b7f55895b881002628eb7a74c2ed"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/practice-5.png",
+      "sha256": "258b1242334ca59347af6280e9b7999229ff10224c881002976772ceae48c8b5"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/practice-6.png",
+      "sha256": "9c906f9d9a9472850493105948e857be0bddb31bc65ba0dcaad783af22d3b380"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/uranium-1.png",
+      "sha256": "46afdf0c4df2c13c50cdd78b552a2c006bf34a10b9ab8dfdd3a7d27055e49d14"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/uranium-2.png",
+      "sha256": "4c8c3292c320712f86b5280a289137467c65a9b8fb421ecac528995504c10119"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/uranium-3.png",
+      "sha256": "675c70ff9959796f40e2f72686d3d36642213c1abcc38d28c8ea06b53691f0f4"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/uranium-4.png",
+      "sha256": "ca517c719dd6c92b93b4f6f68c4ecfac9f1f5c8de8be23bb4df768d949d114f6"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/uranium-5.png",
+      "sha256": "46f37a75d15c0800dbe05cf46bd81c8fe2b9dd1ea8f84e0be2690fb7c93b2eeb"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Ammunition/SpeedLoaders/Magnum/magnum_speed_loader.rsi/uranium-6.png",
+      "sha256": "c1b90a13b9941938f2b46fff48a50be51e6f0797f478a41d4cb9d98158e44f64"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/energy_shotgun.rsi/base.png",
+      "sha256": "49043b98781099b559fd0edd6d80e3f6a297aaea31708edd66690981825e414e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/energy_shotgun.rsi/equipped-BACKPACK.png",
+      "sha256": "bd7b847195cd9f902095748d45c48b63c64a683c85d12efcea40e84ee216ff45"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/energy_shotgun.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "bd7b847195cd9f902095748d45c48b63c64a683c85d12efcea40e84ee216ff45"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/energy_shotgun.rsi/icon.png",
+      "sha256": "af24e9efda3e93d43ad49184158057fb78f1b19fb54ddaff4fac8cc4d25f1523"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/energy_shotgun.rsi/mag-unshaded-1.png",
+      "sha256": "a11350421acfe7d4b6c409c8ade6cc2ccffc4c46f8a4554aef0c95e229fbee23"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/energy_shotgun.rsi/mag-unshaded-2.png",
+      "sha256": "5579ff059ed0a6a09ff2f35f772cfb3a2e680b8b3b7d4319afe1978a714ecea1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/energy_shotgun.rsi/mag-unshaded-3.png",
+      "sha256": "671f68b904e659fc27ba0e3bae3dab9772060bfb8d97bac0e6764cef0f349208"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/energy_shotgun.rsi/mag-unshaded-4.png",
+      "sha256": "845b9b7265fffcfa376f284e9cd4efbb4a0d87befbccbb128d4bdc0c731fbdd4"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/energy_shotgun.rsi/meta.json",
+      "sha256": "7c428b99b29f4593592b0d9feb1cb30db044e85c51ee14f43269273a0035c21c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/inhands_64x.rsi/energy-inhand-left.png",
+      "sha256": "6af20a6cf6d46d20c7d05d6b890fe426f63caf0b42e46dd50170db4eccb83f1f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/inhands_64x.rsi/energy-inhand-right.png",
+      "sha256": "9641d3c7b2b668429e024c224529c4d8e97ccd155f7080ea41df3f36d71681a0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/inhands_64x.rsi/meta.json",
+      "sha256": "e722cc4125948730157872985421a03e0938218e016407b5699595e4bce75078"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/inhands_64x.rsi/wielded-inhand-left.png",
+      "sha256": "47de83b69a4f993d0c918dea966ea485d4f451be96c66a078d996a200ad465ef"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/inhands_64x.rsi/wielded-inhand-right.png",
+      "sha256": "ed7cfead98d1323cf7146fe3e0fca8d2cd0dca91673e76c9a70f3d30d4b3c07c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/base.png",
+      "sha256": "fada613aa851ba8f1a203ed6d7c6ec6e4dd5691ac6ee6bb6fa847268c5cb9184"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/icon.png",
+      "sha256": "fd86104722848eea1ac44ca3ce6b03a40287329fe466585caea6fd2367e9ae53"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/inhand-left-0.png",
+      "sha256": "5a1f4632d6851bb5316804e914cbd12c8e6180505c04d6a2aa0ac9cd1162d78a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/inhand-left-1.png",
+      "sha256": "cc1ac45c77907ed3ffbea491648ee181f5f2b4f32f23c1b57af0bd25a58bf2d1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/inhand-left-2.png",
+      "sha256": "410dc4e296a65a416579d355c249c1c5af53309d61415068052de18f0cadf7cc"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/inhand-left-3.png",
+      "sha256": "799119e1767c39f927bb81c8998bd14c824f14dd12b086ac4b29e8175cc162a1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/inhand-left.png",
+      "sha256": "799119e1767c39f927bb81c8998bd14c824f14dd12b086ac4b29e8175cc162a1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/inhand-right-0.png",
+      "sha256": "177ec407fd3d073a53d2ea9571866859e427f8307015838db665b6e465d1fd19"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/inhand-right-1.png",
+      "sha256": "79bba420f11c974cd6d16c16daa288bf3ee63623090b5fa59bb6c3a8b1203d43"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/inhand-right-2.png",
+      "sha256": "218005acfc2dc1091239455fd3557b88d0f3a98d9de84dae90706f99b66f52b5"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/inhand-right-3.png",
+      "sha256": "2bdad57afa3c90f885f5f83f257b4b4587577676ac67d98dd9a130944ba715bf"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/inhand-right.png",
+      "sha256": "2bdad57afa3c90f885f5f83f257b4b4587577676ac67d98dd9a130944ba715bf"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/mag-unshaded-0.png",
+      "sha256": "defa70b5a233967569cf3e1b8de03c9e11711fb8267f17d8fd4e38460e411716"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/mag-unshaded-1.png",
+      "sha256": "365e8578afcab606adb774e7d91233313f70d83e1f57e2625708f9c26f4f475e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/mag-unshaded-2.png",
+      "sha256": "1fa71301bdd635a789761007296f09e0f1ef6e0ea4a99ba8ad139fe11b5908c3"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/mag-unshaded-3.png",
+      "sha256": "dcfc542824920a56e2bd68f353b9abf72e0616558669a9d552d12f9e153ee595"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/mag-unshaded-4.png",
+      "sha256": "ba72d82f20e40e88877c242b135fa02db7fb512eb4bfd2ed2c5516de5cf454e0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/laser_retro.rsi/meta.json",
+      "sha256": "6b44f32067c9f569f79027e88ee47af3f1b5cf16484081a15411e20549ab4adb"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/base.png",
+      "sha256": "e1193deb083ad14fbc9c7ca271db866856ae246de0ef4a7c7f60c59e8f8081d7"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/icon.png",
+      "sha256": "dc2d1018417797d5b56cd039c31652eb9327f7ac6867736d029476f4f2051f42"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/inhand-left-0.png",
+      "sha256": "5eb04b948067ccf6e9004176d2c9f012528c10e7cd119ba2e023dd68aed79b6d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/inhand-left-1.png",
+      "sha256": "82957607c60602503cf6549fcfa388217b1ef1a41a4c6558393cf4a4c082498b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/inhand-left-2.png",
+      "sha256": "deb9febd4488cff53d7e2a034619e4c9b01e3990540f8569556c993106c7d5d3"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/inhand-left-3.png",
+      "sha256": "14d2241922ea6ffdc67e5a86889d1739b2f442ec90d36e06729a52bf399f9ebd"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/inhand-left.png",
+      "sha256": "532be6ed3f31941446d1039cb9f8bcf10bb83e85c9d6f01d004c751c414e6ff0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/inhand-right-0.png",
+      "sha256": "ad991d92d2e449a2a02ce7c70bcc9fa2f7d634f6c7ca0feb5943f8020d18ab87"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/inhand-right-1.png",
+      "sha256": "64863e9d5496171db106daeed71bf0ab6a74ab2f93566561cc18a677db541641"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/inhand-right-2.png",
+      "sha256": "1b4f0bd228bca48cb2d21ce8ac268fb79ace71c132e3e4a818901b97c3fbb223"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/inhand-right-3.png",
+      "sha256": "52a80a49100c940f2949a236f83f9b41cbcfa18b5da9c56416be66125ada995f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/inhand-right.png",
+      "sha256": "bae0aa61793d967ab054ac94ab4efa9872c552c4d73c41cd622c748e89feaf6d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/mag-unshaded-0.png",
+      "sha256": "9d6ec29edeb00ed4a0cbab31828bf2f7336b3222dc2c4e867cafa2f5134c3916"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/mag-unshaded-1.png",
+      "sha256": "a90c64101f23299484afd8eb2979645ee33644a93ae2e54739b1e88f5a88d08f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/mag-unshaded-2.png",
+      "sha256": "0e04e2728f4809ceb76f3107f2bb1bc97bb2ae1c1e23ff00548e3d47838b2085"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/mag-unshaded-3.png",
+      "sha256": "8f284ff38a05dc110f76ce4fbf6b4954aa915ea22f59a12263daebb6b08baaf0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/mag-unshaded-4.png",
+      "sha256": "b4ec0bc155b824ac2ecd264989c71815e1de2b772893766c6d2cccc216f0d66f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/svalinn.rsi/meta.json",
+      "sha256": "9d980aec8b9570909e98fde5162a4542f4aecd63a535de1a02e72d37f4a57ea5"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/base.png",
+      "sha256": "ebd7e5abbe289c3f1a520426ed2c3534ef65cb477e61721b16cadab7356e81ae"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/equipped-BELT.png",
+      "sha256": "5b1694616e085c4bd5d036558885245ad26d18e9cd2b7538fe568fb3438199c0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "5b1694616e085c4bd5d036558885245ad26d18e9cd2b7538fe568fb3438199c0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/icon.png",
+      "sha256": "0b78e9b93897ae89f6251dedc0692ec63ab9a31e20402df0de49f3db92597891"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/mag-unshaded-0.png",
+      "sha256": "d0a03171275f7c272ae72d27e6a1fe118d1f08bc8bda99de6a927b52ce88c9ba"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/mag-unshaded-1.png",
+      "sha256": "97e6a723d097fc1255f92a0aa363b12b30243c65c3bed7b3323c625a01a530a1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/mag-unshaded-2.png",
+      "sha256": "539f32e4829cfada4c9285d1d7e22c26db4e4581726bddd42edf467d9e385da0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/mag-unshaded-3.png",
+      "sha256": "74b3f826c94f702109e9a15e0e5bf0d4fc000d9417bee0ffc3b87c1d2eb31535"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/mag-unshaded-4.png",
+      "sha256": "170c80efe6cab1d83fe08a1edce55b1c678044cab6580c09a812a6d07ff93700"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/meta.json",
+      "sha256": "29c2f2e8bc972318e019d04a55178e95b39120976b0719a9db14df8ad2ae7fee"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/taser0-inhand-left.png",
+      "sha256": "c4856982335bbff83384b98112e411e8e523c545c8b8cd928b94bad3209dd608"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/taser0-inhand-right.png",
+      "sha256": "cde3234a9df2625e0ad3cda0647b9bc6403c147999d41354008f58f9d829b26d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/taser1-inhand-left.png",
+      "sha256": "f6a62e62a43b9c3efed1b18cc6089af85ad628f67e1ab382bc7d6f10f660c1b9"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/taser1-inhand-right.png",
+      "sha256": "1c189611bd7def99d6437012405f14faeb3b915861117c0fd4a8ed039e0d9ab2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/taser2-inhand-left.png",
+      "sha256": "e33819d02c04935090542c8926c3afe19be61be4185b95654f4807a4c201bb29"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/taser2-inhand-right.png",
+      "sha256": "8ec556e43375455d58717047fe72985b4db39070428b7fdc8e5fefc0952558dd"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/taser3-inhand-left.png",
+      "sha256": "5d4a5a0e3b1079591e483487e8481f354f290a3fe8f25fb5981c7fbc6c89e4c4"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/taser3-inhand-right.png",
+      "sha256": "ae5720fbe68b1351488cb58bac900f4d49735c50cce5ae2b138d7eeae645e67c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/taser4-inhand-left.png",
+      "sha256": "1055d3011b4e877b2b403ea8679f1f3dcb665f2be4a4b227b36afc01b87dd334"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Battery/taser.rsi/taser4-inhand-right.png",
+      "sha256": "a7d49bebf766e0c81a2f3634cac5808e40ce5c61188478444978d067f0fa781f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/mk58.rsi/base.png",
+      "sha256": "7e625ffdafb7fcfc62516846588204d10989ed4b9652a16d8645323e84a119b9"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/mk58.rsi/bolt-open.png",
+      "sha256": "97724115168eaad519af190fa75b6283e01aae07aa0bf5f7e62d1ea84169f180"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/mk58.rsi/equipped-BELT.png",
+      "sha256": "e254d056a1cf86fdd692cfea64466ea32da2a78b5fafa373c25a1fd16dd87c9b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/mk58.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "e254d056a1cf86fdd692cfea64466ea32da2a78b5fafa373c25a1fd16dd87c9b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/mk58.rsi/icon.png",
+      "sha256": "5ae36c40917d5ac3ce7576404ee7d2ec496ba4ffdfae66ee3542900098332b8e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/mk58.rsi/inhand-left.png",
+      "sha256": "0b96deacf6774989f15c5bcae4b8b6887b71058240ca0fc05390cd6cafa5e643"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/mk58.rsi/inhand-right.png",
+      "sha256": "510db9b3f416e9e06ceeb1e28bcc4c44d7a53f797aa1b349d75fd4fad2d595c0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/mk58.rsi/mag-0.png",
+      "sha256": "62faf1fcae9ab42a7cb1089bfcdfcc0b03b8cdd8a7dfeab42bba589f6575d2cc"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/mk58.rsi/meta.json",
+      "sha256": "4c2f6ad1aec858494c28aa031ad6eb47f25cea374c265ac2da8e5d9e1b211d22"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/viper.rsi/base.png",
+      "sha256": "cc8d29a4f28baaf40c79e4346622e3a73cb192436b91d5d4f1d41fae8b23e4c2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/viper.rsi/bolt-open.png",
+      "sha256": "8bcc35f03a7e3786c5fea201de10d2bbf7d8e07112845c027264ad92820bfaf1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/viper.rsi/equipped-BELT.png",
+      "sha256": "30beb627af1cf4e8c4a12dd0467babd86b05a2993afb1e69d83b738274daade1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/viper.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "30beb627af1cf4e8c4a12dd0467babd86b05a2993afb1e69d83b738274daade1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/viper.rsi/icon.png",
+      "sha256": "78147e9bf0098aa7082255e3c09175eee4da7e2a42e346189e50ef16ebc7b523"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/viper.rsi/inhand-left.png",
+      "sha256": "975123ec7bf02d4bd7cfd4b5da4cae8a739c6b622bd7c8e08a023765b7834ec9"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/viper.rsi/inhand-right.png",
+      "sha256": "315ec7168494bf4887f2b16ba9674a42da78dcb747198d41e20878b1573b5f8d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/viper.rsi/mag-0.png",
+      "sha256": "f8967f7f2bb642981683de6fa59fdd6b8f04a898dcf6fc7453af2b8219a1ff37"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/viper.rsi/meta.json",
+      "sha256": "f1073cc2430768073a2ba8aa488227846e36450e41b286341ea2af4889431e95"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Pistols/viper.rsi/suppressor.png",
+      "sha256": "ca823a739060aa38f6ec61aacaa47fea46ac2cfcb4c09fc73876cf0a21ec75eb"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/beam.png",
+      "sha256": "06ebcb809d664cf16078af0d1e31084f153b80b530460724ee84a7f960684846"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/beam_blue.png",
+      "sha256": "518fa489f5880e16d73f3eeb1dbb12a1c1638fb88433a985838920eb13a20f72"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/beam_heavy.png",
+      "sha256": "d53b78cf17beec8e751a9f848077a00743904193557b08c1dd5a8887107ce534"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/beam_heavy2.png",
+      "sha256": "b6759f993801c5935016dec984d6885baa5ef00b43866caffefb8d439eacfba4"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/beam_omni.png",
+      "sha256": "c67d1f8023cc3680c185e53bb1a5034431fdff36a050984d6c72653dc8d29948"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/bolt.png",
+      "sha256": "50dadb8130d23c22ed99a1017f7d1d057d2fa855e76da58cb93a76482931f93f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/debug.png",
+      "sha256": "bfec05c1fe3df4d94fca1c9d0dc175e820522d553a76f03ab38d0567baf6be3a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/impact_beam_heavy.png",
+      "sha256": "c997a0a9ad73906b291c32142584c2ad9d3286527f6494eb2bdbe05ba13f5fd2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/impact_beam_heavy2.png",
+      "sha256": "fb3c1a77dfa1f76979be9c86213326ff99fcf2406a19b9356e779fc09bfde8ef"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/impact_blue.png",
+      "sha256": "da47d5381be22c8a42997ddd94479a6e6fcb028eeb3d900fcaca68813f4cfe80"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/impact_debug.png",
+      "sha256": "f7cf21c5e747524601d5f675e0e0604deb3aa84380ab21029b6e6c6d9a6154de"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/impact_laser.png",
+      "sha256": "23294b4bceb5639f16fa3f10c2cf37707318ccae06ed18589408625885ef88f0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/impact_omni.png",
+      "sha256": "b524ad2561ed88aaf690a81781b38cd7b71d8c4f282665fec0c956350bf5256c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/impact_u_laser.png",
+      "sha256": "54ac798377c41233a34ee2d4cecacbdc25bfcec7234300c2cd0b036ce75afba2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/impact_xray.png",
+      "sha256": "2911291277260463a688c3ecd6204097650844e9db3ba17aa1cab833caa91fa7"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/meta.json",
+      "sha256": "bc6f09be68fad3d2ceec50808ddfd3dd27c1a1efead0512fe5529e95d1733a3d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/muzzle_beam_heavy.png",
+      "sha256": "0b0e232f2eb861ac23cec56cd846572452a39938fd06f0b3e710eb081726b554"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/muzzle_beam_heavy2.png",
+      "sha256": "69718760a9a5b6001464b74fd3eb1726bde75f60218d7ad5e7789a823e431f42"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/muzzle_blue.png",
+      "sha256": "0ded3c88d834181a5656323da72d830e686bdf4e83062e4c4a53e2dfd0853f65"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/muzzle_bullet.png",
+      "sha256": "23089b784fb600ef035cff2612b3b23b24ef079981580b6fd351c227a1b72626"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/muzzle_debug.png",
+      "sha256": "b3a0575089335fa35ae044941dbf958e57cafa33d9234c0e284e4d2e3dd047e4"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/muzzle_laser.png",
+      "sha256": "675792dff944c2207ea94357e40da2563fd1f8b3a61f320b4c9542788e57686e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/muzzle_omni.png",
+      "sha256": "5ef90d01ca2be97eb1f27577abc45cd9301d6ff53706df8499fa92546490e745"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/muzzle_u_laser.png",
+      "sha256": "5c21de45def7f0292d10d611df8a6b335fe7da9c643eb7ef71d92ec7a0d5bcbc"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/muzzle_xray.png",
+      "sha256": "f0a1b8ffc19ddbbbb36c75a7f9b571c82e2356e8569202c546da949d0200cae2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/u_laser.png",
+      "sha256": "6c0c415791191cf2af082bd64c1bd736ba75342e23c16cdbafbbdd789a149157"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi/xray.png",
+      "sha256": "337c3bfab73b8e4587c127ee050aa45bc99daa16f7b7e153abbf8cf2e46ad642"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/ball.png",
+      "sha256": "3dd0ab22f964af47ea052cbcd412f0cb7e0951a4ae7531fdd71a94f3bcec1fc9"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/buckshot-flare.png",
+      "sha256": "9243a55ec3ead9b9e17e996e42e7d19aeced547d1c3fa06b94c8d2622e50ba09"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/buckshot.png",
+      "sha256": "f596eeb06f09ffb6c0825afbfd0c2590c2fbf56f4544c490011d8734905b973c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/bullet.png",
+      "sha256": "f92b8ad7bb71b7e19e7b6e68bbc9d0c22abc40aee954604ead89c98bce58011b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/cleanade.png",
+      "sha256": "41ba45f913bb2f9ddeabe1d4ee0268c31c1534a6908801f6869e41084b50c35a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/crossbowbolt.png",
+      "sha256": "17a7ce2148df80b37936c8f664e7222511c40b85531540ff8de63286b5b3ef6d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/depleted-uranium.png",
+      "sha256": "75e9647be887e2668290bd9e6c908b41f3e20524321aacd27674caf09b1834f0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/frag.png",
+      "sha256": "b2d7ccdc994b8b04377719c6b2fcdc29e88d436f3026de4b37937f0f38b0e93e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/grapeshot.png",
+      "sha256": "f714a1c1b31bc753d395d0b3a045beafdb908ef57e5c16cc4c84667491b3ddeb"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/grenade.png",
+      "sha256": "a5862b7b1a528f88556e2092307e3e355fc6376045296da611149f43bd9f6d70"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/meta.json",
+      "sha256": "8ec353d1938a64fcff62d38d2bda4b5ac75a788d0e76b590b91cecf42e03e83b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/piercing.png",
+      "sha256": "05bad94959bed7d9b8490b58239955a4dab557c6c3b9501718d55385af3a6096"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/practice.png",
+      "sha256": "91d2abc0f483f284f33e7dd3a4f70741acb0593bb9e0fb3c5f34db653b7d61ed"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/rubber.png",
+      "sha256": "86cf401fab03cebc635e16eae9ead30dbf35e74b62b5f154085b4ed0c208fa15"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/shard.png",
+      "sha256": "e842d7754616216078701a8b02e0b016d1e8daca8f63914f0bbc6a0a457f2947"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/slug.png",
+      "sha256": "01480aa28bdb997cca8b3ba9e69b31224a90fcc99a71641e9ea9735f6891fa6e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/smallfrag.png",
+      "sha256": "7cb4140f510d355083ac350ea53b261e2b0655e8a96a06555aadd916b2a3bfb7"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/spark.png",
+      "sha256": "3a07631a95a6505cece2e428330473c4bf39aa7aade15b1be3494cf02c4dc1c6"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles2.rsi/uranium.png",
+      "sha256": "17dbb910600babf6249a6ded9858904d0cefbfd503a637f87932a6a9262e6119"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/heavylaser.png",
+      "sha256": "178dfa1c05c636d155f878c9a7a6c2c9457a8fd72e3cbccaf8b6c0010f4df966"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/heavylaser_flash.png",
+      "sha256": "0f153b95e3d077bdb462455261ba153bedc1286036473fea94821011534e86c7"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/ice.png",
+      "sha256": "4cac046b492c05d3a61058c8c3625cf5831dca32a64b49e9efb3e21436de2308"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/impact_bullet.png",
+      "sha256": "b0ac0921d3839ac582d3ab62160229a1d71c0fbd5e6ae0bacd5a840b6cedf9f3"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/impact_laser_blue.png",
+      "sha256": "0451921e68444d72f99f14861a12e2a5c4005bcf8143959824632d8543f3855c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/impact_laser_greyscale.png",
+      "sha256": "a66b572351b689762aea1692dd1f74bec6afa0db91a5ba83a6fa964a25707955"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/meta.json",
+      "sha256": "7998553def98b69716024eac33fdd7d058c825c2502227965578628a452b71ec"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/omnilaser.png",
+      "sha256": "e0de58c02a885f90018b8fd3feb88ab6d16c23176c5a4399432f2cad30b93d63"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/omnilaser_flash.png",
+      "sha256": "bd85d548abcc558b98b4eb0181a17528f029881e3dc4bc2d4c550a6893f999e9"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Projectiles/projectiles_tg.rsi/omnilaser_greyscale.png",
+      "sha256": "60518026ab1563667f73f1cc8375e6d2906a6a4cfedf8cbd1bcfe47c80be6e27"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/deckard.rsi/base.png",
+      "sha256": "0b8194a1594d8f8f701e14cd993cead6f87eaf55c9b35cd973b92730c8608025"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/deckard.rsi/equipped-BELT.png",
+      "sha256": "cd1fdd9a23668035e1503a967fa222ec6438c950b4bd6c62005d811d472d4f10"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/deckard.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "cd1fdd9a23668035e1503a967fa222ec6438c950b4bd6c62005d811d472d4f10"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/deckard.rsi/inhand-left.png",
+      "sha256": "712687fb474d856fb58e192e6abebf49c2ee4909c2808c8e86715f6ad2575134"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/deckard.rsi/inhand-right.png",
+      "sha256": "674dc2521f0601b18e942a86b055111b9c1e99b852e9a8d6cf4d4c1fccfc2714"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/deckard.rsi/mag-unshaded-0.png",
+      "sha256": "c3ef63c9154fa0d6667c829777183e26a2811e90ce630ef0d49a790b5d77e3d2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/deckard.rsi/mag-unshaded-1.png",
+      "sha256": "14f00e1a572f43c4ce9763967c40376b54286962bb1aafc9f6a4197a97f92b0f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/deckard.rsi/mag-unshaded-2.png",
+      "sha256": "74a498272ffe6fb96de2eda20cbf2a34a48f1cae5d393575994d9aa23fc1bafc"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/deckard.rsi/mag-unshaded-3.png",
+      "sha256": "0caa5049f9d28be18959f3e7d003c28ef5a590848d2d87a0904683a921d15af7"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/deckard.rsi/meta.json",
+      "sha256": "50c035cc9dbb080a360885e453a45f535329438c374e9c4068a7f7f95080bc32"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/inspector.rsi/bolt-open.png",
+      "sha256": "bc208f661d25b6ebcbc70cb892f9905dd4d6a4c94fc39055b3f762d7b200abec"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/inspector.rsi/equipped-BELT.png",
+      "sha256": "cd1fdd9a23668035e1503a967fa222ec6438c950b4bd6c62005d811d472d4f10"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/inspector.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "cd1fdd9a23668035e1503a967fa222ec6438c950b4bd6c62005d811d472d4f10"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/inspector.rsi/icon.png",
+      "sha256": "f57bdc471d00e99e47b46daf75185d14b2ae251c839089b2992ffeb5f6059aff"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/inspector.rsi/inhand-left.png",
+      "sha256": "c40825a24334f11ee3a115e44c2861168f61dd056cff1ee5a1396c5ac344d2e8"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/inspector.rsi/inhand-right.png",
+      "sha256": "1a67627a6e076217d3666521eeaad9ba5edd3bb1147a587975718d16aa6f631b"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/inspector.rsi/meta.json",
+      "sha256": "32ce155d37593ba544d4ff17775fac989270103ae53f0d1ac5e08ef9737787d3"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Revolvers/python.rsi/meta.json",
+      "sha256": "2e5b1fe4a44f2b8aeb0f08a8be0fd0c6f0245daf313cd8ae5fe903259a64fb84"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/base.png",
+      "sha256": "6f255fba57aca20d9351ced8db163a7b589699aa277e8f3018d106e2c5292cd0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/bolt-open.png",
+      "sha256": "d576110bc617ef1d47181886eef7d56abbe13259d829fe488ec27a1b6a9aaac1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/equipped-BACKPACK.png",
+      "sha256": "38cb1d70849ac03131a4de0ab61c5080725fe972c4a993e70fa74293856debfd"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "38cb1d70849ac03131a4de0ab61c5080725fe972c4a993e70fa74293856debfd"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/icon.png",
+      "sha256": "37e3449fa20253101a567c5c3f96911224988aeae9e9525ab5de0792599aff8d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/inhand-left.png",
+      "sha256": "d0b7906b91a2444493343a5e8aa1869b7bc36d56f8fbc5006a646cff8d3c8b73"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/inhand-right.png",
+      "sha256": "8e396221586d5fda50ef0a6da40ab04e914be738c909383af0b4d39f5db0f6cd"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/mag-0.png",
+      "sha256": "c5adf0852cbb5cf3461be9bf0c3facee734736c7ce91ea52fd0c345ea3e12c9d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/meta.json",
+      "sha256": "8eda76db74c332b0040219247a03b6aa335f5a9488561485b9dfe5555e13dbd1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/wielded-inhand-left.png",
+      "sha256": "4e56d3d6721325c97f25d5307dcbf1a726500044f5282ec6a53149554d6f3d5e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/ak.rsi/wielded-inhand-right.png",
+      "sha256": "e6226e86911e88ffd964f3178f1eb07ad87249d2c5e9799f11e8331f2e6d1c19"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/base.png",
+      "sha256": "621b97b80c32eff0df9ff061f131ad1239eb2a9b665d31c7e18f60a3f4934c14"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/bolt-open.png",
+      "sha256": "cdad7571eb2be6dfec6140f4d8e71f3c7cc5893b08c46ebb2254ad1d0202fb31"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/equipped-BACKPACK.png",
+      "sha256": "8cf7079151596e0be58908ee60fc59e1e04220ac212f6b41fc870c0359af782e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "8cf7079151596e0be58908ee60fc59e1e04220ac212f6b41fc870c0359af782e"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/icon.png",
+      "sha256": "8635930f0e5eb1b0f5a43d66d1d16776162240697d195e368e8560ceaf094649"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/inhand-left.png",
+      "sha256": "29132ca2dca439f2834f1b2be9163af758692519a2efb547a789e7d68beed5a0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/inhand-right.png",
+      "sha256": "c3b1ff8ea0af89e427f5d5a53cda47cb618a92d48804161665cc2e3e81e55e2f"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/mag-0.png",
+      "sha256": "6908e57b77d6093792487e77db2448e0a9718d072805efc0b9fd7fabc4436eef"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/mag-1.png",
+      "sha256": "0cdbd0c1e1ed8d827a4d9bf5fcd247301cf317c92a84c3ff4529f417fed78a09"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/mag-2.png",
+      "sha256": "18dfe5663155404eb541a7e58478058b7b81f3092f96785480baeb99969285ec"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/mag-3.png",
+      "sha256": "5dedbbc621be8befed72a00000d02bbda9cbbb1306a7ad9b6efbfb9832ac38d0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/mag-4.png",
+      "sha256": "31a36ef0b67fd53a5025e5ced585810e42d0bb2864cdabeea8848b57caab1658"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/meta.json",
+      "sha256": "06369675c44e760ea96f96c52c46e2809850b150501ab69ea40443cc904427be"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/wielded-inhand-left.png",
+      "sha256": "cb9f7e13cb1edbf1be8c544203473861fbc1147a6ef01f406abdf3de28b6cfe2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Rifles/lecter.rsi/wielded-inhand-right.png",
+      "sha256": "44bb60c7c2cd9c706bd049c1f071b8fa4f51b8b9b41730e0448ce86f44a765f3"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/db_shotgun.rsi/bolt-open.png",
+      "sha256": "7c9c5bc10195ebd6a5fb70482609c01c6e3c04e2feab764638c9538f1701ecf2"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/db_shotgun.rsi/equipped-BACKPACK.png",
+      "sha256": "f2634346ed9b4b6875a00e7895ebeb8a47a0bf2e84b26eefe2e7da0e420b9c13"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/db_shotgun.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "f2634346ed9b4b6875a00e7895ebeb8a47a0bf2e84b26eefe2e7da0e420b9c13"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/db_shotgun.rsi/icon.png",
+      "sha256": "68d35db6444b02beba59b051c336c9d1bcfa0da5dae7473a52d23ba76ac91610"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/db_shotgun.rsi/meta.json",
+      "sha256": "1e34497512b176f6fadace9f115a9882e3c037bfeb0fec5d4fd5033239f0bfb0"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/pump.rsi/bolt-open.png",
+      "sha256": "65d159dd0228f8b8c15cf0e2c20655bfa2e83be87177d541a1a5c2dff98e1aa5"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/pump.rsi/equipped-BACKPACK.png",
+      "sha256": "b065d94d2f266fb8774855d9d2fd29cc548d837f49e3a2a0eb5d721319fc8c40"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/pump.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "48d23401745455d594d0693daf380ddb61756c4f052081079424e035a68cb0ae"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/pump.rsi/icon.png",
+      "sha256": "d86e0140c206700beafbc962e5c461d7b92b95de4cf6a668c91ca45c61e13a23"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/pump.rsi/meta.json",
+      "sha256": "3b61cfe53ec23fcf89f29a4bb726b99ca8eb0e3e0a7d98176928f9dab8ea62b1"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/pump_inhands_64x.rsi/inhand-left.png",
+      "sha256": "c013aa829a06f727d0dd6457592b0ca8f607fba23edc1fc3bf077561365fce9c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/pump_inhands_64x.rsi/inhand-right.png",
+      "sha256": "af6cd10fead716656a785e0e37af3be3c6e54de76fb44cc14a063e61a4d991ed"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/pump_inhands_64x.rsi/meta.json",
+      "sha256": "7549ba24eb38b65c4eb2d4cff86a53710e853ed76c2d9bc04f4b4b08f72fb028"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/pump_inhands_64x.rsi/wielded-inhand-left.png",
+      "sha256": "cbb430030269ce0bf145d9bee3764dec275786de6b7d7f5311948ff4c650b770"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Shotguns/pump_inhands_64x.rsi/wielded-inhand-right.png",
+      "sha256": "6c815313d89e7360aa90d256da7089857e8e12cf9edc55bc53dde77a71fd1365"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/base.png",
+      "sha256": "244bb0428c0f3c35ebc9fa61c3ab3b00a9c353e768ac9f3b388f6725e3f07269"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/base1.png",
+      "sha256": "1ef4ab34add9d52beb3d90b02393813452e8af69364364fe2377a3619284a52c"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/bolt-open.png",
+      "sha256": "ff8c9a3233cd450118d2b08291f30861fae92f4f760f66ad1c78406c3ad14ef5"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/equipped-BACKPACK.png",
+      "sha256": "ea945a82ca624eeb3ca698c1094b3dbafb1dd341565d2ec24c9974c95eee5019"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/equipped-SUITSTORAGE.png",
+      "sha256": "ea945a82ca624eeb3ca698c1094b3dbafb1dd341565d2ec24c9974c95eee5019"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/equipped-back-fill-1.png",
+      "sha256": "3d22b45face837d627eef317b913f55531134bf1181fe0d6b27204125789158a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/equipped-suitstorage-fill-1.png",
+      "sha256": "3d22b45face837d627eef317b913f55531134bf1181fe0d6b27204125789158a"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/inhand-left-fill-1.png",
+      "sha256": "99a0b9a1adcc19f97956eff96ee3607eb463dd0ee8e03c8df50f3924bce99589"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/inhand-left.png",
+      "sha256": "7baa250c5187e62ae629d8eb78917044d3faf37d5e9d32abe03d303bfd3a1628"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/inhand-right-fill-1.png",
+      "sha256": "44f1f7ae21e6fc0e4d56ee316e76ea0413158a0766171bf5385395bc7cc946dd"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/inhand-right.png",
+      "sha256": "65d71b2c0b2b6cf91a90be1278d76763924a176d7d1201706f91f041ad5a885d"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/meta.json",
+      "sha256": "9c90d399e736ced354057c1642780dd61d795594a52bb3a5b3822b0a51ceb7bd"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/wielded-inhand-left-fill-1.png",
+      "sha256": "d08afdba984e1a3883a8b48ea4da7ad8b75d2c1d71182090aaf602acd9efed72"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/wielded-inhand-left.png",
+      "sha256": "6abee24bcc38176807aaa5a4bd578b4450dc6313a618700828e2d4ea33bef7b5"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/wielded-inhand-right-fill-1.png",
+      "sha256": "630f8b288bb7a5ee23176dddbaa90c59e51c6a10fe12a0467c505a2a8ffb8e51"
+    },
+    {
+      "path": "Resources/Textures/Objects/Weapons/Guns/Snipers/bolt_gun_wood.rsi/wielded-inhand-right.png",
+      "sha256": "289885951bf577fb975bb75c646e9211b4d5d73365a80317a4632848fb02d981"
+    }
+  ]
+}

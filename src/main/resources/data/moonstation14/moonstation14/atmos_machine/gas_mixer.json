@@ -1,0 +1,1 @@
+{"kind":"mixer","parent":"gas_trinary_base","mixer":{"ratios":[0.5,0.5],"targetPressureKpa":101.325,"maxPressureKpa":4500,"enabled":false},"ambientAudio":{"sound":"moonstation14:ss14/atmospherics/gas_hiss","volumeDb":-9,"range":5,"gate":"transfer"},"visual":{"sprite":"Structures/Piping/Atmospherics/gasmixer.rsi","state":"gasMixer"}}
