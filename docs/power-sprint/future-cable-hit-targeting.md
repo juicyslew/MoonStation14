@@ -1,8 +1,8 @@
 # Future work: geometry-based cable cutting
 
-**Status: deferred design note only. This document does not authorize implementation.**
+**Status: visible-lane server selection implemented under the current wirecutter bugfix request.**
 
-This records how SS14 distinguishes cables that occupy the same host face and a future direction for replacing MoonStation14's temporary offhand-coil tier selector with geometry-based targeting. It is not a request to change code, assets, or other sprint documents.
+This records upstream context and remaining future parity work. The current owner-authorized bugfix implements server-side selection from the admitted visible lane; it does not authorize the deferred timing or electrical behavior below.
 
 ## SS14 reference behavior
 
@@ -18,15 +18,15 @@ These are reference behaviors, not a literal ECS port or a claim of Minecraft AP
 
 ## MoonStation14 current state and mismatch
 
-MoonStation14 stores cables as records identified by `(host BlockPos, face, tier)` and draws procedural client quads. The tiers are records on the same host face, not individual Minecraft cable entities with separate engine hitboxes. Current cutter interaction uses the mainhand cable cutter; when a face has multiple tiers and the clicked face cannot determine the tier, a matching offhand cable coil selects it. A lone tier can be cut without that selector.
+MoonStation14 stores cables as records identified by `(host BlockPos, face, tier)` and draws procedural client quads. The tiers are records on the same host face, not individual Minecraft cable entities with separate engine hitboxes. Both ordinary and body-owned wirecutter paths now ask the shared server selector to resolve the admitted hit against visible cable geometry and remove only its selected tier. Null/missed hits deny even when only one tier exists. A matching offhand coil is not required and cannot override the clicked lane.
 
-The offhand selector is a **temporary ambiguity workaround**, not SS14-equivalent targeting and not a desired permanent interaction contract. It asks the player to identify a tier through inventory instead of determining which visible cable lane was clicked. No cable renderer, storage, hit shape, or tool behavior is authorized to change under this note.
+The former offhand selector was a **temporary ambiguity workaround** and is superseded by the current bugfix's shared server geometry selection. Selection is instantaneous; SS14-like one-second timing remains deferred, as do electrocution and other future behavior. This work claims no GPU/visual or connected-gameplay acceptance.
 
 ## Deferred design direction
 
-If separately approved, replace the selector with client-side selection against the visible cable geometry, returning the exact `(host position, face, tier)` candidate to a server-validated interaction. A ray/quad intersection is the preferred direction if the renderer can provide stable selectable geometry; a conservative narrow hit shape is an alternative if exact quad picking is impractical. Selection should account for the same tier-offset lanes used by the renderer, their face-local orientation, visibility, and depth/overlap priority, so co-located LV/MV/HV cables are distinguishable without broad host-block targeting.
+Future parity work may consider a client-side selection hint, but server validation remains authoritative. The current server selector uses shared quad geometry, face-local orientation, visibility, and draw priority to resolve a clicked lane without broad host-block targeting.
 
-The client selection is only an input hint. The server must revalidate reach, loaded state, permissions, record existence, host/face validity, concealment/visibility rules, and tool eligibility before starting and completing the cut. A client must not be able to spoof a distant, covered, hidden, or nonexistent tier. The normal mainhand cable cutter should suffice; do not require an offhand coil or add a tier-specific cutting tool. An interruptible approximately one-second action may be considered for SS14 parity, but timing and interruption semantics require owner agreement before implementation.
+The server revalidates admission, loaded state, permissions, record existence, host/face validity, concealment/visibility rules, and held-tool ownership before cutting. A client cannot nominate a tier. The normal mainhand cable cutter suffices. An interruptible approximately one-second action may be considered for SS14 parity, but timing and interruption semantics remain deferred pending owner agreement.
 
 Covered top-face cable remains non-cuttable while a floor tile blocks interactions. A future T-ray visualization by itself must not grant cutting access beneath an intact tile; any exception would need a separate explicit design and approval.
 
@@ -42,4 +42,4 @@ Before implementation, agree with the owner on the picking contract, overlap pri
 - Two clients observing the same cables can each target the intended tier; selection has bounded client/server cost with dense cable layouts and no unbounded per-frame or per-interaction search.
 - If a timed action is approved: correct tool quality, interruption/cancellation, electrification recheck, and no removal before successful completion.
 
-Until the owner separately authorizes this work, the offhand selector remains the existing temporary behavior. No implementation or manual-game behavior is claimed by this proposal.
+Visible-lane selection is implemented, while timing and electrical parity remain deferred. No visual/GPU or manual-game acceptance is claimed by this note.

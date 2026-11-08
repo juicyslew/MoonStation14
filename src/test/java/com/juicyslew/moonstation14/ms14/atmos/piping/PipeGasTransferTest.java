@@ -34,6 +34,22 @@ class PipeGasTransferTest {
         assertTrue(PipeGasTransfer.plan(source, full, 1, 1, 100, 1, Set.of(GasType.OXYGEN)).isEmpty());
     }
 
+    @Test void transferPreservesExplicitNonUnitOwnerVolumesAndExistingMoleRate() {
+        double sourceVolume=(double)(float).35,destinationVolume=(double)(float)1.7;
+        GasMixture source=new GasMixture(Map.of(GasType.OXYGEN,4.0,GasType.PLASMA,2.0),800.0,sourceVolume);
+        GasMixture destination=new GasMixture(Map.of(GasType.NITROGEN,3.0),200.0,destinationVolume);
+        var plan=PipeGasTransfer.plan(source,destination,sourceVolume,destinationVolume,1.0,10_000,
+                Set.of(GasType.OXYGEN)).orElseThrow();
+        assertEquals(1.0,plan.packet().totalMoles(),1e-12,"explicit moles cap/rate is unchanged");
+        assertEquals(sourceVolume,plan.packet().volumeCubicMeters(),0);
+        assertEquals(sourceVolume,plan.sourceAfter().volumeCubicMeters(),0);
+        assertEquals(destinationVolume,plan.destinationAfter().volumeCubicMeters(),0);
+        for(GasType gas:GasType.values()) assertEquals(source.moles(gas)+destination.moles(gas),
+                plan.sourceAfter().moles(gas)+plan.destinationAfter().moles(gas),1e-6);
+        assertEquals(source.thermalEnergy()+destination.thermalEnergy(),
+                plan.sourceAfter().thermalEnergy()+plan.destinationAfter().thermalEnergy(),1e-5);
+    }
+
     @Test void validatesParametersAndHandlesTinyTraceAndZeroRequest() {
         GasMixture trace = new GasMixture(Map.of(GasType.OXYGEN, 1e-30), 300.0);
         assertTrue(PipeGasTransfer.plan(trace, GasMixture.vacuum(), 1, 1, 1e-31, 1, Set.of(GasType.OXYGEN)).isPresent());

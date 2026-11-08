@@ -22,6 +22,11 @@ public abstract class LevelChunkSealedWallHostMixin {
 
         LevelChunk chunk = (LevelChunk) (Object) this;
         SealedWallHostGenerations records = chunk.getExistingDataOrNull(ModDataAttachments.SEALED_WALL_HOST_GENERATIONS.get());
+        if (records != null && records.active(pos.asLong()).isPresent()
+                && level instanceof net.minecraft.server.level.ServerLevel server
+                && !com.juicyslew.moonstation14.ms14.atmos.piping.LoadedSealedWallGasOwner
+                .retireAtHostReplacement(server, pos))
+            throw new IllegalStateException("Could not safely retire sealed-wall gas before host invalidation");
         if (records != null && records.invalidateExisting(pos.asLong())) {
             chunk.setUnsaved(true);
             if (level instanceof net.minecraft.server.level.ServerLevel server)

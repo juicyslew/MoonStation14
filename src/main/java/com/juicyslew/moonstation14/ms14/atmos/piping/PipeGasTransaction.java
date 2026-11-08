@@ -24,6 +24,37 @@ public final class PipeGasTransaction {
         void publish();
     }
 
+    /** A validated raw mutation which can be paired with another owner before either publishes. */
+    public interface PreparedMutation {
+        Object identity();
+        boolean validate();
+        boolean writeRaw();
+        boolean rollbackRaw();
+        void publish();
+    }
+
+    /** Adapts the established endpoint contract, capturing its complete before identity/version. */
+    public static PreparedMutation prepare(Endpoint endpoint, GasMixture before, GasMixture after) {
+        Objects.requireNonNull(endpoint); Objects.requireNonNull(before); Objects.requireNonNull(after);
+        Object identity = endpoint.identity(); long version = endpoint.version();
+        return new PreparedMutation() {
+            private boolean attempted;
+            @Override public Object identity() { return identity; }
+            @Override public boolean validate() {
+                return endpoint.eligible() && Objects.equals(identity, endpoint.identity())
+                        && endpoint.version() == version && same(before, endpoint.snapshot());
+            }
+            @Override public boolean writeRaw() {
+                attempted = true;
+                return endpoint.writeRaw(before, after);
+            }
+            @Override public boolean rollbackRaw() {
+                return !attempted || endpoint.writeRaw(null, before);
+            }
+            @Override public void publish() { endpoint.publish(); }
+        };
+    }
+
     public static final class Plan {
         private final Object sourceIdentity;
         private final long sourceVersion;
@@ -72,20 +103,26 @@ public final class PipeGasTransaction {
         Objects.requireNonNull(plan);
         validate(source, plan.sourceIdentity(), plan.sourceVersion(), plan.sourceBefore());
         validate(destination, plan.destinationIdentity(), plan.destinationVersion(), plan.destinationBefore());
+        commit(prepare(source, plan.sourceBefore(), plan.transfer().sourceAfter()),
+                prepare(destination, plan.destinationBefore(), plan.transfer().destinationAfter()));
+    }
 
+    public static void commit(PreparedMutation first, PreparedMutation second) {
+        Objects.requireNonNull(first); Objects.requireNonNull(second);
+        if (first == second || Objects.equals(first.identity(), second.identity()))
+            throw new IllegalArgumentException("prepared mutations must have distinct owners");
+        if (!first.validate() || !second.validate()) throw new IllegalStateException("stale prepared transaction endpoint");
         int attempted = 0;
         try {
             attempted = 1;
-            if (!source.writeRaw(plan.sourceBefore(), plan.transfer().sourceAfter()))
-                throw new IllegalStateException("source raw write rejected");
+            if (!first.writeRaw()) throw new IllegalStateException("first raw write rejected");
             attempted = 2;
-            if (!destination.writeRaw(plan.destinationBefore(), plan.transfer().destinationAfter()))
-                throw new IllegalStateException("destination raw write rejected");
+            if (!second.writeRaw()) throw new IllegalStateException("second raw write rejected");
         } catch (Throwable failure) {
             Throwable rollbackFailure = null;
-            if (attempted >= 2) rollbackFailure = rollback(destination, plan.destinationBefore());
+            if (attempted >= 2) rollbackFailure = rollback(second);
             if (attempted >= 1) {
-                Throwable sourceRollbackFailure = rollback(source, plan.sourceBefore());
+                Throwable sourceRollbackFailure = rollback(first);
                 if (rollbackFailure == null) rollbackFailure = sourceRollbackFailure;
                 else if (sourceRollbackFailure != null) rollbackFailure.addSuppressed(sourceRollbackFailure);
             }
@@ -95,16 +132,41 @@ public final class PipeGasTransaction {
             throw new IllegalStateException(failure);
         }
         try {
-            source.publish();
-            destination.publish();
+            first.publish();
+            second.publish();
         } catch (Throwable failure) {
             throw new RecoveryRequiredException("publication failed after both raw writes", failure, null);
         }
     }
 
-    private static Throwable rollback(Endpoint endpoint, GasMixture before) {
+    /** Commits one prepared owner with the same rollback/publication guarantees as a paired transaction. */
+    public static void commit(PreparedMutation mutation) {
+        Objects.requireNonNull(mutation);
+        if (!mutation.validate()) throw new IllegalStateException("stale prepared transaction endpoint");
+        boolean attempted = false;
         try {
-            if (!endpoint.writeRaw(null, before)) return new IllegalStateException("rollback rejected");
+            attempted = true;
+            if (!mutation.writeRaw()) throw new IllegalStateException("raw write rejected");
+        } catch (RecoveryRequiredException recovery) { throw recovery; }
+        catch (Throwable failure) {
+            if (attempted) {
+                try {
+                    if (!mutation.rollbackRaw()) throw new IllegalStateException("raw write rollback rejected");
+                } catch (Throwable rollback) {
+                    throw new RecoveryRequiredException("raw write failed and rollback was not confirmed", failure, rollback);
+                }
+            }
+            if (failure instanceof RuntimeException runtime) throw runtime;
+            if (failure instanceof Error error) throw error;
+            throw new IllegalStateException(failure);
+        }
+        try { mutation.publish(); }
+        catch (Throwable failure) { throw new RecoveryRequiredException("publication failed after raw write", failure, null); }
+    }
+
+    private static Throwable rollback(PreparedMutation mutation) {
+        try {
+            if (!mutation.rollbackRaw()) return new IllegalStateException("rollback rejected");
             return null;
         } catch (Throwable failure) { return failure; }
     }

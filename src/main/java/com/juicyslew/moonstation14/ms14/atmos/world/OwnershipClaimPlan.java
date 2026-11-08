@@ -17,9 +17,15 @@ final class OwnershipClaimPlan {
 
     /** The search's terminal snapshot owns an immutable cached list; retain it rather than copying it. */
     OwnershipClaimPlan(List<BlockPos> positions) {
+        this(positions, positions.stream().map(ChunkPos::new).collect(java.util.stream.Collectors.toSet()));
+    }
+
+    /** Retains all chunks observed by the proof, including non-member boundary barriers. */
+    OwnershipClaimPlan(List<BlockPos> positions, Set<ChunkPos> proofDependencies) {
         this.positions = positions;
         Set<ChunkPos> dependencies = new HashSet<>();
         for (BlockPos position : positions) dependencies.add(new ChunkPos(position));
+        dependencies.addAll(proofDependencies);
         this.chunks = Set.copyOf(dependencies);
     }
 

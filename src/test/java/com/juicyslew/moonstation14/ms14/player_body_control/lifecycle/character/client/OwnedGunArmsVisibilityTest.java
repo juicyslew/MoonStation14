@@ -19,12 +19,12 @@ class OwnedGunArmsVisibilityTest {
             model.leftArm.getChild("neutral_full").visible = false;
             boolean[] before = PlayerCharacterHarnessRenderer.captureVisibility(model);
             try {
-                PlayerCharacterHarnessRenderer.setArmOnlyVisibility(model);
+                PlayerCharacterHarnessRenderer.setItemsOnlyVisibility(model);
                 assertFalse(model.head.visible); assertFalse(model.hat.visible); assertFalse(model.body.visible);
                 assertFalse(model.jacket.visible); assertFalse(model.leftLeg.visible); assertFalse(model.rightLeg.visible);
                 assertFalse(model.leftPants.visible); assertFalse(model.rightPants.visible);
-                assertTrue(model.leftArm.visible); assertTrue(model.rightArm.visible);
-                assertTrue(model.leftSleeve.visible); assertTrue(model.rightSleeve.visible);
+                assertFalse(model.leftArm.visible); assertFalse(model.rightArm.visible);
+                assertFalse(model.leftSleeve.visible); assertFalse(model.rightSleeve.visible);
                 assertFalse(model.forearm(net.minecraft.world.entity.HumanoidArm.LEFT).visible);
                 assertTrue(model.forearm(net.minecraft.world.entity.HumanoidArm.RIGHT).visible);
                 assertFalse(model.leftArm.getChild("neutral_full").visible);

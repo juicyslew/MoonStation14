@@ -1,0 +1,12 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/block/thermomachines/freezer/off_pipe_0_west.obj",
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "textures": {
+    "atlas": "moonstation14:block/thermomachines/freezer/off",
+    "particle": "moonstation14:block/thermomachines/freezer/off"
+  },
+  "render_type": "minecraft:cutout"
+}

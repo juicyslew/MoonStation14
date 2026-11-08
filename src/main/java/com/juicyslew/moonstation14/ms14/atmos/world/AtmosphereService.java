@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.ExcitedAtmosphereGroups;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.piping.PipeGasTransaction;
+import com.juicyslew.moonstation14.ms14.atmos.piping.LoadedPipeNetworks;
 import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
 import com.juicyslew.moonstation14.ms14.atmos.core.BoundedGasEqualizer;
 import com.juicyslew.moonstation14.ms14.atmos.core.MonstermosEqualization;
@@ -152,6 +153,15 @@ public final class AtmosphereService {
                                                List<GasReactionEvaluator.Event> events) {
         public CommittedWholeAirDiagnostic { events = List.copyOf(events); }
     }
+    public record CommittedHotspotDiagnostic(long cycleIdentity, List<GasReactionEvaluator.Event> events,
+                                              Map<GasType, Double> discardedMoles) {
+        public CommittedHotspotDiagnostic { events = List.copyOf(events); discardedMoles = GasMixture.validatedDiscardedMoles(discardedMoles); }
+    }
+    public Optional<CommittedHotspotDiagnostic> diagnosticCommittedHotspot(ServerLevel level, BlockPos position) {
+        if (level == null || position == null) return Optional.empty();
+        AtmosphereCycle cycle = cycles.get(level);
+        return cycle == null ? Optional.empty() : Optional.ofNullable(cycle.hotspots().get(position));
+    }
     /** Read-only evidence from this cycle's successfully committed LINDA whole-air pass. */
     public Optional<CommittedWholeAirDiagnostic> diagnosticCommittedWholeAir(ServerLevel level, BlockPos position) {
         if (level == null || position == null) return Optional.empty();
@@ -294,6 +304,56 @@ public final class AtmosphereService {
                 stored == null ? ambient(level) : stored, false));
     }
 
+    /** True only for a loaded passable exterior cell admitted by configured space-dimension policy. */
+    public boolean isExplicitSpaceExteriorForImmediateTransfer(ServerLevel level, BlockPos pos) {
+        return level != null && pos != null && level.getServer() != null && level.getServer().isSameThread()
+                && isSpace(level.dimension()) && inBounds(level, pos) && loadedChunk(level, pos) != null
+                && isLoadedPassableExterior(level, pos);
+    }
+
+    /** Proven loaded exterior sink boundary for an immediate server-thread transfer. */
+    public Optional<ExteriorBoundary> exteriorBoundaryForImmediateTransfer(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || level.getServer() == null || !level.getServer().isSameThread()
+                || !inBounds(level, pos)) return Optional.empty();
+        LevelChunk chunk = loadedChunk(level, pos);
+        if (chunk == null || !AtmosphereTopology.isPassable(level, pos)
+                || ownershipKind(level, chunk, pos) != OwnershipKind.EXTERIOR) return Optional.empty();
+        ExteriorBoundary.Kind kind = isSpace(level.dimension())
+                ? ExteriorBoundary.Kind.SPACE : ExteriorBoundary.Kind.PLANETARY_AMBIENT;
+        return Optional.of(new ExteriorBoundary(this, level, pos.immutable(), chunk, kind, ambient(level)));
+    }
+
+    /** Immutable observation only; it is not a writable gas endpoint or an intake source. */
+    public static final class ExteriorBoundary {
+        public enum Kind { SPACE, PLANETARY_AMBIENT }
+        private final AtmosphereService service;
+        private final ServerLevel level;
+        private final BlockPos pos;
+        private final LevelChunk chunk;
+        private final Kind kind;
+        private final GasMixture ambient;
+
+        private ExteriorBoundary(AtmosphereService service, ServerLevel level, BlockPos pos,
+                                 LevelChunk chunk, Kind kind, GasMixture ambient) {
+            this.service = service; this.level = level; this.pos = pos; this.chunk = chunk;
+            this.kind = kind; this.ambient = ambient;
+        }
+        public Kind kind() { return kind; }
+        public GasMixture ambient() {
+            Map<GasType, Double> gases = new EnumMap<>(GasType.class);
+            for (GasType gas : GasType.values()) gases.put(gas, ambient.moles(gas));
+            return new GasMixture(gases, ambient.temperatureKelvin(), ambient.volumeCubicMeters());
+        }
+        /** Rechecks loaded chunk identity, passability, exterior ownership and dimension policy. */
+        public boolean validate() {
+            if (level.getServer() == null || !level.getServer().isSameThread() || !inBounds(level, pos)) return false;
+            LevelChunk current = loadedChunk(level, pos);
+            if (current != chunk || current == null || !AtmosphereTopology.isPassable(level, pos)
+                    || service.ownershipKind(level, current, pos) != OwnershipKind.EXTERIOR) return false;
+            return (service.isSpace(level.dimension()) ? Kind.SPACE : Kind.PLANETARY_AMBIENT) == kind;
+        }
+    }
+
     /** Loaded-only proof of the complete passable component for a live finite endpoint. */
     private boolean finiteRoomEnclosureValid(ServerLevel level, BlockPos start) {
         ArrayDeque<BlockPos> pending = new ArrayDeque<>();
@@ -363,59 +423,8 @@ public final class AtmosphereService {
                                                                    GasMixture mixture,
                                                                    java.util.function.Consumer<String> rejection) {
         java.util.function.Consumer<String> reject = rejection == null ? ignored -> { } : rejection;
-        if (level == null || cells == null || cells.isEmpty() || cells.size() > MAX_TRUSTED_SETUP_CELLS
-                || mixture == null || level.getServer() == null || !level.getServer().isSameThread()) {
-            reject.accept("invalid input or cell count (" + (cells == null ? "null" : cells.size()) + ")"); return false;
-        }
-        Set<BlockPos> supplied = new HashSet<>();
-        for (BlockPos cell : cells) {
-            if (cell == null || !supplied.add(cell.immutable())) { reject.accept("null or repeated supplied cell: " + cell); return false; }
-        }
-        Set<BlockPos> proven = new HashSet<>();
-        // One seed call, up to six directional inspections per supplied cell (including
-        // already-known neighbors), and a final completion call per component/cell.
-        // Input size is capped at 8192 above, so this multiplication is bounded by 65536.
-        int remaining = TRUSTED_SETUP_SEARCH_CALLS_PER_CELL * supplied.size();
-        for (BlockPos seed : supplied) {
-            if (proven.contains(seed)) continue;
-            LevelChunk seedChunk = loadedChunk(level, seed);
-            if (!inBounds(level, seed) || seedChunk == null || !AtmosphereTopology.isPassable(level, seed)) { reject.accept("seed " + seed + " unloaded, out of bounds, or non-passable"); return false; }
-            // Candidate storage and total step calls are separate limits: this preserves the
-            // existing candidate cap while allowing the bounded directional work per cell.
-            // Each supplied open cell contributes at most itself plus six blocked/open neighbors
-            // to the candidate set. Blocked boundary candidates are not supplied room cells.
-            int candidateBudget = trustedSetupCandidateBudget(supplied.size());
-            AtmosphereOwnershipSearch search = new AtmosphereOwnershipSearch(seed, candidateBudget);
-            AtmosphereOwnershipSearch.Snapshot result;
-            do {
-                if (remaining-- <= 0) { reject.accept("call budget exhausted; seed=" + seed + ", supplied=" + supplied.size()); return false; }
-                result = search.step(pos -> {
-                    if (!inBounds(level, pos)) return AtmosphereOwnershipSearch.ProbeResult.BLOCKED;
-                    LevelChunk chunk = loadedChunk(level, pos);
-                    if (chunk == null) return AtmosphereOwnershipSearch.ProbeResult.UNKNOWN_UNLOADED;
-                    if (!AtmosphereTopology.isPassable(level, pos)) return AtmosphereOwnershipSearch.ProbeResult.BLOCKED;
-                    return isExterior(chunk, pos) ? AtmosphereOwnershipSearch.ProbeResult.OPEN_SKY_SEED
-                            : AtmosphereOwnershipSearch.ProbeResult.OPEN_COVERED;
-                }, 1);
-                if (result.status() == AtmosphereOwnershipSearch.Status.UNKNOWN
-                        || result.status() == AtmosphereOwnershipSearch.Status.EXTERIOR
-                        || result.status() == AtmosphereOwnershipSearch.Status.SATURATED
-                        || result.status() == AtmosphereOwnershipSearch.Status.CANCELLED) { reject.accept("search status=" + result.status() + "; seed=" + seed + ", visited=" + result.visitedOpenCells().size() + ", trackedCandidates=" + result.trackedCandidates() + ", candidateBudget=" + candidateBudget); return false; }
-            } while (result.status() == AtmosphereOwnershipSearch.Status.IN_PROGRESS);
-            if (result.status() != AtmosphereOwnershipSearch.Status.FINITE) { reject.accept("search status=" + result.status() + "; seed=" + seed); return false; }
-            for (BlockPos visited : result.visitedOpenCells()) {
-                if (!supplied.contains(visited) || !proven.add(visited)) { reject.accept("visited cell omitted or repeated: " + visited + "; visited=" + result.visitedOpenCells().size() + ", supplied=" + supplied.size()); return false; }
-            }
-        }
-        if (!proven.equals(supplied)) { reject.accept("visited coverage mismatch; visited=" + proven.size() + ", supplied=" + supplied.size()); return false; }
-        // All topology work and target validation finish before the first ownership or gas write.
-        Map<BlockPos, LevelChunk> targetChunks = new LinkedHashMap<>();
-        for (BlockPos cell : proven) {
-            LevelChunk chunk = loadedChunk(level, cell);
-            if (chunk == null || !AtmosphereTopology.isPassable(level, cell)) { reject.accept("target validation failed at " + cell + " (unloaded or non-passable)"); return false; }
-            targetChunks.put(cell, chunk);
-        }
-
+        Map<BlockPos, LevelChunk> targetChunks = proveTrustedSetupRoom(level, cells, mixture, reject);
+        if (targetChunks == null) return false;
         for (var target : targetChunks.entrySet()) {
             BlockPos cell = target.getKey();
             LevelChunk chunk = target.getValue();
@@ -428,6 +437,70 @@ public final class AtmosphereService {
         for (var target : targetChunks.entrySet())
             writeClaimedMixture(level, target.getKey(), target.getValue(), mixture, false, true);
         return true;
+    }
+
+    /** Read-only trusted authoring preflight; uses exactly the initializer's bounded proof. */
+    public boolean trustedSetupRoomReady(ServerLevel level, List<BlockPos> cells,
+                                         java.util.function.Consumer<String> rejection) {
+        return proveTrustedSetupRoom(level, cells, GasMixture.vacuum(), rejection == null ? ignored -> { } : rejection) != null;
+    }
+
+    private Map<BlockPos, LevelChunk> proveTrustedSetupRoom(ServerLevel level, List<BlockPos> cells,
+            GasMixture mixture, java.util.function.Consumer<String> reject) {
+        if (level == null || cells == null || cells.isEmpty() || cells.size() > MAX_TRUSTED_SETUP_CELLS
+                || mixture == null || level.getServer() == null || !level.getServer().isSameThread()) {
+            reject.accept("invalid input or cell count (" + (cells == null ? "null" : cells.size()) + ")"); return null;
+        }
+        Set<BlockPos> supplied = new HashSet<>();
+        for (BlockPos cell : cells) {
+            if (cell == null || !supplied.add(cell.immutable())) { reject.accept("null or repeated supplied cell: " + cell); return null; }
+        }
+        Set<BlockPos> proven = new HashSet<>();
+        // One seed call, up to six directional inspections per supplied cell (including
+        // already-known neighbors), and a final completion call per component/cell.
+        // Input size is capped at 8192 above, so this multiplication is bounded by 65536.
+        int remaining = TRUSTED_SETUP_SEARCH_CALLS_PER_CELL * supplied.size();
+        for (BlockPos seed : supplied) {
+            if (proven.contains(seed)) continue;
+            LevelChunk seedChunk = loadedChunk(level, seed);
+            if (!inBounds(level, seed) || seedChunk == null || !AtmosphereTopology.isPassable(level, seed)) { reject.accept("seed " + seed + " unloaded, out of bounds, or non-passable"); return null; }
+            // Candidate storage and total step calls are separate limits: this preserves the
+            // existing candidate cap while allowing the bounded directional work per cell.
+            // Each supplied open cell contributes at most itself plus six blocked/open neighbors
+            // to the candidate set. Blocked boundary candidates are not supplied room cells.
+            int candidateBudget = trustedSetupCandidateBudget(supplied.size());
+            AtmosphereOwnershipSearch search = new AtmosphereOwnershipSearch(seed, candidateBudget);
+            AtmosphereOwnershipSearch.Snapshot result;
+            do {
+                if (remaining-- <= 0) { reject.accept("call budget exhausted; seed=" + seed + ", supplied=" + supplied.size()); return null; }
+                result = search.step(pos -> {
+                    if (!inBounds(level, pos)) return AtmosphereOwnershipSearch.ProbeResult.BLOCKED;
+                    LevelChunk chunk = loadedChunk(level, pos);
+                    if (chunk == null) return AtmosphereOwnershipSearch.ProbeResult.UNKNOWN_UNLOADED;
+                    if (!AtmosphereTopology.isPassable(level, pos)) return AtmosphereOwnershipSearch.ProbeResult.BLOCKED;
+                    return isExterior(chunk, pos) ? AtmosphereOwnershipSearch.ProbeResult.OPEN_SKY_SEED
+                            : AtmosphereOwnershipSearch.ProbeResult.OPEN_COVERED;
+                }, 1);
+                if (result.status() == AtmosphereOwnershipSearch.Status.UNKNOWN
+                        || result.status() == AtmosphereOwnershipSearch.Status.EXTERIOR
+                        || result.status() == AtmosphereOwnershipSearch.Status.SATURATED
+                        || result.status() == AtmosphereOwnershipSearch.Status.CANCELLED) { reject.accept("search status=" + result.status() + "; seed=" + seed + ", visited=" + result.visitedOpenCells().size() + ", trackedCandidates=" + result.trackedCandidates() + ", candidateBudget=" + candidateBudget); return null; }
+            } while (result.status() == AtmosphereOwnershipSearch.Status.IN_PROGRESS);
+            if (result.status() != AtmosphereOwnershipSearch.Status.FINITE) { reject.accept("search status=" + result.status() + "; seed=" + seed); return null; }
+            for (BlockPos visited : result.visitedOpenCells()) {
+                if (!supplied.contains(visited) || !proven.add(visited)) { reject.accept("visited cell omitted or repeated: " + visited + "; visited=" + result.visitedOpenCells().size() + ", supplied=" + supplied.size()); return null; }
+            }
+        }
+        if (!proven.equals(supplied)) { reject.accept("visited coverage mismatch; visited=" + proven.size() + ", supplied=" + supplied.size()); return null; }
+        // All topology work and target validation finish before the first ownership or gas write.
+        Map<BlockPos, LevelChunk> targetChunks = new LinkedHashMap<>();
+        for (BlockPos cell : proven) {
+            LevelChunk chunk = loadedChunk(level, cell);
+            if (chunk == null || !AtmosphereTopology.isPassable(level, cell)) { reject.accept("target validation failed at " + cell + " (unloaded or non-passable)"); return null; }
+            targetChunks.put(cell, chunk);
+        }
+
+        return targetChunks;
     }
 
     private static final class FiniteRoomGasEndpoint implements PipeGasTransaction.Endpoint {
@@ -646,6 +719,36 @@ public final class AtmosphereService {
         } catch (IllegalArgumentException exception) { return false; }
     }
 
+    /** Explicit resource generation by a resolved GasMiner profile, admitted only into an
+     * already-owned finite room. Unlike setup initialization this is a normal published mutation. */
+    public record GasGenerationReceipt(GasMixture packet, double thermalEnergyJoules) {
+        public GasGenerationReceipt { packet = new GasMixture(packet.gasMoles(), packet.temperatureKelvin(), packet.volumeCubicMeters()); }
+        @Override public GasMixture packet() { return new GasMixture(packet.gasMoles(), packet.temperatureKelvin(), packet.volumeCubicMeters()); }
+    }
+
+    public Optional<GasGenerationReceipt> generateFiniteGas(ServerLevel level, BlockPos pos, GasType type, double requestedMoles,
+                                     double temperatureKelvin, double maxPressureKpa, double maxTotalMoles) {
+        if (type == null || !Double.isFinite(requestedMoles) || requestedMoles <= 0
+                || !Double.isFinite(temperatureKelvin) || temperatureKelvin < GasMixture.MIN_TEMPERATURE_KELVIN
+                || !Double.isFinite(maxPressureKpa) || maxPressureKpa <= 0 || Double.isNaN(maxTotalMoles)
+                || maxTotalMoles < 0 || level == null || pos == null
+                || level.getServer() == null || !level.getServer().isSameThread()) return Optional.empty();
+        Optional<PipeGasTransaction.Endpoint> endpoint = finiteRoomEndpoint(level, pos);
+        if (endpoint.isEmpty()) return Optional.empty();
+        GasMixture current = endpoint.get().snapshot();
+        if (current == null) return Optional.empty();
+        GasMixture changed = GasMinerProfile.boundedAddition(current, type, requestedMoles, temperatureKelvin,
+                maxPressureKpa, maxTotalMoles);
+        if (changed == null) return Optional.empty();
+        // Keep the previously admitted finite endpoint as the authority; sample() alone may
+        // return a dimension's ambient fallback and is not a source-admission check.
+        if (finiteRoomEndpoint(level, pos).isEmpty() || !write(level, pos, changed)) return Optional.empty();
+        double admitted = changed.moles(type) - current.moles(type);
+        if (admitted <= 0) return Optional.empty();
+        GasMixture packet = new GasMixture(java.util.Map.of(type, admitted), temperatureKelvin, current.volumeCubicMeters());
+        return Optional.of(new GasGenerationReceipt(packet, changed.thermalEnergy() - current.thermalEnergy()));
+    }
+
     /** Injects breathable air as one composition and one cell write. */
     public boolean addBreathableAir(ServerLevel level, BlockPos pos, double totalMoles, double temperatureKelvin) {
         if (!Double.isFinite(totalMoles) || totalMoles <= 0.0
@@ -779,6 +882,13 @@ public final class AtmosphereService {
         }
         if (committed.isPresent())
             resetExcitedGroupCooldownsAfterHotspotCommit(level, pos, finalProcessState);
+        if (committed.isPresent() && cycle != null) {
+            CommittedHotspot accepted = committed.orElseThrow();
+            List<GasReactionEvaluator.Event> localEvents = projectHotspotChannelEvents(
+                    accepted.result().events(), whole.events(), wholeAlreadyCommitted);
+            cycle.hotspots().put(pos.immutable(), new CommittedHotspotDiagnostic(cycle.identity(),
+                    localEvents, accepted.discardedMoles()));
+        }
         // The receiver only received face heat: its own event must commit on a later due step.
         if (committed.isPresent()) work.consumeExposure(pos, dueStep);
         if (committed.isPresent() && wholeEvaluatedNow)
@@ -821,6 +931,17 @@ public final class AtmosphereService {
             AtmosphereVisualServerHooks.noteChanged(level, pos);
         }
         return committed.map(CommittedHotspot::result);
+    }
+
+    static List<GasReactionEvaluator.Event> projectHotspotChannelEvents(
+            List<GasReactionEvaluator.Event> accepted, List<GasReactionEvaluator.Event> expectedWholePrefix,
+            boolean wholeAlreadyCommitted) {
+        List<GasReactionEvaluator.Event> all = List.copyOf(accepted);
+        List<GasReactionEvaluator.Event> prefix = List.copyOf(expectedWholePrefix);
+        if (!wholeAlreadyCommitted) return all;
+        if (all.size() < prefix.size() || !all.subList(0, prefix.size()).equals(prefix))
+            throw new IllegalArgumentException("accepted hotspot batch does not contain expected whole-air prefix");
+        return List.copyOf(all.subList(prefix.size(), all.size()));
     }
 
     private void resetExcitedGroupCooldownsAfterHotspotCommit(ServerLevel level, BlockPos pos, HotspotState state) {
@@ -917,7 +1038,9 @@ public final class AtmosphereService {
 
     /** Pre-spread temperature is immutable commit metadata, never a callback inside the patch. */
     record CommittedHotspot(GasReactionEvaluator.Result result, double preSpreadTemperature,
-                            Optional<HotspotState> postState) {}
+                            Optional<HotspotState> postState, Map<GasType, Double> discardedMoles) {
+        CommittedHotspot { discardedMoles = GasMixture.validatedDiscardedMoles(discardedMoles); }
+    }
 
     private static GasReactionStep.Result hotspotStepResult(GasMixture before,
             GasReactionStep.WholeAirResult whole, HotspotKernel.ProcessResult hotspot) {
@@ -932,7 +1055,7 @@ public final class AtmosphereService {
         boolean fire = events.stream().anyMatch(event -> event.effect() == GasReactionData.EffectType.TRITIUM_FIRE
                 || event.effect() == GasReactionData.EffectType.PLASMA_FIRE);
         return new GasReactionStep.Result(hotspot.mixture(), delta, energy, events, hotspot.nextState(), fire,
-                0, hotspot.spreadEligibleThisPass());
+                0, hotspot.spreadEligibleThisPass(), hotspot.discardedMoles());
     }
 
     /** Cycle hot pass: writes only source gas; neighbor offers are metadata-only and publish after commit. */
@@ -992,7 +1115,7 @@ public final class AtmosphereService {
                     || !preflight.get()) return Optional.empty();
             CommittedHotspot committed = new CommittedHotspot(new GasReactionEvaluator.Result(
             step.mixture(), step.speciesDelta(), step.energyDeltaJoules(), step.events()),
-                    step.mixture().temperatureKelvin(), step.nextState());
+                    step.mixture().temperatureKelvin(), step.nextState(), step.discardedMoles());
             if (!applyHotspotPatch(List.of(source), old, after, writer, changed -> {
                 patched[0] = true;
                 publishGas.accept(changed);
@@ -1533,6 +1656,7 @@ public final class AtmosphereService {
 
     void onChunkLoad(ServerLevel level, LevelChunk chunk) {
         if (level == null || chunk == null) return;
+        LoadedPipeNetworks.onChunkLoad(level, chunk.getPos());
         AtmosphereCycle cycle = cycles.get(level);
         if (cycle != null) cycle.invalidateChunk(chunk.getPos());
         loadedReactionChunks.computeIfAbsent(level, ignored -> new LoadedReactionChunks()).add(chunk.getPos());
@@ -1679,7 +1803,7 @@ public final class AtmosphereService {
         AtmosphereCycle cycle = cycles.get(level);
         return cycle == null || cycle.stage() == null ? "idle" : cycle.stage().name().toLowerCase(java.util.Locale.ROOT);
     }
-    public void clear(ServerLevel level) { diagnosticTimings.remove(level); runtimeTelemetry.remove(level); patchDiagnostics.remove(level); pressureDiagnostics.remove(level); pressureContinuationSeeds.remove(level); queues.remove(level); reactionQueues.remove(level); loadedReactionChunks.remove(level); fireExposureCursors.remove(level); fireReactionResults.remove(level); ignitionDiagnostics.remove(level); deferredChunkLoads.remove(level); boundaryLedgers.remove(level); hotspotFaceHeat.remove(level); spaceBoundaryCellsThisCycle.remove(level); equalizationJobs.remove(level); parkedEqualizationJobs.remove(level); cycles.remove(level); prioritySeeds.remove(level); prioritySeedStreaks.remove(level); ownershipWork.remove(level); openableStates.remove(level); excitedGroups.remove(level); }
+    public void clear(ServerLevel level) { diagnosticTimings.remove(level); runtimeTelemetry.remove(level); patchDiagnostics.remove(level); pressureDiagnostics.remove(level); pressureContinuationSeeds.remove(level); queues.remove(level); reactionQueues.remove(level); loadedReactionChunks.remove(level); fireExposureCursors.remove(level); fireReactionResults.remove(level); ignitionDiagnostics.remove(level); deferredChunkLoads.remove(level); boundaryLedgers.remove(level); hotspotFaceHeat.remove(level); spaceBoundaryCellsThisCycle.remove(level); equalizationJobs.remove(level); parkedEqualizationJobs.remove(level); cycles.remove(level); prioritySeeds.remove(level); prioritySeedStreaks.remove(level); ownershipWork.remove(level); openableStates.remove(level); excitedGroups.remove(level); LoadedPipeNetworks.clear(level); }
     public void clearAll() { diagnosticTimings.clear(); runtimeTelemetry.clear(); patchDiagnostics.clear(); pressureDiagnostics.clear(); pressureContinuationSeeds.clear(); queues.clear(); reactionQueues.clear(); loadedReactionChunks.clear(); fireExposureCursors.clear(); fireReactionResults.clear(); ignitionDiagnostics.clear(); deferredChunkLoads.clear(); boundaryLedgers.clear(); hotspotFaceHeat.clear(); spaceBoundaryCellsThisCycle.clear(); equalizationJobs.clear(); parkedEqualizationJobs.clear(); cycles.clear(); prioritySeeds.clear(); prioritySeedStreaks.clear(); ownershipWork.clear(); openableStates.clear(); excitedGroups.clear(); }
 
     private void advanceMonstermosCycle(ServerLevel level, WorkQueue queue, AtmosphereCycle cycle,
@@ -2002,6 +2126,7 @@ public final class AtmosphereService {
         Set<BlockPos> normalIncludedCells = null;
         MonstermosSpaceFlow.ExportLedger exported = null;
         MonstermosPressureEqualization.Diagnostics pressureDiagnostic = null;
+        Map<BlockPos, Map<GasType, Double>> pressureCleanup = Map.of();
         int pressureSearchWork = 0;
         int pressureFaceTransfers = 0;
         double pressureSolverMs = 0;
@@ -2028,6 +2153,7 @@ public final class AtmosphereService {
                 MonstermosPressureEqualization.Result pressureResult = solveNormalPressureGraph(normalGraph, job.seed);
                 pressureSolverMs = Math.max(0, System.nanoTime() - pressureStarted) / 1_000_000.0;
                 pressureDiagnostic = pressureResult.diagnostics();
+                pressureCleanup = pressureResult.discardedByCell();
                 MonstermosEqualization.Result result = pressureResult.transport();
                 pressureSearchWork = result.work().edgeSearchWork();
                 pressureFaceTransfers = result.work().transferOperations();
@@ -2058,8 +2184,11 @@ public final class AtmosphereService {
                         isLoadedPassableExterior(level, e.getKey().to())
                                 && AtmosphereTopology.canExchange(level, e.getKey().from(), e.getKey().to())
                                 && sample(level, e.getKey().to()).filter(g -> same(e.getValue(), g)).isPresent());
-        if (!snapshotValid || !applyPatchTransaction(cells, finite, after,
-                (pos, state) -> write(level, pos, state, false), () -> { })) {
+        Map<BlockPos, Map<GasType, Double>> committedCleanup = pressureCleanup;
+        Set<BlockPos> committedIncluded = normalIncludedCells == null ? Set.of() : normalIncludedCells;
+        if (!applyValidatedPatchTransaction(snapshotValid, cells, finite, after,
+                (pos, state) -> write(level, pos, state, false), () -> publishNumericalCleanup(committedCleanup,
+                        finite.keySet(), committedIncluded, (position, losses) -> recordNumericalCleanup(level, position, losses)))) {
             PatchDiagnostic previous = patchDiagnostics.get(level);
             if (previous != null) patchDiagnostics.put(level, new PatchDiagnostic(previous.attempted(), "none", "commit rejected", previous.size(), previous.expansions(), previous.calls(), previous.exportMoles(), previous.exportEnergy()));
             cells.forEach(pos -> prioritizeSeed(level, pos));
@@ -2120,6 +2249,24 @@ public final class AtmosphereService {
         return true;
     }
 
+    private static void recordNumericalCleanup(ServerLevel level, BlockPos position, Map<GasType, Double> losses) {
+            LevelChunk chunk = level.getChunkSource().getChunk(position.getX() >> 4, position.getZ() >> 4,
+                    ChunkStatus.FULL, false) instanceof LevelChunk loaded ? loaded : null;
+            if (chunk == null) return;
+            AtmosphereChunkData data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
+            if (data != null) data.recordCommittedNumericalCleanup(position.getX() & 15, position.getY(),
+                    position.getZ() & 15, losses);
+    }
+
+    static void publishNumericalCleanup(Map<BlockPos, Map<GasType, Double>> cleanup, Set<BlockPos> finite,
+                                        Set<BlockPos> included,
+                                        java.util.function.BiConsumer<BlockPos, Map<GasType, Double>> publisher) {
+        cleanup.forEach((position, losses) -> {
+            if (!finite.contains(position) || !included.contains(position)) return;
+            publisher.accept(position, losses);
+        });
+    }
+
     /** Small shared production seam: inspect only actual finite patch cells, root-deduplicated. */
     static boolean preflightSpaceFirelocks(PatchKernel kernel, java.util.Collection<BlockPos> patchCells,
                                             Function<BlockPos, BlockPos> rootForCell,
@@ -2162,6 +2309,13 @@ public final class AtmosphereService {
         }
         afterCommit.run();
         return true;
+    }
+
+    static boolean applyValidatedPatchTransaction(boolean snapshotValid, List<BlockPos> positions,
+                                                    Map<BlockPos, GasMixture> before, Map<BlockPos, GasMixture> after,
+                                                    java.util.function.BiPredicate<BlockPos, GasMixture> writer,
+                                                    Runnable afterCommit) {
+        return snapshotValid && applyPatchTransaction(positions, before, after, writer, afterCommit);
     }
 
     private static void rollbackPatch(List<BlockPos> applied, Map<BlockPos, GasMixture> before,
@@ -2635,12 +2789,10 @@ public final class AtmosphereService {
     private void invalidateOwnershipAt(ServerLevel level, BlockPos changed) {
         OwnershipWork work = ownershipWork.get(level);
         if (work == null) return;
-        work.cancelPendingOwnership().forEach(work::offer);
         // A proof is invalidated only when the changed cell was part of that proof. Neighbor
         // notifications for unrelated blocks therefore cannot erase a verified covered gap.
         work.invalidateAt(changed).forEach(work::offer);
-        work.wakeParked();
-        work.offer(changed);
+        work.onTopologyChanged(changed);
     }
 
     private void advanceOwnership(ServerLevel level) { advanceOwnership(level, () -> false); }
@@ -2764,7 +2916,7 @@ public final class AtmosphereService {
             }
             work.active = null;
         } else if (result.status() == AtmosphereOwnershipSearch.Status.FINITE) {
-            if (!work.queueClaimPlan(job.seed, new OwnershipClaimPlan(result.visitedOpenCells())))
+            if (!work.queueClaimPlan(job.seed, new OwnershipClaimPlan(result.visitedOpenCells(), job.search.touchedChunks())))
                 work.offer(job.seed);
             work.active = null;
         } else if (result.status() == AtmosphereOwnershipSearch.Status.UNKNOWN) {
@@ -3078,6 +3230,16 @@ public final class AtmosphereService {
                 job.plan.cancel();
                 retryCandidates.add(job.plan.uncommittedPositions());
             }
+            return retrySeeds;
+        }
+        /** Selectively invalidates in-flight proofs whose observed read-set contains this topology chunk. */
+        List<BlockPos> onTopologyChanged(BlockPos changed) {
+            ChunkPos chunk = new ChunkPos(changed);
+            List<BlockPos> retrySeeds = onChunkLifecycle(chunk);
+            retrySeeds.forEach(this::offer);
+            invalidateAt(changed).forEach(this::offer);
+            wakeParked();
+            offer(changed);
             return retrySeeds;
         }
         List<BlockPos> retryForChunkLifecycle(ChunkPos chunk) {

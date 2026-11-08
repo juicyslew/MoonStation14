@@ -1,0 +1,164 @@
+{
+  "textures": {
+    "casing": "minecraft:block/gray_concrete",
+    "surface": "moonstation14:block/atmos_machine/piping/atmospherics/pump/pumpPressure_south",
+    "particle": "moonstation14:block/atmos_machine/piping/atmospherics/pump/pumpPressure_south",
+    "overlay1": "moonstation14:block/atmos_machine/piping/atmospherics/pipe/pipeBinaryConnectors_south"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        12,
+        16
+      ],
+      "faces": {
+        "north": {
+          "texture": "#casing"
+        },
+        "south": {
+          "texture": "#casing"
+        },
+        "east": {
+          "texture": "#casing"
+        },
+        "west": {
+          "texture": "#casing"
+        },
+        "up": {
+          "texture": "#casing"
+        },
+        "down": {
+          "texture": "#casing"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        12.02,
+        0
+      ],
+      "to": [
+        16,
+        12.021,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#surface",
+          "tintindex": -1
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        0,
+        16
+      ],
+      "to": [
+        16,
+        12,
+        16.01
+      ],
+      "faces": {
+        "south": {
+          "texture": "#surface"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        12.06,
+        0
+      ],
+      "to": [
+        16,
+        12.061,
+        16
+      ],
+      "faces": {
+        "up": {
+          "texture": "#overlay1"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        0,
+        -0.060000000000000005
+      ],
+      "to": [
+        16,
+        12,
+        -0.05
+      ],
+      "faces": {
+        "north": {
+          "texture": "#overlay1"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        0,
+        16.060000000000002
+      ],
+      "to": [
+        16,
+        12,
+        16.07
+      ],
+      "faces": {
+        "south": {
+          "texture": "#overlay1"
+        }
+      }
+    },
+    {
+      "from": [
+        16.060000000000002,
+        0,
+        0
+      ],
+      "to": [
+        16.07,
+        12,
+        16
+      ],
+      "faces": {
+        "east": {
+          "texture": "#overlay1"
+        }
+      }
+    },
+    {
+      "from": [
+        -0.060000000000000005,
+        0,
+        0
+      ],
+      "to": [
+        -0.05,
+        12,
+        16
+      ],
+      "faces": {
+        "west": {
+          "texture": "#overlay1"
+        }
+      }
+    }
+  ],
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

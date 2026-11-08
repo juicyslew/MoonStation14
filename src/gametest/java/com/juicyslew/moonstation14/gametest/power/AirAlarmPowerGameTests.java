@@ -41,7 +41,7 @@ public final class AirAlarmPowerGameTests {
 
     @GameTestTags({"airlock", "power", "power_loaded_index_reconcile"})
     // Full-chunk footprint isolates this deliberate service-level unload from peer fixtures.
-    @GameTest(template = "power_receiver_tall_clear", batch = "power_loaded_empty_frontier_reconcile",
+    @GameTest(template = "power_receiver_tall_clear", batch = "power_loaded_index_reconcile",
             timeoutTicks = 600, templateNamespace = "moonstation14")
     public static void receiverReconcilesAlreadyLoadedMissingFootprint(GameTestHelper helper) {
         FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(2, 8, 2)),
@@ -87,16 +87,6 @@ public final class AirAlarmPowerGameTests {
         FixtureChunkTickets.around(helper, host, frontierPos, 0);
         level.setBlock(host, Blocks.STONE.defaultBlockState(), 3);
         require(CableStorage.place(level, host, Direction.UP, CableTier.HV), "border HV cable");
-        helper.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener() {
-            private void cleanup() {
-                CableStorage.remove(level, host, Direction.UP, CableTier.HV);
-                if (level.getBlockState(host).is(Blocks.STONE)) level.setBlock(host, Blocks.AIR.defaultBlockState(), 3);
-            }
-            @Override public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo ignored) { }
-            @Override public void testPassed(net.minecraft.gametest.framework.GameTestInfo ignored, net.minecraft.gametest.framework.GameTestRunner runner) { cleanup(); }
-            @Override public void testFailed(net.minecraft.gametest.framework.GameTestInfo ignored, net.minecraft.gametest.framework.GameTestRunner runner) { cleanup(); }
-            @Override public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo oldTest, net.minecraft.gametest.framework.GameTestInfo newTest, net.minecraft.gametest.framework.GameTestRunner runner) { cleanup(); }
-        });
         CableFaceNode node = new CableFaceNode(host, Direction.UP, CableTier.HV);
         PowerFixtureReadiness.await(helper, level, 350,
                 () -> PowerGraphService.topologyReady(level)
@@ -106,18 +96,24 @@ public final class AirAlarmPowerGameTests {
                     require(physical instanceof LevelChunk, "frontier chunk remains FULL before missed-bookkeeping simulation");
                     require(cableRecords(level, frontierChunk).isEmpty(), "frontier cable snapshot empty immediately before unload: " + cableRecords(level, frontierChunk));
                     PowerGraphService.onChunkUnload(new net.neoforged.neoforge.event.level.ChunkEvent.Unload(physical));
-                    var precondition = PowerGraphService.diagnostics(level, node);
-                    require(precondition.nodeIndexed(), "empty frontier unload preserves root index: " + precondition);
-                    require(precondition.state().knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN
-                                    && precondition.unloadedPotentialNeighborChunks().contains(frontierChunk),
-                            "stored component frontier is unknown and includes FULL-but-unindexed chunk: " + precondition);
                     require(level.getChunkSource().getChunkNow(frontierChunk.x, frontierChunk.z) == physical,
                             "controlled bookkeeping miss did not unload physical chunk");
+                    var postUnload = PowerGraphService.diagnostics(level, node);
+                    require(postUnload.state().knowledge()
+                                    == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN,
+                            "controlled bookkeeping miss must fail closed before direct query: " + postUnload);
+                    if (postUnload.nodeIndexed() && !postUnload.rebuilding()) {
+                        require(postUnload.unloadedPotentialNeighborChunks().contains(frontierChunk),
+                                "indexed missing-frontier branch retains the FULL chunk frontier: " + postUnload);
+                    } else {
+                        require(postUnload.rebuilding() && postUnload.state().componentId() < 0,
+                                "alternate valid branch is invalidated/unindexed before rebuild: " + postUnload);
+                    }
                     var initial = PowerGraphService.state(level, node);
                     require(initial.knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.UNKNOWN
                                     && !PowerGraphService.topologyReady(level),
-                            "direct state query queues reconciliation but remains UNKNOWN: " + initial);
-                    awaitDirectStateKnown(helper, level, node, 0);
+                            "direct state query from controlled UNKNOWN queues reconciliation without fabricating known state: " + initial);
+                    awaitDirectStateKnown(helper, level, node, physical, 0);
                 });
     }
 
@@ -129,7 +125,6 @@ public final class AirAlarmPowerGameTests {
             int cz = baseZ + offset;
             ChunkPos hostChunk = new ChunkPos(cx, cz);
             ChunkPos frontier = new ChunkPos(cx + 1, cz);
-            // Fixture preparation may generate candidate chunks; the production query below must not force-load.
             var hc = level.getChunk(cx, cz);
             var fc = level.getChunk(frontier.x, frontier.z);
             if (!(hc instanceof LevelChunk hostLevelChunk) || !(fc instanceof LevelChunk frontierLevelChunk)) continue;
@@ -137,8 +132,7 @@ public final class AirAlarmPowerGameTests {
                     || !hostLevelChunk.getBlockEntities().isEmpty() || !frontierLevelChunk.getBlockEntities().isEmpty()) continue;
             BlockPos host = new BlockPos(cx * 16 + 15, anchor.getY() + 4, cz * 16 + 8);
             BlockPos frontierPos = new BlockPos(frontier.getMinBlockX() + 8, host.getY(), host.getZ());
-            if (level.getBlockState(host).isAir())
-                return new BlockPos[]{host, frontierPos};
+            if (level.getBlockState(host).isAir()) return new BlockPos[]{host, frontierPos};
         }
         throw new GameTestAssertException("No bounded empty adjacent power chunk pair available for frontier fixture");
     }
@@ -153,9 +147,15 @@ public final class AirAlarmPowerGameTests {
         return data == null ? java.util.List.of() : data.snapshot();
     }
 
-    private static void awaitDirectStateKnown(GameTestHelper helper, ServerLevel level, CableFaceNode node, int elapsed) {
+    private static void awaitDirectStateKnown(GameTestHelper helper, ServerLevel level, CableFaceNode node,
+                                              LevelChunk physical, int elapsed) {
+        require(level.getChunkSource().getChunkNow(physical.getPos().x, physical.getPos().z) == physical,
+                "direct state recovery preserves the controlled FULL chunk identity");
         var answer = PowerGraphService.state(level, node);
         if (answer.knowledge() == com.juicyslew.moonstation14.ms14.power.graph.LoadedPowerGraph.Knowledge.KNOWN) {
+            var diagnostics = PowerGraphService.diagnostics(level, node);
+            require(diagnostics.nodeIndexed() && !diagnostics.rebuilding() && answer.componentId() >= 0,
+                    "direct state recovery ends on an indexed authoritative component: " + diagnostics);
             helper.succeed();
             return;
         }
@@ -163,7 +163,7 @@ public final class AirAlarmPowerGameTests {
                 + ", diagnostics=" + PowerGraphService.diagnostics(level, node)
                 + ", graph=" + PowerGraphService.diagnosticSnapshot(level));
         com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 5,
-                () -> awaitDirectStateKnown(helper, level, node, elapsed + 5));
+                () -> awaitDirectStateKnown(helper, level, node, physical, elapsed + 5));
     }
 
     @GameTest(template = "empty", timeoutTicks = 40, templateNamespace = "moonstation14")

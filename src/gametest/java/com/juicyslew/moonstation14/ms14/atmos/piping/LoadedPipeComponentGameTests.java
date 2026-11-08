@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-@GameTestTags({"ventilation", "atmosphere"})
+@GameTestTags({"ventilation", "atmosphere", "atmos-pipe-equalization-runtime"})
 @PrefixGameTestTemplate(false)
 public final class LoadedPipeComponentGameTests {
     private LoadedPipeComponentGameTests() { }
@@ -46,6 +46,7 @@ public final class LoadedPipeComponentGameTests {
                     require(LoadedPipeGasOwner.createVacuumLane(level, pos, lane).isPresent(), "trusted lane owner created at " + pos + " lane " + lane);
             }
         }
+        require(LoadedPipeNetworks.reconcile(level), "resolve complete lane topology before seeding");
 
         PipeGasInventorySavedData data = PipeGasInventorySavedData.existing(level).orElseThrow();
         PipeTopology.NodeKey secondaryKey = key(center, PipeTopology.Layer.SECONDARY);
@@ -56,14 +57,14 @@ public final class LoadedPipeComponentGameTests {
         double secondaryEnergy = new GasMixture(Map.of(GasType.OXYGEN, 2.5), 315.0).thermalEnergy();
         double tertiaryEnergy = new GasMixture(Map.of(GasType.PLASMA, 1.25), 275.0).thermalEnergy();
         PipeGasInventory secondarySeeded = before.withMixture(secondaryKey, secondary.incarnation(), secondary.version(),
-                new GasMixture(Map.of(GasType.OXYGEN, 2.5), 315.0));
+                new GasMixture(Map.of(GasType.OXYGEN, 2.5), 315.0, 0.8));
         require(data.replace(before.revision(), before, secondarySeeded), "seed secondary center lane mixture");
 
         PipeGasInventory afterSecondarySeed = data.snapshot();
         PipeGasInventory.Entry tertiaryAfterSecondarySeed = afterSecondarySeed.get(tertiaryKey).orElseThrow();
         PipeGasInventory tertiarySeeded = afterSecondarySeed.withMixture(tertiaryKey,
                 tertiaryAfterSecondarySeed.incarnation(), tertiaryAfterSecondarySeed.version(),
-                new GasMixture(Map.of(GasType.PLASMA, 1.25), 275.0));
+                new GasMixture(Map.of(GasType.PLASMA, 1.25), 275.0, 0.6));
         require(data.replace(afterSecondarySeed.revision(), afterSecondarySeed, tertiarySeeded),
                 "seed tertiary center lane mixture");
         PipeGasInventory stable = data.snapshot();
@@ -86,8 +87,8 @@ public final class LoadedPipeComponentGameTests {
                 "wrong-lane start at secondary-only neighbor is empty");
         PipeGasInventory after = data.snapshot();
         require(after == stable && after.revision() == stable.revision(), "read-only discovery preserves inventory identity and revision");
-        assertMixture(after.get(secondaryKey).orElseThrow(), GasType.OXYGEN, 2.5, 315.0, secondaryEnergy, "secondary center gas");
-        assertMixture(after.get(tertiaryKey).orElseThrow(), GasType.PLASMA, 1.25, 275.0, tertiaryEnergy, "tertiary center gas");
+        assertMixture(after, secondaryKey, GasType.OXYGEN, 2.5, 315.0, secondaryEnergy, "secondary shared network gas");
+        assertMixture(after, tertiaryKey, GasType.PLASMA, 1.25, 275.0, tertiaryEnergy, "tertiary shared network gas");
         helper.succeed();
     }
 
@@ -105,11 +106,12 @@ public final class LoadedPipeComponentGameTests {
         return snapshot.nodes().stream().map(LoadedPipeComponent.Node::key).collect(java.util.stream.Collectors.toSet());
     }
 
-    private static void assertMixture(PipeGasInventory.Entry entry, GasType gas, double moles,
+    private static void assertMixture(PipeGasInventory inventory, PipeTopology.NodeKey key, GasType gas, double moles,
                                      double temperature, double energy, String message) {
-        require(entry.mixture().gasMoles().equals(Map.of(gas, moles)), message + " species and moles are unchanged");
-        require(entry.mixture().temperatureKelvin() == temperature, message + " temperature is unchanged");
-        require(entry.mixture().thermalEnergy() == energy, message + " thermal energy is unchanged");
+        var mixture=inventory.mixture(key);
+        require(mixture.gasMoles().equals(Map.of(gas, moles)), message + " species and moles are unchanged");
+        require(mixture.temperatureKelvin() == temperature, message + " temperature is unchanged");
+        require(mixture.thermalEnergy() == energy, message + " thermal energy is unchanged");
     }
 
     private static void require(boolean condition, String message) {

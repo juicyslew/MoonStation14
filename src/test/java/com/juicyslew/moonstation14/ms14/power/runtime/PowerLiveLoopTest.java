@@ -2,6 +2,7 @@ package com.juicyslew.moonstation14.ms14.power.runtime;
 
 import org.junit.jupiter.api.Test;
 import com.juicyslew.moonstation14.ms14.power.device.PowerDeviceKind;
+import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 
 import java.util.List;
 
@@ -59,6 +60,20 @@ final class PowerLiveLoopTest {
                 List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 List.of(new PowerLiveLoop.ApcConsumer("isolated", 44, true, 250)), 20));
         assertEquals(0, result.apcConsumerWatts().get("isolated"), 1e-9);
+    }
+    @Test void oneRuntimeIdentityCanAttributeIndependentHvSupplyAndActualApcDraw() {
+        var result = PowerLiveLoop.solve(new PowerLiveLoop.Input(
+                List.of(new PowerLiveLoop.Source(PowerRuntimeNode.allocationId("teg", CableTier.HV), 1, true, 1_000)),
+                List.of(new PowerLiveLoop.Substation("sub", 1, true, 2, true)),
+                List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 0)), List.of(),
+                List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(new PowerLiveLoop.MvConsumer("startup", 2, true, 500)),
+                List.of(new PowerLiveLoop.ApcConsumer(PowerRuntimeNode.allocationId("teg", CableTier.APC), 3, true, 250)), 20));
+        assertNotEquals(PowerRuntimeNode.allocationId("teg", CableTier.HV), PowerRuntimeNode.allocationId("teg", CableTier.APC));
+        assertEquals(1_000, result.hvSourceWatts().get(PowerRuntimeNode.allocationId("teg", CableTier.HV)), 1e-9);
+        assertEquals(250, result.apcConsumerWatts().get(PowerRuntimeNode.allocationId("teg", CableTier.APC)), 1e-9);
+        assertEquals(250, result.apcConsumerWatts().values().stream().mapToDouble(Double::doubleValue).sum(), 1e-9,
+                "the consumer attribution is the actual allocated draw, not nominal demand");
     }
     @Test void processingLoadsShareApcTierAllocationAndUnknownComponentsFailClosed() {
         var apc = List.of(new PowerLiveLoop.Apc("apc", 2, true, 3, true, true, 1_000));

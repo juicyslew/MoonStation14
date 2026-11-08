@@ -25,12 +25,16 @@ public final class PipeTopology {
 
     public enum Layer { PRIMARY, SECONDARY, TERTIARY }
 
-    public record NodeKey(BlockPos position, Layer layer) {
+    /** Pipe lanes use the empty discriminator; device-owned finite ports use a stable local id. */
+    public record NodeKey(BlockPos position, Layer layer, String portId) {
+        public NodeKey(BlockPos position, Layer layer) { this(position, layer, ""); }
         public NodeKey {
             Objects.requireNonNull(position, "position");
             Objects.requireNonNull(layer, "layer");
             position = position.immutable();
+            Objects.requireNonNull(portId, "portId");
         }
+        public boolean devicePort() { return !portId.isEmpty(); }
     }
 
     /** Returns the adjacent node, or {@code null} when stepping would overflow BlockPos coordinates. */
@@ -41,6 +45,7 @@ public final class PipeTopology {
         if (x < Integer.MIN_VALUE || x > Integer.MAX_VALUE
                 || y < Integer.MIN_VALUE || y > Integer.MAX_VALUE
                 || z < Integer.MIN_VALUE || z > Integer.MAX_VALUE) return null;
+        if (key.devicePort()) return null;
         return new NodeKey(new BlockPos((int) x, (int) y, (int) z), key.layer());
     }
 
@@ -91,11 +96,12 @@ public final class PipeTopology {
         for (var entry : candidates.entrySet()) {
             NodeKey key = Objects.requireNonNull(entry.getKey(), "candidate key");
             Segment segment = Objects.requireNonNull(entry.getValue(), "candidate segment");
+            if (key.devicePort()) throw new IllegalArgumentException("device ports require the device-endpoint topology view");
             if (!key.position().equals(segment.position()) || key.layer() != segment.layer()) throw new IllegalArgumentException("map key must equal segment position and layer");
             if (snapshot.put(key, segment) != null) throw new IllegalArgumentException("duplicate candidate position and layer");
         }
         Comparator<BlockPos> positionOrder = Comparator.comparingLong((BlockPos p) -> p.getX()).thenComparingLong(p -> p.getY()).thenComparingLong(p -> p.getZ());
-        Comparator<NodeKey> order = Comparator.comparing(NodeKey::position, positionOrder).thenComparing(NodeKey::layer);
+        Comparator<NodeKey> order = Comparator.comparing(NodeKey::position, positionOrder).thenComparing(NodeKey::layer).thenComparing(NodeKey::portId);
         List<NodeKey> ordered = new ArrayList<>(snapshot.keySet());
         ordered.sort(order);
         Set<NodeKey> visited = new java.util.HashSet<>();

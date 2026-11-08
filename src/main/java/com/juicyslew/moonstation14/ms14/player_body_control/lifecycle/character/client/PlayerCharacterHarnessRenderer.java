@@ -80,7 +80,7 @@ public final class PlayerCharacterHarnessRenderer
         PlayerModel<PlayerCharacterHarnessEntity> active = model;
         boolean[] visible = captureVisibility(active);
         try {
-            if (ownedGunArmsPass) setArmOnlyVisibility(active);
+            if (ownedGunArmsPass) setItemsOnlyVisibility(active);
             super.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
         } finally {
             restoreVisibility(active, visible);
@@ -88,7 +88,7 @@ public final class PlayerCharacterHarnessRenderer
         }
     }
 
-    /** Runs the native renderer once with the same model, animation and held-item layers, arms only. */
+    /** Runs the native renderer for held items only, preserving native animation and muzzle capture. */
     public void renderOwnedGunArms(PlayerCharacterHarnessEntity entity, PoseStack poseStack,
                                    MultiBufferSource buffer, int packedLight, float partialTick) {
         if (ownedGunArmsPass) return;
@@ -135,10 +135,10 @@ public final class PlayerCharacterHarnessRenderer
                 model.leftLeg.visible, model.rightLeg.visible, model.leftPants.visible, model.rightPants.visible,
                 model.leftArm.visible, model.rightArm.visible, model.leftSleeve.visible, model.rightSleeve.visible};
     }
-    static void setArmOnlyVisibility(PlayerModel<?> model) {
+    static void setItemsOnlyVisibility(PlayerModel<?> model) {
         model.head.visible = model.hat.visible = model.body.visible = model.jacket.visible = false;
         model.leftLeg.visible = model.rightLeg.visible = model.leftPants.visible = model.rightPants.visible = false;
-        model.leftArm.visible = model.rightArm.visible = model.leftSleeve.visible = model.rightSleeve.visible = true;
+        model.leftArm.visible = model.rightArm.visible = model.leftSleeve.visible = model.rightSleeve.visible = false;
     }
     static void restoreVisibility(PlayerModel<?> model, boolean[] v) {
         model.head.visible=v[0]; model.hat.visible=v[1]; model.body.visible=v[2]; model.jacket.visible=v[3];

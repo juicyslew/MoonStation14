@@ -52,7 +52,7 @@ class PipeSegmentAdmissionTest {
         assertInert(PipeSegmentAdmission.classify(1, POS, valid, entry(PipeTopology.Layer.PRIMARY, id, 1, true), false));
         assertInert(PipeSegmentAdmission.classify(1, POS, record(PipeTopology.Layer.PRIMARY, id, 1, PipeTopology.Kind.STRAIGHT_SEALED_WALL), entry(PipeTopology.Layer.PRIMARY, id, 1, true), true));
         assertEquals(before, inventory.snapshot());
-        assertEquals(0, inventory.get(new PipeTopology.NodeKey(POS, PipeTopology.Layer.PRIMARY)).orElseThrow().mixture().moles(com.juicyslew.moonstation14.ms14.atmos.core.GasType.OXYGEN));
+        assertEquals(0, inventory.mixture(new PipeTopology.NodeKey(POS, PipeTopology.Layer.PRIMARY)).moles(com.juicyslew.moonstation14.ms14.atmos.core.GasType.OXYGEN));
     }
 
     private static void assertInert(PipeSegmentAdmission.Result result) {

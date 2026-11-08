@@ -35,6 +35,16 @@ class PointerWorkspaceLayersTest {
         assertTrue(PointerWorkspaceLayers.browserLayer(0, false) + PointerWorkspaceLayers.INTERNAL_ITEM_DEPTH < frontWire);
     }
 
+    @Test void visibleGasAnalyzerConsumesSharedSiblingRankAboveHandItemDepth() {
+        // One visible storage, one health analyzer, one gas analyzer, and one Chem window.
+        int siblings = 4;
+        int analyzerRank = 2;
+        int analyzerLayer = PointerWorkspaceLayers.storageLayer(analyzerRank, false, siblings);
+        assertTrue(analyzerRank < siblings);
+        assertTrue(analyzerLayer > 200); // hand/equipment item GUI quads
+        assertTrue(analyzerLayer > PointerWorkspaceLayers.INTERNAL_ITEM_DEPTH);
+    }
+
     @Test void mixedWindowRanksKeepStorageChemWireAndFixedConfiguratorPaintHitPriorityAligned() {
         int storages=4,browsers=3,family=browsers+1; // browser registrations plus reserved wire slot
         int storageBack=PointerWorkspaceLayers.storageLayer(storages-1,false,storages,family);

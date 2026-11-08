@@ -65,7 +65,7 @@ public final class PipeGasTransfer {
         if (total == 0.0 || maximumMoles == 0.0) return Optional.empty();
         double upper = Math.min(1.0, maximumMoles / total);
         if (!(upper > 0.0)) return Optional.empty();
-        Plan candidate = create(source, destination, selected, upper);
+        Plan candidate = create(source, destination, selected, upper, sourceVolumeM3, destinationVolumeM3);
         if (candidate != null && withinPressureBound(candidate.destinationAfter().pressureKpa(destinationVolumeM3), destinationMaxPressureKpa))
             return Optional.of(candidate);
 
@@ -74,7 +74,7 @@ public final class PipeGasTransfer {
         for (int i = 0; i < SEARCH_STEPS; i++) {
             double mid = low + (high - low) * 0.5;
             if (mid == low || mid == high) break;
-            Plan attempt = create(source, destination, selected, mid);
+            Plan attempt = create(source, destination, selected, mid, sourceVolumeM3, destinationVolumeM3);
             if (attempt != null && withinPressureBound(attempt.destinationAfter().pressureKpa(destinationVolumeM3), destinationMaxPressureKpa)) {
                 best = attempt;
                 low = mid;
@@ -84,7 +84,8 @@ public final class PipeGasTransfer {
     }
 
     private static Plan create(GasMixture source, GasMixture destination,
-                               EnumMap<GasType, Double> selected, double fraction) {
+                               EnumMap<GasType, Double> selected, double fraction,
+                               double sourceVolumeM3, double destinationVolumeM3) {
         EnumMap<GasType, Double> packetMoles = new EnumMap<>(GasType.class);
         EnumMap<GasType, Double> remaining = new EnumMap<>(GasType.class);
         remaining.putAll(source.gasMoles());
@@ -99,9 +100,9 @@ public final class PipeGasTransfer {
         }
         if (packetMoles.isEmpty()) return null;
         try {
-            GasMixture packet = new GasMixture(packetMoles, source.temperatureKelvin());
-            GasMixture sourceAfter = new GasMixture(remaining, source.temperatureKelvin());
-            GasMixture destinationAfter = PipeGasLedger.merge(List.of(destination, packet));
+            GasMixture packet = new GasMixture(packetMoles, source.temperatureKelvin(), sourceVolumeM3);
+            GasMixture sourceAfter = new GasMixture(remaining, source.temperatureKelvin(), sourceVolumeM3);
+            GasMixture destinationAfter = PipeGasLedger.merge(List.of(destination, packet), destinationVolumeM3);
             if (!conserved(source, destination, sourceAfter, destinationAfter)) return null;
             EnumMap<GasType, Double> immutableMoved = new EnumMap<>(packetMoles);
             return new Plan(sourceAfter, destinationAfter, packet, Map.copyOf(immutableMoved), packet.thermalEnergy());

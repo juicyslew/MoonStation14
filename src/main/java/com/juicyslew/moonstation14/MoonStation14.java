@@ -94,6 +94,12 @@ public class MoonStation14 {
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.transport.DisposalRideDamageDiagnostics::onTypedDamage);
         NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService::serverStopped);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineMenuService::logout);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineMenuService::serverTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineMenuService::serverStopped);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService::logout);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService::serverTick);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService::serverStopped);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService::serverTick);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterSessionService::logout);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.interaction.ChemMasterDumpService::logout);
@@ -132,6 +138,7 @@ public class MoonStation14 {
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.network.DisposalTubeVisualNetworking::registerPayloadHandlers);
         modEventBus.addListener(ApcNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.ui.DisposalBuildNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.ui.DisposalConstructionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitNetworking::registerPayloadHandlers);

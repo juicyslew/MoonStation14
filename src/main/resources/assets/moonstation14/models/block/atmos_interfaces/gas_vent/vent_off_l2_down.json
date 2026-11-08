@@ -1,0 +1,12 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/block/atmos_interfaces/gas_vent/vent_off_l2_down.obj",
+  "textures": {
+    "atlas": "moonstation14:block/atmos_interfaces/gas_vent/vent_off",
+    "particle": "moonstation14:block/atmos_interfaces/gas_vent/vent_off"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "render_type": "minecraft:cutout"
+}

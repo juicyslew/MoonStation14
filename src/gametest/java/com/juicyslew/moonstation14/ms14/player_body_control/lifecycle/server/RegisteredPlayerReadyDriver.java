@@ -159,6 +159,12 @@ public final class RegisteredPlayerReadyDriver {
 
     /** Aims at a real outline hit and returns its actual face for an ordinary nominated block request. */
     public static BlockHitResult aimAt(LivingEntity body, ServerLevel level, BlockPos target) {
+        return aimAt(body, level, target, null);
+    }
+
+    /** Aims at a real outline hit on the requested face for an ordinary nominated block request. */
+    public static BlockHitResult aimAt(LivingEntity body, ServerLevel level, BlockPos target,
+                                       net.minecraft.core.Direction requiredFace) {
         Vec3 eye = body.getEyePosition();
         var shape = level.getBlockState(target).getShape(level, target);
         var bounds = shape.bounds();
@@ -183,7 +189,8 @@ public final class RegisteredPlayerReadyDriver {
                 if (hit instanceof BlockHitResult blockHit && hit.getType() == HitResult.Type.BLOCK) {
                     lastHit = blockHit;
                     lastAim = aim;
-                    if (blockHit.getBlockPos().equals(target)) return blockHit;
+                    if (blockHit.getBlockPos().equals(target)
+                            && (requiredFace == null || blockHit.getDirection() == requiredFace)) return blockHit;
                 }
             }
         BlockPos hitPos = lastHit == null ? null : lastHit.getBlockPos();
@@ -193,7 +200,8 @@ public final class RegisteredPlayerReadyDriver {
                 + " hitState=" + (hitPos == null ? "none" : outlineSummary(level, hitPos))
                 + " bodyPos=" + body.position() + " bodyPose=" + body.getPose()
                 + " eye=" + eye + " candidate=" + lastAim + " hit=" + (lastHit == null ? "MISS" : hitPos
-                + "/" + lastHit.getDirection() + "@" + lastHit.getLocation()));
+                + "/" + lastHit.getDirection() + "@" + lastHit.getLocation())
+                + (requiredFace == null ? "" : " requiredFace=" + requiredFace));
     }
 
     private static String outlineSummary(ServerLevel level, BlockPos pos) {

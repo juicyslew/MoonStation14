@@ -55,6 +55,21 @@ final class VentilationPaidIntervalTest {
         assertTrue(gate.authorizeCompletedInterval(start, signature(21), 5, 21).isEmpty());
     }
 
+    @Test void sameReceiverIgnoresSampleTickButRejectsIdentityAndRevisionChanges() {
+        var original = signature(10);
+        assertTrue(VentilationPaidInterval.sameReceiver(original, signature(100)));
+        assertFalse(VentilationPaidInterval.sameReceiver(original, null));
+        assertFalse(VentilationPaidInterval.sameReceiver(null, original));
+        assertFalse(VentilationPaidInterval.sameReceiver(original,
+                new VentilationPaidInterval.ReceiverSignature(new Object(), apc, 4, 9, true, true, true, 10)));
+        assertFalse(VentilationPaidInterval.sameReceiver(original,
+                new VentilationPaidInterval.ReceiverSignature(vent, new Object(), 4, 9, true, true, true, 10)));
+        assertFalse(VentilationPaidInterval.sameReceiver(original,
+                new VentilationPaidInterval.ReceiverSignature(vent, apc, 5, 9, true, true, true, 10)));
+        assertFalse(VentilationPaidInterval.sameReceiver(original,
+                new VentilationPaidInterval.ReceiverSignature(vent, apc, 4, 10, true, true, true, 10)));
+    }
+
     @Test void gasEnablementIsNotPartOfElectricalPaymentSignature() {
         // The pure gate has no gas-enabled flag: a paid receiver remains electrically paid;
         // the caller separately decides whether to perform the gas operation.

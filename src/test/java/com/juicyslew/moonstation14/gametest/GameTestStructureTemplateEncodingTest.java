@@ -24,6 +24,8 @@ class GameTestStructureTemplateEncodingTest {
         assertBotanyExtractorTemplate();
         assertSize("disposal_clear.nbt", 32, 8, 32);
         assertSize("disposal_power_clear.nbt", 48, 8, 48);
+        assertSize("atmos_machinery_lab_clear.nbt", 64, 6, 64);
+        assertLabWriteEnvelope();
         assertSize("singularity_fixture_clear.nbt", 32, 16, 24);
 
         assertCoordinatesFit(16, 13, 18,
@@ -34,6 +36,33 @@ class GameTestStructureTemplateEncodingTest {
         assertCoordinatesFit(12, 4, 12, new int[][]{{3, 1, 2}, {5, 1, 7}});
         assertCoordinatesFit(16, 20, 16,
                 new int[][]{{2, 12, 10}, {5, 12, 8}, {7, 12, 8}, {5, 13, 8}, {5, 14, 8}, {6, 14, 9}, {6, 14, 10}});
+    }
+
+    private static void assertLabWriteEnvelope() {
+        var plan = com.juicyslew.moonstation14.ms14.atmos.piping.fixture.VentilationFixturePlan.standard();
+        var offset = com.juicyslew.moonstation14.ms14.atmos.machine.fixture.AtmosMachineryFixturePlan.VENTILATION_ORIGIN;
+        int minX = 0, minY = 0, minZ = 0, maxX = 63, maxY = 5, maxZ = 63;
+        // The four native methods clear the full lab envelope.  The builder's
+        // primary floor and the crossing's below-host support are Y=0/Y=0.
+        assertCoordinatesFit(64, 6, 64, new int[][]{{0,0,0},{63,5,63},{53,0,23}});
+        for (var cell : plan.blocks()) assertTranslated(cell.pos(), offset, minX,minY,minZ,maxX,maxY,maxZ);
+        for (var pipe : plan.pipes()) assertTranslated(pipe.position(), offset, minX,minY,minZ,maxX,maxY,maxZ);
+        for (var device : plan.powerDevices()) assertTranslated(device.position(), offset, minX,minY,minZ,maxX,maxY,maxZ);
+        for (var cable : plan.cables()) assertTranslated(cable.host(), offset, minX,minY,minZ,maxX,maxY,maxZ);
+        for (var cell : plan.sourceCells()) assertTranslated(cell, offset, minX,minY,minZ,maxX,maxY,maxZ);
+        for (var cell : plan.recipientCells()) assertTranslated(cell, offset, minX,minY,minZ,maxX,maxY,maxZ);
+        assertTranslated(plan.alarm(), offset, minX,minY,minZ,maxX,maxY,maxZ);
+        assertTranslated(plan.scrubber(), offset, minX,minY,minZ,maxX,maxY,maxZ);
+        assertTranslated(plan.vent(), offset, minX,minY,minZ,maxX,maxY,maxZ);
+    }
+
+    private static void assertTranslated(net.minecraft.core.BlockPos pos, net.minecraft.core.BlockPos offset,
+                                         int minX,int minY,int minZ,int maxX,int maxY,int maxZ) {
+        var translated = pos.offset(offset);
+        assertTrue(translated.getX() >= minX && translated.getX() <= maxX
+                && translated.getY() >= minY && translated.getY() <= maxY
+                && translated.getZ() >= minZ && translated.getZ() <= maxZ,
+                "translated lab write outside reserved bounds: " + translated);
     }
 
     private static void assertBotanyExtractorTemplate() throws Exception {

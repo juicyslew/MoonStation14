@@ -241,6 +241,8 @@ public final class BodyHandClient {
         if (mc.screen instanceof StoragePopupScreen || mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
         POPUPS.clear();
         com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
+        com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE.clear();
+        com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerClientState.clear();
         com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.clear();
         com.juicyslew.moonstation14.ms14.atmos.tank.client.CanisterClientCache.clear();
         com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
@@ -288,6 +290,47 @@ public final class BodyHandClient {
         return actorId != null && body != null && actorId.equals(body.getUUID());
     }
 
+    public static Mob currentGasAnalyzerBody() { return currentBody(); }
+
+    /** Confirms the analyzer's exact body-hand token, including either hand, from the last body snapshot. */
+    public static boolean hasGasAnalyzerSource(java.util.UUID bodyId,long epoch,String sourceToken) {
+        reconcile();
+        if(bodyId==null||sourceToken==null||cameraBody==null||!bodyId.equals(cameraBody.getUUID())
+                ||epoch<=0||epoch!=cameraEpoch||epoch!=GhostControlClient.committedCharacterEpoch())return false;
+        var snapshot=POLICY.presentationSnapshot();
+        String analyzer=net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(com.juicyslew.moonstation14.item.ModItems.ATMOSPHERE_ANALYZER.get()).toString();
+        return snapshot!=null&&snapshot.epoch()==epoch&&bodyId.equals(snapshot.bodyId())
+                &&snapshot.hands().stream().anyMatch(hand->sourceToken.equals(hand.token())&&analyzer.equals(hand.itemId()));
+    }
+    /** Exact active-hand token proof reserved for analyzer wheel controls; window ownership may remain in either hand. */
+    private static boolean hasActiveGasAnalyzerSource(java.util.UUID bodyId,long epoch,String sourceToken) {
+        if(!hasGasAnalyzerSource(bodyId,epoch,sourceToken))return false;
+        var snapshot=POLICY.presentationSnapshot();
+        if(snapshot==null)return false;
+        var active=snapshot.hands().stream().filter(hand->hand.id().equals(snapshot.activeHand())).findFirst().orElse(null);
+        return active!=null&&sourceToken.equals(active.token());
+    }
+    public static boolean adjustGasAnalyzerDistanceFromWheel(double delta) {
+        var workspace=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE;
+        var state=com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerClientState.current();
+        if(delta==0||shiftDown()||controlDown()||altDown()||!workspace.visible()||state==null
+                ||!hasActiveGasAnalyzerSource(state.body(),state.epoch(),state.sourceToken()))return false;
+        workspace.adjustDistance(delta>0?1:-1,workspace.maxRange());return true;
+    }
+
+    private static void gasAnalyzerClientTick() {
+        var state=com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerClientState.current();
+        var body=currentBody();
+        boolean bodyMatches=state!=null&&body!=null&&state.body().equals(body.getUUID())
+                &&state.epoch()==GhostControlClient.committedCharacterEpoch();
+        boolean sourceHeld=bodyMatches&&(state.closed()||hasGasAnalyzerSource(state.body(),state.epoch(),state.sourceToken()));
+        var workspace=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE;
+        boolean wasVisible=workspace.visible();
+        workspace.sync(state,bodyMatches,sourceHeld,net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScaledWidth(),
+                net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScaledHeight());
+        if(!wasVisible&&workspace.visible()&&net.minecraft.client.Minecraft.getInstance().screen==null)medicalPointerMode();
+    }
+
     private static Mob currentBody() {
         var mc = net.minecraft.client.Minecraft.getInstance();
         return mc.player != null && mc.player.isSpectator() && mc.getConnection() != null
@@ -315,6 +358,8 @@ public final class BodyHandClient {
             if (mc.screen instanceof StoragePopupScreen || mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
             POPUPS.clear();
             com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
+            com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE.clear();
+            com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerClientState.clear();
             com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.clear();
             com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
             POINTER.authorityClear();
@@ -379,7 +424,9 @@ public final class BodyHandClient {
             com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.clearPredictions();
             if (mc.screen instanceof StoragePopupScreen || mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
             POPUPS.clear();
-            com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
+             com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
+             com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE.clear();
+             com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerClientState.clear();
             com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.clear();
             com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
             POINTER.authorityClear();
@@ -400,6 +447,7 @@ public final class BodyHandClient {
         clock++;
         reconcile();
         drainRackIntent();
+        gasAnalyzerClientTick();
         tickHeldMelee();
         com.juicyslew.moonstation14.ms14.combat.client.GunShotClient.tickHeld(currentBody(),
                 GhostControlClient.committedCharacterEpoch());
@@ -888,6 +936,7 @@ public final class BodyHandClient {
                 || target instanceof com.juicyslew.moonstation14.block.block_entity.FieldGeneratorBlockEntity
                 || target instanceof com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlockEntity
                 || target instanceof com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity
+                || target instanceof com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineBlockEntity
                 || target instanceof com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
     }
 
@@ -1211,6 +1260,10 @@ public final class BodyHandClient {
         double guiX=mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth();
         double guiY=mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight();
         if(event.getAction()==GLFW.GLFW_PRESS)com.juicyslew.moonstation14.ms14.item_processing.client.BodyTargetActionClient.dismissOnOutside(guiX,guiY);
+        var gasWorkspace=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE;
+        if(!pointerCanvas&&gasWorkspace.click(guiX,guiY,event.getButton(),mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight())) {
+            event.setCanceled(true);return;
+        }
         boolean overUi=pointerCanvas&&((StoragePopupScreen)mc.screen).pointerUiHit(guiX,guiY)
                 || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(guiX,guiY);
         // Screen owns pointer-canvas input; its routed outside-window action handles Ctrl-pull.
@@ -1473,17 +1526,55 @@ public final class BodyHandClient {
 
     public static void mouseScroll(net.neoforged.neoforge.client.event.InputEvent.MouseScrollingEvent event) {
         var mc = net.minecraft.client.Minecraft.getInstance();
-        double x=mc.mouseHandler.xpos()*mc.getWindow().getGuiScaledWidth()/mc.getWindow().getScreenWidth();
-        double y=mc.mouseHandler.ypos()*mc.getWindow().getGuiScaledHeight()/mc.getWindow().getScreenHeight();
-        if (!shiftDown() && !controlDown() && !altDown() && mc.screen == null
-                && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseScroll(x,y,event.getScrollDeltaY())) {
-            event.setCanceled(true);
+        var analyzer=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE;
+        int analyzerSw=mc.getWindow().getGuiScaledWidth(),analyzerSh=mc.getWindow().getGuiScaledHeight();
+        var analyzerState=com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerClientState.current();
+        boolean locked=!com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry
+                .hostPointerAvailable(mc.mouseHandler.isMouseGrabbed());
+        boolean sourceHeld=analyzerState!=null&&hasActiveGasAnalyzerSource(analyzerState.body(),analyzerState.epoch(),analyzerState.sourceToken());
+        boolean blocked=shiftDown()||controlDown()||altDown()||mc.screen!=null
+                ||com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.inputBelongsToScreen(mc.screen);
+        if(locked) {
+            var route=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerInputPolicy.wheel(
+                    shiftDown(),controlDown(),altDown(),blocked,true,false,false,analyzer.visible(),sourceHeld,false);
+            if(route==com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerInputPolicy.Route.RANGE_DISTANCE) {
+                adjustGasAnalyzerDistanceFromWheel(event.getScrollDeltaY());event.setCanceled(true);return;
+            }
+            // A grabbed cursor has no meaningful hover coordinates: do not route stale hits to any window.
             return;
+        }
+        // MouseScrollingEvent carries window-space cursor coordinates; gameplay windows use scaled GUI space.
+        var cursor=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerInputPolicy.guiCursor(
+                mc.mouseHandler.xpos(),mc.mouseHandler.ypos(),analyzerSw,analyzerSh,
+                mc.getWindow().getScreenWidth(),mc.getWindow().getScreenHeight());
+        double x=cursor.x(),y=cursor.y();
+        if (!blocked && !locked && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.mouseScroll(x,y,event.getScrollDeltaY())) {
+            event.setCanceled(true);return;
+        }
+        var storageWindow=POPUPS.topmost(x,y);
+        var healthWindow=com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.topmost(x,y);
+        boolean otherWindow=equipmentPanelHit((int)x,(int)y,analyzerSw,analyzerSh)
+                ||storageWindow!=null&&storageWindow.z()>analyzer.z()
+                ||healthWindow!=null&&healthWindow.z()>analyzer.z()
+                ||com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x,y);
+        boolean overAnalyzer=analyzer.contains(x,y,analyzerSw,analyzerSh);
+        boolean overGasList=analyzer.isOverGasList(x,y,analyzerSw,analyzerSh);
+        var route=com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerInputPolicy.wheel(
+                shiftDown(),controlDown(),altDown(),blocked,locked,
+                overAnalyzer,overGasList,analyzer.visible(),sourceHeld,otherWindow);
+        if(route==com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerInputPolicy.Route.WINDOW_GAS_SCROLL) {
+            if(analyzer.scroll(x,y,event.getScrollDeltaY(),analyzerSw,analyzerSh))event.setCanceled(true);
+            if(analyzer.contains(x,y,analyzerSw,analyzerSh))return;
+        }
+        if(route==com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerInputPolicy.Route.RANGE_DISTANCE) {
+            adjustGasAnalyzerDistanceFromWheel(event.getScrollDeltaY());event.setCanceled(true);return;
         }
         if (!shiftDown() || controlDown() || altDown() || mc.screen != null
                 || equipmentPanelHit((int)x,(int)y,mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight())
                 || POPUPS.topmost(x,y)!=null
                 || com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.topmost(x,y)!=null
+                || com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE.topmostAt(x,y,
+                        mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight())
                 || com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.hit(x,y)
                 || com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_G)) return;
         if (event.getScrollDeltaY()!=0 && com.juicyslew.moonstation14.ms14.examine.client.ExamineClient.cycle(event.getScrollDeltaY()>0?1:-1)) event.setCanceled(true);
@@ -2091,6 +2182,8 @@ public final class BodyHandClient {
         com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClient.clearPredictions();
         if (mc.screen instanceof BodyInventoryScreen) mc.setScreen(null);
         com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.clear();
+        com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE.clear();
+        com.juicyslew.moonstation14.ms14.atmos.analyzer.GasAnalyzerClientState.clear();
         com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.clear();
         com.juicyslew.moonstation14.ms14.devicenet.item.client.NetworkConfiguratorClientState.clear();
         placementProof = null;
@@ -2196,7 +2289,8 @@ public final class BodyHandClient {
 
     private static void closePointerIfEmpty() {
         boolean analyzerOpen = com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE
-                .windows().stream().anyMatch(w -> w.visible());
+                .windows().stream().anyMatch(w -> w.visible())
+                || com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE.visible();
         if (POPUPS.windows().stream().noneMatch(StoragePopupWorkspace.Window::visible)
                 && !analyzerOpen
                 && !com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.anyVisible()
@@ -3095,7 +3189,8 @@ public final class BodyHandClient {
     }
     public static void analyzerWindowClosed() {
         if (POPUPS.windows().stream().anyMatch(StoragePopupWorkspace.Window::visible)
-                || com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.windows().stream().anyMatch(w -> w.visible())) return;
+                || com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.windows().stream().anyMatch(w -> w.visible())
+                || com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE.visible()) return;
         if (!com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.windows().isEmpty()) return;
         var mc=net.minecraft.client.Minecraft.getInstance();
         if (mc == null) return;
@@ -3516,9 +3611,12 @@ public final class BodyHandClient {
         if (feedback != null && !feedback.toLowerCase(java.util.Locale.ROOT).contains("waiting"))
             drawHudLine(graphics, mc, feedback.replaceFirst("^Hands: ", ""), 8, 54, width);
         if (snapshot != null) drawEquipmentPanel(graphics, mc, snapshot, width, height, !POLICY.presentationPending());
-        // One shared workspace painter owns gameplay and chat; machine screens retain their own host phase.
-        if (com.juicyslew.moonstation14.ms14.ui.client.GameplayHudPolicy.hudPaintsWorkspace(mc.screen))
-            renderPointerWorkspace(graphics, partialTick);
+        // Gameplay owns the shared workspace pass. Chat is a read-only HUD host: paint
+        // the sorted storage workspace there without registering browser/wire input owners.
+        if (mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen)
+            StoragePopupScreen.drawWindows(graphics, POPUPS, width, height, partialTick);
+        if (gameplay && com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.shouldPaintWorkspace(
+                true,false,true,true)) renderPointerWorkspace(graphics, partialTick);
     }
 
     private static void renderDumpAimFeedback(net.minecraft.client.gui.GuiGraphics graphics, net.minecraft.client.Minecraft mc) {
@@ -3800,6 +3898,7 @@ public final class BodyHandClient {
         int storageSiblingCount=(int) POPUPS.windows().stream().filter(StoragePopupWorkspace.Window::visible).count()
                 +(int) com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.INSTANCE.windows().stream()
                 .filter(com.juicyslew.moonstation14.ms14.medical.client.HealthAnalyzerWorkspace.Window::visible).count()
+                +(com.juicyslew.moonstation14.ms14.atmos.analyzer.client.GasAnalyzerWorkspace.INSTANCE.visible() ? 1 : 0)
                 +(int) com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterWorkspace.INSTANCE.windows().size();
         com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.renderWorkspace(
                 () -> {

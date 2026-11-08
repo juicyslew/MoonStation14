@@ -19,23 +19,31 @@ public final class GasReactionStep {
     public record Result(GasMixture mixture, Map<GasType, Double> speciesDelta,
                           double energyDeltaJoules, List<GasReactionEvaluator.Event> events,
                            Optional<HotspotState> nextState, boolean fireOccurred,
-                          double externalHeatJoules, boolean spreadEligibleThisPass) {
+                           double externalHeatJoules, boolean spreadEligibleThisPass,
+                           Map<GasType, Double> discardedMoles) {
         public Result(GasMixture mixture, Map<GasType, Double> speciesDelta, double energyDeltaJoules,
                       List<GasReactionEvaluator.Event> events,
                        Optional<HotspotState> nextState, boolean fireOccurred,
                       double externalHeatJoules) {
             this(mixture, speciesDelta, energyDeltaJoules, events, nextState, fireOccurred,
-                    externalHeatJoules, false);
+                     externalHeatJoules, false, Map.of());
         }
         public Result(GasMixture mixture, Map<GasType, Double> speciesDelta, double energyDeltaJoules,
                       List<GasReactionEvaluator.Event> events,
                        Optional<HotspotState> nextState, boolean fireOccurred) {
-            this(mixture, speciesDelta, energyDeltaJoules, events, nextState, fireOccurred, 0, false);
+            this(mixture, speciesDelta, energyDeltaJoules, events, nextState, fireOccurred, 0, false, Map.of());
+        }
+        public Result(GasMixture mixture, Map<GasType, Double> speciesDelta, double energyDeltaJoules,
+                      List<GasReactionEvaluator.Event> events, Optional<HotspotState> nextState,
+                      boolean fireOccurred, double externalHeatJoules, boolean spreadEligibleThisPass) {
+            this(mixture, speciesDelta, energyDeltaJoules, events, nextState, fireOccurred,
+                    externalHeatJoules, spreadEligibleThisPass, Map.of());
         }
         public Result {
             speciesDelta = Map.copyOf(speciesDelta);
             events = List.copyOf(events);
             nextState = Objects.requireNonNull(nextState, "nextState");
+            discardedMoles = GasMixture.validatedDiscardedMoles(discardedMoles);
         }
     }
 
@@ -95,7 +103,7 @@ public final class GasReactionStep {
                 || e.effect() == GasReactionData.EffectType.PLASMA_FIRE);
         return new Result(fire.mixture(), delta, fire.mixture().thermalEnergy() - original.thermalEnergy(),
                 events, publishedState, fireEvent, 0,
-                fire.spreadEligibleThisPass());
+                fire.spreadEligibleThisPass(), fire.discardedMoles());
     }
 
     /** Runs the shared whole-air reaction priority pass, before any local hotspot processing. */

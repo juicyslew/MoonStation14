@@ -16,6 +16,7 @@ public final class LoadedPipeGasOwner {
 
     /** Trusted developer/test setup only: creates a genuinely new vacuum lane. */
     public static Optional<UUID> createVacuumLane(ServerLevel level, BlockPos pos, int lane) {
+        LoadedPipeNetworks.invalidateTopology(level, pos);
         Objects.requireNonNull(level); Objects.requireNonNull(pos);
         if (!valid(level, pos, lane)) return Optional.empty();
         VisualPipeBlockEntity visual = (VisualPipeBlockEntity) level.getBlockEntity(pos);
@@ -29,13 +30,14 @@ public final class LoadedPipeGasOwner {
         try { after = before.admit(key, id, Ss14VentilationDefaults.PIPE_NODE_VOLUME_M3); }
         catch (RuntimeException failure) { return Optional.empty(); }
         if (!data.replace(before.revision(), before, after)) return Optional.empty();
-        if (visual.markFunctionalLayer(lane, id)) return Optional.of(id);
+        if (visual.markFunctionalLayer(lane, id)) { LoadedPipeNetworks.invalidateTopology(level, pos); return Optional.of(id); }
         // Only remove the fresh, still-empty vacuum record created above; never remove gas.
         PipeGasInventory current = data.snapshot();
         try {
             PipeGasInventory.Entry entry = current.get(key).orElseThrow();
-            if (entry.incarnation().equals(id) && entry.mixture().gasMoles().isEmpty()
-                    && entry.mixture().thermalEnergy() == 0.0) {
+            var share = current.nodeShare(key);
+            if (entry.incarnation().equals(id) && share.gasMoles().isEmpty()
+                    && share.thermalEnergy() == 0.0) {
                 PipeGasInventory rollback = current.tombstoneEmpty(key, id);
                 data.replace(current.revision(), current, rollback);
             }
@@ -44,7 +46,7 @@ public final class LoadedPipeGasOwner {
     }
 
     /** Removes only a just-admitted, unchanged vacuum lane after follow-up admission failed. */
-    static boolean rollbackFreshVacuumLane(ServerLevel level, BlockPos pos, int lane, UUID expectedId) {
+    public static boolean rollbackFreshVacuumLane(ServerLevel level, BlockPos pos, int lane, UUID expectedId) {
         if (expectedId == null || !valid(level, pos, lane)) return false;
         VisualPipeBlockEntity visual = (VisualPipeBlockEntity) level.getBlockEntity(pos);
         if (!visual.functionalIdentity(lane).filter(expectedId::equals).isPresent()) return false;
@@ -55,7 +57,7 @@ public final class LoadedPipeGasOwner {
         PipeGasInventory.Entry entry = before.get(key).orElse(null);
         if (entry == null || !entry.active() || entry.version() != 1 || !entry.incarnation().equals(expectedId)
                 || Double.compare(entry.volume(), Ss14VentilationDefaults.PIPE_NODE_VOLUME_M3) != 0
-                || !entry.mixture().gasMoles().isEmpty() || entry.mixture().thermalEnergy() != 0.0) return false;
+                || !before.nodeShare(key).gasMoles().isEmpty() || before.nodeShare(key).thermalEnergy() != 0.0) return false;
         if (!visual.clearFunctionalLayer(lane, expectedId)) return false;
         try {
             PipeGasInventory after = before.tombstoneEmpty(key, expectedId);
@@ -68,6 +70,7 @@ public final class LoadedPipeGasOwner {
 
     /** Re-activates only the exact persisted incarnation; never creates a missing entry. */
     public static boolean reconcileExisting(ServerLevel level, BlockPos pos, int lane) {
+        LoadedPipeNetworks.invalidateTopology(level, pos);
         if (!valid(level, pos, lane)) return false;
         VisualPipeBlockEntity visual = (VisualPipeBlockEntity) level.getBlockEntity(pos);
         UUID id = visual.functionalIdentity(lane).orElse(null);
@@ -101,6 +104,7 @@ public final class LoadedPipeGasOwner {
 
     /** Retires the exact physically removed lane, archiving any non-vacuum ownership. */
     static boolean retireRemovedLane(ServerLevel level, BlockPos pos, int lane, UUID id) {
+        LoadedPipeNetworks.invalidateTopology(level, pos);
         if (id == null || lane < 1 || !level.getServer().isSameThread()) return false;
         PipeGasInventorySavedData data = PipeGasInventorySavedData.existing(level).orElse(null);
         if (data == null) return false;
@@ -119,6 +123,7 @@ public final class LoadedPipeGasOwner {
     /** Retires every stale lane record at this position in one save commit when the loaded holder is proven AIR.
      * AIR proves the whole holder is gone; this deliberately does not touch any other position. */
     static boolean retireOrphanAtAir(ServerLevel level, BlockPos pos, int lane) {
+        LoadedPipeNetworks.invalidateTopology(level, pos);
         if ((lane != VisualPipeBlockEntity.PRIMARY && lane != VisualPipeBlockEntity.SECONDARY
                 && lane != VisualPipeBlockEntity.TERTIARY) || !level.getServer().isSameThread() || pos.getY() < level.getMinBuildHeight()
                 || pos.getY() >= level.getMaxBuildHeight()) return false;

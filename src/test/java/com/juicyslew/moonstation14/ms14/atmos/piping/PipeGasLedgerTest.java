@@ -42,6 +42,28 @@ class PipeGasLedgerTest {
         assertEquals(hot.thermalEnergy() + cold.thermalEnergy(), merged.thermalEnergy(), 1e-10);
     }
 
+    @Test void mergeCanRetainOwnerVolumeWithoutChangingSpeciesOrHeatMix() {
+        var hot=new GasMixture(Map.of(GasType.OXYGEN,2.0),600.0,.2);
+        var cold=new GasMixture(Map.of(GasType.NITROGEN,3.0),200.0,.15);
+        var legacy=PipeGasLedger.merge(List.of(hot,cold));
+        var owned=PipeGasLedger.merge(List.of(hot,cold),.35);
+        assertEquals(legacy.gasMoles(),owned.gasMoles());
+        assertEquals(legacy.temperatureKelvin(),owned.temperatureKelvin(),0);
+        assertEquals(legacy.thermalEnergy(),owned.thermalEnergy(),0);
+        assertEquals((double)(float).35,owned.volumeCubicMeters(),0);
+        assertThrows(IllegalArgumentException.class,()->PipeGasLedger.merge(List.of(hot),0));
+    }
+
+    @Test void explicitVolumeMergeKeepsEmptyReceiverTemperatureWhileAggregateKeepsLegacyFloor() {
+        var receiver=new GasMixture(Map.of(),293.15,.2);
+        var emptyPacket=GasMixture.vacuum();
+        var owned=PipeGasLedger.merge(List.of(receiver,emptyPacket),.2);
+        var aggregate=PipeGasLedger.merge(List.of(receiver,emptyPacket));
+        assertEquals((double)(float)293.15,owned.temperatureKelvin());
+        assertEquals((double)(float).2,owned.volumeCubicMeters(),0);
+        assertEquals((double)(float)GasMixture.MIN_TEMPERATURE_KELVIN,aggregate.temperatureKelvin());
+    }
+
     @Test
     void preservesTinyTraceAndRejectsInvalidOrUnrepresentableArithmetic() {
         GasMixture trace = new GasMixture(Map.of(GasType.OXYGEN, 1e-30), 300.0);

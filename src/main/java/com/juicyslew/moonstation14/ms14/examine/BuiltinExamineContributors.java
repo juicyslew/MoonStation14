@@ -81,6 +81,63 @@ public final class BuiltinExamineContributors {
         } else if (context.blockEntity() instanceof PuddleBlockEntity puddle) {
             var data = puddle.getResolvedPuddleData();
             if (data != null) collector.metadata(data.metadata());
+        } else if (context.blockEntity() instanceof com.juicyslew.moonstation14.ms14.atmos.world.GasMinerBlockEntity miner) {
+            if (miner.resolvedProfile() != null)
+                collector.description(Component.translatable("block.moonstation14.gas_miner.description"));
+        } else if (context.blockEntity() instanceof com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineBlockEntity machine) {
+            var profile = machine.resolvedProfile();
+            if (profile != null) {
+                String descriptionKey = switch (profile.kind()) {
+                    case TEG_CENTER -> "block.moonstation14.teg_center.description";
+                    case TEG_CIRCULATOR -> "block.moonstation14.teg_circulator.description";
+                    case PRESSURE_PUMP -> "block.moonstation14.gas_pressure_pump.description";
+                    case VOLUME_PUMP -> "block.moonstation14.gas_volume_pump.description";
+                    case MANUAL_VALVE -> "block.moonstation14.gas_valve.description";
+                    case MIXER -> "block.moonstation14.gas_mixer.description";
+                    case FILTER -> "block.moonstation14.gas_filter.description";
+                    case HEATER -> "block.moonstation14.gas_thermo_heater.description";
+                    case FREEZER -> "block.moonstation14.gas_thermo_freezer.description";
+                    case PASSIVE_HEAT_EXCHANGER -> "block.moonstation14.passive_heat_exchanger.description";
+                    case GAS_PIPE_MANIFOLD -> "block.moonstation14.gas_pipe_manifold.description";
+                };
+                collector.description(Component.translatable(descriptionKey));
+                var settings = machine.settingsSnapshot();
+                switch (profile.kind()) {
+                    case TEG_CENTER -> {
+                        var assembly = context.level() == null ? java.util.Optional.<com.juicyslew.moonstation14.ms14.atmos.teg.TegAssembly.Assembly>empty()
+                                : com.juicyslew.moonstation14.ms14.atmos.teg.TegAssembly.resolve(context.level(), machine);
+                        if (assembly.isEmpty()) collector.publicEntry(Component.translatable("examine.moonstation14.atmos.teg-missing"), "atmos-machine", 50);
+                        else {
+                            var offer = com.juicyslew.moonstation14.ms14.atmos.teg.TegSupplyPolicy.snapshot(
+                                    machine.tegRuntimeState() == null ? null : machine.tegRuntimeState().supply());
+                            if (offer != null) {
+                                var meter = context.level() != null
+                                        ? com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.apcPowerMeter(context.level(), machine)
+                                        : com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.MvPowerObservation.UNKNOWN;
+                                 boolean fresh = meter.known() && machine.hvAllocationKnown()
+                                         && machine.hvSampleTick() == machine.apcSampleTick();
+                                 collector.publicEntry(AtmosMachinePowerExamine.tegDelivered(fresh, machine.hvDeliveredWatts()), "atmos-machine", 50);
+                                 collector.publicEntry(AtmosMachinePowerExamine.tegCapacity(offer.ratedMaximumWatts()), "atmos-machine", 50);
+                                 var state=machine.tegRuntimeState();
+                                 long now=context.level()!=null&&context.level().getServer().isSameThread()
+                                         ?com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.currentSampleTick(context.level()):-1;
+                                 long age=now>=machine.hvSampleTick()&&machine.hvSampleTick()>=0?now-machine.hvSampleTick():-1;
+                                 collector.publicEntry(AtmosMachinePowerExamine.tegRuntime(state==null?0:state.lastGeneratedWatts(),
+                                         machine.tegLastOfferedWatts(),fresh,machine.hvDeliveredWatts(),age),"atmos-machine",50);
+                            }
+                        }
+                    }
+                    case PRESSURE_PUMP -> { if (settings != null) settings.targetPressureKpa().ifPresent(v ->
+                            collector.publicEntry(Component.translatable("examine.moonstation14.atmos.pressure-target", v), "atmos-machine", 50)); }
+                    case VOLUME_PUMP -> { if (settings != null) settings.transferRateM3PerSecond().ifPresent(v ->
+                            collector.publicEntry(Component.translatable("examine.moonstation14.atmos.transfer-rate", v * 1000d), "atmos-machine", 50)); }
+                    case MANUAL_VALVE -> { if (settings != null) collector.publicEntry(Component.translatable(settings.valveOpen().orElse(profile.valve().open())
+                            ? "examine.moonstation14.atmos.valve-open" : "examine.moonstation14.atmos.valve-closed"), "atmos-machine", 50); }
+                    case HEATER, FREEZER -> { if (settings != null) settings.thermostatSetpointK().ifPresent(v ->
+                            collector.publicEntry(Component.translatable("examine.moonstation14.atmos.temperature-target", v), "atmos-machine", 50)); }
+                    case TEG_CIRCULATOR, MIXER, FILTER, PASSIVE_HEAT_EXCHANGER, GAS_PIPE_MANIFOLD -> { }
+                }
+            }
         }
         if (!context.itemStack().isEmpty()) {
             var stack = context.itemStack();
@@ -128,6 +185,14 @@ public final class BuiltinExamineContributors {
             if (!observation.known()) collector.publicEntry(Component.translatable("examine.moonstation14.power.unavailable"), "power", 100);
             else collector.publicEntry(Component.translatable(observation.deliveredWatts() == config.powerWatts()
                     ? "examine.moonstation14.power.on" : "examine.moonstation14.power.off"), "power", 100);
+        } else if (context.blockEntity() instanceof com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineBlockEntity machine) {
+            var profile = machine.resolvedProfile();
+            if (profile == null || profile.configuredReceiverLoadWatts() <= 0) return;
+            Double demand = machine.apcPowerDemandWatts();
+            var observation = level != null
+                    ? com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.apcPowerMeter(level, machine)
+                    : com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.MvPowerObservation.UNKNOWN;
+            collector.publicEntry(AtmosMachinePowerExamine.receiver(demand, observation.known(), observation.deliveredWatts()), "power", 100);
         }
     }
 

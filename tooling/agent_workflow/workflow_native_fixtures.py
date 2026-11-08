@@ -237,10 +237,19 @@ def execution_binding(check, input_digest, check_index, record, retry_binding=No
         actual = list(record.get('executed_argv', planned))
         expected_actual = workflow_runtime.execution_argv(repo, result['argv']) if repo is not None else None
         producer_artifact = _producer_artifact(record, repo, result['log']) if repo is not None else None
-        if (result.get('check_index') != check_index or result.get('check_digest') != workflow_store.digest(check) or
-                planned != result.get('argv') or actual != expected_actual or repo is None or
-                producer_artifact is None):
-            raise ValueError('initial GameTest executed argv or log differs from authorized fixture binding')
+        if (result.get('check_index') != check_index or result.get('check_digest') != workflow_store.digest(check)):
+            raise ValueError('initial GameTest fixture index or digest differs from authorized binding')
+        if planned != result.get('argv') or actual != expected_actual or repo is None:
+            raise ValueError('initial GameTest executed argv differs from authorized fixture binding')
+        # A failed Gradle preflight can exit before the server creates its producer
+        # log. Preserve its captured coordinator evidence as a failed execution; it
+        # is never sufficient to prove a passing/reusable prefix.
+        failed_before_producer = (producer_artifact is None and record.get('exit_code', 0) != 0 and
+                                  record.get('evidence', {}).get('status') == 'FAIL')
+        if producer_artifact is None and not failed_before_producer:
+            raise ValueError('initial GameTest producer log missing without a recorded failed preflight')
+        if failed_before_producer:
+            result['execution_outcome'] = 'FAILED_BEFORE_PRODUCER_LOG'
         result['actual_execution_argv'] = expected_actual
     result['execution_argv'] = list(record.get('executed_argv', record['argv']))
     return result

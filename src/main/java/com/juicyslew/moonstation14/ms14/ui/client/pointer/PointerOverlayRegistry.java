@@ -14,7 +14,6 @@ public final class PointerOverlayRegistry {
     public static boolean allowsHost(net.minecraft.client.gui.screens.Screen screen) {
         boolean project=screen instanceof com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow
                 || screen instanceof com.juicyslew.moonstation14.ms14.power.ui.client.ApcScreen
-                || screen instanceof com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmScreen
                 || screen instanceof com.juicyslew.moonstation14.ms14.disposal.unit.ui.client.DisposalUnitScreen
                 || screen instanceof com.juicyslew.moonstation14.ms14.disposal.ui.client.DisposalBuildScreen
                 || screen instanceof com.juicyslew.moonstation14.ms14.ui.client.gallery.MachineUiGalleryScreen

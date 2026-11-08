@@ -22,6 +22,7 @@ final class CpuOrderedPaint implements OrderedPaint {
     private final Map<ResourceLocation,BufferedImage> sprites=new HashMap<>();
     private final List<String> paintedText=new ArrayList<>();
     private final List<TextDraw> textDraws=new ArrayList<>();
+    private final List<TextRun> textRuns=new ArrayList<>();
     private final List<ResourceLocation> paintedSprites=new ArrayList<>();
     private final List<SpriteDraw> spriteDraws=new ArrayList<>();
     private final int guiScale;
@@ -32,6 +33,8 @@ final class CpuOrderedPaint implements OrderedPaint {
     List<String> paintedText(){return List.copyOf(paintedText);}
     List<TextDraw> textDraws(){return List.copyOf(textDraws);}
     record TextDraw(String text,float scaleX,float scaleY,int color,int x,int y){}
+    List<TextRun> textRuns(){return List.copyOf(textRuns);}
+    record TextRun(String text,float x,float y,float width){}
     List<ResourceLocation> paintedSprites(){return List.copyOf(paintedSprites);}
     List<SpriteDraw> spriteDraws(){return List.copyOf(spriteDraws);}
     record SpriteDraw(ResourceLocation id,int x,int y,int width,int height,int u,int v,int sourceWidth,int sourceHeight,int textureWidth,int textureHeight,int tint){}
@@ -42,7 +45,7 @@ final class CpuOrderedPaint implements OrderedPaint {
      * bearingTop. Shadow RGB is dimmed by .25; bitmap shadow offset is 1.
      * Font width/lineHeight remain logical, unaffected by pose scaling.
      */
-      public void text(Component c,int x,int y,int color,boolean shadow){requirePlain(c);paintedText.add(c.getString());textDraws.add(new TextDraw(c.getString(),sx,sy,color,px(x),py(y)));draw(c.getString(),x,y,color,shadow);}
+      public void text(Component c,int x,int y,int color,boolean shadow){requirePlain(c);paintedText.add(c.getString());textDraws.add(new TextDraw(c.getString(),sx,sy,color,px(x),py(y)));textRuns.add(new TextRun(c.getString(),tx+x*sx,ty+y*sy,width(c)*sx));draw(c.getString(),x,y,color,shadow);}
     private void draw(String s,int x,int y,int color,boolean shadow){for(int cp:s.codePoints().toArray()){int advance=Math.round(font.advance(cp));int left=px(x),top=py(y)+Math.round((7-font.ascent(cp))*sy);if(shadow){int dim=(color&0xff000000)|((int)(((color>>16)&255)*.25f)<<16)|((int)(((color>>8)&255)*.25f)<<8)|(int)((color&255)*.25f);raster(cp,left+Math.round(sx),top+Math.round(sy),dim);}raster(cp,left,top,color);x+=advance;}}
     private void raster(int cp,int x,int top,int color){var cell=new BufferedImage(Math.max(1,font.cellWidth(cp)),Math.max(1,font.cellHeight(cp)),BufferedImage.TYPE_INT_ARGB);font.drawCell(cell,0,0,cp,color,1,1);for(int yy=0;yy<cell.getHeight();yy++)for(int xx=0;xx<cell.getWidth();xx++){int sample=cell.getRGB(xx,yy),a=(sample>>>24)*(color>>>24)/255;if(a==0)continue;int ox=x+Math.round(xx*sx),oy=top+Math.round(yy*sy);int dw=Math.max(1,Math.round((xx+1)*sx))-Math.round(xx*sx),dh=Math.max(1,Math.round((yy+1)*sy))-Math.round(yy*sy);for(int dy=0;dy<dh;dy++)for(int dx=0;dx<dw;dx++)blend(ox+dx,oy+dy,(a<<24)|(sample&0xffffff));}}
     public int width(Component c){requirePlain(c);return width(c.getString());} public int width(String s){return (int)s.codePoints().mapToDouble(font::advance).sum();} public int lineHeight(){return 9;}

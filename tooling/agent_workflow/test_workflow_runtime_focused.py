@@ -9,6 +9,20 @@ import workflow_runtime
 
 
 class ExecutionArgvTests(unittest.TestCase):
+    def test_gradle_wrapper_is_forced_finite_without_rewriting_other_arguments(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo=Path(tmp); wrapper=repo/'gradlew.bat'; wrapper.write_text('@echo off\n',encoding='utf-8')
+            argv=['./gradlew','-p','tiny project','runGameTestServer','-Pms14GameTestTags=fixture']
+            expected=['./gradlew','-p','tiny project','runGameTestServer','-Pms14GameTestTags=fixture','--no-daemon',
+                      '-Pms14ValidationDebug=false','--init-script',
+                      str(Path(workflow_runtime.__file__).resolve().with_name('validation-logging.gradle'))]
+            self.assertEqual(expected,workflow_runtime.execution_argv(repo,argv,os_name='posix'))
+            expected[0]=str(wrapper.resolve())
+            self.assertEqual(expected,workflow_runtime.execution_argv(repo,argv,os_name='nt'))
+            self.assertEqual(['gradlew.bat','build','--no-daemon'],
+                workflow_runtime.execution_argv(repo,['gradlew.bat','build','--no-daemon'],os_name='posix'))
+            with self.assertRaisesRegex(ValueError,'persistent Gradle daemon'):
+                workflow_runtime.execution_argv(repo,['./gradlew','build','--daemon'],os_name='nt')
     def test_long_junit_selectors_use_exact_json_transport(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)

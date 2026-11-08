@@ -39,6 +39,7 @@ public class PowerDeviceBlockEntity extends BlockEntity {
     }
 
     public double energyJoules() { return energyJoules; }
+    public java.util.UUID placementIdentity() { return placementIdentity; }
     public boolean breakerClosed() { return breakerClosed; }
     public long breakerRevision() { return breakerRevision; }
     public boolean tripLatched() { return tripLatched; }
@@ -107,6 +108,7 @@ public class PowerDeviceBlockEntity extends BlockEntity {
         tag.putUUID("PowerDeviceIdentity", placementIdentity);
         if (isApc()) {
             tag.merge(PowerDeviceRules.saveApc(energyJoules, breakerClosed, tripLatched));
+            tag.putUUID("PowerDevicePlacementIdentity", placementIdentity);
         }
     }
 
@@ -118,6 +120,7 @@ public class PowerDeviceBlockEntity extends BlockEntity {
             energyJoules = data.energyJoules();
             breakerClosed = data.breakerClosed();
             tripLatched = data.tripLatched();
+            if(tag.hasUUID("PowerDevicePlacementIdentity"))placementIdentity=tag.getUUID("PowerDevicePlacementIdentity");
             protectionState = PowerDeviceRules.ApcProtectionState.initial();
         }
     }

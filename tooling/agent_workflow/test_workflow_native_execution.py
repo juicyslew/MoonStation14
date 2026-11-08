@@ -34,7 +34,8 @@ def admit_native_fixture(root, *, caller, key, shared_store=None, timeline=None,
         producer.write_text(producer.read_text()+"raise SystemExit(1)\n")
     (case.repo/'.gitignore').write_text('counter.txt\nbuild/\n')
     for rel, content in (extra_files or {}).items():
-        dest=case.repo/rel; dest.parent.mkdir(parents=True,exist_ok=True); dest.write_text(content)
+        dest=case.repo/rel; dest.parent.mkdir(parents=True,exist_ok=True)
+        dest.write_bytes(content) if isinstance(content,bytes) else dest.write_text(content)
     plan={'registry_version':1,'packs':packs if packs is not None else [],'plan':{'title':'native fixture','kind':'feature','acceptance_criteria':['c1'],'fixture':'manual.md','manual_steps':['Run.'],'references':{},'checks':checks if checks is not None else [{'argv':[sys.executable,str(producer)],'rationale':'fixture','covers':['c1'],'kind':'build','artifacts':[output]}]},'program_checks':program_checks if program_checks is not None else []}
     case.request['input_digest']=workflow_store.digest(workflow_preflight.capture_source(case.repo)); case.request['plan_digest']=workflow_store.digest(plan)
     store=shared_store or workflow_store.WorkflowStore(root/'db.sqlite')
@@ -101,6 +102,46 @@ def settle_native_error_fixture(store, task_id):
 
 
 class NativeExecutionBackendTests(unittest.TestCase):
+    @unittest.skipUnless(os.name=='nt','Windows native Job Object Gradle lifecycle regression')
+    def test_nonzero_gradle_wrapper_check_uses_finite_owned_daemon_job(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); project=root/'tiny-gradle'; project.mkdir()
+            (project/'settings.gradle').write_text("rootProject.name='native-failed-gradle'\n")
+            (project/'build.gradle').write_text("tasks.register('intentionalFailure') { doLast { throw new GradleException('intentional fixture failure') } }\n")
+            nonce=__import__('uuid').uuid4().hex
+            extras={'gradlew.bat':(Path(__file__).resolve().parents[2]/'gradlew.bat').read_bytes(),
+                'gradle/wrapper/gradle-wrapper.jar':(Path(__file__).resolve().parents[2]/'gradle/wrapper/gradle-wrapper.jar').read_bytes(),
+                'gradle/wrapper/gradle-wrapper.properties':(Path(__file__).resolve().parents[2]/'gradle/wrapper/gradle-wrapper.properties').read_text()}
+            argv=['./gradlew','-p',str(project),f'-Dorg.gradle.jvmargs=-Xmx128m -Dms14Fixture={nonce}','intentionalFailure']
+            checks=[{'argv':argv,'rationale':'intentional Gradle task failure inside owned native job','covers':['c1'],'kind':'command','artifacts':[]}]
+            case,store,receipt,task_id=admit_native_fixture(root,caller='native-gradle-finite',key='native-gradle-finite',checks=checks,extra_files=extras)
+            backend=workflow_native_execution.NativeExecutionBackend(store,root/'artifacts',root/'lock')
+            try:
+                backend.dispatch('native-gradle-finite-event',{'task_id':task_id})
+                worker=backend.workers[task_id]; worker.wait(timeout=120)
+                task=store.get_task(task_id)
+                self.assertEqual(task['state'],'COMPLETED')
+                self.assertEqual(task['result']['decision'],'FAIL',task['result'])
+                self.assertEqual(store.get_task_resources(task_id)[0]['state'],'RELEASED')
+                evidence=next(json.loads(Path(store.get_artifact(ref)['artifact']['path']).read_text())
+                    for ref in task['result']['artifact_refs']
+                    if store.get_artifact(ref)['artifact']['type']=='PROVENANCE' and
+                    json.loads(Path(store.get_artifact(ref)['artifact']['path']).read_text()).get('kind')=='NATIVE_CHECK_COMPLETED')
+                record=evidence['record']
+                self.assertEqual(record['exit_code'],1)
+                self.assertEqual(record['argv'],argv)
+                self.assertIn('--no-daemon',record['executed_argv'])
+                self.assertIn('intentional fixture failure',Path(record['log']).read_text(errors='replace'))
+                resource=store.get_task_resources(task_id)[0]
+                cleanup=json.loads(Path(store.get_artifact(resource['cleanup_proof'])['artifact']['path']).read_text())
+                self.assertTrue(cleanup['no_live_owned_children'])
+                self.assertEqual(cleanup['native_scope']['active_processes'],1)
+                import workflow_native_cancellation
+                workflow_native_cancellation.NativeCancellation(store,root/'artifacts').cleanup_scope(task_id)
+                self.assertEqual(store.get_native_scope(task_id)['state'],'CLEANED')
+            finally:
+                backend.close()
+
     def test_competing_authors_serialize_checking_before_one_worker_spawn(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); store=workflow_store.WorkflowStore(root/'shared.sqlite')

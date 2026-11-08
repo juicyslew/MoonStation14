@@ -68,11 +68,12 @@ class ProductionUiPreviewTest {
             }
         }
         writeContactSheets(root,output,manifest);
+        var analyzerPreviewCases=GasAnalyzerProductionPreview.generate(root,font,language);
         long elapsedNanos=System.nanoTime()-started;
         Path manifestPath=output.resolve("manifest.json");
         Map<String,Object> report=new LinkedHashMap<>();
         report.put("baseRevision", "695cab96f26fcb7a8343b5b1e0ff32638693aef1");
-        report.put("source", "production ChemMasterPaint.paint and AirlockWirePaint.paint; deterministic immutable fixture states; animationTick=120");
+        report.put("source", "production ChemMasterPaint.paint, AirlockWirePaint.paint and GasAnalyzerPaint.paint; deterministic immutable fixture states; animationTick=120");
         report.put("fontJar", fontJar.toString());
         report.put("sourceJars",List.of(root.resolve("build/moddev/artifacts/neoforge-21.1.224-sources.jar").toString(),fontJar.toString()));
         report.put("fontProviders", font.manifest());
@@ -83,6 +84,9 @@ class ProductionUiPreviewTest {
         report.put("glyphDiagnostics", "unavailable glyphs/providers throw UnsupportedOperationException; no fake font fallback");
         report.put("languageKeysLoaded", language.manifestEntries().size());
         report.put("cases",manifest);
+        report.put("analyzerPreview",Map.of("producer",GasAnalyzerProductionPreview.class.getName(),
+                "manifest",root.relativize(root.resolve("build/reports/feature-readiness/previews/analyzer/manifest.json")).toString(),
+                "caseCount",analyzerPreviewCases.size(),"expectedCaseCount",78));
         var peaks=new LinkedHashMap<String,Object>();long peakSum=0;
         for(var pool:heapPools){var usage=pool.getPeakUsage();long peak=usage==null?-1:usage.getUsed();peaks.put(pool.getName(),peak);if(peak>=0)peakSum+=peak;}
         var fullCases=manifest.stream().filter(c->c.containsKey("full")).toList();
@@ -354,7 +358,7 @@ class ProductionUiPreviewTest {
         }
     }
     private static List<Integer> rect(ChemMasterLayout.Rect r){return List.of(r.x(),r.y(),r.width(),r.height());}
-    private static Path configuredGameResources(Path root){
+    static Path configuredGameResources(Path root){
         String configured=System.getProperty("moonstation14.gameResourcesJar");
         if(configured==null||configured.isBlank())configured=System.getenv("MOONSTATION14_GAME_RESOURCES_JAR");
         if(configured==null||configured.isBlank())configured="build/moddev/artifacts/neoforge-21.1.224-client-extra-aka-minecraft-resources.jar";

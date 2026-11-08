@@ -16,7 +16,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 
 import java.util.Map;
 
-@GameTestTags({"ventilation", "atmosphere"})
+@GameTestTags({"ventilation", "atmosphere", "atmos-pipe-equalization-runtime"})
 @PrefixGameTestTemplate(false)
 public final class LoadedPipeEqualizationGameTests {
     private LoadedPipeEqualizationGameTests() { }
@@ -42,6 +42,7 @@ public final class LoadedPipeEqualizationGameTests {
         LoadedPipeGasOwner.createVacuumLane(level, center, VisualPipeBlockEntity.TERTIARY).orElseThrow();
         LoadedPipeGasOwner.createVacuumLane(level, north, VisualPipeBlockEntity.TERTIARY).orElseThrow();
         LoadedPipeGasOwner.createVacuumLane(level, south, VisualPipeBlockEntity.TERTIARY).orElseThrow();
+        require(LoadedPipeNetworks.reconcile(level), "resolve selected and crossing lane networks before seeding");
 
         level.setBlock(devicePos, ModBlocks.GAS_SCRUBBER.get().defaultBlockState()
                 .setValue(VentilationDeviceBlock.FACING, Direction.EAST), 3);
@@ -57,20 +58,30 @@ public final class LoadedPipeEqualizationGameTests {
         var saved = PipeGasInventorySavedData.existing(level).orElseThrow();
         var before = saved.snapshot();
         seed(saved, before, west, VisualPipeBlockEntity.SECONDARY,
-                new GasMixture(Map.of(GasType.OXYGEN, 6.0), 320.0));
+                new GasMixture(Map.of(GasType.OXYGEN, 6.0), 320.0, 0.6));
         var afterFirst = saved.snapshot();
         seed(saved, afterFirst, center, VisualPipeBlockEntity.TERTIARY,
-                new GasMixture(Map.of(GasType.PLASMA, 2.0), 300.0));
+                new GasMixture(Map.of(GasType.PLASMA, 2.0), 300.0, 0.6));
         var beforeEqualize = saved.snapshot();
         require(LoadedPipeEqualization.equalize(level, device), "equalization succeeds");
         var result = saved.snapshot();
-        for (BlockPos pos : new BlockPos[]{west, center, east}) {
-            var mixture = result.get(key(pos, PipeTopology.Layer.SECONDARY)).orElseThrow().mixture();
-            require(Double.compare(mixture.gasMoles().getOrDefault(GasType.OXYGEN, 0.0), 2.0) == 0
-                    && mixture.gasMoles().size() == 1 && Double.compare(mixture.temperatureKelvin(), 320.0) == 0,
-                    "selected lane evenly shares oxygen and conserves temperature");
+        var selected=result.mixture(key(west,PipeTopology.Layer.SECONDARY));
+        require(selected.moles(GasType.OXYGEN)==6.0&&selected.gasMoles().size()==1
+                        &&selected.temperatureKelvin()==320.0&&Math.abs(selected.volumeCubicMeters()-0.6)<1e-6,
+                "selected live network exposes one shared full-network oxygen inventory");
+        var selectedNetwork = result.network(key(west, PipeTopology.Layer.SECONDARY)).orElseThrow();
+        require(selectedNetwork.members().equals(java.util.Set.of(key(west, PipeTopology.Layer.SECONDARY),
+                        key(center, PipeTopology.Layer.SECONDARY), key(east, PipeTopology.Layer.SECONDARY))),
+                "projection expectation covers complete selected network");
+        for(BlockPos pos:new BlockPos[]{west,center,east}) {
+            var nodeKey = key(pos, PipeTopology.Layer.SECONDARY);
+            var projection=result.nodeShare(nodeKey);
+            double expected = selectedNetwork.mixture().moles(GasType.OXYGEN)
+                    * result.get(nodeKey).orElseThrow().volume() / selectedNetwork.mixture().volumeCubicMeters();
+            require(Double.compare(projection.moles(GasType.OXYGEN), expected) == 0,
+                    "each selected physical node projects its canonical volume share");
         }
-        var isolated = result.get(key(center, PipeTopology.Layer.TERTIARY)).orElseThrow().mixture();
+        var isolated = result.mixture(key(center, PipeTopology.Layer.TERTIARY));
         require(isolated.gasMoles().equals(Map.of(GasType.PLASMA, 2.0))
                 && Double.compare(isolated.temperatureKelvin(), 300.0) == 0, "crossing lane untouched");
         for (BlockPos pos : new BlockPos[]{west, center, east, north, south})
@@ -82,8 +93,16 @@ public final class LoadedPipeEqualizationGameTests {
         require(saved.snapshot().revision() == revision, "repeat equalization does not revise gas inventory");
         require(LoadedPipeGasOwner.deactivate(level, east, VisualPipeBlockEntity.SECONDARY), "deactivate selected lane endpoint");
         var dormantBefore = saved.snapshot();
-        require(!LoadedPipeEqualization.equalize(level, device), "incomplete live lane rejected");
+        var retainedNetwork=dormantBefore.network(key(west,PipeTopology.Layer.SECONDARY)).orElseThrow();
+        require(retainedNetwork.members().contains(key(east,PipeTopology.Layer.SECONDARY)),
+                "dormant non-endpoint member remains in retained shared network roster");
+        long dormantGasRevision=retainedNetwork.gasRevision();
+        // Shared network membership survives unload, but the exact selected device endpoint
+        // must be active before this compatibility admission check succeeds.
+        require(!LoadedPipeEqualization.equalize(level, device), "inactive device-attached endpoint is rejected");
         require(saved.snapshot() == dormantBefore, "dormant component causes no gas mutation");
+        require(saved.snapshot().network(key(west,PipeTopology.Layer.SECONDARY)).orElseThrow().gasRevision()==dormantGasRevision,
+                "dormant endpoint refusal does not revise shared gas");
 
         level.setBlock(devicePos, Blocks.AIR.defaultBlockState(), 3);
         level.setBlock(devicePos, ModBlocks.GAS_SCRUBBER.get().defaultBlockState()

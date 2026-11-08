@@ -115,8 +115,9 @@ public class ExposedPipeVisualBlock extends Block implements EntityBlock {
                                   LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
         if (level instanceof ServerLevel && level.getBlockEntity(pos) instanceof VisualPipeBlockEntity entity)
             entity.refreshConcealedJoins();
-        boolean connected = state.getValue(PRIMARY_CONNECTED) && neighborState.is(this)
-                && neighborState.getValue(PRIMARY_CONNECTED);
+        boolean connected = level.getBlockEntity(pos) instanceof VisualPipeBlockEntity entity
+                ? entity.hasVisualEndpointArm(VisualPipeBlockEntity.PRIMARY, direction)
+                : state.getValue(PRIMARY_CONNECTED) && neighborState.is(this) && neighborState.getValue(PRIMARY_CONNECTED);
         if (!connected && state.getValue(PRIMARY_CONNECTED) && level != null
                 && neighborState.is(ModBlocks.STEEL_WALL_BLOCK.get())
                 && level.getBlockEntity(pos) instanceof VisualPipeBlockEntity entity

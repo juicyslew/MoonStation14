@@ -39,6 +39,8 @@ public final class AirAlarmMenu extends AbstractContainerMenu {
     }
 
     public UUID session() { return session; }
+    BlockPos pos() { return pos; }
+    HandActorAuthority.Snapshot authority() { return authority; }
     AirAlarmBlockEntity alarm() { return alarm; }
     ServerLevel serverLevel() { return level; }
 
