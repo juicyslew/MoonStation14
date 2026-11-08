@@ -8,6 +8,7 @@ import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlock;
+import com.juicyslew.moonstation14.ms14.doors.FirelockBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -44,7 +45,12 @@ public final class AtmosphereTopology {
         if (state.isAir()) return true;
 
         if (state.getBlock() instanceof DoorBlock) return state.getValue(DoorBlock.OPEN);
-        if (state.getBlock() instanceof AirlockBlock) return state.getValue(AirlockBlock.OPEN);
+        if (state.getBlock() instanceof AirlockBlock) {
+            BlockPos root=state.getValue(AirlockBlock.HALF)==net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER?pos.below():pos;
+            return !(level.getBlockEntity(root) instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity door)
+                    ? state.getValue(AirlockBlock.OPEN) : door.composedPassable();
+        }
+        if (state.getBlock() instanceof FirelockBlock) return state.getValue(FirelockBlock.OPEN);
         if (state.getBlock() instanceof TrapDoorBlock) return state.getValue(TrapDoorBlock.OPEN);
         if (state.getBlock() instanceof FenceGateBlock) return state.getValue(FenceGateBlock.OPEN);
         if (state.getBlock() instanceof AtmosphereBlockPolicy policy) return policy.atmospherePassable();
@@ -69,4 +75,3 @@ public final class AtmosphereTopology {
         return loaded && passable && y >= firstFreeY;
     }
 }
-

@@ -9,10 +9,22 @@ import java.util.Optional;
 /** Pure SS14-derived transfer planning for room-facing vents and scrubbers. */
 public final class VentilationGasFlow {
     private static final double GAS_CONSTANT = 8.31446261815324;
+    private static final double PRESSURE_LOCKOUT_KPA = 80.0;
+    private static final double UNDERPRESSURE_LEAK_COEFFICIENT = (double) 0.0001f;
     // GasVentScrubberSystem.cs destination guard: 50 atmospheres. This is not pump burst pressure.
     private static final double SCRUBBER_OUTLET_PRESSURE_CAP_KPA = 5_066.25;
 
     private VentilationGasFlow() { }
+
+    /** Settings-only compatibility entry point for callers without a resolved device profile. */
+    public static Optional<PipeGasTransfer.Plan> planVentRelease(
+            GasMixture pipeBefore, GasMixture roomBefore, double pipeVolumeM3, double roomVolumeM3,
+            double elapsedSeconds, VentilationDeviceConfig.Settings settings) {
+        return planVentRelease(pipeBefore, roomBefore, pipeVolumeM3, roomVolumeM3, elapsedSeconds, settings,
+                new VentilationDeviceData.GasVentPump(settings.targetPressureChangeKPaPerSecond(),
+                        settings.externalPressureBoundKPa(), 2,
+                        VentilationDeviceData.PressureChecks.EXTERNAL, 0));
+    }
 
     /** Plan release from pipe to room, bounded by the configured pressure target and rate. */
     public static Optional<PipeGasTransfer.Plan> planVentRelease(
@@ -36,6 +48,12 @@ public final class VentilationGasFlow {
         double maxMoles = Math.min(settings.targetPressureChangeKPaPerSecond() * elapsedSeconds,
                 Math.min(remainingPressure, sourcePressureDelta)) * 1000.0 * roomVolumeM3
                 / (GAS_CONSTANT * pipeBefore.temperatureKelvin());
+        // GasVentPumpSystem applies its low-room-pressure leak behavior after ordinary
+        // pressure gates. The external destination bound remains an intentional local safety cap.
+        if (!settings.pressureLockoutOverride() && roomPressure < PRESSURE_LOCKOUT_KPA) {
+            maxMoles = elapsedSeconds * (pipePressure - roomPressure) * UNDERPRESSURE_LEAK_COEFFICIENT;
+            if (!(maxMoles > 0.0)) return Optional.empty();
+        }
         if (checks == VentilationDeviceData.PressureChecks.INTERNAL || checks == VentilationDeviceData.PressureChecks.BOTH) {
             double internalMoles = Math.max(0, pipePressure - profile.internalPressureBoundKPa()) * 1000.0 * pipeVolumeM3
                     / (GAS_CONSTANT * pipeBefore.temperatureKelvin());
@@ -84,4 +102,3 @@ public final class VentilationGasFlow {
             throw new IllegalArgumentException(name + " must be positive and finite");
     }
 }
-

@@ -35,9 +35,15 @@ class PlayerLifecycleRegistryTest {
                 "moonstation:station", bodyData, descriptorAppearance, activeGhost.connectionGeneration(), ELIGIBLE))
                 .orElseThrow().orElseThrow();
         assertEquals(target, result.bodyId());
+        String rotatedKey = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding.profileKeyForBody(target.value());
+        assertNotEquals(activeGhostRow.profileKey(), rotatedKey);
+        assertEquals(rotatedKey, result.profileId());
+        assertEquals(account, result.accountId());
+        assertEquals(activeGhost.mindId(), result.mindId());
         assertEquals(PlayerLifecycleRegistry.LifecycleState.ACTIVE, result.state());
         assertTrue(result.connectionGeneration() > activeGhost.connectionGeneration());
         var row = store.read().orElseThrow().profiles().get(0);
+        assertEquals(rotatedKey, row.profileKey());
         assertEquals(target.value(), row.bodyId());
         assertEquals("moonstation:station", row.dimension());
         assertEquals(bodyData, row.location());
@@ -46,6 +52,9 @@ class PlayerLifecycleRegistryTest {
         assertNull(row.offlineSinceMillis());
         assertTrue(row.revision() > dead.revision());
         assertTrue(lifecycle.authorizes(account, result.connectionGeneration(), target, ELIGIBLE));
+        assertEquals(rotatedKey, lifecycle.profile(account).orElseThrow().profileId());
+        assertEquals(result.connectionGeneration(), lifecycle.profile(account).orElseThrow().connectionGeneration());
+        assertEquals(target, ownership.mind(account).orElseThrow().harnessId());
         assertFalse(lifecycle.authorizes(account, activeGhost.connectionGeneration(), ghost, ELIGIBLE));
         assertTrue(ownership.registeredHarness(ghost).isEmpty());
         assertFalse(lifecycle.authorizes(account, staged.connectionGeneration(), ghost, ELIGIBLE));
@@ -106,6 +115,8 @@ class PlayerLifecycleRegistryTest {
             });
         } finally { java.nio.file.Files.deleteIfExists(orphanTemp); }
         assertEquals(before, store.read().orElseThrow().profiles().get(0));
+        assertEquals(before.profileKey(), lifecycle.profile(account).orElseThrow().profileId());
+        assertEquals(active.connectionGeneration(), lifecycle.profile(account).orElseThrow().connectionGeneration());
         assertEquals(ghost, ownership.mind(account).orElseThrow().harnessId());
         assertEquals(active.connectionGeneration(), ownership.mind(account).orElseThrow().epoch());
         assertTrue(lifecycle.authorizesGhostReadOnly(account, new MindId(mindId),

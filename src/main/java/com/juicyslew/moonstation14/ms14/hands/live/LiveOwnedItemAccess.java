@@ -37,6 +37,7 @@ public final class LiveOwnedItemAccess {
                 || body.level().getServer() == null || !body.level().getServer().isSameThread()) return Optional.empty();
         LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (hands == null || !hands.compatible(body) || hands.revision() != binding.revision()) return Optional.empty();
+        if (binding.location() == Location.HELD && !hands.handIds().contains(binding.slotId())) return Optional.empty();
         Optional<String> token = binding.location() == Location.HELD ? hands.token(binding.slotId())
                 : LiveHands.equipmentSnapshot(body, hands).stream().flatMap(s -> s.slots().stream())
                         .filter(s -> s.id().equals(binding.slotId())).flatMap(s -> s.token().stream()).findFirst();

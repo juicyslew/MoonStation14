@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class LooseButcheringAuthenticatedGameTests {
     private LooseButcheringAuthenticatedGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"butchering", "butchering-authenticated", "food-slicing-authenticated"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000, batch = "catalog-item-processing-butcher-outputs")
+    @GameTestTags({"butchering", "butchering-authenticated", "food-slicing-authenticated", "merge-main-remaining"})
     public static void explicitButcherUsesSharpAndPublishesOrderedIndependentOutputs(GameTestHelper helper) {
         BotanyHarvestAuthenticatedGameTests.runAuthenticatedHarvest(helper, new ItemStack(ModItems.WHEAT_SEEDS.get()),
                 "authenticated-butcher", (h, fixture, epoch, hand, tray, pos, level, finished) -> {
@@ -42,23 +42,35 @@ public final class LooseButcheringAuthenticatedGameTests {
             var ingestionType = com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles.TYPE;
             var oldIngestion = new HashMap<>(manager.snapshot(ingestionType).asMap());
             var done = new AtomicBoolean();
+            var listenerRef = new AtomicReference<Consumer<EntityJoinLevelEvent>>();
             var cleanup = new ItemProcessingFixtureCleanup(h, fixture, done, manager, procType, oldProcessing,
-                    toolType, oldTools, ingestionType, oldIngestion, null);
+                    toolType, oldTools, ingestionType, oldIngestion, listenerRef);
             try {
                 ResourceLocation tomato = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ModItems.TOMATO.get());
                 ResourceLocation wood = ResourceLocation.fromNamespaceAndPath("moonstation14", "wood");
                 ResourceLocation paper = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(net.minecraft.world.item.Items.PAPER);
+                var defaultButcher = ItemProcessingProfile.Butcherable.CODEC.parse(
+                        com.mojang.serialization.JsonOps.INSTANCE,
+                        com.google.gson.JsonParser.parseString("{\"outputs\":[{\"output\":\"minecraft:paper\"}]}"))
+                        .getOrThrow();
+                require(defaultButcher.delaySeconds() == 8f, "typed Butcherable codec supplies the eight-second default");
                 var processing = new HashMap<>(oldProcessing);
-                var resolvedTomato = oldProcessing.get(tomato);
-                require(resolvedTomato != null && resolvedTomato.butcherable() != null
-                        && resolvedTomato.butcherable().delaySeconds() == 8f,
-                        "resolved tomato butcher profile has default eight-second delay");
                 var defaultKnife = oldTools.get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ModItems.KITCHEN_KNIFE.get()));
-                require(defaultKnife.sharp().butcherDelayModifier() == 1f, "resolved production Sharp modifier defaults to one");
+                require(defaultKnife != null && defaultKnife.sharp() != null
+                        && defaultKnife.sharp().butcherDelayModifier() == 1f,
+                        "resolved production Sharp modifier defaults to one");
+                processing.put(tomato, new ItemProcessingProfile(null, null, defaultButcher));
+                manager.publishDecoded(procType, processing);
+                require(manager.snapshot(procType).asMap().get(tomato).butcherable().delaySeconds() == 8f,
+                        "resolved scoped fixture initially retains codec default butcher delay");
                 processing.put(tomato, new ItemProcessingProfile(null, null, new ItemProcessingProfile.Butcherable(
                         java.util.List.of(new ItemProcessingProfile.ItemOutput(wood, 2), new ItemProcessingProfile.ItemOutput(paper, 1)), 0.25f,
                         ItemProcessingProfile.Butcherable.Type.KNIFE)));
                 manager.publishDecoded(procType, processing);
+                var resolvedTomato = manager.snapshot(procType).asMap().get(tomato);
+                require(resolvedTomato != null && resolvedTomato.butcherable() != null
+                        && resolvedTomato.butcherable().delaySeconds() == .25f,
+                        "resolved fixture source carries configured butcher composition");
                 var originalIngestion = oldIngestion.get(tomato);
                 var edible = originalIngestion.edible();
                 var edibleWithTrash = new com.juicyslew.moonstation14.ms14.ingestion.IngestionProfile.Edible(
@@ -92,18 +104,28 @@ public final class LooseButcheringAuthenticatedGameTests {
                         && com.juicyslew.moonstation14.ms14.botany.GeneticCarriers.resolve(sourceStack, () -> null) != null,
                         "canonical harvested source has produce and genetic carriers");
                 var source = LooseItemEntity.create(level, body.position().add(0, .1, 1.5), sourceStack);
-                source.setNoGravity(true); require(level.addFreshEntity(source), "registered tomato source spawned");
+                require(level.addFreshEntity(source), "registered tomato source spawned with native loose-item physics");
+                ItemProcessingFixtureSupport.awaitSettledSource(h, cleanup, source, () -> {
                 body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, source.getBoundingBox().getCenter());
-                var q = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 1));
-                var active = q.hands().stream().filter(x -> x.id().equals(hand)).findFirst().orElseThrow();
-                var knifeId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ModItems.KITCHEN_KNIFE.get());
+                var knifeId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(net.minecraft.world.item.Items.STICK);
+                var handsForStick = body.getExistingDataOrNull(attachment);
+                String otherHand = handsForStick.handIds().stream().filter(id -> !id.equals(hand)).findFirst().orElseThrow();
+                require(com.juicyslew.moonstation14.ms14.hands.live.LiveHandsFixtureTransfer.put(
+                        fixture.player(), body, otherHand, "butcher-fixture-stick", new ItemStack(net.minecraft.world.item.Items.STICK)),
+                        "real Stick assigned through live hand ownership gateway");
+                var initialHands = fixture.queryHands(epoch);
+                require(BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(
+                        BodyHandActionRequest.Action.SELECT_HAND, otherHand, epoch, 2, initialHands.revision(), null, null)).accepted(),
+                        "authenticated selection activates Stick hand");
+                var q = fixture.queryHands(epoch);
+                var active = q.hands().stream().filter(x -> x.id().equals(otherHand)).findFirst().orElseThrow();
                 var knifeOnly = new HashMap<>(oldTools);
                 knifeOnly.put(knifeId, new com.juicyslew.moonstation14.ms14.tools.ToolProfile(
                         null,
                         null, null, com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata.EMPTY,
                         java.util.Set.of(), null, null, null, null, new com.juicyslew.moonstation14.ms14.tools.ToolProfile.Knife()));
                 manager.publishDecoded(toolType, knifeOnly);
-                require(!BodyHandRequestService.apply(fixture.player(), butcher(epoch, 2, q.revision(), hand, active.token(), source)).accepted()
+                require(!BodyHandRequestService.apply(fixture.player(), butcher(epoch, 3, q.revision(), otherHand, active.token(), source)).accepted()
                         && !source.isRemoved(), "Knife-only tool is denied without Sharp and preserves source");
                 var cuttingOnly = new HashMap<>(oldTools);
                 cuttingOnly.put(knifeId, new com.juicyslew.moonstation14.ms14.tools.ToolProfile(
@@ -111,9 +133,15 @@ public final class LooseButcheringAuthenticatedGameTests {
                         null, null, com.juicyslew.moonstation14.ms14.examine.prototype.ExamineMetadata.EMPTY,
                         java.util.Set.of(), null, null, null, null, null));
                 manager.publishDecoded(toolType, cuttingOnly);
-                require(!BodyHandRequestService.apply(fixture.player(), butcher(epoch, 3, q.revision(), hand, active.token(), source)).accepted()
+                require(!BodyHandRequestService.apply(fixture.player(), butcher(epoch, 4, q.revision(), otherHand, active.token(), source)).accepted()
                         && !source.isRemoved(), "CUTTING-only tool is denied and preserves source");
                 manager.publishDecoded(toolType, oldTools);
+                var restoreQuery = fixture.queryHands(epoch);
+                require(BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(
+                        BodyHandActionRequest.Action.SELECT_HAND, hand, epoch, 5, restoreQuery.revision(), null, null)).accepted(),
+                        "authenticated selection restores production KitchenKnife hand");
+                var positiveQuery = fixture.queryHands(epoch);
+                var activeKnife = positiveQuery.hands().stream().filter(x -> x.id().equals(hand)).findFirst().orElseThrow();
                 var outputOrder = new java.util.ArrayList<net.minecraft.world.item.Item>();
                 java.util.function.Consumer<EntityJoinLevelEvent> outputObserver = event -> {
                     if (event.getLevel() == level && event.getEntity() instanceof LooseItemEntity loose
@@ -121,7 +149,7 @@ public final class LooseButcheringAuthenticatedGameTests {
                                 || loose.getItem().is(net.minecraft.world.item.Items.PAPER))) outputOrder.add(loose.getItem().getItem());
                 };
                 cleanup.attachListener(outputObserver);
-                require(BodyHandRequestService.apply(fixture.player(), butcher(epoch, 4, q.revision(), hand, active.token(), source)).accepted(), "explicit authenticated BUTCHER admitted");
+                require(BodyHandRequestService.apply(fixture.player(), butcher(epoch, 6, positiveQuery.revision(), hand, activeKnife.token(), source)).accepted(), "explicit authenticated BUTCHER admitted");
                 var operation = body.getData(com.juicyslew.moonstation14.component.ModDataAttachments.TIMED_OPERATIONS.get()).operations()
                         .stream().filter(op -> op.kind().equals("loose_butchering") && op.sourceKey().equals(source.getUUID().toString())).findFirst().orElseThrow();
                 require(operation.durationTicks() == 5, "fixture delay .25 seconds times production Sharp modifier 1 has five-tick deadline");
@@ -167,12 +195,13 @@ public final class LooseButcheringAuthenticatedGameTests {
                         cleanup.finish(null);
                     } catch (Throwable e) { cleanup.finish(e); }
                 });
+                });
             } catch (Throwable e) { cleanup.finish(e); }
         });
     }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"butchering", "butchering-authenticated", "food-slicing-authenticated"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000, batch = "catalog-item-processing-butcher-routing")
+    @GameTestTags({"butchering", "butchering-authenticated", "food-slicing-authenticated", "merge-main-remaining"})
     public static void useTargetSlicesDualCompositionAndExplicitButcherRoutesToButcherPlan(GameTestHelper helper) {
         BotanyHarvestAuthenticatedGameTests.runAuthenticatedHarvest(helper, new ItemStack(ModItems.WHEAT_SEEDS.get()),
                 "dual-composition-routing", (h, fixture, epoch, hand, tray, pos, level, finished) -> {
@@ -190,8 +219,6 @@ public final class LooseButcheringAuthenticatedGameTests {
                 var wheat = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ModItems.WHEAT_BUSHEL.get());
                 var wood = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ModItems.WOOD.get());
                 var paper = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(net.minecraft.world.item.Items.PAPER);
-                require(oldProcessing.get(tomato) != null && oldProcessing.get(tomato).sliceableFood() != null
-                        && oldProcessing.get(tomato).butcherable() != null, "resolved tomato has both processing routes");
                 var processing = new HashMap<>(oldProcessing);
                 processing.put(tomato, new ItemProcessingProfile(null,
                         new ItemProcessingProfile.SliceableFood(wheat, 5, 1f),
@@ -201,7 +228,11 @@ public final class LooseButcheringAuthenticatedGameTests {
                                 ItemProcessingProfile.Butcherable.Type.KNIFE)));
                 manager.publishDecoded(procType, processing);
                 var resolved = manager.snapshot(procType).asMap().get(tomato);
-                require(resolved.sliceableFood().output().equals(wheat) && resolved.butcherable().outputs().size() == 2,
+                require(resolved != null && resolved.sliceableFood() != null && resolved.butcherable() != null
+                        && resolved.sliceableFood().output().equals(wheat) && resolved.sliceableFood().count() == 5
+                        && resolved.butcherable().outputs().equals(java.util.List.of(
+                                new ItemProcessingProfile.ItemOutput(wood, 2), new ItemProcessingProfile.ItemOutput(paper, 1)))
+                        && resolved.butcherable().delaySeconds() == .25f,
                         "published resolved source composition contains slice and butcher plans");
                 var knifeId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ModItems.KITCHEN_KNIFE.get());
                 var knifeProfile = oldTools.get(knifeId);
@@ -223,8 +254,9 @@ public final class LooseButcheringAuthenticatedGameTests {
                         .collect(java.util.stream.Collectors.toSet());
                 var source1 = dualSource(level, body.position().add(0, .1, 1.5));
                 require(level.addFreshEntity(source1), "first actual tomato source spawned");
-                body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, source1.getBoundingBox().getCenter());
-                var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 1));
+                 ItemProcessingFixtureSupport.awaitSettledSource(h, cleanup, source1, () -> {
+                 body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, source1.getBoundingBox().getCenter());
+                 var query = fixture.queryHands(epoch);
                 var active = query.hands().stream().filter(v -> v.id().equals(hand)).findFirst().orElseThrow();
                 require(BodyHandRequestService.apply(fixture.player(), sliceRequest(epoch, 2, query.revision(), hand, active.token(), source1)).accepted(),
                         "normal authenticated USE_TARGET admitted");
@@ -242,8 +274,9 @@ public final class LooseButcheringAuthenticatedGameTests {
                         require(rawOut.isEmpty(), "slice route publishes no raw butcher outputs");
                         var source2 = dualSource(level, body.position().add(0, .1, 1.5));
                         require(level.addFreshEntity(source2), "fresh second actual tomato source spawned");
+                        ItemProcessingFixtureSupport.awaitSettledSource(h, cleanup, source2, () -> {
                         body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, source2.getBoundingBox().getCenter());
-                        var q2 = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                        var q2 = fixture.queryHands(epoch);
                         var active2 = q2.hands().stream().filter(v -> v.id().equals(hand)).findFirst().orElseThrow();
                         require(BodyHandRequestService.apply(fixture.player(), butcher(epoch, 4, q2.revision(), hand, active2.token(), source2)).accepted(),
                                 "fresh monotonic sequence explicit BUTCHER admitted");
@@ -265,8 +298,10 @@ public final class LooseButcheringAuthenticatedGameTests {
                             } catch (Throwable failure) { cleanup.finish(failure); return; }
                             cleanup.finish(null);
                         }));
+                        });
                     } catch (Throwable failure) { cleanup.finish(failure); }
-                }));
+                 }));
+                 });
             } catch (Throwable failure) { cleanup.finish(failure); }
         });
     }
@@ -274,7 +309,7 @@ public final class LooseButcheringAuthenticatedGameTests {
     private static LooseItemEntity dualSource(net.minecraft.world.level.Level level, net.minecraft.world.phys.Vec3 pos) {
         var stack = new ItemStack(ModItems.TOMATO.get());
         com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(stack, level);
-        var entity = LooseItemEntity.create(level, pos, stack); entity.setNoGravity(true); return entity;
+        return LooseItemEntity.create(level, pos, stack);
     }
     private static BodyHandActionRequest sliceRequest(long epoch, long sequence, long revision, String hand, String token, LooseItemEntity source) {
         return new BodyHandActionRequest(BodyHandActionRequest.Action.USE_TARGET, hand, epoch, sequence, revision, source.getUUID(), token);
@@ -283,14 +318,14 @@ public final class LooseButcheringAuthenticatedGameTests {
         var result = new java.util.HashSet<>(a); result.addAll(b); return result;
     }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"butchering", "butchering-authenticated"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000, batch = "catalog-item-processing-butcher-cancel")
+    @GameTestTags({"butchering", "butchering-authenticated", "merge-main-remaining"})
     public static void activeHandChangeCancelsButcherAndRetainsExactSourceAndKnife(GameTestHelper helper) {
         runCancellation(helper, false);
     }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"butchering", "butchering-authenticated"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000, batch = "catalog-item-processing-butcher-rollback")
+    @GameTestTags({"butchering", "butchering-authenticated", "merge-main-remaining"})
     public static void rejectedSecondOutputJoinRollsBackButcherBatch(GameTestHelper helper) {
         runCancellation(helper, true);
     }
@@ -325,13 +360,15 @@ public final class LooseButcheringAuthenticatedGameTests {
                 knife.setNoGravity(true); require(level.addFreshEntity(knife), "production knife published");
                 var hands = body.getExistingDataOrNull(attachment);
                 require(BodyHandItemTransfer.pickupSelected(fixture.player(), knife.getUUID(), hand, hands.revision(), ignored -> {}) == BodyHandItemTransfer.Result.SUCCESS, "knife acquired in nominated slot");
-                hands = body.getExistingDataOrNull(attachment);
-                var token = hands.token(hand).orElseThrow();
+                var postPickupHands = body.getExistingDataOrNull(attachment);
+                var token = postPickupHands.token(hand).orElseThrow();
                 var source = LooseItemEntity.create(level, body.position().add(0, .1, 1.5), new ItemStack(ModItems.TOMATO.get()));
-                source.setNoGravity(true); require(level.addFreshEntity(source), "tomato source published");
+                require(level.addFreshEntity(source), "tomato source published with native loose-item physics");
+                ItemProcessingFixtureSupport.awaitSettledSource(h, cleanup, source, () -> {
                 var sourceId = source.getUUID();
+                var sourceComponents = source.getItem().copy();
                 body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, source.getBoundingBox().getCenter());
-                var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 1));
+                var query = fixture.queryHands(epoch);
                 var active = query.hands().stream().filter(v -> v.id().equals(hand)).findFirst().orElseThrow();
                 require(BodyHandRequestService.apply(fixture.player(), butcher(epoch, 2, query.revision(), hand, active.token(), source)).accepted(), "authenticated BUTCHER starts timed session");
                 var before = java.util.Set.copyOf(level.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(body.position(), body.position()).inflate(5),
@@ -345,21 +382,26 @@ public final class LooseButcheringAuthenticatedGameTests {
                     };
                     cleanup.attachListener(listener);
                 } else {
-                    String other = hands.handIds().stream().filter(id -> !id.equals(hand)).findFirst().orElseThrow();
+                    var currentHands = body.getExistingDataOrNull(attachment);
+                    String other = currentHands.handIds().stream().filter(id -> !id.equals(hand)).findFirst().orElseThrow();
                     require(BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(BodyHandActionRequest.Action.SELECT_HAND,
-                            other, epoch, 3, hands.revision(), null, null)).accepted(), "authenticated SELECT_HAND changes active hand");
+                            other, epoch, 3, currentHands.revision(), null, null)).accepted(), "authenticated SELECT_HAND changes active hand");
                 }
                 h.runAfterDelay(20, () -> {
                     if (!cleanup.isOpen()) return;
                     try {
-                        require(!source.isRemoved() && level.getEntity(sourceId) == source, "cancelled/failed operation retains exact source entity");
+                        require(!source.isRemoved() && level.getEntity(sourceId) == source
+                                && ItemStack.isSameItemSameComponents(sourceComponents, source.getItem()),
+                                "cancelled/failed operation retains exact source entity and item components");
                         var outputs = level.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(body.position(), body.position()).inflate(5),
                                 e -> !before.contains(e.getUUID()) && (e.getItem().is(ModItems.WOOD.get()) || e.getItem().is(net.minecraft.world.item.Items.PAPER)));
                         require(outputs.isEmpty(), "no partial butcher outputs remain");
                         require(body.getExistingDataOrNull(attachment).token(hand).filter(token::equals).isPresent(), "knife remains in original hand slot");
-                        if (rejectSecondJoin) require(joins.get() >= 2, "second output join was observed and rejected");
+                         if (rejectSecondJoin) require(joins.get() >= 2, "second output join was observed and rejected");
+                         else require(joins.get() == 0, "hand-change cancellation happens before any output publication attempt");
                         cleanup.finish(null);
                     } catch (Throwable failure) { cleanup.finish(failure); }
+                });
                 });
             } catch (Throwable failure) { cleanup.finish(failure); }
         });

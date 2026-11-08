@@ -256,6 +256,92 @@ public final class LiveHands {
                 equipment.isPresent() ? Optional.of(next) : Optional.empty()));
     }
 
+    /** Passive debit of the exact currently equipped tank; unlike explicit edits this preserves action revision. */
+    public Optional<LiveHands> debitEquippedTank(long expectedRevision, String slot, ItemToken expectedToken,
+                                                  ItemStack replacement) {
+        if (revision != expectedRevision || slot == null || expectedToken == null || replacement == null
+                || replacement.isEmpty()) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(equipment.orElse(List.of()));
+        int index = -1;
+        for (int i = 0; i < next.size(); i++) if (next.get(i).id().equals(slot)) { index = i; break; }
+        if (index < 0) return Optional.empty();
+        Occupant owner = next.get(index).occupant().orElse(null);
+        if (owner == null || !owner.token().equals(expectedToken.value())) return Optional.empty();
+        ItemStack original = owner.stack();
+        if (!tankDebitOnly(original,replacement)) return Optional.empty();
+        next.set(index, new Slot(slot, Optional.of(new Occupant(expectedToken.value(), replacement))));
+        return Optional.of(new LiveHands(hands, active, revision, Optional.of(next)));
+    }
+
+    /** Passive debit for the exact currently held tank. Explicit component edits must use replaceOwnedComponents. */
+    public Optional<LiveHands> debitHeldTank(long expectedRevision, String hand, ItemToken expectedToken,
+                                              ItemStack replacement) {
+        if (revision != expectedRevision || hand == null || expectedToken == null || replacement == null || replacement.isEmpty()) return Optional.empty();
+        int index=handIds().indexOf(hand);
+        if(index<0 || hands.get(index).reservation().isPresent()) return Optional.empty();
+        Occupant owner=hands.get(index).occupant().orElse(null);
+        if(owner==null || !owner.token().equals(expectedToken.value()) || !tankDebitOnly(owner.stack(),replacement)) return Optional.empty();
+        ArrayList<Slot> next=new ArrayList<>(hands);
+        next.set(index,new Slot(hand,Optional.of(new Occupant(owner.token(),replacement))));
+        return Optional.of(new LiveHands(next,active,revision,equipment));
+    }
+
+    /** Proves that a timed snapshot differs only by an exact passive gas debit in an equipped slot. */
+    public boolean continuesAcrossPassiveTankDebit(Entity body, LiveHands captured) {
+        return body != null && compatible(body) && captured != null && captured.compatible(body)
+                && continuesAcrossPassiveTankDebit(captured);
+    }
+
+    /** Detached-state proof; callers must separately establish both snapshots are compatible with the body. */
+    public boolean continuesAcrossPassiveTankDebit(LiveHands captured) {
+        if (captured == null || revision != captured.revision
+                || !active.equals(captured.active) || !handIds().equals(captured.handIds())
+                || !equipmentIds().equals(captured.equipmentIds()) || equipment.isPresent() != captured.equipment.isPresent()) return false;
+        int changed = 0;
+        for (int i = 0; i < hands.size(); i++) {
+            Slot a=hands.get(i), b=captured.hands.get(i);
+            if (sameOwner(a,b)) continue;
+            if(a.id().equals(b.id()) && a.occupant().isPresent() && b.occupant().isPresent()
+                    && a.reservation().equals(b.reservation())) {
+                Occupant x=a.occupant().orElseThrow(), y=b.occupant().orElseThrow();
+                if(x.token().equals(y.token()) && tankDebitOnly(y.stack(),x.stack())) { changed++; continue; }
+            }
+            return false;
+        }
+        List<Slot> current = equipment.orElse(List.of()), old = captured.equipment.orElse(List.of());
+        for (int i = 0; i < current.size(); i++) {
+            Slot a = current.get(i), b = old.get(i);
+            if (a.id().equals(b.id()) && a.occupant().isEmpty() && b.occupant().isEmpty()) continue;
+            if (a.id().equals(b.id()) && a.occupant().isPresent() && b.occupant().isPresent()) {
+                Occupant x = a.occupant().orElseThrow(), y = b.occupant().orElseThrow();
+                if (x.token().equals(y.token()) && ItemStack.isSameItemSameComponents(x.stack(), y.stack())) continue;
+                if (x.token().equals(y.token()) && tankDebitOnly(y.stack(), x.stack())) { changed++; continue; }
+            }
+            return false;
+        }
+        return changed == 1;
+    }
+
+    private static boolean sameOwner(Slot a, Slot b) {
+        if (!a.id().equals(b.id()) || !a.reservation().equals(b.reservation()) || a.occupant().isPresent() != b.occupant().isPresent()) return false;
+        if (a.occupant().isEmpty()) return true;
+        Occupant x=a.occupant().orElseThrow(), y=b.occupant().orElseThrow();
+        return x.token().equals(y.token()) && ItemStack.isSameItemSameComponents(x.stack(), y.stack());
+    }
+
+    private static boolean tankDebitOnly(ItemStack before, ItemStack after) {
+        var type = com.juicyslew.moonstation14.component.ModDataComponents.GAS_TANK_CONTENTS.get();
+        var x = before.get(type); var y = after.get(type);
+        if (x == null || y == null || !before.is(after.getItem()) || before.getCount() != after.getCount()
+                || !x.prototypeId().equals(y.prototypeId()) || Math.abs(x.mixture().volumeCubicMeters()-y.mixture().volumeCubicMeters()) > 1e-9
+                || Math.abs(x.mixture().temperatureKelvin()-y.mixture().temperatureKelvin()) > 1e-6
+                || !x.mixture().gasMoles().keySet().containsAll(y.mixture().gasMoles().keySet())) return false;
+        for (var gas : com.juicyslew.moonstation14.ms14.atmos.core.GasType.values())
+            if (y.mixture().moles(gas) > x.mixture().moles(gas)) return false;
+        ItemStack normalized=after.copy(); normalized.set(type,x);
+        return ItemStack.isSameItemSameComponents(before,normalized);
+    }
+
     public Optional<LiveHands> releaseHand(String hand, java.util.UUID exactTarget) {
         if (revision == Long.MAX_VALUE || exactTarget == null) return Optional.empty();
         int index = handIds().indexOf(hand);
@@ -1590,4 +1676,3 @@ public final class LiveHands {
         @Override public ItemStack stack() { return stack.copy(); }
     }
 }
-

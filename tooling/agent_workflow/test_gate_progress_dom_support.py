@@ -1,10 +1,11 @@
 """Small shared browser-DOM shim used by gate-progress Node tests."""
 
 NODE_DOM_HARNESS = r"""
-const fixtureTimers=new Map();let fixtureTimerId=0;
+const fixtureTimers=new Map();let fixtureTimerId=0;const fixtureIntervals=[];
 const fixtureLocalStorage=new Map();global.localStorage={getItem(k){if(global.failLocalStorage)throw Error('storage unavailable');return fixtureLocalStorage.get(k)??null},setItem(k,v){if(global.failLocalStorage)throw Error('storage unavailable');fixtureLocalStorage.set(k,String(v))}};
 global.setTimeout=(fn,delay=0)=>{const id=++fixtureTimerId;fixtureTimers.set(id,{fn,delay});return id};
 global.clearTimeout=id=>fixtureTimers.delete(id);
+global.setInterval=(fn,delay)=>{fixtureIntervals.push({fn,delay});return fixtureIntervals.length};
 global.location={protocol:'http:',origin:'http://fixture.test',href:'http://fixture.test/'};
 global.window={listeners:{},addEventListener(k,fn){(this.listeners[k]||=[]).push(fn)}};
 class FixtureElement {

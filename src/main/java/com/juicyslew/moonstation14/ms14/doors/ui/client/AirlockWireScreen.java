@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.doors.ui.client;
 import com.juicyslew.moonstation14.ms14.doors.ui.*;
 import com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient;
 import com.juicyslew.moonstation14.ms14.hands.client.PopupMovementIntent;
+import com.juicyslew.moonstation14.ms14.hands.client.NativeMovementKeySampler;
 import com.juicyslew.moonstation14.ms14.ui.client.GameplayWindow;
 import com.juicyslew.moonstation14.ms14.ui.client.MachineWindowRenderer;
 import com.juicyslew.moonstation14.ms14.ui.client.window.WindowGeometryController;
@@ -236,21 +237,11 @@ public final class AirlockWireScreen extends Screen implements GameplayWindow {
         if (!BodyHandClient.hasCommittedBody() || GLFW.glfwGetWindowAttrib(window, GLFW.GLFW_FOCUSED) != GLFW.GLFW_TRUE)
             return new MovementKeys(false,false,false,false,false,false,false,false,false);
         var o = Minecraft.getInstance().options;
-        return new MovementKeys(true,true,held(o.keyUp, window), held(o.keyDown, window), held(o.keyLeft, window),
-                held(o.keyRight, window), held(o.keyJump, window), held(o.keyShift, window), held(o.keySprint, window));
-    }
-    private static boolean held(net.minecraft.client.KeyMapping mapping, long window) {
-        var key = mapping.getKey();
-        if (key.getType() == com.mojang.blaze3d.platform.InputConstants.Type.MOUSE) return false;
-        int code = key.getType() == com.mojang.blaze3d.platform.InputConstants.Type.SCANCODE
-                ? scanKey(key.getValue()) : key.getValue();
-        return code >= 0 && code <= GLFW.GLFW_KEY_LAST && GLFW.glfwGetKey(window, code) == GLFW.GLFW_PRESS;
-    }
-    private static int scanKey(int scan) {
-        for (int key = GLFW.GLFW_KEY_SPACE; key <= GLFW.GLFW_KEY_LAST; key++)
-            if (GLFW.glfwGetKeyScancode(key) == scan) return key;
-        return -1;
+        var sampled = NativeMovementKeySampler.sample(true, true, o.keyUp, o.keyDown, o.keyLeft,
+                o.keyRight, o.keyJump, o.keyShift, o.keySprint,
+                code -> GLFW.glfwGetKey(window, code) == GLFW.GLFW_PRESS, new PopupMovementIntent());
+        return new MovementKeys(true,true,sampled.forward() > 0,sampled.forward() < 0,sampled.left() > 0,
+                sampled.left() < 0,sampled.jump(),sampled.shift(),sampled.sprint());
     }
     @Override public boolean capturesKeyboard() { return false; }
 }
-

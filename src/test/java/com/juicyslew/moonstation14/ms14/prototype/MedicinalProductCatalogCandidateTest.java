@@ -65,7 +65,7 @@ class MedicinalProductCatalogCandidateTest {
             for (String name : new String[]{"lingzhi", "galaxythistle"}) {
                 String path = "data/moonstation14/moonstation14/" + family + "/" + name + ".json";
                 try (var resource = getClass().getClassLoader().getResourceAsStream(path)) {
-                    assertNull(resource, "non-production candidate must not be published: " + path);
+                    assertNotNull(resource, "promoted production resource must be published: " + path);
                 } catch (java.io.IOException e) {
                     throw new AssertionError("Could not close resource stream: " + path, e);
                 }

@@ -297,9 +297,9 @@ test {
 
 // Opt-in bounded catalog; never falls back to the complete JUnit suite.
 def readinessCatalog = [
-    ui: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaintPendingTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireScreenLayoutTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireLifecycleTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowChromeButtonsTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowGeometryControllerTest', 'com.juicyslew.moonstation14.ms14.ui.window.TitlePressRoutingTest', 'com.juicyslew.moonstation14.ms14.player_body_control.client.GameplayWindowMovementDispatchTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistryTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerWorkspaceRoutingTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerModePolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayersTest', 'com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest'],
-    interaction: ['com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.chat.server.EmoteCommandTest', 'com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfileTest', 'com.juicyslew.moonstation14.ms14.singularity.beacon.SingularityBeaconProfileTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaProfilesTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaBatteryStateTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaLightningSelectionTest', 'com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticlePrototypeTest'],
-    prediction: ['com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionPacketScheduleTest', 'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest'],
+    ui: ['com.juicyslew.moonstation14.ms14.actions.client.BodyActionSlotsTest', 'com.juicyslew.moonstation14.ms14.actions.client.BodyActionChatWorkspaceTest', 'com.juicyslew.moonstation14.ms14.actions.client.BodyActionMenuWindowTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaintPendingTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireScreenLayoutTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireLifecycleTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowChromeButtonsTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowGeometryControllerTest', 'com.juicyslew.moonstation14.ms14.ui.window.TitlePressRoutingTest', 'com.juicyslew.moonstation14.ms14.player_body_control.client.GameplayWindowMovementDispatchTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistryTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerWorkspaceRoutingTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerModePolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HandBarLayoutTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayersTest', 'com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.hands.client.NativeMovementKeySamplerTest', 'com.juicyslew.moonstation14.ms14.actions.client.BodyActionLayoutTest'],
+    interaction: ['com.juicyslew.moonstation14.ms14.actions.client.BodyActionSlotsTest', 'com.juicyslew.moonstation14.ms14.actions.client.BodyActionChatWorkspaceTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.chat.server.EmoteCommandTest', 'com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfileTest', 'com.juicyslew.moonstation14.ms14.singularity.beacon.SingularityBeaconProfileTest', 'com.juicyslew.moonstation14.ms14.actions.BodyActionAdmissionTest', 'com.juicyslew.moonstation14.ms14.actions.BodyActionDiscoveryTest', 'com.juicyslew.moonstation14.ms14.actions.prototype.ActionPrototypeTest', 'com.juicyslew.moonstation14.ms14.character.CharacterPrototypeTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaProfilesTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaBatteryStateTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaLightningSelectionTest', 'com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticlePrototypeTest'],
+    prediction: ['com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionPacketScheduleTest', 'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.actions.client.BodyActionClientStateTest', 'com.juicyslew.moonstation14.ms14.actions.network.BodyActionPayloadsCodecTest'],
     preview: ['com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest']
 ]
 readinessCatalog.interaction.add('com.juicyslew.moonstation14.ms14.botany.BotanyInspectCommandTest')
@@ -319,6 +319,47 @@ readinessCatalog.prediction.addAll([
     'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmOverlaySequenceTest',
     'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineOverlayDraftTest'
 ])
+readinessCatalog.interaction.add('com.juicyslew.moonstation14.gametest.support.ScopedPrototypeCatalogFixtureTest')
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.doors.FirelockStateTest',
+    'com.juicyslew.moonstation14.ms14.doors.FirelockPryServiceTest',
+    'com.juicyslew.moonstation14.ms14.tools.ToolProfileTest'
+])
+readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.actions.BodyActionServicePresentationTest')
+readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicyTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineRayTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineCandidateCycleTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineLatchSessionTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineRefreshPolicyTest',
+    'com.juicyslew.moonstation14.ms14.examine.ExamineWorldSelectorBoundTest',
+    'com.juicyslew.moonstation14.ms14.hands.client.StoragePopupHostFocusRoutingTest'
+])
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.hands.network.EquipmentTimedInteractionTest',
+    'com.juicyslew.moonstation14.ms14.actions.BodyActionServicePresentationTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicyTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineRayTest',
+    'com.juicyslew.moonstation14.ms14.examine.ExamineResponseContractTest',
+    'com.juicyslew.moonstation14.ms14.examine.GasTankExaminePresentationTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineResponseStampTest',
+    'com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemBindingTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyWorldGridActionPolicyTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyWorldGridPolicyTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyWorldWorldCrossActionCodecTest',
+    'com.juicyslew.moonstation14.ms14.audio.EntityAttachedSoundPacketTest',
+    'com.juicyslew.moonstation14.ms14.audio.BodyViewAudioAudienceTest',
+    'com.juicyslew.moonstation14.ms14.actions.BodyActionVocalTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentWearAudioTest',
+    'com.juicyslew.moonstation14.ms14.audio.ItemSlotAudioProfileTest',
+    'com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest',
+    'com.juicyslew.moonstation14.ms14.hands.live.LiveEquipmentStateTest',
+    'com.juicyslew.moonstation14.ms14.hands.LiveHandsWriteArchitectureTest',
+    'com.juicyslew.moonstation14.ms14.eva.fixture.EvaFixturePlanTest',
+    'com.juicyslew.moonstation14.ms14.fixture.FixtureSiteContextTest'
+])
+readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.hands.network.EquipmentTimedInteractionTest')
+readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.doors.FirelockPryServiceTest')
 readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.hands.network.BodyMachineActivationDispatchTest',
     'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlProtocolTest',
@@ -354,6 +395,7 @@ readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.loose_objects.LooseSlipPrototypeManagerTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantMutationRecordTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantSpeciesMutationCycleTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantPollenCrossTest',
     'com.juicyslew.moonstation14.ms14.botany.PlantSeedReferenceTest',
@@ -386,26 +428,37 @@ readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.combat.MeleeTargetEligibilityTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponResolverTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponProfileTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeRosterCompositionTest',
+    'com.juicyslew.moonstation14.ms14.combat.CombatWorldPressRouteTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponDataTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeTargetAttackedEventTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeStaminaPolicyTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeCooldownTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeAttackPolicyTest',
-    'com.juicyslew.moonstation14.ms14.combat.CombatMeleeTargetProbeTest'
+    'com.juicyslew.moonstation14.ms14.combat.CombatMeleeTargetProbeTest',
+    'com.juicyslew.moonstation14.ms14.construction.ConstructionEntityPrototypeTest'
 ])
 readinessCatalog.prediction.addAll([
+    'com.juicyslew.moonstation14.ms14.standing.ClientBodyEntityRayTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleePredictionAdmissionTest',
     'com.juicyslew.moonstation14.ms14.hands.network.BodyHandSnapshotClockTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeAttackClientPolicyTest',
     'com.juicyslew.moonstation14.ms14.combat.ClientDisarmAdmissionTest',
     'com.juicyslew.moonstation14.ms14.combat.client.MeleeArcClientPolicyTest',
-    'com.juicyslew.moonstation14.ms14.combat.MeleeArcPayloadTest'
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcPayloadTest',
+    'com.juicyslew.moonstation14.ms14.combat.HeldMeleeInputPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.TypedMeleeSubmissionTest'
 ])
 readinessCatalog.ui.addAll([
     'com.juicyslew.moonstation14.ms14.combat.MeleeArcTimelineTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeArcProfileTest',
     'com.juicyslew.moonstation14.ms14.combat.MeleeArcResourceTest',
-    'com.juicyslew.moonstation14.ms14.combat.CombatModeHudPolicyTest'
+    'com.juicyslew.moonstation14.ms14.combat.CombatModeHudPolicyTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.client.LooseItemPresentationRendererPoseTest',
+    'com.juicyslew.moonstation14.ms14.player_body_control.client.BodyStaminaHudPolicyTest',
+    'com.juicyslew.moonstation14.ms14.player_body_control.client.BodyHudSourcePolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.client.DisarmFlightRendererTest',
+    'com.juicyslew.moonstation14.ms14.combat.client.DisarmFlightHudTest'
 ])
 readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRendererAlphaTest')
 readinessCatalog.ui.addAll([
@@ -431,7 +484,10 @@ readinessCatalog.ui.addAll([
     'com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineControlProtocolTest',
     'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineOverlayPointerTest',
     'com.juicyslew.moonstation14.ms14.atmos.machine.ui.client.AtmosMachineOverlayDraftTest',
-    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmOverlayPointerTest'
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmOverlayPointerTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlProtocolTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmLayoutTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmScreenTest'
 ])
 readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.atmos.machine.ui.AtmosMachineControlProtocolTest',
@@ -448,6 +504,10 @@ readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.atmos.machine.
 readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachinePrototypeTest')
 readinessCatalog.interaction.addAll([
     'com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogProductionTest',
+    'com.juicyslew.moonstation14.ms14.botany.BotanySpeciesAvailabilityTest',
+    'com.juicyslew.moonstation14.ms14.botany.BotanyCatalogSupplyPlanTest',
+    'com.juicyslew.moonstation14.resource.BotanyCatalogItemResourcesTest',
     'com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest',
     'com.juicyslew.moonstation14.ms14.botany.SeedItemProfileTest',
     'com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest',

@@ -2,7 +2,7 @@ package com.juicyslew.moonstation14.ms14.character.components;
 
 /** Immutable prototype configuration, not an entity attachment. */
 public sealed interface CharacterComponent permits BarotraumaComponent, BlindablePrototypeComponent,
-        BloodstreamComponent, BodyComponent, ComplexInteractionComponent, EquipmentSlotsPrototypeComponent,
+        BloodstreamComponent, BodyComponent, ComplexInteractionComponent, EnsnareableComponent, EquipmentSlotsPrototypeComponent,
         FlammablePrototypeComponent, HandsPrototypeComponent, HungerPrototypeComponent, InitialBodyComponent,
         MetabolizerPrototypeComponent, MovementSpeedModifierComponent, NoSlipComponent, ReactiveComponent,
         RespiratorComponent, SpeechComponent, StandingStateComponent, StomachPrototypeComponent, StunnableComponent,
@@ -11,11 +11,11 @@ public sealed interface CharacterComponent permits BarotraumaComponent, Blindabl
         ObserverMovementComponent, IncorporealComponent, GhostOnMoveComponent, PullerComponent, DoorBumpOpenerComponent,
         ExaminerComponent, DamageableComponent, HumanoidProfileComponent, StrippingPrototypeComponent,
         StrippablePrototypeComponent, GhostRoleComponent, MouseAppearanceComponent, CollisionProfileComponent,
-        NpcBehaviorComponent, AmbientVocalizationComponent, NpcIdleAttentionComponent, PortableBodyComponent,
-        CanEscapeInventoryComponent, SpeciesComponent, LightningTargetComponent, ProtectedFromStepTriggersComponent,
+        NpcBehaviorComponent, AmbientVocalizationComponent, NpcIdleAttentionComponent, PortableBodyComponent, UdderComponent,
+        CanEscapeInventoryComponent, SpeciesComponent, AnimalAppearanceComponent, FlightComponent, NpcRetaliationComponent,
+        MeleeAttackComponent, ParrotListenerComponent, ParrotMemoryComponent, EggLayerComponent,
+        AbsorbentCleaningComponent, CombatModeComponent, VocalComponent, LightningTargetComponent, ProtectedFromStepTriggersComponent,
         DamageOnInteractProtectionComponent, StaminaPrototypeComponent, StatusEffectsPrototypeComponent,
-        CombatModeComponent, MeleeWeaponComponent, DisarmProneComponent, UdderComponent, AnimalAppearanceComponent,
-        FlightComponent, NpcRetaliationComponent, MeleeAttackComponent, ParrotListenerComponent, ParrotMemoryComponent,
-        EggLayerComponent, AbsorbentCleaningComponent {
+        MeleeWeaponComponent, DisarmProneComponent, InternalsComponent {
     String type();
 }

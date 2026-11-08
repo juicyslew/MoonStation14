@@ -10,10 +10,13 @@ import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.character.components.CharacterComponentRegistry;
 import com.juicyslew.moonstation14.ms14.character.components.EquipmentSlotsPrototypeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent;
+import com.juicyslew.moonstation14.ms14.character.components.VocalComponent;
 import com.juicyslew.moonstation14.util.enums.MetabolizerTypeEnum;
 
 import java.util.Set;
 import java.util.HashSet;
+import java.util.List;
 
 /** Strict structural and semantic validation for character target capabilities. */
 public final class CharacterSchemaAudit {
@@ -38,7 +41,7 @@ public final class CharacterSchemaAudit {
              "max_saturation", "initial_saturation", "min_saturation", "saturation_loss_per_update",
              "suffocation_threshold", "suffocation_damage_per_update", "suffocation_recovery_per_update",
               "suffocation_ignore_resistances", "gasp_interval_seconds", "gasp_sound");
-    private static final Set<String> BAROTRAUMA_FIELDS = Set.of("type", "damage", "maxDamage");
+    private static final Set<String> BAROTRAUMA_FIELDS = Set.of("type", "damage", "maxDamage", "protectionSlots");
     private static final Set<String> COMPLEX_INTERACTION_FIELDS = Set.of("type");
 
     private CharacterSchemaAudit() {
@@ -296,6 +299,31 @@ public final class CharacterSchemaAudit {
                     "planIntervalTicks", "idleMinimumTicks", "idleMaximumTicks"), path);
             return;
         }
+        if (CombatModeComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type", "combatToggleAction", "initially_in_combat", "can_disarm", "base_disarm_fail_chance", "disarm_success_sound"), path);
+            if (object.has("combatToggleAction")) auditCapabilityString(object, "combatToggleAction", path);
+            if (object.has("base_disarm_fail_chance") && (!finiteNumber(object.get("base_disarm_fail_chance"))
+                    || object.get("base_disarm_fail_chance").getAsDouble() < 0 || object.get("base_disarm_fail_chance").getAsDouble() > 1))
+                fail(path + ".base_disarm_fail_chance", "expected finite number in [0, 1]");
+            if (object.has("disarm_success_sound")) auditResourceLocation(object.get("disarm_success_sound"), path + ".disarm_success_sound");
+            if (object.has("can_disarm") && (!object.get("can_disarm").isJsonPrimitive() || !object.getAsJsonPrimitive("can_disarm").isBoolean()))
+                fail(path + ".can_disarm", "expected boolean");
+            if (object.has("initially_in_combat") && (!object.get("initially_in_combat").isJsonPrimitive() || !object.getAsJsonPrimitive("initially_in_combat").isBoolean()))
+                fail(path + ".initially_in_combat", "expected boolean");
+            return;
+        }
+        if (VocalComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type", "screamAction", "screamEmote", "screamSound", "screamPitchVariation", "wilhelmProbability"), path);
+            for (String field : Set.of("screamAction", "screamEmote"))
+                if (object.has(field)) auditCapabilityString(object, field, path);
+            if (object.has("screamSound")) auditResourceLocation(object.get("screamSound"), path + ".screamSound");
+            for (String field : Set.of("screamPitchVariation", "wilhelmProbability")) if (object.has(field)) {
+                JsonElement value = object.get(field);
+                if (!finiteNumber(value) || value.getAsDouble() < 0 || value.getAsDouble() > 1)
+                    fail(path + "." + field, "expected finite number in [0, 1]");
+            }
+            return;
+        }
         if ("AbsorbentCleaning".equals(type)) {
             checkFields(object, Set.of("type", "pickupCents", "capacityCents", "cooldownTicks", "regenerationCents", "purgeCents", "cycleTicks"), path);
             if (complete) for (String field : Set.of("pickupCents", "capacityCents", "cooldownTicks", "regenerationCents", "purgeCents", "cycleTicks"))
@@ -351,7 +379,7 @@ public final class CharacterSchemaAudit {
             return;
         }
         if ("AnimalAppearance".equals(type)) {
-            checkFields(object, Set.of("type", "model_ids"), path);
+            checkFields(object, Set.of("type", "model_ids", "eye_height", "speech_height"), path);
             JsonElement ids = object.get("model_ids");
             if (ids == null || !ids.isJsonArray() || ids.getAsJsonArray().isEmpty()) fail(path + ".model_ids", "expected nonempty array");
             Set<String> seen = new HashSet<>();
@@ -359,6 +387,11 @@ public final class CharacterSchemaAudit {
                 JsonElement id = ids.getAsJsonArray().get(i);
                 if (!id.isJsonPrimitive() || !id.getAsJsonPrimitive().isString() || id.getAsString().isBlank()) fail(path + ".model_ids[" + i + "]", "expected nonblank model id");
                 if (!seen.add(id.getAsString())) fail(path + ".model_ids[" + i + "]", "duplicate model id");
+            }
+            for (String height : List.of("eye_height", "speech_height")) {
+                JsonElement value = object.get(height);
+                if (value != null && (!finiteNumber(value) || value.getAsDouble() <= 0 || value.getAsDouble() > 16))
+                    fail(path + "." + height, "expected finite positive height at most 16");
             }
             return;
         }
@@ -398,14 +431,22 @@ public final class CharacterSchemaAudit {
             return;
         }
         if ("NpcRetaliation".equals(type)) {
-            checkFields(object, Set.of("type", "attackMemorySeconds"), path);
+            checkFields(object, Set.of("type", "attackMemorySeconds", "meleeMissChance"), path);
             if (object.has("attackMemorySeconds") && (!finiteNumber(object.get("attackMemorySeconds"))
                     || object.get("attackMemorySeconds").getAsInt() < 0 || object.get("attackMemorySeconds").getAsInt() > 3600))
                 fail(path + ".attackMemorySeconds", "expected integer seconds in [0, 3600]");
+            if (object.has("meleeMissChance") && (!finiteNumber(object.get("meleeMissChance"))
+                    || object.get("meleeMissChance").getAsDouble() < 0 || object.get("meleeMissChance").getAsDouble() > 1))
+                fail(path + ".meleeMissChance", "expected number in [0, 1]");
             return;
         }
         if ("MeleeAttack".equals(type)) {
-            checkFields(object, Set.of("type", "damage", "attackRate", "range"), path);
+            checkFields(object, Set.of("type", "damage", "attackRate", "range", "audio", "arc"), path);
+            if (object.has("audio")) {
+                JsonElement audio = object.get("audio");
+                if (audio == null || !audio.isJsonObject()) fail(path + ".audio", "expected object");
+                checkFields(audio.getAsJsonObject(), Set.of("swing", "hit", "no_damage"), path + ".audio");
+            }
             if (complete || object.has("damage")) {
                 JsonElement damage = object.get("damage");
                 if (damage == null || !damage.isJsonObject()) fail(path + ".damage", "expected object");
@@ -420,6 +461,10 @@ public final class CharacterSchemaAudit {
         }
         if (com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent.TYPE.equals(type)) {
             checkFields(object, COMPLEX_INTERACTION_FIELDS, path);
+            return;
+        }
+        if (com.juicyslew.moonstation14.ms14.character.components.EnsnareableComponent.TYPE.equals(type)) {
+            checkFields(object, Set.of("type"), path);
             return;
         }
         if (com.juicyslew.moonstation14.ms14.character.components.ExaminerComponent.TYPE.equals(type)) {
@@ -454,7 +499,7 @@ public final class CharacterSchemaAudit {
               validateNutrition(object, path, com.juicyslew.moonstation14.ms14.character.components.ThirstPrototypeComponent.CODEC);
               return;
           }
-          if ("Body".equals(type) || "Stomach".equals(type)
+          if ("Body".equals(type) || "Internals".equals(type) || "Stomach".equals(type)
                   || "Mouth".equals(type)
                   || "Blindable".equals(type) || "Incorporeal".equals(type)) {
              checkFields(object, Set.of("type"), path);
@@ -605,7 +650,12 @@ public final class CharacterSchemaAudit {
                 JsonElement weaponValue = object.get("weapon");
                 if (!weaponValue.isJsonObject()) fail(path + ".weapon", "expected object");
                 JsonObject weapon = weaponValue.getAsJsonObject();
-                checkFields(weapon, Set.of("damage", "attack_rate", "range", "resistance_bypass", "auto_attack", "click_damage_modifier", "must_be_equipped_to_use", "audio", "arc", "animation_offset", "wide_animation_rotation", "blunt_stamina_damage_factor", "reset_on_hand_selected", "angle_degrees", "wide_arc", "alt_disarm"), path + ".weapon");
+                checkFields(weapon, Set.of("damage", "attack_rate", "range", "resistance_bypass", "auto_attack", "click_damage_modifier", "must_be_equipped_to_use", "audio", "arc", "animation_offset", "wide_animation_rotation", "blunt_stamina_damage_factor", "reset_on_hand_selected", "angle_degrees", "wide_arc", "alt_disarm", "wide_origin_height_ratio"), path + ".weapon");
+                if (weapon.has("wide_origin_height_ratio")) {
+                    JsonElement ratio = weapon.get("wide_origin_height_ratio");
+                    auditNonNegativeNumber(ratio, path + ".weapon.wide_origin_height_ratio");
+                    if (ratio.getAsDouble() > 1) fail(path + ".weapon.wide_origin_height_ratio", "expected ratio in [0,1]");
+                }
             }
             return;
         }
@@ -747,6 +797,19 @@ public final class CharacterSchemaAudit {
             return;
         }
         checkFields(object, BAROTRAUMA_FIELDS, path);
+        if (object.has("protectionSlots")) {
+            JsonElement slots = object.get("protectionSlots");
+            if (!slots.isJsonArray()) fail(path + ".protectionSlots", "expected array");
+            Set<String> allowed = Set.copyOf(com.juicyslew.moonstation14.ms14.equipment.EquipmentSlots.SLOT_ORDER);
+            Set<String> seen = new HashSet<>();
+            for (int index = 0; index < slots.getAsJsonArray().size(); index++) {
+                JsonElement slot = slots.getAsJsonArray().get(index);
+                if (!slot.isJsonPrimitive() || !slot.getAsJsonPrimitive().isString()) fail(path + ".protectionSlots[" + index + "]", "expected string");
+                String name = slot.getAsString();
+                if (!allowed.contains(name)) fail(path + ".protectionSlots[" + index + "]", "unknown equipment slot");
+                if (!seen.add(name)) fail(path + ".protectionSlots[" + index + "]", "duplicate equipment slot");
+            }
+        }
         JsonElement max = object.get("maxDamage");
         if ((complete || object.has("maxDamage"))
                 && (!finiteNumber(max) || max.getAsDouble() < 0 || max.getAsDouble() > 1_000_000))
@@ -1037,6 +1100,13 @@ public final class CharacterSchemaAudit {
         for (String field : object.keySet()) {
             if (!allowed.contains(field)) fail(path + "." + field, "unknown field");
         }
+    }
+
+    private static void auditCapabilityString(JsonObject object, String field, String path) {
+        JsonElement value = object.get(field);
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()
+                || value.getAsString().isBlank() || value.getAsString().length() > 128)
+            fail(path + "." + field, "expected nonblank string of at most 128 characters");
     }
 
     private static void auditResourceLocation(JsonElement value, String path) {

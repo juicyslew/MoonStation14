@@ -9,7 +9,7 @@ import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Policy fixture: production supplies the exact RETURNING_GHOSTS owner and verified carrier. */
-@GameTestTags({"lifecycle", "character"})
+@GameTestTags({"lifecycle", "character", "character-identity-return"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleGhostReturnHandoffGameTests {
     private LifecycleGhostReturnHandoffGameTests() { }

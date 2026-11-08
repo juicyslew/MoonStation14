@@ -67,7 +67,7 @@ public final class MeleeCooldownSystem {
         MeleeCooldownData updated = prior.withDeadline(deadline.getAsLong());
         if (current.kind() == MeleeWeaponResolver.Kind.UNARMED) {
             body.setData(ModDataAttachments.MELEE_COOLDOWN.get(), new MeleeCooldownAttachment(updated));
-            return java.util.Optional.of(new Consumed(current, hands.revision()));
+            return java.util.Optional.of(new Consumed(current, current.handRevision()));
         }
         var view = MeleeItemOwner.read(body, current).orElse(null);
         if (view == null) return java.util.Optional.empty();

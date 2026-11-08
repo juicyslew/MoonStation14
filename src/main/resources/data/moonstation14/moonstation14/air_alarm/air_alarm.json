@@ -1,9 +1,21 @@
 {
   "parent": "base_wallmount_machine",
   "deviceList": { "maxDevices": 32 },
+  "atmosAlarmable": { "sourceTags": ["AirAlarm"], "syncWith": ["AirAlarm", "AirSensor", "GasVent", "GasScrubber"] },
+  "controller": {
+    "automaticMode": true, "initialMode": "FILTERING",
+    "presets": {
+      "FILTERING": {"ventEnabled":true,"externalTargetKPa":101.325,"pressureLockoutOverride":false,"scrubberEnabled":true,"scrubberMode":"FILTER","scrubberRateM3PerSecond":0.2,"filterGases":["plasma","tritium","carbon_dioxide","nitrous_oxide","ammonia","frezon","water_vapor"],"wideNet":false},
+      "WIDE_FILTERING": {"ventEnabled":true,"externalTargetKPa":101.325,"pressureLockoutOverride":false,"scrubberEnabled":true,"scrubberMode":"FILTER","scrubberRateM3PerSecond":0.2,"filterGases":["plasma","tritium","carbon_dioxide","nitrous_oxide","ammonia","frezon","water_vapor"],"wideNet":true},
+      "FILL": {"ventEnabled":true,"externalTargetKPa":5066.25,"pressureLockoutOverride":true,"scrubberEnabled":false,"scrubberMode":"FILTER","scrubberRateM3PerSecond":0.2,"filterGases":["plasma","tritium","carbon_dioxide","nitrous_oxide","ammonia","frezon","water_vapor"],"wideNet":false},
+      "PANIC": {"ventEnabled":false,"externalTargetKPa":101.325,"pressureLockoutOverride":false,"scrubberEnabled":true,"scrubberMode":"SIPHON","scrubberRateM3PerSecond":0.2,"filterGases":["plasma","tritium","carbon_dioxide","nitrous_oxide","ammonia","frezon","water_vapor"],"wideNet":true},
+      "NONE": {"ventEnabled":false,"externalTargetKPa":101.325,"pressureLockoutOverride":false,"scrubberEnabled":false,"scrubberMode":"FILTER","scrubberRateM3PerSecond":0.2,"filterGases":["plasma","tritium","carbon_dioxide","nitrous_oxide","ammonia","frezon","water_vapor"],"wideNet":false}
+    }
+  },
   "deviceComponents": {
     "deviceNetwork": { "network": "moonstation14:atmos_devices", "transmitFrequency": "moonstation14:atmos_monitor", "receiveFrequency": "moonstation14:atmos_monitor", "addressPrefix": "AIR-", "broadcastHook": true, "requiresPower": true },
     "deviceConnection": { "wired": true, "wireless": true, "wirelessRange": 200 },
-    "deviceList": { "capacity": 32, "allowList": true, "filterIncoming": false }
+    "deviceList": { "capacity": 32, "allowList": true, "filterIncoming": false },
+    "deviceLinkSource": { "ports": ["moonstation14:air_danger", "moonstation14:air_warning", "moonstation14:air_normal"], "lastSignals": { "moonstation14:air_danger": "LOW", "moonstation14:air_warning": "LOW", "moonstation14:air_normal": "HIGH" } }
   }
 }

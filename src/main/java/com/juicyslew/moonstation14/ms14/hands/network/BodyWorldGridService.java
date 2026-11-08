@@ -25,6 +25,41 @@ import java.util.UUID;
 /** Main-thread world-host sessions. A nonce never substitutes for current authority or reach. */
 public final class BodyWorldGridService {
     private BodyWorldGridService() { }
+
+    /** Read-only child lookup under an already-opened actor session; all session admission checks are reused. */
+    public static java.util.Optional<ItemStack> inspectOpenChild(ServerPlayer actor, LivingEntity body, long epoch,
+            UUID hostUuid, UUID nonce, long bodyRevision, long hostRevision, String childToken) {
+        if (actor == null || body == null || hostUuid == null || nonce == null || childToken == null
+                || actor.getServer() == null || !actor.getServer().isSameThread()) return java.util.Optional.empty();
+        var authority = HandActorAuthority.resolve(actor).orElse(null);
+        if (authority == null || authority.body() != body || authority.epoch() != epoch
+                || !HandActorAuthority.revalidate(actor, authority) || !(body.level() instanceof ServerLevel level))
+            return java.util.Optional.empty();
+        ActorState state = ACTORS.get(actor);
+        Session session = state == null ? null : state.sessions.get(nonce);
+        if (session == null || session.actor() != actor || session.authority().body() != body
+                || session.authority().epoch() != epoch || session.level() != level
+                || !session.target().equals(hostUuid) || session.hostRevision() != hostRevision
+                || !actionLeaseValid(actor.getServer().getTickCount(), session.expiresAt())
+                || !sessionBindingValid(actor, authority, session)) return java.util.Optional.empty();
+        LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (hands == null || !hands.compatible(body) || hands.revision() != bodyRevision) return java.util.Optional.empty();
+        ItemStack reference = session.entity().getItem();
+        ItemStack copy = reference.copy();
+        boolean reachable;
+        try { reachable = BodyItemTargetProbe.reachableStorageHost(level, body, session.entity(), BodyItemTargetProbe.MAX_REACH); }
+        catch (RuntimeException failure) { return java.util.Optional.empty(); }
+        if (!reachable) return java.util.Optional.empty();
+        var contents = storageHost(copy) && sameStorageHost(session.copy(), copy) ? GridContents.read(copy) : java.util.Optional.<GridContents>empty();
+        var child = contents.stream().flatMap(grid -> grid.entries().stream())
+                .filter(entry -> entry.token().equals(childToken)).findFirst().orElse(null);
+        if (child == null || !valid(actor, authority, session) || session.entity().getItem() != reference
+                || !ItemStack.matches(copy, reference) || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                || hands.revision() != bodyRevision || !HandActorAuthority.revalidate(actor, authority)
+                || !BodyItemTargetProbe.reachableStorageHost(level, body, session.entity(), BodyItemTargetProbe.MAX_REACH)
+                || state.sessions.get(nonce) != session) return java.util.Optional.empty();
+        return java.util.Optional.of(child.stack());
+    }
     private static final long LIFETIME_TICKS = 100;
     static final int MAX_SESSIONS = 3;
 
@@ -678,4 +713,3 @@ public final class BodyWorldGridService {
         return true;
     }
 }
-

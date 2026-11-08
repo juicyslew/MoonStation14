@@ -101,14 +101,11 @@ class MelonHeadwearCatalogCandidateTest {
                 assertEquals(restricted, ingestion.get(key).edible());
                 assertEquals(headSolution, solutions.get(key));
                 assertTrue(decodedEquipment.get(key).clothing().orElseThrow().wornModel().isEmpty());
-                assertMainAbsent("equipment_item", name);
-                assertMainAbsent("ingestion_profile", name);
-                assertMainAbsent("item_food_solution_profile", name);
-                for (String unsupported : new String[]{"produce_profile", "seed_profile", "extractable_profile", "item_processing_profile"})
-                    assertMainAbsent(unsupported, name);
+                for (String family : new String[]{"ingestion_profile", "item_food_solution_profile", "produce_profile", "seed_profile", "extractable_profile", "item_processing_profile", "equipment_item"})
+                    BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, name);
             }
-            for (String family : new String[]{"equipment_item", "ingestion_profile", "item_food_solution_profile"})
-                assertMainAbsent(family, "clothing_head_base");
+            for (String family : new String[]{"ingestion_profile", "item_food_solution_profile", "equipment_item"})
+                BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "clothing_head_base");
         });
         assertSame(before, manager.snapshot(), "staging candidate output must not publish");
     }
@@ -120,10 +117,4 @@ class MelonHeadwearCatalogCandidateTest {
         } catch (java.io.IOException exception) { throw new AssertionError(exception); }
     }
 
-    private static void assertMainAbsent(String family, String name) {
-        String path = "data/moonstation14/moonstation14/" + family + "/" + name + ".json";
-        try (var stream = MelonHeadwearCatalogCandidateTest.class.getClassLoader().getResourceAsStream(path)) {
-            assertNull(stream, "candidate remains TEST-only: " + path);
-        } catch (java.io.IOException exception) { throw new AssertionError(exception); }
-    }
 }

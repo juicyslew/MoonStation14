@@ -5,7 +5,11 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import net.minecraft.network.Connection;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.protocol.game.GameProtocols;
+import net.minecraft.network.protocol.game.ClientboundChunkBatchFinishedPacket;
+import net.minecraft.network.protocol.game.ServerboundChunkBatchReceivedPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
@@ -18,6 +22,7 @@ import net.neoforged.neoforge.network.connection.ConnectionType;
 import net.neoforged.neoforge.network.registration.NetworkRegistry;
 
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /** Socket-free native ServerPlayer fixtures for either ordinary PlayerList login or unenrolled world admission. */
 public final class RegisteredServerPlayerFixture implements AutoCloseable {
@@ -28,6 +33,14 @@ public final class RegisteredServerPlayerFixture implements AutoCloseable {
     private final Connection connection;
     private final ServerLevel level;
     private final boolean playerListRegistered;
+    private long handQuerySequence;
+    private Consumer<Packet<?>> outboundObserver;
+    private boolean acknowledgeChunkBatches;
+    private long chunkBatchFinishAttempts;
+    private long chunkBatchFinishReceipts;
+    private long chunkBatchAcknowledgements;
+
+    public record ChunkBatchProgress(long sent, long received, long acknowledged) { }
 
     private RegisteredServerPlayerFixture(PlayerList playerList, ServerLevel level, ServerPlayer player,
                                           Connection connection, EmbeddedChannel channel, boolean playerListRegistered) {
@@ -64,6 +77,7 @@ public final class RegisteredServerPlayerFixture implements AutoCloseable {
             var cookie = new CommonListenerCookie(profile, 0,
                     net.minecraft.server.level.ClientInformation.createDefault(), false, ConnectionType.NEOFORGE);
             fixture.playerList.placeNewPlayer(connection, player, cookie);
+            fixture.installObservedListener(server, profile, cookie);
             return fixture;
         } catch (RuntimeException | Error failure) {
             fixture.close();
@@ -89,9 +103,7 @@ public final class RegisteredServerPlayerFixture implements AutoCloseable {
         try {
             var cookie = new CommonListenerCookie(profile, 0,
                     net.minecraft.server.level.ClientInformation.createDefault(), false, ConnectionType.NEOFORGE);
-            var listener = new ServerGamePacketListenerImpl(server, connection, player, cookie);
-            connection.setupInboundProtocol(GameProtocols.SERVERBOUND_TEMPLATE.bind(
-                    RegistryFriendlyByteBuf.decorator(server.registryAccess(), listener.getConnectionType())), listener);
+            fixture.installObservedListener(server, profile, cookie);
             // Establish the intended ordinary mode before level admission. No lifecycle login hook
             // has run for this intentionally unenrolled actor.
             player.setGameMode(GameType.SURVIVAL);
@@ -125,11 +137,52 @@ public final class RegisteredServerPlayerFixture implements AutoCloseable {
 
     public ServerPlayer player() { return player; }
     public Connection connection() { return connection; }
+    public ChunkBatchProgress chunkBatchProgress() {
+        return new ChunkBatchProgress(chunkBatchFinishAttempts, chunkBatchFinishReceipts, chunkBatchAcknowledgements);
+    }
+
+    /** Installs a scoped synchronous observer for packets sent by this fixture's real play listener. */
+    public void observeOutbound(Consumer<Packet<?>> observer) {
+        if (closed) throw new IllegalStateException("registered player fixture is closed");
+        outboundObserver = observer;
+    }
+
+    private void installObservedListener(MinecraftServer server, GameProfile profile, CommonListenerCookie cookie) {
+        var listener = new ServerGamePacketListenerImpl(server, connection, player, cookie) {
+            @Override
+            public void send(Packet<?> packet, PacketSendListener sendListener) {
+                if (packet instanceof ClientboundChunkBatchFinishedPacket) chunkBatchFinishAttempts++;
+                var observer = outboundObserver;
+                if (observer != null) observer.accept(packet);
+                super.send(packet, sendListener);
+            }
+        };
+        player.connection = listener;
+        connection.setupInboundProtocol(GameProtocols.SERVERBOUND_TEMPLATE.bind(
+                RegistryFriendlyByteBuf.decorator(server.registryAccess(), listener.getConnectionType())), listener);
+    }
+
+    /** Issues the next ordinary hand-state query for this fixture's current body epoch. */
+    public com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot queryHands(long epoch) {
+        long sequence = ++handQuerySequence;
+        var snapshot = com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService.query(player,
+                new com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateQuery(epoch, sequence));
+        if (snapshot.reason() != com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot.Reason.OK)
+            throw new IllegalStateException("ordinary fixture hand query denied: reason=" + snapshot.reason()
+                    + " epoch=" + epoch + " sequence=" + sequence);
+        return snapshot;
+    }
 
     /** Advances this socket-free connection's ordinary serverbound play listener once. */
     public void tickConnection() {
         if (closed) throw new IllegalStateException("registered player fixture is closed");
         connection.tick();
+    }
+
+    /** Enables ordinary client feedback for completed server chunk batches on this embedded connection. */
+    public void enableChunkBatchAcknowledgements() {
+        if (closed) throw new IllegalStateException("registered player fixture is closed");
+        acknowledgeChunkBatches = true;
     }
 
     /** Outbound login/lifecycle packets remain available for a fixture's client-side Begin/Ready driver. */
@@ -138,7 +191,13 @@ public final class RegisteredServerPlayerFixture implements AutoCloseable {
         // this fixture channel so ordinary outbound payload assertions observe completed writes.
         channel.runPendingTasks();
         channel.flushOutbound();
-        return channel.readOutbound();
+        Object packet = channel.readOutbound();
+        if (acknowledgeChunkBatches && packet instanceof ClientboundChunkBatchFinishedPacket) {
+            player.connection.handleChunkBatchReceived(new ServerboundChunkBatchReceivedPacket(9.0f));
+            chunkBatchAcknowledgements++;
+        }
+        if (packet instanceof ClientboundChunkBatchFinishedPacket) chunkBatchFinishReceipts++;
+        return packet;
     }
 
     public boolean isRegisteredAndAlive() {
@@ -149,6 +208,7 @@ public final class RegisteredServerPlayerFixture implements AutoCloseable {
     public void close() {
         if (closed) return;
         closed = true;
+        outboundObserver = null;
         // placeNewPlayer can throw after inserting into PlayerList. Membership, not a post-call flag,
         // is the authority for supported normal logout cleanup.
         if (playerListRegistered && playerList.getPlayer(player.getUUID()) == player) {

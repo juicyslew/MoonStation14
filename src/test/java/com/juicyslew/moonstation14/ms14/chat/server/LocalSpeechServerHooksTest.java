@@ -4,6 +4,7 @@ import com.google.gson.JsonParser;
 import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -16,6 +17,29 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LocalSpeechServerHooksTest {
+    @Test
+    void muffledPayloadUsesAlreadyAccentedSpeechAndKeepsPrivacyContract() {
+        String spoken = SpeechAccentPolicy.replacement("kobold", 6);
+        assertEquals("Hiss!", spoken);
+        var clear = new com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechPayload(12,
+                java.util.UUID.randomUUID(), "Kobold", 0xFFFFFF, spoken, 1, 2, 3,
+                ResourceLocation.withDefaultNamespace("overworld"),
+                com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechPayload.Mode.WHISPER,
+                com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechPayload.NO_BEARING,
+                com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechPayload.NO_BEARING,
+                com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechPayload.DistanceTier.NONE, "");
+        var muffled = LocalSpeechServerHooks.muffledPayload(clear, new Vec3(5, 2, 3));
+        assertEquals(SpeechRecipientPolicy.muffle(clear.text()), muffled.text());
+        assertFalse(muffled.text().equals(SpeechRecipientPolicy.muffle("private English words")));
+        assertEquals(clear.speakerUuid(), muffled.speakerUuid());
+        assertEquals("Kobold", muffled.actualName());
+        assertEquals(0xFFFFFF, muffled.rgb());
+        assertEquals(0, muffled.x()); assertEquals(0, muffled.y()); assertEquals(0, muffled.z());
+        assertEquals(com.juicyslew.moonstation14.ms14.chat.network.LocalSpeechPayload.Mode.W_MUFFLED, muffled.mode());
+        assertEquals("", muffled.soundCue());
+        assertEquals(SpeechRecipientPolicy.bearing(1, 2, 3, 5, 2, 3).azimuthSector(), muffled.azimuthSector());
+    }
+
     @Test
     void lifecycleAdmissionUsesBoundCharacterSpeakCapability() throws IOException {
         CharacterData mouse = character("data/moonstation14/moonstation14/character/mouse.json");

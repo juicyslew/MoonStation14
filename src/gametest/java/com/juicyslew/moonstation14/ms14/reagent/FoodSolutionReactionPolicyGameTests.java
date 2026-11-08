@@ -18,14 +18,18 @@ public final class FoodSolutionReactionPolicyGameTests {
     private FoodSolutionReactionPolicyGameTests() { }
 
     @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 20, batch = "catalog-food-reaction-policy-tomato")
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining"})
     public static void destinationPolicyControlsReaction(GameTestHelper helper) {
         var manager = PrototypeRuntime.serverManager();
         var type = ModItemFoodSolutionProfiles.TYPE;
         var old = new HashMap<>(manager.snapshot(type).asMap());
         try {
             var profiles = new HashMap<>(old);
-            var previous = profiles.get("tomato");
-            profiles.put(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "tomato"),
+            var tomatoId = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "tomato");
+            var previous = profiles.get(tomatoId);
+            if (previous == null) throw new net.minecraft.gametest.framework.GameTestAssertException(
+                    "registered tomato food-solution profile exists");
+            profiles.put(tomatoId,
                     new ItemFoodSolutionProfile(previous.capacityCents(), previous.contentsCents(), false));
             manager.publishDecoded(type, profiles);
 

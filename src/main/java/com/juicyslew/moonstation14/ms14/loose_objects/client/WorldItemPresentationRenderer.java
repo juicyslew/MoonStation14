@@ -29,14 +29,51 @@ public final class WorldItemPresentationRenderer {
     /** Alpha applies to rendered block-atlas vertices only; it never mutates the source stack. */
     public static void render(ItemStack stack, LooseObjectProfile profile, PoseStack pose,
                               MultiBufferSource buffers, int light, Level level, int seed, float alpha) {
+        render(stack, profile, pose, buffers, light, level, seed, alpha, 0xFFFFFF);
+    }
+
+    public static int blendRed(int baseRgb, float strength) {
+        float t = Math.max(0f, Math.min(1f, strength));
+        int r = Math.round(((baseRgb >> 16) & 255) * (1-t) + 255*t);
+        int g = Math.round(((baseRgb >> 8) & 255) * (1-t));
+        int b = Math.round((baseRgb & 255) * (1-t));
+        return (r << 16) | (g << 8) | b;
+    }
+
+    public static void render(ItemStack stack, LooseObjectProfile profile, PoseStack pose,
+                              MultiBufferSource buffers, int light, Level level, int seed, float alpha, int tintRgb) {
+        render(stack, profile, pose, buffers, light, level, seed, alpha, tintRgb, false);
+    }
+
+    /** Render in a caller-provided camera-facing plane (used only for copied first-person melee weapons). */
+    public static void renderCameraFacing(ItemStack stack, LooseObjectProfile profile, PoseStack pose,
+                                           MultiBufferSource buffers, int light, Level level, int seed, float alpha) {
+        render(stack, profile, pose, buffers, light, level, seed, alpha, 0xFFFFFF, true);
+    }
+    public static void renderCameraFacing(ItemStack stack, LooseObjectProfile profile, PoseStack pose,
+            MultiBufferSource buffers, int light, Level level, int seed, float alpha, int tintRgb) {
+        render(stack, profile, pose, buffers, light, level, seed, alpha, tintRgb, true);
+    }
+
+    /** Same camera-facing item pipeline, returning the number of submitted vertices. */
+    public static int renderCameraFacingCounted(ItemStack stack, LooseObjectProfile profile, PoseStack pose,
+                                                 MultiBufferSource buffers, int light, Level level, int seed, float alpha) {
+        int[] count={0};
+        render(stack, profile, pose, buffers, light, level, seed, alpha, 0xFFFFFF, true, count);
+        return count[0];
+    }
+
+    private static void render(ItemStack stack, LooseObjectProfile profile, PoseStack pose,
+                               MultiBufferSource buffers, int light, Level level, int seed, float alpha, int tintRgb, boolean cameraFacing) {
+        render(stack,profile,pose,buffers,light,level,seed,alpha,tintRgb,cameraFacing,null);
+    }
+
+    private static void render(ItemStack stack, LooseObjectProfile profile, PoseStack pose,
+                               MultiBufferSource buffers, int light, Level level, int seed, float alpha, int tintRgb, boolean cameraFacing, int[] count) {
         if (stack.isEmpty()) return;
         int vertexAlpha = alphaByte(alpha);
         if (vertexAlpha == 0) return;
-        MultiBufferSource presentationBuffers = vertexAlpha == 255 ? buffers : new MultiBufferSource() {
-            @Override public VertexConsumer getBuffer(RenderType type) {
-                return new AlphaVertexConsumer(buffers.getBuffer(RenderType.entityTranslucent(TextureAtlas.LOCATION_BLOCKS)), vertexAlpha);
-            }
-        };
+        MultiBufferSource presentationBuffers = presentationBuffers(buffers, vertexAlpha, tintRgb, count);
         if ("jug".equals(profile.renderKind()) && stack.is(ModItems.JUG.get())) {
             var reagent = stack.get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get());
             var minecraft = Minecraft.getInstance();
@@ -49,16 +86,20 @@ public final class WorldItemPresentationRenderer {
             float red = ((color >> 16) & 255) / 255f;
             float green = ((color >> 8) & 255) / 255f;
             float blue = (color & 255) / 255f;
-            minecraft.getBlockRenderer().getModelRenderer().renderModel(pose.last(), vertexAlpha == 255
-                            ? buffers.getBuffer(RenderType.cutout())
-                            : presentationBuffers.getBuffer(RenderType.entityTranslucent(TextureAtlas.LOCATION_BLOCKS)),
+            minecraft.getBlockRenderer().getModelRenderer().renderModel(pose.last(),
+                    jugVertexConsumer(buffers, vertexAlpha, tintRgb, count),
                     null, model, red, green, blue, light, OverlayTexture.NO_OVERLAY);
             return;
         }
+        renderNonJug(stack, profile, pose, presentationBuffers, light, level, seed, cameraFacing);
+    }
 
+    private static void renderNonJug(ItemStack stack, LooseObjectProfile profile, PoseStack pose,
+                                     MultiBufferSource presentationBuffers, int light, Level level, int seed, boolean cameraFacing) {
         float appearanceScale = ProduceWorldAppearance.scale(stack);
         if ("flat_sprite".equals(profile.renderKind())) {
-            LooseItemRenderer.applyFlatPose(pose, profile, appearanceScale);
+            if (cameraFacing) LooseItemRenderer.applyCameraFacingFlatPose(pose, profile, appearanceScale);
+            else LooseItemRenderer.applyFlatPose(pose, profile, appearanceScale);
             Minecraft.getInstance().getItemRenderer().renderStatic(stack, ItemDisplayContext.NONE, light,
                     OverlayTexture.NO_OVERLAY, pose, presentationBuffers, level, seed);
         } else if ("block_model".equals(profile.renderKind())) {
@@ -77,6 +118,21 @@ public final class WorldItemPresentationRenderer {
         }
     }
 
+    static MultiBufferSource presentationBuffers(MultiBufferSource buffers, int vertexAlpha, int tintRgb, int[] count) {
+        if (vertexAlpha == 255 && tintRgb == 0xFFFFFF && count == null) return buffers;
+        return new MultiBufferSource() {
+            @Override public VertexConsumer getBuffer(RenderType type) {
+                return new AlphaVertexConsumer(buffers.getBuffer(vertexAlpha == 255 && tintRgb == 0xFFFFFF
+                        ? type : RenderType.entityTranslucent(TextureAtlas.LOCATION_BLOCKS)), vertexAlpha, tintRgb, count);
+            }
+        };
+    }
+
+    static VertexConsumer jugVertexConsumer(MultiBufferSource buffers, int alpha, int tint, int[] count) {
+        return presentationBuffers(buffers, alpha, tint, count).getBuffer(alpha == 255
+                ? RenderType.cutout() : RenderType.entityTranslucent(TextureAtlas.LOCATION_BLOCKS));
+    }
+
     public static int alphaByte(float alpha) {
         if (Float.isNaN(alpha)) return 0;
         return Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f);
@@ -85,10 +141,13 @@ public final class WorldItemPresentationRenderer {
     private static final class AlphaVertexConsumer implements VertexConsumer {
         private final VertexConsumer delegate;
         private final int alpha;
-        private AlphaVertexConsumer(VertexConsumer delegate, int alpha) { this.delegate = delegate; this.alpha = alpha; }
-        @Override public VertexConsumer addVertex(float x, float y, float z) { delegate.addVertex(x, y, z); return this; }
+        private final int tint;
+        private final int[] count;
+        private AlphaVertexConsumer(VertexConsumer delegate, int alpha, int tint, int[] count) { this.delegate = delegate; this.alpha = alpha; this.tint = tint; this.count=count; }
+        @Override public VertexConsumer addVertex(float x, float y, float z) { delegate.addVertex(x, y, z); if(count!=null) count[0]++; return this; }
         @Override public VertexConsumer setColor(int red, int green, int blue, int sourceAlpha) {
-            delegate.setColor(red, green, blue, (sourceAlpha * alpha + 127) / 255); return this;
+            delegate.setColor((red * (tint >> 16 & 255) + 127) / 255, (green * (tint >> 8 & 255) + 127) / 255,
+                    (blue * (tint & 255) + 127) / 255, (sourceAlpha * alpha + 127) / 255); return this;
         }
         @Override public VertexConsumer setUv(float u, float v) { delegate.setUv(u, v); return this; }
         @Override public VertexConsumer setUv1(int u, int v) { delegate.setUv1(u, v); return this; }

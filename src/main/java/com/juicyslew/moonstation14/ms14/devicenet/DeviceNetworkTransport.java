@@ -75,8 +75,10 @@ public final class DeviceNetworkTransport {
     public synchronized List<DeviceEndpoint> endpoints() { return List.copyOf(loaded.values()); }
     /** Loaded and currently available endpoints at this dimension-local block position. */
     public synchronized List<DeviceEndpoint> lookupAt(BlockPos position) {
-        return loaded.values().stream().filter(DeviceEndpoint::available)
+        var matching=loaded.values().stream().filter(DeviceEndpoint::available)
                 .filter(endpoint -> endpoint.acceptsBlockTarget(position)).toList();
+        int priority=matching.stream().mapToInt(endpoint->endpoint.targetPriority(position)).max().orElse(Integer.MIN_VALUE);
+        return matching.stream().filter(endpoint->endpoint.targetPriority(position)==priority).toList();
     }
     public synchronized void unload(DeviceIdentity identity) { loaded.remove(identity); unregisterNetwork(identity); }
     public synchronized void retire(DeviceIdentity identity, DeviceLinkGraph graph) { loaded.remove(identity); unregisterNetwork(identity); memoryAddresses.remove(identity); graph.retire(identity); }
@@ -173,6 +175,7 @@ public final class DeviceNetworkTransport {
         @Override public net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension(){return delegate.dimension();}
         @Override public BlockPos position(){return delegate.position();}
         @Override public boolean acceptsBlockTarget(BlockPos target){return delegate.acceptsBlockTarget(target);}
+        @Override public int targetPriority(BlockPos target){return delegate.targetPriority(target);}
         @Override public DeviceComposition composition(){var current=delegate.composition();var net=current.network().orElse(null);if(net==null||net.customAddress()||delegate.ownsAddressOutsideWorldSavedData())return current;String live=net.address();if(!live.isBlank()&&!live.equals(initialAddress)&&!live.equals(address))return current;return current.withAddress(address);}
         @Override public boolean ownsAddressOutsideWorldSavedData(){return delegate.ownsAddressOutsideWorldSavedData();}
         @Override public boolean available(){return delegate.available();}
@@ -187,4 +190,3 @@ public final class DeviceNetworkTransport {
         @Override public void receive(DevicePayload payload,String sourceAddress){delegate.receive(payload,sourceAddress);}
     }
 }
-

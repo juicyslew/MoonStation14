@@ -1,18 +1,13 @@
 package com.juicyslew.moonstation14.ms14.combat;
 
-import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.ms14.blood.BloodstreamSolutionAccess;
 import com.juicyslew.moonstation14.ms14.equipment.MeleeInjectionProtectionPolicy;
 import com.juicyslew.moonstation14.ms14.equipment.ResolvedWornEquipment;
-import com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions;
 import com.juicyslew.moonstation14.ms14.reagent.ReagentAttachment;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.item.ItemStack;
-import com.juicyslew.moonstation14.ms14.reagent.ReagentUnits;
-import com.juicyslew.moonstation14.ms14.reagent.ReagentComponent;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -38,21 +33,11 @@ public final class MeleeChemicalInjectorSystem {
 
         var owner = MeleeItemOwner.read(attacker, selected).orElse(null);
         if (owner == null) return selected;
-        ItemStack copy = owner.stack();
-        var food = ItemFoodSolutions.resolve(BuiltInRegistries.ITEM.getKey(copy.getItem()), level);
-        if (food == null || !food.solutionName().equals(injector.solutionName())) return selected;
-        ItemFoodSolutions.initializeResolved(copy, level);
-        var current = copy.get(ModDataComponents.REAGENT.get());
-        ReagentAttachment source = current == null ? new ReagentAttachment() : new ReagentAttachment(current);
-        long requested;
-        try { requested = Math.multiplyExact(injector.transferCents(), (long) eligible.size()); }
-        catch (ArithmeticException overflow) { requested = ReagentUnits.MAX_CENTS; }
-        var detachedDose = source.splitUnits(Math.min(requested, source.totalUnits()));
-        if (detachedDose.isEmpty()) return selected;
-        copy.set(ModDataComponents.REAGENT.get(), source.toComponent());
-        var committed = MeleeItemOwner.commitComponents(owner, copy).orElse(null);
+        var prepared = ChemicalInjectionDose.prepare(owner.stack(), level, injector, eligible.size()).orElse(null);
+        if (prepared == null) return selected;
+        var committed = MeleeItemOwner.commitComponents(owner, prepared.remainder()).orElse(null);
         if (committed == null) return selected;
-        var shares = distributeDetachedDose(detachedDose, eligible.size());
+        var shares = distributeDetachedDose(prepared.detachedDose(), eligible.size());
         for (int i = 0; i < eligible.size(); i++) {
             var dose = shares.get(i);
             if (!dose.isEmpty()) BloodstreamSolutionAccess.tryAddWholeReacting(eligible.get(i), dose);

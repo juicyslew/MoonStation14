@@ -12,6 +12,12 @@ public class ItemFoodSolutionItem extends Item implements IReagentTrait {
     public ItemFoodSolutionItem(Properties properties) { super(properties); }
     @Override public float getCapacity() { return ItemFoodSolutions.capacity(BuiltInRegistries.ITEM.getKey(this), null); }
     @Override public float getCapacity(ItemStack stack, Level level) {
+        // Harvested produce carries its effective container capacity on the instance.
+        // This adapter is also used by edible produce; do not require a separate item
+        // subclass for the composition metadata to participate in runtime admission.
+        if (stack != null && stack.get(com.juicyslew.moonstation14.component.ModDataComponents.PRODUCE_INSTANCE.get()) != null)
+            return com.juicyslew.moonstation14.ms14.botany.ProduceSourceComposition.capacity(
+                    stack, () -> ItemFoodSolutions.resolve(BuiltInRegistries.ITEM.getKey(this), level));
         return ItemFoodSolutions.capacity(BuiltInRegistries.ITEM.getKey(this), level);
     }
     @Override public boolean canReact(ItemStack stack, Level level) {
@@ -34,6 +40,6 @@ public class ItemFoodSolutionItem extends Item implements IReagentTrait {
     }
     public static com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy solutionTransferFromResolved(com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfile profile) {
         return profile == null || !profile.refillable() ? com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy.DISABLED
-                : new com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy(true, 5f, false, true);
+                : new com.juicyslew.moonstation14.ms14.reagent.SolutionTransferPolicy(true, profile.maxTransferCents() / 100f, false, true);
     }
 }

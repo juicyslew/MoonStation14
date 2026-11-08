@@ -51,7 +51,7 @@ class CitrusPairProductCatalogCandidateTest {
             assertEquals(900, sources.get(id(product)).capacityCents());
             assertTrue(sources.get(id(product)).capacityCents() >= sources.get(id(product)).contentsCents().values().stream().mapToLong(Long::longValue).sum());
             try (var stream = CitrusPairProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream("data/moonstation14/moonstation14/item_food_solution_profile/" + product + ".json")) {
-                assertNull(stream, "candidate source remains TEST-only: " + product);
+                assertNotNull(stream, "activated MAIN profile: " + product);
             } catch (java.io.IOException e) { throw new AssertionError(e); }
             assertEquals(500, edible.doseCents()); assertEquals(20, edible.delayTicks());
             assertEquals(60, edible.forceFeedDelayTicks()); assertFalse(edible.requiresSpecialDigestion());

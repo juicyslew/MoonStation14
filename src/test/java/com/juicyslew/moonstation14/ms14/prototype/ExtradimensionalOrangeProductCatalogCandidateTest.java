@@ -57,7 +57,8 @@ class ExtradimensionalOrangeProductCatalogCandidateTest {
         assertEquals(Map.of(reagent("juiceorange"), 1000L), extractables.get(key).juiceSolution().centContents());
         assertTrue(extractables.get(key).juiceSolution().centContents().values().stream().allMatch(value -> value % 1000 == 0));
         for (String family : new String[]{"produce_profile", "ingestion_profile", "item_food_solution_profile", "extractable_profile",
-                "item_processing_profile", "seed_item_profile"}) assertMainAbsent(family);
+                "item_processing_profile", "seed_item_profile"})
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "extradimensional_orange");
 
         // Orange has no registered Minecraft item. Exercise the existing appearance consumer on wheat as a temporary generic-item surrogate.
         // This verifies only the shared potency scaling boundary, not an orange item binding or runtime harvest path.
@@ -85,11 +86,5 @@ class ExtradimensionalOrangeProductCatalogCandidateTest {
 
     private static net.minecraft.resources.ResourceKey<com.juicyslew.moonstation14.component.codec.json.ReagentData> reagent(String path) {
         return net.minecraft.resources.ResourceKey.create(com.juicyslew.moonstation14.ms14.reagent.ModReagents.REAGENT_REGISTRY_KEY, id(path));
-    }
-    private static void assertMainAbsent(String family) {
-        try (var stream = ExtradimensionalOrangeProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream(
-                "data/moonstation14/moonstation14/" + family + "/extradimensional_orange.json")) {
-            assertNull(stream, "candidate remains TEST-only: " + family);
-        } catch (java.io.IOException e) { throw new AssertionError(e); }
     }
 }

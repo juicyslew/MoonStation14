@@ -59,6 +59,14 @@ class AirlockQuadClipperTest {
         assertTrue(AirlockQuadClipper.clip(line).isEmpty());
     }
 
+    @Test
+    void boundedFirelockClipPreservesQuarterUnitReturnsAndDefaultAirlockBounds() {
+        var quad = List.of(v(-.25f/16,.5f,.5f), v(.5f,.5f,.5f), v(.5f,1,.5f), v(-.25f/16,1,.5f));
+        var padded = AirlockQuadClipper.clip(quad,-.25f/16,16.25f/16,0,2,0,1);
+        assertEquals(-.25f/16,padded.get(0).x(),1e-6);
+        assertTrue(AirlockQuadClipper.clip(quad).stream().allMatch(v -> v.x() >= 0));
+    }
+
     private static AirlockQuadClipper.Vertex v(float x,float y,float z) {
         return new AirlockQuadClipper.Vertex(x,y,z,x,y);
     }

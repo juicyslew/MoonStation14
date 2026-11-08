@@ -15,6 +15,48 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EquipmentRenderPlanTest {
+    @Test void registeredPlantWearablesEnterRenderPlanThroughBundledResolvedProfiles() {
+        ModEquipmentItems.bootstrapClientBundled();
+        var snapshot = new BodyAppearanceSnapshot(ResourceLocation.parse("minecraft:overworld"), 3,
+                java.util.UUID.randomUUID(), 0, List.of(), List.of(
+                new BodyAppearanceSnapshot.Entry("head", ItemPresentation.fromStack(
+                        new ItemStack(com.juicyslew.moonstation14.item.ModItems.CLOTHING_HEAD_HAT_WATERMELON.get()))),
+                new BodyAppearanceSnapshot.Entry("head", ItemPresentation.fromStack(
+                        new ItemStack(com.juicyslew.moonstation14.item.ModItems.CLOTHING_HEAD_HAT_HOLY_WATERMELON.get())))));
+        var plan = EquipmentRenderPlan.create(snapshot, ModEquipmentItems.clientCatalog());
+        assertEquals(2, plan.garments().size());
+        assertTrue(plan.garments().stream().allMatch(g -> g.slot().equals("head")
+                && g.region() == EquipmentItemData.AppearanceRegion.HEAD
+                && g.anchors().equals(List.of(EquipmentRenderPlan.Anchor.HEAD))));
+        var watermelonGarment = plan.garments().stream().filter(g -> g.item().equals(
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(com.juicyslew.moonstation14.item.ModItems.CLOTHING_HEAD_HAT_WATERMELON.get()))).findFirst().orElseThrow();
+        var watermelon = watermelonGarment.wornModel().orElseThrow();
+        assertEquals(ResourceLocation.parse("moonstation14:wearables/meshes/hats/hat_watermelon.json"), watermelon.mesh());
+        var holyGarment = plan.garments().stream().filter(g -> g.item().equals(
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(com.juicyslew.moonstation14.item.ModItems.CLOTHING_HEAD_HAT_HOLY_WATERMELON.get()))).findFirst().orElseThrow();
+        var holy = holyGarment.wornModel().orElseThrow();
+        assertEquals(ResourceLocation.parse("moonstation14:wearables/meshes/hats/hat_holy_watermelon.json"), holy.mesh());
+        assertEquals(4, holy.frames().size());
+        assertEquals(List.of(0.5, 0.5, 0.5, 0.5), holy.frames().stream().map(EquipmentItemData.WornModel.Frame::durationSeconds).toList());
+    }
+
+    @Test void publicSnapshotCarriesLoweredMaskStateIntoConfiguredRenderPlan() {
+        ModEquipmentItems.bootstrapClientBundled();
+        var stack = new ItemStack(com.juicyslew.moonstation14.item.ModEquipmentItems.BREATHING_MASK.get());
+        var lowered = com.juicyslew.moonstation14.ms14.equipment.BreathToolItemState.toggledCopy(stack);
+        assertFalse(com.juicyslew.moonstation14.ms14.equipment.BreathToolItemState.isLowered(stack));
+        assertTrue(com.juicyslew.moonstation14.ms14.equipment.BreathToolItemState.isLowered(lowered));
+        var snapshot = new BodyAppearanceSnapshot(ResourceLocation.parse("minecraft:overworld"), 3,
+                java.util.UUID.randomUUID(), 1, List.of(), List.of(new BodyAppearanceSnapshot.Entry("mask", ItemPresentation.fromStack(lowered))));
+        var plan = EquipmentRenderPlan.create(snapshot, ModEquipmentItems.clientCatalog());
+        var garment = plan.garments().getFirst();
+        assertEquals(ResourceLocation.parse("moonstation14:wearables/meshes/breathing_mask_lowered.json"),
+                garment.wornModel().orElseThrow().mesh());
+        var profile = ModEquipmentItems.clientCatalog().get(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()));
+        assertFalse(com.juicyslew.moonstation14.ms14.equipment.IngestionBlockerPolicy.blocks(profile, lowered, false));
+        assertFalse(com.juicyslew.moonstation14.ms14.equipment.IngestionBlockerPolicy.blocks(profile, lowered, true));
+    }
+
     @Test void publicHandPlanRetainsSanitizedOrdinaryAndPortableStacksForAnyLivingRenderer() {
         var animal = new ItemStack(com.juicyslew.moonstation14.item.ModItems.PORTABLE_BODY_KEY.get());
         animal.set(com.juicyslew.moonstation14.component.ModDataComponents.PORTABLE_BODY_APPEARANCE.get(),

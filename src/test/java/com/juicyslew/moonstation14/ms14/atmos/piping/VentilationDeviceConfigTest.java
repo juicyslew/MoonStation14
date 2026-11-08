@@ -11,11 +11,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class VentilationDeviceConfigTest {
     @Test
     void boundPrototypeChangesOnlyLegacyDefaultsAndMissingPrototypeDisablesThem() {
-        var definition = new VentilationDeviceData(VentilationDeviceData.Kind.VENT,
-                VentilationDeviceData.PipeLane.SECONDARY, new VentilationDeviceData.ApcPowerReceiver(5),
-                new VentilationDeviceData.ExtensionCableReceiver(2),
-                new VentilationDeviceData.GasVentPump(12, 30), null,
-                new VentilationDeviceData.FixtureGeometry(0.75, 0.75, 0.125, true, true));
+        var resolved = ventilationPrototype();
+        var definition = new VentilationDeviceData(resolved.kind(), VentilationDeviceData.PipeLane.SECONDARY,
+                resolved.apcPowerReceiver(), resolved.extensionCableReceiver(),
+                new VentilationDeviceData.GasVentPump(12, 30), null, resolved.fixtureGeometry(),
+                resolved.deviceComponents(), resolved.atmosMonitor(), resolved.atmosAlarmable());
         var config = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT, null);
         assertFalse(config.settings().configuredEnabled());
         assertEquals(0, config.receiverDemandWatts());
@@ -40,6 +40,29 @@ class VentilationDeviceConfigTest {
                 new VentilationDeviceData.GasVentScrubber(0.2, java.util.List.of(GasType.CARBON_DIOXIDE)),
                  new VentilationDeviceData.FixtureGeometry(0.75, 0.75, 0.125, true, true)));
         assertFalse(config.settings().configuredEnabled());
+    }
+
+    private static VentilationDeviceData ventilationPrototype() {
+        var manager = new com.juicyslew.moonstation14.ms14.prototype.PrototypeManager();
+        var type = com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices.VENTILATION_DEVICE_TYPE;
+        manager.register(type);
+        var raw = new java.util.LinkedHashMap<net.minecraft.resources.ResourceLocation, com.google.gson.JsonObject>();
+        for (String name : java.util.List.of("gas_unary_base", "gas_vent", "gas_scrubber")) {
+            String path = "/data/moonstation14/moonstation14/ventilation_device/" + name + ".json";
+            try (var stream = VentilationDeviceConfigTest.class.getResourceAsStream(path)) {
+                if (stream == null) throw new IllegalStateException("Missing test resource " + path);
+                var json = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(stream,
+                        java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+                var id = switch (name) {
+                    case "gas_unary_base" -> com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices.BASE;
+                    case "gas_vent" -> com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices.VENT;
+                    default -> com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices.SCRUBBER;
+                };
+                raw.put(id, json);
+            } catch (java.io.IOException e) { throw new java.io.UncheckedIOException(e); }
+        }
+        manager.reload(type, raw);
+        return manager.snapshot(type).get(com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices.VENT);
     }
 
     @Test

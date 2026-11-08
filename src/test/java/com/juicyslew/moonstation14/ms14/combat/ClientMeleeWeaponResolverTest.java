@@ -61,4 +61,21 @@ class ClientMeleeWeaponResolverTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new BodyHandStateSnapshot.EquipmentSlot("gloves", null, "minecraft:iron_sword", 1, null, null, 0));
     }
+
+    @Test void handlessSentinelBindingAndMissingHandProofPolicyAreExplicit() {
+        var unarmed = MeleeWeaponResolver.choose(BODY, 0, "", false, Optional.empty(), Optional.empty(),
+                Optional.empty(), Optional.empty(), Optional.of(ACTOR)).orElseThrow();
+        assertEquals(MeleeWeaponResolver.Kind.UNARMED, unarmed.kind());
+        assertEquals("", unarmed.activeHand()); assertEquals(0, unarmed.handRevision());
+        assertTrue(unarmed.itemToken().isEmpty());
+        // Handed bodies cannot turn a missing or mismatched snapshot into the no-hands sentinel.
+        assertTrue(ClientMeleeWeaponResolver.project(BODY, 4, null, CATALOG, Optional.of(ACTOR)).isEmpty());
+        assertTrue(ClientMeleeWeaponResolver.project(BODY, 5,
+                snapshot(List.of(new BodyHandStateSnapshot.Hand("main", null, null, 0), empty()), List.of()),
+                CATALOG, Optional.of(ACTOR)).isEmpty());
+        var changedRevision = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 4, 10,
+                "main", List.of(new BodyHandStateSnapshot.Hand("main", null, null, 0), empty()), List.of());
+        assertNotEquals(9, ClientMeleeWeaponResolver.project(BODY, 4, changedRevision, CATALOG, Optional.of(ACTOR))
+                .orElseThrow().handRevision());
+    }
 }

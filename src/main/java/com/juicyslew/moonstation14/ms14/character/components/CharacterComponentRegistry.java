@@ -36,10 +36,12 @@ public final class CharacterComponentRegistry {
             Map.entry(BarotraumaComponent.TYPE, new Entry<>(BarotraumaComponent.class, BarotraumaComponent.CODEC)),
             Map.entry(ExaminerComponent.TYPE, new Entry<>(ExaminerComponent.class, ExaminerComponent.CODEC)),
             Map.entry(ComplexInteractionComponent.TYPE, new Entry<>(ComplexInteractionComponent.class, ComplexInteractionComponent.CODEC)),
+            Map.entry(EnsnareableComponent.TYPE, new Entry<>(EnsnareableComponent.class, EnsnareableComponent.CODEC)),
             Map.entry(DoorBumpOpenerComponent.TYPE, new Entry<>(DoorBumpOpenerComponent.class, DoorBumpOpenerComponent.CODEC)),
             Map.entry(BlindablePrototypeComponent.TYPE, new Entry<>(BlindablePrototypeComponent.class, BlindablePrototypeComponent.CODEC)),
             Map.entry(BloodstreamComponent.TYPE, new Entry<>(BloodstreamComponent.class, BloodstreamComponent.CODEC)),
             Map.entry(BodyComponent.TYPE, new Entry<>(BodyComponent.class, BodyComponent.CODEC)),
+            Map.entry(InternalsComponent.TYPE, new Entry<>(InternalsComponent.class, InternalsComponent.CODEC)),
             Map.entry(EquipmentSlotsPrototypeComponent.TYPE, new Entry<>(EquipmentSlotsPrototypeComponent.class, EquipmentSlotsPrototypeComponent.CODEC)),
             Map.entry(FlammablePrototypeComponent.TYPE, new Entry<>(FlammablePrototypeComponent.class, FlammablePrototypeComponent.CODEC)),
             Map.entry(HandsPrototypeComponent.TYPE, new Entry<>(HandsPrototypeComponent.class, HandsPrototypeComponent.CODEC)),
@@ -91,7 +93,8 @@ public final class CharacterComponentRegistry {
             Map.entry(UdderComponent.TYPE, new Entry<>(UdderComponent.class, UdderComponent.CODEC)),
             Map.entry(EggLayerComponent.TYPE, new Entry<>(EggLayerComponent.class, EggLayerComponent.CODEC)),
             Map.entry(AbsorbentCleaningComponent.TYPE,
-                    new Entry<>(AbsorbentCleaningComponent.class, AbsorbentCleaningComponent.CODEC)));
+                    new Entry<>(AbsorbentCleaningComponent.class, AbsorbentCleaningComponent.CODEC)),
+            Map.entry(VocalComponent.TYPE, new Entry<>(VocalComponent.class, VocalComponent.CODEC)));
 
     public static boolean registered(String type) { return TYPES.containsKey(type); }
 

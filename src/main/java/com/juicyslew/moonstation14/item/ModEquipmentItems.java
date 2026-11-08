@@ -8,6 +8,10 @@ public final class ModEquipmentItems {
     private ModEquipmentItems() {}
 
     public static final DeferredItem<Item> GREY_CAP = register("grey_cap");
+    public static final DeferredItem<Item> DEBUG_CAPABILITY_CAP = ModItems.ITEMS.register("debug_capability_cap",
+            () -> new Item(new Item.Properties().stacksTo(1).component(
+                    com.juicyslew.moonstation14.component.ModDataComponents.LOOSE_OBJECT_PROFILE.get(),
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "debug_capability_cap"))));
     public static final DeferredItem<Item> GREY_JUMPSUIT = register("grey_jumpsuit");
     public static final DeferredItem<Item> SIMPLE_COAT = register("simple_coat");
     public static final DeferredItem<Item> BLACK_GLOVES = register("black_gloves");
@@ -20,9 +24,11 @@ public final class ModEquipmentItems {
     public static final DeferredItem<Item> UTILITY_CASE = register("utility_case");
     public static final DeferredItem<Item> SUIT_RAD = register("suit_rad");
     public static final DeferredItem<Item> HOOD_RAD = register("hood_rad");
+    public static final DeferredItem<Item> EVA_HELMET = register("eva_helmet");
+    public static final DeferredItem<Item> EVA_SUIT = register("eva_suit");
+    public static final DeferredItem<Item> BREATHING_MASK = register("breathing_mask");
 
     private static DeferredItem<Item> register(String id) {
         return ModItems.ITEMS.register(id, () -> new Item(new Item.Properties().stacksTo(1)));
     }
 }
-

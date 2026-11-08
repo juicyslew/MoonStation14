@@ -1,0 +1,19 @@
+gradle.projectsEvaluated {
+    def requested = gradle.startParameter.projectProperties.get('ms14ValidationDebug') ?: 'false'
+    if (!(requested in ['true', 'false'])) {
+        throw new GradleException('ms14ValidationDebug must be true or false')
+    }
+    def level = requested == 'true' ? 'debug' : 'info'
+    allprojects {
+        def neoForge = extensions.findByName('neoForge')
+        def run = neoForge?.runs?.findByName('gameTestServer')
+        if (run != null) {
+            run.logLevel.set(requested == 'true' ? org.slf4j.event.Level.DEBUG : org.slf4j.event.Level.INFO)
+            run.systemProperty('forge.logging.console.level', level)
+            run.systemProperty('forge.logging.file.level', level)
+            run.systemProperty('forge.logging.debugFile.level', level)
+            run.systemProperty('forge.logging.marker.registries', requested == 'true' ? 'ACCEPT' : 'DENY')
+            run.systemProperty('forge.logging.markers', requested == 'true' ? 'REGISTRIES' : '')
+        }
+    }
+}

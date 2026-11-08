@@ -325,7 +325,7 @@ public final class VentilationGasRuntime {
     /** Applies the receipt only for the successful result returned after its gas transaction committed. */
     static void recordCommittedTransfer(VentilationDeviceBlockEntity device, FiniteVentilationTransfer.Result result) {
         if (device == null || result == null || !result.moved()) return;
-        device.recordTransfer(result.packet());
+        result.committedPackets().forEach(device::recordTransfer);
         if (result.export() != null) device.recordExport(result.export());
     }
 

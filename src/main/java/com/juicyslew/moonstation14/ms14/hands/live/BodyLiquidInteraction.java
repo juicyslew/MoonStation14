@@ -347,11 +347,27 @@ public final class BodyLiquidInteraction {
                                        long revision, int doseCents, boolean destroyOnEmpty, boolean food,
                                        BooleanSupplier authorityValid, ResourceLocation sound, float volumeDb,
                                        float pitchVariation, java.util.function.LongConsumer acceptedDose) {
-        if (acceptedDose == null) return Result.DENIED;
-        Result result = sipTimedOwned(body, worldTargetId, hand, token, revision, doseCents, destroyOnEmpty,
-                food, authorityValid, sound, volumeDb, pitchVariation,
-                (BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result>) null);
-        if (result == Result.SUCCESS) acceptedDose.accept(doseCents);
+        if (doseCents <= 0 || acceptedDose == null) return Result.DENIED;
+        int[] acceptedCents = {0};
+        Result result = sipBody(body, worldTargetId, hand, token, revision, authorityValid, true, doseCents,
+                destroyOnEmpty, food, false, sound, volumeDb, pitchVariation,
+                (BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result>) null, acceptedCents);
+        // Both SUCCESS exits in sipTransaction populate this from the committed transfer plan.
+        if (result == Result.SUCCESS) acceptedDose.accept(acceptedCents[0]);
+        return result;
+    }
+
+    /** Timed sip combining committed-dose accounting with the fresh-output pickup hook. */
+    public static Result sipTimedOwned(LivingEntity body, UUID worldTargetId, String hand, String token,
+                                       long revision, int doseCents, boolean destroyOnEmpty, boolean food,
+                                       BooleanSupplier authorityValid, ResourceLocation sound, float volumeDb,
+                                       float pitchVariation, java.util.function.LongConsumer acceptedDose,
+                                       BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterTrashCommit) {
+        if (doseCents <= 0 || acceptedDose == null) return Result.DENIED;
+        int[] acceptedCents = {0};
+        Result result = sipBody(body, worldTargetId, hand, token, revision, authorityValid, true, doseCents,
+                destroyOnEmpty, food, false, sound, volumeDb, pitchVariation, afterTrashCommit, acceptedCents);
+        if (result == Result.SUCCESS) acceptedDose.accept(acceptedCents[0]);
         return result;
     }
 
@@ -372,22 +388,46 @@ public final class BodyLiquidInteraction {
                 false, true, true, completionSound, volumeDb, pitchVariation, afterTrashCommit);
     }
 
+    /** Whole-source completion with committed-dose accounting and fresh-output pickup composed. */
+    public static Result consumeTimedEdibleOwned(LivingEntity body, String hand, String token,
+            long revision, int doseCents, BooleanSupplier authorityValid, ResourceLocation completionSound,
+            float volumeDb, float pitchVariation, java.util.function.LongConsumer acceptedDose,
+            BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterTrashCommit) {
+        if (doseCents <= 0 || token == null || acceptedDose == null) return Result.DENIED;
+        int[] acceptedCents = {0};
+        Result result = sipBody(body, null, hand, token, revision, authorityValid, true, doseCents,
+                false, true, true, completionSound, volumeDb, pitchVariation, afterTrashCommit, acceptedCents);
+        if (result == Result.SUCCESS) acceptedDose.accept(acceptedCents[0]);
+        return result;
+    }
+
     private static Result sipBody(LivingEntity body, @Nullable UUID worldTargetId, String hand,
                                    @Nullable String token, long revision, BooleanSupplier authorityValid,
                                    boolean timed, int doseCents, boolean destroyOnEmpty, boolean food,
                                    boolean consumeSource, ResourceLocation sound, float volumeDb, float pitchVariation,
-                                   BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterTrashCommit) {
+                                    BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterTrashCommit) {
+        return sipBody(body, worldTargetId, hand, token, revision, authorityValid, timed, doseCents,
+                destroyOnEmpty, food, consumeSource, sound, volumeDb, pitchVariation, afterTrashCommit, null);
+    }
+
+    private static Result sipBody(LivingEntity body, @Nullable UUID worldTargetId, String hand,
+                                   @Nullable String token, long revision, BooleanSupplier authorityValid,
+                                   boolean timed, int doseCents, boolean destroyOnEmpty, boolean food,
+                                   boolean consumeSource, ResourceLocation sound, float volumeDb, float pitchVariation,
+                                   BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterTrashCommit,
+                                   int[] acceptedCents) {
         return LiveHandsCommitGateway.batch(() -> sipTransaction(body, worldTargetId, hand, token, revision,
                 authorityValid, timed, doseCents, destroyOnEmpty, food, consumeSource, sound, volumeDb, pitchVariation,
-                afterTrashCommit));
+                afterTrashCommit, acceptedCents));
     }
 
     private static Result sipTransaction(LivingEntity body, @Nullable UUID worldTargetId, String hand,
                                          @Nullable String token, long revision, BooleanSupplier authorityValid,
                                          boolean timed, int doseCents, boolean destroyOnEmpty, boolean food,
                                           boolean consumeSource, ResourceLocation completionSound,
-                                          float volumeDb, float pitchVariation,
-                                          BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterTrashCommit) {
+                                           float volumeDb, float pitchVariation,
+                                           BiFunction<LooseItemEntity, ItemStack, BodyHandItemTransfer.Result> afterTrashCommit,
+                                           int[] acceptedCents) {
         if (body == null || authorityValid == null) return Result.DENIED;
         if (!(body.level() instanceof ServerLevel level) || level.getServer() == null || !level.getServer().isSameThread()
                 || !CharacterControlSystem.canAct(body) || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel()
@@ -417,7 +457,9 @@ public final class BodyLiquidInteraction {
             try { ownedToken = new ItemToken(token); } catch (RuntimeException ex) { return Result.DENIED; }
         }
         ItemStack oldWorldStack = null;
-        ItemStack sourceStack = held; ItemEntity world = null;
+        // Keep held as the immutable CAS snapshot; sourceStack is a separately staged copy
+        // that may be materialized for reagent planning without changing that snapshot.
+        ItemStack sourceStack = held == null ? null : held.copy(); ItemEntity world = null;
         if (worldTargetId != null) {
             if (!(timed ? BodyItemTargetProbe.loadedReachableItem(level, body, worldTargetId, BodyItemTargetProbe.MAX_REACH)
                     : BodyItemTargetProbe.probeSelected(level, body, worldTargetId, BodyItemTargetProbe.MAX_REACH) != null)) return Result.DENIED;
@@ -430,6 +472,9 @@ public final class BodyLiquidInteraction {
         // This covers every timed/untimed and whole-source route, regardless of caller's food flag.
         if (sourceStack == null || !com.juicyslew.moonstation14.ms14.ingestion.TimedIngestionAccess
                 .specialDigestionAllowed(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(sourceStack.getItem()))) return Result.DENIED;
+        // Materialize only the independent staged source copy: admission/failed completion
+        // must never mutate the held CAS snapshot, authoritative hand, or loose world item.
+        com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutions.initializeResolved(sourceStack, level);
         Object holder = sourceStack;
         var bridge = ReagentSystem.bridgeForHolder(holder); if (bridge == null) return Result.DENIED;
         ReagentAttachment src = MS14Provider.getDetached(holder, bridge), stomach = MS14Provider.getDetached(body, MS14Bridges.STOMACH);
@@ -477,15 +522,21 @@ public final class BodyLiquidInteraction {
                             revision, authorityValid, timed, destroyOnEmpty, food, completionSound, volumeDb,
                             pitchVariation, now, before, sourceHeld, sourceWorld, sourceWorldStack, sourceOwnedToken,
                             stomachBefore, stomachAttachment, plan, removeHeldSource)), afterTrashCommit);
-            return switch (committed) {
+            Result result = switch (committed) {
                 case SUCCESS -> Result.SUCCESS;
                 case DENIED -> Result.DENIED;
                 case RECOVERY_REQUIRED -> Result.RECOVERY_REQUIRED;
             };
+            // Publish the receipt only after the output batch itself reports SUCCESS.
+            if (result == Result.SUCCESS && acceptedCents != null) acceptedCents[0] = Math.toIntExact(plan.transferredCents());
+            return result;
         }
-        return commitPlannedSip(body, level, worldTargetId, hand, token, revision, authorityValid, timed,
+        Result result = commitPlannedSip(body, level, worldTargetId, hand, token, revision, authorityValid, timed,
                 destroyOnEmpty, food, completionSound, volumeDb, pitchVariation, now,
                 before, held, world, oldWorldStack, ownedToken, stomachBefore, stomachAttachment, plan, removeHeldSource);
+        // This is the other SUCCESS exit; transferredCents cannot exceed the int dose request.
+        if (result == Result.SUCCESS && acceptedCents != null) acceptedCents[0] = Math.toIntExact(plan.transferredCents());
+        return result;
     }
 
     /** Explicitly narrows ingestion outcomes to the shared output-batch commit contract. */

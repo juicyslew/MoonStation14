@@ -1,0 +1,19 @@
+{
+  "abstract": true,
+  "weapon": {
+    "damage": {},
+    "attack_rate": 1.0,
+    "range": 1.5,
+    "angle_degrees": 120.0,
+    "wide_origin_height_ratio": 0.6,
+    "arc": "moonstation14:weapon_arc_thrust",
+    "wide_arc": "moonstation14:weapon_arc_slash",
+    "blunt_stamina_damage_factor": 0.5,
+    "reset_on_hand_selected": true,
+    "alt_disarm": true,
+    "audio": {
+      "swing": { "event": "moonstation14:ss14/weapons/punch_miss" },
+      "no_damage": { "event": "moonstation14:ss14/effects/weak_hit" }
+    }
+  }
+}

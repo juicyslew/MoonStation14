@@ -30,6 +30,9 @@ class ReviewResults:
                     "message":"An immutable task result conflicts with this callback.","task_id":task_id,
                     "next_action":"CHECK_TASK_STATUS","recovery":"Check current task status; only replay the identical result under the same task and assignment. Do not replace an immutable result."}
         if isinstance(exc, workflow_store.ProtocolError):
+            field=getattr(exc,'field',None)
+            if field and (field.startswith('artifact_refs[') or field.startswith('inspected_refs[') or field.startswith('findings[') and '.evidence_refs[' in field or field.startswith('owner_followups[') and ('.evidence_refs[' in field or field.endswith('.criterion_id'))):
+                return self._invalid(payload,field,str(exc),getattr(exc,'recovery',None))
             return {"accepted":False,"code":"REVIEW_TASK_STATE","field":getattr(exc,'field',None) or 'task_id',
                     "message":"Task state or assignment does not accept this callback.","task_id":task_id,
                     "next_action":"REFRESH_TASK_STATUS","recovery":"Refresh task status and use only the current authorized assignment; do not spoof another session or generation."}
@@ -47,7 +50,7 @@ class ReviewResults:
             recovery=getattr(exc,'recovery',None)
             return self._invalid(payload,field,'Result does not match the required callback contract.',recovery)
         if schema == "review_result":
-            for finding in payload["findings"]:
+            for index, finding in enumerate(payload["findings"]):
                 if finding.get("validation_stage") == "OWNER_TESTING":
                     return self._invalid(payload,"findings.validation_stage",
                         "OWNER_TESTING findings are pending owner observations, not technical blockers; move this item to owner_followups and report PASS when no technical blocker remains.")
@@ -70,6 +73,52 @@ class ReviewResults:
     def complete(self, payload, *, session_id):
         bad=self._validate(payload,"review_result")
         if bad: return bad
+        # Route completed callbacks through the store first: it preserves exact
+        # replays and immutable-result conflicts without consulting live evidence.
+        existing=self.store.get_task(payload['task_id'])
+        if existing and existing.get('state') == 'COMPLETED':
+            try: return {"accepted":True,**self.store.complete_task(payload,session_id=session_id)}
+            except workflow_store.StoreError as exc: return self._store_failure(payload,exc)
+        for index, finding in enumerate(payload.get('findings', [])):
+            if finding.get('category') != 'COVERAGE' or finding.get('coverage_basis') != 'INSUFFICIENT_CHECK_COVERAGE':
+                continue
+            try:
+                checks=self.planner.verified_current_checks(payload['task_id'])
+                logs=self.planner.native_log_inputs(payload['task_id'])
+            except workflow_store.ProtocolError as exc:
+                return self._store_failure(payload,exc)
+            relevant=[check for check in checks if finding.get('criterion_id') in check.get('covers',[])
+                      and check.get('exit_code') == 0 and (check.get('evidence') or {}).get('status') == 'PASS'
+                      and (not finding.get('check_kind') or check.get('kind') == finding.get('check_kind'))]
+            matching=[check for check in relevant if any(
+                log.get('kind') == check.get('kind') and finding.get('criterion_id') in log.get('covers',[])
+                and log.get('parent_receipt_ref') == check.get('receipt_ref')
+                and log.get('task_id') == check.get('task_id') for log in logs)]
+            log_ids={log['artifact_id'] for log in logs if any(
+                log.get('kind') == check.get('kind') and finding.get('criterion_id') in log.get('covers',[])
+                and log.get('parent_receipt_ref') == check.get('receipt_ref')
+                and log.get('task_id') == check.get('task_id') for check in matching)}
+            if matching and not (set(finding.get('evidence_refs',[])) & set(payload.get('inspected_refs',[])) & log_ids):
+                return self._invalid(payload,f'findings[{index}].evidence_refs',
+                    'A current verified PASS check covers this criterion. Cite a relevant current native log in both evidence_refs and inspected_refs after inspecting it through status; if log access actually fails, report_error rather than rerunning a working check.')
+        for finding in payload.get('findings', []):
+            if (finding.get('category') != 'COVERAGE' or
+                    finding.get('coverage_basis') != 'MISSING_EXECUTION_EVIDENCE' or
+                    not finding.get('check_kind')):
+                continue
+            # Compare claims only against check records bound to this exact current
+            # run generation. Unverifiable evidence is never treated as a PASS.
+            try:
+                trusted=self.planner.verified_current_checks(payload['task_id'])
+            except workflow_store.ProtocolError as exc:
+                return self._store_failure(payload,exc)
+            contradicted=[x for x in trusted if x.get('kind')==finding['check_kind'] and
+                finding.get('criterion_id') in x.get('covers',[]) and x.get('exit_code')==0 and
+                (x.get('evidence') or {}).get('status')=='PASS']
+            if contradicted:
+                refs=', '.join(sorted({x['receipt_ref'] for x in contradicted}))
+                return self._invalid(payload,'findings.coverage_basis',
+                    f'A verified current PASS receipt ({refs}) for {finding["check_kind"]} covers this criterion; correct the result or report the concrete remaining check-coverage gap.')
         try: return {"accepted":True,**self.store.complete_task(payload,session_id=session_id)}
         except workflow_store.StoreError as exc: return self._store_failure(payload,exc)
 

@@ -1,0 +1,8 @@
+{
+  "id": "moonstation14:cotton_bol",
+  "capacity_cents": 1000,
+  "contents_cents": {
+    "moonstation14:fiber": 1000
+  },
+  "refillable": true
+}

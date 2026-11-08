@@ -46,6 +46,9 @@ public class ModDataComponents {
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<ReagentComponent>> REAGENT =
             register_component("reagent", builder -> builder.persistent(ReagentComponent.CODEC).networkSynchronized(ReagentComponent.STREAM_CODEC));
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> BREATH_MASK_LOWERED =
+            register_component("breath_mask_lowered", builder -> builder.persistent(com.mojang.serialization.Codec.BOOL)
+                    .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.BOOL));
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<PortableBodyReference>> PORTABLE_BODY_REFERENCE =
             register_component("portable_body_reference", builder -> builder.persistent(PortableBodyReference.CODEC)

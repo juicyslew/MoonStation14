@@ -24,6 +24,7 @@ public final class ParticleAcceleratorBlastImmunityGameTests {
     private ParticleAcceleratorBlastImmunityGameTests() { }
 
     @GameTest(templateNamespace="moonstation14", template="empty", timeoutTicks=20)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining"})
     public static void finishedPaPartsResistMutationWithoutBlockingBlast(GameTestHelper h) {
         ServerLevel level = (ServerLevel) h.getLevel();
         BlockPos source = h.absolutePos(new BlockPos(2, 2, 2));

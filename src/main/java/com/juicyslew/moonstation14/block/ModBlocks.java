@@ -14,6 +14,7 @@ import com.juicyslew.moonstation14.ms14.atmos.piping.ExposedPipeVisualBlock;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlock;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlock;
+import com.juicyslew.moonstation14.ms14.doors.FirelockBlock;
 import com.juicyslew.moonstation14.ms14.devicenet.control.WallSignalControlBlock;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.item.custom.SingularityBeaconItem;
@@ -94,6 +95,9 @@ public class ModBlocks {
     public static final DeferredBlock<AirlockBlock> AIRLOCK = BLOCKS.register("airlock",
             () -> new AirlockBlock(BlockBehaviour.Properties.of().strength(5f).sound(SoundType.METAL).noOcclusion()));
     static { registerBlockItem("airlock", AIRLOCK); }
+    public static final DeferredBlock<FirelockBlock> FIRELOCK = BLOCKS.register("firelock",
+            () -> new FirelockBlock(BlockBehaviour.Properties.of().strength(5f).sound(SoundType.METAL).noOcclusion()));
+    static { registerBlockItem("firelock", FIRELOCK); }
     public static final DeferredBlock<WallSignalControlBlock> SIGNAL_BUTTON = BLOCKS.register("signal_button", () -> new WallSignalControlBlock(BlockBehaviour.Properties.of().strength(2f).sound(SoundType.COPPER).noOcclusion().noCollission()));
     public static final DeferredBlock<WallSignalControlBlock> SIGNAL_SWITCH = BLOCKS.register("signal_switch", () -> new WallSignalControlBlock(BlockBehaviour.Properties.of().strength(2f).sound(SoundType.COPPER).noOcclusion().noCollission()));
     static {

@@ -12,8 +12,6 @@ import com.juicyslew.moonstation14.ms14.hands.network.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.PlayLevelSoundEvent;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -21,7 +19,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 @PrefixGameTestTemplate(false)
 @GameTestTags({"botany", "botany-sampling"})
@@ -29,7 +26,7 @@ public final class BotanySamplingAdmissionGameTests {
     private BotanySamplingAdmissionGameTests() { }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"botany", "botany-sampling"})
+    @GameTestTags({"botany", "botany-sampling", "merge-main-remaining", "merge-main-stage-two"})
     public static void authenticatedSamplingDeniesRawStageOneSampledAndDeadWithoutSideEffects(GameTestHelper helper) {
         var species = ModSeedProfiles.seedId("wheat");
         var base = ModSeedProfiles.serverLookup(species);
@@ -43,26 +40,21 @@ public final class BotanySamplingAdmissionGameTests {
         ItemStack seeds = new ItemStack(ModItems.WHEAT_SEEDS.get());
         seeds.set(com.juicyslew.moonstation14.component.ModDataComponents.GENETIC_VALUE.get(), source);
         var sounds = new AtomicInteger();
-        var position = new AtomicReference<BlockPos>();
         ServerLevel level = (ServerLevel) helper.getLevel();
-        Consumer<PlayLevelSoundEvent.AtPosition> listener = event -> {
-            if (event.getLevel() == level && event.getSound().unwrapKey()
-                    .map(key -> key.location().equals(SeedProfile.Scream.DEFAULT_SOUND)).orElse(false)) {
-                BlockPos pos = position.get();
-                if (pos != null && event.getPosition().distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5) < 1e-6)
-                    sounds.incrementAndGet();
-            }
-        };
         BotanyHarvestAuthenticatedGameTests.runAuthenticatedHarvest(helper, seeds, "sample-admission-denials",
                 (h, fixture, epoch, emptyHand, tray, pos, world, finished) -> {
-            position.set(pos);
             try {
-                NeoForge.EVENT_BUS.addListener(listener);
+                h.runAfterDelay(3990, () -> finish(h, fixture, finished, "sampling denial timeout",
+                        new AssertionError("sampling denial fixture reached cleanup deadline")));
+                fixture.observeOutbound(packet -> {
+                    if (packet instanceof net.minecraft.network.protocol.game.ClientboundSoundPacket sound
+                            && BotanyHarvestAuthenticatedGameTests.matchesPlantScreamPacket(sound, pos))
+                        sounds.incrementAndGet();
+                });
                 var body = HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
                 var plant = tray.plantState();
-                var reference = plant.seedReference();
                 plant.transitionSpecies(new PlantSeedReference(source, true));
-                reference = plant.seedReference();
+                var reference = plant.seedReference();
                 plant.state(2, 100, 0, 0, false, false);
                 tray.setChanged();
                 var wirecutter = LooseItemEntity.create(world, body.position().add(0, .1, .8), new ItemStack(ModItems.WIRECUTTER.get()));
@@ -79,51 +71,29 @@ public final class BotanySamplingAdmissionGameTests {
                 long plantRevision = plant.revision();
                 String toolToken;
 
-                var staleQuery = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                var staleQuery = fixture.queryHands(epoch);
                 toolToken = staleQuery.hands().stream().filter(value -> value.id().equals(emptyHand)).findFirst().orElseThrow().token();
                 var hit = RegisteredPlayerReadyDriver.aimAt(body, world, pos);
                 var stale = new BodyBlockUseRequest(epoch, 2, staleQuery.revision() - 1, emptyHand, toolToken,
                         pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE);
                 require(AuthenticatedBlockUseDriver.use(fixture.player(), stale) == BodyBlockUseResult.Outcome.DENIED,
                         "stale hand revision is denied by authenticated ordinary USE");
-                assertUnchanged(fixture.player(), epoch, 4, emptyHand, toolToken, health, reference, seedValue,
+                assertUnchanged(fixture, epoch, emptyHand, toolToken, health, reference, seedValue,
                         plant, before, world, pos, sounds, sampledBefore, deadBefore, plantRevision);
-
-                plant.state(2, health, 0, 0, false, false);
-                tray.setChanged();
-                denyCurrent(fixture.player(), epoch, 3, 5, emptyHand, toolToken, body, world, pos);
-                assertUnchanged(fixture.player(), epoch, 6, emptyHand, toolToken, health, reference, seedValue,
-                        plant, before, world, pos, sounds, false, false, plantRevision);
-
-                plant.state(8, health, 0, 0, false, false);
-                plant.sampled(true);
-                tray.setChanged();
-                sampledBefore = plant.sampled(); deadBefore = plant.dead(); plantRevision = plant.revision();
-                denyCurrent(fixture.player(), epoch, 4, 7, emptyHand, toolToken, body, world, pos);
-                assertUnchanged(fixture.player(), epoch, 8, emptyHand, toolToken, health, reference, seedValue,
-                        plant, before, world, pos, sounds, sampledBefore, deadBefore, plantRevision);
-
-                plant.sampled(false);
-                plant.state(8, health, 0, 0, false, true);
-                tray.setChanged();
-                sampledBefore = plant.sampled(); deadBefore = plant.dead(); plantRevision = plant.revision();
-                denyCurrent(fixture.player(), epoch, 5, 9, emptyHand, toolToken, body, world, pos);
-                assertUnchanged(fixture.player(), epoch, 10, emptyHand, toolToken, health, reference, seedValue,
-                        plant, before, world, pos, sounds, sampledBefore, deadBefore, plantRevision);
-                finish(h, fixture, finished, "sampling denial admission guards", null);
+                h.runAfterDelay(1, () -> runDenialPhase(h, fixture, finished, epoch, 3, emptyHand, toolToken,
+                        body, tray, world, pos, sounds, health, reference, seedValue, plant, before, "raw stage"));
             } catch (Throwable failure) { finish(h, fixture, finished, "sampling denial admission guards", failure); }
-            finally { NeoForge.EVENT_BUS.unregister(listener); }
         });
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"botany", "botany-sampling"})
+    @GameTestTags({"botany", "botany-sampling", "merge-main-remaining", "merge-main-stage-two"})
     public static void authenticatedNonreadySampleUsesWorldFallbackAndPreservesPacketHealthAndTool(GameTestHelper helper) {
         runAuthenticatedNonreadySample(helper, false);
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"botany", "botany-sampling"})
+    @GameTestTags({"botany", "botany-sampling", "merge-main-remaining"})
     public static void authenticatedAudioFailureStillFinalizesNegativeSampleHealth(GameTestHelper helper) {
         runAuthenticatedNonreadySample(helper, true);
     }
@@ -140,14 +110,15 @@ public final class BotanySamplingAdmissionGameTests {
         var soundObservedCommittedPacket = new AtomicBoolean();
         var injectedAudioFailure = new AtomicBoolean();
         var healthAtSound = new AtomicReference<Float>();
-        var trayPos = new AtomicReference<BlockPos>();
         var currentPlant = new AtomicReference<PlantInstance>();
         ServerLevel level = (ServerLevel) helper.getLevel();
-        Consumer<PlayLevelSoundEvent.AtPosition> listener = event -> {
-            if (event.getLevel() != level || !event.getSound().unwrapKey()
-                    .map(key -> key.location().equals(SeedProfile.Scream.DEFAULT_SOUND)).orElse(false)) return;
-            BlockPos pos = trayPos.get();
-            if (pos == null || event.getPosition().distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5) >= 1e-6) return;
+        BotanyHarvestAuthenticatedGameTests.runAuthenticatedHarvest(helper, seedPacket, "sampling-full-hands",
+                (h, fixture, epoch, emptyHand, tray, pos, world, finished) -> {
+            h.runAfterDelay(3990, () -> finish(h, fixture, finished, "sampling audio timeout",
+                    new AssertionError("sampling audio fixture reached cleanup deadline")));
+            fixture.observeOutbound(packet -> {
+                if (!(packet instanceof net.minecraft.network.protocol.game.ClientboundSoundPacket sound)
+                        || !BotanyHarvestAuthenticatedGameTests.matchesPlantScreamPacket(sound, pos)) return;
             soundCount.incrementAndGet();
             var plant = currentPlant.get();
             float rawHealth = plant == null ? Float.NaN : plant.health();
@@ -164,15 +135,15 @@ public final class BotanySamplingAdmissionGameTests {
                 injectedAudioFailure.set(true);
                 throw new RuntimeException("intentional sampling audio observer failure");
             }
-        };
-        BotanyHarvestAuthenticatedGameTests.runAuthenticatedHarvest(helper, seedPacket, "sampling-full-hands",
-                (h, fixture, epoch, emptyHand, tray, pos, world, finished) -> {
-            trayPos.set(pos);
-            BlockPos replantPos = pos.north();
+            });
+            // Reserve an owned, two-block-high standoff column immediately south of
+            // the tray. The template frame at the old location overlapped the eye ray.
+            BlockPos replantPos = pos.south();
             world.setBlock(replantPos, ModBlocks.EMPTY_HYDROPONICS_TRAY.get().defaultBlockState(), 3);
+            world.setBlock(replantPos.above(), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            world.setBlock(replantPos.above(2), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
             helper.runAfterDelay(2, () -> {
             try {
-                NeoForge.EVENT_BUS.addListener(listener);
                 var body = HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
                 var plant = tray.plantState(); currentPlant.set(plant);
                 plant.transitionSpecies(new PlantSeedReference(plant.genetics(), true));
@@ -202,7 +173,7 @@ public final class BotanySamplingAdmissionGameTests {
                 var beforeIds = world.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8),
                         entity -> !entity.getItem().isEmpty()).stream().map(net.minecraft.world.entity.Entity::getUUID)
                         .collect(java.util.stream.Collectors.toSet());
-                var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 5));
+                var query = fixture.queryHands(epoch);
                 var hit = RegisteredPlayerReadyDriver.aimAt(body, world, pos);
                 require(AuthenticatedBlockUseDriver.use(fixture.player(), new BodyBlockUseRequest(epoch, 2, query.revision(),
                         emptyHand, toolToken, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE))
@@ -228,6 +199,7 @@ public final class BotanySamplingAdmissionGameTests {
                  require(outputs.getFirst().getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.PLANT_SEED_REFERENCE.get())
                                  .current().profile().sourceName().equals(base.sourceName()),
                          "sample packet carrier initialization retains current genetics source name");
+                require(healthAtSound.get() != null, "matching scream packet observer captured source health before packet assertion");
                 require(outputs.getFirst().getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.SEED_PACKET_HEALTH_OVERRIDE.get())
                                 .health() == healthAtSound.get(),
                         "packet preserves exact raw post-loss source health observed before clamping");
@@ -240,24 +212,26 @@ public final class BotanySamplingAdmissionGameTests {
                 float packetHealth = packetSnapshot.get(com.juicyslew.moonstation14.component.ModDataComponents.SEED_PACKET_HEALTH_OVERRIDE.get()).health();
                 var targetTray = (HydroponicsTrayBlockEntity) world.getBlockEntity(replantPos);
                 require(targetTray != null && targetTray.plantState() != null, "trusted pre-action empty tray initialized");
-                var handsQuery = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 6));
+                var handsQuery = fixture.queryHands(epoch);
                 var dropHand = handsQuery.hands().stream().filter(value -> value.id().equals(emptyHand)).findFirst().orElseThrow();
                 var droppedTool = BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(
                         BodyHandActionRequest.Action.DROP, emptyHand, epoch, 3, handsQuery.revision(), null, toolToken));
                 require(droppedTool.accepted(), "wirecutter intentionally dropped through authenticated hand action after sampling checks");
                 var handsAfterDrop = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
-                var packetHands = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 7));
+                var packetHands = fixture.queryHands(epoch);
                 var activeAfterDrop = packetHands.hands().stream().filter(value -> value.id().equals(emptyHand)).findFirst().orElseThrow();
                 require(activeAfterDrop.token() == null, "normal drop freed active hand for packet pickup");
                 require(BodyHandItemTransfer.pickupSelected(fixture.player(), sampleEntity.getUUID(), emptyHand,
                                 handsAfterDrop.revision(), ignored -> {}) == BodyHandItemTransfer.Result.SUCCESS,
                         "sample packet picked up through normal authenticated world-item transfer");
-                var plantQuery = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 8));
+                var plantQuery = fixture.queryHands(epoch);
                 var plantHand = plantQuery.hands().stream().filter(value -> value.id().equals(emptyHand)).findFirst().orElseThrow();
                 require(plantHand.token() != null && plantHand.presentation().stack().getCount() == packetSnapshot.getCount(),
                         "packet ownership is present in a fresh active-hand snapshot");
-                body.setPos(replantPos.getX() + .5, replantPos.getY() + 1, replantPos.getZ() - 1.5);
-                var replantHit = RegisteredPlayerReadyDriver.aimAt(body, world, replantPos);
+                 body.setPos(replantPos.getX() + .5, replantPos.getY() + 1, replantPos.getZ() + .5);
+                 require(world.noCollision(body, body.getBoundingBox()),
+                         "sampling standoff has a real collision-free standing body volume");
+                 var replantHit = RegisteredPlayerReadyDriver.aimAt(body, world, replantPos);
                 require(AuthenticatedBlockUseDriver.use(fixture.player(), new BodyBlockUseRequest(epoch, 4,
                                 plantQuery.revision(), emptyHand, plantHand.token(), replantPos, replantHit.getDirection(),
                                 false, BodyBlockUseRequest.Intent.USE)) == BodyBlockUseResult.Outcome.PLACED,
@@ -277,17 +251,55 @@ public final class BotanySamplingAdmissionGameTests {
                 }
                 finish(h, fixture, finished, "full-hands non-ready sampling", null);
             } catch (Throwable failure) { finish(h, fixture, finished, "full-hands non-ready sampling", failure); }
-            finally { NeoForge.EVENT_BUS.unregister(listener); }
             });
         });
     }
 
-    private static void denyCurrent(net.minecraft.server.level.ServerPlayer actor, long epoch, long actionSequence,
-            long querySequence, String hand, String token, net.minecraft.world.entity.LivingEntity body,
+    private static void runDenialPhase(GameTestHelper helper,
+            com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture fixture,
+            AtomicBoolean finished, long epoch, long actionSequence, String hand, String token,
+            net.minecraft.world.entity.LivingEntity body, HydroponicsTrayBlockEntity tray, ServerLevel level,
+            BlockPos pos, AtomicInteger sounds, float originalHealth, PlantSeedReference reference,
+            GeneticValue genetics, PlantInstance plant, java.util.Set<UUID> before, String phase) {
+        try {
+            if (phase.equals("sampled")) {
+                plant.state(8, originalHealth, 0, 0, false, false);
+                plant.sampled(true);
+                tray.setChanged();
+            } else if (phase.equals("dead")) {
+                plant.sampled(false);
+                plant.state(8, originalHealth, 0, 0, false, true);
+                tray.setChanged();
+            } else {
+                plant.state(2, originalHealth, 0, 0, false, false);
+                tray.setChanged();
+            }
+            boolean expectedSampled = plant.sampled();
+            boolean expectedDead = plant.dead();
+            long expectedRevision = plant.revision();
+            denyCurrent(fixture, epoch, actionSequence, hand, token, body, level, pos);
+            assertUnchanged(fixture, epoch, hand, token, originalHealth, reference, genetics, plant, before,
+                    level, pos, sounds, expectedSampled, expectedDead, expectedRevision);
+            if (phase.equals("raw stage")) {
+                helper.runAfterDelay(1, () -> runDenialPhase(helper, fixture, finished, epoch, 4, hand, token,
+                        body, tray, level, pos, sounds, originalHealth, reference, genetics, plant, before,
+                        "sampled"));
+            } else if (phase.equals("sampled")) {
+                helper.runAfterDelay(1, () -> runDenialPhase(helper, fixture, finished, epoch, 5, hand, token,
+                        body, tray, level, pos, sounds, originalHealth, reference, genetics, plant, before,
+                        "dead"));
+            } else finish(helper, fixture, finished, "sampling denial admission guards", null);
+        } catch (Throwable failure) {
+            finish(helper, fixture, finished, "sampling denial admission guards / " + phase, failure);
+        }
+    }
+
+    private static void denyCurrent(com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture fixture,
+            long epoch, long actionSequence, String hand, String token, net.minecraft.world.entity.LivingEntity body,
             ServerLevel level, BlockPos pos) {
-        var query = BodyHandStateService.query(actor, new BodyHandStateQuery(epoch, querySequence));
+        var query = fixture.queryHands(epoch);
         var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
-        require(AuthenticatedBlockUseDriver.use(actor, new BodyBlockUseRequest(epoch, actionSequence, query.revision(),
+        require(AuthenticatedBlockUseDriver.use(fixture.player(), new BodyBlockUseRequest(epoch, actionSequence, query.revision(),
                 hand, token, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE)) == BodyBlockUseResult.Outcome.DENIED,
                 "sample guard denies without accepting current authenticated request");
     }
@@ -347,7 +359,7 @@ public final class BotanySamplingAdmissionGameTests {
         });
     }
 
-    private static void assertUnchanged(net.minecraft.server.level.ServerPlayer actor, long epoch, long querySequence,
+    private static void assertUnchanged(com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture fixture, long epoch,
             String hand, String token, float health, PlantSeedReference reference, GeneticValue genetics,
             PlantInstance plant, java.util.Set<java.util.UUID> before, ServerLevel level, BlockPos pos, AtomicInteger sounds,
             boolean expectedSampled, boolean expectedDead, long expectedRevision) {
@@ -359,13 +371,14 @@ public final class BotanySamplingAdmissionGameTests {
                 entity -> !entity.getItem().isEmpty()).stream().map(net.minecraft.world.entity.Entity::getUUID)
                 .collect(java.util.stream.Collectors.toSet());
         require(after.equals(before), "denial publishes no output");
-        var query = BodyHandStateService.query(actor, new BodyHandStateQuery(epoch, querySequence));
+        var query = fixture.queryHands(epoch);
         require(query.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow().token().equals(token),
                 "denial leaves wirecutter token owned");
         require(sounds.get() == 0, "denial emits no scream");
     }
 
     private static void require(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
+
     private static void finish(GameTestHelper helper, com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture fixture,
                                AtomicBoolean finished, String label, Throwable failure) {
         if (!finished.compareAndSet(false, true)) return;

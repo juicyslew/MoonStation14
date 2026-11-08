@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.Collection;
 import java.util.Set;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GlobalTestReporter;
+import net.minecraft.gametest.framework.LogTestReporter;
 import net.minecraft.gametest.framework.BeforeBatch;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -25,6 +27,7 @@ public final class GameTestTagRegistrar {
 
     @SubscribeEvent
     public static void register(RegisterGameTestsEvent event) {
+        GlobalTestReporter.replaceWith(new BoundedGameTestReporter(new LogTestReporter(), LogManager.getLogger()));
         Set<Method> methods = new HashSet<>();
         Set<Method> callbacks = new HashSet<>();
         for (ModFileScanData scan : ModList.get().getAllScanData()) {

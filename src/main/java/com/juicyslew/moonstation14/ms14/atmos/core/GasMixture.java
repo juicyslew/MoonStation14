@@ -218,7 +218,7 @@ public final class GasMixture {
     }
 
     /** Ideal-gas packet size for a pressure delta in kPa and a volume in m³. */
-    static double molesForPressureDelta(double pressureDeltaKpa, double volumeCubicMeters, double temperatureKelvin) {
+    public static double molesForPressureDelta(double pressureDeltaKpa, double volumeCubicMeters, double temperatureKelvin) {
         return (float) pressureDeltaKpa * (float) volumeCubicMeters * 1000f
                 / ((float) temperatureKelvin * GAS_CONSTANT);
     }
@@ -297,4 +297,3 @@ public final class GasMixture {
         return withThermalEnergy(energy);
     }
 }
-

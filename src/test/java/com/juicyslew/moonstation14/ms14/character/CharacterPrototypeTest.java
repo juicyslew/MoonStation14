@@ -6,6 +6,7 @@ import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.component.codec.json.CharacterSchemaAudit;
 import com.juicyslew.moonstation14.ms14.character.components.BarotraumaComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ComplexInteractionComponent;
+import com.juicyslew.moonstation14.ms14.character.components.EnsnareableComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StandingStateComponent;
 import com.juicyslew.moonstation14.ms14.character.components.NoSlipComponent;
 import com.juicyslew.moonstation14.ms14.character.components.StunnableComponent;
@@ -426,7 +427,10 @@ class CharacterPrototypeTest {
                     .getAsJsonObject();
         }
         CharacterData data = CharacterData.CODEC.parse(JsonOps.INSTANCE, raw).getOrThrow();
-        assertEquals(40, data.components().size(), "merged Human composition retains botany, main, and Tesla component families");
+        assertEquals(45, data.components().size(), "merged Human composition retains botany, main, Tesla, internals, melee, and ensnareable component families");
+        assertTrue(data.component(EnsnareableComponent.class).isPresent(), "Human explicitly supports ensnaring");
+        assertTrue(data.component(com.juicyslew.moonstation14.ms14.character.components.InternalsComponent.class).isPresent(),
+                "Human internals composition survives the merge");
         assertTrue(data.component(StatusEffectsPrototypeComponent.class).isPresent(), "main Human status-effect configuration survives the merge");
         assertTrue(data.component(StaminaPrototypeComponent.class).isPresent(), "main Human stamina configuration survives the merge");
         var lightningTarget = data.component(LightningTargetComponent.class).orElseThrow();
@@ -452,6 +456,25 @@ class CharacterPrototypeTest {
                 data.hostEntityTypes());
         assertEquals(List.of("left", "right"), data.component(com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent.class).orElseThrow().hands());
         assertTrue(data.component(ComplexInteractionComponent.class).isPresent());
+        assertEquals(com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.DEFAULT_ACTION,
+                data.component(com.juicyslew.moonstation14.ms14.character.components.CombatModeComponent.class)
+                        .orElseThrow().combatToggleAction());
+        var melee = data.component(com.juicyslew.moonstation14.ms14.character.components.MeleeWeaponComponent.class)
+                .orElseThrow(() -> new AssertionError("Human fists retain their typed melee weapon component")).weapon();
+        assertEquals(Map.of("blunt", 5.0f), melee.damage());
+        assertEquals(1.0f, melee.attackRate());
+        assertEquals(1.5f, melee.range());
+          assertEquals(120.0f, melee.angleDegrees());
+         assertEquals(.6f, melee.wideOriginHeightRatio());
+        assertEquals(ResourceLocation.parse("moonstation14:weapon_arc_fist"), melee.arc());
+        assertEquals(ResourceLocation.parse("moonstation14:weapon_arc_slash"), melee.wideArc());
+        assertEquals(ResourceLocation.parse("moonstation14:ss14/weapons/punch"), melee.audio().hit().event());
+        var vocal = data.component(com.juicyslew.moonstation14.ms14.character.components.VocalComponent.class).orElseThrow();
+        assertEquals(com.juicyslew.moonstation14.ms14.character.components.VocalComponent.DEFAULT_ACTION, vocal.screamAction());
+        assertEquals(com.juicyslew.moonstation14.ms14.character.components.VocalComponent.DEFAULT_EMOTE, vocal.screamEmote());
+        assertEquals(ResourceLocation.parse("moonstation14:vocal_human_scream"), vocal.screamSound());
+        assertEquals(0.125f, vocal.screamPitchVariation());
+        assertEquals(0.0002f, vocal.wilhelmProbability());
         assertEquals(java.util.Set.of(MetabolizerTypeEnum.HUMAN), data.component(MetabolizerPrototypeComponent.class).orElseThrow().types());
         var thermal = data.component(com.juicyslew.moonstation14.ms14.character.components.TemperatureComponent.class).orElseThrow();
         assertEquals(Math.PI * 0.35 * 0.35 * 185, thermal.massKg(), 1e-12);

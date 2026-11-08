@@ -16,22 +16,59 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LooseObjectProfileTest {
+    @Test void productionJugDestructionOutputProbabilityAndSoundDecodeAndRuntimePolicy() throws Exception {
+        Path path = projectPath("src/main/resources/data/moonstation14/moonstation14/loose_object_profile").resolve("jug.json");
+        var raw = JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+        Map<ResourceLocation, JsonObject> profiles = new LinkedHashMap<>();
+        Path directory = path.getParent();
+        try (var files = Files.list(directory)) {
+            for (Path file : files.filter(candidate -> candidate.toString().endsWith(".json")).toList()) {
+                JsonObject json = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+                profiles.put(ResourceLocation.fromNamespaceAndPath("moonstation14",
+                        file.getFileName().toString().replaceFirst("\\.json$", "")), json);
+            }
+        }
+        var resolved = PrototypeResolver.resolve(profiles, ModLooseObjectProfiles.PROFILE_TYPE.mergeStrategy().orElseThrow());
+        var jug = decode(resolved.get(ModLooseObjectProfiles.JUG_ID));
+        assertEquals("moonstation14:strong_plastic_drink_container", raw.get("parent").getAsString());
+        assertEquals("moonstation14:plastic_drink_container", profiles.get(ResourceLocation.parse("moonstation14:strong_plastic_drink_container")).get("parent").getAsString());
+        assertEquals(20f, jug.itemDamage().destructionThreshold());
+        assertEquals(java.util.Optional.of(200f), jug.itemDamage().overkillDestructionThreshold());
+        assertEquals("moonstation14:ss14/effects/metal_crunch", jug.itemDamage().destructionSound().toString());
+        assertEquals((float)Math.pow(10d, -4d / 20d), jug.itemDamage().destructionSoundGain(), .000001f);
+        assertEquals(.5f, jug.itemDamage().destructionOutputProbability());
+        assertEquals(java.util.Set.of("brute"), jug.itemDamage().allowedGroups());
+        assertEquals(java.util.Set.of("heat", "shock"), jug.itemDamage().allowedTypes());
+        assertEquals(java.util.Optional.of(200f), decode(resolved.get(ResourceLocation.parse("moonstation14:plastic_drink_container"))).itemDamage().overkillDestructionThreshold());
+        assertTrue(com.juicyslew.moonstation14.ms14.damage.CommonItemDestructionEffects.shouldPublishDestructionOutputs(.5f, .49f));
+        assertFalse(com.juicyslew.moonstation14.ms14.damage.CommonItemDestructionEffects.shouldPublishDestructionOutputs(.5f, .5f));
+        assertTrue(com.juicyslew.moonstation14.ms14.damage.CommonItemDestructionEffects.shouldPublishDestructionOutputs(1f, .999f));
+        assertFalse(com.juicyslew.moonstation14.ms14.damage.CommonItemDestructionEffects.shouldPublishDestructionOutputs(0f, 0f));
+        var defaults = resolved.get(ModLooseObjectProfiles.JUG_ID).deepCopy(); defaults.getAsJsonObject("item_damage").remove("destruction_output_probability");
+        assertEquals(1f, decode(defaults).itemDamage().destructionOutputProbability());
+        for (float invalid : new float[]{-0.01f, 1.01f}) {
+            var bad = resolved.get(ModLooseObjectProfiles.JUG_ID).deepCopy(); bad.getAsJsonObject("item_damage").addProperty("destruction_output_probability", invalid);
+            assertThrows(RuntimeException.class, () -> decode(bad));
+        }
+    }
     @Test void loadsJsonProfilesAndResolvesInheritance() throws Exception {
         Map<ResourceLocation, JsonObject> raw = new LinkedHashMap<>();
         Path directory = projectPath("src/main/resources/data/moonstation14/moonstation14/loose_object_profile");
         try (var files = Files.list(directory)) {
             for (Path file : files.filter(path -> path.toString().endsWith(".json")).toList()) {
                 JsonObject json = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
-                raw.put(ResourceLocation.parse(json.get("id").getAsString()), json);
+                raw.put(ResourceLocation.fromNamespaceAndPath("moonstation14", file.getFileName().toString().replaceFirst("\\.json$", "")), json);
             }
         }
-        var resolved = PrototypeResolver.resolve(raw);
+        var resolved = PrototypeResolver.resolve(raw, ModLooseObjectProfiles.PROFILE_TYPE.mergeStrategy().orElseThrow());
         LooseObjectProfile generic = decode(resolved.get(ModLooseObjectProfiles.GENERIC_ID));
         assertNull(generic.slippery(), "absent slippery composition remains disabled");
         LooseObjectProfile jug = decode(resolved.get(ModLooseObjectProfiles.JUG_ID));
         LooseObjectProfile grenade = decode(resolved.get(ModLooseObjectProfiles.GRENADE_ID));
         LooseObjectProfile blockModel = decode(resolved.get(LooseObjectProfile.BLOCK_MODEL_ID));
         LooseObjectProfile canister = decode(resolved.get(LooseObjectProfile.GAS_CANISTER_ID));
+        LooseObjectProfile bananaPeel = decode(resolved.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "trash_banana_peel")));
+        LooseObjectProfile mimanaPeel = decode(resolved.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "trash_mimana_peel")));
         assertEquals(.75f, generic.throwSpeed());
         assertEquals(generic.throwSpeed(), jug.throwSpeed());
         assertEquals(generic.throwSpeed(), grenade.throwSpeed());
@@ -60,6 +97,18 @@ class LooseObjectProfileTest {
         assertEquals(.45f, grenade.physicalWidth());
         assertEquals("grenade", grenade.renderKind());
         assertEquals("block_model", blockModel.renderKind());
+        assertEquals("block_model", bananaPeel.renderKind());
+        assertEquals("block_model", mimanaPeel.renderKind());
+        assertEquals(1.2f, bananaPeel.modelScale());
+        assertEquals(.6f, bananaPeel.modelFloorOffset());
+        assertEquals(bananaPeel.visual(), mimanaPeel.visual());
+        assertEquals(.4f, bananaPeel.physicalWidth());
+        assertEquals(bananaPeel.physicalWidth(), mimanaPeel.physicalWidth());
+        assertEquals(bananaPeel.stepTrigger(), mimanaPeel.stepTrigger());
+        assertEquals("moonstation14:ss14/effects/slip", bananaPeel.slippery().soundEvent().toString());
+        assertEquals(bananaPeel.slippery().soundEvent(), mimanaPeel.slippery().soundEvent());
+        assertEquals(0d, bananaPeel.slippery().soundVolumeDb());
+        assertEquals(-100d, mimanaPeel.slippery().soundVolumeDb());
         assertEquals(.65f, blockModel.physicalHeight());
         assertEquals(.65f * 0 + .325f, blockModel.modelFloorOffset());
         assertEquals(.5f, canister.physicalWidth());
@@ -233,6 +282,40 @@ class LooseObjectProfileTest {
             invalid.getAsJsonObject("item_damage").addProperty("destruction_sound_volume_db", Float.parseFloat(value));
             assertThrows(RuntimeException.class, () -> LooseObjectProfile.CODEC.parse(JsonOps.INSTANCE, invalid).getOrThrow(), value);
         }
+    }
+
+    @Test void optionalOverkillDestructionThresholdDecodesDefaultsAndInherits() {
+        JsonObject parent = JsonParser.parseString("""
+                {"id":"moonstation14:overkill_parent","type":"moonstation14:loose_object_profile",
+                 "mass":1,"friction":0.5,"restitution":0,"throw_speed":0.75,"throw_spin":0,
+                 "geometry":"cube","render_kind":"flat_sprite","break_on_impact":false,"break_threshold":0,
+                 "throw_range":8,"minimum_throw_range":0.1,"throw_cooldown":10,"physical_width":0.65,
+                 "physical_height":0.08,"visual":{"sprite_scale_x":0.65,"sprite_scale_y":0.65,
+                 "sprite_offset_x":0,"sprite_offset_y":0,"model_scale":1,"model_floor_offset":0},
+                 "item_damage":{"allowed_groups":[],"destruction_threshold":20,"overkill_destruction_threshold":200}}
+                """).getAsJsonObject();
+        JsonObject child = JsonParser.parseString("""
+                {"id":"moonstation14:overkill_child","type":"moonstation14:loose_object_profile",
+                 "parent":"moonstation14:overkill_parent"}
+                """).getAsJsonObject();
+        JsonObject defaults = parent.deepCopy();
+        defaults.addProperty("id", "moonstation14:overkill_defaults");
+        defaults.getAsJsonObject("item_damage").remove("overkill_destruction_threshold");
+        var raw = new LinkedHashMap<ResourceLocation, JsonObject>();
+        raw.put(ResourceLocation.parse("moonstation14:overkill_parent"), parent);
+        raw.put(ResourceLocation.parse("moonstation14:overkill_child"), child);
+        raw.put(ResourceLocation.parse("moonstation14:overkill_defaults"), defaults);
+        var resolved = PrototypeResolver.resolve(raw, ModLooseObjectProfiles.PROFILE_TYPE.mergeStrategy().orElseThrow());
+        var resolvedParent = decode(resolved.get(ResourceLocation.parse("moonstation14:overkill_parent")));
+        var resolvedChild = decode(resolved.get(ResourceLocation.parse("moonstation14:overkill_child")));
+        assertEquals(java.util.Optional.of(200f), resolvedParent.itemDamage().overkillDestructionThreshold());
+        assertEquals(java.util.Optional.of(200f), resolvedChild.itemDamage().overkillDestructionThreshold());
+        assertTrue(decode(resolved.get(ResourceLocation.parse("moonstation14:overkill_defaults"))).itemDamage()
+                .overkillDestructionThreshold().isEmpty());
+        assertEquals(resolvedChild, LooseObjectProfile.CODEC.parse(JsonOps.INSTANCE,
+                LooseObjectProfile.CODEC.encodeStart(JsonOps.INSTANCE, resolvedChild).getOrThrow()).getOrThrow());
+        parent.getAsJsonObject("item_damage").addProperty("overkill_destruction_threshold", 20f);
+        assertThrows(RuntimeException.class, () -> decode(parent));
     }
 
     @Test void itemDamageAllowedTypesCodecAndMergeSemantics() {

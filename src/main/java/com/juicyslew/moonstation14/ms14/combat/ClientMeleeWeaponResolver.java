@@ -27,13 +27,21 @@ public final class ClientMeleeWeaponResolver {
 
     static Optional<MeleeWeaponResolver.Selection> resolve(LivingEntity body, long epoch,
             BodyHandStateSnapshot snapshot, PrototypeCatalog<MeleeWeaponProfile> catalog) {
-        if (body == null || !body.level().isClientSide() || snapshot == null || catalog == null
-                || snapshot.reason() != BodyHandStateSnapshot.Reason.OK || snapshot.epoch() != epoch
-                || !snapshot.bodyId().equals(body.getUUID())) return Optional.empty();
+        if (body == null || !body.level().isClientSide() || catalog == null) return Optional.empty();
         CharacterData actor = CharacterIdentitySystem.projectForActor(body).orElse(null);
         if (actor == null) return Optional.empty();
-        return project(body.getUUID(), epoch, snapshot, catalog,
-                actor.component(MeleeWeaponComponent.class).map(MeleeWeaponComponent::weapon));
+        var unarmed = actor.component(MeleeWeaponComponent.class).map(MeleeWeaponComponent::weapon);
+        if (unarmed.isEmpty()) unarmed = actor.component(com.juicyslew.moonstation14.ms14.character.components.MeleeAttackComponent.class).map(UnarmedMeleeProfileResolver::resolve);
+        var handsCapability = actor.component(com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent.class);
+        if (handsCapability.map(h -> h.hands().isEmpty()).orElse(true)) {
+            if (unarmed.isEmpty()) return Optional.empty();
+            return Optional.of(new MeleeWeaponResolver.Selection(MeleeWeaponResolver.Kind.UNARMED,
+                    new MeleeWeaponProfile(unarmed.orElseThrow(), java.util.Map.of(), Optional.empty()),
+                    body.getUUID(), 0, "", Optional.empty()));
+        }
+        if (snapshot == null || snapshot.reason() != BodyHandStateSnapshot.Reason.OK || snapshot.epoch() != epoch
+                || !snapshot.bodyId().equals(body.getUUID())) return Optional.empty();
+        return project(body.getUUID(), epoch, snapshot, catalog, unarmed);
     }
 
     public static Optional<ItemStack> presentationStack(MeleeWeaponResolver.Selection selected) {

@@ -35,11 +35,20 @@ SOURCES = (
 )
 ASSETS = ("contracts/preflight.schema.json", "contracts/protocol.schema.json")
 ROOT_ASSETS = (
+    "tooling/agent_workflow/validation-logging.gradle",
+    "tooling/agent_workflow/validation-junit-selectors.gradle",
     "tooling/agent_workflow/requirements-workflow-coordinator.txt",
     "tooling/agent_workflow/install_workflow_coordinator.ps1",
     "tooling/agent_workflow/workflow_coordinator_package.py",
     "tooling/opencode/shared-config.jsonc",
 )
+# These installed legacy entry points are receipt-owned aliases of the one
+# reviewed runtime source; they intentionally contain no independent logic.
+SOURCE_ALIASES = {
+    "tooling/agent_workflow/workflow_runtime.py": (
+        "tooling/agent_workflow/workflow.py",
+    ),
+}
 
 
 def digest(path: Path) -> str:
@@ -112,7 +121,9 @@ def publish(stage: Path, previous_receipt: Path, receipt_output: Path, *, pointe
     stage = Path(os.path.abspath(stage)); manifest_path = stage / "manifest.json"
     receipt_output = Path(os.path.abspath(receipt_output))
     temp_root=(Path(os.environ["LOCALAPPDATA"])/"Temp/opencode").resolve()
-    if not receipt_output.is_relative_to(temp_root): raise ValueError("output receipt must remain in private OpenCode temp")
+    workflow_root=(Path(os.environ["LOCALAPPDATA"])/"MoonStation14/workflow").resolve()
+    if not (receipt_output.is_relative_to(temp_root) or receipt_output.is_relative_to(workflow_root)):
+        raise ValueError("output receipt must remain in private OpenCode temp or durable workflow state")
     if not receipt_output.parent.is_dir(): raise ValueError("output receipt parent must already exist")
     assert_no_reparse(receipt_output.parent, receipt_output)
     if receipt_output.exists(): raise ValueError("output receipt already exists; refusing overwrite")
@@ -625,6 +636,25 @@ def build(stage: Path, receipt_path: Path, binding_plan: Path | None = None, *, 
             raise ValueError(f"refusing to overwrite unowned/stale stage target: {target}")
         shutil.copyfile(source, target)
         files[key] = {"source": key, "target": key, "sha256": digest(target), **bind_destination(key, source, target)}
+    for source_key, destinations in SOURCE_ALIASES.items():
+        for key in destinations:
+            source = package_source(source_key, key, ROOT / source_key)
+            if source is None:
+                continue
+            if selected is None or source_key in selected:
+                assert_no_reparse(ROOT, ROOT / source_key)
+            else:
+                assert_no_reparse(shared_root, source)
+            if not source.is_file() or source.is_symlink():
+                raise ValueError(f"missing or linked source: {source}")
+            target = stage / key
+            assert_no_reparse(stage, target)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            assert_no_reparse(stage, target)
+            if target.exists() and digest(target) != digest(source):
+                raise ValueError(f"refusing to overwrite unowned/stale stage target: {target}")
+            shutil.copyfile(source, target)
+            files[key] = {"source": source_key, "target": key, "sha256": digest(target), **bind_destination(key, source, target)}
     for name in ASSETS:
         key = f"docs/development-workflow-redesign/{name}"
         source = package_source(key,key,ROOT / key)

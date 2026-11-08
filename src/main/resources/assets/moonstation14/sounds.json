@@ -1,4 +1,9 @@
 {
+  "equipment/eva_helmet": { "sounds": ["moonstation14:equipment/mechmove03"] },
+  "equipment/jumpsuit_equip": { "sounds": ["moonstation14:equipment/jumpsuit_equip"] },
+  "internals": {
+    "sounds": ["moonstation14:internals"]
+  },
   "ss14/weapons/guns/hits/bullet_hit": {
     "sounds": [
       "moonstation14:ss14/weapons/guns/hits/bullet_hit"
@@ -176,6 +181,27 @@
       "moonstation14:ss14/effects/slip"
     ]
   },
+  "ss14/effects/metal_thud": {
+    "sounds": [
+      {
+        "name": "moonstation14:ss14/effects/metal_thud1",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/effects/metal_thud2",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/effects/metal_thud3",
+        "weight": 1
+      }
+    ]
+  },
+  "ss14/effects/metal_crunch": {
+    "sounds": [
+      "moonstation14:ss14/effects/metal_crunch"
+    ]
+  },
   "body_fall": {
     "sounds": [
       {
@@ -308,6 +334,31 @@
       "moonstation14:emote/scream/femalescream_5"
     ],
     "subtitle": "sounds.moonstation14.emote.scream"
+  },
+  "vocal_human_scream": {
+    "sounds": [
+      "moonstation14:emote/scream/malescream_1",
+      "moonstation14:emote/scream/malescream_2",
+      "moonstation14:emote/scream/malescream_3",
+      "moonstation14:emote/scream/malescream_4",
+      "moonstation14:emote/scream/malescream_5",
+      "moonstation14:emote/scream/malescream_6"
+    ]
+  },
+  "vocal_reptilian_scream": {
+    "sounds": [
+      "moonstation14:voice/reptilian/reptilian_scream"
+    ]
+  },
+  "vocal_scurret_scream": {
+    "sounds": [
+      "moonstation14:animals/wawa_protest"
+    ]
+  },
+  "vocal_wilhelm": {
+    "sounds": [
+      "moonstation14:voice/human/wilhelm_scream"
+    ]
   },
   "emote/weh": {
     "sounds": [
@@ -490,6 +541,22 @@
       },
       {
         "name": "moonstation14:ss14/weapons/punch4",
+        "weight": 1
+      }
+    ]
+  },
+  "ss14/effects/alien_claw": {
+    "sounds": [
+      {
+        "name": "moonstation14:ss14/weapons/alien_claw_flesh1",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/weapons/alien_claw_flesh2",
+        "weight": 1
+      },
+      {
+        "name": "moonstation14:ss14/weapons/alien_claw_flesh3",
         "weight": 1
       }
     ]
@@ -678,6 +745,11 @@
   "ss14/atmospherics/gas_pump": {"sounds":["moonstation14:ss14/atmospherics/gas_pump"]},
   "ss14/atmospherics/gas_hiss": {"sounds":["moonstation14:ss14/atmospherics/gas_hiss"]},
   "ss14/atmospherics/vending_machine_hum": {"sounds":["moonstation14:ss14/atmospherics/vending_machine_hum"]},
+  "atmos/fire_alarm": {
+    "sounds": [
+      "moonstation14:ss14/atmos/alarm"
+    ]
+  },
   "tesla/ambient": {
     "sounds": [
       {
@@ -701,5 +773,29 @@
     "sounds": [
       "moonstation14:lightning/lightningshock"
     ]
+  },
+  "ss14/weapons/star_hit": {
+    "sounds": [
+      "moonstation14:ss14/weapons/star_hit/star_hit"
+    ]
+  },
+  "ss14/weapons/pierce": {
+    "sounds": [
+      "moonstation14:ss14/weapons/pierce/pierce"
+    ]
+  },
+  "ss14/weapons/bolathrow": {
+    "sounds": [
+      "moonstation14:ss14/weapons/bolathrow/bolathrow"
+    ]
+  },
+  "ss14/effects/snap": {
+    "sounds": [
+      "moonstation14:ss14/effects/snap/snap"
+    ]
+  }
+,
+  "ss14/effects/drop": {
+    "sounds": [ "moonstation14:ss14/effects/drop/drop" ]
   }
 }

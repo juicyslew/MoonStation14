@@ -29,7 +29,8 @@ public final class LooseItemBlastGameTests {
     @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 100, batch = "catalog-loose-blast-disallowed-tomato")
     public static void blastDamagesAndRemovesTomato(GameTestHelper helper) {
         var level = helper.getLevel();
-        var origin = helper.absolutePos(new BlockPos(8, 2, 8));
+        // atmos_large_empty is 36x5x8; keep the blast origin inside its z footprint.
+        var origin = helper.absolutePos(new BlockPos(8, 2, 4));
         if (!level.getBlockState(origin).isAir() || !level.hasChunkAt(origin))
             throw new GameTestAssertException("blast origin is loaded air");
         var tomato = LooseItemEntity.create(level,
@@ -55,7 +56,7 @@ public final class LooseItemBlastGameTests {
     @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 100)
     public static void blastIgnoresFoodWithoutItemDamageProfile(GameTestHelper helper) {
         var level = helper.getLevel();
-        var origin = helper.absolutePos(new BlockPos(8, 2, 8));
+        var origin = helper.absolutePos(new BlockPos(8, 2, 4));
         if (!level.getBlockState(origin).isAir() || !level.hasChunkAt(origin))
             throw new GameTestAssertException("blast origin is loaded air");
         var loose = LooseItemEntity.create(level,
@@ -89,7 +90,7 @@ public final class LooseItemBlastGameTests {
     @GameTest(template = "atmos_large_empty", templateNamespace = "moonstation14", timeoutTicks = 100)
     public static void blastIgnoresDisallowedTomatoDamageGroups(GameTestHelper helper) {
         var level = helper.getLevel();
-        var origin = helper.absolutePos(new BlockPos(8, 2, 8));
+        var origin = helper.absolutePos(new BlockPos(8, 2, 4));
         if (!level.getBlockState(origin).isAir() || !level.hasChunkAt(origin))
             throw new GameTestAssertException("blast origin is loaded air");
         var manager = PrototypeRuntime.serverManager();
@@ -145,7 +146,7 @@ public final class LooseItemBlastGameTests {
             batch = "item-damage-modifier-validation-r3")
     public static void blastAppliesProfileModifiersExactlyOnce(GameTestHelper helper) {
         var level = helper.getLevel();
-        var origin = helper.absolutePos(new BlockPos(8, 2, 8));
+        var origin = helper.absolutePos(new BlockPos(8, 2, 4));
         if (!level.getBlockState(origin).isAir() || !level.hasChunkAt(origin))
             throw new GameTestAssertException("blast origin is loaded air");
         var type = ModLooseObjectProfiles.PROFILE_TYPE;

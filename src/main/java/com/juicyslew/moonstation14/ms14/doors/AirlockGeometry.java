@@ -4,9 +4,6 @@ import com.juicyslew.moonstation14.ms14.doors.AirlockState;
 import java.util.List;
 import java.util.Map;
 import java.util.EnumMap;
-import com.google.gson.JsonParser;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.AABB;
@@ -64,22 +61,7 @@ public final class AirlockGeometry {
         for(Part part:Part.values()) {
             String filename=part.name().toLowerCase(java.util.Locale.ROOT);
             String path="/assets/moonstation14/models/block/airlock/vertical_all/standard_basic/components/"+filename+".json";
-            try(var stream=AirlockGeometry.class.getResourceAsStream(path)) {
-                if(stream==null) throw new IllegalStateException("Missing airlock geometry resource "+path);
-                var root=JsonParser.parseReader(new InputStreamReader(stream,StandardCharsets.UTF_8)).getAsJsonObject();
-                java.util.ArrayList<Box> boxes=new java.util.ArrayList<>();
-                for(var element:root.getAsJsonArray("elements")) {
-                    var object=element.getAsJsonObject(); var from=object.getAsJsonArray("from");var to=object.getAsJsonArray("to");
-                    double[] f={from.get(0).getAsDouble()/16,from.get(1).getAsDouble()/16,from.get(2).getAsDouble()/16};
-                    double[] t={to.get(0).getAsDouble()/16,to.get(1).getAsDouble()/16,to.get(2).getAsDouble()/16};
-                    for(int axis=0;axis<3;axis++) if(!Double.isFinite(f[axis])||!Double.isFinite(t[axis])||f[axis]>t[axis]) throw new IllegalStateException("Invalid airlock cuboid in "+path);
-                    if(object.has("rotation")) throw new IllegalStateException("Rotated airlock cuboid unsupported in "+path);
-                    double x0=f[0],x1=t[0],y0=f[1],y1=t[1],z0=f[2],z1=t[2];
-                    // Canonical 180-degree Y clip pose: x'=1-x, z'=1-z.
-                    boxes.add(new Box(1-x1,y0,1-z1,1-x0,y1,1-z0));
-                }
-                result.put(part,List.copyOf(boxes));
-            } catch(Exception e) { throw new ExceptionInInitializerError(e); }
+            result.put(part,AuthoredDoorGeometry.load(path));
         }
         return Map.copyOf(result);
     }
@@ -122,4 +104,3 @@ public final class AirlockGeometry {
         return (x>=-CONTACT_EPSILON&&z>0)||(z>=-CONTACT_EPSILON&&x>0);
     }
 }
-

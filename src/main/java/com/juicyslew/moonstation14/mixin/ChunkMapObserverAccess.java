@@ -11,5 +11,7 @@ public interface ChunkMapObserverAccess {
     @Invoker("applyChunkTrackingView")
     void moonstation14$applyChunkTrackingView(ServerPlayer player, ChunkTrackingView view);
 
-}
+    @Invoker("getPlayerViewDistance")
+    int moonstation14$getPlayerViewDistance(ServerPlayer player);
 
+}

@@ -1,0 +1,6 @@
+﻿{
+    "textures":  {
+                     "layer0":  "moonstation14:item/breathing_mask"
+                 },
+    "parent":  "minecraft:item/generated"
+}

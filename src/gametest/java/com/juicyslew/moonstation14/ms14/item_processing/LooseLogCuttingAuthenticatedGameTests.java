@@ -31,8 +31,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class LooseLogCuttingAuthenticatedGameTests {
     private LooseLogCuttingAuthenticatedGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"botany-log-cutting", "botany-log-cutting-authenticated"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000, batch = "catalog-log-cutting-authenticated")
+    @GameTestTags({"botany-log-cutting", "botany-log-cutting-authenticated", "merge-main-remaining"})
     public static void authenticatedSharpUseCutsExactLooseLogIntoSeparateOutputs(GameTestHelper helper) {
         var seeds = new ItemStack(ModItems.WHEAT_SEEDS.get());
         BotanyHarvestAuthenticatedGameTests.runAuthenticatedHarvest(helper, seeds, "sharp-log-cutting",

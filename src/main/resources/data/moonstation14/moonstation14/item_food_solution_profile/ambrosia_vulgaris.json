@@ -1,0 +1,11 @@
+{
+  "id": "moonstation14:ambrosia_vulgaris",
+  "capacity_cents": 1400,
+  "contents_cents": {
+    "moonstation14:bicaridine": 500,
+    "moonstation14:kelotane": 500,
+    "moonstation14:nutriment": 200,
+    "moonstation14:vitamin": 200
+  },
+  "refillable": true
+}

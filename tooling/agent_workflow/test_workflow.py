@@ -168,6 +168,42 @@ class WorkflowTests(unittest.TestCase):
         wrong=self.root/'wrong.json'; wrong.write_text(json.dumps({'request_id':'test-1','decision':'accepted','delivery_digest':'0'*64}))
         self.cli('import-assets','test-1','--target',self.root/'other','--owner-receipt',wrong,'--apply',ok=False)
 
+    def test_import_uses_only_accepted_immutable_delivery_after_source_metadata_changes(self):
+        d=self.create_claim_delivery(); self.ready(d)
+        folder=self.root/'work/agent_exchange/requests/test-1'
+        delivered=folder/'delivery/files/assets/moon/models/model.json'
+        approved=delivered.read_bytes()
+        receipt=self.root/'owner.json'
+        receipt.write_text(json.dumps({'request_id':'test-1','decision':'accepted_as_is_closed','delivery_digest':d['digest']}))
+        # Historical candidate artwork and navigation metadata can change after closure;
+        # neither is an import source and neither invalidates the frozen delivery.
+        (self.assets/'origin.txt').write_text('changed post-delivery provenance metadata')
+        self.manifest.write_text(self.manifest.read_text()+' ')
+        (self.assets/'model.json').write_text('new unapproved artwork')
+        target=self.root/'target'; plan=self.root/'plan.json'
+        self.cli('import-assets','test-1','--target',target,'--owner-receipt',receipt,'--plan-out',plan)
+        self.cli('import-assets','test-1','--target',target,'--owner-receipt',receipt,'--plan',plan,'--apply')
+        self.assertEqual((target/'assets/moon/models/model.json').read_bytes(),approved)
+        self.assertNotEqual((target/'assets/moon/models/model.json').read_text(),(self.assets/'model.json').read_text())
+
+        # Boundaries remain strict: wrong identity/digest, pending acceptance and
+        # tampering with the actual immutable delivered bytes all refuse import.
+        bad=self.root/'bad.json'; bad.write_text(json.dumps({'request_id':'other','decision':'accepted_as_is_closed','delivery_digest':d['digest']}))
+        self.cli('import-assets','test-1','--target',self.root/'bad-target','--owner-receipt',bad,ok=False)
+        pending=self.root/'pending.json'; pending.write_text(json.dumps({'request_id':'test-1','decision':'pending','delivery_digest':d['digest']}))
+        self.cli('import-assets','test-1','--target',self.root/'pending-target','--owner-receipt',pending,ok=False)
+        delivered.write_bytes(b'tampered')
+        self.cli('import-assets','test-1','--target',self.root/'tampered-target','--owner-receipt',receipt,ok=False)
+
+    def test_native_obj_mtl_copy_requires_dependency_closure_and_canonical_destination(self):
+        (self.assets/'model.obj').write_text('mtllib model.mtl\nv 0 0 0\n')
+        (self.assets/'model.mtl').write_text('newmtl material\n')
+        manifest=self.assets/'obj-manifest.json'
+        manifest.write_text(json.dumps({'files':[{'file':'model.obj','destination':'assets/moon/models/model.obj'}, {'file':'model.mtl','destination':'assets/moon/models/model.mtl'}]}))
+        self.cli('plan-manifest','--manifest',manifest,'--source-root',self.assets)
+        manifest.write_text(json.dumps({'files':[{'file':'model.obj','destination':'assets/moon/models/model.obj'}]}))
+        self.cli('plan-manifest','--manifest',manifest,'--source-root',self.assets,ok=False)
+
     def test_owner_receipt_hash_binds_apply_plan(self):
         d=self.create_claim_delivery(); self.ready(d)
         receipt=self.root/'owner.json'; receipt.write_text(json.dumps({'request_id':'test-1','decision':'accepted','delivery_digest':d['digest']}))
@@ -249,11 +285,52 @@ class WorkflowTests(unittest.TestCase):
         # no partial/cherry-pick option exists
         self.assertNotIn('--files',[x for x in self.cli('--help').stdout.split()])
 
-    def test_source_manifest_source_copy_and_metadata_staleness_require_new_revision(self):
+    def test_obj_mtl_texture_delivery_imports_frozen_closed_group_end_to_end(self):
+        # This fixture exercises delivery and import only; model.json is declared editable
+        # metadata and is not evidence of native geometry runtime integration.
+        (self.assets/'model.obj').write_text('mtllib model.mtl\nv 0 0 0\n')
+        (self.assets/'model.mtl').write_text('newmtl material\nmap_Kd model.png\n')
+        self.manifest.write_text(json.dumps({'files':[
+            {'file':'model.json','destination':'assets/moon/models/model.json'},
+            {'file':'model.obj','destination':'assets/moon/models/model.obj'},
+            {'file':'model.mtl','destination':'assets/moon/models/model.mtl'},
+            {'file':'model.png','destination':'assets/moon/models/model.png'}]}))
+        d=self.create_claim_delivery(); report=self.ready(d)
+        receipt=self.root/'owner.json'
+        receipt.write_text(json.dumps({'request_id':'test-1','decision':'accepted_as_is_closed','delivery_digest':d['digest']}))
+        folder=self.root/'work/agent_exchange/requests/test-1'
+        frozen={name:(folder/'delivery/files/assets/moon/models'/name).read_bytes()
+                for name in ('model.obj','model.mtl','model.png')}
+        (self.assets/'origin.txt').write_text('changed origin')
+        self.manifest.write_text(self.manifest.read_text()+' ')
+        (self.assets/'model.obj').write_text('new unapproved obj')
+        target=self.root/'target'; plan=self.root/'plan.json'
+        self.cli('import-assets','test-1','--target',target,'--owner-receipt',receipt,'--plan-out',plan)
+        self.cli('import-assets','test-1','--target',target,'--owner-receipt',receipt,'--plan',plan,'--apply')
+        for name,content in frozen.items():
+            self.assertEqual((target/'assets/moon/models'/name).read_bytes(),content)
+        self.assertNotEqual((target/'assets/moon/models/model.obj').read_text(),'new unapproved obj')
+
+    def test_obj_dependency_closure_rejects_missing_mtl_texture_and_unsafe_remap(self):
+        (self.assets/'model.obj').write_text('mtllib model.mtl\nv 0 0 0\n')
+        (self.assets/'model.mtl').write_text('newmtl material\nmap_Kd model.png\n')
+        manifest=self.assets/'obj-manifest.json'
+        rows=[{'file':'model.obj','destination':'assets/moon/models/model.obj'},
+              {'file':'model.mtl','destination':'assets/moon/models/model.mtl'},
+              {'file':'model.png','destination':'assets/moon/models/model.png'}]
+        for i,case in enumerate((rows[:1],rows[:2],
+                                  [dict(rows[0]),dict(rows[1],destination='assets/moon/models/materials/model.mtl'),dict(rows[2],destination='assets/moon/textures/model.png')])):
+            manifest.write_text(json.dumps({'files':case}))
+            self.cli('plan-manifest','--manifest',manifest,'--source-root',self.assets,ok=False)
+        (self.assets/'model.mtl').write_text('newmtl material\nmap_Kd ../escape.png\n')
+        manifest.write_text(json.dumps({'files':rows}))
+        self.cli('plan-manifest','--manifest',manifest,'--source-root',self.assets,ok=False)
+
+    def test_import_preview_survives_changed_candidate_source_but_uses_frozen_copy(self):
         d=self.create_claim_delivery(); self.ready(d)
         receipt=self.root/'owner.json'; receipt.write_text(json.dumps({'request_id':'test-1','decision':'accepted','delivery_digest':d['digest']}))
         (self.assets/'model.json').write_text('updated source')
-        self.cli('import-assets','test-1','--target',self.root/'target','--owner-receipt',receipt,ok=False)
+        self.cli('import-assets','test-1','--target',self.root/'target','--owner-receipt',receipt)
         self.assertTrue((self.root/'work/agent_exchange/requests/test-1/delivery/source_manifest.json').exists())
 
     def test_manifest_metadata_copy_and_review_images_all_rechecked(self):
@@ -270,7 +347,7 @@ class WorkflowTests(unittest.TestCase):
         self.cli('import-assets','test-1','--target',target,'--owner-receipt',receipt,'--plan',plan,'--apply',ok=False)
         copied.write_text((self.assets/'model.json').read_text())
         self.assets.joinpath('origin.txt').write_text('updated provenance')
-        self.cli('import-assets','test-1','--target',target,'--owner-receipt',receipt,'--plan',plan,'--apply',ok=False)
+        self.cli('import-assets','test-1','--target',target,'--owner-receipt',receipt,'--plan',plan,'--apply')
 
         # Distinct new queue entry validates changed current manifest vs captured revision.
         request2=self.root/'request2.json'; request2.write_text(json.dumps({'id':'test-2','brief':'new sample','context':[]}))
@@ -279,7 +356,7 @@ class WorkflowTests(unittest.TestCase):
         self.cli('deliver','test-2','--manifest',self.manifest,'--source-root',self.assets,'--revision','r1','--provenance','origin.txt','--editable','model.json','--review-images','model.png')
         # Edit original manifest after delivery; a previously valid source export is now stale.
         self.manifest.write_text(self.manifest.read_text()+' ')
-        self.cli('import-assets','test-2','--target',target,ok=False)
+        self.cli('import-assets','test-2','--target',target)
 
     def test_review_report_and_real_png_requirements_and_independent_reviewer(self):
         d=self.create_claim_delivery()

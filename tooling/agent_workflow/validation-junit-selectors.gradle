@@ -1,0 +1,16 @@
+import groovy.json.JsonSlurper
+
+gradle.projectsEvaluated {
+    def selectorFile = gradle.startParameter.projectProperties.get('ms14JUnitSelectors')
+    if (!selectorFile) throw new GradleException('ms14JUnitSelectors is required for managed focused JUnit execution')
+    def file = new File(selectorFile)
+    if (!file.isFile()) throw new GradleException('managed JUnit selector file is missing')
+    def selectors = new JsonSlurper().parse(file)
+    if (!(selectors instanceof List) || selectors.isEmpty() || selectors.any { !(it instanceof String) || it.isEmpty() })
+        throw new GradleException('managed JUnit selector file is invalid or empty; refusing to run unfiltered tests')
+    allprojects {
+        tasks.withType(org.gradle.api.tasks.testing.Test).configureEach {
+            setTestNameIncludePatterns(selectors)
+        }
+    }
+}

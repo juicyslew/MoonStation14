@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.atmos.piping;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -11,6 +12,9 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 import com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime;
 
 import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Predicate;
 
 /** Synchronous room/device exchange. Invoke only after a paid PowerRuntime ventilation interval. */
 final class FiniteVentilationTransfer {
@@ -22,10 +26,17 @@ final class FiniteVentilationTransfer {
         @Override public GasMixture packet() { return copy(packet); }
         double thermalEnergyJoules() { return packet.thermalEnergy(); }
     }
-    record Result(GasMixture packet, ExportReceipt export) {
+    record Result(GasMixture packet, ExportReceipt export, List<GasMixture> committedPackets) {
+        Result(GasMixture packet, ExportReceipt export) { this(packet, export, packet == null ? List.of() : List.of(copy(packet))); }
         Result(GasMixture packet) { this(packet, null); }
-        static Result none() { return new Result(null, null); }
-        boolean moved() { return packet != null; }
+        Result {
+            packet = packet == null ? null : copy(packet);
+            committedPackets = committedPackets == null ? List.of() : committedPackets.stream().map(FiniteVentilationTransfer::copy).toList();
+            if (committedPackets.size() > 5) throw new IllegalArgumentException("at most five room transfers per paid interval");
+            if ((packet == null) != committedPackets.isEmpty()) throw new IllegalArgumentException("packet and committed receipts disagree");
+        }
+        static Result none() { return new Result(null, null, List.of()); }
+        boolean moved() { return !committedPackets.isEmpty(); }
     }
 
     /**
@@ -50,9 +61,8 @@ final class FiniteVentilationTransfer {
         BlockPos roomPos = devicePos.relative(facing);
         BlockPos pipePos = devicePos.relative(facing.getOpposite());
         if (roomPos.equals(pipePos)) return Result.none();
-        LevelChunk roomChunk = fullChunk(level, roomPos);
         LevelChunk pipeChunk = fullChunk(level, pipePos);
-        if (roomChunk == null || pipeChunk == null) return Result.none();
+        if (pipeChunk == null) return Result.none();
         int lane = layerBit(settings.selectedLayer());
         Direction towardDevice = facing;
         PipeGasInventoryEndpoint pipe;
@@ -63,8 +73,8 @@ final class FiniteVentilationTransfer {
             pipe = PipeGasInventoryEndpoint.createSealed(level, pipePos,
                     PipeTopology.Layer.valueOf(settings.selectedLayer().name()), towardDevice).orElse(null);
         }
-        PipeGasTransaction.Endpoint room = atmosphere.finiteRoomEndpointForTrustedSimulation(level, roomPos).orElse(null);
         if (pipe == null) return Result.none();
+        PipeGasTransaction.Endpoint room = atmosphere.finiteRoomEndpointForTrustedSimulation(level, roomPos).orElse(null);
         boolean vent = exactDevice.kind() == VentilationDeviceConfig.Kind.VENT;
 
         if (room == null && vent) {
@@ -125,17 +135,69 @@ final class FiniteVentilationTransfer {
                     reference.get().destinationAfter(), actual.packet(), pipe.snapshot(), sink, "COMMITTED", receipt);
             return new Result(actual.packet(), receipt);
         }
-        if (room == null) return Result.none();
+        boolean wide = exactDevice.kind() == VentilationDeviceConfig.Kind.SCRUBBER && settings.wideNet();
+        // Center is the trusted foreground anchor: do not let a known neighbor become a bridge
+        // when the original foreground cell has unknown/provisional ownership.
+        java.util.Map<BlockPos, PipeGasTransaction.Endpoint> roomEndpoints = new java.util.HashMap<>();
+        PipeGasTransaction.Endpoint center = atmosphere.finiteRoomEndpointForTrustedSimulation(level, roomPos).orElse(null);
+        if (center == null || !center.eligible() || fullChunk(level, roomPos) == null) return Result.none();
+        roomEndpoints.put(roomPos, center);
+        List<BlockPos> targets = trustedScrubberTargets(roomPos, wide,
+                target -> fullChunk(level, target) != null && AtmosphereTopology.canExchange(level, roomPos, target),
+                target -> {
+                    PipeGasTransaction.Endpoint endpoint = atmosphere.finiteRoomEndpointForTrustedSimulation(level, target).orElse(null);
+                    if (endpoint == null || !endpoint.eligible()) return false;
+                    roomEndpoints.put(target, endpoint);
+                    return true;
+                });
+        List<GasMixture> committed = new ArrayList<>(5);
+        for (BlockPos target : targets) {
+            PipeGasTransaction.Endpoint targetRoom = roomEndpoints.get(target);
+            if (targetRoom == null) continue;
+            Result moved = transferCell(exactDevice.kind(), settings, targetRoom, pipe, solverPaidSeconds,
+                    level, exactDevice, pipePos, lane, target, pumpProfile);
+            committed.addAll(moved.committedPackets());
+        }
+        return committed.isEmpty() ? Result.none() : new Result(committed.getLast(), null, committed);
+    }
+
+    static List<BlockPos> trustedScrubberTargets(BlockPos center, boolean wide,
+            Predicate<BlockPos> loadedAndExchangeable, Predicate<BlockPos> finiteOwned) {
+        List<BlockPos> selected = new ArrayList<>();
+        if (!finiteOwned.test(center)) return List.of();
+        selected.add(center);
+        if (!wide) return List.copyOf(selected);
+        for (BlockPos target : new BlockPos[]{center.west(), center.east(), center.north(), center.south()}) {
+            if (target.getY() == center.getY() && loadedAndExchangeable.test(target) && finiteOwned.test(target))
+                selected.add(target);
+        }
+        return List.copyOf(selected);
+    }
+
+    static Result transferCell(VentilationDeviceConfig.Kind kind,
+            VentilationDeviceConfig.Settings settings,
+            PipeGasTransaction.Endpoint room, PipeGasTransaction.Endpoint pipe,
+            double solverPaidSeconds) {
+        return transferCell(kind, settings, room, pipe, solverPaidSeconds, null, null, null, 0, null, null);
+    }
+
+    private static Result transferCell(VentilationDeviceConfig.Kind kind,
+            VentilationDeviceConfig.Settings settings, PipeGasTransaction.Endpoint room,
+            PipeGasTransaction.Endpoint pipe, double solverPaidSeconds, ServerLevel level,
+            VentilationDeviceBlockEntity device, BlockPos pipePos, int lane, BlockPos roomPos,
+            com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData.GasVentPump pumpProfile) {
 
         GasMixture roomBefore = room.snapshot();
         GasMixture pipeBefore = pipe.snapshot();
         if (roomBefore == null || pipeBefore == null) {
-            recordDecision(level, exactDevice, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
+            recordDecision(level, device, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
                     solverPaidSeconds, pumpProfile, false, null, null, null, null, null, null, "UNAVAILABLE_ENDPOINT_INPUT", null);
             return Result.none();
         }
         Optional<PipeGasTransfer.Plan> reference;
         double pipeVolume = pipeBefore.volumeCubicMeters();
+        boolean vent = kind == VentilationDeviceConfig.Kind.VENT;
+        if (device == null) pumpProfile = null;
         try {
             reference = vent
                     ? VentilationGasFlow.planVentRelease(pipeBefore, roomBefore,
@@ -143,12 +205,12 @@ final class FiniteVentilationTransfer {
                     : VentilationGasFlow.planScrubberCapture(roomBefore, pipeBefore,
                         ROOM_VOLUME_M3, pipeVolume, solverPaidSeconds, settings);
         } catch (RuntimeException invalid) {
-            recordDecision(level, exactDevice, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
+            recordDecision(level, device, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
                     solverPaidSeconds, pumpProfile, false, null, null, null, null, null, null, "PLAN_EXCEPTION", null);
             return Result.none();
         }
         if (reference.isEmpty()) {
-            recordDecision(level, exactDevice, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
+            recordDecision(level, device, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
                     solverPaidSeconds, pumpProfile, false, null, null, null, null, null, null, "NO_PLAN", null);
             return Result.none();
         }
@@ -167,32 +229,32 @@ final class FiniteVentilationTransfer {
                     vent ? ROOM_VOLUME_M3 : pipeVolume,
                     maximum, pressureLimit, filter).orElse(null);
         } catch (RuntimeException invalid) {
-            recordDecision(level, exactDevice, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
+            recordDecision(level, device, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
                     solverPaidSeconds, pumpProfile, true, spec.packet(), spec.sourceAfter(), spec.destinationAfter(),
                     null, null, null, "TRANSACTION_PLAN_EXCEPTION", null);
             return Result.none();
         }
         if (transaction == null) {
-            recordDecision(level, exactDevice, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
+            recordDecision(level, device, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
                     solverPaidSeconds, pumpProfile, true, spec.packet(), spec.sourceAfter(), spec.destinationAfter(),
                     null, null, null, "REJECTED", null);
             return Result.none();
         }
         PipeGasTransfer.Plan actual = transaction.transfer();
         if (!withinReference(actual, spec)) {
-            recordDecision(level, exactDevice, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
+            recordDecision(level, device, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
                     solverPaidSeconds, pumpProfile, true, spec.packet(), spec.sourceAfter(), spec.destinationAfter(),
                     null, null, null, "REJECTED", null);
             return Result.none();
         }
         try { PipeGasTransaction.commit(source, destination, transaction); }
         catch (RuntimeException failure) {
-            recordDecision(level, exactDevice, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore,
+            recordDecision(level, device, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore,
                     settings, solverPaidSeconds, pumpProfile, true, spec.packet(), spec.sourceAfter(), spec.destinationAfter(),
                     null, null, null, "COMMIT_EXCEPTION", null);
             throw failure;
         }
-        recordDecision(level, exactDevice, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
+        recordDecision(level, device, pipePos, pipe, lane, pipeBefore, roomPos, null, roomBefore, settings,
                 solverPaidSeconds, pumpProfile, true, spec.packet(), spec.sourceAfter(), spec.destinationAfter(),
                 actual.packet(), pipe.snapshot(), room.snapshot(), "COMMITTED", null);
         return new Result(actual.packet());
@@ -206,6 +268,7 @@ final class FiniteVentilationTransfer {
             boolean planPresent, GasMixture plannedPacket, GasMixture plannedSourceAfter,
             GasMixture plannedDestinationAfter, GasMixture actualPacket, GasMixture pipeAfter,
             GasMixture roomAfter, String outcome, ExportReceipt export) {
+        if (level == null || device == null) return;
         double powerFactor = pump == null ? Double.NaN : pump.pumpPower();
         device.transferObservation().recordDecision(level.getGameTime(), PowerRuntime.currentSampleTick(level),
                 paidSeconds, device, pipePos, String.valueOf(pipeEndpoint.identity()), lane, pipeBefore, roomPos,
@@ -250,4 +313,3 @@ final class FiniteVentilationTransfer {
                 instanceof LevelChunk chunk ? chunk : null;
     }
 }
-

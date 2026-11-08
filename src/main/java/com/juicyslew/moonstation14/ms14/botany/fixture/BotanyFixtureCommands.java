@@ -46,8 +46,8 @@ public final class BotanyFixtureCommands {
     private static final Map<net.minecraft.server.MinecraftServer, Map<UUID, Pending>> PENDING = Collections.synchronizedMap(new WeakHashMap<>());
     private static boolean tickListenerRegistered;
 
-    private record Site(net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension, BlockPos origin, UUID body, long epoch, String selected) { }
-    private record Pending(UUID body, long epoch, Site site, int ticks, net.minecraft.commands.CommandSourceStack source) { }
+    private record Site(net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension, BlockPos origin, UUID body, long epoch, String selected, BotanyCatalogGalleryPlan gallery) { }
+    private record Pending(UUID body, long epoch, Site site, int ticks, net.minecraft.commands.CommandSourceStack source, boolean catalog) { }
 
     private BotanyFixtureCommands() { }
 
@@ -59,6 +59,7 @@ public final class BotanyFixtureCommands {
         }
         var fixture = Commands.literal("botany_fixture")
                 .executes(c -> setup(c.getSource()))
+                .then(Commands.literal("catalog").executes(c -> setupCatalog(c.getSource())))
                 .then(Commands.literal("status").executes(c -> runStatus(c.getSource())))
                 .then(Commands.literal("pause").executes(c -> pacing(c.getSource(), "pause", 0, 0)))
                 .then(Commands.literal("resume").executes(c -> pacing(c.getSource(), "resume", 1, 52)))
@@ -69,7 +70,45 @@ public final class BotanyFixtureCommands {
         event.getDispatcher().register(Commands.literal("ms14").requires(s -> s.hasPermission(2)).then(fixture));
     }
 
+    private static int setupCatalog(net.minecraft.commands.CommandSourceStack source) {
+        ServerPlayer actor=source.getPlayer();
+        var authority=actor==null?null:HandActorAuthority.resolve(actor).orElse(null);
+        if(authority==null) return fail(source,"Botany catalog requires an online player with an authorized character body.");
+        Map<UUID, Pending> pending=PENDING.computeIfAbsent(source.getServer(),ignored->new java.util.HashMap<>());
+        if(pending.containsKey(actor.getUUID())) return fail(source,"Botany fixture setup is already pending.");
+        if(!ModSeedProfiles.serverReady()) return fail(source,"Botany catalog unavailable: resolved seed profiles are not ready.");
+        var result=BotanyFixtureSupplies.catalogSummary(ModSeedProfiles.serverCatalog());
+        if(result.supported()==0) return fail(source,"Botany catalog unavailable: no resolved seed has a registered packet and product.");
+        if(!BotanyFixtureSupplies.galleryKitAvailable()) return fail(source,"Botany catalog unavailable: a required inspection-kit item is not registered.");
+        var produce=com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles.serverCatalog();
+        var level=source.getLevel();
+        var bodyPos=authority.body().blockPosition();
+        var candidates=List.of(bodyPos.offset(2,0,2),bodyPos.offset(2,0,2).north(DEPTH+8),bodyPos.offset(-WIDTH-8,0,2));
+        BotanyCatalogGalleryPlan plan=null;
+        for(var candidate:candidates) {
+            try {
+                var attempt=BotanyCatalogGalleryPlan.create(candidate,ModSeedProfiles.serverCatalog(),produce,com.juicyslew.moonstation14.ms14.botany.BotanySpeciesAvailability.live());
+                if(attempt.entries().size()!=result.supported() || firstBlockedFootprintPosition(level,attempt.plannedFootprint())!=null) continue;
+                if(!galleryProfilesCompatible(attempt)) continue;
+                plan=attempt; break;
+            } catch(RuntimeException ignored) { }
+        }
+        if(plan==null) return fail(source,"Botany catalog unavailable: no compatible, completely clear and loaded gallery site nearby; world was not changed.");
+        String built=BotanyCatalogGallery.build(level,plan);
+        if(!built.startsWith("Built catalog gallery")) return fail(source,built);
+        Site site=new Site(level.dimension(),plan.origin(),authority.body().getUUID(),authority.epoch(),"catalog",plan);
+        SITES.computeIfAbsent(source.getServer(),ignored->new java.util.HashMap<>()).put(actor.getUUID(),site);
+        pending.put(actor.getUUID(),new Pending(authority.body().getUUID(),authority.epoch(),site,0,source,true));
+        var selectedPlan=plan;
+        source.sendSuccess(()->Component.literal("Catalog gallery setup accepted; initializing finite air and "+selectedPlan.entries().size()+" resolved seed trays."),false);
+        source.sendSuccess(()->Component.literal("Catalog mode: "+result.supported()+" supported, "+result.blocked()+" blocked. Blocked: "+result.explanation()+"."),false);
+        return 1;
+    }
+
     private static int setup(net.minecraft.commands.CommandSourceStack source) {
+        return setup(source,"standard");
+    }
+    private static int setup(net.minecraft.commands.CommandSourceStack source,String mode) {
         ServerPlayer actor = source.getPlayer();
         var authority = actor == null ? null : HandActorAuthority.resolve(actor).orElse(null);
         if (authority == null) { source.sendFailure(Component.literal("Botany fixture requires an online player with an authorized character body.")); return 0; }
@@ -78,9 +117,9 @@ public final class BotanyFixtureCommands {
         BlockPos origin = authority.body().blockPosition().offset(2, 0, 2);
         String built = build(source.getLevel(), origin);
         if (!built.startsWith("Built botany fixture")) { source.sendFailure(Component.literal(built)); return 0; }
-        Site site = new Site(source.getLevel().dimension(), origin, authority.body().getUUID(), authority.epoch(), "none");
+        Site site = new Site(source.getLevel().dimension(), origin, authority.body().getUUID(), authority.epoch(), "none", null);
         SITES.computeIfAbsent(source.getServer(), ignored -> new java.util.HashMap<>()).put(actor.getUUID(), site);
-        pending.put(actor.getUUID(), new Pending(authority.body().getUUID(), authority.epoch(), site, 0, source));
+        pending.put(actor.getUUID(), new Pending(authority.body().getUUID(), authority.epoch(), site, 0, source, mode.equals("catalog")));
         source.sendSuccess(() -> Component.literal("Botany fixture setup accepted; room, finite air, body entry, supplies, and tray scenarios are being initialized."), false);
         return 1;
     }
@@ -102,28 +141,34 @@ public final class BotanyFixtureCommands {
             if (level.getChunkSource().getChunk(site.origin().getX() >> 4, site.origin().getZ() >> 4, ChunkStatus.FULL, false) == null) {
                 pending.remove(playerId); task.source().sendFailure(Component.literal("Botany fixture setup failed: fixture room is no longer loaded; partial room remains.")); continue;
             }
-            if (task.ticks() < 2) { pending.put(playerId, new Pending(task.body(), task.epoch(), site, task.ticks() + 1, task.source())); continue; }
-            String air = initialize(level, site.origin());
+            if (task.ticks() < 2) { pending.put(playerId, new Pending(task.body(), task.epoch(), site, task.ticks() + 1, task.source(),task.catalog())); continue; }
+            String air = site.gallery()==null ? initialize(level, site.origin()) : BotanyCatalogGallery.initializeAir(level,site.gallery());
             if (!air.startsWith("Initialized")) {
-                if (task.ticks() + 1 < 20) { pending.put(playerId, new Pending(task.body(), task.epoch(), site, task.ticks() + 1, task.source())); continue; }
+                if (task.ticks() + 1 < 20) { pending.put(playerId, new Pending(task.body(), task.epoch(), site, task.ticks() + 1, task.source(),task.catalog())); continue; }
                 pending.remove(playerId); task.source().sendFailure(Component.literal("Botany fixture setup failed: " + air + " Partial room remains.")); continue;
             }
-            if (!traysInitialized(level, site.origin())) {
-                if (task.ticks() + 1 < 20) { pending.put(playerId, new Pending(task.body(), task.epoch(), site, task.ticks() + 1, task.source())); continue; }
+            if (!(site.gallery()==null ? traysInitialized(level, site.origin()) : BotanyCatalogGallery.traysInitialized(level,site.gallery()))) {
+                if (task.ticks() + 1 < 20) { pending.put(playerId, new Pending(task.body(), task.epoch(), site, task.ticks() + 1, task.source(),task.catalog())); continue; }
                 pending.remove(playerId); task.source().sendFailure(Component.literal("Botany fixture setup failed: tray initialization did not complete within 20 ticks. Partial room remains.")); continue;
             }
-            BotanyFixturePacing.pauseAll(level, site.origin());
-            String scenarios = com.juicyslew.moonstation14.ms14.botany.BotanyFixtureScenarios.arrange(level, site.origin());
+            if(site.gallery()==null) BotanyFixturePacing.pauseAll(level, site.origin());
+            String scenarios = site.gallery()==null ? com.juicyslew.moonstation14.ms14.botany.BotanyFixtureScenarios.arrange(level, site.origin())
+                    : com.juicyslew.moonstation14.ms14.botany.BotanyFixtureScenarios.arrangeCatalog(level,site.gallery());
             if (!scenarios.startsWith("Arranged")) {
-                if (task.ticks() + 1 < 20) { pending.put(playerId, new Pending(task.body(), task.epoch(), site, task.ticks() + 1, task.source())); continue; }
+                if (task.ticks() + 1 < 20) { pending.put(playerId, new Pending(task.body(), task.epoch(), site, task.ticks() + 1, task.source(),task.catalog())); continue; }
                 pending.remove(playerId); task.source().sendFailure(Component.literal("Botany fixture setup failed: " + scenarios + " Partial room remains.")); continue;
             }
-            String moved = enter(player, authority, level, site.origin());
+            if(site.gallery()!=null) BotanyFixturePacing.activate(level,site.gallery().entries().stream().map(BotanyCatalogGalleryPlan.Entry::trayPosition).toList());
+            String moved = site.gallery()==null ? enter(player, authority, level, site.origin()) : enter(player,authority,level,site.gallery().entryPosition());
             if (!moved.startsWith("Moved existing")) { pending.remove(playerId); task.source().sendFailure(Component.literal("Botany fixture setup failed: " + moved + " Partial room remains.")); continue; }
             // Kit uses the existing body-authority grant path; it is deliberately the final, non-retried step.
-            if (!BotanyFixtureSupplies.publish(player, authority, level, site.origin())) { pending.remove(playerId); task.source().sendFailure(Component.literal("Botany fixture setup failed while publishing supplies; partial room/body entry remains.")); continue; }
+            boolean supplied=task.catalog()
+                    ? BotanyFixtureSupplies.publish(player,authority,level,site.origin(),BotanyFixtureSupplies.galleryDescriptors(),galleryKitPositions(site.gallery()))
+                    : BotanyFixtureSupplies.publish(player, authority, level, site.origin());
+            if (!supplied) { pending.remove(playerId); task.source().sendFailure(Component.literal("Botany fixture setup failed while publishing supplies; partial room/body entry remains.")); continue; }
             pending.remove(playerId);
-            task.source().sendSuccess(() -> Component.literal("Botany fixture ready in standby; supplies placed locally. All trays start paused. Use /ms14 botany_fixture start <small-set> or start <from> [to] to begin; pause/resume controls the selected set. Follow numbered signs in walking order."), false);
+            task.source().sendSuccess(() -> Component.literal(site.gallery()!=null ? "Catalog gallery ready: "+site.gallery().entries().size()+" resolved seeds planted at stage 1 with full resources; plants grow automatically. Use pause/resume to control all catalog trays."
+                    : "Botany fixture ready in standby; supplies placed locally. All trays start paused. Use /ms14 botany_fixture start <small-set> or start <from> [to] to begin; pause/resume controls the selected set. Follow numbered signs in walking order."), false);
         }
         if (pending.isEmpty()) PENDING.remove(server);
     }
@@ -180,6 +225,9 @@ public final class BotanyFixtureCommands {
         boolean available = site != null && site.dimension().equals(source.getLevel().dimension()) && validSite(actor,authority,site);
         String result = !available
                 ? "No botany fixture remembered in this dimension; run /ms14 botany_fixture first."
+                : site.gallery()!=null ? "CATALOG GALLERY; all "+site.gallery().entries().size()+" supported seedlings start at stage 1 with full resources and grow automatically.\n"
+                    +BotanyFixturePacing.pausedStatus(source.getLevel(),site.gallery().entries().stream().map(BotanyCatalogGalleryPlan.Entry::trayPosition).toList())
+                    +"\nCommands: pause, resume\n"
                 : "PACING IS TRANSIENT (fixture reload resets holds); selected="+site.selected()+".\n"+BotanyFixturePacing.pausedStatus(source.getLevel(),site.origin())+"\nCommands: start <named set>, start <1..52> [to], pause, resume\n"+status(source.getLevel(), site.origin());
         final String message = result;
         source.sendSuccess(() -> Component.literal(message), false);
@@ -195,6 +243,13 @@ public final class BotanyFixtureCommands {
         var authority=actor==null?null:HandActorAuthority.resolve(actor).orElse(null);
         if(site==null||!site.dimension().equals(source.getLevel().dimension())||!validSite(actor,authority,site)) return fail(source,"No remembered botany fixture for this authorized body/epoch/dimension; run /ms14 botany_fixture first.");
         ServerLevel level=source.getLevel();
+        if(site.gallery()!=null) {
+            if(!set.equals("pause")&&!set.equals("resume")) return fail(source,"Catalog gallery has no station sets; use pause or resume to control all gallery trays.");
+            var positions=site.gallery().entries().stream().map(BotanyCatalogGalleryPlan.Entry::trayPosition).toList();
+            if(set.equals("pause")) BotanyFixturePacing.pauseAll(level,positions); else BotanyFixturePacing.activate(level,positions);
+            source.sendSuccess(()->Component.literal("Catalog gallery "+(set.equals("pause")?"paused":"resumed")+"; "+BotanyFixturePacing.pausedStatus(level,positions)),false);
+            return 1;
+        }
         if(level.getChunkSource().getChunk(site.origin().getX()>>4,site.origin().getZ()>>4,ChunkStatus.FULL,false)==null) return fail(source,"Fixture origin is not loaded; no pacing change made.");
         if(!set.equals("pause")&&!set.equals("resume")&&(first<1||last>52||first>last))
             return fail(source,"Station range must be bounded 1..52 with from <= to.");
@@ -207,7 +262,7 @@ public final class BotanyFixtureCommands {
         } else {
             var selected=BotanyFixturePacing.named(set);
             if(selected!=null) BotanyFixturePacing.activate(level,site.origin(),selected); else BotanyFixturePacing.activate(level,site.origin(),first,last);
-            site=new Site(site.dimension(),site.origin(),site.body(),site.epoch(),selected==null?first+"-"+last:set);
+            site=new Site(site.dimension(),site.origin(),site.body(),site.epoch(),selected==null?first+"-"+last:set,null);
             SITES.get(source.getServer()).put(key,site);
         }
         String selected=set.equals("pause")?"paused; selected="+site.selected():set.equals("resume")?"resumed "+site.selected():set+" "+first+(first==last?"":"-"+last);
@@ -220,14 +275,39 @@ public final class BotanyFixtureCommands {
                 &&HandActorAuthority.revalidate(actor,authority);
     }
 
+    /** Read-only native-test seam for the gallery selected by the live authorized command path. */
+    static BotanyCatalogGalleryPlan rememberedCatalogPlan(ServerPlayer actor) {
+        if(actor==null) return null;
+        Site site=SITES.getOrDefault(actor.getServer(),Map.of()).get(actor.getUUID());
+        var authority=HandActorAuthority.resolve(actor).orElse(null);
+        return site!=null && site.gallery()!=null && site.dimension().equals(actor.serverLevel().dimension())
+                && validSite(actor,authority,site) ? site.gallery() : null;
+    }
+
     private static String initialize(ServerLevel level, BlockPos origin) {
-        BlockPos wing=SmallBotanyFixtureLayout.careOrigin(origin);
         java.util.LinkedHashSet<BlockPos> cells=new java.util.LinkedHashSet<>();
         for(BlockPos room:SmallBotanyFixtureLayout.roomOrigins(origin)) collectRoomCells(level,room,cells);
         for(var cell:SmallBotanyFixtureLayout.connectorPlan(origin)) if(cell.opening()&&AtmosphereTopology.isPassable(level,cell.pos())) cells.add(cell.pos());
-        GasMixture air = new GasMixture(Map.of(GasType.OXYGEN,8.0,GasType.NITROGEN,30.0),293.15);
+        return initializeFiniteAir(level, List.copyOf(cells));
+    }
+
+    static GasMixture freshFixtureAir() {
+        return new GasMixture(Map.of(GasType.OXYGEN,8.0,GasType.NITROGEN,30.0),293.15);
+    }
+
+    private static boolean galleryProfilesCompatible(BotanyCatalogGalleryPlan plan) {
+        return BotanyCatalogGallery.compatible(plan);
+    }
+
+    static List<BlockPos> galleryKitPositions(BotanyCatalogGalleryPlan plan) {
+        var out=new ArrayList<BlockPos>();
+        for(int i=0;i<BotanyFixtureSupplies.galleryDescriptors().size();i++) out.add(plan.origin().offset(11+i%5,2,2+i/5));
+        return List.copyOf(out);
+    }
+
+    static String initializeFiniteAir(ServerLevel level, List<BlockPos> cells) {
         StringBuilder rejection = new StringBuilder();
-        if (!AtmosphereService.INSTANCE.initializeEnclosedFiniteMixtureForTrustedSetup(level,List.copyOf(cells),air,
+        if (!AtmosphereService.INSTANCE.initializeEnclosedFiniteMixtureForTrustedSetup(level,cells,freshFixtureAir(),
                 reason -> rejection.append(reason)))
             return "Initialization not ready: bounded finite enclosure rejected ("+rejection+"). No gas written.";
         return "Initialized "+cells.size()+" enclosed finite owned room/headspace cells with 8 mol O2 + 30 mol N2 per cell at 293.15 K.";
@@ -331,18 +411,15 @@ public final class BotanyFixtureCommands {
         BlockPos wing=SmallBotanyFixtureLayout.careOrigin(origin);
         String layoutIssue = BotanyFixtureSigns.layoutProblem(origin);
         if (layoutIssue != null) return "Refused without changes: " + layoutIssue + ".";
-        for(BlockPos p:SmallBotanyFixtureLayout.plannedFootprint(origin)) if(!emptyLoaded(level,p))
-            return "Refused without changes: complete fixture/connector/sign/utility footprint is occupied, out of bounds, or unloaded at "+p+".";
+        BlockPos blocked = firstBlockedFootprintPosition(level, SmallBotanyFixtureLayout.plannedFootprint(origin));
+        if(blocked != null)
+            return "Refused without changes: complete fixture/connector/sign/utility footprint is occupied, out of bounds, or unloaded at "+blocked+".";
         String plannedSigns=BotanyFixtureSigns.plannedLayoutProblem(origin);
         if(plannedSigns!=null) return "Refused without changes: invalid planned station sign layout: "+plannedSigns+".";
-        for(BlockPos room:SmallBotanyFixtureLayout.roomOrigins(origin)) for(int x=0;x<WIDTH;x++) for(int y=0;y<HEIGHT;y++) for(int z=0;z<DEPTH;z++) {
-            boolean wall=x==0||x==WIDTH-1||y==0||y==HEIGHT-1||z==0||z==DEPTH-1;
-            level.setBlock(room.offset(x,y,z),wall?ModBlocks.STEEL_WALL_BLOCK.get().defaultBlockState():Blocks.AIR.defaultBlockState(),3);
-        }
+        for(BlockPos room:SmallBotanyFixtureLayout.roomOrigins(origin)) writeRoomShell(level,room,WIDTH,DEPTH,HEIGHT);
         // Connector floor/roof/sides, then reopen both room doorways at the same clear lane.
         for(var cell:SmallBotanyFixtureLayout.connectorPlan(origin)) level.setBlock(cell.pos(),cell.opening()?Blocks.AIR.defaultBlockState():ModBlocks.STEEL_WALL_BLOCK.get().defaultBlockState(),3);
-        level.setBlock(SmallBotanyFixtureLayout.grinder(origin), ModBlocks.REAGENT_GRINDER.get().defaultBlockState(), 3);
-        level.setBlock(SmallBotanyFixtureLayout.extractor(origin), ModBlocks.SEED_EXTRACTOR.get().defaultBlockState(), 3);
+        placeCoreMachines(level, origin);
         for(var station:BotanyFixtureStations.all()) {
             BlockPos tray=SmallBotanyFixtureLayout.stationTray(origin,station.legacyId());
             for(int dx=-1;dx<=1;dx++) for(int dz=0;dz<=2;dz++) level.setBlock(tray.offset(dx,-1,dz),((dx+dz)&1)==0?Blocks.POLISHED_ANDESITE.defaultBlockState():Blocks.WHITE_CONCRETE.defaultBlockState(),3);
@@ -356,24 +433,11 @@ public final class BotanyFixtureCommands {
         BotanyFixtureSigns.placeGuides(level, origin);
         for(var sign:BotanyFixtureSigns.careLabels(wing)) placeSign(level,sign);
         for(var sign:BotanyFixtureSigns.toleranceLabels(wing)) placeSign(level,sign);
-        for (int z=-3; z<=3; z++) level.setBlock(origin.offset(8,1,z), Blocks.STONE.defaultBlockState(), 3);
-        for (int z=-1; z<=1; z++) level.setBlock(origin.offset(6,1,z), Blocks.STONE.defaultBlockState(), 3);
         BlockPos apcPos=SmallBotanyFixtureLayout.apc(origin);
-        if(!PowerDeviceFixturePlacement.placeApc(level,apcPos,net.minecraft.core.Direction.WEST)) return "Partial build: APC support/placement failed at "+apcPos+".";
-        BlockPos source = origin.offset(7,1,-3), substation = origin.offset(7,1,-1);
-        putPower(level, source, PowerDeviceKind.HV_SOURCE, net.minecraft.core.Direction.EAST);
-        putPower(level, substation, PowerDeviceKind.HV_MV_SUBSTATION, net.minecraft.core.Direction.EAST);
-        for (int z=-3; z<=-1; z++) if(!CableStorage.place(level,origin.offset(8,1,z),net.minecraft.core.Direction.WEST,CableTier.HV))
-            return "Partial build: HV cable placement failed at "+origin.offset(8,1,z)+".";
-        for (int z=-1; z<=1; z++) if(!CableStorage.place(level,origin.offset(6,1,z),net.minecraft.core.Direction.EAST,CableTier.MV))
-            return "Partial build: MV cable placement failed at "+origin.offset(6,1,z)+".";
-        for (int z=1; z<=3; z++) if(!CableStorage.place(level,origin.offset(8,1,z),net.minecraft.core.Direction.WEST,CableTier.APC))
-            return "Partial build: APC cable placement failed at "+origin.offset(8,1,z)+".";
-        // A vertical continuation from the existing APC-tier host row powers a real upper-wall lamp.
-        for (int y=2; y<=3; y++) level.setBlock(origin.offset(8,y,2), Blocks.STONE.defaultBlockState(), 3);
-        for (int y=2; y<=3; y++) if(!CableStorage.place(level,origin.offset(8,y,2),net.minecraft.core.Direction.WEST,CableTier.APC))
-            return "Partial build: lamp APC cable placement failed at "+origin.offset(8,y,2)+".";
-        putPower(level, SmallBotanyFixtureLayout.lamp(origin), PowerDeviceKind.LAMP, net.minecraft.core.Direction.EAST);
+        String corePowerIssue = placeCorePower(level, origin, apcPos);
+        if(corePowerIssue != null) return corePowerIssue;
+        String lampIssue = placeCoreLamp(level, origin);
+        if(lampIssue != null) return lampIssue;
         // Dedicated edge-turn feed from the existing APC network to the care-wing lamp.
         for (var node : SmallBotanyFixtureLayout.careLightingCablePlan(origin))
             level.setBlock(node.pos(), Blocks.STONE.defaultBlockState(), 3);
@@ -385,7 +449,7 @@ public final class BotanyFixtureCommands {
         for(var node:SmallBotanyFixtureLayout.showcaseLightingCablePlan(origin)) if(!CableStorage.place(level,node.pos(),node.face(),CableTier.APC)) return "Partial build: showcase APC cable placement failed at "+node.pos()+".";
         putPower(level,SmallBotanyFixtureLayout.showcaseLamp(origin),PowerDeviceKind.LAMP,net.minecraft.core.Direction.NORTH);
         if(!(level.getBlockEntity(apcPos) instanceof PowerDeviceBlockEntity battery)) return "Partial build: APC entity missing at "+apcPos+".";
-        battery.setEnergyJoules(100_000);
+        chargeCoreApc(level, apcPos);
         return "Built botany fixture [" + origin.getX() + "," + origin.getY() + "," + origin.getZ() + "]";
     }
 
@@ -404,7 +468,7 @@ public final class BotanyFixtureCommands {
         level.setBlock(pos, block.defaultBlockState().setValue(PowerDeviceBlock.FACING, facing), 3);
     }
 
-    private static void placeSign(ServerLevel level,BotanyFixtureSigns.Label label) {
+    static void placeSign(ServerLevel level,BotanyFixtureSigns.Label label) {
         level.setBlock(label.pos(),Blocks.OAK_SIGN.defaultBlockState().setValue(net.minecraft.world.level.block.StandingSignBlock.ROTATION,label.rotation()),3);
         if(level.getBlockEntity(label.pos()) instanceof net.minecraft.world.level.block.entity.SignBlockEntity sign) {
             var text=sign.getFrontText();
@@ -416,21 +480,69 @@ public final class BotanyFixtureCommands {
         }
     }
 
-    private static boolean emptyLoaded(ServerLevel level,BlockPos p) {
+    static boolean emptyLoaded(ServerLevel level,BlockPos p) {
         return p.getY()>=level.getMinBuildHeight()&&p.getY()<level.getMaxBuildHeight()&&level.getWorldBorder().isWithinBounds(p)
                 &&level.getChunkSource().getChunk(p.getX()>>4,p.getZ()>>4,ChunkStatus.FULL,false)!=null
                 &&level.getBlockState(p).isAir()&&level.getBlockEntity(p)==null;
     }
 
     private static String enter(ServerPlayer actor, HandActorAuthority.Snapshot authority, ServerLevel level, BlockPos origin) {
+        return enter(actor,authority,level,SmallBotanyFixtureLayout.entry(origin));
+    }
+
+    static String enter(ServerPlayer actor, HandActorAuthority.Snapshot authority, ServerLevel level, Vec3 target) {
         var body = authority.body();
         if (body.level() != level || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel() || level.getEntity(body.getUUID()) != body)
             return "Enter refused: controlled body is not live in this dimension.";
-        Vec3 target = SmallBotanyFixtureLayout.entry(origin);
         var box = body.getBoundingBox().move(target.subtract(body.position()));
         if (!level.hasChunkAt(BlockPos.containing(target)) || !level.noCollision(body, box)) return "Enter refused: interior destination is blocked or unloaded.";
         body.teleportTo(target.x, target.y, target.z);
         body.setDeltaMovement(Vec3.ZERO);
         return "Moved existing controlled body to botany fixture interior " + target + "; atmosphere/power initialization pending.";
+    }
+
+    static BlockPos firstBlockedFootprintPosition(ServerLevel level, Iterable<BlockPos> footprint) {
+        for (BlockPos pos : footprint) if (!emptyLoaded(level,pos)) return pos;
+        return null;
+    }
+
+    static void writeRoomShell(ServerLevel level, BlockPos origin, int width, int depth, int height) {
+        for(int x=0;x<width;x++) for(int y=0;y<height;y++) for(int z=0;z<depth;z++) {
+            boolean wall=x==0||x==width-1||y==0||y==height-1||z==0||z==depth-1;
+            level.setBlock(origin.offset(x,y,z),wall?ModBlocks.STEEL_WALL_BLOCK.get().defaultBlockState():Blocks.AIR.defaultBlockState(),3);
+        }
+    }
+
+    static void placeCoreMachines(ServerLevel level, BlockPos origin) {
+        level.setBlock(SmallBotanyFixtureLayout.grinder(origin), ModBlocks.REAGENT_GRINDER.get().defaultBlockState(), 3);
+        level.setBlock(SmallBotanyFixtureLayout.extractor(origin), ModBlocks.SEED_EXTRACTOR.get().defaultBlockState(), 3);
+    }
+
+    static String placeCorePower(ServerLevel level, BlockPos origin, BlockPos apcPos) {
+        for (int z=-3; z<=3; z++) level.setBlock(origin.offset(8,1,z), Blocks.STONE.defaultBlockState(), 3);
+        for (int z=-1; z<=1; z++) level.setBlock(origin.offset(6,1,z), Blocks.STONE.defaultBlockState(), 3);
+        if(!PowerDeviceFixturePlacement.placeApc(level,apcPos,net.minecraft.core.Direction.WEST)) return "Partial build: APC support/placement failed at "+apcPos+".";
+        BlockPos source = origin.offset(7,1,-3), substation = origin.offset(7,1,-1);
+        putPower(level, source, PowerDeviceKind.HV_SOURCE, net.minecraft.core.Direction.EAST);
+        putPower(level, substation, PowerDeviceKind.HV_MV_SUBSTATION, net.minecraft.core.Direction.EAST);
+        for (int z=-3; z<=-1; z++) if(!CableStorage.place(level,origin.offset(8,1,z),net.minecraft.core.Direction.WEST,CableTier.HV))
+            return "Partial build: HV cable placement failed at "+origin.offset(8,1,z)+".";
+        for (int z=-1; z<=1; z++) if(!CableStorage.place(level,origin.offset(6,1,z),net.minecraft.core.Direction.EAST,CableTier.MV))
+            return "Partial build: MV cable placement failed at "+origin.offset(6,1,z)+".";
+        for (int z=1; z<=3; z++) if(!CableStorage.place(level,origin.offset(8,1,z),net.minecraft.core.Direction.WEST,CableTier.APC))
+            return "Partial build: APC cable placement failed at "+origin.offset(8,1,z)+".";
+        return null;
+    }
+
+    static String placeCoreLamp(ServerLevel level, BlockPos origin) {
+        for (int y=2; y<=3; y++) level.setBlock(origin.offset(8,y,2), Blocks.STONE.defaultBlockState(), 3);
+        for (int y=2; y<=3; y++) if(!CableStorage.place(level,origin.offset(8,y,2),net.minecraft.core.Direction.WEST,CableTier.APC))
+            return "Partial build: lamp APC cable placement failed at "+origin.offset(8,y,2)+".";
+        putPower(level, SmallBotanyFixtureLayout.lamp(origin), PowerDeviceKind.LAMP, net.minecraft.core.Direction.EAST);
+        return null;
+    }
+
+    static void chargeCoreApc(ServerLevel level, BlockPos apcPos) {
+        if(level.getBlockEntity(apcPos) instanceof PowerDeviceBlockEntity battery) battery.setEnergyJoules(100_000);
     }
 }

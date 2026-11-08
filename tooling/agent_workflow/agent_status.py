@@ -1,6 +1,7 @@
 """Bounded, authenticated OpenCode worktree status snapshots."""
 from __future__ import annotations
 import json, time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -30,15 +31,21 @@ def observe_sessions(request, *, deadline=None):
         if not isinstance(active,dict) or len(active)>64: raise ValueError('active session response invalid or exceeds 64 sessions')
     except Exception as exc:
         return {'active':None,'sessions':{},'errors':['active sessions unavailable: '+str(exc)[:160]],'complete':False}
+    running=[]
     for sid,info in active.items():
         if not isinstance(info,dict) or info.get('type')!='running':
             complete=False; errors.append(f'active session {str(sid)[:80]} has invalid status entry'); continue
+        running.append(sid)
+    def header(sid):
         try:
             h=_data(_api(request,'/api/session/'+str(sid),deadline))
             if not isinstance(h,dict) or str(h.get('id'))!=str(sid) or not _worktree((h.get('location') or {}).get('directory')): raise ValueError()
-            sessions[sid]=h
-        except Exception:
-            complete=False; errors.append(f'active session header {str(sid)[:80]} unavailable: invalid session header')
+            return sid,h,None
+        except Exception: return sid,None,None
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for sid,h,error in pool.map(header,running):
+            if h is None: complete=False; errors.append(f'active session header {str(sid)[:80]} unavailable: invalid session header')
+            else: sessions[sid]=h
     return {'active':active,'sessions':sessions,'errors':errors,'complete':complete}
 
 def observe_coding_agents(worktrees, *, request=None, now=None, budget_seconds=5):
@@ -50,7 +57,7 @@ def observe_coding_agents(worktrees, *, request=None, now=None, budget_seconds=5
         name=Path(value['worktree'] if isinstance(value,dict) and value.get('worktree') else value['path'] if isinstance(value,dict) and value.get('path') else value).resolve().name
         if name in {f'MoonStation14-agent-{i:02d}' for i in range(1,5)}:
             slots[p]=(str(Path(p).resolve()),'Agent '+name[-2:])
-    agents=[{'worktree':v[0],'label':v[1],'activity':'idle','summary':'No active work','session_id':''} for p,v in slots.items()]
+    agents=[{'worktree':v[0],'label':v[1],'activity':'unknown','summary':'Activity unavailable','session_id':''} for p,v in slots.items()]
     result={'checked_at':now,'complete':True,'agents':agents,'errors':[]}
     if not slots: return result
     request=_dispatch(request); deadline=time.monotonic()+max(0,budget_seconds)
@@ -58,10 +65,11 @@ def observe_coding_agents(worktrees, *, request=None, now=None, budget_seconds=5
     def api(path): return _api(request,path,deadline)
     observed=observe_sessions(request,deadline=deadline)
     if not observed['complete']:
-        for a in agents: a.update(activity='unknown',summary='No active work')
+        for a in agents: a.update(activity='unknown',summary='Activity unavailable')
         return {**result,'complete':False,'errors':['active session observation incomplete']}
     sessions=observed['sessions']; roots={}
-    for root,label in slots.values():
+    def role_query(item):
+        root,label=item
         try:
             response=api('/api/agent?'+urlencode({'location[directory]':root}))
             roles=_data(response)
@@ -70,8 +78,12 @@ def observe_coding_agents(worktrees, *, request=None, now=None, budget_seconds=5
             for role in roles:
                 if not isinstance(role,dict) or not isinstance(role.get('name'),str) or role.get('mode') not in {'primary','all','subagent'}: raise ValueError()
                 if role['mode']=='primary' and role['name'].startswith('orchestrate-'): names.add(role['name'])
-            roots[_worktree(root)]=names
-        except Exception: errors.append('agent roles unavailable')
+            return _worktree(root),names,None
+        except Exception: return _worktree(root),None,'agent roles unavailable'
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for path,names,error in pool.map(role_query,slots.values()):
+            if error: errors.append(error)
+            else: roots[path]=names
     if errors:
         for a in agents: a['activity']='unknown'
         return {**result,'complete':False,'errors':list(dict.fromkeys(errors))}
@@ -96,17 +108,26 @@ def observe_coding_agents(worktrees, *, request=None, now=None, budget_seconds=5
             cur=str(parent)
         raise ValueError('session ancestry depth exceeded')
     pending=set()
-    try:
-        for root,_ in slots.values():
-            for endpoint in ('/api/permission/request','/api/form'):
+    pending_requests=[(root,endpoint) for root,_ in slots.values() for endpoint in ('/api/permission/request','/api/form')]
+    def pending_query(item):
+        root,endpoint=item
+        try:
                 response=api(endpoint+'?'+urlencode({'location[directory]':root}))
                 if not isinstance(response,dict) or _worktree((response.get('location') or {}).get('directory'))!=_worktree(root): raise ValueError()
                 body=_data(response)
                 if not isinstance(body,list): raise ValueError()
+                found=set()
                 for item in body:
                     if not isinstance(item,dict) or not isinstance(item.get('sessionID'),str): raise ValueError()
-                    pending.add(item['sessionID'])
-    except Exception:
+                    found.add(item['sessionID'])
+                return found,None
+        except Exception: return set(),'pending requests unavailable'
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        pending_results=list(pool.map(pending_query,pending_requests))
+    for found,error in pending_results:
+        pending.update(found)
+        if error: errors.append(error)
+    if errors:
         for a in agents: a['activity']='unknown'
         return {**result,'complete':False,'errors':['pending requests unavailable']}
     waiting_roots=set()
@@ -134,6 +155,8 @@ def observe_coding_agents(worktrees, *, request=None, now=None, budget_seconds=5
         elif root in active_by_root:
             active,root_header,root_sid=active_by_root[root]
             a.update(activity='working',summary=str(root_header.get('title') or active.get('title') or 'Active coding work')[:200],session_id=root_sid)
+        else:
+            a.update(activity='idle',summary='No active work')
     return {**result,'errors':errors}
 
 def _session_time(session):

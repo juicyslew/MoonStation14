@@ -7,6 +7,65 @@ import com.juicyslew.moonstation14.ms14.examine.ExamineTarget;
 public final class ExamineClientPolicy {
     private ExamineClientPolicy() { }
 
+    /** Rebind only the same visible child/host lease; never follow a replacement child. */
+    public static ExamineTarget refreshStoredTarget(ExamineTarget captured, long bodyRevision, long hostRevision,
+            java.util.UUID hostUuid, java.util.UUID nonce, boolean hostOpen, boolean childPresent) {
+        if (captured == null || captured.kind() != ExamineTarget.Kind.STORED_ITEM || !hostOpen || !childPresent
+                || bodyRevision < 0 || hostRevision < 0) return null;
+        var b = captured.storedItem();
+        if (!b.worldSession()) {
+            if (hostUuid != null || nonce != null) return null;
+            return ExamineTarget.storedItem(b.location(), b.hostId(), bodyRevision, b.hostToken(), b.childToken());
+        }
+        if (!java.util.Objects.equals(b.hostUuid(), hostUuid) || !java.util.Objects.equals(b.sessionNonce(), nonce)) return null;
+        return ExamineTarget.worldStoredItem(hostUuid, nonce, bodyRevision, hostRevision, b.childToken());
+    }
+
+    public static ExamineTarget refreshOwnedTarget(ExamineTarget captured, long revision, boolean exactSlotTokenPresent) {
+        if (captured == null || captured.kind() != ExamineTarget.Kind.ITEM || revision < 0 || !exactSlotTokenPresent) return null;
+        var item = captured.ownedItem();
+        return ExamineTarget.ownedItem(item.location(), item.slotId(), revision, item.token());
+    }
+
+    /** Resolve an owned grid child using its owner's actual hand/equipment slot identity. */
+    public static ExamineTarget resolveOwnedStoredTarget(
+            com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot snapshot,
+            com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location location,
+            String hostToken, String childToken) {
+        if (snapshot == null || location == null || hostToken == null || childToken == null) return null;
+        String slotId;
+        if (location == com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD) {
+            var slot = snapshot.hands().stream().filter(h -> hostToken.equals(h.token())).findFirst().orElse(null);
+            if (slot == null) return null;
+            slotId = slot.id();
+        } else {
+            var slot = snapshot.equipment().stream().filter(e -> hostToken.equals(e.token())).findFirst().orElse(null);
+            if (slot == null) return null;
+            slotId = slot.id();
+        }
+        boolean childExists = snapshot.grids().stream().filter(g -> hostToken.equals(g.hostToken()))
+                .anyMatch(g -> g.entries().stream().anyMatch(e -> childToken.equals(e.token())));
+        return childExists ? ExamineTarget.storedItem(location, slotId, snapshot.revision(), hostToken, childToken) : null;
+    }
+
+    public static ExamineTarget refreshOwnedStoredTarget(
+            com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot snapshot, ExamineTarget captured) {
+        if (captured == null || captured.kind() != ExamineTarget.Kind.STORED_ITEM || captured.storedItem().worldSession()) return null;
+        var b = captured.storedItem();
+        var current = resolveOwnedStoredTarget(snapshot, b.location(), b.hostToken(), b.childToken());
+        return current != null && current.storedItem().hostId().equals(b.hostId()) ? current : null;
+    }
+
+    public static boolean storedGridExamineGesture(int button, boolean shift, boolean control, boolean alt,
+                                                    boolean occupied, boolean dragging) {
+        return button == 0 && shift && !control && !alt && occupied && !dragging;
+    }
+
+    public static boolean sameRefreshAuthority(java.util.UUID actor, long epoch, java.util.UUID requestedActor,
+                                                long requestedEpoch) {
+        return actor != null && requestedActor != null && epoch > 0 && actor.equals(requestedActor) && epoch == requestedEpoch;
+    }
+
     public static boolean eligible(ExaminationPolicy.Examiner examiner, ExaminationPolicy.State state,
                                    boolean blind, double blur, double distance) {
         return ExaminationPolicy.canExamine(examiner, state, blind, blur, distance, true, true, true);
@@ -23,6 +82,11 @@ public final class ExamineClientPolicy {
     /** Chat owns new world selection input, but does not invalidate an already latched examine. */
     public static boolean refreshExistingLatch(boolean chatScreen, boolean hasLatchedTarget) {
         return chatScreen && hasLatchedTarget;
+    }
+    /** Exact Shift+primary world gesture; it deliberately excludes Ctrl/Alt actions. */
+    public static boolean worldGesture(int button, int action, boolean shift, boolean control, boolean alt,
+                                       boolean noScreen) {
+        return button == 0 && action == 1 && shift && !control && !alt && noScreen;
     }
     public static boolean popupClickAllowed(boolean noScreen, boolean storageHost) {
         return noScreen || storageHost;
@@ -143,4 +207,3 @@ public final class ExamineClientPolicy {
         public void clear() { target = null; pinned = false; epoch = 0; openedAt = 0; }
     }
 }
-

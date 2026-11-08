@@ -83,17 +83,50 @@ class ReviewerClaimProtocolTests(unittest.TestCase):
                             self.assertEqual(deadline,fixture.store.get_task(task['task_id'])['deadline_ms'])
                             result={k:v for k,v in fixture.result().items() if k not in
                                 {'contract_version','run_id','evaluation_generation','assignment_generation','input_digest'}}
+                            base=dict(result)
                             criterion=fixture.planner.build_assignment(task['task_id'])['body']['review']['criteria'][0]['criterion_id']
+                            current_checks=fixture.planner.verified_current_checks(task['task_id'])
+                            self.assertTrue(current_checks)
+                            current_check=next(check for check in current_checks if check['receipt_ref']==fixture.receipt)
+                            self.assertEqual('PASS',current_check['evidence']['status'])
                             result['owner_followups']=[{'criterion_id':criterion,'message':'Physical click and audio quality await owner observation.',
                                 'manual_check':'Owner tests numbered-bar clicks and hears the configured scream.', 'evidence_refs':[fixture.receipt]}]
                             invalid=dict(result, decision='FAIL', findings=[{'criterion_id':criterion,'category':'COVERAGE',
-                                'message':'An owner observation remains pending.','location':'manual verification',
-                                'evidence_refs':[fixture.receipt],'required_change':'Verify only after owner testing.',
-                                'validation_stage':'OWNER_TESTING'}])
+                                 'message':'An owner observation remains pending.','location':'manual verification',
+                                 'evidence_refs':[fixture.receipt],'required_change':'Verify only after owner testing.',
+                                 'validation_stage':'OWNER_TESTING',
+                                 'coverage_basis':'INSUFFICIENT_CHECK_COVERAGE'}])
                             rejected=await body(await client.call_tool('complete_review',{'result':invalid,'session_id':session}))
                             self.assertFalse(rejected.get('accepted'),rejected)
                             self.assertEqual('CORRECT_RESULT',rejected.get('next_action'))
                             self.assertIn('owner_followups',rejected.get('message',''))
+                            missing_execution=dict(base,decision='FAIL',findings=[{'criterion_id':criterion,
+                                'category':'COVERAGE','message':'The required check did not execute.',
+                                'location':'automated validation','evidence_refs':[fixture.receipt],
+                                'required_change':f"Run the {current_check['kind']} check.",'validation_stage':'TECHNICAL',
+                                'coverage_basis':'MISSING_EXECUTION_EVIDENCE','check_kind':current_check['kind']}])
+                            rejected_execution=await body(await client.call_tool('complete_review',
+                                {'result':missing_execution,'session_id':session}))
+                            self.assertFalse(rejected_execution.get('accepted'),rejected_execution)
+                            self.assertEqual('INVALID_REVIEW_RESULT',rejected_execution.get('code'))
+                            self.assertEqual('CORRECT_RESULT',rejected_execution.get('next_action'))
+                            self.assertIn('current',rejected_execution.get('message','').lower())
+                            self.assertIn('receipt',rejected_execution.get('message','').lower())
+                            claimed_deadline=fixture.store.get_task(task['task_id'])['deadline_ms']
+                            unregistered_ref=dict(base,inspected_refs=[fixture.receipt,
+                                'src/main/java/moonstation/body/BodyActionService.java'])
+                            rejected_ref=await body(await client.call_tool('complete_review',
+                                {'result':unregistered_ref,'session_id':session}))
+                            self.assertFalse(rejected_ref.get('accepted'),rejected_ref)
+                            self.assertEqual('INVALID_REVIEW_RESULT',rejected_ref.get('code'))
+                            self.assertEqual('CORRECT_RESULT',rejected_ref.get('next_action'))
+                            self.assertIn('src/main/java/moonstation/body/BodyActionService.java',
+                                rejected_ref.get('message',''))
+                            self.assertTrue(any(ref in rejected_ref.get('message','')
+                                for ref in (fixture.receipt,'artifact')),
+                                rejected_ref.get('message',''))
+                            self.assertEqual('CLAIMED',fixture.store.get_task(task['task_id'])['state'])
+                            self.assertEqual(claimed_deadline,fixture.store.get_task(task['task_id'])['deadline_ms'])
                             done=await body(await client.call_tool('complete_review',{'result':result,'session_id':session}))
                             self.assertTrue(done.get('accepted'),done)
                             self.assertEqual('COMPLETED',fixture.store.get_task(task['task_id'])['state'])
@@ -176,14 +209,16 @@ class ReviewerClaimProtocolTests(unittest.TestCase):
                             base['owner_followups']=[followup]
                             invalid=dict(base,decision='FAIL',findings=[{'criterion_id':criterion,'category':'COVERAGE',
                                 'message':'Owner observation is pending.','location':'manual test','evidence_refs':[fixture.receipt],
-                                'required_change':'Wait for owner.','validation_stage':'OWNER_TESTING'}])
+                                'required_change':'Wait for owner.','validation_stage':'OWNER_TESTING',
+                                'coverage_basis':'INSUFFICIENT_CHECK_COVERAGE'}])
                             rejected=await body(await client.call_tool('complete_review',{'result':invalid,'session_id':session}))
                             self.assertFalse(rejected.get('accepted'),rejected)
                             self.assertEqual('CORRECT_RESULT',rejected.get('next_action'))
                             technical=dict(base,decision='FAIL',findings=[{'criterion_id':criterion,'category':'COVERAGE',
                                 'message':'Automated evidence confirms the action bar fails to preserve assigned slots.',
                                 'location':'BodyActionSlots resolution check','evidence_refs':[fixture.receipt],
-                                'required_change':'Restore stable action-to-slot resolution.','validation_stage':'TECHNICAL'}])
+                                'required_change':'Restore stable action-to-slot resolution.','validation_stage':'TECHNICAL',
+                                'coverage_basis':'INSUFFICIENT_CHECK_COVERAGE'}])
                             done=await body(await client.call_tool('complete_review',{'result':technical,'session_id':session}))
                             self.assertTrue(done.get('accepted'),done)
                             self.assertEqual('FAIL',fixture.api.aggregate(fixture.run)['decision'])

@@ -99,6 +99,24 @@ public final class BodyWorldItemActions {
                 || !level.mayInteract(actor, admission.hit().pos())) return BodyBlockUseResult.Outcome.DENIED;
         ItemStack stack = hands.stackCopy(request.handId()).orElse(null);
         if (stack == null || stack.isEmpty()) return BodyBlockUseResult.Outcome.DENIED;
+        if (stack.is(com.juicyslew.moonstation14.block.ModBlocks.FIRELOCK.get().asItem())) {
+            // Minimal targeting rule: use the firelock item on either cell of an existing airlock.
+            BlockPos target=admission.hit().pos();var clicked=level.getBlockState(target);
+            if(clicked.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock){
+                if(clicked.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.HALF)==net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER)target=target.below();
+                 if(level.getBlockEntity(target) instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity airlock){
+                     var prepared=airlock.prepareFirelockInstallation(target);
+                     if(prepared==null)return BodyBlockUseResult.Outcome.DENIED;
+                     ItemStack before=stack.copy();ItemStack after=before.copy();after.shrink(1);
+                     var installHands=hands;String installHand=request.handId();String installToken=request.expectedToken();long installRevision=request.expectedRevision();
+                     var mutation=com.juicyslew.moonstation14.ms14.doors.FirelockInstallationCommit.commit(prepared::isCurrent,
+                             ()->com.juicyslew.moonstation14.ms14.hands.live.BodyHeldItemMutation.commit(actor,authority,installHands,installHand,installToken,installRevision,before,after),
+                             prepared::publish);
+                     if(mutation!=com.juicyslew.moonstation14.ms14.hands.live.BodyHeldItemMutation.Result.SUCCESS)return mutation==com.juicyslew.moonstation14.ms14.hands.live.BodyHeldItemMutation.Result.RECOVERY_REQUIRED?BodyBlockUseResult.Outcome.RECOVERY_REQUIRED:BodyBlockUseResult.Outcome.DENIED;
+                     return BodyBlockUseResult.Outcome.HAND_CHANGED;
+                 }
+            }
+        }
         if (body.level().getBlockEntity(admission.hit().pos()) instanceof com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorBlockEntity collector)
             return com.juicyslew.moonstation14.ms14.radiation.RadiationCollectorInteractionService.use(actor, request, admission, collector);
         if (com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.isConfigurator(stack)) {
@@ -162,6 +180,8 @@ public final class BodyWorldItemActions {
         }
         if (com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireMenuService
                 .dispatchToolMenu(actor, request, admission, stack)) return BodyBlockUseResult.Outcome.NO_CHANGE;
+        if (com.juicyslew.moonstation14.ms14.doors.FirelockPryService.startTool(actor, request, admission, stack))
+            return BodyBlockUseResult.Outcome.NO_CHANGE;
         if (com.juicyslew.moonstation14.ms14.doors.AirlockToolInteraction.use(actor, request, admission, stack))
             return BodyBlockUseResult.Outcome.NO_CHANGE;
         if (com.juicyslew.moonstation14.ms14.doors.AirlockPryService.start(actor, request, admission, stack))
@@ -225,7 +245,9 @@ public final class BodyWorldItemActions {
                 if (!changed) actor.displayClientMessage(field.toggleFeedback(false),true);
                 return changed ? BodyBlockUseResult.Outcome.NO_CHANGE : BodyBlockUseResult.Outcome.DENIED;
             }
-            if (com.juicyslew.moonstation14.ms14.doors.AirlockInteraction.activate(request, admission))
+            if (com.juicyslew.moonstation14.ms14.doors.AirlockInteraction.activateFirelock(actor, request, admission))
+                return BodyBlockUseResult.Outcome.NO_CHANGE;
+            if (com.juicyslew.moonstation14.ms14.doors.AirlockInteraction.activate(actor,request, admission))
                 return BodyBlockUseResult.Outcome.NO_CHANGE;
             if (com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmMenuService
                     .openWorkspace(actor, request, admission) != null) return BodyBlockUseResult.Outcome.NO_CHANGE;
@@ -243,4 +265,3 @@ public final class BodyWorldItemActions {
         return expectedToken != null && actualToken.filter(expectedToken::equals).isPresent();
     }
 }
-

@@ -140,6 +140,54 @@ $level = if ($env:MS14_FIXTURE_LEVEL) { $env:MS14_FIXTURE_LEVEL } else { 'world'
     $env:MS14_FIXTURE_PROJECTS = Join-Path $temp 'project-roots.txt'
     $env:MS14_FIXTURE_FAIL = '1'
     $env:MS14_FIXTURE_LEVEL = ''
+
+    # Cancel the real launcher pipeline after its server wrapper is persisted,
+    # but before the first client wrapper is created. The only instrumentation is
+    # in an isolated copy; production launcher behavior/flags remain untouched.
+    $cancelSource = [IO.File]::ReadAllText((Join-Path $root 'ms14.ps1'))
+    $cancelAnchor = '(?m)^            Write-WrapperState \$statePath \$newWrappers \$launchId\r?\n        \}'
+    if ([regex]::Matches($cancelSource, $cancelAnchor).Count -ne 1) { throw 'Could not uniquely locate the server/client launch boundary for cancellation fixture.' }
+    $cancelReady = Join-Path $env:TEMP ('ms14-cancel-ready-' + [Guid]::NewGuid().ToString('N') + '.txt')
+    [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($cancelReady))
+    if (!(Test-Path -LiteralPath $root -PathType Container)) { throw "Cancellation fixture root disappeared before pipeline start: $root" }
+    $env:MS14_FIXTURE_FAIL = '0'
+    $cancelPause = "            Write-WrapperState `$statePath `$newWrappers `$launchId`n            if (`$launch.Role -eq 'server') { [IO.File]::WriteAllText('$cancelReady', 'ready'); while (`$true) { Start-Sleep -Seconds 1 } }`n        }"
+    $instrumentedLauncher = Join-Path $root 'ms14-cancel-fixture.ps1'
+    [IO.File]::WriteAllText($instrumentedLauncher, [regex]::Replace($cancelSource, $cancelAnchor, [System.Text.RegularExpressions.MatchEvaluator]{ param($match) $cancelPause }, 1), [Text.UTF8Encoding]::new($false))
+    $cancelPipeline = [PowerShell]::Create()
+    try {
+        $quotedCancelLauncher = "'" + $instrumentedLauncher.Replace("'", "''") + "'"
+        [void]$cancelPipeline.AddScript("& $quotedCancelLauncher -Worktree main -Clients 2")
+        $cancelAsync = $cancelPipeline.BeginInvoke()
+        $cancelDeadline = [DateTime]::UtcNow.AddSeconds(15)
+        while (!(Test-Path -LiteralPath $cancelReady) -and [DateTime]::UtcNow -lt $cancelDeadline) { Start-Sleep -Milliseconds 50 }
+        if (!(Test-Path -LiteralPath $cancelReady)) { $errors = @($cancelPipeline.Streams.Error | ForEach-Object { $_.ToString() }); throw "Launcher did not reach the instrumented pre-client cancellation boundary (state=$($cancelPipeline.InvocationStateInfo.State), reason=$($cancelPipeline.InvocationStateInfo.Reason), errors=$($errors -join '; '))." }
+        $cancelStateFiles = @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Temp\opencode') -Filter 'moonstation14-launch-*.json')
+        if ($cancelStateFiles.Count -ne 1) { throw 'Cancellation fixture could not identify isolated launcher state.' }
+        $cancelState = Get-Content $cancelStateFiles[0].FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+        $cancelServer = @(Get-FixtureJvm -Role server -RootPath $root)
+        if ($cancelServer.Count -ne 1 -or $cancelState.wrappers.Count -ne 1 -or $cancelState.wrappers[0].role -ne 'server') { throw 'Cancellation fixture did not establish exactly the owned server wrapper/JVM before client startup.' }
+        $cancelServerIdentity = [pscustomobject]@{ Id=[int]$cancelServer[0].Id; Created=$cancelServer[0].Created }
+        $cancelWrapper = $cancelState.wrappers[0]
+        $cancelPipeline.Stop()
+        try { [void]$cancelPipeline.EndInvoke($cancelAsync) } catch { }
+        Wait-FixtureProcessExit $cancelServerIdentity 'Canceled-launch server JVM'
+        Wait-FixtureProcessExit ([pscustomobject]@{ Id=[int]$cancelWrapper.id; Created=[Management.ManagementDateTimeConverter]::ToDateTime([string]$cancelWrapper.created) }) 'Canceled-launch server wrapper'
+        $cancelClients = @(Get-FixtureJvm -Role client -RootPath $root) + @(Get-FixtureJvm -Role client2 -RootPath $root)
+        if ($cancelClients.Count) { throw 'Cancellation fixture unexpectedly created a client JVM.' }
+        if (Test-Path -LiteralPath $cancelStateFiles[0].FullName) { throw 'Cancellation cleanup left launcher ownership state behind.' }
+        if (Get-ChildItem (Join-Path $root 'build\dev-launcher') -Filter 'launch-client*.cmd' -ErrorAction SilentlyContinue) { throw 'Cancellation fixture created a client launch wrapper.' }
+        $cancelForeign = Get-CimInstance Win32_Process -Filter "ProcessId=$($foreignJvm.Id)" -ErrorAction SilentlyContinue
+        $cancelGameTest = Get-CimInstance Win32_Process -Filter "ProcessId=$($gameTestJvm.Id)" -ErrorAction SilentlyContinue
+        if (!$cancelForeign -or $cancelForeign.CreationDate -ne $foreignCreated -or !$cancelGameTest -or $cancelGameTest.CreationDate -ne $gameTestCreated) { throw 'Cancellation cleanup stopped the foreign or GameTest neighbor process.' }
+    } finally {
+        if ($cancelPipeline) { $cancelPipeline.Dispose() }
+        Remove-Item -LiteralPath $cancelReady -Force -ErrorAction SilentlyContinue
+    }
+
+    New-Item -ItemType Directory -Path (Join-Path $root 'run\world') -Force | Out-Null
+    Set-Content (Join-Path $root 'run\world\keep.txt') 'selected-world'
+    $env:MS14_FIXTURE_FAIL = '1'
     $result = Invoke-FixtureLauncher @('-Clients','2')
     if ($result.ExitCode -eq 0) { throw 'Expected preparation failure, but launcher succeeded.' }
     if (!(Test-Path (Join-Path $root 'run\world\keep.txt'))) { throw 'Preparation failure removed the selected world.' }

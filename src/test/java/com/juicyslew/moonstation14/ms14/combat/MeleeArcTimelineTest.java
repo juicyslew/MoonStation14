@@ -70,10 +70,11 @@ class MeleeArcTimelineTest {
     }
 
     @Test void lungeUsesFixedAbsolutePeakAndReturnTimes() {
+        assertEquals(.22, MeleeArcTimeline.MAX_LUNGE_DISTANCE, 1e-12);
         assertEquals(0, MeleeArcTimeline.lunge(0));
-        assertEquals(.075, MeleeArcTimeline.lunge(.02), 1e-12);
-        assertEquals(.15, MeleeArcTimeline.lunge(.04), 1e-12);
-        assertEquals(.075, MeleeArcTimeline.lunge(.07), 1e-12);
+        assertEquals(.11, MeleeArcTimeline.lunge(.02), 1e-12);
+        assertEquals(.22, MeleeArcTimeline.lunge(.04), 1e-12);
+        assertEquals(.11, MeleeArcTimeline.lunge(.07), 1e-12);
         assertEquals(0, MeleeArcTimeline.lunge(.10), 1e-12);
         assertEquals(0, MeleeArcTimeline.lunge(.11), 1e-12);
     }

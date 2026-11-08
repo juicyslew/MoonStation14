@@ -1072,8 +1072,10 @@ public final class PlayerLifecycleRegistry {
             MobHarness target = ownership.registeredHarness(targetId).orElse(null);
             if (target == null || target.kind() != MobHarnessKind.CHARACTER || !eligibleTarget.isEligible(target))
                 return Optional.empty();
+            String newProfileKey = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding.profileKeyForBody(targetId.value());
+            if (newProfileKey.equals(savedGhost.profileKey())) return Optional.empty();
             SavedLifecycleProfile active = new SavedLifecycleProfile(savedGhost.schemaVersion(),
-                    savedGhost.accountId(), savedGhost.profileKey(), savedGhost.mindId(), targetId.value(),
+                    savedGhost.accountId(), newProfileKey, savedGhost.mindId(), targetId.value(),
                     targetDimension, targetLocation, targetAppearance, savedGhost.connectionEpoch(), next,
                     SavedLifecycleProfile.State.ACTIVE, revision, null);
             ArrayList<SavedLifecycleProfile> profiles = new ArrayList<>(envelope.profiles().size());
@@ -1087,12 +1089,12 @@ public final class PlayerLifecycleRegistry {
             var committed = ownership.commitGhostRoleTakeover(preview.orElseThrow(), ghostId, eligibleTarget, capability);
             if (committed.isEmpty()) {
                 ownership.suspendLifecycleForRecovery(savedGhost.accountId(), mindId, capability);
-                byBody.remove(ghostId); record.bodyId = targetId; record.generation = next;
+                byBody.remove(ghostId); byProfile.remove(new ProfileKey(record.accountId, record.profileId)); record.profileId = newProfileKey; byProfile.put(new ProfileKey(record.accountId, record.profileId), record); record.bodyId = targetId; record.generation = next;
                 record.active = false; record.deadClaim = false; record.state = LifecycleState.RECOVERY_REQUIRED;
                 record.durableActive = false; record.corpseBodyId = null; byBody.put(targetId, record);
                 return Optional.empty();
             }
-            byBody.remove(ghostId); record.bodyId = targetId; record.generation = committed.orElseThrow().epoch();
+            byBody.remove(ghostId); byProfile.remove(new ProfileKey(record.accountId, record.profileId)); record.profileId = newProfileKey; byProfile.put(new ProfileKey(record.accountId, record.profileId), record); record.bodyId = targetId; record.generation = committed.orElseThrow().epoch();
             record.active = true; record.deadClaim = false; record.state = LifecycleState.ACTIVE;
             record.durableActive = true; record.corpseBodyId = null; byBody.put(targetId, record);
             return Optional.of(record.snapshot());
@@ -1207,7 +1209,7 @@ public final class PlayerLifecycleRegistry {
 
     private static final class ProfileRecord {
         private final UUID accountId;
-        private final String profileId;
+        private String profileId;
         private final MindId mindId;
         private MobHarnessId bodyId;
         private LifecycleState state;
@@ -1234,4 +1236,3 @@ public final class PlayerLifecycleRegistry {
 
     private record ProfileKey(UUID accountId, String profileId) { }
 }
-

@@ -4,6 +4,22 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CombatModeHudPolicyTest {
+    @Test void legacyControlYieldsOnlyToMatchingBodiesResolvedCombatSlot() {
+        var body = java.util.UUID.randomUUID();
+        var icon = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "test");
+        var combat = new com.juicyslew.moonstation14.ms14.actions.BodyActionSnapshot.Entry(
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("moonstation14", "combat_mode_toggle"),
+                "provider", "Combat", icon, java.util.Optional.empty(),
+                com.juicyslew.moonstation14.ms14.actions.prototype.ActionPrototype.Kind.TOGGLE,
+                true, false, 0, 0, "", 0);
+        var current = new com.juicyslew.moonstation14.ms14.actions.BodyActionSnapshot(body, 7, 1, 0,
+                java.util.List.of(combat));
+        assertFalse(CombatModeHudPolicy.shouldShowLegacy(true, current, body, 7));
+        assertTrue(CombatModeHudPolicy.shouldShowLegacy(true, current, body, 8));
+        assertTrue(CombatModeHudPolicy.shouldShowLegacy(true, current, java.util.UUID.randomUUID(), 7));
+        assertTrue(CombatModeHudPolicy.shouldShowLegacy(true, null, body, 7));
+        assertFalse(CombatModeHudPolicy.shouldShowLegacy(false, current, body, 7));
+    }
     @Test void boundsAndIconsAreStable() {
         var b=CombatModeHudPolicy.bounds(320,240);
         assertEquals(8,b.x()); assertEquals(200,b.y()); assertEquals(32,b.width()); assertEquals(32,b.height());

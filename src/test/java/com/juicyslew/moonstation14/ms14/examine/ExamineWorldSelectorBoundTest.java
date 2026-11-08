@@ -11,10 +11,29 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import com.juicyslew.moonstation14.ms14.hands.live.BodyItemTargetProbe;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class ExamineWorldSelectorBoundTest {
+    @Test void itemKindsNeverRequestWorldBoundsEvenWithARealLevelArgument() {
+        var level = org.mockito.Mockito.mock(net.minecraft.world.level.Level.class);
+        var location = com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD;
+        var held = ExamineTarget.ownedItem(location, "left", 1, "held-token");
+        var stored = ExamineTarget.storedItem(location, "bag", 1, "host", "child");
+        var worldStored = ExamineTarget.worldStoredItem(UUID.randomUUID(), UUID.randomUUID(), 1, 1, "child");
+        var scene = ExamineTarget.scene(com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.SUN);
+        for (var target : List.of(held, stored, worldStored, scene)) {
+            assertNull(ExamineWorldSelector.currentBounds(level, target));
+            org.mockito.Mockito.verifyNoInteractions(level);
+            org.mockito.Mockito.clearInvocations(level);
+        }
+        assertTrue(ExamineTarget.Kind.BLOCK.hasWorldGeometry());
+        assertTrue(ExamineTarget.Kind.ENTITY.hasWorldGeometry());
+        for (var target : List.of(held, stored, worldStored, scene))
+            assertFalse(target.kind().hasWorldGeometry());
+    }
+
     private static ExamineWorldSelector.Candidate entity(int n, double distance) {
         return new ExamineWorldSelector.Candidate(ExamineTarget.entity(n + 1, UUID.nameUUIDFromBytes(("e" + n).getBytes())),
                 Vec3.ZERO, distance, "item", new AABB(0, 0, 0, 1, 1, 1));
@@ -50,4 +69,29 @@ class ExamineWorldSelectorBoundTest {
         assertEquals(32, bounded.size());
         assertEquals(pool, bounded, "under-cap candidate order is unchanged");
     }
+
+    @Test void expandedLooseItemRayHitWinsFloorBehindAndFrontOverlapHasStableOrder() {
+        Vec3 origin = Vec3.ZERO, direction = new Vec3(0, 0, 1);
+        AABB physicalItem = new AABB(-.1, 0, 2, .1, .2, 2.2);
+        AABB itemRayBounds = physicalItem.inflate(BodyItemTargetProbe.TARGET_MARGIN);
+        var itemHit = com.juicyslew.moonstation14.ms14.examine.client.ExamineRay.intersect(origin, direction, 8, itemRayBounds);
+        assertNotNull(itemHit);
+        assertTrue(itemHit.distance() < 2, "canonical targeting margin nominates item before the floor");
+        var item = new ExamineSelector.Candidate(ExamineTarget.entity(1,
+                UUID.fromString("00000000-0000-0000-0000-000000000001")), itemHit.point(), itemHit.distance(), "item", itemRayBounds, false, true);
+        var floor = new ExamineSelector.Candidate(ExamineTarget.block(new BlockPos(0, 0, 2)),
+                new Vec3(0, 0, 2), 2, "floor", new AABB(-1, 0, 2, 1, 1, 3));
+        var frontBounds = itemRayBounds.move(0, 0, -.2);
+        var frontHit = com.juicyslew.moonstation14.ms14.examine.client.ExamineRay.intersect(origin, direction, 8, frontBounds);
+        assertNotNull(frontHit);
+        var frontOverlap = new ExamineSelector.Candidate(ExamineTarget.entity(2,
+                UUID.fromString("00000000-0000-0000-0000-000000000002")), frontHit.point(), frontHit.distance(),
+                "front item", frontBounds, false, true);
+        var ordered = com.juicyslew.moonstation14.ms14.examine.client.ExamineCandidateOrdering.nearest(
+                List.of(floor, item, frontOverlap), 8);
+        assertEquals(frontOverlap.target(), ordered.get(0).target());
+        assertEquals(item.target(), ordered.get(1).target());
+        assertEquals(floor.target(), ordered.get(2).target());
+    }
+
 }

@@ -316,6 +316,17 @@ public final class PaidVentilationFlowGameTests {
     }
 
     private static void fixture(GameTestHelper helper, boolean scrubber, boolean exterior, java.util.function.Consumer<Fixture> onReady) {
+        fixture(helper, scrubber, exterior, null, onReady);
+    }
+
+    /** Shared canonical power/finite-room/pipe fixture entrypoint for atmosphere integration GameTests. */
+    static void fixture(GameTestHelper helper, boolean scrubber, GasMixture authoredRoom,
+                        java.util.function.Consumer<Fixture> onReady) {
+        fixture(helper, scrubber, false, authoredRoom, onReady);
+    }
+
+    private static void fixture(GameTestHelper helper, boolean scrubber, boolean exterior, GasMixture authoredRoom,
+                        java.util.function.Consumer<Fixture> onReady) {
         ServerLevel level = helper.getLevel();
         AtmosphereService atmosphere = AtmosphereService.INSTANCE;
         // These tests intentionally keep the fixture's full power/pipe/room neighborhood loaded:
@@ -386,10 +397,9 @@ public final class PaidVentilationFlowGameTests {
             require(!isFiniteClaimed(level, room), "exterior front cell has no stale finite claim");
             require(!isFiniteClaimed(level, ventPos), "exterior device cell has no stale finite claim");
         }
-        GasMixture authoredRoom = scrubber
+        if (authoredRoom == null) authoredRoom = scrubber
                 ? new GasMixture(Map.of(GasType.OXYGEN, 100.0, GasType.NITROGEN, 300.0,
-                        GasType.CARBON_DIOXIDE, 20.0), 300.0)
-                : GasMixture.vacuum();
+                        GasType.CARBON_DIOXIDE, 20.0), 300.0) : GasMixture.vacuum();
         require(exterior || atmosphere.initializeEnclosedFiniteMixtureForTrustedSetup(level, finiteRoom, authoredRoom),
                 "trusted setup proves complete sealed room+passable device cell before assigning controlled gas");
         var owner = LoadedSealedWallGasOwner.activeSnapshot(level, pipePos, PipeTopology.Layer.PRIMARY)
@@ -525,6 +535,6 @@ public final class PaidVentilationFlowGameTests {
                 + Math.abs(a.getZ() - b.getZ()) == 1 ? 1 : 0;
     }
     private static void require(boolean condition, String message) { if (!condition) throw new GameTestAssertException(message); }
-    private record Fixture(ServerLevel level, AtmosphereService atmosphere, VentilationDeviceBlockEntity vent,
+    record Fixture(ServerLevel level, AtmosphereService atmosphere, VentilationDeviceBlockEntity vent,
                            BlockPos room, BlockPos deviceCell, BlockPos pipe, BlockPos apc) { }
 }

@@ -716,8 +716,10 @@ class WorkflowStore:
                         raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
                 oldattempt=db.execute("SELECT attempt_json FROM attempts WHERE run_id=? AND generation=?",(head[0],prior_generation)).fetchone()
                 oldjson=None if oldattempt is None else json.loads(oldattempt[0])
+                source_error=(self._source_snapshot_error_head_tx(db,head[0],prior_run,oldjson,request)
+                              if author_request_target and oldjson is not None else False)
                 if author_request_target and oldjson is not None and oldjson.get("phase") in ("DECIDED","CLOSED") and (
-                    oldjson.get("phase")!="DECIDED" or oldjson.get("result") not in ("PASS","FAIL")):
+                    oldjson.get("phase")!="DECIDED" or oldjson.get("result") not in ("PASS","FAIL") and not source_error):
                     raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
                 unsettled=db.execute("SELECT 1 FROM tasks WHERE run_id=? AND json_extract(task_json,'$.state') NOT IN ('COMPLETED','CANCELLED')",(head[0],)).fetchone() if oldattempt else True
                 held=db.execute("SELECT 1 FROM resources WHERE run_id=? AND state IN ('HELD','UNKNOWN')",(head[0],)).fetchone()
@@ -726,7 +728,9 @@ class WorkflowStore:
                 if oldjson is None or oldjson["phase"] not in allowed_phase or unsettled or held or dirty_scope:
                     raise SubmissionHeadConflict(SubmissionHeadConflict.ACTIVE_OR_UNSETTLED)
                 if author_request_target:
-                    if oldjson.get("result") not in ("PASS","FAIL") or oldjson.get("cleanup_state") not in ("NOT_REQUIRED","CONFIRMED"):
+                    if not source_error and (oldjson.get("result") not in ("PASS","FAIL") or oldjson.get("cleanup_state") not in ("NOT_REQUIRED","CONFIRMED")):
+                        raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
+                    if source_error and request["input_digest"]==prior_run.get("input_digest"):
                         raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
             elif not diagnostic and target is not None:
                 raise SubmissionHeadConflict(SubmissionHeadConflict.INVALID_TARGET)
@@ -1531,9 +1535,17 @@ class WorkflowStore:
                 raise ProtocolError("review run has no frozen submission criteria")
             criteria={item['criterion_id'] for item in json.loads(submission[0]).get('criteria',[])}
             if any(item['criterion_id'] not in criteria for item in result.get('owner_followups',[])):
-                raise ProtocolError("owner_followups criterion_id must name an assigned criterion")
-            self._require_artifacts(db, refs, result["run_id"], input_digest=result["input_digest"])
-            stored_findings=[{key:value for key,value in finding.items() if key!="validation_stage"} for finding in result["findings"]]
+                raise ProtocolError("owner_followups criterion_id must name an assigned criterion", field="owner_followups.criterion_id", recovery="Use a criterion_id from the assigned review criteria.")
+            ref_fields = ([(ref, f"inspected_refs[{i}]") for i, ref in enumerate(result["inspected_refs"])] +
+                          [(ref, f"findings[{i}].evidence_refs[{j}]") for i, item in enumerate(result["findings"]) for j, ref in enumerate(item["evidence_refs"])] +
+                          [(ref, f"owner_followups[{i}].evidence_refs[{j}]") for i, item in enumerate(result.get("owner_followups",[])) for j, ref in enumerate(item.get("evidence_refs",[]))])
+            for ref, field in ref_fields:
+                try:
+                    self._require_artifacts(db, [ref], result["run_id"], input_digest=result["input_digest"])
+                except ProtocolError as exc:
+                    raise ProtocolError(f"{field}: {ref!r} is not an accepted artifact reference ({exc}).", field=field, recovery="Reference an artifact ID listed in this task's assignment (artifact_refs), not a source path.") from exc
+            review_only_fields={"validation_stage", "coverage_basis", "check_kind"}
+            stored_findings=[{key:value for key,value in finding.items() if key not in review_only_fields} for finding in result["findings"]]
             self._commit_task_result(db, task, {"decision":result["decision"],"findings":stored_findings,"owner_followups":result.get("owner_followups",[]),"artifact_refs":result["inspected_refs"]}, body, result_hash)
             db.commit()
             return {"disposition":"ACCEPTED","result_digest":result_hash,"result_id":self._task_result_event_id(result["task_id"],result_hash)}
@@ -1564,7 +1576,13 @@ class WorkflowStore:
             current = db.execute("SELECT current_generation FROM runs WHERE id=?", (report["run_id"],)).fetchone()
             if (task["run_id"], task["evaluation_generation"], task["assignment_generation"], task["input_digest"], task["assigned_session_id"]) != (report["run_id"], report["evaluation_generation"], report["assignment_generation"], report["input_digest"], session_id) or task["state"] not in ("DISPATCHING", "CLAIMED", "RUNNING") or current is None or current[0] != report["evaluation_generation"]:
                 raise StaleCommand("stale task generation, assignment, session, input or admission")
-            self._require_artifacts(db, report["artifact_refs"], report["run_id"], input_digest=report["input_digest"])
+            for index, ref in enumerate(report["artifact_refs"]):
+                try:
+                    self._require_artifacts(db, [ref], report["run_id"], input_digest=report["input_digest"])
+                except ProtocolError as exc:
+                    field=f"artifact_refs[{index}]"
+                    raise ProtocolError(f"{field}: {ref!r} is not an accepted artifact reference ({exc}).", field=field,
+                        recovery="Use an actual registered artifact ID. 'review_guide' is a tool alias, not an artifact; use artifact_refs=[] when the input or guide could not be read.") from exc
             self._commit_task_result(db, task, {"decision":"ERROR","findings":[],"artifact_refs":report["artifact_refs"]}, body, digest)
             incident_id = "incident_" + hashlib.sha256((report["task_id"] + digest).encode()).hexdigest()[:24]
             self._record_incident_tx(db, {"contract_version":1,"incident_id":incident_id,"run_id":report["run_id"],"evaluation_generation":report["evaluation_generation"],"task_id":report["task_id"],"code":report["error_code"],"message":report["message"],"recovery_owner":"SYSTEM","state":"OPEN","owner_action_required":False,"artifact_refs":report["artifact_refs"]})
@@ -3088,6 +3106,34 @@ class WorkflowStore:
                     "resolution_proof_ref":row[3],"delivery_id":row[4]}
         finally: db.close()
 
+    def _source_snapshot_error_head_tx(self, db, run_id, run, attempt, request):
+        """Validate the narrowly replaceable, settled source-drift ERROR head."""
+        if (run.get("run_kind")!="FEATURE_GATE" or attempt.get("phase")!="DECIDED" or
+            attempt.get("result")!="ERROR" or attempt.get("cleanup_state")!="CONFIRMED" or
+            run.get("author")!=request.get("author")):
+            return False
+        try:
+            self._verify_settled_feature_cleanup_tx(db,run_id,"ERROR")
+        except (StaleCommand, ProtocolError):
+            return False
+        rows=db.execute("SELECT id,generation,task_json,result_json FROM tasks WHERE run_id=? AND generation=(SELECT current_generation FROM runs WHERE id=?) AND json_extract(task_json,'$.kind')='CHECK'",(run_id,run_id)).fetchall()
+        if len(rows)!=1: return False
+        task_id,generation,task_raw,result_raw=rows[0]
+        task=json.loads(task_raw); body=json.loads(result_raw) if result_raw else None
+        claim=db.execute("SELECT process_identity,claim_token FROM native_claims WHERE task_id=?",(task_id,)).fetchone()
+        if (task.get("state")!="COMPLETED" or task.get("result",{}).get("decision")!="ERROR" or
+            generation!=attempt.get("generation") or body is None or claim is None): return False
+        binding=body.get("binding",{}); report=body.get("error_report")
+        return (binding.get("decision")=="ERROR" and isinstance(report,dict) and
+            report.get("error_code")=="SOURCE_SNAPSHOT_CHANGED" and
+            (binding.get("task_id"),binding.get("run_id"),binding.get("evaluation_generation"),binding.get("assignment_generation"),binding.get("input_digest"))==
+            (task_id,task.get("run_id"),task.get("evaluation_generation"),task.get("assignment_generation"),task.get("input_digest")) and
+            task.get("run_id")==run_id and task.get("evaluation_generation")==generation and
+            task.get("input_digest")==run.get("input_digest") and
+            (report.get("task_id"),report.get("run_id"),report.get("evaluation_generation"),report.get("assignment_generation"),report.get("input_digest"))==
+            (task_id,run_id,generation,task.get("assignment_generation"),run.get("input_digest")) and
+            body.get("process_identity")==json.loads(claim[0])==task.get("process_identity") and body.get("claim_token")==claim[1])
+
     def _verify_settled_feature_head_tx(self, db, run_id, generation, expected_sequence, worktree, terminal_kind):
         if terminal_kind not in ("ERROR", "FAIL", "CANCELLED"):
             raise ProtocolError("unsupported settled terminal kind")
@@ -3264,6 +3310,60 @@ class WorkflowStore:
             raise
         finally: db.close()
 
+    def fail_review_preparation(self, *, task_id, run_id, evaluation_generation,
+                                 assignment_generation, input_digest, error_code, message):
+        """Commit a deterministic local REVIEW preparation failure only before dispatch."""
+        report=validate({"contract_version":1,"task_id":task_id,"run_id":run_id,
+            "evaluation_generation":evaluation_generation,"assignment_generation":assignment_generation,
+            "input_digest":input_digest,"error_code":error_code,"message":message,"artifact_refs":[]},"task_error")
+        body=canonical_json(report); result_hash=hashlib.sha256(body.encode()).hexdigest()
+        db=self._connect()
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            row=db.execute("SELECT task_json,result_digest FROM tasks WHERE id=?",(task_id,)).fetchone()
+            if row is None: raise StaleCommand("unknown task")
+            task=json.loads(row[0])
+            binding=(task.get("kind"),task.get("run_id"),task.get("evaluation_generation"),
+                task.get("assignment_generation"),task.get("input_digest"))
+            if binding != ("REVIEW",run_id,evaluation_generation,assignment_generation,input_digest):
+                raise StaleCommand("review preparation task binding mismatch")
+            if row[1] is not None:
+                if row[1]==result_hash:
+                    db.commit(); return {"disposition":"REPLAYED","result_digest":result_hash,
+                        "result_id":self._task_result_event_id(task_id,result_hash)}
+                raise IdempotencyConflict("task result is immutable")
+            current=db.execute("SELECT current_generation FROM runs WHERE id=?",(run_id,)).fetchone()
+            attempt=db.execute("SELECT attempt_json FROM attempts WHERE run_id=? AND generation=?",(run_id,evaluation_generation)).fetchone()
+            if ((task.get("state"),task.get("run_id"),task.get("evaluation_generation"),
+                 task.get("assignment_generation"),task.get("input_digest")) != ("QUEUED",run_id,evaluation_generation,assignment_generation,input_digest) or
+                current is None or current[0]!=evaluation_generation or attempt is None or
+                json.loads(attempt[0]).get("phase")!="REVIEWING"):
+                raise StaleCommand("review preparation task is stale or not queued")
+            # Any durable dispatch intent, reservation, or task-produced artifact is
+            # evidence the task may have crossed the external-effect boundary.
+            if db.execute("SELECT 1 FROM events WHERE run_id=? AND generation=? AND json_extract(payload,'$.task_id')=? AND kind IN ('DISPATCH','TASK_ASSIGNMENT')",(run_id,evaluation_generation,task_id)).fetchone():
+                raise StaleCommand("review task has saved dispatch intent")
+            if db.execute("SELECT 1 FROM resources WHERE task_id=?",(task_id,)).fetchone():
+                raise StaleCommand("review task has resource history")
+            if db.execute("SELECT 1 FROM artifacts WHERE run_id=? AND json_extract(artifact_json,'$.artifact.producer_task_id')=?",(run_id,task_id)).fetchone():
+                raise StaleCommand("review task has task-produced artifact history")
+            if db.execute("SELECT 1 FROM task_dependency_pauses WHERE task_id=?",(task_id,)).fetchone():
+                raise StaleCommand("review task has dependency pause history")
+            saved={"decision":"ERROR","findings":[],"artifact_refs":[]}
+            self._commit_task_result(db,task,saved,body,result_hash)
+            incident_id="incident_"+hashlib.sha256((task_id+result_hash).encode()).hexdigest()[:24]
+            self._record_incident_tx(db,{"contract_version":1,"incident_id":incident_id,"run_id":run_id,
+                "evaluation_generation":evaluation_generation,"task_id":task_id,"code":error_code,
+                "message":message,"recovery_owner":"SYSTEM","state":"OPEN",
+                "owner_action_required":False,"artifact_refs":[]})
+            db.commit()
+            return {"disposition":"ACCEPTED","result_digest":result_hash,
+                "result_id":self._task_result_event_id(task_id,result_hash),"incident_id":incident_id}
+        except BaseException:
+            if db.in_transaction: db.rollback()
+            raise
+        finally: db.close()
+
     def authorize_author_successor(self, *, run_id, generation, expected_sequence, caller,
                                    command_id, worktree, predecessor_session_id,
                                    successor_session_id):
@@ -3352,6 +3452,19 @@ class WorkflowStore:
         db=self._connect()
         try:
             return db.execute("SELECT 1 FROM runs r JOIN feature_heads h ON h.worktree=r.worktree AND h.sprint=r.sprint AND h.run_id=r.id WHERE r.id=?",(run_id,)).fetchone() is not None
+        finally: db.close()
+
+    def can_replace_source_snapshot_error(self, *, run_id, author, worktree):
+        """Shared read-only status predicate; submit repeats it under its write transaction."""
+        db=self._connect()
+        try:
+            db.execute("BEGIN")
+            row=db.execute("SELECT r.run_json,r.worktree,r.sprint,a.attempt_json FROM runs r JOIN attempts a ON a.run_id=r.id AND a.generation=r.current_generation JOIN feature_heads h ON h.run_id=r.id AND h.worktree=r.worktree AND h.sprint=r.sprint WHERE r.id=?",(run_id,)).fetchone()
+            if row is None or str(Path(row[1]).resolve())!=str(Path(worktree).resolve()): return False
+            run=json.loads(row[0]); attempt=json.loads(row[3])
+            if run.get('author')!=author: return False
+            request={'author':author}
+            return self._source_snapshot_error_head_tx(db,run_id,run,attempt,request)
         finally: db.close()
 
     def is_settled_error_head_retired(self, run_id):

@@ -1,5 +1,6 @@
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import workflow_native_worker
@@ -32,6 +33,27 @@ class VerifiedPrefixTests(NativeCheckRecordTests):
         self.assertEqual(len(result['records']), 1)
         self.assertEqual(result['records'][0]['exit_code'], 0)
         self.assertEqual(result['source_links'][0]['artifact_ref'], store.list_native_check_records(task_id)[0]['artifact_ref'])
+
+    def test_historical_evidence_skips_live_toolchain_but_default_remains_strict(self):
+        store, task_id, request, bundle = self._failed_two_check_task()
+        with patch.object(workflow_error_recovery.workflow_toolchain, 'capture', return_value={'changed': True}):
+            with self.assertRaisesRegex(ValueError, 'toolchain'):
+                workflow_error_recovery.verified_prefix(store, task_id, request, bundle)
+        with patch.object(workflow_error_recovery.workflow_toolchain, 'capture', side_effect=AssertionError('live toolchain capture called')) as capture:
+            result = workflow_error_recovery.verified_prefix(store, task_id, request, bundle, evidence_only=True)
+        self.assertEqual(len(result['records']), 1)
+        self.assertEqual(result['records'][0]['evidence']['status'], 'PASS')
+        capture.assert_not_called()
+
+    def test_prefix_log_resolution_does_not_depend_on_terminal_result_refs(self):
+        store, task_id, request, bundle = self._failed_two_check_task()
+        original_get_task = store.get_task
+        source = original_get_task(task_id)
+        interrupted_shape = dict(source, result=dict(source['result'], artifact_refs=[]))
+        with patch.object(store, 'get_task', side_effect=lambda value: interrupted_shape if value == task_id else original_get_task(value)):
+            result = workflow_error_recovery.verified_prefix(store, task_id, request, bundle, evidence_only=True)
+        self.assertEqual(len(result['records']), 1)
+        self.assertEqual(result['records'][0]['evidence']['status'], 'PASS')
 
     def test_tampered_frozen_log_is_rejected(self):
         store, task_id, request, bundle = self._failed_two_check_task()

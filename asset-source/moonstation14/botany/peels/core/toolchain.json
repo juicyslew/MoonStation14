@@ -1,0 +1,13 @@
+{
+  "python": "3.13.13 (tags/v3.13.13:01104ce, Apr  7 2026, 19:25:48) [MSC v.1944 64 bit (AMD64)]",
+  "pillow": "13.0.0",
+  "numpy": "2.5.4",
+  "reference_format": "Blockbench4.12.6 free save4.10, existingNeoForge21.1.224OBJ",
+  "files": {
+    "tooling/Objects/Botany/Peels/asset.py": "f22650aa60f08511a1c5baaa6c36f6cb2b18e4bfb7427ee4d31e09c67274ee27",
+    "tooling/Objects/Botany/Peels/delivery.py": "71c921fd3f7835e4e21fe7f6c0070bb24503e072534edc6437e5907887fe09e1",
+    "tooling/Objects/Botany/Peels/package.py": "bb94e14282f27118a04c3716ce2da94da64bd380d47f18f883326ad9d4f100c6",
+    "tooling/static_model_package.py": "14ce3d3cd120e82a674e6d755721602c78b25854e80c5dc1f9a2a66f88d5aace",
+    "tooling/ss14_model_tools.py": "cb6fb8199a6f365cc8fab9b97a70fe139d810a50e5859f4d21fea2c9c372bdd3"
+  }
+}

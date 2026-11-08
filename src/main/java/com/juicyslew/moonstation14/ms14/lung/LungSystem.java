@@ -14,6 +14,7 @@ import com.juicyslew.moonstation14.ms14.atmos.exposure.ExposureAirRouting;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.ExposureAirSource;
 import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.player_body_control.server.ActiveCharacterPolicy;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
 import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import net.minecraft.core.BlockPos;
@@ -100,7 +101,7 @@ public final class LungSystem {
     }
 
     private static boolean bodyEligible(LivingEntity entity) {
-         return CharacterIdentitySystem.resolveForActor(entity)
+         return !ActiveCharacterPolicy.isCarrier(entity) && CharacterIdentitySystem.resolveForActor(entity)
                 .filter(c -> c.component(BodyComponent.class).isPresent()).isPresent();
     }
 
@@ -127,6 +128,7 @@ public final class LungSystem {
     }
 
     public static Optional<RespiratorPolicy> resolvePolicy(LivingEntity entity) {
+        if (entity == null || ActiveCharacterPolicy.isCarrier(entity)) return Optional.empty();
         return CharacterIdentitySystem.resolveForActor(entity)
                 .flatMap(data -> data.component(RespiratorComponent.class).map(RespiratorComponent::policy));
     }
@@ -167,22 +169,34 @@ public final class LungSystem {
           // A known but unusable sample must not even trigger late BODY reconciliation.
           // An unknown sample remains unknown; the existing join-equivalent reconciliation
           // below may still run, but it must never turn the missing sample into vacuum.
-           Optional<GasMixture> strictSample = Optional.empty();
-           Optional<ExposureAirSource> containedSource = Optional.empty();
-           double sourceVolume = 1d;
-            if (due && atmosphere != null) {
-               try {
-                   var selection = ExposureAirRouting.select(entity);
-                   if (selection.contained()) {
-                       containedSource = selection.source();
-                       if (containedSource.isPresent()) {
-                           var sample = containedSource.get().sample();
-                           if (sample.isPresent()) {
-                               strictSample = Optional.of(sample.get().mixture());
-                               sourceVolume = sample.get().volumeCubicMeters();
-                           }
-                       }
-                   } else strictSample = atmosphere.sample((ServerLevel) entity.level(), BlockPos.containing(entity.getEyePosition()));
+            Optional<GasMixture> strictSample = Optional.empty();
+            Optional<ExposureAirSource> containedSource = Optional.empty();
+            double sourceVolume = 1d;
+            boolean internalsInhale = false;
+             if (due && atmosphere != null) {
+                try {
+                    BodyState breathingBody = BodySystem.current(entity).orElse(null);
+                    internalsInhale = breathingBody != null && InternalsSystem.useTankForPhase(
+                            breathingBody.respiration().phase(), InternalsSystem.selectedTank(entity).isPresent());
+                    if (internalsInhale) {
+                        var sample = InternalsSystem.sampleInhale(entity, policy.get().breathVolumeLiters());
+                        if (sample.isPresent()) {
+                            strictSample = Optional.of(sample.get().mixture());
+                            sourceVolume = sample.get().volumeCubicMeters();
+                        }
+                    } else {
+                        var selection = ExposureAirRouting.select(entity);
+                        if (selection.contained()) {
+                            containedSource = selection.source();
+                            if (containedSource.isPresent()) {
+                                var sample = containedSource.get().sample();
+                                if (sample.isPresent()) {
+                                    strictSample = Optional.of(sample.get().mixture());
+                                    sourceVolume = sample.get().volumeCubicMeters();
+                                }
+                            }
+                        } else strictSample = atmosphere.sample((ServerLevel) entity.level(), BlockPos.containing(entity.getEyePosition()));
+                    }
                    if (strictSample.isPresent() && safeRequestedMoles(strictSample.get(), sourceVolume,
                             policy.get().breathVolumeLiters(), 0d).isEmpty()) return false;
                } catch (RuntimeException invalid) { return false; }
@@ -238,9 +252,11 @@ public final class LungSystem {
                    if (inhale) inhaled[0] = portion;
                    return true;
                };
-               var exchanged = containedSource.isPresent()
-                       ? containedSource.get().exchange(requested, exhaled, validator)
-                       : atmosphere.exchangeBreath((ServerLevel)entity.level(),eye,requested,exhaled,validator);
+                var exchanged = inhale && internalsInhale
+                        ? InternalsSystem.exchangeInhale(entity, requested, p.breathVolumeLiters(), validator)
+                        : containedSource.isPresent()
+                            ? containedSource.get().exchange(requested, exhaled, validator)
+                            : atmosphere.exchangeBreath((ServerLevel)entity.level(),eye,requested,exhaled,validator);
               candidate = exchanged.isPresent() ? Optional.ofNullable(validated[0]) : Optional.empty();
           }
            if(candidate.isEmpty()) return false;
@@ -368,8 +384,14 @@ public final class LungSystem {
      private static boolean validPolicy(LungRuntimePolicy p) {
          return validPolicy(p.respirator()) && p.lung() != null;
      }
-     private static Optional<RespiratorPolicy> policyAtCadence(LivingEntity entity,long time) {
-        if(entity==null||entity.level().isClientSide||!(entity.level() instanceof ServerLevel level)) return Optional.empty();
+      private static Optional<RespiratorPolicy> policyAtCadence(LivingEntity entity,long time) {
+         if(entity==null||entity.level().isClientSide||!(entity.level() instanceof ServerLevel level)) return Optional.empty();
+         // Carrier status can change without changing the identity attachment or catalog; never
+         // trust the short-lived policy cache across that session-authority transition.
+         if (ActiveCharacterPolicy.isCarrier(entity)) {
+             synchronized (CACHE) { CACHE.remove(entity); }
+             return Optional.empty();
+         }
         ResourceLocation host=BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()); PrototypeCatalog<CharacterData> catalog=ModCharacters.catalog(level);
         var attachment=entity.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get()); ResourceLocation id=attachment!=null&&attachment.isBound()?attachment.characterId():null;
          synchronized(CACHE) { Cache c=CACHE.get(entity); if(c!=null&&c.catalog()==catalog&&c.host().equals(host)&&Objects.equals(c.identity(),id)&&time>=c.checked()&&time-c.checked()<RETRY_TICKS)
@@ -386,4 +408,3 @@ public final class LungSystem {
     public static int intervalTicks(double seconds){long t=Math.round(seconds*20); if(t<1||t>Integer.MAX_VALUE)throw new IllegalArgumentException("lung interval out of range"); return (int)t;}
     public static boolean isDue(long time,int entityId,int interval){return interval>0&&Math.floorMod(Math.floorMod(time,(long)interval)+entityId,interval)==0;}
 }
-

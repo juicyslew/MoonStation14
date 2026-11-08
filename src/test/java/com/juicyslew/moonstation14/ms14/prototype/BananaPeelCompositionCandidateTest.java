@@ -79,7 +79,7 @@ class BananaPeelCompositionCandidateTest {
         });
         assertSame(before, manager.snapshot());
         for (var family : new String[]{"equipment_item", "ingestion_profile", "item_food_solution_profile", "extractable_profile", "loose_object_profile", "produce_profile", "seed_profile"})
-            assertMainAbsent(family, "trash_banana_peel");
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "trash_banana_peel");
     }
 
     @Test void mimanaPeelInheritsBananaCompositionAndOverridesOnlySlipVolumeWithoutPublishing() {
@@ -128,7 +128,49 @@ class BananaPeelCompositionCandidateTest {
         });
         assertSame(before, manager.snapshot());
         for (var family : new String[]{"equipment_item", "ingestion_profile", "item_food_solution_profile", "extractable_profile", "loose_object_profile", "produce_profile", "seed_profile"})
-            assertMainAbsent(family, "trash_mimana_peel");
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "trash_mimana_peel");
+    }
+
+    @Test void nativeLoosePresentationIsExplicitAndMimanaInheritsBananaModelAndScale() throws Exception {
+        for (String name : new String[]{"trash_banana_peel", "trash_mimana_peel"}) {
+            var rawProfiles = BotanyCatalogCandidateTest.mainResourcesAll("loose_object_profile");
+            var raw = PrototypeResolver.resolve(rawProfiles, ModLooseObjectProfiles.PROFILE_TYPE.mergeStrategy().orElseThrow()).get(id(name));
+            var profile = LooseObjectProfile.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, raw).getOrThrow();
+            assertEquals("block_model", profile.renderKind());
+            assertEquals(1.2f, profile.visual().modelScale());
+            assertEquals(.6f, profile.visual().modelFloorOffset());
+            var wrapper = jsonResource("assets/moonstation14/models/item/" + name + ".json");
+            assertEquals("moonstation14:item/botany/peels/" + name, wrapper.get("parent").getAsString());
+            var model = jsonResource("assets/moonstation14/models/item/botany/peels/" + name + ".json");
+            assertEquals("neoforge:obj", model.get("loader").getAsString());
+            String obj = "assets/moonstation14/models/item/botany/peels/" + name + ".obj";
+            String mtl = "assets/moonstation14/models/item/botany/peels/" + name + ".mtl";
+            assertResource(obj); assertResource(mtl);
+            assertTrue(readResource(obj).contains("mtllib " + name + ".mtl"));
+            assertTrue(readResource(mtl).contains("map_Kd #atlas"));
+            assertResource("assets/moonstation14/textures/item/botany/peels/" + name + ".png");
+        }
+        var mimanaRaw = BotanyCatalogCandidateTest.mainResources("loose_object_profile", "trash_mimana_peel").get(id("trash_mimana_peel"));
+        assertEquals(id("trash_banana_peel").toString(), mimanaRaw.get("parent").getAsString());
+        assertFalse(mimanaRaw.has("render_kind"));
+        assertFalse(mimanaRaw.has("visual"));
+    }
+
+    private static com.google.gson.JsonObject jsonResource(String path) throws Exception {
+        try (var stream = BananaPeelCompositionCandidateTest.class.getClassLoader().getResourceAsStream(path)) {
+            assertNotNull(stream, path);
+            return com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(stream, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+        }
+    }
+    private static void assertResource(String path) throws Exception {
+        try (var stream = BananaPeelCompositionCandidateTest.class.getClassLoader().getResourceAsStream(path)) {
+            assertNotNull(stream, path); assertTrue(stream.readAllBytes().length > 0, path);
+        }
+    }
+    private static String readResource(String path) throws Exception {
+        try (var stream = BananaPeelCompositionCandidateTest.class.getClassLoader().getResourceAsStream(path)) {
+            assertNotNull(stream, path); return new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
     }
 
     private static void assertMainAbsent(String family, String name) {

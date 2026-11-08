@@ -3,6 +3,9 @@ package com.juicyslew.moonstation14.ms14.atmos.piping;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmPresetPlanner;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.AirAlarmData;
+import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosDevicePayload;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -12,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class VentilationGasFlowTest {
     @Test void sharedNetworkVolumeDrivesVentPressureAndCapacity() {
-        var settings = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT).settings();
+        var settings = pressureLockoutOverride(new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT).settings());
         var pump = new com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData.GasVentPump(
                 101.325, 101.325, 2,
                 com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData.PressureChecks.EXTERNAL, 0);
@@ -30,7 +33,7 @@ class VentilationGasFlowTest {
     }
 
     @Test void upstreamExternalPumpPowerGateAndConditionalInternalFloor() {
-        var settings = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT).settings();
+        var settings = pressureLockoutOverride(new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT).settings());
         var low = new GasMixture(Map.of(GasType.OXYGEN, 0.4), 300, .2);
         var vacuum = GasMixture.vacuum();
         var external = new com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData.GasVentPump(
@@ -62,7 +65,7 @@ class VentilationGasFlowTest {
     @Test void resolvedDefaultPressureVentMovesTracePlasmaFromLowPressurePipe() {
         var definition = PipeGasTransactionTest.resolvedVentilationDefinitions().get(ModVentilationDevices.VENT);
         assertNotNull(definition);
-        var settings = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT, definition).settings();
+        var settings = pressureLockoutOverride(new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT, definition).settings());
         assertEquals(0.0, settings.volumeRateM3PerSecond(), "gasVentPump has no scrubber volume-rate field");
         assertEquals(101.325, settings.targetPressureChangeKPaPerSecond());
         var pipe = new GasMixture(Map.of(GasType.PLASMA, 0.4), 300.0, 0.2);
@@ -82,12 +85,26 @@ class VentilationGasFlowTest {
         var config = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT);
         GasMixture pipe = new GasMixture(Map.of(GasType.OXYGEN, 100.0), 300.0);
         GasMixture room = new GasMixture(Map.of(GasType.NITROGEN, 1.0), 300.0);
-        var plan = VentilationGasFlow.planVentRelease(pipe, room, 1, 1, 1, config.settings(), pump()).orElseThrow();
+        var plan = VentilationGasFlow.planVentRelease(pipe, room, 1, 1, 1,
+                pressureLockoutOverride(config.settings()), pump()).orElseThrow();
         // Independent ideal-gas expectation in the runtime's specified float representation.
         double pressureDelta = 101.325 - room.pressureKpa(1);
         double expected = (float) pressureDelta * 1.0f * 1000.0f / (300.0f * 8.3144626f);
         assertEquals(expected, plan.packet().totalMoles(), Math.ulp((float) expected) * 8);
         assertEquals(0, plan.packet().moles(GasType.NITROGEN), 0);
+        assertConserved(pipe, room, plan);
+    }
+
+    @Test void wideNetPressureOverrideRetainsPressureTargetBound() {
+        var defaults = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT).settings();
+        var wide = new VentilationDeviceConfig.Settings(defaults.revision(), true,
+                defaults.externalPressureBoundKPa(), defaults.targetPressureChangeKPaPerSecond(),
+                defaults.targetPressureKPa(), defaults.volumeRateM3PerSecond(), defaults.scrubberMode(),
+                defaults.filteredGases(), defaults.selectedLayer(), true, true);
+        var pipe = new GasMixture(Map.of(GasType.OXYGEN, 100.0), 300.0);
+        var room = new GasMixture(Map.of(GasType.NITROGEN, 1.0), 300.0);
+        var plan = VentilationGasFlow.planVentRelease(pipe, room, 1, 1, 1, wide).orElseThrow();
+        assertTrue(plan.destinationAfter().pressureKpa(1) <= wide.externalPressureBoundKPa());
         assertConserved(pipe, room, plan);
     }
 
@@ -112,7 +129,7 @@ class VentilationGasFlowTest {
             double bound=Math.max(defaults.externalPressureBoundKPa(),target);
             var settings=new VentilationDeviceConfig.Settings(defaults.revision(),true,bound,
                     defaults.targetPressureChangeKPaPerSecond(),target,defaults.volumeRateM3PerSecond(),
-                    defaults.scrubberMode(),defaults.filteredGases(),defaults.selectedLayer());
+                    defaults.scrubberMode(),defaults.filteredGases(),defaults.selectedLayer(),true,false);
             var room=ambient==0?GasMixture.vacuum():new GasMixture(Map.of(GasType.NITROGEN,ambient*1000*volume/(r*temperature)),temperature,volume);
             var hotPipe=new GasMixture(Map.of(GasType.NITROGEN,30d,GasType.CARBON_DIOXIDE,13d),564d,.2d);
             var plan=VentilationGasFlow.planVentRelease(hotPipe,room,.2d,volume,.6d,settings,pump()).orElseThrow();
@@ -134,6 +151,38 @@ class VentilationGasFlowTest {
                 101.325 * 1000 / (8.31446261815324 * 300)), 300.0);
         assertTrue(VentilationGasFlow.planVentRelease(
                 new GasMixture(Map.of(GasType.OXYGEN, 10.0), 300.0), room, 1, 1, 1, settings, pump()).isEmpty());
+    }
+
+    @Test void normalReleaseUsesSourceUnderpressureLeakAndFillOverrideUsesPressureChange() {
+        var d = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT).settings();
+        var normal = new VentilationDeviceConfig.Settings(d.revision(), true, d.externalPressureBoundKPa(),
+                d.targetPressureChangeKPaPerSecond(), d.targetPressureKPa(), d.volumeRateM3PerSecond(),
+                d.scrubberMode(), d.filteredGases(), d.selectedLayer(), false, false);
+        var fill = new VentilationDeviceConfig.Settings(d.revision(), true, d.externalPressureBoundKPa(),
+                d.targetPressureChangeKPaPerSecond(), d.targetPressureKPa(), d.volumeRateM3PerSecond(),
+                d.scrubberMode(), d.filteredGases(), d.selectedLayer(), true, false);
+        GasMixture pipe = new GasMixture(Map.of(GasType.OXYGEN, 100.0), 300.0);
+        GasMixture vacuum = GasMixture.vacuum();
+        var leak = VentilationGasFlow.planVentRelease(pipe, vacuum, 1, 1, 1, normal).orElseThrow();
+        var overridden = VentilationGasFlow.planVentRelease(pipe, vacuum, 1, 1, 1, fill).orElseThrow();
+        assertEquals(pipe.pressureKpa(1) * (double) 0.0001f, leak.packet().totalMoles(), 2e-9);
+        assertTrue(overridden.packet().totalMoles() > leak.packet().totalMoles());
+        assertConserved(pipe, vacuum, leak);
+        assertConserved(pipe, vacuum, overridden);
+    }
+
+    @Test void underpressureLeakGateEndsAtEightyKpa() {
+        var defaults = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT).settings();
+        var normal = new VentilationDeviceConfig.Settings(defaults.revision(), true,
+                defaults.externalPressureBoundKPa(), defaults.targetPressureChangeKPaPerSecond(),
+                defaults.targetPressureKPa(), defaults.volumeRateM3PerSecond(), defaults.scrubberMode(),
+                defaults.filteredGases(), defaults.selectedLayer(), false, false);
+        var pipe = new GasMixture(Map.of(GasType.OXYGEN, 100.0), 300.0);
+        var room = new GasMixture(Map.of(GasType.NITROGEN, 80.0 * 1000 / (8.31446261815324 * 300)), 300.0);
+        var plan = VentilationGasFlow.planVentRelease(pipe, room, 1, 1, 1, normal).orElseThrow();
+        assertTrue(plan.packet().totalMoles() > pipe.pressureKpa(1) * (double) 0.0001f,
+                "at the 80 kPa boundary the normal pressure-pump calculation applies, not leak flow");
+        assertConserved(pipe, room, plan);
     }
 
     @Test void scrubberFiltersOrSiphonsAtRoomVolumeRate() {
@@ -168,6 +217,34 @@ class VentilationGasFlowTest {
         assertTrue(VentilationGasFlow.planScrubberCapture(room, full, 1, 1, 1, s).isEmpty());
     }
 
+    @Test void scrubberStopsAtExactFiftyAtmosphereOutletAndFillEffectiveBoundStays4500Kpa() {
+        var settings = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.SCRUBBER).settings();
+        double molesAtCap = 5_066.25 * 1000 * 0.2 / (8.31446261815324 * 300);
+        var atCap = new GasMixture(Map.of(GasType.NITROGEN, molesAtCap), 300);
+        assertTrue(VentilationGasFlow.planScrubberCapture(GasMixture.breathableAir(), atCap,
+                1, 0.2, 1, settings).isEmpty());
+        var belowCap = new GasMixture(Map.of(GasType.CARBON_DIOXIDE, molesAtCap * 0.99), 300);
+        var co2Room = new GasMixture(Map.of(GasType.CARBON_DIOXIDE, 100.0), 300);
+        assertTrue(VentilationGasFlow.planScrubberCapture(co2Room, belowCap,
+                1, 0.2, 1, settings).isPresent());
+
+        var d = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.VENT).settings();
+        // Source preset asks for 50 atm; planner must reduce to the component's 4500 kPa ceiling.
+        var state = AtmosDevicePayload.State.from(d);
+        var fillPreset = new AirAlarmData.Preset(true, 5_066.25, true, false, "FILTER", 0,
+                Set.of(), false);
+        AtmosDevicePayload.SetState fill = AirAlarmPresetPlanner.plan(VentilationDeviceConfig.Kind.VENT,
+                fillPreset, state);
+        var effectiveFill = fill.settings();
+        assertEquals(4500.0, effectiveFill.externalPressureBoundKPa());
+        assertEquals(4500.0, effectiveFill.targetPressureKPa());
+        double roomMolesAt4400 = 4_400 * 1000 / (8.31446261815324 * 300);
+        GasMixture room = new GasMixture(Map.of(GasType.NITROGEN, roomMolesAt4400), 300);
+        GasMixture pipe = new GasMixture(Map.of(GasType.OXYGEN, 10_000.0), 300);
+        var fillPlan = VentilationGasFlow.planVentRelease(pipe, room, 0.2, 1, 10, effectiveFill).orElseThrow();
+        assertEquals(4500.0, fillPlan.destinationAfter().pressureKpa(1), 1e-8);
+    }
+
     private static void assertConserved(GasMixture source, GasMixture destination, PipeGasTransfer.Plan plan) {
         for (GasType gas : GasType.values()) {
             double expected = source.moles(gas) + destination.moles(gas);
@@ -180,5 +257,11 @@ class VentilationGasFlowTest {
     }
     private static com.juicyslew.moonstation14.ms14.atmos.piping.prototype.VentilationDeviceData.GasVentPump pump() {
         return PipeGasTransactionTest.resolvedVentilationDefinitions().get(ModVentilationDevices.VENT).gasVentPump();
+    }
+    private static VentilationDeviceConfig.Settings pressureLockoutOverride(VentilationDeviceConfig.Settings settings) {
+        return new VentilationDeviceConfig.Settings(settings.revision(), settings.configuredEnabled(),
+                settings.externalPressureBoundKPa(), settings.targetPressureChangeKPaPerSecond(),
+                settings.targetPressureKPa(), settings.volumeRateM3PerSecond(), settings.scrubberMode(),
+                settings.filteredGases(), settings.selectedLayer(), true, settings.wideNet());
     }
 }

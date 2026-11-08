@@ -9,19 +9,30 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.Map;
 
 /** Supported local tank composition: physical gas volume/temperature and initial finite gas. */
-public record GasTankData(double volumeCubicMeters, double temperatureKelvin, Map<GasType, Double> initialMoles) {
+public record GasTankData(double volumeCubicMeters, double temperatureKelvin, Map<GasType, Double> initialMoles,
+                          ResourceLocation nativeItemId, double outletPressureKpa, double lowPressureThresholdKpa) {
     private static final Codec<Map<String, Double>> MOLES = GasCompositionCodec.CODEC;
     public static final Codec<GasTankData> CODEC = RecordCodecBuilder.create(i -> i.group(
             Codec.DOUBLE.fieldOf("volumeCubicMeters").forGetter(GasTankData::volumeCubicMeters),
             Codec.DOUBLE.fieldOf("temperatureKelvin").forGetter(GasTankData::temperatureKelvin),
-            MOLES.optionalFieldOf("initialMoles", Map.of()).forGetter(GasTankData::encodeMoles)
-    ).apply(i, (volume, temperature, moles) -> new GasTankData(volume, temperature, decodeMoles(moles))));
+            MOLES.optionalFieldOf("initialMoles", Map.of()).forGetter(GasTankData::encodeMoles),
+            ResourceLocation.CODEC.optionalFieldOf("nativeItemId", ModGasTanks.id("plasma_tank")).forGetter(GasTankData::nativeItemId),
+            Codec.DOUBLE.optionalFieldOf("outletPressureKpa", 21.3).forGetter(GasTankData::outletPressureKpa),
+            Codec.DOUBLE.optionalFieldOf("lowPressureThresholdKpa", 30.0).forGetter(GasTankData::lowPressureThresholdKpa)
+    ).apply(i, (volume, temperature, moles, item, outlet, threshold) -> new GasTankData(volume, temperature, decodeMoles(moles), item, outlet, threshold)));
+
+    public GasTankData(double volumeCubicMeters, double temperatureKelvin, Map<GasType, Double> initialMoles) {
+        this(volumeCubicMeters, temperatureKelvin, initialMoles, ModGasTanks.id("plasma_tank"), 21.3, 30.0);
+    }
 
     public GasTankData {
         if (!Double.isFinite(volumeCubicMeters) || volumeCubicMeters <= 0 || !Double.isFinite(temperatureKelvin)
                 || temperatureKelvin < GasMixture.MIN_TEMPERATURE_KELVIN || temperatureKelvin > GasMixture.MAX_TEMPERATURE_KELVIN)
             throw new IllegalArgumentException("Invalid gas tank volume or temperature");
         initialMoles = Map.copyOf(initialMoles);
+        java.util.Objects.requireNonNull(nativeItemId);
+        if (!Double.isFinite(outletPressureKpa) || outletPressureKpa < 0 || !Double.isFinite(lowPressureThresholdKpa) || lowPressureThresholdKpa < 0)
+            throw new IllegalArgumentException("Invalid gas tank pressure settings");
         new GasMixture(initialMoles, temperatureKelvin, volumeCubicMeters);
     }
 
@@ -34,4 +45,3 @@ public record GasTankData(double volumeCubicMeters, double temperatureKelvin, Ma
         return GasCompositionCodec.decode(values);
     }
 }
-

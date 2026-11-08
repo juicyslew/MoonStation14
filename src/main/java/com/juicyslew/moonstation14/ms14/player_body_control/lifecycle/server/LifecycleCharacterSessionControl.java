@@ -174,7 +174,9 @@ public final class LifecycleCharacterSessionControl {
         return ghost != null && ghost.epoch() == ghostEpoch && profile != null && profile.active()
                 && profile.state() == PlayerLifecycleRegistry.LifecycleState.GHOST
                 && profile.connectionGeneration() == ghostEpoch && identity != null && identity.isBound()
-                && PlayerCharacterHarnessBinder.canBindMappedMob(body, player.getUUID(), profile.profileId(),
+                && PlayerCharacterHarnessBinder.canBindMappedMob(body, player.getUUID(),
+                        com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding
+                                .profileKeyForBody(body.getUUID()),
                         profile.mindId().value(), identity.characterId());
     }
 
@@ -465,6 +467,10 @@ public final class LifecycleCharacterSessionControl {
                         session.body.getId(), failure);
             }
             session.committed = true;
+            // The identity was resolved before lifecycle binding completed, so its known-zero
+            // ledger may have skipped the initial native projection. Reproject only now that
+            // this exact body has passed Ready authority checks; this preserves saved damage/death.
+            com.juicyslew.moonstation14.ms14.damage.DamageSystem.reconcile(session.body);
             // The body can have entered tracking before its client acknowledged Ready. Republish
             // the authoritative ledger only after the exact lifecycle owner is committed.
             com.juicyslew.moonstation14.ms14.damage.DamageSystem.publishHealthState(session.body);
@@ -516,12 +522,12 @@ public final class LifecycleCharacterSessionControl {
                 || !activeBodyBindingMatches(PlayerCharacterHarnessBinder.binding(session.body), session.accountId,
                         session.profileId, session.mindId)) return;
         try {
-            var identity = ChatIdentitySavedData.existing(server.overworld())
-                    .flatMap(data -> data.character(new ChatIdentityRegistry.CharacterKey(
-                            session.accountId, session.profileId))).orElse(null);
+            var identity = com.juicyslew.moonstation14.ms14.character.CharacterPublicName
+                    .savedIdentity(session.body).orElse(null);
             if (identity == null) return; // No lookup may create or allocate an identity here.
             LocalSpeechNetworking.sendIdentity(player, new LocalCharacterIdentityPayload(
-                    identity.name(), identity.rgb(), session.body.level().dimension().location()));
+                    com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(session.body).getString(),
+                    identity.rgb(), session.body.level().dimension().location(), session.body.getUUID(), session.epoch));
         } catch (RuntimeException failure) {
             com.juicyslew.moonstation14.MoonStation14.LOGGER.warn("Could not load or deliver committed character identity to owner", failure);
         }

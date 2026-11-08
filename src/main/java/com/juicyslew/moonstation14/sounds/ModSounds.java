@@ -56,7 +56,23 @@ public class ModSounds {
     public static final Supplier<SoundEvent> GUN_BULLET_MISS = registerSoundEvent("ss14/weapons/guns/miss/bullet_miss");
     public static final Supplier<SoundEvent> SLIP = registerSoundEvent("ss14/effects/slip");
     public static final Supplier<SoundEvent> BODY_FALL = registerSoundEvent("body_fall");
+    public static final Supplier<SoundEvent> INTERNALS_TOGGLE = registerSoundEvent("internals");
+    public static final Supplier<SoundEvent> EVA_HELMET_WEAR = registerSoundEvent("equipment/eva_helmet");
+    public static final Supplier<SoundEvent> JUMPSUIT_EQUIP = registerSoundEvent("equipment/jumpsuit_equip");
     // Event registry IDs must exist independently of their sounds.json sample mappings.
+    public static final Supplier<SoundEvent> MELEE_SWING = registerSoundEvent("ss14/weapons/punch_miss");
+    public static final Supplier<SoundEvent> MELEE_PUNCH = registerSoundEvent("ss14/weapons/punch");
+    public static final Supplier<SoundEvent> MELEE_ALIEN_CLAW = registerSoundEvent("ss14/effects/alien_claw");
+    public static final Supplier<SoundEvent> MELEE_BLADE_SLICE = registerSoundEvent("ss14/weapons/blade_slice");
+    public static final Supplier<SoundEvent> MELEE_METAL_THUD = registerSoundEvent("ss14/effects/metal_thud");
+    public static final Supplier<SoundEvent> JUG_NORMAL_DESTRUCTION = registerSoundEvent("ss14/effects/metal_crunch");
+    public static final Supplier<SoundEvent> MELEE_NO_DAMAGE = registerSoundEvent("ss14/effects/weak_hit");
+    public static final Supplier<SoundEvent> THROWING_KNIFE_HIT = registerSoundEvent("ss14/weapons/star_hit");
+    public static final Supplier<SoundEvent> DART_HIT = registerSoundEvent("ss14/weapons/pierce");
+    public static final Supplier<SoundEvent> BOLA_THROW = registerSoundEvent("ss14/weapons/bolathrow");
+    public static final Supplier<SoundEvent> BOLA_LAND = registerSoundEvent("ss14/effects/snap");
+    public static final Supplier<SoundEvent> ITEM_DROP = registerSoundEvent("ss14/effects/drop");
+    public static final Supplier<SoundEvent> MELEE_DISARM_SUCCESS = registerSoundEvent("ss14/effects/thudswoosh");
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_BEGIN = registerSoundEvent("medical/ointment_begin");
     public static final Supplier<SoundEvent> MEDICAL_OINTMENT_END = registerSoundEvent("medical/ointment_end");
     public static final Supplier<SoundEvent> MEDICAL_BRUTEPACK_BEGIN = registerSoundEvent("medical/brutepack_begin");
@@ -67,6 +83,10 @@ public class ModSounds {
     public static final Supplier<SoundEvent> MALE_GASP = registerSoundEvent("gasp/male");
     public static final Supplier<SoundEvent> FEMALE_GASP = registerSoundEvent("gasp/female");
     public static final Supplier<SoundEvent> MOUSE_SQUEAK = registerSoundEvent("mouse_squeak");
+    public static final Supplier<SoundEvent> VOCAL_HUMAN_SCREAM = registerSoundEvent("vocal_human_scream");
+    public static final Supplier<SoundEvent> VOCAL_REPTILIAN_SCREAM = registerSoundEvent("vocal_reptilian_scream");
+    public static final Supplier<SoundEvent> VOCAL_SCURRET_SCREAM = registerSoundEvent("vocal_scurret_scream");
+    public static final Supplier<SoundEvent> VOCAL_WILHELM = registerSoundEvent("vocal_wilhelm");
     private record SpeechSounds(Supplier<SoundEvent> say, Supplier<SoundEvent> ask, Supplier<SoundEvent> exclaim) {
         SpeechSounds(Supplier<SoundEvent> all) { this(all, all, all); }
     }
@@ -138,6 +158,7 @@ public class ModSounds {
     public static final Supplier<SoundEvent> ATMOS_GAS_PUMP = registerFixedRangeSoundEvent("ss14/atmospherics/gas_pump", 5f);
     public static final Supplier<SoundEvent> ATMOS_GAS_HISS = registerFixedRangeSoundEvent("ss14/atmospherics/gas_hiss", 5f);
     public static final Supplier<SoundEvent> ATMOS_VENDING_HUM = registerFixedRangeSoundEvent("ss14/atmospherics/vending_machine_hum", 6f);
+    public static final Supplier<SoundEvent> FIRE_ALARM = registerSoundEvent("atmos/fire_alarm");
     private static final java.util.Map<String, Supplier<SoundEvent>> EMOTES = java.util.Map.ofEntries(
             java.util.Map.entry("cough", registerSoundEvent("emote/cough")),
             java.util.Map.entry("crying", registerSoundEvent("emote/crying")),

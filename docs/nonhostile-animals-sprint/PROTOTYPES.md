@@ -88,6 +88,19 @@ primate-family (10s), and reindeer (unbounded). Monkey, kobold and scurret inher
 the one-hand plus ComplexInteraction contract from MobBaseAncestor; other fauna
 are not granted fabricated hands.
 
+At the pinned revision, `SimpleMobBase` → `SimpleSpaceMobBase` supplies `MobCombat`
+(`Resources/Prototypes/Entities/Mobs/NPCs/base.yml`); `MobBaseHuman` also supplies
+`MobCombat` and `MobVocal` (`base.yml`). The local `supported_animal_core` is the
+only consumer of `supported_simple_mob`, so its inherited `CombatMode` references
+`moonstation14:combat_mode_toggle` without per-species duplicates; human retains
+its own `CombatMode` and `Vocal`. Kobold (`animals.yml:1601–1606`) and scurret
+(`scurret.yml:38–43`) explicitly inherit upstream vocal composition. Their local
+`Vocal` data names the shared `moonstation14:scream` / `scream` action/emote while
+preserving each species' existing Speech allowed-emote set and ambient voice.
+This is prototype mapping only: the local action backend/voice adapter still needs
+species-correct audio integration, so this does not claim SS14 scream-audio parity.
+Bat, bee and monkey do not receive `Vocal` by generic animal inheritance.
+
 Source-specific thresholds retained: bat 30/60; bee and butterfly 10 Dead only;
 cockroach 1 Dead only; mothroach/hamster/snoth 40/60; moproach 45/65; gorilla 200/250;
 kobold/scurret 60/125; nymph 30/60; snail 10/20; spider 90 Dead only.
@@ -246,8 +259,7 @@ Minecraft is an explicit port adaptation, not an upstream 3D steering algorithm.
 The bat's authored native wing clip already exists; correct state projection and
 runtime selection are required to display it. Exported models remain unchanged.
 
-`MobBaseAncestor` explicitly defines one left `Hand` and `ComplexInteraction`
-(`animals.yml:1348–1401`); monkey, kobold and scurret inherit it. Ordinary bat has
+`MobBaseAncestor` explicitly defines one left `Hand`, `ComplexInteraction`, and `CombatMode(canDisarm=true)` (`animals.yml:1348–1401`); its MobDamageable base supplies Stamina defaults (100 / 3 / 3 / 6), and MobBaseAncestor adds Stunnable. Monkey, kobold and scurret resolve these through local `supported_animal_ancestor`. The shared melee default is 3 blunt / 3 piercing; kobold overrides it with 5 slash / 4 piercing and scurret with 10 piercing. Ordinary bat has
 no upstream GhostRole. Operator development entries in `/ghostroles` must reuse
 the existing trusted development-offer origin rather than alter that composition.
 

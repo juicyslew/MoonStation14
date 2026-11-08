@@ -9,8 +9,6 @@ import com.juicyslew.moonstation14.component.ModDataComponents;
 import com.juicyslew.moonstation14.entities.LooseItemEntity;
 import com.juicyslew.moonstation14.block.ModBlocks;
 import com.juicyslew.moonstation14.ms14.hands.network.BotanyHarvestAuthenticatedGameTests;
-import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
-import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateQuery;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest;
 import com.juicyslew.moonstation14.ms14.hands.network.AuthenticatedBlockUseDriver;
 import com.juicyslew.moonstation14.ms14.hands.live.BodyHandItemTransfer;
@@ -42,7 +40,7 @@ public final class BotanyYieldPotencyPresetGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
-    @GameTestTags({"botany-genetics", "botany-sampling"})
+    @GameTestTags({"botany-genetics", "botany-sampling", "merge-main-remaining", "merge-main-stage-two"})
     public static void acEndurancePresetAuthenticatedSamplePublishesHealthWarningContrast(GameTestHelper helper) {
         var species=ModSeedProfiles.seedId("wheat");
         var baseline=new GeneticValue(species,ModSeedProfiles.serverLookup(species));
@@ -52,11 +50,11 @@ public final class BotanyYieldPotencyPresetGameTests {
                 (h,fixture,epoch,hand,tray,pos,level,finished)->{
             try {
                 var plant=tray.plantState();
-                samplePreset(h,fixture,epoch,hand,tray,pos,level,finished,plant,ac,50,10,20);
+                samplePreset(h,fixture,epoch,hand,tray,pos,level,finished,plant,ac,50,10,20,2);
                 require((tray.warningBits()&2)!=0,"server-published AC tray appearance exposes low-health warning after real sampling");
                 tray.commitPlant(baseline,level.getGameTime());
                 plant=tray.plantState(); BotanyFixtureScenarios.prepareStageHolder(plant,baseline); tray.commitMutation();
-                samplePreset(h,fixture,epoch,hand,tray,pos,level,finished,plant,baseline,100,60,70);
+                samplePreset(h,fixture,epoch,hand,tray,pos,level,finished,plant,baseline,100,60,70,3);
                 require((tray.warningBits()&2)==0,"server-published V control appearance has no low-health warning after real sampling");
                 finish(h,fixture,finished,null);
             } catch(Throwable failure) { finish(h,fixture,finished,failure); }
@@ -66,34 +64,53 @@ public final class BotanyYieldPotencyPresetGameTests {
     private static void samplePreset(GameTestHelper h, RegisteredServerPlayerFixture fixture, long epoch, String hand,
             HydroponicsTrayBlockEntity tray, BlockPos pos, ServerLevel level, AtomicBoolean finished,
             com.juicyslew.moonstation14.ms14.botany.PlantInstance plant, GeneticValue preset, float endurance,
-            float minimum, float maximum) {
+            float minimum, float maximum, long actionSequence) {
         var body=com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
         BotanyFixtureScenarios.prepareStageHolder(plant,preset);
         require(plant.age()==2 && plant.health()==endurance && plant.water()==80 && plant.nutrition()==80,
                 "matched full-health age-2, 80/80 soil sample setup");
         var reference=plant.seedReference();
-        var cutter=LooseItemEntity.create(level,body.position().add(0,.1,.8),new net.minecraft.world.item.ItemStack(ModItems.WIRECUTTER.get()));
-        cutter.setNoGravity(true); require(level.addFreshEntity(cutter),"real wirecutter published");
-        body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES,cutter.getBoundingBox().getCenter());
         var hands=body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
-        require(BodyHandItemTransfer.pickupSelected(fixture.player(),cutter.getUUID(),hand,hands.revision(),ignored->{})
-                ==BodyHandItemTransfer.Result.SUCCESS,"real wirecutter normally acquired in active hand");
-        var query=BodyHandStateService.query(fixture.player(),new BodyHandStateQuery(epoch,3));
+        var heldTool=hands.stackCopy(hand);
+        if (heldTool.isEmpty() || !heldTool.get().is(ModItems.WIRECUTTER.get())) {
+            var cutter=LooseItemEntity.create(level,body.position().add(0,.1,.8),new net.minecraft.world.item.ItemStack(ModItems.WIRECUTTER.get()));
+            cutter.setNoGravity(true); require(level.addFreshEntity(cutter),"real wirecutter published");
+            body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES,cutter.getBoundingBox().getCenter());
+            require(BodyHandItemTransfer.pickupSelected(fixture.player(),cutter.getUUID(),hand,hands.revision(),ignored->{})
+                    ==BodyHandItemTransfer.Result.SUCCESS,"real wirecutter normally acquired in active hand");
+            hands=body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+        }
+        var toolToken=hands.token(hand).orElseThrow();
+        var query=fixture.queryHands(epoch);
         var held=query.hands().stream().filter(value->value.id().equals(hand)).findFirst().orElseThrow();
         var hit=RegisteredPlayerReadyDriver.aimAt(body,level,pos);
-        require(AuthenticatedBlockUseDriver.use(fixture.player(),new BodyBlockUseRequest(epoch,2,query.revision(),hand,
+        require(AuthenticatedBlockUseDriver.use(fixture.player(),new BodyBlockUseRequest(epoch,actionSequence,query.revision(),hand,
                 held.token(),pos,hit.getDirection(),false,BodyBlockUseRequest.Intent.USE)
                 )==com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult.Outcome.PLACED,
                 "real authenticated wirecutter USE samples preset plant");
         require(plant.health()>=minimum && plant.health()<=maximum && !plant.dead(),"ordinary sample commits expected nonlethal health range");
         require(!reference.unique(),"first sample shares source reference through production commit");
-        var packets=level.getEntitiesOfClass(LooseItemEntity.class,new net.minecraft.world.phys.AABB(pos).inflate(8),
-                e->!e.getItem().isEmpty() && e.getItem().is(ModItems.WHEAT_SEEDS.get())
-                        && e.getItem().get(ModDataComponents.PLANT_SEED_REFERENCE.get())==reference);
+        hands=body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+        require(hands.token(hand).filter(toolToken::equals).isPresent()
+                        && hands.stackCopy(hand).filter(stack->stack.is(ModItems.WIRECUTTER.get())).isPresent(),
+                "sampling retains the same held wirecutter across matched presets");
+        var packets=matchingPackets(level,pos,body,reference);
         require(packets.size()==1,"real sample publishes exactly one matching seed packet");
-        var override=packets.getFirst().getItem().get(ModDataComponents.SEED_PACKET_HEALTH_OVERRIDE.get());
+        var override=packets.getFirst().get(ModDataComponents.SEED_PACKET_HEALTH_OVERRIDE.get());
         require(override!=null && override.health()==plant.health(),"published packet health matches committed source health");
         require((tray.warningBits()&2)==(plant.health()<=endurance/2?2:0),"tray appearance projection is published from actual sampled state");
+    }
+
+    private static java.util.List<net.minecraft.world.item.ItemStack> matchingPackets(ServerLevel level, BlockPos pos,
+            net.minecraft.world.entity.LivingEntity body, PlantSeedReference reference) {
+        var packets=new java.util.ArrayList<net.minecraft.world.item.ItemStack>();
+        var hands=body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+        for(var hand:hands.handIds()) hands.stackCopy(hand).filter(stack->stack.is(ModItems.WHEAT_SEEDS.get())
+                && stack.get(ModDataComponents.PLANT_SEED_REFERENCE.get())==reference).ifPresent(packets::add);
+        for(var entity:level.getEntitiesOfClass(LooseItemEntity.class,new net.minecraft.world.phys.AABB(pos).inflate(8),
+                e->!e.getItem().isEmpty() && e.getItem().is(ModItems.WHEAT_SEEDS.get())
+                        && e.getItem().get(ModDataComponents.PLANT_SEED_REFERENCE.get())==reference)) packets.add(entity.getItem());
+        return packets;
     }
 
     private static void run(GameTestHelper helper, String station, int yield, int potency) {
@@ -118,7 +135,7 @@ public final class BotanyYieldPotencyPresetGameTests {
             var body = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
             var before = level.getEntitiesOfClass(LooseItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(8), e -> !e.getItem().isEmpty())
                     .stream().map(net.minecraft.world.entity.Entity::getUUID).collect(java.util.stream.Collectors.toSet());
-            var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+            var query = fixture.queryHands(epoch);
             var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
             require(AuthenticatedBlockUseDriver.use(fixture.player(), new BodyBlockUseRequest(epoch, 2, query.revision(), hand,
                     null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE))
@@ -156,7 +173,7 @@ public final class BotanyYieldPotencyPresetGameTests {
             net.minecraft.world.entity.LivingEntity body, BlockPos pos, com.juicyslew.moonstation14.ms14.botany.PlantSeedReference reference,
             GeneticValue expected, int potency, AtomicBoolean done) {
         try {
-            var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 4));
+            var query = fixture.queryHands(epoch);
             var held = query.hands().stream().filter(x -> x.id().equals(hand)).findFirst().orElseThrow();
             var sourceToken = held.token();
             var sourceStack = held.presentation().stack().copy();
@@ -165,7 +182,7 @@ public final class BotanyYieldPotencyPresetGameTests {
             require(AuthenticatedBlockUseDriver.use(fixture.player(), new BodyBlockUseRequest(epoch, 3, query.revision(), hand,
                     held.token(), pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE))
                     == com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult.Outcome.PLACED, "real extractor USE commits");
-            var after = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 5));
+            var after = fixture.queryHands(epoch);
             var sourceHand = after.hands().stream().filter(x -> x.id().equals(hand)).findFirst().orElseThrow();
             var liveHands = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
             var remainingSource = liveHands.stackCopy(hand);

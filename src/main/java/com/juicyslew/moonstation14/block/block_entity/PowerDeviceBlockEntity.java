@@ -16,15 +16,18 @@ import net.minecraft.world.level.block.state.BlockState;
 import com.juicyslew.moonstation14.block.custom.PowerDeviceBlock;
 
 import java.util.List;
+import java.util.UUID;
 
 /** Device-owned APC battery and breaker. Energy is uniquely BE-owned, so vanilla BE NBT is authoritative. */
 public class PowerDeviceBlockEntity extends BlockEntity {
     private double energyJoules = PowerDeviceRules.APC_INITIAL_JOULES;
-    private java.util.UUID placementIdentity = java.util.UUID.randomUUID();
     private boolean breakerClosed = true;
     private long breakerRevision;
     private boolean tripLatched;
     private PowerDeviceRules.ApcProtectionState protectionState = PowerDeviceRules.ApcProtectionState.initial();
+    private UUID placementIdentity = UUID.randomUUID();
+    /** Stable identity consumed by power-runtime device registration and fixture admission. */
+    public UUID apcPowerIdentity() { return placementIdentity; }
 
     public PowerDeviceBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.POWER_DEVICE.get(), pos, state);
@@ -102,6 +105,7 @@ public class PowerDeviceBlockEntity extends BlockEntity {
 
     @Override protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
+        tag.putUUID("PowerDeviceIdentity", placementIdentity);
         if (isApc()) {
             tag.merge(PowerDeviceRules.saveApc(energyJoules, breakerClosed, tripLatched));
             tag.putUUID("PowerDevicePlacementIdentity", placementIdentity);
@@ -110,6 +114,7 @@ public class PowerDeviceBlockEntity extends BlockEntity {
 
     @Override protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
+        if (tag.hasUUID("PowerDeviceIdentity")) placementIdentity = tag.getUUID("PowerDeviceIdentity");
         if (isApc()) {
             var data = PowerDeviceRules.loadApc(tag);
             energyJoules = data.energyJoules();
@@ -136,4 +141,3 @@ public class PowerDeviceBlockEntity extends BlockEntity {
         breakerRevision = breakerRevision == Long.MAX_VALUE ? 0 : breakerRevision + 1;
     }
 }
-

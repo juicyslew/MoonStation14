@@ -13,9 +13,12 @@ public final class ExamineSelector {
     public static final int MAX_CANDIDATES = ExamineWorldSelector.MAX_CANDIDATES;
     public static final double MAX_VISIBLE_RANGE = ExamineWorldSelector.MAX_VISIBLE_RANGE;
     public record Candidate(ExamineTarget target, Vec3 hitPoint, double distance, String publicName, AABB box,
-                            boolean transparent) {
+                            boolean transparent, boolean looseItem) {
+        public Candidate(ExamineTarget target, Vec3 hitPoint, double distance, String publicName, AABB box, boolean transparent) {
+            this(target, hitPoint, distance, publicName, box, transparent, false);
+        }
         public Candidate(ExamineTarget target, Vec3 hitPoint, double distance, String publicName, AABB box) {
-            this(target, hitPoint, distance, publicName, box, false);
+            this(target, hitPoint, distance, publicName, box, false, false);
         }
     }
     private ExamineSelector() { }
@@ -24,7 +27,6 @@ public final class ExamineSelector {
         int renderChunks = net.minecraft.client.Minecraft.getInstance().options.renderDistance().get();
         double limit = Math.min(range, Math.max(2, renderChunks) * 16.0);
         return ExamineWorldSelector.select(level, rayOrigin, rayDirection, limit, ignoredEntityIds).stream()
-                .map(c -> new Candidate(c.target(), c.hitPoint(), c.distance(), c.publicName(), c.box(), c.transparent())).toList();
+                .map(c -> new Candidate(c.target(), c.hitPoint(), c.distance(), c.publicName(), c.box(), c.transparent(), c.looseItem())).toList();
     }
 }
-

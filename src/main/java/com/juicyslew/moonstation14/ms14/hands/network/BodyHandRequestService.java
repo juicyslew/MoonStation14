@@ -27,6 +27,7 @@ import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.util.IdentityHashMap;
@@ -425,6 +426,10 @@ public final class BodyHandRequestService {
             default -> null;
         };
         if (request.action() == BodyHandActionRequest.Action.QUICK_EQUIP) {
+            var quickItem = hands.stackCopy(request.handId()).orElse(null);
+            int quickDelay = EquipmentTimedInteraction.delay(quickItem, true);
+            if (quickDelay > 0) return result(request, EquipmentTimedInteraction.startQuick(actor, authority, hands,
+                    request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence(), quickDelay), authority);
             var outcome = reason(BodyEquipmentTransfer.quickEquip(actor, request.handId(), request.expectedToken(), request.expectedRevision()));
             BodyHandActionResult response = result(request, outcome, authority);
             if (outcome == BodyHandActionResult.Reason.OK) BodyHandStateService.requireFreshQuery(actor);
@@ -533,6 +538,15 @@ public final class BodyHandRequestService {
                     || hands.revision() != request.expectedRevision()
                     || !equipment.equals(BodyHandStateService.equipment(hands, authority.body(), handSlots)))
                 return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+            if (request.action() == BodyHandActionRequest.Action.EQUIP_SLOT
+                    || request.action() == BodyHandActionRequest.Action.UNEQUIP_SLOT) {
+                boolean puttingOn = equipping;
+                var delayStack = puttingOn ? hands.stackCopy(request.handId()).orElse(null)
+                        : liveSlot == null ? null : liveSlot.stack().orElse(null);
+                int delay = EquipmentTimedInteraction.delay(delayStack, puttingOn);
+                if (delay > 0) return result(request, EquipmentTimedInteraction.start(actor, authority, hands,
+                        request.handId(), equipmentSlot, request.expectedToken(), request.expectedRevision(), request.sequence(), puttingOn, delay), authority);
+            }
             BodyHandActionResult.Reason outcome;
             if (equipping) outcome = reason(BodyEquipmentTransfer.equip(actor, request.handId(), equipmentSlot,
                     request.expectedToken(), request.expectedRevision()));
@@ -597,6 +611,16 @@ public final class BodyHandRequestService {
             var ownedToken = hands.token(request.handId()).orElse(null);
             if (request.expectedToken() != null && !request.expectedToken().equals(ownedToken))
                 return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            var alternateTarget = request.pickupTarget() == null
+                    || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
+                    ? null : level.getEntity(request.pickupTarget());
+            if (alternateTarget instanceof com.juicyslew.moonstation14.entities.LooseItemEntity attached
+                    && attached.attachment().isPresent()) {
+                var started = com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.begin(
+                        actor, attached, request.sequence());
+                return result(request, started == com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionEngine.StartResult.STARTED
+                        ? BodyHandActionResult.Reason.OK : BodyHandActionResult.Reason.DENIED, authority);
+            }
             if (ownedToken != null) {
                 var held = hands.stackCopy(request.handId()).orElse(null);
                 var targetEntity = request.pickupTarget() == null || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
@@ -645,6 +669,18 @@ public final class BodyHandRequestService {
         java.util.concurrent.atomic.AtomicReference<java.util.UUID> spawned = new java.util.concurrent.atomic.AtomicReference<>();
         if (request.action() == BodyHandActionRequest.Action.THROW_ITEM) {
             var outcome = BodyLooseThrow.throwHeld(actor, request.handId(), request.expectedToken(), request.expectedRevision(), spawned::set);
+            if (outcome == BodyLooseThrow.Result.DENIED) {
+                LivingEntity body = authority.body();
+                LiveHands current = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                ItemStack held = current == null ? ItemStack.EMPTY : current.stackCopy(request.handId()).orElse(ItemStack.EMPTY);
+                String itemId = held.isEmpty() ? "empty" : BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
+                String prototype = body instanceof net.minecraft.world.entity.Mob mob
+                        ? mob.getType().toString() : body.getType().toString();
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                        "Body THROW_ITEM denied gate={} bodyType={} item={} bodyPos={} eye={} look={} profile=unavailable",
+                        BodyLooseThrow.lastPortableThrowGateForDiagnostics(), prototype, itemId,
+                        body.position(), body.getEyePosition(), body.getLookAngle());
+            }
             BodyHandActionResult.Reason throwReason = looseThrowReason(outcome);
             if (throwReason == BodyHandActionResult.Reason.OK && spawned.get() != null)
                 BodyWorldGridService.authorizeTransferredOpen(actor, authority, spawned.get());
@@ -668,6 +704,14 @@ public final class BodyHandRequestService {
                     .isSignaller(looseTarget.getItem()))
                 return result(request, com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerServer.activateLoose(
                         actor, authority, hands, request, looseTarget), authority);
+            if (looseTarget != null) {
+                var slicing = com.juicyslew.moonstation14.ms14.item_processing.LooseFoodSlicingService.use(
+                        actor, authority, hands, request, looseTarget, held);
+                if (slicing != null) return result(request, slicing, authority);
+                var cutting = com.juicyslew.moonstation14.ms14.item_processing.LooseLogCuttingService.use(
+                        actor, authority, hands, request, looseTarget, held);
+                if (cutting != null) return result(request, cutting, authority);
+            }
             var heldId = held == null ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
             try {
                 // Ordinary liquid containers are intentionally not in the medical catalog.
@@ -688,6 +732,15 @@ public final class BodyHandRequestService {
                 if (dispatched != null) return dispatched;
             } catch (RuntimeException ignored) { return result(request, BodyHandActionResult.Reason.DENIED, authority); }
             return result(request, BodyHandActionResult.Reason.DENIED, authority);
+        }
+        if (request.action() == BodyHandActionRequest.Action.BUTCHER) {
+            var held = hands.stackCopy(request.handId()).orElse(null);
+            var looseTarget = nominatedLoose(authority, request);
+            if (looseTarget == null)
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            var outcome = com.juicyslew.moonstation14.ms14.item_processing.LooseButcheringService.use(
+                    actor, authority, hands, request, looseTarget, held);
+            return result(request, outcome == null ? BodyHandActionResult.Reason.DENIED : outcome, authority);
         }
         if (request.action() == BodyHandActionRequest.Action.USE_IN_HAND) {
             var stack = hands.stackCopy(request.handId()).orElse(null);
@@ -713,6 +766,9 @@ public final class BodyHandRequestService {
                     return result(request, heldMutationReason(com.juicyslew.moonstation14.ms14.medical.syringe.SyringeModeService.activate(
                             actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence())), authority);
             } catch (RuntimeException ignored) { }
+            var conversion = com.juicyslew.moonstation14.ms14.item_processing.HeldItemConversionService.tryUse(
+                    actor, authority, hands, request, stack);
+            if (conversion != null) return result(request, conversion, authority);
             if (!(stack.getItem() instanceof IReagentTrait))
                 return result(request, BodyHeldItemActions.activate(actor, request), authority);
             boolean policyDrink = false;
@@ -963,11 +1019,11 @@ public final class BodyHandRequestService {
                 }
                 return new BodyHandActionResult(request.epoch(), request.sequence(),
                         reason == BodyHandActionResult.Reason.OK, reason, true, hands.revision(),
-                        hands.activeHand(), null, null, 0, null);
+                        hands.activeHand(), null, null, 0, transition);
             }
         }
         return new BodyHandActionResult(request.epoch(), request.sequence(),
-                reason == BodyHandActionResult.Reason.OK, reason, false, 0, null, null, null, 0, null);
+                reason == BodyHandActionResult.Reason.OK, reason, false, 0, null, null, null, 0, transition);
     }
 
     /** Pure dispatch policy; never serves as proof of a real authenticated player. */

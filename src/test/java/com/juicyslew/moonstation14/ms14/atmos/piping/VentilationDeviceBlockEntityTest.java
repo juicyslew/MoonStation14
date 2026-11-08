@@ -87,7 +87,7 @@ class VentilationDeviceBlockEntityTest {
                 s.scrubberMode(), s.filteredGases(), VentilationDeviceConfig.Layer.SECONDARY);
         assertTrue(config.compareAndSet(s.revision(), secondary));
         CompoundTag saved = config.save();
-        assertEquals(2, saved.getInt("Version"));
+        assertEquals(3, saved.getInt("Version"));
         assertEquals("SECONDARY", saved.getString("Layer"));
         VentilationDeviceConfig reloaded = new VentilationDeviceConfig(VentilationDeviceConfig.Kind.SCRUBBER);
         assertTrue(reloaded.restore(saved));

@@ -219,6 +219,30 @@ public final class ObserverSystem {
 
     public static ObserverSession query(ServerPlayer owner) { return SESSIONS.get(owner.getUUID()); }
 
+    /** End only the exact bound observer context superseded by an adopted character. */
+    public static boolean finishBoundObserverTakeover(ServerPlayer owner, UUID expectedGhostId, long expectedEpoch) {
+        if (owner == null || expectedGhostId == null) return false;
+        ObserverSession session = SESSIONS.get(owner.getUUID());
+        if (session == null || session.mode() != ObserverSession.Mode.GHOST
+                || session.boundAuthority() == null || !expectedGhostId.equals(session.ghostId())
+                || session.epoch() != expectedEpoch) return false;
+        if (!SESSIONS.remove(owner.getUUID(), session)) return false;
+        INTENTS.remove(owner.getUUID());
+        LAST_BODY.remove(owner.getUUID(), session.corpseBodyId());
+        STAGING_GHOST_OWNERS.entrySet().removeIf(entry -> entry.getValue().equals(owner.getUUID()));
+        // Preserve epoch monotonicity while ensuring END contains no stale corpse identity.
+        rememberEpoch(owner.getUUID(), session.epoch());
+        SENT.remove(owner.getUUID());
+        refreshCarrierTracking(owner);
+        sendSnapshot(owner, true);
+        if (!session.ghostId().equals(owner.getUUID()) && owner.level() instanceof ServerLevel level) {
+            Entity ghost = level.getEntity(session.ghostId());
+            if (ghost != null) ghost.discard();
+        }
+        clearBoundGhostAdmission(owner.getUUID());
+        return true;
+    }
+
     /** Native player entities are carriers for observers, not the separate corpse body. */
     public static boolean mustHideObserverCarrier(ServerPlayer viewer, ServerPlayer carrier) {
         if (viewer == null || carrier == null || viewer.getUUID().equals(carrier.getUUID())) return false;
@@ -513,4 +537,3 @@ public final class ObserverSystem {
         rememberEpoch(session.ownerId(), session.epoch());
     }
 }
-

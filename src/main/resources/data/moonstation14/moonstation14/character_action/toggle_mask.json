@@ -1,0 +1,1 @@
+{"parent":"base_mental_action","display_name":"action.moonstation14.toggle_mask","icon":"moonstation14:textures/interface/actions/mask_on.png","icon_on":"moonstation14:textures/interface/actions/mask_off.png","handler":"MASK_TOGGLE","kind":"TOGGLE","priority":-80}

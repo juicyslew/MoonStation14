@@ -287,8 +287,9 @@ public final class GroundedHarnessWorldStep {
         boolean down = PostureSystem.isDown(body);
         if (down) policy = policy.withDownFriction();
         double voluntaryFactor = com.juicyslew.moonstation14.ms14.movement.PullMovementPolicy
-                .voluntaryMovementFactor(CharacterControlSystem.isKnockedDown(body), down,
-                        PostureSystem.crawlMultiplier(body), BodyPullService.movementMultiplier(body, sprint))
+                 .voluntaryMovementFactor(CharacterControlSystem.isKnockedDown(body), down,
+                         PostureSystem.crawlMultiplier(body), BodyPullService.movementMultiplier(body, sprint))
+                * com.juicyslew.moonstation14.ms14.combat.throwing.EnsnaringSystem.movementMultiplier(body, sprint)
                 * taskSpeedFactor * com.juicyslew.moonstation14.ms14.animals.flight.FlightGroundSpeedPolicy
                         .voluntaryFactor(flight, flightState, externalFlight);
         if (!com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isAlive(body)) voluntaryFactor = 0d;

@@ -165,6 +165,11 @@ def register_author_scope(store_db, bound_context, caller, payload, idempotency_
     if policy['config_overrides'] != floor['overrides']: _fail('FLOOR_CONFIG_OVERRIDES', 'policy.config_overrides', 'Config overrides must exactly match configured trusted list.')
     if policy['review_envelope_limit_bytes'] > floor['review_limit']:
         _fail('FLOOR_REVIEW_LIMIT', 'policy.review_envelope_limit_bytes', 'Review envelope limit cannot exceed configured limit.')
+    import workflow_check_packs
+    try:
+        workflow_check_packs.validate_policy_inputs(repo, policy)
+    except store.ProtocolError as exc:
+        _fail('POLICY_INPUT', getattr(exc, 'field', None) or 'policy', str(exc), getattr(exc, 'recovery', None))
     key = payload['submission_idempotency_key']
     if not isinstance(key, str) or not key.strip(): _fail('SCOPE_INPUT', 'submission_idempotency_key', 'Submission key must be non-empty.')
     submission = store_db.submission_id_for(caller,key)

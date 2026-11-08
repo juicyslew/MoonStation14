@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:food_laughin_pea_pod",
+  "capacity_cents": 1300,
+  "contents_cents": {
+    "moonstation14:nutriment": 300,
+    "moonstation14:sugar": 500,
+    "moonstation14:laughter": 500
+  },
+  "refillable": true
+}

@@ -55,6 +55,7 @@ import com.juicyslew.moonstation14.ms14.atmos.visual.network.AtmosphereVisualRes
 import com.juicyslew.moonstation14.ms14.slip.SlipSystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient;
 import com.juicyslew.moonstation14.ms14.player_body_control.client.BodyHealthHudPolicy;
+import com.juicyslew.moonstation14.ms14.player_body_control.client.BodyStaminaHudPolicy;
 import com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient;
 import com.juicyslew.moonstation14.ms14.hands.client.BodyBlockOutlineRenderer;
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionSnapshot;
@@ -173,6 +174,7 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerItemColors);
         modEventBus.addListener(MoonStation14Client::registerBlockColors);
         modEventBus.addListener(MoonStation14Client::registerJugModels);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.botany.client.PlantTrayModelRegistration::onModifyBakingResult);
         modEventBus.addListener(MoonStation14Client::registerEmitterImpactParticle);
         modEventBus.addListener(MoonStation14Client::onRegisterRenderers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.mobs.client.MouseMobRenderer::registerLayer);
@@ -180,6 +182,7 @@ public class MoonStation14Client {
         modEventBus.addListener(MoonStation14Client::registerMenuScreens);
         modEventBus.addListener(LocalSpeechReviewKey::register);
         modEventBus.addListener(BodyHandClient::registerKeys);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.actions.client.BodyActionKeys::register);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.standing.client.PostureClient::register);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient::register);
         modEventBus.addListener(DisposalConstructionClient::registerKeys);
@@ -203,7 +206,7 @@ public class MoonStation14Client {
             if (camera == null || camera.isRemoved() || camera.level() != minecraft.level) return;
             var sound = net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getOptional(payload.sound()).orElse(null);
             if (sound != null) minecraft.level.playLocalSound(payload.x(), payload.y(), payload.z(), sound,
-                    net.minecraft.sounds.SoundSource.PLAYERS, payload.volume(), payload.pitch(), false);
+                    payload.category(), payload.volume(), payload.pitch(), false);
         });
         ApcNetworking.installClientHandler((response, context) -> context.enqueueWork(() -> {
             if (Minecraft.getInstance().screen instanceof ApcScreen screen) screen.handleResponse(response);
@@ -260,6 +263,7 @@ public class MoonStation14Client {
                 com.juicyslew.moonstation14.ms14.combat.client.GunMuzzleFlashClient::receiveObserver);
         com.juicyslew.moonstation14.ms14.combat.CombatModeNetworking.installMeleeArcHandler(
                 com.juicyslew.moonstation14.ms14.combat.client.MeleeArcClient::receiveObserver);
+        com.juicyslew.moonstation14.ms14.combat.DisarmFlightClientState.install();
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes::bootstrapClientBundled);
         event.enqueueWork(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates::bootstrapClientBundled);
@@ -376,7 +380,7 @@ public class MoonStation14Client {
     }
 
     @SubscribeEvent
-    public static void tickTimedInteractions(ClientTickEvent.Post event) { TimedInteractionClient.tick(); }
+    public static void tickTimedInteractions(ClientTickEvent.Post event) { TimedInteractionClient.tick(); com.juicyslew.moonstation14.ms14.actions.client.BodyActionClient.tick(event); com.juicyslew.moonstation14.ms14.actions.client.BodyActionKeys.tick(); }
 
     @SubscribeEvent
     public static void renderTimedInteractions(RenderLevelStageEvent event) { TimedInteractionRenderer.render(event); }
@@ -389,6 +393,7 @@ public class MoonStation14Client {
 
     @SubscribeEvent
     public static void renderSpeechCues(RenderGuiEvent.Post event) {
+        com.juicyslew.moonstation14.ms14.actions.client.BodyActionHud.render(event);
         LocalSpeechReviewOverlay.render(event);
         DirectionalCueOverlay.render(event);
         LocalSpeechClient.renderCallouts(event);
@@ -808,6 +813,10 @@ public class MoonStation14Client {
         if (CharacterControlSystem.isKnockedDown(source)) {
             rows.add(new HudStatus(net.minecraft.network.chat.Component.translatable("moonstation14.hud.movement.knocked_down").getString(), 0xff67469a));
         }
+        if (com.juicyslew.moonstation14.entities.ItemAttachmentQueries.has(source,
+                com.juicyslew.moonstation14.entities.ItemAttachment.AttachmentKind.ENSNARED)) {
+            rows.add(new HudStatus(net.minecraft.network.chat.Component.translatable("moonstation14.hud.movement.ensnared").getString(), 0xffa86b16));
+        }
         if (body != null) {
             var character = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.projectForActor(body);
             var bodyObservation = com.juicyslew.moonstation14.ms14.medical_observer.client.ObserverClient.current();
@@ -858,6 +867,21 @@ public class MoonStation14Client {
             if (thirst != null && Float.isFinite(thirst.thirst())) {
                 var level = com.juicyslew.moonstation14.ms14.thirst.ThirstReducer.classify(thirst.thirst(), thirstPolicy);
                 rows.add(new HudStatus("BODY THIRST " + level.displayLabel() + " " + Math.round(thirst.thirst()), 0xff3186a8));
+            }
+
+            var staminaPolicy = character.flatMap(data -> data.component(
+                    com.juicyslew.moonstation14.ms14.character.components.StaminaPrototypeComponent.class)).orElse(null);
+            if (staminaPolicy != null) {
+                var snapshot = body.getExistingDataOrNull(ModDataAttachments.STAMINA.get());
+                var stamina = BodyStaminaHudPolicy.project(staminaPolicy,
+                        snapshot == null ? com.juicyslew.moonstation14.ms14.character.stamina.StaminaState.EMPTY : snapshot.state());
+                if (stamina != null) {
+                    String label = net.minecraft.network.chat.Component.translatable("moonstation14.hud.stamina").getString()
+                            + " " + Math.round(stamina.remaining()) + "/" + Math.round(stamina.capacity());
+                    if (stamina.critical()) label += " " + net.minecraft.network.chat.Component.translatable("moonstation14.hud.stamina.critical").getString();
+                    else if (stamina.afterCritical()) label += " " + net.minecraft.network.chat.Component.translatable("moonstation14.hud.stamina.recovering").getString();
+                    rows.add(new HudStatus(label, stamina.critical() ? 0xffa83232 : 0xffb58a32));
+                }
             }
         }
         int guiWidth = event.getGuiGraphics().guiWidth();
@@ -1028,6 +1052,7 @@ public class MoonStation14Client {
         }
         com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer.additionalModels()
                 .forEach(event::register);
+        com.juicyslew.moonstation14.ms14.doors.client.FirelockRenderer.additionalModels().forEach(event::register);
         com.juicyslew.moonstation14.ms14.atmos.tank.client.GasCanisterRenderer.additionalModels()
                 .forEach(event::register);
         com.juicyslew.moonstation14.ms14.botany.client.HydroponicsTrayBlockEntityRenderer.additionalModels()
@@ -1036,6 +1061,7 @@ public class MoonStation14Client {
 
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.AIRLOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.AirlockBlockEntityRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.FIRELOCK.get(), com.juicyslew.moonstation14.ms14.doors.client.StandaloneFirelockBlockEntityRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.HYDROPONICS_TRAY.get(), com.juicyslew.moonstation14.ms14.botany.client.HydroponicsTrayBlockEntityRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.REAGENT_GRINDER.get(), com.juicyslew.moonstation14.ms14.botany.client.ReagentGrinderBlockEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.LOOSE_ITEM.get(), LooseItemRenderer::new);
@@ -1278,4 +1304,3 @@ final class MoonStation14ClientNetworkEvents {
         MoonStation14Client.flushPendingAtmosphere(level);
     }
 }
-

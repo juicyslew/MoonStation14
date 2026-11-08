@@ -26,6 +26,23 @@ public final class PressureExposure {
         return typed(high, factor);
     }
 
+    /** Apply the upstream weakest-covered-part pressure transform before the existing damage kernel. */
+    public static Map<String, Float> damageAt(double physicalPressureKpa, BarotraumaComponent policy,
+                                               com.juicyslew.moonstation14.ms14.equipment.EquipmentItemData.PressureProtection protection) {
+        if (protection == null || policy == null || !Double.isFinite(physicalPressureKpa) || physicalPressureKpa < 0)
+            return damageAt(physicalPressureKpa, policy);
+        // SS14 clamps known physical samples before protection. Unknown samples are rejected by callers.
+        double pressure = Math.max(1.0, physicalPressureKpa);
+        double felt = pressure;
+        if (physicalPressureKpa <= 50.0) {
+            felt = Math.min((pressure + protection.lowPressureModifier()) * protection.lowPressureMultiplier(), 101.325);
+        } else if (physicalPressureKpa >= BarotraumaAtmospherePolicy.HIGH_HAZARD_KPA) {
+            felt = Math.max((pressure + protection.highPressureModifier()) * protection.highPressureMultiplier(), 101.325);
+        }
+        if (!Double.isFinite(felt) || felt < 0) return Map.of();
+        return damageAt(felt, policy);
+    }
+
     /** Pre-check current matching damage; an allowed hit is not prorated when it crosses the ceiling. */
     public static Map<String, Float> limitMatchingDamage(Map<String, Float> damage, Map<String, Float> existing,
                                                           BarotraumaComponent policy) {
@@ -54,4 +71,3 @@ public final class PressureExposure {
         return Map.copyOf(result);
     }
 }
-

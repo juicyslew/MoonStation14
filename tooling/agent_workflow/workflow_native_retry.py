@@ -384,7 +384,7 @@ class NativeRetry:
             (run_id + ':' + str(generation) + ':' + logical_key).encode()).hexdigest()[:24]
 
 
-def load_recovery_prefix(store, new_task, request, bundle):
+def load_recovery_prefix(store, new_task, request, bundle, *, evidence_only=False):
     """Validate linked retry proof and original completed-prefix provenance."""
     metadata = store.get_recovery_metadata(new_task['run_id'], new_task['evaluation_generation'])
     if metadata is None or metadata.get('boundary') != 'native:' + new_task.get('logical_key', ''):
@@ -425,7 +425,8 @@ def load_recovery_prefix(store, new_task, request, bundle):
         if value.get('verified_prefix') != [] or value.get('toolchain') != []:
             raise ValueError('retry proof claims reusable prefix despite full-plan replay')
     else:
-        prefix = _recovery_prefix(store, old_task, request, bundle)
+        prefix = (_recovery_prefix(store, old_task, request, bundle) if not evidence_only else
+                  workflow_error_recovery.verified_prefix(store, old_task_id, request, bundle, evidence_only=True))
         if prefix['source_links'] != value.get('verified_prefix'):
             raise ValueError('retry completed-prefix links differ from applicability proof')
         if prefix.get('toolchain') != value.get('toolchain'):

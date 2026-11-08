@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui;
 
 import java.util.UUID;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode;
 
 /** Per-screen authority for a setting intent; enqueue acknowledgements never count as application. */
 public final class AirAlarmPendingIntentOwner {
@@ -38,6 +39,14 @@ public final class AirAlarmPendingIntentOwner {
         if (!pending()) return outcome;
         if (now >= deadlineTick) { outcome = Outcome.TIMED_OUT; return outcome; }
         if (snapshot == null || !snapshot.accepted()) return outcome;
+        if (operation == AirAlarmControlRequest.Operation.SET_ALARM_MODE || operation == AirAlarmControlRequest.Operation.SET_AUTO_MODE) {
+            if (snapshot.controllerStateRevision() <= baseRevision) return outcome;
+            boolean matches = operation == AirAlarmControlRequest.Operation.SET_AUTO_MODE
+                    ? snapshot.autoMode() == desired : snapshot.currentMode() == AirAlarmMode.values()[index];
+            if (!matches && snapshot.requestId() != requestId) return outcome;
+            outcome = matches ? Outcome.SUCCEEDED : Outcome.CONFLICT;
+            return outcome;
+        }
         var d = snapshot.devices().stream().filter(x -> x.id().equals(device)).findFirst().orElse(null);
         if (d == null || d.revision() <= baseRevision) return outcome;
         boolean matches = switch (operation) {

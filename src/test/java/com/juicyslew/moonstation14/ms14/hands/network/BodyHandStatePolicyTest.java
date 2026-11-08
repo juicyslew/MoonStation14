@@ -113,7 +113,8 @@ class BodyHandStatePolicyTest {
         query.writeVarLong(1);
         assertThrows(IllegalArgumentException.class, () -> BodyHandStateQuery.STREAM_CODEC.decode(query));
         var oversized = header(HandState.MAX_HANDS + 1);
-        assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(oversized));
+        var oversizedFailure = assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(oversized));
+        assertEquals("Invalid hand count", oversizedFailure.getMessage());
         var duplicate = header(2);
         duplicate.writeUtf("same");
         duplicate.writeBoolean(true);
@@ -169,7 +170,8 @@ class BodyHandStatePolicyTest {
         forged.writeBoolean(false);
         forged.writeVarInt(0);
         forged.writeVarInt(0);
-        assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(forged));
+        var forgedFailure = assertThrows(IllegalArgumentException.class, () -> BodyHandStateSnapshot.STREAM_CODEC.decode(forged));
+        assertEquals("Invalid hand snapshot slot", forgedFailure.getMessage());
     }
 
     @Test void legacyBagAndBeltChildrenRoundTripWithoutBecomingPouches() {
@@ -305,6 +307,7 @@ class BodyHandStatePolicyTest {
         buf.writeUUID(UUID.randomUUID());
         buf.writeUUID(UUID.randomUUID());
         buf.writeVarLong(7);
+        buf.writeVarLong(0);
         buf.writeVarLong(0);
         buf.writeUtf("right");
         buf.writeBoolean(false);

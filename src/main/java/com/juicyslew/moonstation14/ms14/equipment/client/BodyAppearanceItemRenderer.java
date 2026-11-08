@@ -22,6 +22,8 @@ public final class BodyAppearanceItemRenderer {
         /** Returns false for models without an authored hand anchor. */
         boolean translate(LivingEntity entity, HumanoidArm arm, PoseStack pose);
     }
+    /** Anchor convention: humanoid anchors terminate at the arm pivot; animal anchors at the palm. */
+    public enum GripConvention { ARM_PIVOT, PALM }
     private final ItemInHandRenderer items;
     private final com.juicyslew.moonstation14.ms14.mob.mouse.client.MouseModel<LivingEntity> mouseModel;
     private final EntityRendererProvider.Context context;
@@ -35,6 +37,11 @@ public final class BodyAppearanceItemRenderer {
     }
 
     public void render(LivingEntity entity, PoseStack pose, MultiBufferSource buffer, int light, HandAnchor anchor) {
+        render(entity, pose, buffer, light, anchor, GripConvention.ARM_PIVOT);
+    }
+
+    public void render(LivingEntity entity, PoseStack pose, MultiBufferSource buffer, int light, HandAnchor anchor,
+                       GripConvention convention) {
         ResourceLocation dimension = entity.level().dimension().location();
         BodyAppearanceSnapshot snapshot = BodyHandNetworking.clientCache()
                 .get(dimension, entity.getUUID(), entity.getId()).orElse(null);
@@ -47,13 +54,14 @@ public final class BodyAppearanceItemRenderer {
             try {
                 if (!anchor.translate(entity, arm, pose)) continue;
                 if (com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearanceResolver.fromStack(hand.stack()) != null)
-                    renderPortableBody(hand.stack(), arm, pose, buffer, light);
-                else renderItem(entity, hand.stack(), arm, pose, buffer, light);
+                    renderPortableBody(hand.stack(), arm, pose, buffer, light, convention);
+                else renderItem(entity, hand.stack(), arm, pose, buffer, light, convention);
             } finally { pose.popPose(); }
         }
     }
 
-    private void renderPortableBody(ItemStack stack, HumanoidArm arm, PoseStack pose, MultiBufferSource buffer, int light) {
+    private void renderPortableBody(ItemStack stack, HumanoidArm arm, PoseStack pose, MultiBufferSource buffer,
+                                    int light, GripConvention convention) {
         var view = com.juicyslew.moonstation14.ms14.hands.PortableBodyAppearanceResolver.fromStack(stack);
         com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile profile;
         try { profile = com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfile.resolveForStack(stack, true); }
@@ -63,9 +71,7 @@ public final class BodyAppearanceItemRenderer {
         var animalAdapter = mouse ? null : com.juicyslew.moonstation14.ms14.mobs.client.AnimalModelAdapters.resolve(view.visualKey());
         var mousePresentation = mouse ? com.juicyslew.moonstation14.ms14.mob.mouse.MouseAppearanceTextures.heldPresentation(view) : null;
         var texture = mouse ? mousePresentation.texture() : animalAdapter.portableTexture(view);
-        pose.mulPose(Axis.XP.rotationDegrees(-90));
-        pose.mulPose(Axis.YP.rotationDegrees(180));
-        pose.translate((arm == HumanoidArm.LEFT ? -1 : 1) / 16.0F, .125F, -.625F);
+        applyItemGripTransform(pose, arm == HumanoidArm.LEFT, convention);
         if (mouse) {
             pose.scale(.16F * profile.visual().modelScale(), -.16F * profile.visual().modelScale(),
                     .16F * profile.visual().modelScale());
@@ -88,13 +94,18 @@ public final class BodyAppearanceItemRenderer {
     }
 
     private void renderItem(LivingEntity entity, ItemStack stack, HumanoidArm arm,
-                           PoseStack pose, MultiBufferSource buffer, int light) {
+                           PoseStack pose, MultiBufferSource buffer, int light, GripConvention convention) {
         if (stack.isEmpty()) return;
         boolean left = arm == HumanoidArm.LEFT;
-        pose.mulPose(Axis.XP.rotationDegrees(-90.0F));
-        pose.mulPose(Axis.YP.rotationDegrees(180.0F));
-        pose.translate((left ? -1.0F : 1.0F) / 16.0F, 0.125F, -0.625F);
+        applyItemGripTransform(pose, left, convention);
         items.renderItem(entity, stack, left ? ItemDisplayContext.THIRD_PERSON_LEFT_HAND
                 : ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, left, pose, buffer, light);
+    }
+
+    public static void applyItemGripTransform(PoseStack pose, boolean left, GripConvention convention) {
+        pose.mulPose(Axis.XP.rotationDegrees(-90.0F));
+        pose.mulPose(Axis.YP.rotationDegrees(180.0F));
+        pose.translate((left ? -1.0F : 1.0F) / 16.0F, convention == GripConvention.ARM_PIVOT ? 0.125F : 0.0F,
+                convention == GripConvention.ARM_PIVOT ? -0.625F : 0.0F);
     }
 }

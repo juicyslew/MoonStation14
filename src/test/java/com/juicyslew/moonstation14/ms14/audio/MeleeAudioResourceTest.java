@@ -24,7 +24,38 @@ class MeleeAudioResourceTest {
             assertEquals("moonstation14:ss14/weapons/bladeslice",json.getAsJsonObject("ss14/weapons/blade_slice").getAsJsonArray("sounds").get(0).getAsString());
             assertEquals("moonstation14:ss14/effects/lightburn",json.getAsJsonObject("ss14/effects/light_burn").getAsJsonArray("sounds").get(0).getAsString());
             assertEquals("moonstation14:ss14/effects/thudswoosh",json.getAsJsonObject("ss14/effects/thudswoosh").getAsJsonArray("sounds").get(0).getAsString());
+            var metal=json.getAsJsonObject("ss14/effects/metal_thud").getAsJsonArray("sounds"); assertEquals(3,metal.size());
+            for(int i=0;i<3;i++){var sample=metal.get(i).getAsJsonObject();assertEquals("moonstation14:ss14/effects/metal_thud"+(i+1),sample.get("name").getAsString());assertEquals(1,sample.get("weight").getAsInt());}
             assertEquals("moonstation14:ss14/voice/diona/diona_salute",json.getAsJsonObject("ss14/voice/diona/salute").getAsJsonArray("sounds").get(0).getAsString());
+        }
+    }
+
+    @Test void jugDestructionCrunchIsPackagedAndRegisteredWithProvenance() throws Exception {
+        try(var in=getClass().getClassLoader().getResourceAsStream("assets/moonstation14/sounds/ss14/effects/metal_crunch.ogg")) {
+            assertNotNull(in, "ss14/effects/metal_crunch.ogg");
+            byte[] audio = in.readAllBytes();
+            assertTrue(audio.length > 4);
+            assertArrayEquals(new byte[]{'O','g','g','S'}, java.util.Arrays.copyOf(audio, 4));
+            assertEquals("ff0931b41fa0b6aecd3f8e9e959c5fd0ddfefacdb6329ef58867a5840f790781",
+                    java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(audio)));
+        }
+        try(var in=getClass().getClassLoader().getResourceAsStream("assets/moonstation14/sounds.json")) {
+            var json=JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            assertEquals("moonstation14:ss14/effects/metal_crunch",
+                    json.getAsJsonObject("ss14/effects/metal_crunch").getAsJsonArray("sounds").get(0).getAsString());
+        }
+    }
+
+    @Test void alienClawCollectionIsPackagedAndRegistered() throws Exception {
+        String[] expected = {"8b4746beb44be5deb9d761ca07e33b4d0fec23a01ee132193ab2f10e5cf1fbf4", "88f24fc0d65a2e77044e401f1dd144205c01616c35d02ff2d038231d73ef6167", "eec5c05f23a6ba8575ecf63995c77f29dd9df4ca2357e0fbd394aa979e7d6d16"};
+        for (int i = 1; i <= 3; i++) try (var in = getClass().getClassLoader().getResourceAsStream("assets/moonstation14/sounds/ss14/weapons/alien_claw_flesh" + i + ".ogg")) {
+            assertNotNull(in); byte[] bytes = in.readAllBytes(); assertTrue(bytes.length > 4);
+            assertArrayEquals(new byte[]{'O','g','g','S'}, java.util.Arrays.copyOf(bytes, 4));
+            assertEquals(expected[i-1], java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+        }
+        try (var in = getClass().getClassLoader().getResourceAsStream("assets/moonstation14/sounds.json")) {
+            var json = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            assertEquals(3, json.getAsJsonObject("ss14/effects/alien_claw").getAsJsonArray("sounds").size());
         }
     }
 }

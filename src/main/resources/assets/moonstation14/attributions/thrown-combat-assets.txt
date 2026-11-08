@@ -1,0 +1,8 @@
+Imported from SS14 Resources at c9df5ef5d675b0d1d226828bddf6b78c28502d91.
+CC-BY-SA-3.0: throwing_knife.rsi by Ubaser; dart_red.rsi by TheShuEd;
+bola.rsi credits Citadel Station (commit 3cfea7eb92246d311de8b531347795bc76d6dab6)
+and TG Station inhands (commit 8facec32c9716ec43819057b868bd5c03a05d13d).
+Armor icons: security.rsi (SS14, CC-BY-SA-3.0; see imported meta.json).
+Audio samples star_hit.ogg, pierce.ogg, bolathrow.ogg, snap.ogg are copied from
+the pinned SS14 Resources/Audio tree. Their individual author/license metadata was
+not present in the source files; see docs/audio-unknown-provenance.md.

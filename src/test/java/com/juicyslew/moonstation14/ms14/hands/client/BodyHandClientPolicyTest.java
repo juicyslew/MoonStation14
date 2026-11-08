@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.hands.client;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseResult;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot;
+import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -13,6 +14,81 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BodyHandClientPolicyTest {
+    @Test
+    void attachedEmptyHandPickupUsesAlternateTargetWithoutChangingNomination() {
+        assertEquals(BodyHandActionRequest.Action.ALTERNATE_TARGET,
+                AttachedItemPickupRoute.actionFor(BodyHandActionRequest.Action.PICKUP_SELECTED, true, true));
+        assertEquals(BodyHandActionRequest.Action.PICKUP,
+                AttachedItemPickupRoute.actionFor(BodyHandActionRequest.Action.PICKUP, false, true));
+        assertEquals(BodyHandActionRequest.Action.PICKUP_SELECTED,
+                AttachedItemPickupRoute.actionFor(BodyHandActionRequest.Action.PICKUP_SELECTED, true, false));
+        assertEquals(BodyHandActionRequest.Action.ALTERNATE_TARGET,
+                AttachedItemPickupRoute.actionFor(BodyHandActionRequest.Action.ALTERNATE_TARGET, true, true));
+    }
+
+    @Test void handHudExamineUsesCanonicalTilesAndExactGenericOwnedBinding() {
+        for (String item : List.of("minecraft:iron_ingot", "minecraft:stone", "moonstation14:gas_tank")) {
+            var hands = List.of(new BodyHandStateSnapshot.Hand("first", "token-a", item, 1),
+                    new BodyHandStateSnapshot.Hand("second", "token-b", "minecraft:stick", 1));
+            var snapshot = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY,
+                    7, 12, "first", hands);
+            var layout = HandBarLayout.calculate(320, 240, 2);
+            var first = BodyHandClientPolicy.examineHandTile(snapshot, layout.leftHand().x(), layout.leftHand().y(),
+                    320, 240, true, true, false, false, true, true);
+            var second = BodyHandClientPolicy.examineHandTile(snapshot, layout.rightHand().x(), layout.rightHand().y(),
+                    320, 240, true, true, false, false, true, true);
+            assertEquals("token-a", first.token());
+            assertEquals("first", first.id());
+            assertEquals("token-b", second.token());
+            assertEquals(item, hands.get(0).itemId()); // binding is not filtered by item type
+        }
+        var occupied = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 12,
+                "first", List.of(new BodyHandStateSnapshot.Hand("first", "token", "minecraft:stick", 1),
+                        new BodyHandStateSnapshot.Hand("second", null, null, 0)));
+        var layout = HandBarLayout.calculate(320, 240, 2);
+        int x = layout.leftHand().x(), y = layout.leftHand().y();
+        var genericHeld = BodyHandClientPolicy.examineHandTile(occupied, x, y, 320, 240, true, true, false, false, true, true);
+        assertNotNull(genericHeld, "HUD examine accepts a held item without special tank-type filtering");
+        assertEquals("first", genericHeld.id());
+        assertNull(BodyHandClientPolicy.examineHandTile(occupied, x, y, 320, 240, true, false, false, false, true, true));
+        assertNull(BodyHandClientPolicy.examineHandTile(occupied, x, y, 320, 240, true, true, true, false, true, true));
+        assertNull(BodyHandClientPolicy.examineHandTile(occupied, x, y, 320, 240, true, true, false, true, true, true));
+        assertNull(BodyHandClientPolicy.examineHandTile(occupied, x, y, 320, 240, false, true, false, false, true, true));
+        assertNull(BodyHandClientPolicy.examineHandTile(occupied, x, y, 320, 240, true, true, false, false, false, true));
+        assertNull(BodyHandClientPolicy.examineHandTile(occupied, x, y, 320, 240, true, true, false, false, true, false));
+        assertNull(BodyHandClientPolicy.examineHandTile(occupied, 0, 0, 320, 240, true, true, false, false, true, true));
+    }
+    @Test void everyHandBarTileBindsItsObservedOwnedItemWithoutTypeFiltering() {
+        var snapshot = new BodyHandStateSnapshot(0, 1, BodyHandStateSnapshot.Reason.OK, ACCOUNT, BODY, 7, 12,
+                "first", List.of(new BodyHandStateSnapshot.Hand("first", "hand", "minecraft:stick", 1),
+                        new BodyHandStateSnapshot.Hand("second", null, null, 0)),
+                List.of(new BodyHandStateSnapshot.EquipmentSlot("back", "back-token", "minecraft:stone", 1,
+                                null, null, 0),
+                        new BodyHandStateSnapshot.EquipmentSlot("belt", "belt-token", "minecraft:stone", 1,
+                                null, null, 0)));
+        for (var entry : List.of(
+                new Object[]{HandBarLayout.Layout.Tile.FIRST, "first", "hand"},
+                new Object[]{HandBarLayout.Layout.Tile.BACK, "back", "back-token"},
+                new Object[]{HandBarLayout.Layout.Tile.BELT, "belt", "belt-token"})) {
+            var binding = BodyHandClientPolicy.examineHudTile(snapshot, (HandBarLayout.Layout.Tile) entry[0],
+                    true, true, false, false, true, true);
+            assertNotNull(binding);
+            assertEquals(entry[1], binding.slot());
+            assertEquals(entry[2], binding.token());
+        }
+        assertNull(BodyHandClientPolicy.examineHudTile(snapshot, HandBarLayout.Layout.Tile.SECOND,
+                true, true, false, false, true, true));
+        assertNull(BodyHandClientPolicy.examineHudTile(snapshot, HandBarLayout.Layout.Tile.BACK,
+                true, false, false, false, true, true));
+        assertNull(BodyHandClientPolicy.examineHudTile(snapshot, HandBarLayout.Layout.Tile.BELT,
+                true, true, true, false, true, true));
+        assertNull(BodyHandClientPolicy.examineHudTile(snapshot, HandBarLayout.Layout.Tile.BACK,
+                true, true, false, true, true, true));
+        assertNull(BodyHandClientPolicy.examineHudTile(snapshot, HandBarLayout.Layout.Tile.BACK,
+                false, true, false, false, true, true));
+        assertNull(BodyHandClientPolicy.examineHudTile(snapshot, HandBarLayout.Layout.Tile.BACK,
+                true, true, false, false, false, true));
+    }
     @Test void noCharacterReconciliationPreservesOnlyExactCommittedGhostPointerOwner() {
         var ghost = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(BODY, 12);
         var otherEpoch = new com.juicyslew.moonstation14.ms14.ghost_roles.network.GhostRolePayloads.Context(BODY, 13);
@@ -111,6 +187,19 @@ class BodyHandClientPolicyTest {
         String source = Files.readString(root.resolve(relative));
         assertTrue(source.contains(".projectForActor(entity)"));
         assertFalse(source.contains(".resolveForActor(entity)"));
+    }
+
+    @Test void exactWorldExamineGestureAdmitsShiftPrimaryAndPreservesOtherRoutes() {
+        assertTrue(com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.worldGesture(0, 1, true, false, false, true));
+        assertFalse(com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.worldGesture(1, 1, true, false, false, true));
+        assertFalse(com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.worldGesture(0, 0, true, false, false, true));
+        assertFalse(com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.worldGesture(0, 1, true, true, false, true));
+        assertFalse(com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.worldGesture(0, 1, true, false, true, true));
+        assertFalse(com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.worldGesture(0, 1, true, false, false, false));
+        assertTrue(com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.worldClickAllowed(true, false, false));
+        assertFalse(com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.worldClickAllowed(false, false, false));
+        assertFalse(com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.worldClickAllowed(false, true, true));
+        assertTrue(com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicy.worldClickAllowed(false, true, false));
     }
 
     @Test void mappedGesturesSelectDistinctRoutes() {

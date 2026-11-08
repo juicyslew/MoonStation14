@@ -85,13 +85,8 @@ class MelonProductCatalogCandidateTest {
                     damage.minimumImpactSpeed(), damage.impactFactor(), damage.impactCooldownTicks(), 0, 1, true, damage.destructionThreshold());
             assertTrue(impact.destructionDue());
         }
-        for (var family : new String[]{"produce_profile","ingestion_profile","item_food_solution_profile","extractable_profile","loose_object_profile"})
-            for (var name : new String[]{"watermelon","holymelon","holymelon_slice"}) assertMainAbsent(family,name);
+        for (var family : new String[]{"produce_profile", "ingestion_profile", "item_food_solution_profile", "extractable_profile", "loose_object_profile"})
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "watermelon", "holymelon", "holymelon_slice");
     }
 
-    private static void assertMainAbsent(String family, String name) {
-        var path="data/moonstation14/moonstation14/"+family+"/"+name+".json";
-        try (var stream=MelonProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream(path)) { assertNull(stream,path); }
-        catch (java.io.IOException e) { throw new AssertionError(e); }
-    }
 }

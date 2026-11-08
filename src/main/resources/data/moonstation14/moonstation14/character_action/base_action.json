@@ -1,0 +1,1 @@
+{"abstract":true,"display_name":"action.moonstation14.base","icon":"moonstation14:textures/interface/actions/harm_off.png","handler":"DEBUG_PULSE","kind":"INSTANT","check_can_interact":true,"check_consciousness":true,"use_delay_ticks":0,"priority":0}

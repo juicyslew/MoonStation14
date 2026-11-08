@@ -146,6 +146,16 @@ class ProduceProfileTest {
         assertEquals(0f, ProduceSourceComposition.capacity(stack, () -> null));
     }
 
+    @Test void edibleProduceItemUsesHarvestCapacityMetadataForStackAdmission() {
+        var stack = new net.minecraft.world.item.ItemStack(com.juicyslew.moonstation14.item.ModItems.TOMATO.get());
+        stack.set(com.juicyslew.moonstation14.component.ModDataComponents.PRODUCE_INSTANCE.get(),
+                new ProduceInstanceData(id("tomato"), 1f, 1841));
+        assertEquals(18.41f, ((com.juicyslew.moonstation14.ms14.reagent.IReagentTrait) stack.getItem())
+                .getCapacity(stack, null));
+        assertNull(stack.get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get()),
+                "stack-capacity admission must not materialize harvest chemistry");
+    }
+
     @Test void sourceInitializationMaterializesOnceAndNeverRefillsDepletedOrPartialProduce() {
         var stack = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.APPLE);
         var source = new com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfile(300,

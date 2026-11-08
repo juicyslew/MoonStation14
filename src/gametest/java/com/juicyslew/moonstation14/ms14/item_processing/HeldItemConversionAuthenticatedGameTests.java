@@ -14,6 +14,7 @@ import com.juicyslew.moonstation14.ms14.ingestion.ModIngestionProfiles;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.RegisteredPlayerReadyDriver;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
+import com.juicyslew.moonstation14.sounds.ModSounds;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -30,8 +31,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class HeldItemConversionAuthenticatedGameTests {
     private HeldItemConversionAuthenticatedGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
-    @GameTestTags({"botany-in-hand-conversion", "item-processing", "network"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100, batch = "catalog-item-processing-held-conversion")
+    @GameTestTags({"botany-in-hand-conversion", "item-processing", "network", "merge-main-remaining", "merge-main-root-causes"})
     public static void registeredHeldTomatoConvertsThroughAuthenticatedUse(GameTestHelper helper) {
         var fixture = RegisteredServerPlayerFixture.register(helper.getLevel(), "held-conversion-v1");
         var manager = PrototypeRuntime.serverManager();
@@ -49,13 +50,18 @@ public final class HeldItemConversionAuthenticatedGameTests {
             ResourceLocation meat = BuiltInRegistries.ITEM.getKey(ModItems.FOOD_MEAT_WHEAT.get());
             ResourceLocation cocoa = BuiltInRegistries.ITEM.getKey(ModItems.FOOD_COCOA_BEANS.get());
             var replacement = new HashMap<>(oldProcessing);
-            require(oldProcessing.containsKey(tomato), "registered tomato processing profile exists");
             replacement.put(tomato, new ItemProcessingProfile(null, null, null,
                     new ItemProcessingProfile.SpawnItemsOnUse(java.util.List.of(
                             new ItemProcessingProfile.ItemOutput(meat, 2),
-                            new ItemProcessingProfile.ItemOutput(cocoa, 1)), 1, null)));
+                            new ItemProcessingProfile.ItemOutput(cocoa, 1)), 1,
+                    BuiltInRegistries.SOUND_EVENT.getKey(ModSounds.BOTANY_PRODUCE_SLIME_SQUISH.get()))));
             manager.publishDecoded(processingType, replacement);
+            require(manager.snapshot(processingType).asMap().get(tomato).spawnItemsOnUse().outputs().equals(
+                    replacement.get(tomato).spawnItemsOnUse().outputs()), "scoped tomato conversion profile is resolved after publication");
 
+            helper.runAtTickTime(2, () -> {
+            try {
+            if (!cleanup.isOpen()) return;
             var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
             var body = active.body();
             // Keep the native carrier out of range: delivery must follow the committed body/camera.
@@ -91,8 +97,21 @@ public final class HeldItemConversionAuthenticatedGameTests {
             var request = new BodyHandActionRequest(BodyHandActionRequest.Action.USE_IN_HAND,
                     hand, active.epoch(), 3, before.revision(), null, held.token());
             drainConversionSounds(fixture, sounds, cueEvent);
-            require(BodyHandRequestService.apply(fixture.player(), request).accepted(), "authenticated ordinary USE_IN_HAND converts the held source immediately");
+            var conversionResult = BodyHandRequestService.apply(fixture.player(), request);
+            require(conversionResult.accepted(), "authenticated ordinary USE_IN_HAND converts the held source immediately");
+            var after = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+            require(after.token(hand).isPresent() && after.stackCopy(hand).orElseThrow().is(ModItems.FOOD_COCOA_BEANS.get()),
+                    "last output occupies the freed source hand");
+            require(after.stackCopy(other).orElseThrow().is(net.minecraft.world.item.Items.PAPER), "other hand remains unchanged");
+            require(after.token(hand).filter(token -> !token.equals(held.token())).isPresent(), "source ownership token was replaced");
+            var area = new net.minecraft.world.phys.AABB(body.position(), body.position()).inflate(5);
+            var outputEntities = ((net.minecraft.server.level.ServerLevel) body.level()).getEntitiesOfClass(LooseItemEntity.class, area,
+                    entity -> entity.getItem().is(ModItems.FOOD_MEAT_WHEAT.get()) || entity.getItem().is(ModItems.FOOD_COCOA_BEANS.get()));
+            require(outputEntities.size() == 2 && outputEntities.stream().allMatch(entity ->
+                    entity.getItem().is(ModItems.FOOD_MEAT_WHEAT.get()) && entity.getItem().getCount() == 1),
+                    "earlier two-meat output is published as two independent count-one stacks");
             drainConversionSounds(fixture, sounds, cueEvent);
+            require(outputEntities.getFirst().getItem().getCount() == 1, "accepted conversion has published its fresh outputs before cue validation");
             require(sounds.size() == 1, "successful conversion sends exactly one resolved native cue");
             var heard = sounds.getFirst();
             require(heard.getSource() == net.minecraft.sounds.SoundSource.PLAYERS && heard.getSound().value() == cueEvent,
@@ -103,33 +122,43 @@ public final class HeldItemConversionAuthenticatedGameTests {
                     body.getX(), body.getY(), body.getZ(), 1f, 1f, 0L);
             require(heard.getX() == expectedCue.getX() && heard.getY() == expectedCue.getY() && heard.getZ() == expectedCue.getZ(),
                     "conversion cue packet uses committed body position");
-            var after = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-            require(after.token(hand).isPresent() && after.stackCopy(hand).orElseThrow().is(ModItems.FOOD_COCOA_BEANS.get()),
-                    "last output occupies the freed source hand");
-            require(after.stackCopy(other).orElseThrow().is(net.minecraft.world.item.Items.PAPER), "other hand remains unchanged");
-            require(after.token(hand).filter(token -> !token.equals(held.token())).isPresent(), "source ownership token was replaced");
-            var area = new net.minecraft.world.phys.AABB(body.position(), body.position()).inflate(5);
-            var outputEntities = ((net.minecraft.server.level.ServerLevel) body.level()).getEntitiesOfClass(LooseItemEntity.class, area,
-                    entity -> entity.getItem().is(ModItems.FOOD_MEAT_WHEAT.get()) || entity.getItem().is(ModItems.FOOD_COCOA_BEANS.get()));
-            require(outputEntities.size() == 1 && outputEntities.getFirst().getItem().is(ModItems.FOOD_MEAT_WHEAT.get())
-                    && outputEntities.getFirst().getItem().getCount() == 2, "earlier two-meat output is separately world-published");
             require(after.stackCopy(hand).orElseThrow().getCount() == 1, "held cocoa output is count one");
             require(outputEntities.stream().allMatch(entity -> entity.getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.GENETIC_VALUE.get()) == null
                     && entity.getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.PLANT_SEED_REFERENCE.get()) == null
                     && entity.getItem().get(com.juicyslew.moonstation14.component.ModDataComponents.PRODUCE_INSTANCE.get()) == null),
                     "world conversion output does not inherit source genetics or produce instance");
-            require(com.juicyslew.moonstation14.ms14.MS14Provider.getDetached(after.stackCopy(hand).orElseThrow(),
-                    com.juicyslew.moonstation14.ms14.MS14Bridges.REAGENT).snapshotUnits().isEmpty(),
-                    "held output does not inherit source reagent chemistry");
+            var heldOutput = after.stackCopy(hand).orElseThrow();
+            require(heldOutput.get(com.juicyslew.moonstation14.component.ModDataComponents.GENETIC_VALUE.get()) == null
+                            && heldOutput.get(com.juicyslew.moonstation14.component.ModDataComponents.PLANT_SEED_REFERENCE.get()) == null
+                            && heldOutput.get(com.juicyslew.moonstation14.component.ModDataComponents.PRODUCE_INSTANCE.get()) == null,
+                    "held output does not inherit source genetics or produce instance");
+            var cocoaSolution = PrototypeRuntime.serverItemFoodSolutionProfiles().get(
+                    ResourceLocation.fromNamespaceAndPath("moonstation14", "food_cocoa_beans"));
+            var outputReagents = com.juicyslew.moonstation14.ms14.MS14Provider.getDetached(heldOutput,
+                    com.juicyslew.moonstation14.ms14.MS14Bridges.REAGENT).snapshotUnits();
+            var outputContents = outputReagents.entrySet().stream().collect(java.util.stream.Collectors.toMap(
+                    entry -> entry.getKey().location(), java.util.Map.Entry::getValue));
+            require(cocoaSolution != null && outputContents.equals(cocoaSolution.contentsCents()),
+                    "held output chemistry comes from its own resolved food solution profile, not source chemistry");
+            var sourceContents = sourceReagents.entrySet().stream().collect(java.util.stream.Collectors.toMap(
+                    entry -> entry.getKey().location(), java.util.Map.Entry::getValue));
+            require(!outputContents.equals(sourceContents), "held output chemistry differs from harvested source chemistry");
             var replay = BodyHandRequestService.apply(fixture.player(), request);
             require(!replay.accepted(), "exact accepted request cannot replay after commit");
             drainConversionSounds(fixture, sounds, cueEvent);
             require(sounds.size() == 1, "replay emits no additional conversion cue");
             var finalOutputs = ((net.minecraft.server.level.ServerLevel) body.level()).getEntitiesOfClass(LooseItemEntity.class, area,
-                    entity -> entity.getItem().is(ModItems.FOOD_MEAT_WHEAT.get()) || entity.getItem().is(ModItems.FOOD_COCOA_BEANS.get()));
-            require(finalOutputs.size() == 1 && after.stackCopy(hand).orElseThrow().is(ModItems.FOOD_COCOA_BEANS.get()),
-                    "replay creates no extra output or ingestion side effect");
+                    entity -> !entity.isRemoved());
+            var initialOutputIds = outputEntities.stream().map(net.minecraft.world.entity.Entity::getUUID).collect(java.util.stream.Collectors.toSet());
+            require(finalOutputs.size() == 2 && finalOutputs.stream().allMatch(entity ->
+                    entity.getItem().is(ModItems.FOOD_MEAT_WHEAT.get()) && entity.getItem().getCount() == 1)
+                    && finalOutputs.stream().map(net.minecraft.world.entity.Entity::getUUID).collect(java.util.stream.Collectors.toSet()).equals(initialOutputIds),
+                    "replay creates no extra output and preserves the two original world output identities");
+            require(after.stackCopy(hand).orElseThrow().is(ModItems.FOOD_COCOA_BEANS.get())
+                    && after.stackCopy(hand).orElseThrow().getCount() == 1, "replay preserves the single held cocoa output");
             cleanup.finish(null);
+            } catch (Throwable failure) { cleanup.finish(failure); }
+            });
         } catch (Throwable failure) { cleanup.finish(failure); }
     }
 

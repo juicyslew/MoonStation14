@@ -1,0 +1,5 @@
+﻿SS14 Objects/Tanks/emergency.rsi, state icon
+License: CC-BY-SA-3.0
+Copyright: Taken from tgstation at https://github.com/tgstation/tgstation/commit/e1142f20f5e4661cb6845cfcf2dd69f864d67432. Storage and icon edits by TiniestShark (Github). Integrity stages by Princess-Cheeseballs (Github)
+Source revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Copied unchanged; Minecraft item icon adaptation only.

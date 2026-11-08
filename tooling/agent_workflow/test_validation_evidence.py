@@ -62,6 +62,27 @@ class EvidenceTests(unittest.TestCase):
     def test_stale_or_absent_junit_does_not_pass(self):
         self.assertEqual(self.collect({"kind": "junit"})["status"], "UNVERIFIED")
 
+    def test_missing_selected_junit_classes_are_named(self):
+        folder = self.repo / "build/test-results/test"
+        folder.mkdir(parents=True)
+        (folder / "TEST-present.xml").write_text(
+            '<testsuite name="example.PresentTest" tests="1" failures="0" errors="0" skipped="0"/>')
+        selectors = ["example.PresentTest", "wrong.package.FirstTest", "wrong.package.SecondTest"]
+        result = self.collect({"kind": "junit", "selectors": selectors})
+        self.assertEqual(result["status"], "UNVERIFIED")
+        self.assertIn("expected selected JUnit classes missing from fresh XML", result["findings"])
+        self.assertIn("Missing JUnit selectors: wrong.package.FirstTest, wrong.package.SecondTest",
+                      result["findings"])
+
+    def test_all_selected_junit_classes_are_found_without_missing_detail(self):
+        folder = self.repo / "build/test-results/test"
+        folder.mkdir(parents=True)
+        (folder / "TEST-present.xml").write_text(
+            '<testsuite name="example.PresentTest" tests="1" failures="0" errors="0" skipped="0"/>')
+        result = self.collect({"kind": "junit", "selectors": ["example.PresentTest"]})
+        self.assertEqual(result["status"], "PASS", result["findings"])
+        self.assertFalse(any("Missing JUnit selectors:" in finding for finding in result["findings"]))
+
     def test_game_test_requires_completion_marker(self):
         result = self.collect({"kind": "gametest"}, "GameTest tag preflight: 2/4 fixtures selected\n")
         self.assertEqual(result["selection"], "filtered")

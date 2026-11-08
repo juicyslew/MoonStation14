@@ -4,7 +4,7 @@ import unittest
 import hashlib
 from pathlib import Path
 
-from workflow_check_packs import resolve_check_packs
+from workflow_check_packs import resolve_check_packs, resolve_diagnostic_plan
 from workflow_runtime import resolve_gate_plan, validate_gate_plan
 from workflow_store import ProtocolError
 from validation_evidence import collect_evidence
@@ -15,6 +15,9 @@ class CheckPackTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.repo = Path(self.temp.name)
         (self.repo / 'manual.md').write_text('manual setup', encoding='utf-8')
+        source = self.repo / 'src/test/java/org/example/FeatureTest.java'
+        source.parent.mkdir(parents=True)
+        source.write_text('package org.example; class FeatureTest {} class OtherTest {}', encoding='utf-8')
         self.request = {
             'purpose': 'OWNER_READY', 'implementation_complete': True, 'feature_label': 'Example',
             'sprint_id': 'sprint-1', 'source_worktree': str(self.repo), 'input_digest': 'a' * 64,
@@ -27,12 +30,26 @@ class CheckPackTests(unittest.TestCase):
                 {'pack_id': 'package', 'kind': 'package', 'selectors': []},
                 {'pack_id': 'provenance', 'kind': 'provenance', 'selectors': []},
             ]}
-        self.policy = {'criteria': ['c1'], 'coverage': {'c1': ['unit', 'readiness', 'focused_gametest', 'package', 'provenance']}, 'selector_requirements': {'unit':['org.example.FeatureTest.works'], 'readiness':['ui'], 'focused_gametest':['feature.smoke']}, 'fixture': 'manual.md', 'package_artifacts': ['build/libs/output.jar']}
+        self.request['check_packs'][0]['selectors'] = ['org.example.FeatureTest']
+        self.policy = {'criteria': ['c1'], 'coverage': {'c1': ['unit', 'readiness', 'focused_gametest', 'package', 'provenance']}, 'selector_requirements': {'unit':['org.example.FeatureTest'], 'readiness':['ui'], 'focused_gametest':['feature.smoke']}, 'fixture': 'manual.md', 'package_artifacts': ['build/libs/output.jar']}
 
     def tearDown(self): self.temp.cleanup()
 
     def resolve(self, req=None, policy=None):
         return resolve_check_packs(req or self.request, repo=self.repo, policy=policy or self.policy)
+
+    def test_unit_only_diagnostic_does_not_require_gate_packs(self):
+        request = copy.deepcopy(self.request)
+        request.update(purpose='DIAGNOSTIC', implementation_complete=False, manual_steps=[], check_packs=[],
+            diagnostic_rationale='Determine whether the isolated feature unit regression remains.',
+            criteria=[{'criterion_id':'c1', 'status':'DIAGNOSTIC', 'evidence_refs':['test']}],
+            diagnostic_plan={'title':'Unit diagnostic', 'kind':'diagnostic',
+                'acceptance_criteria':['c1'], 'fixture':'manual.md', 'references':[], 'manual_steps':[],
+                'checks':[{'argv':['python','-c','pass'], 'rationale':'Answers whether the isolated unit check passes.', 'covers':['c1']}]})
+        result = resolve_diagnostic_plan(request, repo=self.repo, policy=self.policy)
+        self.assertEqual(result['packs'], [])
+        self.assertEqual(len(result['plan']['checks']), 1)
+        self.assertEqual(result['program_checks'], ['managed_config_provenance'])
 
     def test_deterministic_order_and_existing_producer_plan(self):
         result = self.resolve()
@@ -43,7 +60,7 @@ class CheckPackTests(unittest.TestCase):
 
     def test_narrow_unit_and_exact_readiness_commands(self):
         checks = self.resolve()['plan']['checks']
-        self.assertEqual(checks[0]['argv'], ['./gradlew', 'test', '--rerun', '--tests', 'org.example.FeatureTest.works', '--no-daemon'])
+        self.assertEqual(checks[0]['argv'], ['./gradlew', 'test', '--rerun', '--tests', 'org.example.FeatureTest', '--no-daemon'])
         self.assertEqual(checks[1]['argv'], ['./gradlew', 'featureReadiness', '-Pms14Readiness=ui,interaction', '--no-daemon'])
         self.assertTrue(all(c['argv'][-1] == '--no-daemon' for c in checks))
 
@@ -101,7 +118,7 @@ class CheckPackTests(unittest.TestCase):
         self.assertFalse(report['artifacts'][0]['observed_fresh_this_run'])
 
     def test_invalid_selectors_rejected(self):
-        for selectors in (['*'], ['org.example.Test;evil'], ['org.example.Test', 'org.example.Test']):
+        for selectors in (['*'], ['org.example.Test;evil'], ['org.example.FeatureTest', 'org.example.FeatureTest']):
             req = copy.deepcopy(self.request); req['check_packs'][0]['selectors'] = selectors
             with self.assertRaises(ProtocolError): self.resolve(req)
 
@@ -173,9 +190,50 @@ class CheckPackTests(unittest.TestCase):
         req = copy.deepcopy(self.request); req['check_packs'][-1]['selectors'] = ['anything']
         with self.assertRaises(ProtocolError): self.resolve(req)
 
-    def test_gradle_method_selector_uses_dot_not_hash(self):
-        req = copy.deepcopy(self.request); req['check_packs'][0]['selectors'] = ['org.example.FeatureTest#works']
-        with self.assertRaises(ProtocolError): self.resolve(req)
+    def test_gradle_method_selector_is_rejected_as_unverifiable(self):
+        req = copy.deepcopy(self.request); req['check_packs'][0]['selectors'] = ['org.example.FeatureTest.works']
+        with self.assertRaises(ProtocolError) as err: self.resolve(req)
+        self.assertIn('use the enclosing class selector', str(err.exception))
+
+    def test_unit_discovery_ignores_comments_literals_and_nested_classes(self):
+        source = self.repo / 'src/test/java/org/example/FeatureTest.java'
+        source.write_text('''package org.example;
+// class CommentOnly {}
+class FeatureTest { String fake = "class StringOnly {}"; /* class CommentBlock {} */
+  class Inner {}
+  void method() { class Local {} }
+}
+''', encoding='utf-8')
+        for selector in ('org.example.CommentOnly', 'org.example.StringOnly', 'org.example.Inner'):
+            req = copy.deepcopy(self.request); req['check_packs'][0]['selectors'] = [selector]
+            policy = copy.deepcopy(self.policy); policy['selector_requirements']['unit'] = [selector]
+            with self.subTest(selector=selector), self.assertRaises(ProtocolError) as err: self.resolve(req, policy)
+            if selector.endswith('.Inner'): self.assertIn('nested-class selectors are unsupported', str(err.exception))
+        req = copy.deepcopy(self.request); req['check_packs'][0]['selectors'] = ['org.example.FeatureTest']
+        policy = copy.deepcopy(self.policy); policy['selector_requirements']['unit'] = ['org.example.FeatureTest']
+        self.assertTrue(self.resolve(req, policy)['plan']['checks'])
+
+    def test_unit_package_and_declared_source_identity_must_match(self):
+        source = self.repo / 'src/test/java/org/example/FeatureTest.java'
+        source.write_text('package other.pkg; public class FeatureTest {}', encoding='utf-8')
+        req = copy.deepcopy(self.request); req['check_packs'][0]['selectors'] = ['org.example.FeatureTest']
+        policy = copy.deepcopy(self.policy); policy['selector_requirements']['unit'] = ['org.example.FeatureTest']
+        with self.assertRaises(ProtocolError): self.resolve(req, policy)
+
+    def test_static_package_artifacts_rejected_and_missing_distribution_archive_allowed(self):
+        for path in ('assets/data.json', 'assets/icon.png', 'assets/.attribution', 'assets/sound.ogg'):
+            policy = copy.deepcopy(self.policy); policy['package_artifacts'] = [path]
+            with self.subTest(path=path), self.assertRaises(ProtocolError) as err: self.resolve(policy=policy)
+            self.assertIn('.jar or .zip', str(err.exception))
+        for path in ('build/libs/distribution.jar', 'build/distributions/distribution.zip'):
+            policy = copy.deepcopy(self.policy); policy['package_artifacts'] = [path]
+            self.assertTrue(self.resolve(policy=policy)['plan']['checks'][-1]['artifacts'])
+
+    def test_wrong_fqn_suggests_real_source_class(self):
+        req = copy.deepcopy(self.request); req['check_packs'][0]['selectors'] = ['org.wrong.FeatureTest']
+        policy = copy.deepcopy(self.policy); policy['selector_requirements']['unit'] = ['org.wrong.FeatureTest']
+        with self.assertRaises(ProtocolError) as err: self.resolve(req, policy)
+        self.assertIn('org.example.FeatureTest', err.exception.recovery)
 
     def test_full_and_focused_gametests_are_mutually_exclusive(self):
         req = copy.deepcopy(self.request); req['check_packs'].append({'pack_id': 'full_gametest', 'kind': 'full_gametest', 'selectors': []})

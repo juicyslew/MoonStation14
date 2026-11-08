@@ -174,6 +174,26 @@ final class PowerLiveLoopTest {
         assertTrue(shortSupply.airlockWatts().get("door2")<20);
     }
 
+    @Test void firelockFiveWattReceiverUsesExistingApcConsumerAllocationAndFailsClosedWhenUnknown(){
+        var apc=List.of(new PowerLiveLoop.Apc("apc",2,true,3,true,true,0));
+        var paid=PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(new PowerLiveLoop.Source("src",1,true,1_000)),
+                List.of(new PowerLiveLoop.Substation("sub",1,true,2,true)),apc,List.of(),List.of(),List.of(),
+                List.of(),List.of(),List.of(),List.of(),List.of(new PowerLiveLoop.ApcConsumer("firelock",3,true,5)),20));
+        assertEquals(5,paid.apcConsumerWatts().get("firelock"),1e-9);
+        var partial=PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(new PowerLiveLoop.Source("small",1,true,1)),
+                List.of(new PowerLiveLoop.Substation("sub",1,true,2,true)),apc,List.of(),List.of(),List.of(),
+                List.of(),List.of(),List.of(),List.of(),List.of(new PowerLiveLoop.ApcConsumer("firelock",3,true,5)),20));
+        assertTrue(partial.apcConsumerWatts().get("firelock")>0&&partial.apcConsumerWatts().get("firelock")<5);
+        var unknown=PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(),List.of(),apc,List.of(),List.of(),List.of(),
+                List.of(),List.of(),List.of(),List.of(),List.of(new PowerLiveLoop.ApcConsumer("firelock",3,false,5)),20));
+        assertEquals(0,unknown.apcConsumerWatts().get("firelock"),1e-9);
+        var battery=PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(),List.of(),
+                List.of(new PowerLiveLoop.Apc("battery",2,true,3,true,true,1_000)),List.of(),List.of(),List.of(),
+                List.of(),List.of(),List.of(),List.of(),List.of(new PowerLiveLoop.ApcConsumer("firelock",3,true,5)),20));
+        assertEquals(5,battery.apcConsumerWatts().get("firelock"),1e-9);
+        assertEquals(995,battery.batteryEnergyJoules().get("battery"),1e-9,"the existing one-second solve bills exactly five joules");
+    }
+
     @Test void ventsFailClosedForUnknownOrOpenPortsAndBatteryDeliveryIsBilledOnce() {
         var vent = PowerLiveLoop.VentLoad.defaultUnaryAtmos("vent", 3, true);
         var open = PowerLiveLoop.solve(new PowerLiveLoop.Input(List.of(new PowerLiveLoop.Source("source", 1, true, 1_000)),

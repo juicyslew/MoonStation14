@@ -3,6 +3,8 @@ package com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlRequest;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlSnapshot;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,25 @@ class AirAlarmOverlaySequenceTest {
         var view=new AirAlarmPaint.View(snap,0,0,304,224,0,0,0,0,2,"",null,"",false,false);
         assertTrue(AirAlarmPaint.hitRegions(l,view).stream().noneMatch(h->h.id().equals("enabled")));
         assertTrue(AirAlarmPaint.hitRegions(l,view).stream().anyMatch(h->h.id().startsWith("gas:")));
+    }
+    @Test void controllerModeIsIndependentOfDevicesAndSnapshotHeadersSurviveDeviceMerges(){
+        AtomicLong clock=new AtomicLong(1);List<AirAlarmControlRequest> sent=new ArrayList<>();var overlay=create(sent,clock);
+        overlay.snapshot(new AirAlarmControlSnapshot(0,SESSION,0,true,true,AtmosAlarmSeverity.WARNING,AirAlarmMode.FILTERING,true,23,List.of(),List.of()));
+        var tab=AirAlarmPaintLayout.forContent(304,224,3,0).tab(3);overlay.mouseClicked(x(tab.x()+1),y(tab.y()+1),0);
+        var mode=AirAlarmPaintLayout.forContent(304,224,3,0).alarmMode(AirAlarmMode.WIDE_FILTERING.ordinal());overlay.mouseClicked(x(mode.x()+1),y(mode.y()+1),0);
+        var request=sent.get(0);assertEquals(AirAlarmControlRequest.Operation.SET_ALARM_MODE,request.operation());assertEquals(new UUID(0,0),request.deviceId());assertEquals(23,request.expectedRevision());
+        overlay.snapshot(new AirAlarmControlSnapshot(0,SESSION,request.requestId(),true,true,AtmosAlarmSeverity.DANGER,AirAlarmMode.WIDE_FILTERING,true,24,List.of(),List.of()));
+        assertEquals(AirAlarmMode.WIDE_FILTERING,overlay.testView().snapshot().currentMode());assertEquals(AtmosAlarmSeverity.DANGER,overlay.testView().snapshot().aggregateSeverity());assertEquals(24,overlay.testView().snapshot().controllerStateRevision());assertFalse(overlay.testView().pending());
+    }
+    @Test void controllerHeaderUsesRevisionOrderIndependentlyFromRequestOrder(){
+        var overlay=create(new ArrayList<>(),new AtomicLong(1));
+        overlay.snapshot(new AirAlarmControlSnapshot(0,SESSION,10,true,true,AtmosAlarmSeverity.WARNING,AirAlarmMode.FILTERING,true,5,List.of(),List.of()));
+        overlay.snapshot(new AirAlarmControlSnapshot(0,SESSION,11,true,true,AtmosAlarmSeverity.DANGER,AirAlarmMode.PANIC,false,4,List.of(),List.of()));
+        assertEquals(11,overlay.testView().snapshot().requestId());assertEquals(AtmosAlarmSeverity.DANGER,overlay.testView().snapshot().aggregateSeverity());
+        assertEquals(5,overlay.testView().snapshot().controllerStateRevision());assertEquals(AirAlarmMode.FILTERING,overlay.testView().snapshot().currentMode());assertTrue(overlay.testView().snapshot().autoMode());
+        overlay.snapshot(new AirAlarmControlSnapshot(0,SESSION,9,true,false,AtmosAlarmSeverity.NORMAL,AirAlarmMode.WIDE_FILTERING,false,6,List.of(),List.of()));
+        assertEquals(11,overlay.testView().snapshot().requestId());assertEquals(AtmosAlarmSeverity.DANGER,overlay.testView().snapshot().aggregateSeverity());
+        assertEquals(6,overlay.testView().snapshot().controllerStateRevision());assertEquals(AirAlarmMode.WIDE_FILTERING,overlay.testView().snapshot().currentMode());assertFalse(overlay.testView().snapshot().autoMode());
     }
     private static final UUID SESSION=UUID.randomUUID(), DEVICE=UUID.randomUUID();
     private static AirAlarmControlSnapshot snapshot(UUID session,long request,boolean accepted,long revision,boolean enabled){

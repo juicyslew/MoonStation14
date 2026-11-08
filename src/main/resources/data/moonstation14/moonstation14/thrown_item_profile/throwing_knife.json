@@ -1,0 +1,1 @@
+{"parent":"moonstation14:base_item_sounds","align_to_velocity":true,"damage_on_hit":{"slash":10.0,"piercing":15.0},"ignore_resistances":true,"embedding":{"remove_seconds":1.5,"embed_on_throw":true,"delete_on_remove":false,"offset_x":-0.15,"offset_y":0.0,"sprite_forward_degrees":45.0,"sprite_tip_uv":{"u":0.875,"v":0.125}}}

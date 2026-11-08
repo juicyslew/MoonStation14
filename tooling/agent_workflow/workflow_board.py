@@ -44,6 +44,24 @@ def _terminal_result_created_ms(record):
     return None
 
 
+def _stage_started_ms(record, phase):
+    """Timestamp the current attempt's latest authoritative stage boundary."""
+    run = record.get("run") or {}
+    generation = run.get("current_attempt")
+    events = [event for event in _sections(record, "events")
+              if isinstance(event, dict) and event.get("generation") == generation
+              and isinstance(event.get("created_ms"), int) and not isinstance(event.get("created_ms"), bool)
+              and event.get("created_ms") >= 0]
+    if phase == "Queued":
+        # Initial admission and queued native-task scheduling record TASK_READY
+        # for this exact attempt generation; unrelated event times are not a clock.
+        matches = [event["created_ms"] for event in events if event.get("kind") == "TASK_READY"]
+        return min(matches) if matches else None
+    boundary = "ATTEMPT_" + phase.upper()
+    matches = [event["created_ms"] for event in events if event.get("kind") == boundary]
+    return max(matches) if matches else None
+
+
 def _result(task):
     result = task.get("result") or {}
     return result if isinstance(result, dict) else {}
@@ -558,7 +576,9 @@ def project(raw, *, worktree, connection=None, author_activity=None):
                           capacity_pending=capacity_pending,active=active,regression_state=regression_state,focused=focused,terminal_error=terminal_error),
                      "dismissible":dismissible,
                      **({"dismiss_key":_dismiss_identity(run,acceptance,terminal)} if dismissible else {}),
-                      "regression_state":regression_state,"details":{"title":title,"summary":_summary(record,current_tasks,phase,focused,title),"owner_attention":[f["summary"] for f in owner_faults],"input_digest":run.get("input_digest"),"criteria":_criteria(request.get("criteria",[])),
+                      "regression_state":regression_state,
+                      **({"stage_started_ms":_stage_started_ms(record, phase)} if phase in ("Queued", "Checking", "Reviewing") else {}),
+                      "details":{"title":title,"summary":_summary(record,current_tasks,phase,focused,title),"owner_attention":[f["summary"] for f in owner_faults],"input_digest":run.get("input_digest"),"criteria":_criteria(request.get("criteria",[])),
                     "native_check_status":[{"state":t.get("state"),"result":_result(t).get("decision")} for t in current_tasks if t.get("kind")=="CHECK"],
                     "findings":findings,"tasks":[{"kind":t.get("kind"),"state":t.get("state"),"result":_result(t).get("decision")} for t in current_tasks],
                     "manual_steps":_strings(request.get("manual_steps",[])),"artifacts":_artifact_items(_sections(record,"artifacts")),
@@ -566,7 +586,7 @@ def project(raw, *, worktree, connection=None, author_activity=None):
                     "owner_decisions":[{k:v for k,v in row.items() if k in ("decision_id","decision","evaluation_generation","input_digest","created_ms")} for row in owner_rows],
                     "acceptances":_items(_sections(record,"acceptances"),("acceptance_id","decision_id","evaluation_generation","input_digest")),
                      "regression_jobs":_regression_items(regressions),
-                      "events":_items(_sections(record,"events"),("kind","state","created_ms","summary")),"faults":fault_records,"boundary":boundary,
+                        "events":_items(_sections(record,"events"),("kind","state","created_ms","summary")),"faults":fault_records,"boundary":boundary,
                       **({"current_error":error_cause} if error_cause else {})}}
             if phase in ("Your testing", "Accepted"):
                 card["result_created_ms"] = result_created_ms
@@ -587,28 +607,26 @@ def project(raw, *, worktree, connection=None, author_activity=None):
             history.append({"id":old_id,"run_id":old_id,"label":_short(old_run.get("feature_id") or old.get("sprint")),"phase":"Superseded",
                             "details":{"title":(old.get("request") or {}).get("title") or old_run.get("title"),"generation":old_run.get("current_attempt")}})
         system=_system_state(all_records,raw,worktree)
-        # Unsubmitted coding activity is supplementary; any live submitted card
-        # in that worktree remains the authoritative workflow representation.
-        if isinstance(author_activity,list):
-            active_author_phases={"Building","Queued","Checking","Reviewing","Your testing"}
-            for agent in author_activity:
-                if not isinstance(agent,dict) or agent.get("worktree")!=worktree:
-                    continue
-                if any(c.get("phase") in active_author_phases and c.get("details",{}).get("worktree",worktree)==worktree
-                       for cards in columns.values() for c in cards):
-                    continue
-                activity=agent.get("activity")
-                if activity not in ("working","waiting","idle"):
-                    continue
-                phase="Idle" if activity=="idle" else "Building"
-                status="Idle" if activity=="idle" else ("Waiting for your input" if activity=="waiting" else "Working")
-                label=_short(agent.get("label") or "Coding agent")
-                columns[phase].append({"id":"author-activity:"+str(agent.get("worktree")),"run_id":None,
-                    "generation":None,"sequence":None,"input_digest":None,"label":label,"phase":phase,
-                    "agent":label,"revision":None,"step":None,"actor":None,"capabilities":[],"bindings":{},
-                    "status_text":status,"dismissible":False,"next_action":None,"next_actor":None,"badge":None,
-                    "focused_result":None,"owner_state":None,"regression_state":None,
-                    "details":{"title":_short(agent.get("summary") or label,100),"session_id":agent.get("session_id") or ""}})
+    # Unsubmitted coding activity is supplementary; any live submitted card
+    # in that worktree remains the authoritative workflow representation.
+    if isinstance(author_activity,list):
+        active_author_phases={"Building","Queued","Checking","Reviewing"}
+        for agent in author_activity:
+            if not isinstance(agent,dict) or agent.get("worktree")!=worktree:
+                continue
+            if any(c.get("phase") in active_author_phases and c.get("details",{}).get("worktree",worktree)==worktree
+                   for cards in columns.values() for c in cards):
+                continue
+            activity=agent.get("activity")
+            phase="Idle" if activity in ("idle","unknown") else "Building"
+            status="Activity unavailable" if activity=="unknown" else "Idle" if activity=="idle" else ("Waiting for your input" if activity=="waiting" else "Working")
+            label=_short(agent.get("label") or "Coding agent")
+            columns[phase].append({"id":"author-activity:"+str(agent.get("worktree")),"run_id":None,
+                "generation":None,"sequence":None,"input_digest":None,"label":label,"phase":phase,
+                "agent":label,"revision":None,"step":None,"actor":None,"capabilities":[],"bindings":{},
+                "status_text":status,"dismissible":False,"next_action":None,"next_actor":None,"badge":None,
+                "focused_result":None,"owner_state":None,"regression_state":None,
+                "details":{"title":_short(agent.get("summary") or label,100),"session_id":agent.get("session_id") or "","activity_unknown":activity=="unknown"}})
     unscoped=_unscoped_counts(raw) if is_available else None
     deduped_faults=[]
     fault_keys=set()

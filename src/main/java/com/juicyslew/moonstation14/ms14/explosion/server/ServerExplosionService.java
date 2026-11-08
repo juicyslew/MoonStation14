@@ -200,7 +200,8 @@ public final class ServerExplosionService {
             } catch (RuntimeException ignored) { failed = true; }
         }
         Result result = new Result(failed ? Status.PARTIAL : Status.APPLIED, plan.visited(), plan.breached().size(), mutated, damaged);
-        try { ExplosionPresentation.present(level, source); } catch (RuntimeException ignored) { /* cosmetic only */ }
+        try { ExplosionFeedbackService.emitQueuedCues(level, source, plan.expansionIterations(), data.smallSoundIterationThreshold()); }
+        catch (RuntimeException ignored) { /* cosmetic only */ }
         return result;
     }
 

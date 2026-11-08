@@ -1,0 +1,22 @@
+{
+  "request_id": "botany-peels-3d-loose-production-20261028",
+  "same_volume": "One matching OBJ+PNG per identity for loose/held/inventory, no context-specific replacement body or wearable reuse",
+  "item_bindings": {
+    "TrashBananaPeel": "moonstation14:item/trash_banana_peel",
+    "TrashMimanaPeel": "moonstation14:item/trash_mimana_peel"
+  },
+  "loose_profiles": {
+    "trash_banana_peel": "KEEP generic parent, physical width.4, height.08 inherited and ALLtrigger/slip fields; add render_kind:block_model and visual model_scale.8/model_floor_offset.4 ONLY",
+    "trash_mimana_peel": "KEEP banana parent and exact sound override; inherit native visual presentation"
+  },
+  "world_transform": "ItemRenderer NONE centres block-space vertices by(-.5,-.5,-.5). OBJ=(BB+[8,0,8])/16. profile translatesY.4, scales.8; rendered floorBBY0 ->worldY0. ProduceWorldAppearance scale assumed1 for non-produce Trash identities; live consumer validation remains external.",
+  "held_inventory": "wrapper display transforms recentre same mesh about geometric bounds centre; world renderer uses NONE, not ground transform",
+  "physical": "Existing physical_width.4 /physical_height.08 preserved even though rendered stalk taller; no collider/mechanics changes",
+  "installation": "NO installation/import/owner approval supplied; data overrides are complete matching candidates only",
+  "not_touched": [
+    "equipment_item bindings",
+    "wearables/meshes/hats",
+    "jug renderer",
+    "slip/edibility/output/stack/network/mod code"
+  ]
+}

@@ -96,15 +96,15 @@ public final class DevelopmentPossessionGameTests {
         try {
             double startX = mob.getX();
             var first = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
-                    epoch, 1, (short) 1000, (short) 0, (byte) 0, 0, mob.getYRot(), mob.getXRot());
+                    epoch, 1, (short) 1000, (short) 0, (byte) 0, 0, 0f, 0f);
             RegisteredPlayerReadyDriver.submitAcceptedIntent(fixture, first);
             helper.runAfterDelay(1, () -> {
               try {
                 var second = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
-                        epoch, 2, (short) 1000, (short) 0, (byte) 0, 0, mob.getYRot(), mob.getXRot());
+                        epoch, 2, (short) 1000, (short) 0, (byte) 0, 0, 0f, 0f);
                 RegisteredPlayerReadyDriver.submitAcceptedIntent(fixture, second);
                 if (mob.getX() <= startX + 0.01)
-                    throw new GameTestAssertException("committed development bat did not move authoritatively");
+                    throw new GameTestAssertException(movementFailure("motion did not advance", startX, mob, null));
             com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Snapshot snapshot = null;
             Object packet;
             while ((packet = fixture.pollOutbound()) != null)
@@ -112,12 +112,12 @@ public final class DevelopmentPossessionGameTests {
                         && p.payload() instanceof com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Snapshot found
                         && found.epoch() == epoch && found.harnessEntityId() == mob.getId()) snapshot = found;
             if (snapshot == null || snapshot.acknowledgedAppliedSequence() != 2 || snapshot.x() <= startX + 0.01)
-                throw new GameTestAssertException("authoritative movement snapshot did not acknowledge and reflect development bat motion");
+                throw new GameTestAssertException(movementFailure("snapshot mismatch", startX, mob, snapshot));
                 double releasedX = mob.getX();
                 helper.runAfterDelay(1, () -> {
                 try {
                     var release = new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Intent(
-                            epoch, 3, (short) 0, (short) 0, (byte) 0, 0, mob.getYRot(), mob.getXRot());
+                            epoch, 3, (short) 0, (short) 0, (byte) 0, 0, 0f, 0f);
                     RegisteredPlayerReadyDriver.submitAcceptedIntent(fixture, release);
                     if (mob.getX() > releasedX + 0.25)
                         throw new GameTestAssertException("released development movement input continued driving the bat");
@@ -127,5 +127,16 @@ public final class DevelopmentPossessionGameTests {
               } catch (RuntimeException | Error failure) { fixture.close(); mob.discard(); throw failure; }
             });
         } catch (RuntimeException | Error failure) { fixture.close(); mob.discard(); throw failure; }
+    }
+
+    private static String movementFailure(String reason, double startX, Mob mob,
+            com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.Snapshot snapshot) {
+        long ack = snapshot == null ? -1L : snapshot.acknowledgedAppliedSequence();
+        String message = "motion failure: " + reason + " intentYaw=0 currentYaw=" + mob.getYRot()
+                + " ack=" + ack + " body=(" + mob.getX() + "," + mob.getY() + "," + mob.getZ()
+                + ") startX=" + startX + " deltaX=" + (mob.getX() - startX);
+        String context = " onGround=" + mob.onGround() + " horizontalCollision=" + mob.horizontalCollision
+                + " verticalCollision=" + mob.verticalCollision;
+        return message.length() + context.length() <= 512 ? message + context : message;
     }
 }

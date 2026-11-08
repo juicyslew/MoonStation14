@@ -19,7 +19,7 @@ public final class ModVentilationDevices {
     public static final PrototypeType<VentilationDeviceData> VENTILATION_DEVICE_TYPE = new PrototypeType<>(
             id("ventilation_device"), "moonstation14/ventilation_device", VentilationDeviceData.CODEC,
             new com.juicyslew.moonstation14.ms14.prototype.PrototypeMergeStrategy() {
-                @Override public boolean handles(String field) { return field.equals("deviceComponents"); }
+                 @Override public boolean handles(String field) { return field.equals("deviceComponents"); }
                 @Override public JsonElement merge(String field, ResourceLocation id, JsonObject child, java.util.List<JsonObject> parents) {
                     JsonObject merged = new JsonObject();
                      for (JsonObject parent : parents) if (parent.has(field) && parent.get(field).isJsonObject()) overlay(merged, parent.getAsJsonObject(field));
@@ -61,14 +61,15 @@ public final class ModVentilationDevices {
                    || !base.has("fixtureGeometry")
                    || !base.has("deviceIntervalSeconds")
                    || !Set.of("abstract", "pipeLane", "apcPowerReceiver", "extensionCableReceiver",
-                             "fixtureGeometry", "deviceComponents", "ambientAudio", "deviceIntervalSeconds").containsAll(base.keySet()))
+                              "fixtureGeometry", "deviceComponents", "ambientAudio", "deviceIntervalSeconds", "atmosMonitor", "atmosAlarmable").containsAll(base.keySet())
+                    || !base.has("atmosMonitor"))
             throw new IllegalArgumentException("gas_unary_base must be an abstract shared parent without kind components");
         for (ResourceLocation id : Set.of(VENT, SCRUBBER)) {
             JsonObject child = raw.get(id);
             if (child == null || !child.has("parent") || !child.get("parent").isJsonPrimitive()
                     || !child.get("parent").getAsString().equals(BASE.getPath()) || child.has("abstract")
                     || child.has("pipeLane") || child.has("apcPowerReceiver")
-                        || child.has("extensionCableReceiver") || child.has("fixtureGeometry") || child.has("ambientAudio"))
+                     || child.has("extensionCableReceiver") || child.has("fixtureGeometry") || child.has("ambientAudio"))
                 throw new IllegalArgumentException(id + " must inherit gas_unary_base as a concrete child");
         }
         if (resolved.asMap().containsKey(BASE)) throw new IllegalArgumentException("abstract base was published");
@@ -93,9 +94,8 @@ public final class ModVentilationDevices {
     private static void required(PrototypeCatalog<VentilationDeviceData> catalog, ResourceLocation id,
                                  VentilationDeviceData.Kind kind) {
         VentilationDeviceData data = catalog.get(id);
-        if (data == null || data.kind() != kind
+        if (data == null || data.kind() != kind || data.atmosMonitor() == null
                 || data.apcPowerReceiver().requestedWatts() != Ss14VentilationDefaults.APC_REQUESTED_POWER_WATTS)
             throw new IllegalArgumentException("missing or invalid required ventilation prototype: " + id);
     }
 }
-

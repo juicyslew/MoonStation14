@@ -8,6 +8,9 @@ import java.util.UUID;
 
 /** Immutable per-body account/profile/Mind identity, deliberately separate from its character prototype. */
 public record PlayerCharacterBinding(UUID accountId, String profileKey, UUID mindId) {
+    public static String profileKeyForBody(UUID bodyId) {
+        return "body_" + Objects.requireNonNull(bodyId, "bodyId");
+    }
     private static final Codec<UUID> UUID_CODEC = Codec.STRING.comapFlatMap(value -> {
         try { return com.mojang.serialization.DataResult.success(UUID.fromString(value)); }
         catch (IllegalArgumentException invalid) { return com.mojang.serialization.DataResult.error(() -> "invalid UUID"); }
@@ -46,4 +49,3 @@ public record PlayerCharacterBinding(UUID accountId, String profileKey, UUID min
         return new PlayerCharacterBinding(tag.getUUID(ACCOUNT), tag.getString(PROFILE), tag.getUUID(MIND));
     }
 }
-

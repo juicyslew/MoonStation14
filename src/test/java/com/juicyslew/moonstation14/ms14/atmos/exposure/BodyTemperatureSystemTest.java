@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereReading;
 import com.juicyslew.moonstation14.ms14.damage.DamageKeys;
+import com.juicyslew.moonstation14.ms14.equipment.EquipmentProtectionProjection;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -169,6 +170,46 @@ class BodyTemperatureSystemTest {
         assertTrue(body.kelvin() > 400);
         assertEquals(0, gasWrites[0]);
         assertEquals(1, damageCalls[0]);
+    }
+
+    @Test
+    void wornThermalCoefficientsAttenuateExternalExchangeAndConserveFiniteGasEnergy() {
+        var gas = new GasMixture(Map.of(GasType.OXYGEN, 1.0), 500.0);
+        var profile = ThermalExposureMath.ThermalProfile.HUMAN;
+        double beforeKelvin = 300;
+        var fullExchange = ThermalExposureMath.expose(beforeKelvin, gas, profile, 1.0);
+        double expected = beforeKelvin + (fullExchange.bodyTemperatureKelvin() - beforeKelvin) * .002;
+        double[] committed = {Double.NaN};
+        var body = new BodyTemperatureAttachment(new BodyTemperatureComponent(beforeKelvin));
+        assertEquals(BodyTemperatureSystem.Outcome.APPLIED, BodyTemperatureSystem.transact(body, gas, profile,
+                null, null, new EquipmentProtectionProjection.TemperatureCoefficients(.002, .002),
+                energy -> { committed[0] = energy; return true; }, damage -> true));
+        assertEquals(expected, body.kelvin(), 1e-10);
+        assertEquals(-(expected - beforeKelvin) * profile.bodyHeatCapacityJoulesPerKelvin(), committed[0], 1e-8);
+        assertTrue(committed[0] < 0);
+    }
+
+    @Test
+    void directAdjustTemperatureJoulesRemainUnattenuatedByWornResistance() {
+        var profile = new ThermalExposureMath.TemperatureProfile(10, 100, 0);
+        var body = new BodyTemperatureAttachment(new BodyTemperatureComponent(300));
+        // AdjustTemperature follows SS14's ignoreHeatResistance=true path; worn coefficients
+        // are only consumed by environmental exchange, not this direct joule adjustment.
+        assertEquals(com.juicyslew.moonstation14.ms14.effect.EffectResult.APPLIED,
+                BodyTemperatureSystem.adjustHeat(body, profile, 100));
+        assertEquals(300.1, body.kelvin(), 1e-12);
+    }
+
+    @Test
+    void insulationDoesNotSuppressDamageFromAlreadyOverheatedStoredBody() {
+        var body = new BodyTemperatureAttachment(new BodyTemperatureComponent(400));
+        int[] calls = {0};
+        assertEquals(BodyTemperatureSystem.Outcome.APPLIED, BodyTemperatureSystem.transact(body,
+                GasMixture.vacuum(), ThermalExposureMath.ThermalProfile.HUMAN, null, null,
+                new EquipmentProtectionProjection.TemperatureCoefficients(0, 0), energy -> true,
+                damage -> { calls[0]++; assertTrue(damage.containsKey(DamageKeys.HEAT)); return true; }));
+        assertEquals(400, body.kelvin(), 1e-12);
+        assertEquals(1, calls[0]);
     }
 
     @Test

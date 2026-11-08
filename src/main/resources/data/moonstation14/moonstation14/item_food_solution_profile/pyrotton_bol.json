@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:pyrotton_bol",
+  "capacity_cents": 1000,
+  "contents_cents": {
+    "moonstation14:fiber": 500,
+    "moonstation14:phlogiston": 500
+  },
+  "refillable": true
+}

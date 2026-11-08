@@ -23,15 +23,18 @@ public final class EmoteCommandGameTests {
     public static void committedHumanCannotUseMouseOnlySqueak(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         var fixture = com.juicyslew.moonstation14.gametest.support.RegisteredServerPlayerFixture.register(level, "emotehuman");
-        var sounds = new ArrayList<ResourceLocation>();
+        var sounds = new ArrayList<String>();
+        var activeBody = new net.minecraft.world.entity.Entity[1];
         Consumer<PlayLevelSoundEvent.AtEntity> listener = event -> {
-            if (event.getLevel() == level)
-                event.getSound().unwrapKey().map(key -> key.location()).ifPresent(sounds::add);
+            if (event.getLevel() == level && (event.getEntity() == fixture.player() || event.getEntity() == activeBody[0]))
+                event.getSound().unwrapKey().map(key -> key.location().toString() + " from "
+                        + event.getEntity().getUUID()).ifPresent(sounds::add);
         };
-        NeoForge.EVENT_BUS.addListener(listener);
         helper.runAtTickTime(2, () -> {
             try {
                 var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
+                activeBody[0] = active.body();
+                NeoForge.EVENT_BUS.addListener(listener);
                 require(LocalSpeechServerHooks.authenticatedSpeaker(fixture.player()) != null,
                         "committed lifecycle human resolves through the shared authenticated speech context");
                 require(com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(active.body())
@@ -45,12 +48,13 @@ public final class EmoteCommandGameTests {
                 } catch (com.mojang.brigadier.exceptions.CommandSyntaxException failure) {
                     throw new GameTestAssertException("emote command failed to dispatch: " + failure);
                 }
-                require(result == 0 && sounds.stream().noneMatch(id -> id.equals(
-                                ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse_squeak"))),
-                        "actual server dispatcher rejects the unlisted emote without squeak audio");
+                require(result == 0 && sounds.isEmpty(),
+                        "actual server dispatcher rejects unlisted emote without sound from human body/player; result="
+                                + result + " sounds=" + sounds + " body=" + active.body().getUUID()
+                                + " player=" + fixture.player().getUUID());
                 helper.succeed();
             } finally {
-                NeoForge.EVENT_BUS.unregister(listener);
+                if (activeBody[0] != null) NeoForge.EVENT_BUS.unregister(listener);
                 fixture.close();
             }
         });
@@ -79,8 +83,9 @@ public final class EmoteCommandGameTests {
                 var player = fixture.player();
                 require(LocalSpeechServerHooks.authenticatedSpeaker(player) != null,
                         "the real role-owned mouse resolves through committed lifecycle speaker authority");
-                var resolved = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(committedMouse)
-                        .flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.SpeechComponent.class))
+                var identity = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(committedMouse)
+                        .orElseThrow();
+                var resolved = identity.component(com.juicyslew.moonstation14.ms14.character.components.SpeechComponent.class)
                         .orElseThrow();
                 require(resolved.allowedEmotes().equals(java.util.Set.of("squeak")),
                         "the owned mouse's resolved local prototype grants only Squeak");
@@ -88,9 +93,20 @@ public final class EmoteCommandGameTests {
                 int first = dispatch(fixture);
                 int rapidRepeat = dispatch(fixture);
                 var chatLines = drainSqueakChat(fixture);
+                var binding = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
+                        .PlayerCharacterHarnessBinder.binding(committedMouse);
+                var character = com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentitySavedData
+                        .existing(level.getServer().overworld()).orElseThrow()
+                        .character(new com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentityRegistry
+                                .CharacterKey(binding.accountId(), binding.profileKey())).orElseThrow();
+                String expectedName = character.name();
+                require(!expectedName.equals(binding.accountId().toString()) && !expectedName.equals("Mouse")
+                                && !expectedName.equals(identity.metadata().name()),
+                        "bound mouse uses saved personal identity, not account or species/prototype metadata: name="
+                                + expectedName + " metadata=" + identity.metadata().name());
                 ResourceLocation squeak = ResourceLocation.fromNamespaceAndPath("moonstation14", "mouse_squeak");
                 require(first == 1 && rapidRepeat == 0 && sounds.equals(java.util.List.of(squeak))
-                                && chatLines.size() == 1,
+                                && chatLines.equals(java.util.List.of(expectedName)),
                         "one authorized dispatcher invocation produces exactly one body-origin squeak and visible emote line; "
                                 + "results=" + first + "/" + rapidRepeat + " sounds=" + sounds + " chat=" + chatLines);
                 require(soundPositions.get(0).distanceToSqr(mouse.position()) < 1e-8,
@@ -126,7 +142,9 @@ public final class EmoteCommandGameTests {
         while ((packet = fixture.pollOutbound()) != null) {
             if (packet instanceof net.minecraft.network.protocol.game.ClientboundSystemChatPacket chat
                     && chat.content().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents line
-                    && line.getKey().equals("moonstation14.emote.squeak")) lines.add(line.getKey());
+                    && line.getKey().equals("moonstation14.emote.squeak")
+                    && line.getArgs().length > 0 && line.getArgs()[0] instanceof net.minecraft.network.chat.Component name)
+                lines.add(name.getString());
         }
         return lines;
     }

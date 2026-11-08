@@ -8,7 +8,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 /** Server-authored saved identity for the committed character's owner, not a speech event. */
-public record LocalCharacterIdentityPayload(String name, int rgb, ResourceLocation dimension) implements CustomPacketPayload {
+public record LocalCharacterIdentityPayload(String name, int rgb, ResourceLocation dimension, java.util.UUID bodyUuid, long epoch) implements CustomPacketPayload {
     private static final int MAX_DIMENSION_LENGTH = 256;
     public static final Type<LocalCharacterIdentityPayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "local_character_identity"));
@@ -18,7 +18,7 @@ public record LocalCharacterIdentityPayload(String name, int rgb, ResourceLocati
     public LocalCharacterIdentityPayload {
         // Reuse the ledger's validation, including its color contrast rule.
         new ChatIdentityRegistry.Entry(name, rgb);
-        if (dimension == null || dimension.toString().length() > MAX_DIMENSION_LENGTH)
+        if (dimension == null || dimension.toString().length() > MAX_DIMENSION_LENGTH || bodyUuid == null || epoch <= 0)
             throw new IllegalArgumentException("Invalid identity dimension");
     }
 
@@ -29,14 +29,15 @@ public record LocalCharacterIdentityPayload(String name, int rgb, ResourceLocati
     }
 
     private static void write(RegistryFriendlyByteBuf buf, LocalCharacterIdentityPayload value) {
-        buf.writeUtf(value.name, 49);
+        buf.writeUtf(value.name, ChatIdentityRegistry.MAX_CHARACTER_NAME_LENGTH);
         buf.writeInt(value.rgb);
         buf.writeUtf(value.dimension.toString(), MAX_DIMENSION_LENGTH);
+        buf.writeUUID(value.bodyUuid);
+        buf.writeVarLong(value.epoch);
     }
 
     private static LocalCharacterIdentityPayload read(RegistryFriendlyByteBuf buf) {
-        return new LocalCharacterIdentityPayload(buf.readUtf(49), buf.readInt(),
-                ResourceLocation.parse(buf.readUtf(MAX_DIMENSION_LENGTH)));
+        return new LocalCharacterIdentityPayload(buf.readUtf(ChatIdentityRegistry.MAX_CHARACTER_NAME_LENGTH), buf.readInt(),
+                ResourceLocation.parse(buf.readUtf(MAX_DIMENSION_LENGTH)), buf.readUUID(), buf.readVarLong());
     }
 }
-

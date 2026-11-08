@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:corn",
+  "capacity_cents": 2000,
+  "contents_cents": {
+    "moonstation14:cornmeal": 1500,
+    "moonstation14:nutriment": 500
+  },
+  "refillable": true
+}

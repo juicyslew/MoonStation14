@@ -87,10 +87,9 @@ class MutationTargetProductCatalogCandidateTest {
         assertEquals(Map.of(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,id("blood")),1000L), extracts.get(id("blood_tomato")).juiceSolution().centContents());
         assertFalse(extracts.get(id("blue_tomato")).juiceSolution().centContents().containsKey(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,id("juicetomato"))));
         assertFalse(extracts.get(id("blood_tomato")).juiceSolution().centContents().containsKey(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,id("juicetomato"))));
-        for (String family : new String[]{"produce_profile", "ingestion_profile", "extractable_profile", "item_food_solution_profile"})
-            for (String name : new String[]{"meatwheat_bushel", "blue_tomato", "blood_tomato", "lily"})
-                if (name.equals("meatwheat_bushel")) assertNotNull(BotanyCatalogCandidateTest.class.getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/" + name + ".json"));
-                else assertNull(BotanyCatalogCandidateTest.class.getClassLoader().getResource("data/moonstation14/moonstation14/" + family + "/" + name + ".json"));
+        BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate("produce_profile", "blue_tomato", "blood_tomato", "lily");
+        for (String family : new String[]{"ingestion_profile", "extractable_profile", "item_food_solution_profile"})
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "meatwheat_bushel", "blue_tomato", "blood_tomato", "lily");
     }
 
     @Test void mainPoppyHeadwearAndTestLilyInheritanceResolveWithoutPublishing() {
@@ -115,6 +114,6 @@ class MutationTargetProductCatalogCandidateTest {
         var templateRaw = BotanyCatalogCandidateTest.mainResources("inventory_template", "human").get(ModInventoryTemplates.HUMAN_ID);
         var template = InventoryTemplateData.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, templateRaw).getOrThrow();
         assertTrue(EquipmentFitPolicy.fits(template, "head", poppy, java.util.Set.of(), false));
-        assertNull(getClass().getClassLoader().getResource("data/moonstation14/moonstation14/equipment_item/lily.json"));
+        BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate("equipment_item", "lily");
     }
 }

@@ -109,10 +109,28 @@ public final class NpcRetaliationSystem {
         if (melee == null) return false;
         if (!withinReach(mob, target, melee.range())) return false;
         if (!acquireAttackCooldown(LAST_ATTACK, mob.getUUID(), now, melee.cooldownTicks())) return false;
-        return com.juicyslew.moonstation14.ms14.damage.DamageSystem.applyHealthChange(target,
-                melee.damage().types(), 1f, false,
-                com.juicyslew.moonstation14.ms14.damage.DamageSystem.Cause.COMBAT)
-                == com.juicyslew.moonstation14.ms14.damage.DamageSystem.Result.APPLIED;
+        double missChance = character.component(NpcRetaliationComponent.class).orElseThrow().meleeMissChance();
+        if (target.getDeltaMovement().lengthSqr() != 0
+                && movingTargetMiss(target.getDeltaMovement().lengthSqr(), missChance, level.getRandom().nextDouble())) {
+            // Pinned RobustRandom.NextVector2(.5): uniform angle and uniform radius [0,.5),
+            // adapted to XZ. Aim from bbox center, matching target capture height.
+            var offset = missOffset(level.getRandom().nextDouble(), level.getRandom().nextDouble());
+            var point = target.getBoundingBox().getCenter().add(offset);
+            return com.juicyslew.moonstation14.ms14.combat.LiveMeleeAttackService.missTrustedNpc(mob, target, point);
+        }
+        var result = com.juicyslew.moonstation14.ms14.combat.LiveMeleeAttackService.attackTrustedNpc(mob, target);
+        return result;
+    }
+
+    static boolean movingTargetMiss(double velocitySquared, double chance, double roll) {
+        return velocitySquared != 0 && Double.isFinite(chance) && chance > 0
+                && Double.isFinite(roll) && roll >= 0 && roll < chance;
+    }
+
+    static net.minecraft.world.phys.Vec3 missOffset(double angleSample, double magnitudeSample) {
+        double angle = angleSample * Math.PI * 2;
+        double radius = Math.max(0, Math.min(Math.nextDown(1.0), magnitudeSample)) * .5;
+        return new net.minecraft.world.phys.Vec3(radius * Math.cos(angle), 0, radius * Math.sin(angle));
     }
 
     /** Range is nearest bounding-box edge separation, matching SS14's melee range contract. */

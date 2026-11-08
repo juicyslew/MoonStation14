@@ -58,7 +58,8 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
     }
 
     @Override public AABB getRenderBoundingBox(AirlockBlockEntity door) {
-        return AirlockGeometry.renderBounds(door.getBlockPos());
+        AABB bounds = AirlockGeometry.renderBounds(door.getBlockPos());
+        return bounds.inflate(1.0 / 64.0, 0, 1.0 / 64.0);
     }
 
     @Override public void render(AirlockBlockEntity door, float partialTick, PoseStack pose,
@@ -73,6 +74,14 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
         double closeOne = data == null ? .4 : data.door().closeTimeOneSeconds();
         double closeTwo = data == null ? .2 : data.door().closeTimeTwoSeconds();
         double openness = AirlockGeometry.openness(view.phase(), elapsed, openOne, openTwo, closeOne, closeTwo);
+        var firelockView = door.firelockPresentation();
+        var firelockData = door.firelockHost() == null ? null : door.firelockHost().prototype();
+        boolean attachedFirelock = firelockView != null && firelockData != null;
+        boolean cullAirlockBase = attachedFirelock
+                && FirelockRenderer.cullBaseAirlock(firelockView.authoritativeLatch(),
+                com.juicyslew.moonstation14.ms14.doors.FirelockMotion.openness(firelockView, firelockData, now + partialTick));
+        if (attachedFirelock)
+            FirelockRenderer.renderPresentation(firelockView, firelockData, now + partialTick, pose, buffers, packedLight, packedOverlay);
         AirlockFramePlanner.Plan presentation = AirlockFramePlanner.plan(view.phase(), view.powered(),
                 view.boltsDown(), view.boltLightsVisible(), view.panelVisible(), view.panelOpen());
         pose.pushPose();
@@ -83,25 +92,27 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
         pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-facing.toYRot()));
         pose.translate(-.5, 0, -.5);
         var manager = Minecraft.getInstance().getModelManager();
-        drawPart(manager,"fixed",pose,buffers,packedLight,packedOverlay,0,0,false);
-        if (presentation.headerLamps())
-            drawPart(manager,"header_lamps",pose,buffers,packedLight,packedOverlay,0,0,false);
-        drawPart(manager,"reader_housing",pose,buffers,packedLight,packedOverlay,0,
-                AirlockGeometry.movementY(AirlockGeometry.Part.READER_HOUSING,openness),false);
-        double upper = AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_LEAF,openness);
-        double lower = AirlockGeometry.movementY(AirlockGeometry.Part.LOWER_LEAF,openness);
-        drawPart(manager,"upper_leaf",pose,buffers,packedLight,packedOverlay,0,upper,false);
-        drawPart(manager,"lower_leaf",pose,buffers,packedLight,packedOverlay,0,lower,false);
-        drawPart(manager,"upper_infill",pose,buffers,packedLight,packedOverlay,0,AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_INFILL,openness),false);
+        if (!cullAirlockBase) {
+            drawPart(manager,"fixed",pose,buffers,packedLight,packedOverlay,0,0,false);
+            if (presentation.headerLamps() && !attachedFirelock)
+                drawPart(manager,"header_lamps",pose,buffers,packedLight,packedOverlay,0,0,false);
+            drawPart(manager,"reader_housing",pose,buffers,packedLight,packedOverlay,0,
+                    AirlockGeometry.movementY(AirlockGeometry.Part.READER_HOUSING,openness),false);
+            double upper = AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_LEAF,openness);
+            double lower = AirlockGeometry.movementY(AirlockGeometry.Part.LOWER_LEAF,openness);
+            drawPart(manager,"upper_leaf",pose,buffers,packedLight,packedOverlay,0,upper,false);
+            drawPart(manager,"lower_leaf",pose,buffers,packedLight,packedOverlay,0,lower,false);
+            drawPart(manager,"upper_infill",pose,buffers,packedLight,packedOverlay,0,AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_INFILL,openness),false);
+        }
         if (presentation.maintenanceWires()) {
             drawPart(manager,"maintenance_wires",pose,buffers,packedLight,packedOverlay,0,AirlockGeometry.movementY(AirlockGeometry.Part.MAINTENANCE_WIRES,openness),false);
         } else {
             drawPart(manager,"reader_cover",pose,buffers,packedLight,packedOverlay,0,AirlockGeometry.movementY(AirlockGeometry.Part.READER_COVER,openness),false);
         }
-        if (presentation.headerOverlay() != null)
+        if (!attachedFirelock && presentation.headerOverlay() != null)
             drawComponent(manager.getModel(modelLocation(BASE+"overlays/"+presentation.headerOverlay()+"_00_header")),
                     pose,buffers,packedLight,packedOverlay,0,0,true,view.powered());
-        if (presentation.readerOverlay() != null)
+        if (!attachedFirelock && presentation.readerOverlay() != null)
             drawComponent(manager.getModel(modelLocation(BASE+"overlays/"+presentation.readerOverlay()+"_00_reader")),
                     pose,buffers,packedLight,packedOverlay,0,
                     AirlockGeometry.movementY(AirlockGeometry.Part.UPPER_LEAF,openness),true,view.powered());
@@ -114,13 +125,23 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
     }
 
     public static void drawComponent(BakedModel model, PoseStack pose, MultiBufferSource buffers,
-                                       int light, int overlay, double xTranslation, double yTranslation,
-                                      boolean clip, boolean powered) {
+                                        int light, int overlay, double xTranslation, double yTranslation,
+                                       boolean clip, boolean powered) {
+        drawComponent(model, pose, buffers, light, overlay, xTranslation, yTranslation, clip, powered,
+                0, 1, 0, 2, 0, 1);
+    }
+
+    /** Shared baked-quad path with an explicit local clipping volume for firelock's authored overhang. */
+    public static void drawComponent(BakedModel model, PoseStack pose, MultiBufferSource buffers,
+                                     int light, int overlay, double xTranslation, double yTranslation,
+                                     boolean clip, boolean powered, float minX, float maxX, float minY,
+                                     float maxY, float minZ, float maxZ) {
         if (model == null) return;
         for (DecodedQuad quad : decoded(model)) {
             TextureAtlasSprite target = Minecraft.getInstance().getTextureAtlas(BLOCK_ATLAS).apply(quad.sprite());
             if (target == null) continue;
-            emitQuad(quad, pose, buffers, light, overlay, target, xTranslation, yTranslation, clip, powered);
+            emitQuad(quad, pose, buffers, light, overlay, target, xTranslation, yTranslation, clip, powered,
+                    minX, maxX, minY, maxY, minZ, maxZ);
         }
     }
 
@@ -157,12 +178,13 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
     }
 
     private static void emitQuad(DecodedQuad quad, PoseStack pose, MultiBufferSource buffers, int light, int overlay,
-                                 TextureAtlasSprite target, double xTranslation,double yTranslation, boolean shouldClip, boolean powered) {
+                                 TextureAtlasSprite target, double xTranslation,double yTranslation, boolean shouldClip, boolean powered,
+                                 float minX, float maxX, float minY, float maxY, float minZ, float maxZ) {
         boolean inside = true;
         for (LocalVertex vertex : quad.vertices()) {
             float x = vertex.x() + (float) xTranslation;
             float y=vertex.y()+(float)yTranslation;
-            if (x < 0 || x > 1 || y < 0 || y > 2 || vertex.z() < 0 || vertex.z() > 1) {
+            if (x < minX || x > maxX || y < minY || y > maxY || vertex.z() < minZ || vertex.z() > maxZ) {
                 inside = false;
                 break;
             }
@@ -181,7 +203,7 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
         }
         ArrayList<AirlockQuadClipper.Vertex> translated = new ArrayList<>(4);
         for (LocalVertex vertex : quad.vertices()) translated.add(toVertex(vertex, target, xTranslation,yTranslation));
-        List<AirlockQuadClipper.Vertex> polygon = AirlockQuadClipper.clip(translated);
+        List<AirlockQuadClipper.Vertex> polygon = AirlockQuadClipper.clip(translated,minX,maxX,minY,maxY,minZ,maxZ);
         if (polygon.size() < 3) return;
         if (polygon.size() == 4) {
             for (AirlockQuadClipper.Vertex vertex : polygon) vertex(out, matrix, normal, vertex, vertexLight, overlay);
@@ -223,4 +245,3 @@ public final class AirlockBlockEntityRenderer implements BlockEntityRenderer<Air
                 .setLight(light).setNormal(normal.x, normal.y, normal.z);
     }
 }
-

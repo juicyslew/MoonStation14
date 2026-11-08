@@ -1,0 +1,4 @@
+{
+  "weapon": {"damage": {"slash": 15}, "wide_animation_rotation": 60, "audio": {"hit": {"event": "moonstation14:ss14/weapons/blade_slice"}}},
+  "damage_on_hit": {"blunt": 10}
+}

@@ -120,6 +120,25 @@ class PlantSpeciesMutationCycleTest {
         assertEquals(0, plant.mutationLevel()); assertEquals(beforeRevision + 3, plant.revision());
     }
 
+    @Test void unavailableSelectedSpeciesDoesNotRerollButLaterMutationAndEdgesRemain() {
+        var p = profiles();
+        var source = new SeedProfile(p.wheat.packet(), p.wheat.product(), p.wheat.visualKey(), p.wheat.biology(), p.wheat.lifecycle(),
+                p.wheat.chemicals(), p.wheat.consumeGasses(), p.wheat.exudeGasses(), List.of(id("tomato"), id("potato")), p.wheat.scream(), p.wheat.sourceName());
+        // Target profile exists; its product is deliberately rejected by the availability policy.
+        var catalog = new PrototypeCatalog<SeedProfile>(Map.of(id("wheat"), source, id("tomato"), p.tomato,
+                id("potato"), p.wheat));
+        var plant = new PlantInstance(50, 50, 0); plant.plant(id("wheat"), source, 0); plant.adjustMutationLevel(1);
+        var random = new ScriptedRandom(1, 0, 0, 0); // selected unavailable potato; no reroll to supported tomato
+        var result = PlantMutationSystem.cycle(plant, table(species(1), stat(1)), random, () -> .5f, null, null,
+                catalog, selected -> selected.equals(id("tomato")));
+        assertEquals(List.of(id("tomato"), id("potato")), source.mutationTargets());
+        assertEquals(id("wheat"), plant.seed());
+        assertTrue(result.unsupported().contains("species:species_target_unsupported:moonstation14:potato"));
+        assertEquals(2, random.doubles); assertEquals(1, random.ints);
+        assertNotEquals(source.biology().idealHeat(), plant.genetics().profile().biology().idealHeat());
+        assertTrue(source.mutationTargets().contains(id("potato")), "unavailable outgoing edge remains authored");
+    }
+
     @Test void configuredSpeciesRollUsesStrictChanceEndpointAndDescriptorLoadsAsPayloadFreeEffect() {
         var source = profiles().wheat;
         var plant = new PlantInstance(50, 50, 0); plant.plant(id("wheat"), source, 0); plant.adjustMutationLevel(1);

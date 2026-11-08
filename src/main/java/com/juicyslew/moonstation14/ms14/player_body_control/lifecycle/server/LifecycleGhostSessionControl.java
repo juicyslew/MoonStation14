@@ -547,6 +547,24 @@ public final class LifecycleGhostSessionControl {
             closeOffer(session);
             return;
         }
+        String nextProfileKey = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
+                .PlayerCharacterBinding.profileKeyForBody(target.getUUID());
+        var publicName = com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(target)
+                .getString();
+        try {
+            var ledger = com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentitySavedData
+                    .forFirstEnrollment(server.overworld());
+            var existingNpc = ledger.npc(target.getUUID());
+            if (existingNpc.isPresent()) {
+                ledger.allocateNpcDurably(server.overworld(), target.getUUID(), existingNpc.get().type());
+            } else {
+                ledger.allocateBodyCharacterDurably(server.overworld(), new com.juicyslew.moonstation14.ms14.chat.identity
+                        .ChatIdentityRegistry.CharacterKey(session.accountId, nextProfileKey), publicName);
+            }
+        } catch (RuntimeException | Error failure) {
+            closeOffer(session);
+            return;
+        }
         String dimension = level.dimension().location().toString();
         var location = new SavedLifecycleProfile.Location(target.getX(), target.getY(), target.getZ());
         var appearance = Map.of("prototype", identity.characterId().toString());
@@ -568,7 +586,7 @@ public final class LifecycleGhostSessionControl {
         }
         if (next == null || !next.active()
                 || next.state() != PlayerLifecycleRegistry.LifecycleState.ACTIVE
-                || next.connectionGeneration() <= session.epoch) {
+                || next.connectionGeneration() <= session.epoch || !next.profileId().equals(nextProfileKey)) {
             closeOffer(session);
             return;
         }
@@ -597,10 +615,17 @@ public final class LifecycleGhostSessionControl {
         if (SERVERS.isEmpty()) LifecycleSessionPacketRouter.instance().clearGhostHandler();
         try {
             if (!PlayerCharacterHarnessBinder.bind(target, session.accountId,
-                    session.lifecycle.profile(session.accountId).orElseThrow().profileId(), session.mindId.value(),
+                    next.profileId(), session.mindId.value(),
                     identity.characterId())) throw new IllegalStateException("role body binding failed after takeover");
             if (!LifecycleCharacterSessionControl.activateAlreadyOffered(session.player, target, session.lifecycle,
                     next.connectionGeneration(), lease, committedOrigin)) throw new IllegalStateException("offered character activation failed");
+            var oldObserver = com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.query(session.player);
+            if (oldObserver != null && oldObserver.boundAuthority() != null
+                    && session.ghost.getUUID().equals(oldObserver.ghostId())
+                    && !com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.finishBoundObserverTakeover(
+                    session.player, oldObserver.ghostId(), oldObserver.epoch()))
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.warn("[observer] bound context takeover cleanup failed owner={} ghost={} epoch={}",
+                        session.accountId, oldObserver.ghostId(), oldObserver.epoch());
             if (!session.ghost.isRemoved()) session.ghost.discard();
         } catch (RuntimeException | Error failure) {
             LifecycleCharacterSessionControl.cleanupFailedRoleAdoption(session.player, target, session.lifecycle,

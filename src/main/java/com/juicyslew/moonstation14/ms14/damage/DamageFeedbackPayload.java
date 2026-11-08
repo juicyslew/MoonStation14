@@ -5,6 +5,8 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Entity;
+import com.juicyslew.moonstation14.entities.LooseItemEntity;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.UUID;
@@ -13,6 +15,8 @@ import java.util.function.Consumer;
 /** Server-authoritative independent hurt-presentation flags for one native hurt event. */
 public record DamageFeedbackPayload(int entityId, UUID entityUuid, boolean redFlash,
                                    boolean cameraShake, int duration) implements CustomPacketPayload {
+    public static final int DEFAULT_DURATION = 10;
+    public static final int MELEE_DURATION = 6;
     private static volatile Consumer<DamageFeedbackPayload> dispatchObserver;
     public static final Type<DamageFeedbackPayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath("moonstation14", "damage_feedback"));
@@ -32,8 +36,15 @@ public record DamageFeedbackPayload(int entityId, UUID entityUuid, boolean redFl
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
     public static void publish(LivingEntity entity, DamageFeedbackProfile profile) {
+        publish(entity, profile, DEFAULT_DURATION);
+    }
+
+    /** Publishes for supported living/loose targets; duration is in game ticks. */
+    public static void publish(Entity entity, DamageFeedbackProfile profile, int duration) {
+        if (!(entity instanceof LivingEntity) && !(entity instanceof LooseItemEntity)) return;
+        if (!entity.isAlive() || entity.isRemoved()) return;
         var payload = new DamageFeedbackPayload(entity.getId(), entity.getUUID(), profile.redFlash(),
-                profile.cameraShake(), 10);
+                profile.cameraShake(), duration);
         Consumer<DamageFeedbackPayload> observer = dispatchObserver;
         if (observer != null) observer.accept(payload);
         PacketDistributor.sendToPlayersTrackingEntityAndSelf(entity, payload);
@@ -41,4 +52,3 @@ public record DamageFeedbackPayload(int entityId, UUID entityUuid, boolean redFl
     /** Scoped observation seam for server integration fixtures; null restores normal dispatch. */
     public static void observeDispatch(Consumer<DamageFeedbackPayload> observer) { dispatchObserver = observer; }
 }
-

@@ -41,12 +41,17 @@ class FruitPitProductCatalogCandidateTest {
         var ingestionRaw = BotanyCatalogCandidateTest.resources("ingestion_profile", "food_base", "corn", "bungo", "cherry", "food_bungo_pit", "trash_cherry_pit");
         var sourceSolutions = BotanyCatalogCandidateTest.stageFoodSolutions(BotanyCatalogCandidateTest.resources(
                 "item_food_solution_profile", "corn", "bungo", "cherry", "food_bungo_pit", "trash_cherry_pit", "food_corn_trash"));
+        var unknownOutput = new LinkedHashMap<>(BotanyCatalogCandidateTest.resources("ingestion_profile", "food_base", "corn"));
+        unknownOutput.get(id("corn")).getAsJsonObject("edible").add("trash",
+                new com.google.gson.JsonArray());
+        unknownOutput.get(id("corn")).getAsJsonObject("edible").getAsJsonArray("trash")
+                .add("moonstation14:synthetic_missing_output");
         var rejectedIngestion = new PrototypeManager();
         rejectedIngestion.register(ModIngestionProfiles.TYPE);
         var rejectedBefore = rejectedIngestion.snapshot();
         var loadFailure = assertThrows(PrototypeLoadException.class, () -> rejectedIngestion.stage(
-                Map.of(ModIngestionProfiles.TYPE, ingestionRaw), ignored -> { }));
-        assertTrue(rootMessages(loadFailure).contains("unknown edible trash item: moonstation14:food_corn_trash"), rootMessages(loadFailure));
+                Map.of(ModIngestionProfiles.TYPE, unknownOutput), ignored -> { }));
+        assertTrue(rootMessages(loadFailure).contains("unknown edible trash item: moonstation14:synthetic_missing_output"), rootMessages(loadFailure));
         assertSame(rejectedBefore, rejectedIngestion.snapshot(), "invalid registered-item references must not publish");
 
         // Test-only composition: resolve inheritance and decode policies, but do not activate an
@@ -100,8 +105,7 @@ class FruitPitProductCatalogCandidateTest {
         assertButcherOutput("bungo", "food_bungo_pit");
         assertButcherOutput("cherry", "trash_cherry_pit");
         for (String family : new String[]{"produce_profile", "ingestion_profile", "extractable_profile", "item_processing_profile", "seed_item_profile", "item_food_solution_profile"})
-            for (String item : new String[]{"corn", "bungo", "cherry", "food_corn_trash", "food_bungo_pit", "trash_cherry_pit"})
-                assertMainAbsent(family, item);
+            BotanyCatalogCandidateTest.assertMainPromotionMatchesCandidate(family, "corn", "bungo", "cherry", "food_corn_trash", "food_bungo_pit", "trash_cherry_pit");
     }
 
     private static String rootMessages(Throwable error) {
@@ -157,12 +161,6 @@ class FruitPitProductCatalogCandidateTest {
         String path = "botany-catalog-candidate/" + family + "/" + name + ".json";
         try (var stream = FruitPitProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream(path)) {
             assertNull(stream, "no unsupported candidate composition: " + path);
-        } catch (java.io.IOException e) { throw new AssertionError(e); }
-    }
-    private static void assertMainAbsent(String family, String name) {
-        String path = "data/moonstation14/moonstation14/" + family + "/" + name + ".json";
-        try (var stream = FruitPitProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream(path)) {
-            assertNull(stream, "TEST candidate must not be activated in MAIN: " + path);
         } catch (java.io.IOException e) { throw new AssertionError(e); }
     }
 }

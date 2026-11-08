@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:cherry",
+  "capacity_cents": 800,
+  "contents_cents": {
+    "moonstation14:nutriment": 300,
+    "moonstation14:vitamin": 300
+  },
+  "refillable": true
+}

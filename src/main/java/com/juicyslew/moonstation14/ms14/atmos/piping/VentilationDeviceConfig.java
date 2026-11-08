@@ -15,13 +15,21 @@ public final class VentilationDeviceConfig {
 
     public record Settings(long revision, boolean configuredEnabled, double externalPressureBoundKPa,
                             double targetPressureChangeKPaPerSecond, double targetPressureKPa,
-                            double volumeRateM3PerSecond, ScrubberMode scrubberMode,
-                            Set<GasType> filteredGases, Layer selectedLayer) {
+                             double volumeRateM3PerSecond, ScrubberMode scrubberMode,
+                             Set<GasType> filteredGases, Layer selectedLayer,
+                             boolean pressureLockoutOverride, boolean wideNet) {
+        public Settings(long revision, boolean configuredEnabled, double externalPressureBoundKPa,
+                        double targetPressureChangeKPaPerSecond, double targetPressureKPa,
+                        double volumeRateM3PerSecond, ScrubberMode scrubberMode,
+                        Set<GasType> filteredGases, Layer selectedLayer) {
+            this(revision, configuredEnabled, externalPressureBoundKPa, targetPressureChangeKPaPerSecond,
+                    targetPressureKPa, volumeRateM3PerSecond, scrubberMode, filteredGases, selectedLayer, false, false);
+        }
         public Settings(long revision, boolean configuredEnabled, double externalPressureBoundKPa,
                         double targetPressureChangeKPaPerSecond, double targetPressureKPa,
                         double volumeRateM3PerSecond, ScrubberMode scrubberMode, Set<GasType> filteredGases) {
             this(revision, configuredEnabled, externalPressureBoundKPa, targetPressureChangeKPaPerSecond,
-                    targetPressureKPa, volumeRateM3PerSecond, scrubberMode, filteredGases, Layer.PRIMARY);
+                    targetPressureKPa, volumeRateM3PerSecond, scrubberMode, filteredGases, Layer.PRIMARY, false, false);
         }
         public Settings {
             if (revision < 0) throw new IllegalArgumentException("revision must be nonnegative");
@@ -106,7 +114,7 @@ public final class VentilationDeviceConfig {
         try {
             legacyDefaults = false;
             int version = tag.getInt("Version");
-            if (!tag.contains("Version", CompoundTag.TAG_INT) || (version != 1 && version != 2)
+            if (!tag.contains("Version", CompoundTag.TAG_INT) || (version < 1 || version > 3)
                     || !tag.contains("Revision", CompoundTag.TAG_LONG) || !tag.contains("Enabled", CompoundTag.TAG_BYTE)
                     || !tag.contains("ExternalBound", CompoundTag.TAG_DOUBLE) || !tag.contains("PressureChange", CompoundTag.TAG_DOUBLE)
                     || !tag.contains("TargetPressure", CompoundTag.TAG_DOUBLE) || !tag.contains("VolumeRate", CompoundTag.TAG_DOUBLE)
@@ -123,14 +131,15 @@ public final class VentilationDeviceConfig {
             if (version == 2 && !tag.contains("Layer", CompoundTag.TAG_STRING)) throw new IllegalArgumentException("missing layer");
             Settings restored = new Settings(tag.getLong("Revision"), tag.getBoolean("Enabled"),
                     tag.getDouble("ExternalBound"), tag.getDouble("PressureChange"), tag.getDouble("TargetPressure"),
-                    tag.getDouble("VolumeRate"), ScrubberMode.valueOf(tag.getString("Mode")), gases, layer);
+                    tag.getDouble("VolumeRate"), ScrubberMode.valueOf(tag.getString("Mode")), gases, layer,
+                    version >= 3 && tag.getBoolean("PressureLockoutOverride"), version >= 3 && tag.getBoolean("WideNet"));
             settings.set(restored);
             settingsValid = true;
             return true;
         } catch (RuntimeException invalid) {
             Settings defaults = defaultSettings();
             settings.set(new Settings(0, false, defaults.externalPressureBoundKPa(), defaults.targetPressureChangeKPaPerSecond(),
-                    defaults.targetPressureKPa(), defaults.volumeRateM3PerSecond(), defaults.scrubberMode(), defaults.filteredGases(), defaults.selectedLayer()));
+                    defaults.targetPressureKPa(), defaults.volumeRateM3PerSecond(), defaults.scrubberMode(), defaults.filteredGases(), defaults.selectedLayer(), defaults.pressureLockoutOverride(), defaults.wideNet()));
             settingsValid = false;
             return false;
         }
@@ -139,11 +148,12 @@ public final class VentilationDeviceConfig {
     public CompoundTag save() {
         Settings s = settings();
         CompoundTag tag = new CompoundTag();
-        tag.putInt("Version", 2); tag.putLong("Revision", s.revision()); tag.putBoolean("Enabled", s.configuredEnabled());
+        tag.putInt("Version", 3); tag.putLong("Revision", s.revision()); tag.putBoolean("Enabled", s.configuredEnabled());
         tag.putDouble("ExternalBound", s.externalPressureBoundKPa()); tag.putDouble("PressureChange", s.targetPressureChangeKPaPerSecond());
         tag.putDouble("TargetPressure", s.targetPressureKPa()); tag.putDouble("VolumeRate", s.volumeRateM3PerSecond());
         tag.putString("Mode", s.scrubberMode().name());
         tag.putString("Layer", s.selectedLayer().name());
+        tag.putBoolean("PressureLockoutOverride", s.pressureLockoutOverride()); tag.putBoolean("WideNet", s.wideNet());
         tag.putString("Filters", s.filteredGases().stream().map(GasType::id).sorted().collect(java.util.stream.Collectors.joining(",")));
         return tag;
     }
@@ -179,10 +189,9 @@ public final class VentilationDeviceConfig {
         Settings next = new Settings(expectedRevision + 1, proposed.configuredEnabled(),
                 proposed.externalPressureBoundKPa(), proposed.targetPressureChangeKPaPerSecond(),
                 proposed.targetPressureKPa(), proposed.volumeRateM3PerSecond(),
-                proposed.scrubberMode(), proposed.filteredGases(), proposed.selectedLayer());
+                proposed.scrubberMode(), proposed.filteredGases(), proposed.selectedLayer(), proposed.pressureLockoutOverride(), proposed.wideNet());
         boolean changed = settings.compareAndSet(current, next);
         if (changed) legacyDefaults = false;
         return changed;
     }
 }
-

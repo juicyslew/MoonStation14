@@ -9,4 +9,10 @@ public final class MeleeSecondaryGesture {
             return Boolean.TRUE.equals(canDisarm) ? MeleeAttackRequest.Mode.DISARM : null;
         return MeleeAttackRequest.Mode.WIDE;
     }
+
+    /** Whether this resolved source is eligible to execute the unarmed secondary disarm action. */
+    public static boolean allowsDisarm(MeleeWeaponResolver.Selection selection, Boolean canDisarm) {
+        return selection != null && mode(selection.kind(), selection.weapon().altDisarm(), canDisarm)
+                == MeleeAttackRequest.Mode.DISARM;
+    }
 }

@@ -31,8 +31,10 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -45,8 +47,8 @@ public final class TimedTrashOutputAuthenticatedGameTests {
             ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, id("nutriment"));
     private TimedTrashOutputAuthenticatedGameTests() { }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100)
-    @GameTestTags({"ingestion-trash", "ingestion-trash-held"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 100, batch = "catalog-ingestion-trash-final-dose")
+    @GameTestTags({"ingestion-trash", "ingestion-trash-held", "merge-main-remaining", "merge-main-stage-two"})
     public static void heldTimedFoodEmitsDuplicateTrashOnlyOnFinalDoseAndPickupUsesHandOwnership(GameTestHelper helper) {
         var scope = installTrashProfile(1000, 500);
         var fixture = register(helper, "trash-held");
@@ -55,6 +57,8 @@ public final class TimedTrashOutputAuthenticatedGameTests {
             try {
                 var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
                 var body = active.body();
+                com.juicyslew.moonstation14.gametest.support.MetabolismObservationWindow.runWhenQuiet(helper, body, 1, 8, () -> {
+                try {
                 var hands = (LiveHands) body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
                 String hand = hands.activeHand(), token = "held-trash-food";
                 ItemStack source = foodStack(body.level());
@@ -84,7 +88,10 @@ public final class TimedTrashOutputAuthenticatedGameTests {
                 });
                 helper.runAfterDelay(8, () -> {
                     finishAfter(helper, fixture, scope, finished, () -> {
-                        require(stomach(body) == 1000, "final dose commits through the existing ingestion owner");
+                        long actualStomach = stomach(body);
+                        require(actualStomach == 1000, "final dose commits through the existing ingestion owner; actualStomach="
+                                + actualStomach + ", gameTime=" + body.level().getGameTime() + ", entityId=" + body.getId()
+                                + ", hand=" + hands(body).stackCopy(hand));
                         var after = hands(body);
                         require(after.stackCopy(hand).filter(stack -> stack.is(net.minecraft.world.item.Items.STICK)
                                         && stack.getCount() == 1).isPresent(),
@@ -101,25 +108,53 @@ public final class TimedTrashOutputAuthenticatedGameTests {
                                 "failed second trusted pickup leaves its separate output world-owned");
                     });
                 });
+                } catch (Throwable failure) { finish(helper, fixture, scope, finished, failure); }
+                });
             } catch (Throwable failure) { finish(helper, fixture, scope, finished, failure); }
         });
     }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 60)
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 60, batch = "catalog-ingestion-trash-world")
     @GameTestTags({"ingestion-trash", "ingestion-trash-world"})
     public static void worldTimedFoodKeepsTrashInWorldInsteadOfAutoPickup(GameTestHelper helper) {
         var scope = installTrashProfile(500, 500);
         var fixture = register(helper, "trash-world");
         var finished = new AtomicBoolean();
+        var receipts = new java.util.concurrent.CopyOnWriteArrayList<IngestionReceiptObserver.Receipt>();
+        var receiptSubscription = new java.util.concurrent.atomic.AtomicReference<AutoCloseable>();
+        helper.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener() {
+            @Override public void testStructureLoaded(net.minecraft.gametest.framework.GameTestInfo ignored) { }
+            @Override public void testPassed(net.minecraft.gametest.framework.GameTestInfo ignored, net.minecraft.gametest.framework.GameTestRunner runner) { closeReceipt(); }
+            @Override public void testFailed(net.minecraft.gametest.framework.GameTestInfo ignored, net.minecraft.gametest.framework.GameTestRunner runner) { closeReceipt(); }
+            @Override public void testAddedForRerun(net.minecraft.gametest.framework.GameTestInfo oldTest,
+                    net.minecraft.gametest.framework.GameTestInfo newTest, net.minecraft.gametest.framework.GameTestRunner runner) { closeReceipt(); }
+            private void closeReceipt() {
+                var owned = receiptSubscription.getAndSet(null);
+                if (owned != null) try { owned.close(); } catch (Exception ignored) { }
+            }
+        });
         helper.runAtTickTime(2, () -> {
             try {
                 var active = RegisteredPlayerReadyDriver.readyAndQuery(fixture);
                 var body = active.body(); var level = (ServerLevel) body.level();
+                com.juicyslew.moonstation14.gametest.support.MetabolismObservationWindow.runWhenQuiet(helper, body, 1, 5, () -> {
+                if (finished.get()) return;
+                try {
                 var hands = hands(body); String hand = hands.activeHand();
                 var source = LooseItemEntity.create(level, body.position().add(0, .1, .8), foodStack(level));
                 source.setNoGravity(true); require(level.addFreshEntity(source), "loose edible source published");
+                String sourceKey = "world:" + source.getUUID();
+                receiptSubscription.set(IngestionReceiptObserver.observe(receipt -> {
+                    if (fixture.player().getUUID().equals(receipt.actorId()) && body.getUUID().equals(receipt.bodyId())
+                            && sourceKey.equals(receipt.sourceKey())) receipts.add(receipt);
+                }));
                 body.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, source.getBoundingBox().getCenter());
-                var before = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(active.epoch(), 2));
+                var region = new net.minecraft.world.phys.AABB(source.position(), source.position()).inflate(2);
+                Set<java.util.UUID> baselineIds = new HashSet<>();
+                level.getEntitiesOfClass(LooseItemEntity.class, region,
+                        entity -> entity.getItem().is(net.minecraft.world.item.Items.STICK))
+                        .forEach(entity -> baselineIds.add(entity.getUUID()));
+                var before = fixture.queryHands(active.epoch());
                 var activeHand = before.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow();
                 require(activeHand.token() == null, "world ingestion begins with an empty active hand");
                 var request = new BodyHandActionRequest(BodyHandActionRequest.Action.ALTERNATE_TARGET,
@@ -127,27 +162,38 @@ public final class TimedTrashOutputAuthenticatedGameTests {
                 require(BodyHandRequestService.apply(fixture.player(), request).accepted(),
                         "authenticated exact-target world action starts timed ingestion");
                 var origin = source.position();
-                helper.runAfterDelay(4, () -> finishAfter(helper, fixture, scope, finished, () -> {
+                helper.runAfterDelay(4, () -> { if (!finished.get()) finishAfter(helper, fixture, scope, finished, receiptSubscription.getAndSet(null), () -> {
                     require(source.isRemoved() && level.getEntity(source.getUUID()) == null,
                             "final world-source bite removes the depleted food entity");
-                    require(stomach(body) == 500, "world source commits the dose once");
+                    long actualStomach = stomach(body);
+                    var matching = receipts.stream().filter(receipt -> receipt.bodyId().equals(body.getUUID())
+                            && receipt.actorId().equals(fixture.player().getUUID())
+                            && receipt.sourceKey().equals("world:" + source.getUUID())).toList();
+                    require(matching.size() == 1 && matching.getFirst().acceptedCents() == 500 && actualStomach == 500,
+                            "world receipt exact-once proof: count=" + matching.size() + ", cents="
+                                    + matching.stream().limit(2).map(IngestionReceiptObserver.Receipt::acceptedCents).toList()
+                                    + ", stomach=" + actualStomach + ", gameTime=" + level.getGameTime()
+                                    + ", entityId=" + body.getId() + ", phase=post-commit, source=" + source.position());
                     var outputs = level.getEntitiesOfClass(LooseItemEntity.class,
                             new net.minecraft.world.phys.AABB(origin, origin).inflate(2),
                             entity -> entity.getItem().is(net.minecraft.world.item.Items.STICK));
-                    require(outputs.size() == 2 && outputs.stream().allMatch(entity -> entity.getItem().getCount() == 1),
+                    var newOutputs = outputs.stream().filter(entity -> !baselineIds.contains(entity.getUUID())).toList();
+                    require(newOutputs.size() == 2 && newOutputs.stream().allMatch(entity -> entity.getItem().getCount() == 1),
                             "world full-eat creates two separate count-one trash entities");
-                    require(outputs.stream().allMatch(entity -> entity.position().distanceToSqr(origin) <= .5),
+                    require(newOutputs.stream().allMatch(entity -> entity.position().distanceToSqr(origin) <= .5),
                             "world trash uses the source-origin collision-safe placement adaptation");
                     require(hands(body).stackCopy(hand).isEmpty()
                                     && hands(body).handIds().stream().allMatch(id -> hands(body).stackCopy(id).isEmpty()),
                             "world-source outputs are not automatically picked up even though hands are free");
-                }));
-            } catch (Throwable failure) { finish(helper, fixture, scope, finished, failure); }
+                }); });
+                } catch (Throwable failure) { finish(helper, fixture, scope, finished, receiptSubscription.getAndSet(null), failure); }
+                });
+            } catch (Throwable failure) { finish(helper, fixture, scope, finished, receiptSubscription.getAndSet(null), failure); }
         });
     }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40)
-    @GameTestTags({"ingestion-trash", "ingestion-trash-cancelled"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 40, batch = "catalog-ingestion-trash-cancel")
+    @GameTestTags({"ingestion-trash", "ingestion-trash-cancelled", "merge-main-remaining"})
     public static void cancelledTimedFoodDoesNotPublishTrash(GameTestHelper helper) {
         var scope = installTrashProfile(500, 500);
         var fixture = register(helper, "trash-cancelled");
@@ -160,26 +206,64 @@ public final class TimedTrashOutputAuthenticatedGameTests {
                         "food owned through registered actor");
                 var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(active.epoch(), 2));
                 var held = query.hands().stream().filter(value -> value.id().equals(hand)).findFirst().orElseThrow();
+                var level = (ServerLevel) body.level();
+                var region = new net.minecraft.world.phys.AABB(body.position(), body.position()).inflate(3);
+                var baselineEntities = level.getEntitiesOfClass(LooseItemEntity.class, region,
+                        entity -> entity.getItem().is(net.minecraft.world.item.Items.STICK));
+                Set<java.util.UUID> baselineIds = new HashSet<>();
+                baselineEntities.forEach(entity -> baselineIds.add(entity.getUUID()));
+                var baselineWorld = baselineEntities.stream().limit(8)
+                        .map(entity -> entity.getUUID() + "@" + entity.position() + "x" + entity.getItem().getCount()
+                                + ",age=" + entity.tickCount).toList();
                 var first = new BodyHandActionRequest(BodyHandActionRequest.Action.USE_IN_HAND,
                         hand, active.epoch(), 3, query.revision(), null, held.token());
-                require(BodyHandRequestService.apply(fixture.player(), first).accepted(), "timed ingestion admitted normally");
-                require(BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(
+                var firstResult = BodyHandRequestService.apply(fixture.player(), first);
+                require(firstResult.accepted(), "timed ingestion admitted normally; accepted=" + firstResult.accepted()
+                        + ", reason=" + firstResult.reason());
+                var key = "held:" + held.token();
+                var stateAfterStart = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.TIMED_OPERATIONS.get());
+                var started = stateAfterStart == null ? null : stateAfterStart.operations().stream()
+                        .filter(operation -> operation.kind().equals("ingestion") && operation.sourceKey().equals(key)
+                                && operation.phase() == com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperation.Phase.ACTIVE)
+                        .findFirst().orElse(null);
+                var secondResult = BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(
                         BodyHandActionRequest.Action.USE_IN_HAND, hand, active.epoch(), 4,
-                        query.revision(), null, held.token())).accepted(), "same authenticated action cancels its operation");
+                        query.revision(), null, held.token()));
+                var stateAfterCancel = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.TIMED_OPERATIONS.get());
+                var cancelled = stateAfterCancel == null || started == null ? null : stateAfterCancel.operations().stream()
+                        .filter(operation -> operation.id() == started.id())
+                        .findFirst().orElse(null);
+                require(secondResult.accepted() && started != null && cancelled != null
+                                && cancelled.phase() == com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperation.Phase.CANCELLED,
+                        "same authenticated action cancels matching operation; firstAccepted=" + firstResult.accepted()
+                                + ", firstReason=" + firstResult.reason() + ", secondAccepted=" + secondResult.accepted()
+                                + ", secondReason=" + secondResult.reason() + ", matchingKey=" + key.equals(started == null ? null : started.sourceKey())
+                                + ", started=" + operationSummary(started) + ", after=" + operationSummary(stateAfterCancel));
                 helper.runAfterDelay(5, () -> finishAfter(helper, fixture, scope, finished, () -> {
                     require(sourceNutriment(hands(body).stackCopy(hand).orElseThrow()) == 500 && stomach(body) == 0,
                             "cancellation leaves food and stomach unchanged");
+                    var currentRegion = new net.minecraft.world.phys.AABB(body.position(), body.position()).inflate(3);
+                    var currentWorld = level.getEntitiesOfClass(LooseItemEntity.class, currentRegion,
+                            entity -> entity.getItem().is(net.minecraft.world.item.Items.STICK));
+                    var newWorldTrash = currentWorld.stream()
+                            .filter(entity -> !baselineIds.contains(entity.getUUID())).toList();
+                    var currentSummary = currentWorld.stream().limit(8)
+                            .map(entity -> entity.getUUID() + "@" + entity.position() + "x" + entity.getItem().getCount()
+                                    + ",age=" + entity.tickCount).toList();
                     require(trashInHands(body) == 0
-                                    && ((ServerLevel) body.level()).getEntitiesOfClass(LooseItemEntity.class,
-                                    new net.minecraft.world.phys.AABB(body.position(), body.position()).inflate(3),
-                                    entity -> entity.getItem().is(net.minecraft.world.item.Items.STICK)).isEmpty(),
-                            "cancelled session emits neither held nor world trash outputs");
+                                    && newWorldTrash.isEmpty(),
+                            "cancelled session emits neither held nor new world trash outputs; held=" + trashInHands(body)
+                                    + ", baselineWorld=" + baselineWorld + ", currentWorld(count=" + currentWorld.size()
+                                    + ")=" + currentSummary + ", tick=" + level.getGameTime() + ", food="
+                                    + sourceNutriment(hands(body).stackCopy(hand).orElseThrow()) + ", stomach=" + stomach(body)
+                                    + ", operation=" + operationSummary(body.getExistingDataOrNull(
+                                    com.juicyslew.moonstation14.component.ModDataAttachments.TIMED_OPERATIONS.get())));
                 }));
             } catch (Throwable failure) { finish(helper, fixture, scope, finished, failure); }
         });
     }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 60)
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 60, batch = "catalog-ingestion-trash-partial")
     @GameTestTags({"ingestion-trash", "ingestion-trash-publication-failure"})
     public static void partialTrashPublicationFailurePreservesFoodAndStomach(GameTestHelper helper) {
         var scope = installTrashProfile(500, 500);
@@ -270,17 +354,36 @@ public final class TimedTrashOutputAuthenticatedGameTests {
         return hands(body).handIds().stream().map(hands(body)::stackCopy).flatMap(java.util.Optional::stream)
                 .filter(stack -> stack.is(net.minecraft.world.item.Items.STICK)).mapToInt(ItemStack::getCount).sum();
     }
+    private static String operationSummary(com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperation operation) {
+        if (operation == null) return "none";
+        return "id=" + operation.id() + ",kind=" + operation.kind() + ",phase=" + operation.phase()
+                + ",start=" + operation.startTick() + ",due=" + operation.dueTick() + ",terminal=" + operation.terminalTick();
+    }
+    private static String operationSummary(com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperationState state) {
+        if (state == null) return "[]";
+        return state.operations().stream().limit(4).map(TimedTrashOutputAuthenticatedGameTests::operationSummary).toList().toString();
+    }
     private static void finish(GameTestHelper helper, RegisteredServerPlayerFixture fixture, ProfileScope scope,
                                AtomicBoolean finished, Throwable failure) {
+        finish(helper, fixture, scope, finished, null, failure);
+    }
+    private static void finish(GameTestHelper helper, RegisteredServerPlayerFixture fixture, ProfileScope scope,
+                               AtomicBoolean finished, AutoCloseable cleanup, Throwable failure) {
         if (!finished.compareAndSet(false, true)) return;
+        if (cleanup != null) try { cleanup.close(); } catch (Throwable close) { if (failure == null) failure = close; else failure.addSuppressed(close); }
         try { scope.restore(); } catch (Throwable restore) { if (failure == null) failure = restore; else failure.addSuppressed(restore); }
         try { fixture.close(); } catch (Throwable close) { if (failure == null) failure = close; else failure.addSuppressed(close); }
         if (failure == null) helper.succeed(); else helper.testInfo.fail(failure);
     }
     private static void finishAfter(GameTestHelper helper, RegisteredServerPlayerFixture fixture, ProfileScope scope,
-                                    AtomicBoolean finished, Runnable assertions) {
+                                     AtomicBoolean finished, Runnable assertions) {
         try { assertions.run(); finish(helper, fixture, scope, finished, null); }
         catch (Throwable failure) { finish(helper, fixture, scope, finished, failure); }
+    }
+    private static void finishAfter(GameTestHelper helper, RegisteredServerPlayerFixture fixture, ProfileScope scope,
+                                     AtomicBoolean finished, AutoCloseable cleanup, Runnable assertions) {
+        try { assertions.run(); finish(helper, fixture, scope, finished, cleanup, null); }
+        catch (Throwable failure) { finish(helper, fixture, scope, finished, cleanup, failure); }
     }
     private static void require(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
     private static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath("moonstation14", path); }

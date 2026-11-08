@@ -33,6 +33,7 @@ public final class CombatModeNetworking {
             context.reply(MeleeAttackRequestService.handle(player,request));
         });
         event.registrar("1").executesOn(HandlerThread.MAIN).playToClient(MeleeArcPayload.TYPE, MeleeArcPayload.STREAM_CODEC, (payload, context) -> meleeArcHandler.accept(payload));
+        event.registrar("1").executesOn(HandlerThread.MAIN).playToClient(TransientDisarmFlightPayload.TYPE, TransientDisarmFlightPayload.STREAM_CODEC, (payload, context) -> DisarmFlightClientState.receive(payload));
         event.registrar("1").executesOn(HandlerThread.MAIN).playToClient(GunMuzzleFlashPayload.TYPE,GunMuzzleFlashPayload.STREAM_CODEC,(payload,context)->gunMuzzleFlashHandler.accept(payload));
         event.registrar("1").executesOn(HandlerThread.MAIN).playToClient(GunShotReply.TYPE,GunShotReply.STREAM_CODEC,(reply,context)->gunShotReplyHandler.accept(reply)).playToServer(GunShotRequest.TYPE,GunShotRequest.STREAM_CODEC,(request,context)->{
             if (!(context.player() instanceof ServerPlayer player) || player.connection == null || player.getServer() == null || player.getServer().getPlayerList().getPlayer(player.getUUID()) != player) return;

@@ -13,4 +13,10 @@ class CombatWorldPressRouteTest {
         assertEquals(CombatWorldPressRoute.Route.CONTEXT, CombatWorldPressRoute.route(true,false,true,false,true,false));
         assertEquals(CombatWorldPressRoute.Route.CONTEXT, CombatWorldPressRoute.route(true,false,true,false,false,true));
     }
+
+    @Test void secondaryRequiresAdmissionAndUnclaimedUi() {
+        assertEquals(CombatWorldPressRoute.Route.SECONDARY, CombatWorldPressRoute.route(true,false,true,false,false,false));
+        assertEquals(CombatWorldPressRoute.Route.NONE, CombatWorldPressRoute.route(false,false,true,false,false,false));
+        assertEquals(CombatWorldPressRoute.Route.NONE, CombatWorldPressRoute.route(true,true,true,false,false,false));
+    }
 }

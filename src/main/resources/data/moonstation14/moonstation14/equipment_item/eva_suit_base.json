@@ -1,0 +1,1 @@
+{"abstract":true,"parent":"base_clothing","item":{"size":"Huge"},"clothing":{"slot_flags":["OUTERCLOTHING"],"region":"TORSO","color":-1},"allow_suit_storage":true,"pressure_protection":{"high_pressure_multiplier":0.6,"low_pressure_multiplier":1000},"temperature_protection":{"heating_coefficient":0.01,"cooling_coefficient":0.01}}

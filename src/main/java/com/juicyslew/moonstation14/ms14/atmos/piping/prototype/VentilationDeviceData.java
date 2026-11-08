@@ -4,6 +4,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
 import com.juicyslew.moonstation14.ms14.atmos.piping.Ss14VentilationDefaults;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosMonitorData;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmableData;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -22,8 +24,8 @@ import com.juicyslew.moonstation14.ms14.atmos.machine.AtmosMachineCadence;
 public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiver apcPowerReceiver,
                                     ExtensionCableReceiver extensionCableReceiver, GasVentPump gasVentPump,
                                      GasVentScrubber gasVentScrubber, FixtureGeometry fixtureGeometry,
-                                      DeviceComponents deviceComponents, java.util.Optional<AtmosAmbientAudio> ambientAudio,
-                                      double deviceIntervalSeconds) {
+                                     DeviceComponents deviceComponents, java.util.Optional<AtmosAmbientAudio> ambientAudio,
+                                     double deviceIntervalSeconds, AtmosMonitorData atmosMonitor, AtmosAlarmableData atmosAlarmable) {
     public enum Kind { VENT, SCRUBBER }
     public enum PipeLane { PRIMARY, SECONDARY, TERTIARY }
 
@@ -31,14 +33,14 @@ public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiv
                                  ExtensionCableReceiver extensionCableReceiver, GasVentPump gasVentPump,
                                  GasVentScrubber gasVentScrubber, FixtureGeometry fixtureGeometry) {
         this(kind, pipeLane, apcPowerReceiver, extensionCableReceiver, gasVentPump, gasVentScrubber,
-                fixtureGeometry, DeviceComponents.empty(), java.util.Optional.empty(), AtmosMachineCadence.DEFAULT_DEVICE_INTERVAL_SECONDS);
+                fixtureGeometry, DeviceComponents.empty(), java.util.Optional.empty(), AtmosMachineCadence.DEFAULT_DEVICE_INTERVAL_SECONDS, null, null);
     }
     public VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiver apcPowerReceiver,
                                  ExtensionCableReceiver extensionCableReceiver, GasVentPump gasVentPump,
                                  GasVentScrubber gasVentScrubber, FixtureGeometry fixtureGeometry,
                                  DeviceComponents deviceComponents) {
         this(kind, pipeLane, apcPowerReceiver, extensionCableReceiver, gasVentPump, gasVentScrubber,
-                fixtureGeometry, deviceComponents, java.util.Optional.empty(), AtmosMachineCadence.DEFAULT_DEVICE_INTERVAL_SECONDS);
+                fixtureGeometry, deviceComponents, java.util.Optional.empty(), AtmosMachineCadence.DEFAULT_DEVICE_INTERVAL_SECONDS, null, null);
     }
 
     public VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiver apcPowerReceiver,
@@ -46,7 +48,32 @@ public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiv
                                  GasVentScrubber gasVentScrubber, FixtureGeometry fixtureGeometry,
                                  DeviceComponents deviceComponents, java.util.Optional<AtmosAmbientAudio> ambientAudio) {
         this(kind, pipeLane, apcPowerReceiver, extensionCableReceiver, gasVentPump, gasVentScrubber,
-                fixtureGeometry, deviceComponents, ambientAudio, AtmosMachineCadence.DEFAULT_DEVICE_INTERVAL_SECONDS);
+                fixtureGeometry, deviceComponents, ambientAudio, AtmosMachineCadence.DEFAULT_DEVICE_INTERVAL_SECONDS, null, null);
+    }
+
+    public VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiver apcPowerReceiver,
+                                 ExtensionCableReceiver extensionCableReceiver, GasVentPump gasVentPump,
+                                 GasVentScrubber gasVentScrubber, FixtureGeometry fixtureGeometry,
+                                 DeviceComponents deviceComponents, java.util.Optional<AtmosAmbientAudio> ambientAudio,
+                                 double deviceIntervalSeconds) {
+        this(kind, pipeLane, apcPowerReceiver, extensionCableReceiver, gasVentPump, gasVentScrubber,
+                fixtureGeometry, deviceComponents, ambientAudio, deviceIntervalSeconds, null, null);
+    }
+
+    public VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiver apcPowerReceiver,
+                                 ExtensionCableReceiver extensionCableReceiver, GasVentPump gasVentPump,
+                                 GasVentScrubber gasVentScrubber, FixtureGeometry fixtureGeometry,
+                                 DeviceComponents deviceComponents, AtmosMonitorData atmosMonitor) {
+        this(kind, pipeLane, apcPowerReceiver, extensionCableReceiver, gasVentPump, gasVentScrubber,
+                fixtureGeometry, deviceComponents, java.util.Optional.empty(), AtmosMachineCadence.DEFAULT_DEVICE_INTERVAL_SECONDS, atmosMonitor, null);
+    }
+
+    public VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiver apcPowerReceiver,
+                                 ExtensionCableReceiver extensionCableReceiver, GasVentPump gasVentPump,
+                                 GasVentScrubber gasVentScrubber, FixtureGeometry fixtureGeometry,
+                                 DeviceComponents deviceComponents, AtmosMonitorData atmosMonitor, AtmosAlarmableData atmosAlarmable) {
+        this(kind, pipeLane, apcPowerReceiver, extensionCableReceiver, gasVentPump, gasVentScrubber,
+                fixtureGeometry, deviceComponents, java.util.Optional.empty(), AtmosMachineCadence.DEFAULT_DEVICE_INTERVAL_SECONDS, atmosMonitor, atmosAlarmable);
     }
 
     public record ApcPowerReceiver(double requestedWatts) {
@@ -104,13 +131,15 @@ public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiv
             ApcPowerReceiver.CODEC.fieldOf("apcPowerReceiver").forGetter(VentilationDeviceData::apcPowerReceiver),
             ExtensionCableReceiver.CODEC.fieldOf("extensionCableReceiver").forGetter(VentilationDeviceData::extensionCableReceiver),
             GasVentPump.CODEC.optionalFieldOf("gasVentPump").forGetter(d -> java.util.Optional.ofNullable(d.gasVentPump())),
-            GasVentScrubber.CODEC.optionalFieldOf("gasVentScrubber").forGetter(d -> java.util.Optional.ofNullable(d.gasVentScrubber()))
-             , FixtureGeometry.CODEC.fieldOf("fixtureGeometry").forGetter(VentilationDeviceData::fixtureGeometry),
+             GasVentScrubber.CODEC.optionalFieldOf("gasVentScrubber").forGetter(d -> java.util.Optional.ofNullable(d.gasVentScrubber())),
+             FixtureGeometry.CODEC.fieldOf("fixtureGeometry").forGetter(VentilationDeviceData::fixtureGeometry),
              DeviceComponents.CODEC.optionalFieldOf("deviceComponents", DeviceComponents.empty()).forGetter(VentilationDeviceData::deviceComponents),
               AtmosAmbientAudio.CODEC.optionalFieldOf("ambientAudio").forGetter(VentilationDeviceData::ambientAudio),
-              Codec.DOUBLE.fieldOf("deviceIntervalSeconds").forGetter(VentilationDeviceData::deviceIntervalSeconds)
-      ).apply(i, (kind, lane, apc, extension, vent, scrubber, geometry, components, audio, interval) ->
-              new VentilationDeviceData(kind, lane, apc, extension, vent.orElse(null), scrubber.orElse(null), geometry, components, audio, interval)));
+             Codec.DOUBLE.fieldOf("deviceIntervalSeconds").forGetter(VentilationDeviceData::deviceIntervalSeconds),
+             AtmosMonitorData.CODEC.optionalFieldOf("atmosMonitor").forGetter(d -> java.util.Optional.ofNullable(d.atmosMonitor())),
+             AtmosAlarmableData.CODEC.optionalFieldOf("atmosAlarmable").forGetter(d -> java.util.Optional.ofNullable(d.atmosAlarmable()))
+     ).apply(i, (kind, lane, apc, extension, vent, scrubber, geometry, components, audio, interval, monitor, alarmable) ->
+             new VentilationDeviceData(kind, lane, apc, extension, vent.orElse(null), scrubber.orElse(null), geometry, components, audio, interval, monitor.orElse(null), alarmable.orElse(null))));
 
     public static final Codec<VentilationDeviceData> CODEC = Codec.of(STRUCTURAL, new Decoder<>() {
         @Override public <T> DataResult<Pair<VentilationDeviceData, T>> decode(DynamicOps<T> ops, T input) {
@@ -141,6 +170,8 @@ public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiv
                     || !Float.isFinite(audio.volumeDb()) || !Float.isFinite(audio.range()) || audio.range() <= 0)
                 throw new IllegalArgumentException("invalid ventilation ambient audio");
         });
+        if (atmosMonitor == null || atmosAlarmable == null || atmosAlarmable.sourceTags().isEmpty())
+            throw new IllegalArgumentException("ventilation monitor requires resolved threshold and source-tag composition");
         if (fixtureGeometry == null || fixtureGeometry.width() <= 0 || fixtureGeometry.width() > 1
                 || fixtureGeometry.height() <= 0 || fixtureGeometry.height() > 1
                 || fixtureGeometry.depth() <= 0 || fixtureGeometry.depth() > 0.5)
@@ -178,7 +209,7 @@ public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiv
     private static void audit(JsonElement json) {
         if (!json.isJsonObject()) throw new IllegalArgumentException("expected object");
         JsonObject object = json.getAsJsonObject();
-        fields(object, Set.of("kind", "pipeLane", "apcPowerReceiver", "extensionCableReceiver", "gasVentPump", "gasVentScrubber", "fixtureGeometry", "deviceComponents", "ambientAudio", "deviceIntervalSeconds"));
+        fields(object, Set.of("kind", "pipeLane", "apcPowerReceiver", "extensionCableReceiver", "gasVentPump", "gasVentScrubber", "fixtureGeometry", "deviceComponents", "ambientAudio", "deviceIntervalSeconds", "atmosMonitor", "atmosAlarmable"));
         for (String name : List.of("apcPowerReceiver", "extensionCableReceiver"))
             if (object.has(name)) nested(object, name, switch (name) {
                 case "apcPowerReceiver" -> Set.of("requestedWatts");
@@ -202,4 +233,3 @@ public record VentilationDeviceData(Kind kind, PipeLane pipeLane, ApcPowerReceiv
         }
     }
 }
-

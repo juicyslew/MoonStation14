@@ -19,7 +19,7 @@ public final class PoppyHeadwearGameTests {
     private PoppyHeadwearGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
-    @GameTestTags("flower-headwear-validation")
+    @GameTestTags({"flower-headwear-validation", "merge-main-remaining", "merge-main-stage-two"})
     public static void registeredPoppyManuallyEquipsHeadWithoutQuickEquip(GameTestHelper helper) {
         Villager body = helper.spawn(EntityType.VILLAGER, new BlockPos(1, 1, 1));
         helper.runAfterDelay(1, () -> {
@@ -37,9 +37,11 @@ public final class PoppyHeadwearGameTests {
                 require(clothing.slotFlags().contains(com.juicyslew.moonstation14.ms14.equipment.InventoryTemplateData.SlotFlag.HEAD),
                         "resolved poppy profile admits head slot");
                 require(clothing.wornModel().isEmpty() && resolved.armor().isEmpty(), "poppy has no armor or worn model");
+                var ordinaryCalls = new java.util.concurrent.atomic.AtomicInteger();
                 require(com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatch.routeActivation(
                         () -> com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicy.quickEquip(body.level(), poppy),
-                        () -> false, () -> false), "ordinary use dispatch remains available");
+                        () -> false, () -> { ordinaryCalls.incrementAndGet(); return true; }), "ordinary use dispatch remains available");
+                require(ordinaryCalls.get() == 1, "ordinary callback runs exactly once when quick equip is disabled");
                 require(BodyEquipmentTransfer.transferOwned(body, "left", "head", "flower", before.revision(), true, () -> true)
                         == BodyEquipmentTransfer.Result.SUCCESS, "manual transfer equips real poppy to head");
                 var after = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());

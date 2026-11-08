@@ -84,16 +84,13 @@ class WorkflowBoardActivityTests(unittest.TestCase):
         for activity, column, status in (("working", "Building", "Working"),
                                          ("waiting", "Building", "Waiting for your input"),
                                          ("idle", "Idle", "Idle"),
-                                         ("unknown", None, None)):
+                                         ("unknown", "Idle", "Activity unavailable")):
             with self.subTest(activity=activity):
                 board=workflow_board.project({"available":True,"records":[]},worktree="/w",
                     author_activity=[{"worktree":"/w","label":"Agent 04","activity":activity,"summary":"Implementing feature"}])
-                if column is None:
-                    self.assertFalse(any(board["columns"].values()))
-                else:
-                    card=board["columns"][column][0]
-                    self.assertEqual(card["status_text"],status)
-                    self.assertFalse(card["capabilities"])
+                card=board["columns"][column][0]
+                self.assertEqual(card["status_text"],status)
+                self.assertFalse(card["capabilities"])
 
     def test_submitted_workflow_precedes_agent_activity(self):
         item=record("CHECKING")
@@ -102,6 +99,14 @@ class WorkflowBoardActivityTests(unittest.TestCase):
         self.assertEqual(len(board["columns"]["Checking"]),1)
         self.assertFalse(board["columns"]["Idle"])
         self.assertEqual(board["columns"]["Checking"][0]["status_text"],"Running checks")
+
+    def test_passed_manual_testing_coexists_with_live_and_idle_author(self):
+        item=record("DECIDED",result="PASS")
+        for activity,column in (("working","Building"),("idle","Idle")):
+            board=workflow_board.project({"available":True,"records":[item]},worktree="/w",
+                author_activity=[{"worktree":"/w","label":"Agent 04","activity":activity}])
+            self.assertEqual(len(board["columns"]["Your testing"]),1)
+            self.assertEqual(len(board["columns"][column]),1)
 
     def test_accepted_dismissal_requires_clean_current_acceptance(self):
         accepted={"decision_id":"d","run_id":"r","generation":2,"input_digest":"digest",

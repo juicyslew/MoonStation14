@@ -22,3 +22,10 @@ TEG center ambience. No matching entry was found in
 `Resources/Audio/Ambience/Objects/attributions.yml`; author, license, and
 further attribution remain unknown. Runtime/source SHA-256 is
 `1f13c219aef1f1aaa6ff3edb03d30222e8555f92cd19cf467a1849602edc3c00`.
+The SS14 source checkout at `c9df5ef5d675b0d1d226828bddf6b78c28502d91` provides
+`Audio/Weapons/star_hit.ogg`, `pierce.ogg`, `bolathrow.ogg`, and
+`Audio/Effects/snap.ogg` without per-file author/license metadata. They were copied
+unchanged for thrown combat presentation; provenance/license remains unverified.
+`Audio/Effects/drop.ogg` was also copied unchanged for inherited thrown-item
+landing presentation. The pinned source provides no per-file author/license metadata;
+provenance/license remains unverified.

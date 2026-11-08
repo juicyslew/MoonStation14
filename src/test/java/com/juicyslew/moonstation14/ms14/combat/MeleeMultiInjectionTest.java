@@ -31,6 +31,10 @@ class MeleeMultiInjectionTest {
                 - shares.stream().flatMap(s -> s.values().stream()).mapToLong(Long::longValue).sum());
     }
 
+    @Test void zeroTargetsDoNotDistributeDose() {
+        assertTrue(MeleeChemicalInjectorSystem.distributeDetachedDose(Map.of(A, 100L), 0).isEmpty());
+    }
+
     private static java.util.List<Map<ResourceKey<ReagentData>, Long>> distribute(Map<ResourceKey<ReagentData>, Long> input, int count) {
         var source = new ReagentAttachment(ReagentComponent.fromCents(input));
         return MeleeChemicalInjectorSystem.distributeDetachedDose(source.splitUnits(source.totalUnits()), count);

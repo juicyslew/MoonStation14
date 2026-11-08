@@ -13,6 +13,51 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /** Main-thread client correlation gate. Only a matching full query reply can enable an action. */
 public final class BodyHandClientPolicy {
+    record HudExamineBinding(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location location,
+                             String slot, long revision, String token) { }
+    static HudExamineBinding examineHudTile(BodyHandStateSnapshot snapshot, HandBarLayout.Layout.Tile tile) {
+        if (snapshot == null || tile == null) return null;
+        if (tile == HandBarLayout.Layout.Tile.FIRST || tile == HandBarLayout.Layout.Tile.SECOND) {
+            int index = tile == HandBarLayout.Layout.Tile.FIRST ? 0 : 1;
+            if (snapshot.hands().size() <= index) return null;
+            var hand = snapshot.hands().get(index);
+            return hand.token() == null ? null : new HudExamineBinding(
+                    com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                    hand.id(), snapshot.revision(), hand.token());
+        }
+        String id = tile == HandBarLayout.Layout.Tile.BACK ? "back"
+                : tile == HandBarLayout.Layout.Tile.BELT ? "belt" : null;
+        if (id == null) return null;
+        var slot = snapshot.equipment().stream().filter(value -> value.id().equals(id) && value.token() != null)
+                .findFirst().orElse(null);
+        return slot == null ? null : new HudExamineBinding(
+                com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.EQUIPMENT,
+                slot.id(), snapshot.revision(), slot.token());
+    }
+    static HudExamineBinding examineHudTile(BodyHandStateSnapshot snapshot, HandBarLayout.Layout.Tile tile,
+            boolean primaryPress, boolean shift, boolean control, boolean alt, boolean pointerFree, boolean screenClosed) {
+        return primaryPress && shift && !control && !alt && pointerFree && screenClosed
+                ? examineHudTile(snapshot, tile) : null;
+    }
+    /** Resolve only an occupied hand tile under the canonical hand-bar geometry for exact owned-item examine. */
+    static BodyHandStateSnapshot.Hand examineHandTile(BodyHandStateSnapshot snapshot, int x, int y,
+            int width, int height, boolean primaryPress, boolean shift, boolean control, boolean alt,
+            boolean pointerFree, boolean screenClosed) {
+        if (snapshot == null || !primaryPress || !shift || control || alt || !pointerFree || !screenClosed) return null;
+        var layout = HandBarLayout.calculate(width, height, snapshot.hands().size());
+        if (layout == null) return null;
+        var tile = layout.tileAt(x, y);
+        return examineHudTile(snapshot, tile) != null && examineHudTile(snapshot, tile).location()
+                == com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD
+                ? snapshot.hands().get(tile == HandBarLayout.Layout.Tile.FIRST ? 0 : 1) : null;
+    }
+    static HudExamineBinding examineHudAt(BodyHandStateSnapshot snapshot, int x, int y, int width, int height,
+            boolean primaryPress, boolean shift, boolean control, boolean alt, boolean pointerFree, boolean screenClosed) {
+        if (snapshot == null) return null;
+        var layout = HandBarLayout.calculate(width, height, snapshot.hands().size());
+        return layout == null ? null : examineHudTile(snapshot, layout.tileAt(x, y), primaryPress, shift, control,
+                alt, pointerFree, screenClosed);
+    }
     private static final long REQUEST_TIMEOUT_TICKS = 80;
     /** Production admission predicate for routing transparent pointer-canvas clicks into body actions. */
     public static boolean allowPointerWorldAction(boolean pointerCanvas, boolean insideAnyUi, boolean textFocused) {

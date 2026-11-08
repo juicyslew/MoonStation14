@@ -51,7 +51,8 @@ public final class MaterialOutputSourceGameTests {
         helper.assertTrue(MS14Provider.getDetached(stack, bridge).isEmpty(), id + " remains empty after lazy initialization");
     }
 
-    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000)
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 4000, batch = "catalog-item-processing-material-output")
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining"})
     public static void registeredSharpLogOutputsCottonAndPyrottonAsFreshUnits(GameTestHelper helper) {
         com.juicyslew.moonstation14.ms14.hands.network.BotanyHarvestAuthenticatedGameTests.runAuthenticatedHarvest(helper,
                 new ItemStack(ModItems.WHEAT_SEEDS.get()), "material-output", (h, fixture, epoch, hand, tray, pos, level, finished) -> {

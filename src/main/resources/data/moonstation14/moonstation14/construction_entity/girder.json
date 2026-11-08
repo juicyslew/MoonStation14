@@ -1,1 +1,1 @@
-{"block":"moonstation14:steel_wall_girder_block","defaultAnchored":true,"anchorable":true,"unanchorable":true,"anchoringSeconds":1.0,"airtight":false}
+{"block":"moonstation14:steel_wall_girder_block","defaultAnchored":true,"anchorable":true,"unanchorable":true,"anchoringSeconds":1.0,"airtight":false,"structuralContact":{"coefficients":{"shock":1.2,"heat":1.2},"flat_reductions":{"blunt":10,"slash":10,"piercing":10,"heat":10}}}

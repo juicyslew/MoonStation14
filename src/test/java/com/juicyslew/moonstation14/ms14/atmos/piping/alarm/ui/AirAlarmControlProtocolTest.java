@@ -181,8 +181,84 @@ class AirAlarmControlProtocolTest {
         assertEquals(snapshot, AirAlarmControlSnapshot.STREAM_CODEC.decode(buffer));
         var overflow = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
         overflow.writeVarInt(12); overflow.writeUUID(SESSION); overflow.writeVarLong(8);
-        overflow.writeBoolean(true); overflow.writeBoolean(false); overflow.writeVarInt(33);
+        overflow.writeBoolean(true); overflow.writeBoolean(false);
+        overflow.writeEnum(com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.NORMAL);
+        overflow.writeEnum(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.FILTERING);
+        overflow.writeBoolean(true); overflow.writeVarLong(0); overflow.writeVarInt(33);
         assertThrows(IllegalArgumentException.class, () -> AirAlarmControlSnapshot.STREAM_CODEC.decode(overflow));
+    }
+
+    @Test void snapshotCarriesControllerRevisionAndCanonicalMonitorAmountsIncludingVacuum() {
+        var gases = java.util.Collections.nCopies(GasType.values().length, 0.0);
+        var reading = new AirAlarmControlSnapshot.MonitorReading(DEVICE, "canonical-addr", false, true, true,
+                0, 2.7, 0, gases);
+        var snapshot = new AirAlarmControlSnapshot(12, SESSION, 9, true, true,
+                com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.DANGER,
+                com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.PANIC, false, 7, List.of(), List.of(reading));
+        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        AirAlarmControlSnapshot.STREAM_CODEC.encode(buffer, snapshot);
+        assertEquals(snapshot, AirAlarmControlSnapshot.STREAM_CODEC.decode(buffer));
+        var unknown = new AirAlarmControlSnapshot.MonitorReading(DEVICE, "a", false, false, false,
+                Double.NaN, Double.NaN, Double.NaN, java.util.Collections.nCopies(GasType.values().length, Double.NaN));
+        assertFalse(unknown.valid());
+        assertTrue(unknown.gasMoles().stream().allMatch(value -> Double.isNaN(value)));
+        var unknownSnapshot = new AirAlarmControlSnapshot(12, SESSION, 10, true, true,
+                com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.NORMAL,
+                com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.FILTERING, true, 8,
+                List.of(), List.of(unknown));
+        var unknownBuffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        AirAlarmControlSnapshot.STREAM_CODEC.encode(unknownBuffer, unknownSnapshot);
+        assertEquals(unknownSnapshot, AirAlarmControlSnapshot.STREAM_CODEC.decode(unknownBuffer));
+        assertThrows(IllegalArgumentException.class, () -> new AirAlarmControlSnapshot.MonitorReading(DEVICE,
+                "a", false, true, false, 0, 2.7, 0, List.of()));
+    }
+
+    @Test void modeAndAutoIntentUseControllerRevisionAndAllFiveModesRoundTrip() {
+        for (var mode : com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.values()) {
+            var request = new AirAlarmControlRequest(12, SESSION, mode.ordinal(), DEVICE, 14,
+                    AirAlarmControlRequest.Operation.SET_ALARM_MODE, false, mode.ordinal());
+            var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            AirAlarmControlRequest.STREAM_CODEC.encode(buffer, request);
+            var decoded = AirAlarmControlRequest.STREAM_CODEC.decode(buffer);
+            assertEquals(0, decoded.containerId()); // Container id is intentionally omitted by the workspace protocol.
+            assertEquals(request.session(), decoded.session());assertEquals(request.requestId(), decoded.requestId());
+            assertEquals(request.deviceId(), decoded.deviceId());assertEquals(request.expectedRevision(), decoded.expectedRevision());
+            assertEquals(request.operation(), decoded.operation());assertEquals(request.desired(), decoded.desired());
+            assertEquals(request.enumIndex(), decoded.enumIndex());assertEquals(request.numericValue(), decoded.numericValue());
+            assertTrue(AirAlarmMenuService.controllerRevisionMatches(14, request));
+            assertFalse(AirAlarmMenuService.controllerRevisionMatches(15, request));
+        }
+        var auto = new AirAlarmControlRequest(12, SESSION, 20, DEVICE, 14,
+                AirAlarmControlRequest.Operation.SET_AUTO_MODE, false, 0);
+        var autoBuffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        AirAlarmControlRequest.STREAM_CODEC.encode(autoBuffer, auto);
+        var decodedAuto = AirAlarmControlRequest.STREAM_CODEC.decode(autoBuffer);
+        assertEquals(0, decodedAuto.containerId());assertEquals(auto.session(), decodedAuto.session());
+        assertEquals(auto.requestId(), decodedAuto.requestId());assertEquals(auto.deviceId(), decodedAuto.deviceId());
+        assertEquals(auto.expectedRevision(), decodedAuto.expectedRevision());assertEquals(auto.operation(), decodedAuto.operation());
+        assertEquals(auto.desired(), decodedAuto.desired());assertEquals(auto.enumIndex(), decodedAuto.enumIndex());
+        assertEquals(auto.numericValue(), decodedAuto.numericValue());
+        assertTrue(AirAlarmMenuService.controllerRevisionMatches(14, auto));
+        assertFalse(AirAlarmMenuService.controllerRevisionMatches(15, auto));
+    }
+
+    @Test void monitorCacheRetainsLastValidCanonicalReportOnInvalidAndUnloadedSource() {
+        var cache = new com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmObservationCache();
+        // Build an explicit all-nine zero map: vacuum is known data rather than an absent report.
+        var zeros = new java.util.EnumMap<GasType, Double>(GasType.class);
+        for (var gas : GasType.values()) zeros.put(gas, 0.0);
+        var valid = new com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosAlarmPayload.Measurement(
+                com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.WARNING, 0, 2.7, 0,
+                java.util.Set.of("GasVent"), true, false, zeros);
+        var invalid = new com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosAlarmPayload.Measurement(
+                com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.NORMAL, Double.NaN, Double.NaN,
+                Double.NaN, java.util.Set.of("GasVent"), false, false);
+        assertTrue(cache.observeReport(DEVICE, valid, java.util.Set.of(DEVICE)));
+        assertTrue(cache.observeReport(DEVICE, invalid, java.util.Set.of(DEVICE)));
+        assertEquals(valid, cache.reportSnapshot(java.util.Set.of(DEVICE)).get(DEVICE));
+        assertFalse(cache.observeReport(DEVICE, valid, java.util.Set.of()));
+        assertTrue(cache.reportSnapshot(java.util.Set.of()).isEmpty());
+        assertEquals(valid, cache.reportSnapshot(java.util.Set.of(DEVICE)).get(DEVICE)); // unloaded is not removal
     }
 
     @Test void mutationIntentReusesRevisionedVentilationPolicy() {
@@ -207,7 +283,7 @@ class AirAlarmControlProtocolTest {
         var entry = new CompoundTag();
         entry.putString("Dimension", "minecraft:overworld");
         entry.putInt("X", 1); entry.putInt("Y", 70); entry.putInt("Z", 2);
-        entry.putString("Kind", "VENT"); entry.putUUID("DeviceId", DEVICE);
+        entry.putString("Role", "VENT"); entry.putUUID("DeviceId", DEVICE);
         entries.add(entry);
         var saved = new CompoundTag(); saved.put("AirAlarmDeviceLinks", entries);
         var links = new AirAlarmDeviceLinks(); links.load(saved, 32);

@@ -19,7 +19,10 @@ public final class CombatModeHudAction implements PointerOverlayWindow {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || !mc.player.isSpectator()) return false;
         var body = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedCharacterForPresentation();
-        return CombatModeClient.hasCapability(body);
+        long epoch = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.presentationCharacterEpoch();
+        return CombatModeHudPolicy.shouldShowLegacy(CombatModeClient.hasCapability(body),
+                com.juicyslew.moonstation14.ms14.actions.client.BodyActionClient.snapshot(),
+                body == null ? null : body.getUUID(), epoch);
     }
     @Override public boolean visible() { return ready(); }
     @Override public boolean contains(double x, double y) { Minecraft mc = Minecraft.getInstance(); var b=CombatModeHudPolicy.bounds(mc.getWindow().getGuiScaledWidth(),mc.getWindow().getGuiScaledHeight()); return visible() && b.contains(x,y); }
@@ -36,6 +39,3 @@ public final class CombatModeHudAction implements PointerOverlayWindow {
     @Override public boolean charTyped(char c,int m){return false;} @Override public boolean isSearchFocused(){return false;}
     @Override public void clearTextFocus(){} @Override public void resetOwnedContext(){}
 }
-
-
-

@@ -12,6 +12,7 @@ public final class BodyGrenadeHeldFuseGameTestEntry {
     private BodyGrenadeHeldFuseGameTestEntry() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 100)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining", "merge-main-stage-two"})
     public static void heldFuseTicksAndExpiresOnce(GameTestHelper helper) {
         BodyGrenadeHeldFuseGameTests.heldFuseTicksAndExpiresOnce(helper);
     }

@@ -131,6 +131,10 @@ public final class BodyPullService {
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != next || !next.compatible(body)
                 || !next.reservation(hand).equals(java.util.Optional.of(targetId))) return Result.RECOVERY_REQUIRED;
         Entity target = level.getEntity(targetId);
+        if (target instanceof LooseItemEntity loose && loose.attachment().isPresent()) {
+            release(body, hand, targetId);
+            return Result.DENIED;
+        }
         if (!eligibleTarget(target) || !authorityValid.getAsBoolean()
                 || !CharacterControlSystem.canAct(body) || body.level() != level
                 || probeSelected(level, body, targetId) == null
@@ -143,6 +147,7 @@ public final class BodyPullService {
                 .map(PullerComponent::tether).orElseThrow();
         PULLS.put(body, new Pull(actor, authority, authorityValid, body, level, targetId, target, hand,
                 body.position().distanceTo(target.position()) + resolvedTether.slackAllowance(), resolvedTether, next.revision()));
+        if (target instanceof LooseItemEntity loose) loose.stopThrownCombat();
         rebuildAttachments();
         PostureSystem.refreshMovementAvailability(body, true);
         return Result.SUCCESS;
@@ -327,4 +332,3 @@ public final class BodyPullService {
                         double maxDistance, com.juicyslew.moonstation14.ms14.character.components.TetherSettings tuning,
                         long reservedRevision) { }
 }
-

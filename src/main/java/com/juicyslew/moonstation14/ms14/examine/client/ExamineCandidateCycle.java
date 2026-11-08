@@ -47,10 +47,16 @@ public final class ExamineCandidateCycle {
     public ExamineTarget selected() { return selected; }
 
     private static ExamineTarget preferredOpaque(List<ExamineSelector.Candidate> candidates, ExamineTarget preferred) {
-        if (preferred != null && candidates.stream().anyMatch(c -> c.target().equals(preferred) && !c.transparent()))
+        ExamineSelector.Candidate preferredCandidate = preferred == null ? null : candidates.stream()
+                .filter(c -> c.target().equals(preferred) && !c.transparent()).findFirst().orElse(null);
+        if (preferredCandidate != null) {
+            ExamineSelector.Candidate nearerLoose = candidates.stream().filter(c -> c.looseItem() && !c.transparent()
+                    && c.distance() < preferredCandidate.distance()).findFirst().orElse(null);
+            if (nearerLoose != null && (preferredCandidate.target().kind() == ExamineTarget.Kind.BLOCK
+                    || preferredCandidate.looseItem())) return nearerLoose.target();
             return preferred;
+        }
         return candidates.stream().filter(c -> !c.transparent()).map(ExamineSelector.Candidate::target)
                 .findFirst().orElse(candidates.getFirst().target());
     }
 }
-

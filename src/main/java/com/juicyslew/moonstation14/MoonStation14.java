@@ -68,6 +68,7 @@ public class MoonStation14 {
         // Do not add this line if there are no @SubscribeEvent-annotated functions in this class, like onServerStarting() below.
         NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.atmos.piping.fixture.VentilationFixtureCommands::registerCommands);
+        NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.eva.fixture.EvaFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.disposal.fixture.DisposalFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureCommands::registerCommands);
         NeoForge.EVENT_BUS.addListener(com.juicyslew.moonstation14.ms14.animals.diagnostics.KoboldFixtureCommands::registerCommands);
@@ -142,6 +143,7 @@ public class MoonStation14 {
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.disposal.unit.ui.DisposalUnitNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.doors.ui.AirlockWireNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionNetworking::registerPayloadHandlers);
+        modEventBus.addListener(com.juicyslew.moonstation14.ms14.actions.network.BodyActionNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.botany.ui.GrinderNetworking::registerPayloadHandlers);
         modEventBus.addListener(com.juicyslew.moonstation14.ms14.botany.GrinderProcessingAudioNetworking::registerPayloadHandlers);
@@ -164,6 +166,7 @@ public class MoonStation14 {
 
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        modContainer.registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {

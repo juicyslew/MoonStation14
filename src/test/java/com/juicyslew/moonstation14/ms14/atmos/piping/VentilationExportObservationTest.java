@@ -2,10 +2,12 @@ package com.juicyslew.moonstation14.ms14.atmos.piping;
 
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
+import com.juicyslew.moonstation14.ms14.atmos.core.FiniteObservationTotal;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.EnumMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,6 +34,34 @@ class VentilationExportObservationTest {
         assertEquals(3.0, device.transferObservation().speciesMoles().get(GasType.CARBON_DIOXIDE));
         assertEquals(3.0, device.exportObservation().speciesMoles().get(GasType.CARBON_DIOXIDE));
         assertEquals(packet.thermalEnergy(), device.transferObservation().thermalJoules());
+    }
+
+    @Test void wideScrubberCommittedPacketsAggregateEveryReceiptWithoutExport() {
+        var device = device();
+        var packets = java.util.List.of(
+                new GasMixture(Map.of(GasType.OXYGEN, 1.000000000000001), 251.0),
+                new GasMixture(Map.of(GasType.NITROGEN, 2.000000000000003), 273.0),
+                new GasMixture(Map.of(GasType.OXYGEN, 3.000000000000007, GasType.PLASMA, 0.5), 299.0),
+                new GasMixture(Map.of(GasType.CARBON_DIOXIDE, 4.000000000000011), 315.0),
+                new GasMixture(Map.of(GasType.NITROGEN, 5.000000000000013, GasType.PLASMA, 1.25), 337.0));
+        var result = new FiniteVentilationTransfer.Result(packets.getLast(), null, packets);
+
+        assertEquals(packets.getLast().gasMoles(), result.packet().gasMoles());
+        assertEquals(5, result.committedPackets().size());
+        assertThrows(UnsupportedOperationException.class, () -> result.committedPackets().clear());
+        VentilationGasRuntime.recordCommittedTransfer(device, result);
+
+        var expectedMoles = new EnumMap<GasType, Double>(GasType.class);
+        double expectedThermal = 0.0;
+        for (var packet : packets) {
+            for (GasType gas : GasType.values())
+                expectedMoles.merge(gas, packet.moles(gas), FiniteObservationTotal::add);
+            expectedThermal = FiniteObservationTotal.add(expectedThermal, packet.thermalEnergy());
+        }
+        assertEquals(expectedMoles, device.transferObservation().speciesMoles());
+        assertEquals(expectedThermal, device.transferObservation().thermalJoules());
+        assertTrue(device.exportObservation().speciesMoles().isEmpty());
+        assertTrue(device.exportObservation().thermalJoulesByBoundary().isEmpty());
     }
 
     @Test void absentOrUnmovedResultDoesNotCreateReceiptAndDurableCounterSurvivesReloadOnly() {

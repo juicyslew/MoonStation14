@@ -54,7 +54,7 @@ class CitrusProductCatalogCandidateTest {
             var source = sources.get(id(name));
             assertTrue(source.capacityCents() >= source.contentsCents().values().stream().mapToLong(Long::longValue).sum(), name + " source contents fit");
             try (var stream = CitrusProductCatalogCandidateTest.class.getClassLoader().getResourceAsStream("data/moonstation14/moonstation14/item_food_solution_profile/" + name + ".json")) {
-                assertNull(stream, "candidate source remains TEST-only: " + name);
+                assertNotNull(stream, "activated MAIN profile: " + name);
             } catch (java.io.IOException e) { throw new AssertionError(e); }
         }
         for (String product : new String[]{"lemon", "lemoon"}) {

@@ -23,3 +23,5 @@ deployment require the existing receipt-backed publisher/deployer workflow.
 No fake commit is part of migration; commit migration changes through normal
 review. The legacy `publish_workflow.ps1` is not the canonical entry point for
 this configuration workflow.
+
+For conservative session retention, follow [the session-pruning procedure](../../docs/opencode-session-pruning.md) and use only `tooling/opencode/prune_sessions.py`.

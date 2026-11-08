@@ -107,11 +107,12 @@ public final class NpcBehaviorGameTests {
     }
 
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 150)
+    @GameTest(templateNamespace = "moonstation14", template = "disposal_power_clear", timeoutTicks = 150)
     @GameTestTags({"mouse-ai", "npc"})
     public static void freshSummonMouseMovesFromCornerCoordinates(GameTestHelper helper) {
-        var origin = helper.absolutePos(new BlockPos(8, 1, 8));
-        floor(helper, origin, 20);
+        // absolutePos is relative to the structure-block position; native template bounds begin at Y=1.
+        var origin = helper.absolutePos(new BlockPos(22, 2, 22));
+        prepareSummonMovementArena(helper, origin);
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         double[] offsets = {0, .01, .99, .5};
         var mice = new java.util.ArrayList<com.juicyslew.moonstation14.entities.MouseMob>();
@@ -121,36 +122,28 @@ public final class NpcBehaviorGameTests {
             var mouse = com.juicyslew.moonstation14.entities.ModEntities.MOUSE.get().create(level);
             require(mouse != null, "normal summon constructor creates mouse");
             mouse.setPos(spawn.getX() + offsets[i], spawn.getY(), spawn.getZ() + offsets[i]);
+            mouse.getRandom().setSeed(0x14L + i);
+            requireEntityBoundsInside(helper, mouse, "fresh summoned mouse " + i);
             require(level.addFreshEntity(mouse), "fresh summon mouse joins world");
             mice.add(mouse);
             starts.add(mouse.position());
         }
-        helper.runAtTickTime(100, () -> {
-            for (int i = 0; i < mice.size(); i++) {
-                var mouse = mice.get(i);
-                var resolved = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem
-                        .resolveForActor(mouse).flatMap(c -> c.component(NpcBehaviorComponent.class));
-                require(resolved.isPresent(), "ordinary entity-join path enrolled resolved NPC behavior");
-                require(mouse.position().distanceTo(starts.get(i)) > .15,
-                        "fresh ordinary mouse moved through production idle AI from offset=" + offsets[i]
-                                + " start=" + starts.get(i) + " now=" + mouse.position()
-                                + " brain=" + NpcBehaviorSystem.debugSnapshot(mouse));
-            }
-            helper.succeed();
-        });
+        observeSummonMovement(helper, mice, starts, 100, "fresh summon offsets=" + java.util.Arrays.toString(offsets));
     }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 120)
+    @GameTest(templateNamespace = "moonstation14", template = "disposal_power_clear", timeoutTicks = 120)
     @GameTestTags({"mouse-ai", "npc", "mouse-summon-nbt"})
     public static void literalDefaultSummonWithoutNoAiTagMoves(GameTestHelper helper) {
-        var origin = helper.absolutePos(new BlockPos(8, 1, 8));
-        floor(helper, origin, 12);
+        // Keep floor at relative Y=1, inside the native template bounds (Y=1..9).
+        var origin = helper.absolutePos(new BlockPos(22, 2, 22));
+        prepareSummonMovementArena(helper, origin);
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         var mice = level.getEntitiesOfClass(com.juicyslew.moonstation14.entities.MouseMob.class,
                 new net.minecraft.world.phys.AABB(origin).inflate(16));
         var starts = new java.util.ArrayList<Vec3>();
         for (int i = 0; i < 4; i++) {
             var spawn = origin.offset(i * 3, 0, 0);
+            require(helper.getBounds().contains(spawn.getCenter()), "literal summon spawn point inside owned fixture: " + spawn);
             var source = level.getServer().createCommandSourceStack().withLevel(level)
                     .withPosition(new Vec3(spawn.getX() + .5, spawn.getY(), spawn.getZ() + .5));
             level.getServer().getCommands().performPrefixedCommand(source, "summon moonstation14:mouse ~ ~ ~");
@@ -159,29 +152,17 @@ public final class NpcBehaviorGameTests {
                 new net.minecraft.world.phys.AABB(origin).inflate(16));
         require(mice.size() == 4, "literal commands created four mice: " + mice.size());
         var summonedMice = List.copyOf(mice);
-        for (var mouse : summonedMice) starts.add(mouse.position());
-        for (var mouse : summonedMice) {
+        for (int i = 0; i < summonedMice.size(); i++) {
+            var mouse = summonedMice.get(i);
+            requireEntityBoundsInside(helper, mouse, "literal summoned mouse " + i);
+            mouse.getRandom().setSeed(0x14L + i);
+            starts.add(mouse.position());
             require(com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(mouse)
                             .flatMap(character -> character.component(NpcBehaviorComponent.class)).isPresent(),
                     "literal summoned body has resolved NPC component");
             require(!mouse.isNoAi(), "summon absent NoAI tag has vanilla false default; pos=" + mouse.position());
         }
-        helper.runAtTickTime(100, () -> {
-            var diagnostics = new java.util.ArrayList<String>();
-            boolean passed = true;
-            for (int i = 0; i < summonedMice.size(); i++) {
-                var mouse = summonedMice.get(i);
-                boolean driven = ((com.juicyslew.moonstation14.ms14.player_body_control.character.NpcMovementDriven)(Object)mouse)
-                        .moonstation14$isNpcMovementDriven();
-                double distance = mouse.position().distanceTo(starts.get(i));
-                passed &= mouse.isNoAi() && driven && distance > .15;
-                diagnostics.add("NoAI=" + mouse.isNoAi() + " driven=" + driven + " start=" + starts.get(i)
-                        + " current=" + mouse.position() + " delta=" + distance
-                        + " brain=" + NpcBehaviorSystem.debugSnapshot(mouse));
-            }
-            require(passed, "literal summon production results: " + diagnostics);
-            helper.succeed();
-        });
+        observeSummonMovement(helper, summonedMice, starts, 100, "literal summon", true);
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 120)
@@ -246,7 +227,7 @@ public final class NpcBehaviorGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 500, batch = "npc_food_fallback")
-    @GameTestTags({"mouse-ai", "npc-physics", "ingestion", "npc-route-regression"})
+    @GameTestTags({"mouse-ai", "npc-physics", "ingestion", "npc-route-regression", "merge-main-remaining", "merge-main-root-causes"})
     public static void unreachablePinnedMealReleasesToReachableAlternate(GameTestHelper helper) {
         var origin = helper.absolutePos(new BlockPos(8, 1, 8));
         floor(helper, origin, 12);
@@ -291,9 +272,14 @@ public final class NpcBehaviorGameTests {
         if (brain != null && alternate.getUUID().equals(brain.itemTarget())) {
             helper.runAfterDelay(220, () -> {
                 require(alternate.isRemoved() && blocked.isAlive(),
-                        "NPC completes reachable alternate without user pickup of the rejected source; alternateRemoved="
-                                + alternate.isRemoved() + " blockedAlive=" + blocked.isAlive() + " brain="
-                                + NpcBehaviorSystem.debugSnapshot(mouse));
+                        boundedNpcDiagnostic("NPC completes reachable alternate without user pickup; removed="
+                                + alternate.isRemoved() + " blockedAlive=" + blocked.isAlive()
+                                + " mouse=" + mouse.position() + " alternate=" + alternate.position()
+                                + " distance=" + mouse.distanceTo(alternate)
+                                + " mealRange=" + resolvedMealRange(mouse)
+                                + " velocity=" + mouse.getDeltaMovement() + " ground=" + mouse.onGround()
+                                + " count=" + alternate.getItem().getCount() + " brain="
+                                + NpcBehaviorSystem.debugSnapshot(mouse)));
                 helper.succeed();
             });
             return;
@@ -301,6 +287,18 @@ public final class NpcBehaviorGameTests {
         if (elapsed >= 300) throw new GameTestAssertException("NPC remained pinned to path-invalid meal instead of alternate: "
                 + brain + " position=" + mouse.position());
         helper.runAfterDelay(2, () -> awaitAlternateMeal(helper, mouse, blocked, alternate, elapsed + 2));
+    }
+
+    private static float resolvedMealRange(com.juicyslew.moonstation14.entities.MouseMob mouse) {
+        return com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(mouse)
+                .flatMap(character -> character.component(NpcBehaviorComponent.class))
+                .map(NpcBehaviorComponent::mealRange).orElse(Float.NaN);
+    }
+
+    private static String boundedNpcDiagnostic(String message) {
+        final int limit = 900;
+        if (message.length() <= limit) return message;
+        return message.substring(0, limit - 15) + "...[truncated]";
     }
 
     private static void awaitNpcIngestionCompletion(GameTestHelper helper,
@@ -1003,6 +1001,69 @@ public final class NpcBehaviorGameTests {
         com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.enrollSupportedActor(mouse, level);
         require(com.juicyslew.moonstation14.ms14.organ.BodySystem.reconcile(mouse), "mouse body reconciled");
         return mouse;
+    }
+
+    private static void prepareSummonMovementArena(GameTestHelper helper, BlockPos origin) {
+        var bounds = helper.getBounds();
+        for (int x : new int[]{-20, 20}) for (int z : new int[]{-20, 20}) {
+            var floorCorner = origin.offset(x, -1, z).getCenter();
+            var headroomCorner = origin.offset(x, 3, z).getCenter();
+            require(bounds.contains(floorCorner), "floor write corner inside owned fixture before setup: actualBounds="
+                    + bounds + " structureOrigin=" + helper.absolutePos(BlockPos.ZERO) + " floorCorner=" + floorCorner);
+            require(bounds.contains(headroomCorner), "headroom write corner inside owned fixture before setup: actualBounds="
+                    + bounds + " structureOrigin=" + helper.absolutePos(BlockPos.ZERO) + " floorCorner=" + headroomCorner);
+        }
+        floor(helper, origin, 20);
+        clearNpcHeadroom(helper, origin, 20);
+    }
+
+    private static void requireEntityBoundsInside(GameTestHelper helper,
+            com.juicyslew.moonstation14.entities.MouseMob mouse, String label) {
+        var box = mouse.getBoundingBox();
+        var bounds = helper.getBounds();
+        require(bounds.contains(new Vec3(box.minX, box.minY, box.minZ))
+                        && bounds.contains(new Vec3(box.maxX, box.maxY, box.maxZ)),
+                label + " bounding box inside owned fixture: " + box + " bounds=" + bounds);
+    }
+
+    private static void observeSummonMovement(GameTestHelper helper,
+            List<com.juicyslew.moonstation14.entities.MouseMob> mice, List<Vec3> starts,
+            int ticks, String label) {
+        observeSummonMovement(helper, mice, starts, ticks, label, false);
+    }
+
+    private static void observeSummonMovement(GameTestHelper helper,
+            List<com.juicyslew.moonstation14.entities.MouseMob> mice, List<Vec3> starts,
+            int ticks, String label, boolean requireNoAi) {
+        observeSummonMovementTick(helper, mice, starts, new double[mice.size()], ticks, 0, label, requireNoAi);
+    }
+
+    private static void observeSummonMovementTick(GameTestHelper helper,
+            List<com.juicyslew.moonstation14.entities.MouseMob> mice, List<Vec3> starts,
+            double[] maxima, int ticks, int elapsed, String label, boolean requireNoAi) {
+        for (int i = 0; i < mice.size(); i++)
+            maxima[i] = Math.max(maxima[i], mice.get(i).position().distanceTo(starts.get(i)));
+        if (elapsed < ticks) {
+            helper.runAfterDelay(1, () -> observeSummonMovementTick(helper, mice, starts, maxima,
+                    ticks, elapsed + 1, label, requireNoAi));
+            return;
+        }
+        for (int i = 0; i < mice.size(); i++) {
+            var mouse = mice.get(i);
+            boolean driven = ((com.juicyslew.moonstation14.ms14.player_body_control.character.NpcMovementDriven)(Object)mouse)
+                    .moonstation14$isNpcMovementDriven();
+            var policy = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem
+                    .resolveForActor(mouse).flatMap(c -> c.component(NpcBehaviorComponent.class));
+            var brain = NpcBehaviorSystem.debugSnapshot(mouse);
+            require(policy.isPresent() && driven && (!requireNoAi || mouse.isNoAi()) && maxima[i] > .15,
+                    label + " failed mouse=" + i + " seed=" + (0x14L + i) + " maxDistance=" + maxima[i]
+                            + " currentDistance=" + mouse.position().distanceTo(starts.get(i))
+                            + " pos=" + mouse.position() + " driven=" + driven + " NoAI=" + mouse.isNoAi()
+                            + " task=" + (brain == null ? null : brain.task()) + " goal="
+                            + (brain == null ? null : brain.idlePoint()) + " idleUntil="
+                            + (brain == null ? 0 : brain.idleUntil()));
+        }
+        helper.succeed();
     }
 
     private static void floor(GameTestHelper helper, BlockPos origin, int radius) {

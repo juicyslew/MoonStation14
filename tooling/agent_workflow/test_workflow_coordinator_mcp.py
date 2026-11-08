@@ -43,6 +43,10 @@ class CoordinatorMCPTests(unittest.TestCase):
         from workflow_coordinator_mcp import REVIEW_SCHEMAS
         self.assertEqual(set(REVIEW_SCHEMAS),{'claim_task','complete_review','report_error','status'})
         self.assertIn('input_ref',REVIEW_SCHEMAS['status']['properties'])
+        from workflow_coordinator_mcp import REVIEW_DESCRIPTIONS
+        self.assertIn('current_validation.native_logs', REVIEW_SCHEMAS['status']['properties']['input_ref']['description'])
+        self.assertIn('cite verified IDs', REVIEW_DESCRIPTIONS['status'])
+        self.assertIn('report_error', REVIEW_DESCRIPTIONS['status'])
         self.assertEqual(len(CoordinatorClient.encode_response('status',{'task_id':'t','input_ref':'review_guide'}, {'content':'x'*8000})),8000+len('{"content":""}'))
         client=CoordinatorClient('http://127.0.0.1:1','token','.',profile='reviewer')
         with self.assertRaises(ValueError): client.prepare_call('status',{'task_id':'t','session_id':'s','input_offset':1})
@@ -130,10 +134,19 @@ class CoordinatorMCPTests(unittest.TestCase):
             self.assertIn('not feature readiness',description)
         self.assertIn('settled current FEATURE PASS or FAIL',catalog['submit']['description'])
         self.assertIn('does not require owner approval',catalog['submit']['description'])
+        for phrase in ('admission is UNKNOWN','Before ANY worktree edits','original submission key','no resubmit','no visible receipt','settlement/cleanup'):
+            self.assertIn(phrase,catalog['submit']['description'])
+        self.assertIn('original key',catalog['status']['description'])
+        recovery=CoordinatorClient.transport_failure('submit',{'idempotency_key':'original-key'},None)
+        self.assertEqual(recovery['idempotency_key'],'original-key')
+        self.assertIn('UNKNOWN',recovery['message']); self.assertIn('before any worktree edits',recovery['message'])
+        self.assertIn('Owner stop/no resubmit',recovery['message'])
         import workflow_coordinator_mcp
         request_help=workflow_coordinator_mcp.SCHEMAS['submit']['properties']['request_path']['description']
         self.assertIn('settled current FEATURE PASS or FAIL',request_help)
         self.assertIn('DIAGNOSTIC submissions never replace a run',catalog['submit']['description'])
+        for phrase in ('PREPARE_REVISED_SUBMISSION','SOURCE_SNAPSHOT_CHANGED','DECIDED/ERROR with CONFIRMED cleanup','UNKNOWN interruption alone is not eligibility','old passes as new proof'):
+            self.assertIn(phrase,catalog['submit']['description'])
         reviewer=CoordinatorClient("http://127.0.0.1:9000","reviewer",self.repo,transport=self.client.transport,profile='reviewer')
         self.assertFalse({'register_scope','scope_status'} & {x['name'] for x in reviewer.tools()})
         self.assertEqual(self.client.call("submit", {"request_path":"request.json", "idempotency_key":"k", "extra":1})['code'],'INVALID_TOOL_ARGUMENTS')

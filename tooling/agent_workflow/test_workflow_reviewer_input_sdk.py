@@ -11,6 +11,12 @@ from unittest.mock import patch
 
 class ReviewerInputSDKTests(unittest.TestCase):
     def test_public_mcp_claim_read_assigned_inputs_and_submit_inline(self):
+        self._exercise_public_mcp_claim_read_assigned_inputs_and_submit_inline()
+
+    def test_public_mcp_provenance_claim_read_and_submit(self):
+        self._exercise_public_mcp_claim_read_assigned_inputs_and_submit_inline(require_program=True)
+
+    def _exercise_public_mcp_claim_read_assigned_inputs_and_submit_inline(self, require_program=False):
         import httpx
         import workflow_coordinator
         import workflow_review_transport
@@ -22,7 +28,18 @@ class ReviewerInputSDKTests(unittest.TestCase):
         from workflow_coordinator_http_mcp import PROFILE_PATHS
 
         async def exercise():
-            fixture=api_fixture.ReviewerAPITests(); fixture.setUp()
+            fixture=api_fixture.ReviewerAPITests()
+            if require_program:
+                original=native.admit_native_fixture
+                def provenance_fixture(*args, **kwargs):
+                    kwargs['packs']=[{'pack_id':'provenance','selectors':[],'covers':['c1']},
+                                     {'pack_id':'package','selectors':[],'covers':['c1']}]
+                    kwargs['program_checks']=['managed_config_provenance']
+                    return original(*args, **kwargs)
+                with patch.object(api_fixture.review_fixtures, 'admit_native_fixture', provenance_fixture):
+                    fixture.setUp()
+            else:
+                fixture.setUp()
             try:
                 task=fixture.task; session=task['assigned_session_id']
                 self.assertNotEqual('CLAIMED',fixture.store.get_task(task['task_id'])['state'])
@@ -53,11 +70,20 @@ class ReviewerInputSDKTests(unittest.TestCase):
                                 access=page['input_access']; digest=access['sha256']
                                 self.assertEqual(access['encoding'],'utf-8')
                                 self.assertEqual(access['offset'],offset)
+                                if offset == 0:
+                                    self.assertLessEqual(len(access['content'].encode()), 12 * 1024)
+                                    self.assertEqual(access.get('content_kind'), 'review_guide')
+                                    self.assertEqual(access.get('type'), 'PROVENANCE')
+                                    self.assertIn('"document_type":"review_guide"', access['content'])
+                                    self.assertIn('"semantic_identity":"This canonical review guide', access['content'])
                                 guide_bytes.extend(access['content'].encode())
                                 if access['eof']: break
                                 self.assertEqual(access['next_offset'],len(guide_bytes)); offset=access['next_offset']
                             self.assertGreater(len(guide_bytes),4096)
                             guide=json.loads(guide_bytes)
+                            self.assertEqual(guide['document_type'], 'review_guide')
+                            self.assertEqual(guide['task_id'], task['task_id'])
+                            self.assertTrue(guide['current_validation']['checks'])
                             self.assertIn('final chat prose or stopping without an accepted receipt does not submit a result',guide['instruction'])
                             self.assertEqual(hashlib.sha256(guide_bytes).hexdigest(),digest)
                             contract=guide['review_contract']; self.assertEqual(contract['$ref'],'#/$defs/review_result')
@@ -78,6 +104,20 @@ class ReviewerInputSDKTests(unittest.TestCase):
                                 if access['eof']: break
                                 offset=access['next_offset']
                             self.assertEqual(bytes(data),raw)
+                            if require_program:
+                                decoded=json.loads(data)
+                                program=next(row for row in decoded['program_checks'] if row.get('kind') == 'managed_config_provenance')
+                                evidence=program['evidence']
+                                self.assertEqual(evidence['status'],'PASS',program)
+                                self.assertEqual(program['covers'],['c1'])
+                                self.assertEqual(evidence['covers'],['c1'])
+                                self.assertTrue(evidence['package_artifacts'],program)
+                                for proof in evidence['package_artifacts']:
+                                    self.assertEqual(proof['source_input_digest'],decoded['input_digest'],proof)
+                                    archived=fixture.store.get_artifact(proof['artifact_ref'])
+                                    self.assertIsNotNone(archived,proof)
+                                    archive_bytes=Path(archived['artifact']['path']).read_bytes()
+                                    self.assertEqual(proof['sha256'],hashlib.sha256(archive_bytes).hexdigest(),proof)
                             request,_=workflow_native_worker.load_native_inputs(fixture.store,task['run_id'])
                             self.assertTrue(request)
                             source=await body(await status(source_query='.py'))

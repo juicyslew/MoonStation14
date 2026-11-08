@@ -1,4 +1,6 @@
 import unittest
+import threading
+import time
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -110,6 +112,7 @@ class CodingActivityTests(unittest.TestCase):
             request=self.fixture(active,headers)
             result=agent_status.observe_coding_agents(self.roots,request=request)
             self.assertFalse(result['complete']); self.assertEqual(result['agents'][0]['activity'],'unknown')
+            self.assertEqual(result['agents'][0]['summary'],'Activity unavailable')
 
     def test_expired_budget_stops_before_another_request(self):
         calls=[]
@@ -120,6 +123,26 @@ class CodingActivityTests(unittest.TestCase):
             result=agent_status.observe_coding_agents(self.roots,request=request,budget_seconds=1)
         self.assertFalse(result['complete']); self.assertEqual(result['agents'][0]['activity'],'unknown')
         self.assertEqual(calls,['/api/session/active'])
+
+    def test_bounded_parallel_agent_reads_fit_shared_short_deadline(self):
+        barrier=threading.Barrier(4,timeout=1)
+        active=0; peak=0; lock=threading.Lock()
+        def request(_,method,path,timeout):
+            nonlocal active,peak
+            if path=='/api/session/active': return 200,{'data':{}}
+            if path.startswith('/api/agent?') or path.startswith('/api/permission/request?') or path.startswith('/api/form?'):
+                with lock: active+=1; peak=max(peak,active)
+                try:
+                    barrier.wait()
+                    import urllib.parse
+                    root=urllib.parse.parse_qs(path.split('?',1)[1]).get('location[directory]',[''])[0]
+                    return 200,{'location':{'directory':root},'data':[]}
+                finally:
+                    with lock: active-=1
+            raise AssertionError(path)
+        result=agent_status.observe_coding_agents(self.roots,request=request,budget_seconds=1)
+        self.assertTrue(result['complete'],result['errors'])
+        self.assertEqual(peak,4)
 
     def test_active_request_exception_is_not_exposed_in_observer_output(self):
         marker='PRIVATE_CREDENTIAL_MARKER_foreign_session'

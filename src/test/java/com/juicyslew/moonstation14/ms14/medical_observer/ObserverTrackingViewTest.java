@@ -36,6 +36,17 @@ class ObserverTrackingViewTest {
     }
 
     @Test
+    void nativeEffectiveRadiusDoesNotChurnWhenRawConfiguredRadiusIsZero() {
+        Object level = new Object();
+        var center = new net.minecraft.world.level.ChunkPos(2, 3);
+        // ChunkMap's native effective radius is at least two even when the raw PlayerList value is zero.
+        var initial = ObserverTracking.reconcile(null, -1, null, false, level, center, 2, center, 2);
+        assertTrue(initial.applyView());
+        var repeated = ObserverTracking.reconcile(center, 2, level, true, level, center, 2, center, 2);
+        assertFalse(repeated.applyView());
+    }
+
+    @Test
     void productionViewPositionConsumesTheSharedResolvedTarget() {
         ItemEntity ghost = new ItemEntity(EntityType.ITEM, null);
         ghost.setPos(80, 64, 3);

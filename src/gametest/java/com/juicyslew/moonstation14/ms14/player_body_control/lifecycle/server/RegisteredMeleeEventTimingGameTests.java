@@ -25,16 +25,16 @@ public final class RegisteredMeleeEventTimingGameTests {
             var id=ModCharacters.HUMAN_ID;
             var json=com.juicyslew.moonstation14.component.codec.json.CharacterData.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE,catalog.get(id)).getOrThrow().getAsJsonObject();
             var components=json.has("components")?json.getAsJsonArray("components"):new com.google.gson.JsonArray(); json.add("components",components);
-            components.add(com.google.gson.JsonParser.parseString("{\"type\":\"CombatMode\",\"can_disarm\":true}"));
-            components.add(com.google.gson.JsonParser.parseString("{\"type\":\"MeleeWeapon\",\"weapon\":{\"damage\":{\"blunt\":5}}}"));
+            com.juicyslew.moonstation14.ms14.character.CharacterPrototypeComponentUpsert.upsert(components,com.google.gson.JsonParser.parseString("{\"type\":\"CombatMode\",\"can_disarm\":true}").getAsJsonObject());
+            com.juicyslew.moonstation14.ms14.character.CharacterPrototypeComponentUpsert.upsert(components,com.google.gson.JsonParser.parseString("{\"type\":\"MeleeWeapon\",\"weapon\":{\"damage\":{\"blunt\":5}}}").getAsJsonObject());
             catalog.put(id,com.juicyslew.moonstation14.component.codec.json.CharacterData.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,json).getOrThrow()); return catalog;
         });
         var fixture=RegisteredServerPlayerFixture.register(helper.getLevel(),"melee-timing");
         var bodyRef=new net.minecraft.world.entity.LivingEntity[1]; var targetRef=new net.minecraft.world.entity.LivingEntity[1];
-        java.util.function.Consumer<MeleeAttackEvents.SharedMeleeAttackAttemptEvent> preListener=e->{if(bodyRef[0]!=null&&e.attacker().getUUID().equals(bodyRef[0].getUUID()))e.setCanceled(true);};
-        java.util.function.Consumer<MeleeAttackEvents.AttemptMeleeEvent> postListener=e->{if(bodyRef[0]!=null&&e.attacker().getUUID().equals(bodyRef[0].getUUID()))e.setCanceled(true);};
+         Object preListener=new Object(){@net.neoforged.bus.api.SubscribeEvent public void onAttempt(MeleeAttackEvents.SharedMeleeAttackAttemptEvent e){if(bodyRef[0]!=null&&e.attacker().getUUID().equals(bodyRef[0].getUUID()))e.setCanceled(true);}};
+         Object postListener=new Object(){@net.neoforged.bus.api.SubscribeEvent public void onAttempt(MeleeAttackEvents.AttemptMeleeEvent e){if(bodyRef[0]!=null&&e.attacker().getUUID().equals(bodyRef[0].getUUID()))e.setCanceled(true);}};
         var hitCount=new java.util.concurrent.atomic.AtomicInteger();
-        java.util.function.Consumer<MeleeAttackEvents.MeleeHitEvent> hitListener=e->{if(bodyRef[0]!=null&&e.attacker().getUUID().equals(bodyRef[0].getUUID())){if(!e.targets().isEmpty())throw new GameTestAssertException("null nomination unexpectedly resolved target");hitCount.incrementAndGet();}};
+         Object hitListener=new Object(){@net.neoforged.bus.api.SubscribeEvent public void onHit(MeleeAttackEvents.MeleeHitEvent e){if(bodyRef[0]!=null&&e.attacker().getUUID().equals(bodyRef[0].getUUID())){if(!e.targets().isEmpty())throw new GameTestAssertException("null nomination unexpectedly resolved target");hitCount.incrementAndGet();}}};
         var preInstalled=new java.util.concurrent.atomic.AtomicBoolean(); var postInstalled=new java.util.concurrent.atomic.AtomicBoolean(); var hitInstalled=new java.util.concurrent.atomic.AtomicBoolean();
         Runnable remove=()->{if(preInstalled.compareAndSet(true,false))NeoForge.EVENT_BUS.unregister(preListener);if(postInstalled.compareAndSet(true,false))NeoForge.EVENT_BUS.unregister(postListener);if(hitInstalled.compareAndSet(true,false))NeoForge.EVENT_BUS.unregister(hitListener);};
         helper.testInfo.addListener(new net.minecraft.gametest.framework.GameTestListener(){private void clean(net.minecraft.gametest.framework.GameTestInfo i){remove.run();if(targetRef[0]!=null&&!targetRef[0].isRemoved())targetRef[0].discard();if(bodyRef[0]!=null&&!bodyRef[0].isRemoved())bodyRef[0].discard();fixture.close();}

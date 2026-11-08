@@ -24,7 +24,9 @@ public final class BodyTargetActionService {
                 || !com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.canAct(authority.body())
                 || com.juicyslew.moonstation14.ms14.containment.DisposalContainedActionPolicy.isContained(actor)) return null;
         LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        if (hands == null || !hands.compatible(authority.body()) || !proofMatches(query, authority.epoch(),
+        if (hands == null || !hands.compatible(authority.body())
+                || !hands.handIds().contains(query.handId())
+                || !proofMatches(query, authority.epoch(),
                 hands.revision(), hands.activeHand(), hands.handIds(), hands.token(query.handId()).orElse(null))) return null;
         if (!(authority.body().level() instanceof ServerLevel level)) return null;
         var selected = BodyItemTargetProbe.probeSelected(level, authority.body(), query.targetId(), BodyItemTargetProbe.MAX_REACH);

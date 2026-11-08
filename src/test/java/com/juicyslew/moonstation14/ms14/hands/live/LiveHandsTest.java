@@ -37,6 +37,119 @@ class LiveHandsTest {
     private static final ItemToken TOKEN = new ItemToken("live-token");
     private java.util.Map<ResourceLocation, ItemFootprintProfile> previousFootprints;
 
+    private static ItemStack tank(double oxygen) {
+        return tank(java.util.Map.of(com.juicyslew.moonstation14.ms14.atmos.core.GasType.OXYGEN, oxygen));
+    }
+
+    private static ItemStack tank(java.util.Map<com.juicyslew.moonstation14.ms14.atmos.core.GasType, Double> moles) {
+        var component = com.juicyslew.moonstation14.component.ModDataComponents.GAS_TANK_CONTENTS.get();
+        var profile = ResourceLocation.fromNamespaceAndPath("moonstation14", "test_tank");
+        var mixture = new com.juicyslew.moonstation14.ms14.atmos.core.GasMixture(
+                moles, 293.15, 0.02);
+        ItemStack stack = new ItemStack(ModItems.PLASMA_TANK.get());
+        stack.set(component, new com.juicyslew.moonstation14.ms14.atmos.tank.GasTankContents(profile, mixture));
+        return stack;
+    }
+
+    private static LiveHands tankState(String slot, ItemStack stack) {
+        return tankState(slot, stack, "left");
+    }
+
+    private static LiveHands tankState(String slot, ItemStack stack, String active) {
+        return tankState(slot,stack,active,"tank-token");
+    }
+
+    private static LiveHands tankState(String slot, ItemStack stack, String active, String token) {
+        String encoded = ItemStack.CODEC.encodeStart(JsonOps.INSTANCE, stack).getOrThrow().toString();
+        String owner = "{\"token\":\""+token+"\",\"stack\":" + encoded + "}";
+        String json = slot == null
+                ? "{\"hands\":[{\"id\":\"left\",\"occupant\":" + owner + "},{\"id\":\"right\"}],\"active\":\""+active+"\",\"revision\":7}"
+                : "{\"hands\":[{\"id\":\"left\"},{\"id\":\"right\"}],\"active\":\""+active+"\",\"revision\":7,\"equipment\":[{\"id\":\"back\",\"occupant\":" + owner + "}]}";
+        return parse(json);
+    }
+
+    @Test
+    void publicPassiveDebitCandidatesAndContinuityProofRemainBounded() {
+        ItemStack original = tank(4), oneBreath = tank(3), twoBreaths = tank(2);
+        LiveHands captured = tankState(null, original);
+        LiveHands afterOne = captured.debitHeldTank(7, "left", new ItemToken("tank-token"), oneBreath).orElseThrow();
+        LiveHands afterTwo = afterOne.debitHeldTank(7, "left", new ItemToken("tank-token"), twoBreaths).orElseThrow();
+        assertEquals(7, afterTwo.revision());
+        assertEquals("tank-token", afterTwo.token("left").orElseThrow());
+        assertTrue(afterTwo.continuesAcrossPassiveTankDebit(captured));
+        assertTrue(afterTwo.continuesAcrossPassiveTankDebit(afterOne));
+        assertEquals(4.0, captured.stackCopy("left").orElseThrow()
+                .get(com.juicyslew.moonstation14.component.ModDataComponents.GAS_TANK_CONTENTS.get()).mixture().moles(
+                        com.juicyslew.moonstation14.ms14.atmos.core.GasType.OXYGEN));
+        assertTrue(captured.debitHeldTank(7, "left", new ItemToken("wrong-token"), oneBreath).isEmpty());
+        assertTrue(captured.debitHeldTank(8, "left", new ItemToken("tank-token"), oneBreath).isEmpty());
+        assertTrue(captured.debitHeldTank(7, "left", new ItemToken("tank-token"), tank(5)).isEmpty());
+        ItemStack changedProfile = oneBreath.copy();
+        var gas = com.juicyslew.moonstation14.component.ModDataComponents.GAS_TANK_CONTENTS.get();
+        var old = changedProfile.get(gas);
+        changedProfile.set(gas, new com.juicyslew.moonstation14.ms14.atmos.tank.GasTankContents(
+                ResourceLocation.fromNamespaceAndPath("moonstation14", "other"), old.mixture()));
+        assertTrue(captured.debitHeldTank(7, "left", new ItemToken("tank-token"), changedProfile).isEmpty());
+        ItemStack qualityEdit = oneBreath.copy(); qualityEdit.set(DataComponents.CUSTOM_NAME, Component.literal("edited"));
+        assertTrue(captured.debitHeldTank(7, "left", new ItemToken("tank-token"), qualityEdit).isEmpty());
+        assertFalse(tankState(null, qualityEdit).continuesAcrossPassiveTankDebit(captured));
+
+        LiveHands equipped = tankState("back", original);
+        LiveHands eqOne = equipped.debitEquippedTank(7, "back", new ItemToken("tank-token"), oneBreath).orElseThrow();
+        LiveHands eqTwo = eqOne.debitEquippedTank(7, "back", new ItemToken("tank-token"), twoBreaths).orElseThrow();
+        assertEquals(7, eqTwo.revision());
+        assertTrue(eqTwo.continuesAcrossPassiveTankDebit(equipped));
+
+        LiveHands toolEdit = captured.replaceOwnedComponents(7, "left", new ItemToken("tank-token"), qualityEdit).orElseThrow();
+        assertFalse(toolEdit.continuesAcrossPassiveTankDebit(captured));
+        LiveHands activeChanged = tankState(null, original, "right");
+        assertFalse(activeChanged.continuesAcrossPassiveTankDebit(captured));
+        LiveHands tokenChanged = tankState(null, original, "left", "replacement-token");
+        assertFalse(tokenChanged.continuesAcrossPassiveTankDebit(captured));
+        LiveHands structural = captured.advanceRevision();
+        assertFalse(structural.continuesAcrossPassiveTankDebit(captured));
+    }
+
+    @Test
+    void passiveTankDebitAllowsSpeciesRemovalThroughEmptyForHeldAndEquippedOwners() {
+        var oxygen = com.juicyslew.moonstation14.ms14.atmos.core.GasType.OXYGEN;
+        var nitrogen = com.juicyslew.moonstation14.ms14.atmos.core.GasType.NITROGEN;
+        ItemStack mixed = tank(java.util.Map.of(oxygen, 4d, nitrogen, 2d));
+        ItemStack nitrogenOnly = tank(java.util.Map.of(nitrogen, 2d));
+        ItemStack empty = tank(java.util.Map.of());
+        ItemToken owner = new ItemToken("tank-token");
+
+        LiveHands held = tankState(null, mixed);
+        LiveHands heldPartial = held.debitHeldTank(7, "left", owner, nitrogenOnly).orElseThrow();
+        LiveHands heldEmpty = heldPartial.debitHeldTank(7, "left", owner, empty).orElseThrow();
+        assertTrue(heldPartial.continuesAcrossPassiveTankDebit(held));
+        assertTrue(heldEmpty.continuesAcrossPassiveTankDebit(held));
+        assertTrue(heldEmpty.continuesAcrossPassiveTankDebit(heldPartial));
+        assertEquals(0d, heldEmpty.stackCopy("left").orElseThrow()
+                .get(com.juicyslew.moonstation14.component.ModDataComponents.GAS_TANK_CONTENTS.get())
+                .mixture().totalMoles());
+
+        LiveHands equipped = tankState("back", mixed);
+        LiveHands equippedPartial = equipped.debitEquippedTank(7, "back", owner, nitrogenOnly).orElseThrow();
+        LiveHands equippedEmpty = equippedPartial.debitEquippedTank(7, "back", owner, empty).orElseThrow();
+        assertTrue(equippedPartial.continuesAcrossPassiveTankDebit(equipped));
+        assertTrue(equippedEmpty.continuesAcrossPassiveTankDebit(equipped));
+        assertTrue(equippedEmpty.continuesAcrossPassiveTankDebit(equippedPartial));
+        assertEquals(0d, equippedEmpty.equipmentStack("back").orElseThrow()
+                .get(com.juicyslew.moonstation14.component.ModDataComponents.GAS_TANK_CONTENTS.get())
+                .mixture().totalMoles());
+
+        ItemStack newSpecies = tank(java.util.Map.of(oxygen, 3d,
+                com.juicyslew.moonstation14.ms14.atmos.core.GasType.CARBON_DIOXIDE, .1d));
+        ItemStack increasedSpecies = tank(java.util.Map.of(oxygen, 4.1d, nitrogen, 2d));
+        assertTrue(held.debitHeldTank(7, "left", owner, newSpecies).isEmpty());
+        assertTrue(held.debitHeldTank(7, "left", owner, increasedSpecies).isEmpty());
+        assertTrue(equipped.debitEquippedTank(7, "back", owner, newSpecies).isEmpty());
+        assertTrue(equipped.debitEquippedTank(7, "back", owner, increasedSpecies).isEmpty());
+        assertFalse(tankState(null, newSpecies).continuesAcrossPassiveTankDebit(held));
+        assertFalse(tankState("back", increasedSpecies).continuesAcrossPassiveTankDebit(equipped));
+    }
+
     @BeforeEach
     void provideLoadedFootprintCatalogForGridFixtures() throws IOException {
         var manager = PrototypeRuntime.serverManager();

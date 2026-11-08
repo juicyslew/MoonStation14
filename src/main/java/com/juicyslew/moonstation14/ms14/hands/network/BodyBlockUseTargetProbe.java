@@ -34,6 +34,25 @@ public final class BodyBlockUseTargetProbe {
         return select(level, body, nominated, nominatedFace);
     }
 
+    /** Nominated melee point chooses a ray only; the server's first OUTLINE hit remains authoritative. */
+    @Nullable
+    public static Target probeNominatedContact(ServerLevel level, LivingEntity body, BlockPos pos,
+                                                Direction face, Vec3 nominatedPoint) {
+        return probeNominatedContact(level, body, pos, face, nominatedPoint, MAX_REACH);
+    }
+
+    /** Nominated melee contact bounded by the resolved weapon reach. */
+    @Nullable
+    public static Target probeNominatedContact(ServerLevel level, LivingEntity body, BlockPos pos,
+                                                Direction face, Vec3 nominatedPoint, double maximumReach) {
+        if (pos == null || face == null || nominatedPoint == null || !finite(nominatedPoint)
+                || !Double.isFinite(maximumReach) || maximumReach <= 0 || maximumReach > MAX_REACH
+                || !new net.minecraft.world.phys.AABB(pos).inflate(1.0e-5).contains(nominatedPoint)
+                || !onFace(pos, face, nominatedPoint)) return null;
+        Vec3 end = nominatedPoint.add(-face.getStepX() * 1.0e-3, -face.getStepY() * 1.0e-3, -face.getStepZ() * 1.0e-3);
+        return select(level, body, pos, face, end, maximumReach);
+    }
+
     @Nullable
     public static Target probeSelected(ServerLevel level, LivingEntity body) {
         return select(level, body, null, null);
@@ -43,6 +62,17 @@ public final class BodyBlockUseTargetProbe {
     @Nullable
     private static Target select(ServerLevel level, LivingEntity body, @Nullable BlockPos nominated,
                                  @Nullable Direction nominatedFace) {
+        return select(level, body, nominated, nominatedFace, null);
+    }
+
+    @Nullable
+    private static Target select(ServerLevel level, LivingEntity body, @Nullable BlockPos nominated,
+                                  @Nullable Direction nominatedFace, @Nullable Vec3 nominatedEnd) {
+        return select(level, body, nominated, nominatedFace, nominatedEnd, MAX_REACH);
+    }
+
+    private static Target select(ServerLevel level, LivingEntity body, @Nullable BlockPos nominated,
+                                  @Nullable Direction nominatedFace, @Nullable Vec3 nominatedEnd, double maximumReach) {
         if (level == null || body == null || (nominated == null) != (nominatedFace == null)
                 || !level.getServer().isSameThread() || body.level() != level || !body.isAlive() || body.isRemoved()
                 || level.getEntity(body.getId()) != body) return null;
@@ -51,6 +81,9 @@ public final class BodyBlockUseTargetProbe {
         var owner = com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
                 .ownerOf(body).orElse(null);
         if (owner != null) {
+            // Ordinary block use may use a container's world target; nominated melee has no
+            // corresponding world-reach admission and must not inherit that permission.
+            if (nominatedEnd != null) return null;
             var view = owner.view();
             if (!owner.isValid() || view == null || !view.ownerIdentity().equals(owner.identity())
                     || view.worldTarget().isEmpty()) return null;
@@ -63,8 +96,8 @@ public final class BodyBlockUseTargetProbe {
             return new Target(pos, Direction.UP, center.add(0, .5, 0));
         }
         Vec3 from = body.getEyePosition(), look = body.getLookAngle();
-        if (!finite(from) || !finite(look) || look.lengthSqr() < .99 || look.lengthSqr() > 1.01) return null;
-        Vec3 to = from.add(look.scale(MAX_REACH));
+        if (!finite(from) || nominatedEnd == null && (!finite(look) || look.lengthSqr() < .99 || look.lengthSqr() > 1.01)) return null;
+        Vec3 to = nominatedEnd == null ? from.add(look.scale(maximumReach)) : nominatedEnd;
         if (!finite(to) || from.equals(to) || !inside(level, from) || !inside(level, to)
                 || (nominated != null && (!level.getWorldBorder().isWithinBounds(nominated)
                 || level.isOutsideBuildHeight(nominated)))) return null;
@@ -93,7 +126,7 @@ public final class BodyBlockUseTargetProbe {
                     && (nominated == null || hit.getBlockPos().equals(nominated) && hit.getDirection() == nominatedFace);
             return validHit
                     && level.getWorldBorder().isWithinBounds(hit.getLocation())
-                    && from.distanceToSqr(hit.getLocation()) <= MAX_REACH * MAX_REACH
+                    && from.distanceToSqr(hit.getLocation()) <= maximumReach * maximumReach
                     ? new Target(hit.getBlockPos(), hit.getDirection(), hit.getLocation()) : null;
         } catch (MissingChunk ignored) {
             return null;
@@ -146,6 +179,17 @@ public final class BodyBlockUseTargetProbe {
     private static boolean finite(Vec3 v) {
         return Double.isFinite(v.x) && Double.isFinite(v.y) && Double.isFinite(v.z);
     }
+    private static boolean onFace(BlockPos p, Direction face, Vec3 v) {
+        double epsilon = 1.0e-4;
+        return switch (face) {
+            case WEST -> Math.abs(v.x - p.getX()) <= epsilon;
+            case EAST -> Math.abs(v.x - (p.getX() + 1)) <= epsilon;
+            case DOWN -> Math.abs(v.y - p.getY()) <= epsilon;
+            case UP -> Math.abs(v.y - (p.getY() + 1)) <= epsilon;
+            case NORTH -> Math.abs(v.z - p.getZ()) <= epsilon;
+            case SOUTH -> Math.abs(v.z - (p.getZ() + 1)) <= epsilon;
+        };
+    }
     private static boolean inside(ServerLevel level, Vec3 v) {
         return !level.isOutsideBuildHeight(BlockPos.containing(v)) && level.getWorldBorder().isWithinBounds(v);
     }
@@ -172,4 +216,3 @@ public final class BodyBlockUseTargetProbe {
         @Override public int getMinBuildHeight() { return level.getMinBuildHeight(); }
     }
 }
-

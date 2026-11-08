@@ -27,6 +27,7 @@ public final class AnimalBodyAppearanceItemLayer extends RenderLayer<AnimalMob,
                                  float limbSwing, float limbSwingAmount, float partialTicks,
                                  float ageInTicks, float netHeadYaw, float headPitch) {
         appearanceItems.render(entity, pose, buffer, light,
-                (body, arm, stack) -> renderer.translateHeldHand(arm == HumanoidArm.LEFT, stack));
+                (body, arm, stack) -> renderer.translateHeldHand(arm == HumanoidArm.LEFT, stack),
+                BodyAppearanceItemRenderer.GripConvention.PALM);
     }
 }

@@ -1,0 +1,11 @@
+{
+  "abstract": true,
+  "parent": "moonstation14:supported_nonhostile_animal",
+  "components": [
+    {"type": "Hands", "hands": ["left"]},
+    {"type": "ComplexInteraction"},
+    {"type": "CombatMode", "can_disarm": true},
+    {"type": "Stamina", "base_crit_threshold": 100, "decay": 3, "cooldown_seconds": 3, "stun_seconds": 6},
+    {"type": "Stunnable"}
+  ]
+}

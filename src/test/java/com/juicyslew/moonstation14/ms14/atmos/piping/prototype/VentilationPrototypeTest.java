@@ -71,6 +71,7 @@ public class VentilationPrototypeTest {
         assertEquals(com.juicyslew.moonstation14.ms14.atmos.audio.AtmosAmbientAudio.Gate.ENABLED_POWERED, cue.gate());
         assertNull(vent.gasVentScrubber());
         assertEquals("VNT-", vent.deviceComponents().network().orElseThrow().addressPrefix());
+        assertEquals(java.util.Set.of("GasVent"), vent.atmosAlarmable().sourceTags());
         assertTrue(vent.deviceComponents().network().orElseThrow().broadcastHook());
         assertFalse(vent.deviceComponents().network().orElseThrow().requiresPower());
         assertTrue(vent.deviceComponents().connection().orElseThrow().wired());
@@ -82,6 +83,7 @@ public class VentilationPrototypeTest {
                 java.util.Set.copyOf(scrubber.gasVentScrubber().filteredGases()));
         assertNull(scrubber.gasVentPump());
         assertEquals("SCR-", scrubber.deviceComponents().network().orElseThrow().addressPrefix());
+        assertEquals(java.util.Set.of("GasScrubber"), scrubber.atmosAlarmable().sourceTags());
         PrototypeManager copy = manager();
         copy.publishEncodedCatalogs(manager.encodePublishedCatalogs());
         assertEquals(catalog.asMap(), copy.snapshot(ModVentilationDevices.VENTILATION_DEVICE_TYPE).asMap());

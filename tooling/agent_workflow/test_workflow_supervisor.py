@@ -377,7 +377,7 @@ class SupervisorTests(unittest.TestCase):
 from pathlib import Path
 sys.path.insert(0, {str(Path(__file__).resolve().parent)!r})
 import gate_execution
-a=sys.argv; p=Path(a[a.index('--supervisor-ready-path')+1]); t=a[a.index('--supervisor-token')+1]
+a=sys.argv; p=Path(a[a.index('--supervisor-ready-path')+1]); t=next(x[len('--supervisor-token='):] for x in a if x.startswith('--supervisor-token='))
 p.write_text(json.dumps({{'identity':gate_execution.process_identity(os.getpid()),'token_digest':hashlib.sha256(t.encode()).hexdigest()}}))
 g=p.with_suffix(p.suffix+'.go'); end=time.time()+8
 while time.time()<end:
@@ -452,6 +452,15 @@ time.sleep(60)
         if thread.is_alive(): obj.stop(); thread.join(8)
         self.assertFalse(thread.is_alive())
         self.assertIn('--port 43210', marker.read_text(encoding='utf-8'))
+
+    def test_coordinator_cli_accepts_dash_prefixed_supervisor_token(self):
+        # Exercise the real coordinator argparse entry point: an option-looking
+        # token must be consumed as the value, not parsed as another option.
+        coordinator = Path(supervisor.__file__).with_name('workflow_coordinator.py')
+        result = subprocess.run([sys.executable, str(coordinator), 'serve',
+            '--supervisor-token=-option-looking-token'], capture_output=True, text=True, timeout=10)
+        self.assertNotIn('argument --supervisor-token: expected one argument', result.stderr)
+        self.assertIn('the following arguments are required: --config, --port', result.stderr)
 
     def test_database_mismatch_rejected_before_spawn(self):
         with self.assertRaisesRegex(ValueError, 'exactly match'):

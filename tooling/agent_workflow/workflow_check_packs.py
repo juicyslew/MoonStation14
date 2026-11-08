@@ -34,11 +34,89 @@ def _validate_selectors(pid, selectors):
     if len(set(selectors)) != len(selectors):
         _fail(f'{pid} selectors must be unique')
     if pid == 'unit' and any(not _JAVA_SELECTOR.fullmatch(x) for x in selectors):
-        _fail('unit selectors must be narrow Java class or method selectors')
+        _fail('unit selectors must be narrow Java class selectors only; remove method suffixes and select the enclosing class')
     if pid == 'readiness' and any(x not in _READINESS for x in selectors):
         _fail('readiness selectors must be allowed readiness categories')
     if pid == 'focused_gametest' and any(not _TAG.fullmatch(x) for x in selectors):
         _fail('focused GameTest selectors must be safe tags')
+
+
+def _validate_unit_classes(repo, selectors, *, field='policy.selector_requirements.unit'):
+    """Bind selectors to source class identities; XML evidence only proves classes."""
+    recovery = 'Correct selectors in the named field; use only exact fully qualified top-level Java test class names from src/test/java. Method and nested-class selectors are unsupported. Register with fresh keys.'
+    root = Path(repo) / 'src' / 'test' / 'java'
+    identities = set()
+    nested_names = set()
+    unreadable = []
+    for source in root.rglob('*.java') if root.is_dir() else ():
+        try:
+            text = source.read_text(encoding='utf-8')
+        except (OSError, UnicodeError) as exc:
+            unreadable.append(f'{source.relative_to(root)} ({type(exc).__name__})')
+            continue
+        clean = _java_code_only(text)
+        package = re.search(r'^\s*package\s+([\w.]+)\s*;', clean, re.M)
+        prefix = package.group(1) + '.' if package else ''
+        depth = 0
+        for match in re.finditer(r'[{}]|\b(?:class|interface|enum|record)\s+([A-Za-z_$][\w$]*)', clean):
+            token = match.group(0)
+            if token == '}': depth = max(0, depth - 1)
+            elif token == '{': depth += 1
+            elif depth == 0: identities.add(prefix + match.group(1))
+            else: nested_names.add(prefix + match.group(1))
+    if unreadable:
+        raise ProtocolError('unable to verify Java unit selectors because source files could not be read: ' + ', '.join(unreadable[:10]) + (f' (+{len(unreadable)-10} more)' if len(unreadable)>10 else ''), field=field, recovery=recovery)
+    bad = []
+    for selector in sorted(selectors):
+        if selector in identities:
+            continue
+        # A plausible method selector whose enclosing class exists is rejected explicitly.
+        if any(selector.startswith(name + '.') for name in identities):
+            bad.append(selector + ' (method selectors are unsupported; use the enclosing class selector)')
+        elif selector in nested_names:
+            bad.append(selector + ' (nested-class selectors are unsupported; use the enclosing top-level class selector)')
+        elif any(name.startswith(selector + '.') for name in identities):
+            bad.append(selector + ' (nested-class selectors are unsupported; use the enclosing top-level class selector)')
+        else:
+            bad.append(selector)
+    if bad:
+        suggestions = []
+        for selector in sorted(selectors):
+            basename = selector.rsplit('.', 1)[-1]
+            suggestions.extend(sorted(name for name in identities if name.rsplit('.', 1)[-1] == basename))
+        message = 'Unknown unit test class selectors: ' + ', '.join(bad[:10]) + (f' (+{len(bad)-10} more)' if len(bad)>10 else '')
+        if suggestions:
+            unique = list(dict.fromkeys(suggestions))
+            recovery = 'Valid top-level class selector(s): ' + ', '.join(unique[:10]) + (f' (+{len(unique)-10} more)' if len(unique)>10 else '') + '. ' + recovery
+        raise ProtocolError(message, field=field, recovery=recovery)
+
+
+def _java_code_only(text):
+    """Blank comments and literals while retaining line breaks and braces."""
+    pattern = re.compile(r'//[^\n]*|/\*[\s\S]*?\*/|"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
+    return pattern.sub(lambda m: re.sub(r'[^\n]', ' ', m.group(0)), text)
+
+
+def validate_policy_inputs(repo, policy, selected=None):
+    """Validate shared package and required unit selector inputs for both entry paths."""
+    covered = set()
+    if isinstance(policy, dict) and isinstance(policy.get('coverage'), dict):
+        for values in policy['coverage'].values():
+            if isinstance(values, list): covered.update(x for x in values if isinstance(x, str))
+    if 'package' in covered:
+        artifacts = policy.get('package_artifacts')
+        if not isinstance(artifacts, list) or not artifacts:
+            raise ProtocolError('package coverage requires at least one built .jar or .zip archive', field='policy.package_artifacts', recovery='Declare a safe repo-relative built .jar or .zip distribution archive (typically under build/libs), then register with fresh keys.')
+        for artifact in artifacts:
+            if not isinstance(artifact, str) or not artifact:
+                raise ProtocolError('package artifacts must be safe repo-relative archive paths', field='policy.package_artifacts', recovery='Declare a safe repo-relative .jar or .zip distribution archive, then register with fresh keys.')
+            _repo_path(repo, artifact, 'policy.package_artifacts')
+            if Path(artifact).suffix.lower() not in ('.jar', '.zip'):
+                raise ProtocolError(f'package artifact {artifact!r} must identify a built .jar or .zip distribution output', field='policy.package_artifacts', recovery='Use a safe repo-relative .jar or .zip build output (typically build/libs), then register with fresh keys.')
+    reqs = policy.get('selector_requirements', {}) if isinstance(policy, dict) else {}
+    unit = reqs.get('unit', []) if isinstance(reqs, dict) else []
+    if unit and selected is None:
+        _validate_unit_classes(repo, set(unit), field='policy.selector_requirements.unit')
 
 
 def _repo_path(repo, value, field):
@@ -150,8 +228,16 @@ def resolve_check_packs(request, *, repo, policy):
     for pid in focused:
         required_selectors = _strings(requirements[pid], f'selector_requirements.{pid}')
         _validate_selectors(pid, required_selectors)
+        if pid == 'unit':
+            _validate_selectors(pid, selected[pid])
+            _validate_unit_classes(repo, set(required_selectors), field='policy.selector_requirements.unit')
+            extras = set(selected[pid]) - set(required_selectors)
+            if extras:
+                _validate_unit_classes(repo, extras, field='check_packs.unit.selectors')
         if not set(required_selectors).issubset(selected[pid]):
             _fail(f'{pid} request selectors must include trusted required selectors')
+    if 'unit' in focused:
+        validate_policy_inputs(repo, policy, selected)
     if {'full_gametest', 'focused_gametest'}.issubset(selected):
         _fail('select focused or full GameTests, not both')
     for cid in ids:
@@ -183,6 +269,7 @@ def resolve_check_packs(request, *, repo, policy):
         _fail('package pack requires non-empty package_artifacts')
     if 'package' not in selected or 'provenance' not in selected:
         _fail('OWNER_READY feature plans require package and provenance packs')
+    validate_policy_inputs(repo, policy, selected)
     checks = []
     covers = {pid: [cid for cid in ids if pid in coverage[cid]] for pid in selected}
     ordered = [x for x in ('provenance', 'unit', 'readiness', 'focused_gametest', 'full_gametest', 'package') if x in selected]

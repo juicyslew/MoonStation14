@@ -31,6 +31,7 @@ $script:SharedSources = @(
     'tooling/agent_workflow/gate_dispatch.py',
     'tooling/agent_workflow/gate_execution.py',
     'tooling/agent_workflow/workflow_runtime.py',
+    'tooling/agent_workflow/validation-logging.gradle',
     'tooling/agent_workflow/workflow_mcp.py',
     'tooling/agent_workflow/requirements-workflow-mcp.txt',
     'docs/development-workflow/README.runtime.md',

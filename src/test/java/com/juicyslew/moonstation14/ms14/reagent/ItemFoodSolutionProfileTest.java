@@ -139,6 +139,35 @@ class ItemFoodSolutionProfileTest {
         assertTrue(transferPolicy.canReceive());
     }
 
+    @Test void dartProfilesResolveEmptyAndUseConfiguredTransferVolumes() throws Exception {
+        var ops = com.mojang.serialization.JsonOps.INSTANCE;
+        var loader = ItemFoodSolutionProfileTest.class;
+        var raw = new java.util.LinkedHashMap<ResourceLocation, com.google.gson.JsonObject>();
+        for (String id : new String[]{"dart", "hypo_dart"}) {
+            try (var stream = loader.getResourceAsStream("/data/moonstation14/moonstation14/item_food_solution_profile/" + id + ".json")) {
+                assertNotNull(stream, id);
+                raw.put(ResourceLocation.fromNamespaceAndPath("moonstation14", id), JsonParser.parseReader(new java.io.InputStreamReader(stream, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject());
+            }
+        }
+        var resolved = com.juicyslew.moonstation14.ms14.prototype.PrototypeResolver.resolve(raw);
+        var dart = ItemFoodSolutionProfile.CODEC.parse(ops, resolved.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "dart"))).getOrThrow();
+        var hypo = ItemFoodSolutionProfile.CODEC.parse(ops, resolved.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "hypo_dart"))).getOrThrow();
+        assertEquals(200, dart.capacityCents());
+        assertEquals(1000, hypo.capacityCents());
+        assertTrue(dart.contentsCents().isEmpty());
+        assertEquals("melee", hypo.solutionName());
+        assertEquals(2f, com.juicyslew.moonstation14.item.custom.ItemFoodSolutionItem.solutionTransferFromResolved(dart).transferAmount());
+        assertEquals(10f, com.juicyslew.moonstation14.item.custom.ItemFoodSolutionItem.solutionTransferFromResolved(hypo).transferAmount());
+        assertEquals(5f, com.juicyslew.moonstation14.item.custom.ItemFoodSolutionItem.solutionTransferFromResolved(new ItemFoodSolutionProfile(200, Map.of(), true, "food", true)).transferAmount());
+    }
+
+    private static ItemFoodSolutionProfile readProfile(Class<?> loader, com.mojang.serialization.DynamicOps<com.google.gson.JsonElement> ops, String id) throws Exception {
+        try (var stream = loader.getResourceAsStream("/data/moonstation14/moonstation14/item_food_solution_profile/" + id + ".json")) {
+            assertNotNull(stream, id);
+            return ItemFoodSolutionProfile.CODEC.parse(ops, JsonParser.parseReader(new java.io.InputStreamReader(stream, java.nio.charset.StandardCharsets.UTF_8))).getOrThrow();
+        }
+    }
+
     @Test void shippedProduceProfilesBindFoodRefillReceiveOnly() throws Exception {
         var ops = com.mojang.serialization.JsonOps.INSTANCE;
         var loader = ItemFoodSolutionProfileTest.class;

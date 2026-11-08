@@ -14,15 +14,13 @@ class MeleeWideAttackPolicyTest {
     @Test void modeControlsBaseScalingAndEmptySwing() {
         assertEquals(2f, LiveMeleeAttackService.baseScale(false, 2f));
         assertEquals(1f, LiveMeleeAttackService.baseScale(true, 2f));
-        assertTrue(LiveMeleeAttackService.shouldSwingWide(true, false));
-        assertFalse(LiveMeleeAttackService.shouldSwingWide(false, false));
-        assertFalse(LiveMeleeAttackService.shouldSwingWide(true, true));
+        assertTrue(MeleeSoundPolicy.shouldPredictSwing(true));
+        assertFalse(MeleeSoundPolicy.shouldPredictSwing(false));
     }
-    @Test void firstInvalidCandidateDoesNotPreventLaterCandidatesAndDeletedFirstHasNoSoundFallback() {
+    @Test void firstInvalidCandidateDoesNotPreventLaterCandidatesAndValidatedMissSwings() {
         UUID missing=UUID.randomUUID(), valid=UUID.randomUUID();
         assertEquals(List.of(missing, valid), LiveMeleeAttackService.wideNominationPolicy(List.of(missing, valid)));
-        assertFalse(LiveMeleeAttackService.playWideHitSound(false));
-        assertTrue(LiveMeleeAttackService.playWideHitSound(true));
-        assertFalse(LiveMeleeAttackService.shouldSwingWide(false, false)); // non-empty nomination list filtered to zero
+        assertFalse(MeleeSoundPolicy.shouldPredictSwing(false)); // valid contacts suppress miss feedback
+        assertTrue(MeleeSoundPolicy.shouldPredictSwing(true)); // even when nominations existed but validation removed them all
     }
 }

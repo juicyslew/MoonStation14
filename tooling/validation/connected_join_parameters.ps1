@@ -24,7 +24,10 @@ function Assert-ConnectedJoinParameters {
         [bool]$PopulationScenarioSpecified,
         [bool]$PopulationSustained,
         [bool]$FlyerPoseDiagnostic = $false,
-        [string]$Scenario = ''
+        [string]$Scenario = '',
+        [bool]$MeleePresentationDiagnostic = $false,
+        [bool]$MeleeStrikePresentationDiagnostic = $false,
+        [bool]$MeleePresentationDiagnosticSpecified = $false
     )
     if ($FlyerPoseDiagnostic -and (!$PopulationScenarioSpecified -or $Scenario -ne 'Mixed')) { throw 'FlyerPoseDiagnostic requires PopulationScenario Mixed.' }
     if ($PopulationSustained -and !$PopulationScenarioSpecified) {
@@ -34,8 +37,12 @@ function Assert-ConnectedJoinParameters {
         if ($WallTimeoutSeconds -lt 600 -or $WallTimeoutSeconds -gt 900) {
             throw 'Sustained capture WallTimeoutSeconds must be between 600 and 900.'
         }
-    } elseif ($WallTimeoutSeconds -lt 30 -or $WallTimeoutSeconds -gt 120) {
+    } elseif ($WallTimeoutSeconds -lt 30 -or $WallTimeoutSeconds -gt $(if ($MeleePresentationDiagnostic -or $MeleeStrikePresentationDiagnostic) { 240 } else { 120 })) {
         throw 'WallTimeoutSeconds must be between 30 and 120 for ordinary and stationary runs.'
+    }
+    if ($MeleePresentationDiagnosticSpecified -and $MeleeStrikePresentationDiagnostic) { throw 'MeleePresentationDiagnostic and MeleeStrikePresentationDiagnostic are mutually exclusive.' }
+    if (($MeleePresentationDiagnostic -or $MeleeStrikePresentationDiagnostic) -and ($PopulationScenarioSpecified -or $PopulationSustained -or $FlyerPoseDiagnostic)) {
+        throw 'MeleePresentationDiagnostic cannot be combined with animal population diagnostic modes.'
     }
     if ($PreparationTimeoutSeconds -lt 30 -or $PreparationTimeoutSeconds -gt 600) {
         throw 'PreparationTimeoutSeconds must be between 30 and 600.'

@@ -39,9 +39,9 @@ public final class DestructionExplosionGameTests {
         var oldDamage = base.itemDamage();
         var explosion = new ExplosiveSourceData(.1, 1, .001, ResourceLocation.fromNamespaceAndPath("moonstation14", "default"));
         var sourceDamage = new LooseObjectProfile.ItemDamageComposition(oldDamage.allowedGroups(), Map.of("blunt", 1f),
-                0f, 1f, 40, Map.of(), 1f, null, false, java.util.List.of(), explosion);
+                oldDamage.minimumImpactSpeed(), 1f, 40, Map.of(), 1f, null, false, java.util.List.of(), explosion);
         var receiverDamage = new LooseObjectProfile.ItemDamageComposition(oldDamage.allowedGroups(), Map.of(),
-                0f, 0f, 0, Map.of(), 100f, null, false, java.util.List.of(), null);
+                oldDamage.minimumImpactSpeed(), 0f, 0, Map.of(), 100f, null, false, java.util.List.of(), null);
         var profiles = new HashMap<>(original);
         profiles.put(sourceId, withDamage(base, sourceDamage));
         profiles.put(receiverId, withDamage(base, receiverDamage));
@@ -65,16 +65,29 @@ public final class DestructionExplosionGameTests {
             source.setNoGravity(true); source.setDeltaMovement(2, 0, 0);
             var receiverStack = new ItemStack(ModItems.TOMATO.get());
             receiverStack.set(ModDataComponents.LOOSE_OBJECT_PROFILE.get(), receiverId);
-            receiver = LooseItemEntity.create(level, new Vec3(wall.getX() - 4, wall.getY() + .5, wall.getZ() + .5), receiverStack);
+            // Keep the receiver in the source's expected impact-origin voxel, but vertically separated so it cannot cause an entity collision before the wall impact.
+            receiver = LooseItemEntity.create(level, new Vec3(wall.getX() - .5, wall.getY() + .98, wall.getZ() + .5), receiverStack);
             receiver.setNoGravity(true); receiver.setDeltaMovement(Vec3.ZERO);
+            var receiverInitialCell = BlockPos.containing(receiver.position().x, receiver.getBoundingBox().minY, receiver.position().z);
             if (!level.addFreshEntity(source) || !level.addFreshEntity(receiver)) throw new GameTestAssertException("fixture tomatoes enter world");
             var s = source; var r = receiver;
             helper.runAfterDelay(8, () -> {
                 try {
                     var ledger = r.getItem().get(ModDataComponents.ITEM_DAMAGE_STATE.get());
-                    require(s.isRemoved(), "impact destroyed explosive source");
-                    require(!r.isRemoved() && r.getItem().get(ModDataComponents.LOOSE_OBJECT_PROFILE.get()).equals(receiverId), "different-profile receiver survives");
-                    require(ledger != null && ledger.damage().equals(Map.of("heat", .5f, "blunt", .5f, "piercing", .5f)), "queued destruction blast applies expected receiver ledger");
+                     require(s.isRemoved(), "impact destroyed explosive source; sourceRemoved=" + s.isRemoved()
+                             + " sourcePos=" + s.position() + " receiverPos=" + r.position());
+                     var sourceImpactCell = BlockPos.containing(s.position().x, s.getBoundingBox().minY, s.position().z);
+                     require(receiverInitialCell.equals(sourceImpactCell), "receiver begins in source destruction origin cell; receiverCell="
+                             + receiverInitialCell + " sourceImpactCell=" + sourceImpactCell);
+                    require(!r.isRemoved() && r.getItem().get(ModDataComponents.LOOSE_OBJECT_PROFILE.get()).equals(receiverId),
+                            "different-profile receiver survives; removed=" + r.isRemoved() + " profile="
+                                    + r.getItem().get(ModDataComponents.LOOSE_OBJECT_PROFILE.get()) + " expected=" + receiverId);
+                    require(ledger != null && ledger.damage().equals(Map.of("heat", .5f, "blunt", .5f, "piercing", .5f)),
+                            "queued destruction blast applies expected receiver ledger; actual=" + ledger
+                                    + " sourceRemoved=" + s.isRemoved() + " sourcePos=" + s.position()
+                                    + " receiverRemoved=" + r.isRemoved() + " receiverProfile="
+                                    + r.getItem().get(ModDataComponents.LOOSE_OBJECT_PROFILE.get())
+                                    + " receiverPos=" + r.position() + " expected={heat=0.5, blunt=0.5, piercing=0.5}");
                     require(ledger.nextImpactDeadline() == 0, "receiver damage ledger has no unrelated impact cooldown");
                     helper.succeed();
                 } catch (Throwable failure) { helper.fail("impact destruction explosion route: " + failure); }

@@ -27,8 +27,8 @@ public final class RegisteredMeleeGameTests {
                     com.mojang.serialization.JsonOps.INSTANCE, catalog.get(id)).getOrThrow().getAsJsonObject();
             var components = json.has("components") ? json.getAsJsonArray("components") : new com.google.gson.JsonArray();
             json.add("components", components);
-            components.add(com.google.gson.JsonParser.parseString("{\"type\":\"CombatMode\",\"can_disarm\":true}"));
-            components.add(com.google.gson.JsonParser.parseString("{\"type\":\"MeleeWeapon\",\"weapon\":{\"damage\":{\"blunt\":5}}}"));
+            com.juicyslew.moonstation14.ms14.character.CharacterPrototypeComponentUpsert.upsert(components,com.google.gson.JsonParser.parseString("{\"type\":\"CombatMode\",\"can_disarm\":true}").getAsJsonObject());
+            com.juicyslew.moonstation14.ms14.character.CharacterPrototypeComponentUpsert.upsert(components,com.google.gson.JsonParser.parseString("{\"type\":\"MeleeWeapon\",\"weapon\":{\"damage\":{\"blunt\":5}}}").getAsJsonObject());
             catalog.put(id, com.juicyslew.moonstation14.component.codec.json.CharacterData.CODEC
                     .parse(com.mojang.serialization.JsonOps.INSTANCE, json).getOrThrow());
             return catalog;

@@ -14,6 +14,10 @@ public final class ModGasTanks {
     public static final ResourceLocation BASE_ID = id("gas_tank_base");
     public static final ResourceLocation PLASMA_ID = id("plasma_tank");
     public static final ResourceLocation PLASMA_FILLED_ID = id("plasma_tank_filled");
+    public static final ResourceLocation OXYGEN_ID = id("oxygen_tank");
+    public static final ResourceLocation OXYGEN_FILLED_ID = id("oxygen_tank_filled");
+    public static final ResourceLocation EMERGENCY_OXYGEN_ID = id("emergency_oxygen_tank");
+    public static final ResourceLocation EMERGENCY_OXYGEN_FILLED_ID = id("emergency_oxygen_tank_filled");
     public static final PrototypeType<GasTankData> TYPE = new PrototypeType<>(id("gas_tank"), "moonstation14/gas_tank", GasTankData.CODEC, new GasTankMergeStrategy());
     private ModGasTanks() { }
     public static ResourceLocation id(String path) { return ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, path); }
@@ -25,7 +29,7 @@ public final class ModGasTanks {
     /** Seed client gas-tank prototypes from bundled definitions until authoritative reload sync arrives. */
     public static void bootstrapClientBundled() {
         var raw = new LinkedHashMap<ResourceLocation, com.google.gson.JsonObject>();
-        for (String name : java.util.List.of("gas_tank_base", "plasma_tank", "plasma_tank_filled")) {
+        for (String name : java.util.List.of("gas_tank_base", "plasma_tank", "plasma_tank_filled", "oxygen_tank", "oxygen_tank_filled", "emergency_oxygen_tank", "emergency_oxygen_tank_filled")) {
             String path = "/data/moonstation14/moonstation14/gas_tank/" + name + ".json";
             try (var stream = ModGasTanks.class.getResourceAsStream(path)) {
                 if (stream == null) throw new IllegalStateException("Missing bundled gas tank prototype " + path);
@@ -37,4 +41,3 @@ public final class ModGasTanks {
         com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime.clientManager().reload(TYPE, raw);
     }
 }
-

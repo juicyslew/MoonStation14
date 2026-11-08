@@ -62,7 +62,30 @@ public final class TomatoItemDamageGameTests {
         });
     }
 
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 120)
+    public static void ordinaryWatermelonDropSurvivesGravityWithoutDamageOrReagentChange(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos floor = helper.absolutePos(new BlockPos(5, 1, 5));
+        level.setBlock(floor, Blocks.STONE.defaultBlockState(), 3);
+        var stack = ProduceFactory.createHarvest(ResourceLocation.fromNamespaceAndPath("moonstation14", "watermelon"), 10);
+        var chemistry = stack.get(ModDataComponents.REAGENT.get());
+        var item = LooseItemEntity.create(level, new Vec3(floor.getX() + .5, floor.getY() + 4, floor.getZ() + .5), stack);
+        require(level.addFreshEntity(item), "ordinary harvested watermelon enters loose world");
+        helper.runAfterDelay(90, () -> {
+            try {
+                require(!item.isRemoved() && item.getItem().is(ModItems.WATERMELON.get()), "ordinary falling watermelon remains an item");
+                require(item.getItem().get(ModDataComponents.ITEM_DAMAGE_STATE.get()) == null,
+                        "ordinary vertical watermelon drop is not an explicit throw and gains no impact damage");
+                require(item.getItem().get(ModDataComponents.REAGENT.get()).equals(chemistry),
+                        "gravity-only watermelon landing preserves exact food chemistry");
+                require(level.getBlockState(floor.above()).isAir(), "ordinary watermelon drop creates no destruction puddle");
+                helper.succeed();
+            } catch (Throwable failure) { helper.fail("ordinary watermelon drop: " + failure); }
+        });
+    }
+
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 240)
+    @com.juicyslew.moonstation14.gametest.support.GameTestTags({"merge-main-remaining", "merge-main-stage-two"})
     public static void authenticatedThrowLandsDestroysTomatoAndSpillsOnlyCurrentChemistry(GameTestHelper helper) {
         ServerLevel level = (ServerLevel) helper.getLevel();
         BlockPos origin = helper.absolutePos(new BlockPos(5, 1, 5));
@@ -92,16 +115,27 @@ public final class TomatoItemDamageGameTests {
                                 == BodyHandItemTransfer.Result.SUCCESS,
                         "real registered player picks up current tomato through existing transfer owner");
                 BlockPos aimBlock = new BlockPos(origin.getX() + 7, origin.getY(), origin.getZ());
-                RegisteredPlayerReadyDriver.aimAt(body, level, aimBlock);
+                // Throw aiming is body look direction, not the short interaction ray used by aimAt.
+                body.lookAt(EntityAnchorArgument.Anchor.EYES, aimBlock.getCenter());
                 var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 2));
                 var handSnapshot = query.hands().stream().filter(candidate -> candidate.id().equals(hand)).findFirst().orElseThrow();
                 require(handSnapshot.token() != null && handSnapshot.itemId().equals("moonstation14:tomato"), "fresh authoritative query identifies held tomato");
                 var request = new BodyHandActionRequest(BodyHandActionRequest.Action.THROW_ITEM, hand, owner.epoch(), 1,
                         query.revision(), null, handSnapshot.token());
                 var result = BodyHandRequestService.apply(fixture.player(), request);
-                require(result.accepted() && result.hostTransition() != null
-                                && result.hostTransition().direction() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.HostTransition.Direction.DROP,
-                        "authenticated request commits actual hand-to-world THROW publication");
+                if (!result.accepted() || result.hostTransition() == null
+                        || result.hostTransition().direction() != com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.HostTransition.Direction.DROP) {
+                    var live = body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+                    String context = "throw reason=" + result.reason() + " transition=" + result.hostTransition()
+                            + " rev=" + query.revision() + "/" + live.revision()
+                            + " ; throw diagnostics, epoch=" + owner.epoch()
+                            + ", sequence=1, requestRevision=" + query.revision()
+                            + ", liveRevision=" + live.revision() + ", requestedHand=" + hand + ", selectedHand=" + live.activeHand()
+                            + ", bodyLook=" + body.getLookAngle() + ", bodyPosition=" + body.position()
+                            + ", bodyChunkLoaded=" + level.hasChunkAt(body.blockPosition()) + ", throwGate="
+                            + com.juicyslew.moonstation14.ms14.hands.live.BodyLooseThrow.lastPortableThrowGateForDiagnostics();
+                    throw new AssertionError(context);
+                }
                 require(body.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get())
                                 .stackCopy(hand).orElse(ItemStack.EMPTY).isEmpty(), "successful throw empties only its source hand");
                 UUID thrownId = result.hostTransition().worldEntity();
@@ -140,10 +174,17 @@ public final class TomatoItemDamageGameTests {
                         require(genetics != null, "authentic harvest source carries its registered genetic value");
                         require(puddles.stream().allMatch(puddle -> level.hasChunkAt(puddle.getBlockPos())), "spill uses only existing loaded puddle surfaces");
                         helper.succeed();
-                    } catch (Throwable failure) { helper.fail("authenticated tomato throw and destruction spill: " + failure); }
+                    } catch (Throwable failure) {
+                        failure.addSuppressed(new AssertionError("authenticated tomato throw and destruction spill"));
+                        helper.testInfo.fail(failure);
+                    }
                     finally { fixture.close(); }
                 });
-            } catch (Throwable failure) { fixture.close(); helper.fail("authenticated tomato throw setup: " + failure); }
+            } catch (Throwable failure) {
+                fixture.close();
+                failure.addSuppressed(new AssertionError("authenticated tomato throw setup"));
+                helper.testInfo.fail(failure);
+            }
         });
     }
 

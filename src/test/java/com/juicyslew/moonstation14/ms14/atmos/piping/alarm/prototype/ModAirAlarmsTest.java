@@ -62,6 +62,27 @@ class ModAirAlarmsTest {
         assertEquals(alarm, AirAlarmData.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
         assertFalse(encoded.has("parent"));
         assertTrue(encoded.has("deviceComponents"));
+        assertEquals(5, alarm.controller().presets().size());
+        assertTrue(alarm.controller().automaticMode());
+        var state = new com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosDevicePayload.State(0, true, 100, 20, 100, 0,
+                com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig.ScrubberMode.FILTER, java.util.Set.of(),
+                com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig.Layer.TERTIARY);
+        var fill = com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmPresetPlanner.plan(
+                com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig.Kind.VENT,
+                alarm.controller().presets().get(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.FILL), state);
+        assertEquals(4500, fill.targetPressureKPa());
+        assertEquals(4500, fill.externalPressureBoundKPa());
+        assertEquals(com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig.Layer.TERTIARY, fill.layer());
+        var ventConfig = new com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig(
+                com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig.Kind.VENT);
+        assertTrue(com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosVentilationReducer.apply(ventConfig, fill));
+        assertEquals(4500, ventConfig.settings().externalPressureBoundKPa());
+        assertEquals(4500, ventConfig.settings().targetPressureKPa());
+        for (var mode : com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode.values()) {
+            var preset = alarm.controller().presets().get(mode);
+            assertNotNull(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmPresetPlanner.plan(
+                    com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfig.Kind.SCRUBBER, preset, state));
+        }
     }
 
     @Test void rejectsMissingEntryParentAndMalformedDefaultsWithoutReplacingPublishedCatalog() {
