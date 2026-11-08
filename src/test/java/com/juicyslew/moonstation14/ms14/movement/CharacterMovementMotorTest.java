@@ -478,17 +478,17 @@ class CharacterMovementMotorTest {
                 new MovementVector(1.6666667d, 0d, 0d), 1.6666667d, OPEN);
         var idle = new CharacterMovementCommand(0d, 0d, false, false);
         var afterIdle = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true), idle, pulse, false);
-        assertEquals(.49382717037037055d, afterIdle.velocity().x(), 1e-8);
-        assertEquals(.0390946521604938d, afterIdle.position().x(), 1e-8);
+        assertEquals(0d, afterIdle.velocity().x(), 0d);
+        assertEquals(0d, afterIdle.position().x(), 0d);
 
         var oppose = new CharacterMovementCommand(-1d, 0d, false, false);
         var afterOpposingWish = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true), oppose, pulse, false);
-        assertEquals(-1.7052469037037032d, afterOpposingWish.velocity().x(), 1e-8,
+        assertEquals(-human.walkSpeedPerSecond(), afterOpposingWish.velocity().x(), 1e-8,
                 "friction consumes the pulse before projected wish acceleration follows the existing motor order");
     }
 
     @Test
-    void groundedSixtyHertzMotorSubstepsStillUseOneNativeCollisionSweep() {
+    void groundedMovementUsesM1SingleTickArithmeticAndOneNativeCollisionSweep() {
         var sweeps = new java.util.concurrent.atomic.AtomicInteger();
         MovementCollisionResolver singleSweep = (position, requested, grounded) -> {
             sweeps.incrementAndGet();
@@ -497,11 +497,13 @@ class CharacterMovementMotorTest {
         var policy = CharacterMovementPolicy.HUMAN;
         var result = new CharacterMovementMotor(policy).tick(
                 state(MovementVector.ZERO, MovementVector.ZERO, true),
-                new CharacterMovementCommand(0d, 0d, false, false),
+                new CharacterMovementCommand(1d, 0d, false, false),
                 env(.05d, 0d, 0d, new MovementVector(5d / 3d, 0d, 0d), 5d / 3d, singleSweep), false);
         assertEquals(1, sweeps.get(), "horizontal math substeps must not multiply native Entity.move calls");
-        assertEquals(40d / 81d, result.velocity().x(), 1e-12);
-        assertEquals(19d / 486d, result.position().x(), 1e-12);
+        // One tick: input friction (1 - 20 * .05) removes the impulse, then acceleration
+        // adds 20 * .05 * 2.5 = 2.5; resulting velocity moves for the full .05 s.
+        assertEquals(2.5d, result.velocity().x(), 1e-12);
+        assertEquals(.125d, result.position().x(), 1e-12);
     }
 
     @Test
@@ -577,11 +579,12 @@ class CharacterMovementMotorTest {
         MovementCollisionResolver wall = (position, requested, grounded) -> {
             intoWallCalls.incrementAndGet();
             return new MovementCollisionResolver.CollisionResult(
-                    new MovementVector(0d, requested.y(), requested.z()), grounded);
+                    new MovementVector(requested.x() > 0d ? 0d : requested.x(), requested.y(), requested.z()), grounded);
         };
         var motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
         var idle = new CharacterMovementCommand(0d, 0d, false, false);
-        var into = motor.tick(state(MovementVector.ZERO, new MovementVector(10d, 0d, 0d), true), idle,
+        var into = motor.tick(state(MovementVector.ZERO, new MovementVector(10d, 0d, 0d), true),
+                new CharacterMovementCommand(1d, 0d, false, false),
                 env(.05d, 0d, 0d, MovementVector.ZERO, 0d, wall), false);
         assertEquals(0d, into.velocity().x(), 0d, "terminal velocity still directed into the clipped wall is cleared");
         assertEquals(1, intoWallCalls.get(), "only one native collision sweep per motor tick");
@@ -594,6 +597,11 @@ class CharacterMovementMotorTest {
         assertEquals(-2.5d, away.velocity().x(), 1e-12,
                 "averaged displacement clipped into wall does not erase terminal velocity now pointing away");
         assertEquals(2, intoWallCalls.get(), "reversal case also performs exactly one native collision sweep");
+
+        var poweredAway = reverseMotor.tick(state(MovementVector.ZERO, new MovementVector(50d, 0d, 0d), false),
+                opposing, env(.05d, 0d, 0d, MovementVector.ZERO, 0d, wall), false, false, 0d, true);
+        assertEquals(-2.5d, poweredAway.velocity().x(), 1e-12,
+                "natural-flight averaged displacement may be clipped while reversed velocity points away");
     }
 
     private static CharacterData readCharacter(String name) throws IOException {
@@ -669,7 +677,7 @@ class CharacterMovementMotorTest {
         assertEquals(1d, Math.hypot(diagonal.wishX(), diagonal.wishZ()), 1e-12);
         CharacterMovementState result = motor.tick(state(MovementVector.ZERO, MovementVector.ZERO, true), diagonal,
                 env(.05d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false);
-        assertEquals(1.759259259259259d, result.velocity().horizontalLength(), 1e-12);
+        assertEquals(CharacterMovementPolicy.HUMAN.walkSpeedPerSecond(), result.velocity().horizontalLength(), 1e-12);
     }
 
     @Test
@@ -697,9 +705,9 @@ class CharacterMovementMotorTest {
         CharacterMovementEnvironment environment = env(.1d, 10d, 0d, MovementVector.ZERO, 0d, leavesGround);
         CharacterMovementState result = motor.tick(state(MovementVector.ZERO, new MovementVector(2d, 0d, 0d), true),
                 new CharacterMovementCommand(0d, 0d, false, false), environment, false);
-        assertEquals(2d * Math.pow(1d - 20d / 60d, 6), result.velocity().x(), 1e-12);
+        assertEquals(0d, result.velocity().x(), 1e-12); // q=max(0, 1-20*.1)
         assertEquals(-1d, result.velocity().y(), 1e-12);
-        assertEquals(.06081390032007318d, result.position().x(), 1e-12);
+        assertEquals(0d, result.position().x(), 1e-12);
         assertEquals(-.001d, result.position().y(), 1e-12);
     }
 
@@ -798,7 +806,7 @@ class CharacterMovementMotorTest {
                 state(MovementVector.ZERO, new MovementVector(2.5d, 0d, 0d), true),
                 new CharacterMovementCommand(0d, 0d, false, false),
                 env(1d / 20d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false);
-        assertEquals(2.5d * Math.pow(1d - 20d / 60d, 3), result.velocity().x(), 1e-12);
+        assertEquals(0d, result.velocity().x(), 1e-12); // q=max(0,1-20*.05)
     }
 
     @Test
@@ -810,7 +818,7 @@ class CharacterMovementMotorTest {
                 state(MovementVector.ZERO, new MovementVector(2d, 0d, 0d), true),
                 new CharacterMovementCommand(0d, 0d, false, false),
                 env(.1d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false);
-        assertEquals(2d * Math.pow(1d - 2.5d / 60d, 6), result.velocity().x(), 1e-12);
+        assertEquals(1.5d, result.velocity().x(), 1e-12); // q=.75 for friction 2.5 over .1 s
     }
 
     @Test
@@ -833,13 +841,9 @@ class CharacterMovementMotorTest {
         CharacterMovementState atThreshold = motor.tick(
                 state(MovementVector.ZERO, new MovementVector(threshold, 0d, 0d), true),
                 noWish, environment, true);
-        double frictionFactor = Math.pow(Math.max(0d, 1d - policy.groundFrictionNoInputPerSecond() / 60d), 6);
-        assertEquals(threshold * (1d - policy.groundFrictionNoInputPerSecond() / 60d), atThreshold.velocity().x(), 1e-12);
-        double oneStepFactor = 1d - policy.groundFrictionNoInputPerSecond() / 60d;
-        double displacementFactor = dt / 6d * (oneStepFactor + Math.pow(oneStepFactor, 2)
-                + Math.pow(oneStepFactor, 3) + Math.pow(oneStepFactor, 4)
-                + Math.pow(oneStepFactor, 5) + frictionFactor);
-        assertEquals(threshold * (1d - policy.groundFrictionNoInputPerSecond() / 60d) * dt, atThreshold.position().x(), 1e-12);
+        double q = Math.max(0d, 1d - policy.groundFrictionNoInputPerSecond() * dt);
+        assertEquals(threshold * q, atThreshold.velocity().x(), 1e-12);
+        assertEquals(threshold * q * dt, atThreshold.position().x(), 1e-12);
         assertEquals(-.001d, atThreshold.position().y(), 1e-12);
     }
 
@@ -854,8 +858,8 @@ class CharacterMovementMotorTest {
         CharacterMovementState moving = motor.tick(initial, wish, environment, false);
         CharacterMovementState stopped = motor.tick(initial, wish, environment, true);
 
-        assertEquals(2d * Math.pow(1d - 1d / 60d, 6), moving.velocity().x(), 1e-12);
-        assertEquals(2d * Math.pow(1d - 4d / 60d, 6), stopped.velocity().x(), 1e-12);
+        assertEquals(1.8d, moving.velocity().x(), 1e-12);
+        assertEquals(1.2d, stopped.velocity().x(), 1e-12);
     }
 
     @Test
@@ -1145,13 +1149,11 @@ class CharacterMovementMotorTest {
             CharacterMovementState stopped = motor.tick(landed, noInput, environment, false);
             assertTrue(stopped.onGround());
             double friction = policy.groundFrictionNoInputPerSecond();
-            double oneStepFactor = Math.max(0d, 1d - friction * environment.secondsPerTick() / 3d);
-            double expectedFactor = Math.pow(oneStepFactor, 3);
+            double expectedFactor = Math.max(0d, 1d - friction * environment.secondsPerTick());
             assertEquals(landed.velocity().horizontalLength() * expectedFactor,
                     stopped.velocity().horizontalLength(), 1e-12,
                     prototype + " neutral grounded friction follows resolved prototype");
-            double displacementFactor = environment.secondsPerTick() / 3d
-                    * (oneStepFactor + oneStepFactor * oneStepFactor + expectedFactor);
+            double displacementFactor = environment.secondsPerTick() * expectedFactor;
             assertEquals(landed.position().x() + landed.velocity().x() * displacementFactor,
                     stopped.position().x(), 1e-12);
             assertEquals(landed.position().z() + landed.velocity().z() * displacementFactor,
@@ -1160,7 +1162,7 @@ class CharacterMovementMotorTest {
     }
 
     @Test
-    void groundedStunPreservesSlipUnderLinearFrictionAndGravity() {
+    void groundedStunAppliesGroundFrictionAndGravity() {
         CharacterMovementMotor motor = new CharacterMovementMotor(CharacterMovementPolicy.HUMAN);
         MovementCollisionResolver wallAndGround = (position, displacement, grounded) ->
                 new MovementCollisionResolver.CollisionResult(new MovementVector(0d, 0d, displacement.z()), true);
@@ -1169,7 +1171,7 @@ class CharacterMovementMotorTest {
                 env(.1d, 10d, 7d, MovementVector.ZERO, 0d, wallAndGround), true);
         assertEquals(0d, result.velocity().x(), 0d); // wall blocked the horizontal axis
         assertEquals(0d, result.velocity().y(), 0d); // grounded collision clears downward velocity
-        assertEquals(.06081390032007318d, result.position().z(), 1e-12);
+        assertEquals(0d, result.position().z(), 0d);
     }
 
     @Test
@@ -1181,8 +1183,8 @@ class CharacterMovementMotorTest {
                 envWithSurface(.05d, 0d, 0d, MovementVector.ZERO, 0d, 1d, OPEN), false);
         CharacterMovementState lubeCoast = motor.tick(initial, noWish,
                 envWithSurface(.05d, 0d, 0d, MovementVector.ZERO, 0d, .05d, OPEN), false);
-        assertEquals(.740740740740741d, normalCoast.velocity().x(), 1e-12);
-        assertEquals(2.3770717592592585d, lubeCoast.velocity().x(), 1e-12);
+        assertEquals(0d, normalCoast.velocity().x(), 0d);
+        assertEquals(2.375d, lubeCoast.velocity().x(), 1e-12);
         assertTrue(lubeCoast.velocity().horizontalLength() < initial.velocity().horizontalLength(),
                 "contact friction still brakes, but must not add speed");
 
@@ -1192,10 +1194,10 @@ class CharacterMovementMotorTest {
                 envWithSurface(.05d, 0d, 0d, MovementVector.ZERO, 0d, 1d, OPEN), false);
         CharacterMovementState lubeTurn = motor.tick(lateral, turn,
                 envWithSurface(.05d, 0d, 0d, MovementVector.ZERO, 0d, .05d, OPEN), false);
-        assertEquals(1.759259259259259d, normalTurn.velocity().x(), 1e-12);
-        assertEquals(.12292824074074071d, lubeTurn.velocity().x(), 1e-12);
+        assertEquals(2.5d, normalTurn.velocity().x(), 1e-12);
+        assertEquals(.125d, lubeTurn.velocity().x(), 1e-12);
         assertTrue(lubeTurn.velocity().z() > normalTurn.velocity().z());
-        assertEquals(1.9016574074074073d, lubeTurn.velocity().z(), 1e-12, "contact does not erase lateral momentum");
+        assertEquals(1.9d, lubeTurn.velocity().z(), 1e-12, "contact does not erase lateral momentum");
     }
 
     @Test
@@ -1219,18 +1221,18 @@ class CharacterMovementMotorTest {
             state = motor.tick(state, knockdownWish, lube, false);
             assertTrue(state.onGround(), "a supporting floor must survive a stationary grounded tick");
             assertEquals(0d, state.position().y(), 0d);
-            assertTrue(state.velocity().x() - previousSpeed <= .09d,
-                    "per-tick lube-scaled acceleration must not jump to 1.8 blocks/s");
+            assertTrue(state.velocity().x() - previousSpeed <= .05d + 1e-12,
+                    "per-tick lube-scaled acceleration remains bounded");
         }
-        assertEquals(.3319356913153201d, state.velocity().x(), 1e-12,
-                "lube-scaled knockdown acceleration remains bounded each tick instead of jumping to 1.8 blocks/s");
+        assertEquals(.3365795687109375d, state.velocity().x(), 1e-12,
+                "lube-scaled walk acceleration remains bounded each tick");
 
         CharacterMovementEnvironment lubeNoInput = envWithSurface(1d / 20d, 32d, 0d,
                 MovementVector.ZERO, 0d, .05d, floor);
         CharacterMovementState coasting = motor.tick(
                 state(MovementVector.ZERO, new MovementVector(2d, 0d, 0d), true),
                 new CharacterMovementCommand(0d, 0d, false, false), lubeNoInput, false);
-        assertEquals(1.9016574074074073d, coasting.velocity().x(), 1e-12,
+        assertEquals(1.9d, coasting.velocity().x(), 1e-12,
                 "grounded no-input momentum retains the configured .95 lube friction factor");
         assertTrue(coasting.onGround());
     }
@@ -1265,8 +1267,8 @@ class CharacterMovementMotorTest {
         CharacterMovementState stickyCoast = motor.tick(
                 state(MovementVector.ZERO, new MovementVector(2d, 0d, 0d), true),
                 new CharacterMovementCommand(0d, 0d, false, false), sticky, false);
-        assertEquals(1.125d, normalCoast.velocity().x(), 1e-12);
-        assertEquals(.78125d, stickyCoast.velocity().x(), 1e-12);
+        assertEquals(1d, normalCoast.velocity().x(), 1e-12);
+        assertEquals(.5d, stickyCoast.velocity().x(), 1e-12);
 
         CharacterMovementCommand forward = new CharacterMovementCommand(1d, 0d, false, false);
         CharacterMovementEnvironment normalAccelerationEnvironment =
@@ -1310,8 +1312,8 @@ class CharacterMovementMotorTest {
                 envWithSurface(.1d, 0d, 0d, MovementVector.ZERO, 0d, .05d, OPEN), true);
         CharacterMovementState stunnedNormal = motor.tick(slipping, blockedWish,
                 envWithSurface(.1d, 0d, 0d, MovementVector.ZERO, 0d, 1d, OPEN), true);
-        assertEquals(1.8081504475737307d, stunnedLube.velocity().x(), 1e-12);
-        assertEquals(.1755829903978053d, stunnedNormal.velocity().x(), 1e-12);
+        assertEquals(1.8d, stunnedLube.velocity().x(), 1e-12);
+        assertEquals(0d, stunnedNormal.velocity().x(), 0d);
         assertEquals(0d, stunnedLube.velocity().z(), 0d);
         assertTrue(stunnedLube.position().x() > 0d, "friction must not fabricate an immediate stop");
 
@@ -1320,7 +1322,7 @@ class CharacterMovementMotorTest {
         CharacterMovementState leftSource = motor.tick(stunnedLube,
                 new CharacterMovementCommand(0d, 0d, false, false),
                 envWithSurface(.1d, 0d, 0d, MovementVector.ZERO, 0d, 1d, OPEN), true);
-        assertEquals(.15874023133706286d, leftSource.velocity().x(), 1e-12);
+        assertEquals(0d, leftSource.velocity().x(), 0d);
     }
 
     @Test
@@ -1539,7 +1541,7 @@ class CharacterMovementMotorTest {
         CharacterMovementState landed = motor.tick(flight,
                 new CharacterMovementCommand(0d, 0d, false, false),
                 env(.05d, 0d, 0d, MovementVector.ZERO, 0d, OPEN), false);
-        assertEquals(2.962962962962964d, landed.velocity().x(), 1e-12, "ordinary ground friction resumes after flight ends");
+        assertEquals(0d, landed.velocity().x(), 0d, "ordinary ground friction resumes after flight ends");
     }
 
     @Test
@@ -1558,7 +1560,7 @@ class CharacterMovementMotorTest {
         assertEquals(10d, landed.velocity().x(), 0d,
                 "the collision landing tick retains horizontal momentum; tracking must not end yet");
         CharacterMovementState settled = motor.tick(landed, idle, environment, false, false);
-        assertEquals(2.962962962962964d, settled.velocity().horizontalLength(), 1e-12,
+        assertEquals(0d, settled.velocity().horizontalLength(), 0d,
                 "the following normal grounded idle step applies native-profile friction");
     }
 
@@ -1569,8 +1571,8 @@ class CharacterMovementMotorTest {
         CharacterMovementCommand idle = new CharacterMovementCommand(0d, 0d, false, false);
         CharacterMovementState landed = state(MovementVector.ZERO, new MovementVector(-10d, 0d, 0d), true);
         CharacterMovementState settled = motor.tick(landed, idle, environment, false);
-        assertEquals(-10d * Math.pow(1d - 20d / 60d, 3), settled.velocity().x(), 1e-12);
-        assertEquals(8.779149519890268d, settled.velocity().x() * settled.velocity().x()
+        assertEquals(-10d * 0d, settled.velocity().x(), 0d);
+        assertEquals(0d, settled.velocity().x() * settled.velocity().x()
                         + settled.velocity().y() * settled.velocity().y()
                         + settled.velocity().z() * settled.velocity().z(), 0d,
                 "negative zero from westward friction is still physically settled");

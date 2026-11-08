@@ -15,9 +15,9 @@ public final class GroundedHarnessPhysics {
     /** Adapter velocity is blocks/second; vanilla's 0.003-block displacement/tick equivalent. */
     public static final double VELOCITY_SNAP_THRESHOLD_BLOCKS_PER_SECOND = .003d / TICK_SECONDS;
     private static final Optional<GravityAirControl> WALK_AIR_CONTROL = Optional.of(
-            new GravityAirControl(TICK_SECONDS, .91d, 8d * VERTICAL_DRAG));
+            new GravityAirControl(TICK_SECONDS, AIR_HORIZONTAL_RETENTION, 8d * VERTICAL_DRAG));
     private static final Optional<GravityAirControl> SPRINT_AIR_CONTROL = Optional.of(
-            new GravityAirControl(TICK_SECONDS, .91d, 10.4d * VERTICAL_DRAG));
+            new GravityAirControl(TICK_SECONDS, AIR_HORIZONTAL_RETENTION, 10.4d * VERTICAL_DRAG));
 
     /** Cached Minecraft adaptation profile; movement targets remain prototype/policy-owned. */
     public static Optional<GravityAirControl> gravityAirControl(boolean sprint) {

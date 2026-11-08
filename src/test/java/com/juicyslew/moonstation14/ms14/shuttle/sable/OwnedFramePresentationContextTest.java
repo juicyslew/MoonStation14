@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
@@ -261,18 +262,24 @@ class OwnedFramePresentationContextTest {
         assertEquals(Set.of("xo", "yo", "zo", "xOld", "yOld", "zOld"), fields,
                 "the shared from-point writer must anchor SDK camera and vanilla body-render interpolation endpoints");
 
-        MethodNode prediction = method(node, "predictCharacter");
+        MethodNode prediction = uniqueMethodContainingCall(node, "predictCharacter", "commit", "ClientOwnedSimulationClock");
         int commit = callIndex(prediction, "commit", "ClientOwnedSimulationClock");
         int predictionWriter = callIndex(prediction, "setOwnedBodyRenderFrom", "GhostControlClient");
         int predictionPublish = callIndex(prediction, "publish", "ClientFrameTimelineStore");
         assertTrue(commit >= 0 && commit < predictionWriter && predictionWriter < predictionPublish,
                 "only an accepted prediction writes body-from fields, before publishing its matching SDK interval");
 
-        MethodNode restore = method(node, "reconcileSnapshot");
+        MethodNode admission = method(node, "reconcileSnapshot");
+        MethodNode restore = method(node, "reconcileSnapshotNow");
+        assertTrue(callIndex(admission, "queue", "OwnedPredictionApplicationSchedule") >= 0,
+                "network snapshot callback queues admitted snapshots for the client-tick consumer");
+        MethodNode tickDispatch = method(node, "reconcileSnapshotOnClientTick");
+        assertTrue(hasLambdaTarget(node, tickDispatch, "reconcileSnapshotNow", node.name),
+                "the client-tick consumer is bound from the queued-snapshot dispatch, not the network callback");
         int restoreWriter = callIndex(restore, "setOwnedBodyRenderFrom", "GhostControlClient");
         int restorePublish = callIndex(restore, "publish", "ClientFrameTimelineStore");
         assertTrue(restoreWriter >= 0 && restoreWriter < restorePublish,
-                "valid restored clock anchor initializes all body-from fields before publishing the anchor");
+                "the post-tick snapshot consumer initializes all body-from fields before publishing the restored anchor");
 
         int noHistoryReset = callIndex(restore, "resetOwnedSimulationTimeline", "GhostControlClient");
         int snapshotVelocity = callIndex(restore, "setDeltaMovement", "Entity");
@@ -307,6 +314,43 @@ class OwnedFramePresentationContextTest {
 
     private static MethodNode method(ClassNode owner, String name) {
         return owner.methods.stream().filter(candidate -> candidate.name.equals(name)).findFirst().orElseThrow();
+    }
+
+    private static MethodNode uniqueMethodContainingCall(ClassNode owner, String name, String callName, String callOwnerSuffix) {
+        var matches = owner.methods.stream().filter(candidate -> candidate.name.equals(name)
+                && callIndex(candidate, callName, callOwnerSuffix) >= 0).toList();
+        assertEquals(1, matches.size(), "expected one actual " + name + " consumer containing " + callName);
+        return matches.get(0);
+    }
+
+    private static boolean hasLambdaTarget(ClassNode owner, MethodNode method, String name, String ownerName) {
+        Map<String, MethodNode> byKey = new HashMap<>();
+        for (MethodNode candidate : owner.methods) byKey.put(candidate.name + candidate.desc, candidate);
+        // Lambda implementation handles may point at javac's synthetic forwarding wrapper;
+        // follow only that exact same-class handle and its same-class calls.
+        for (var instruction : method.instructions) {
+            if (!(instruction instanceof org.objectweb.asm.tree.InvokeDynamicInsnNode dynamic)) continue;
+            for (Object argument : dynamic.bsmArgs) {
+                if (!(argument instanceof Handle target) || !target.getOwner().equals(ownerName)) continue;
+                if (target.getName().equals(name)) return true;
+                MethodNode implementation = byKey.get(target.getName() + target.getDesc());
+                if (implementation == null) continue;
+                Set<String> visited = new HashSet<>();
+                ArrayDeque<MethodNode> pending = new ArrayDeque<>();
+                pending.add(implementation);
+                while (!pending.isEmpty()) {
+                    MethodNode current = pending.removeFirst();
+                    if (!visited.add(current.name + current.desc)) continue;
+                    for (var callInstruction : current.instructions) {
+                        if (!(callInstruction instanceof MethodInsnNode call) || !call.owner.equals(ownerName)) continue;
+                        if (call.name.equals(name)) return true;
+                        MethodNode next = byKey.get(call.name + call.desc);
+                        if (next != null) pending.addLast(next);
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private static int callIndex(MethodNode method, String name, String ownerSuffix) {

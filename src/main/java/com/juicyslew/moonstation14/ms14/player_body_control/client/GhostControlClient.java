@@ -76,6 +76,8 @@ public final class GhostControlClient {
     private static GhostPredictionHistory predictionHistory;
     private static final ClientFramePredictionState clientFrameState = new ClientFramePredictionState();
     private static final ClientOwnedSimulationClock ownedSimulationClock = new ClientOwnedSimulationClock();
+    private static long lastPresentedCharacterApplicationTick = -1;
+    private static long lastGhostPredictedLogicalTick = -1;
     private static final ClientSupportedHeading supportedHeading = new ClientSupportedHeading();
     private static final AngularRecoveryPrediction angularPrediction = new AngularRecoveryPrediction();
     private static final GhostPredictionClock predictionClock = new GhostPredictionClock();
@@ -199,6 +201,8 @@ public final class GhostControlClient {
                 latestSnapshotAllowsReplay = false;
                 clientFrameState.reset();
                 ownedSimulationClock.reset();
+                lastPresentedCharacterApplicationTick = -1;
+                lastGhostPredictedLogicalTick = -1;
                 angularPrediction.reset();
                 supportedHeading.reset();
                 characterPredictionStopped = false;
@@ -628,6 +632,8 @@ public final class GhostControlClient {
         predictionHistory = null;
         clientFrameState.reset();
         ownedSimulationClock.reset();
+        lastPresentedCharacterApplicationTick = -1;
+        lastGhostPredictedLogicalTick = -1;
         if (ownerLevel != null && ghost != null)
             com.juicyslew.moonstation14.ms14.shuttle.sable.ClientFrameTimelineStore.reset(ownerLevel, ghost.getUUID());
         ownedSimulationClock.reset();
@@ -1158,6 +1164,24 @@ public final class GhostControlClient {
 
     private static void reconcileSnapshot(Minecraft minecraft, LocalPlayer player,
                                           GhostControlPayloads.Snapshot snapshot) {
+        // Network callbacks may arrive between vanilla entity pose-copy and rendering. Keep
+        // only the newest admitted-by-order packet and perform reconciliation at ClientTick.Post.
+        if (!committed || !readySent || owner != player || minecraft.player != player || minecraft.level == null
+                || ownerLevel != minecraft.level || !player.isSpectator() || activeEpoch != pendingEpoch
+                || predictionHistory == null || currentBody(minecraft, ghostEntityId, harnessKind) == null
+                || minecraft.getCameraEntity() != currentBody(minecraft, ghostEntityId, harnessKind)
+                || snapshot.epoch() != activeEpoch || snapshot.harnessEntityId() != ghostEntityId
+                || snapshot.harnessKind() != harnessKind
+                || snapshot.serverGameTick() <= predictionHistory.lastServerGameTick()) return;
+        snapshotApplication.queue(snapshot, activeEpoch, ghostEntityId, harnessKind);
+    }
+
+    private static void reconcileSnapshotOnClientTick(Minecraft minecraft, LocalPlayer player) {
+        snapshotApplication.dispatchQueued(snapshot -> reconcileSnapshotNow(minecraft, player, snapshot));
+    }
+
+    private static void reconcileSnapshotNow(Minecraft minecraft, LocalPlayer player,
+                                          GhostControlPayloads.Snapshot snapshot) {
         if (!committed || !readySent || owner != player || minecraft.player != player || minecraft.level == null
                 || ownerLevel != minecraft.level || !player.isSpectator() || activeEpoch != pendingEpoch
                 || snapshot.epoch() != activeEpoch || snapshot.harnessEntityId() != ghostEntityId
@@ -1198,6 +1222,9 @@ public final class GhostControlClient {
                 snapshot.serverGameTick()+" ack="+snapshot.acknowledgedAppliedSequence(), diagnosticBefore);
         if (result.status() == GhostPredictionHistory.SnapshotStatus.REJECTED) return;
         latestSnapshotAllowsReplay = result.status() == GhostPredictionHistory.SnapshotStatus.REPLAY;
+        // Snapshot metadata is admitted here, but authority application/replay is consumed
+        // only by ClientTick.Post (after vanilla has copied entity pose fields).
+        snapshotApplication.defer(latestSnapshotAllowsReplay, characterPredictionStopped);
         if(traceContext!=null) com.juicyslew.moonstation14.ms14.player_body_control.client.MovementTraceClient.safeRecord(traceContext,"SNAPSHOT",snapshotNow,
                 snapshot.serverGameTick(),snapshot.acknowledgedAppliedSequence(),java.util.Map.ofEntries(
                         java.util.Map.entry("heldButtons",snapshot.heldControlState().buttons()),
@@ -1562,6 +1589,16 @@ public final class GhostControlClient {
         if (body == null || base == null || minecraft.getCameraEntity() != body
                 || !committed || activeEpoch != pendingEpoch || owner != player || ownerLevel != minecraft.level
                 || !player.isSpectator()) return;
+        if (work == OwnedPredictionApplicationSchedule.Work.NONE) {
+            MedicalPredictionPolicy.Decision medical = medicalDecision(body);
+            if (medical.replaySnapshot() && !characterPredictionStopped
+                    && CharacterMovementSnapshotPolicy.allowsMotor(characterMovementMode)
+                    && predictionClock.anchorTick() >= 0) {
+                long target = predictionClock.targetTick(System.nanoTime(), predictionLeadTicks(minecraft, player));
+                if (target >= 0) advancePredictionFromCurrent(body, base, target);
+            }
+            return;
+        }
         if (work == OwnedPredictionApplicationSchedule.Work.APPLY_AUTHORITY_ONLY) {
             float visualYaw = body.getYRot(), visualPitch = body.getXRot();
             restorePredictionBase(body, base);
@@ -1578,6 +1615,22 @@ public final class GhostControlClient {
         }
     }
 
+    /** Advances only logical intervals not already applied; unlike reconciliation this never restores the base. */
+    private static void advancePredictionFromCurrent(Entity body, GhostControlPayloads.Snapshot base, long targetTick) {
+        var plan = predictionHistory.planReplayTicks(base, targetTick);
+        if (plan.status() != GhostPredictionHistory.SnapshotStatus.REPLAY) return;
+        if (!(body instanceof GhostMobHarnessEntity)
+                && (!(body instanceof Mob) || harnessKind != MobHarnessKind.CHARACTER)) return;
+        long consumed = body instanceof GhostMobHarnessEntity ? lastGhostPredictedLogicalTick : ownedSimulationClock.applicationTick();
+        long presented = body instanceof GhostMobHarnessEntity ? -1 : lastPresentedCharacterApplicationTick;
+        var progress = snapshotApplication.dispatchTicks(plan.ticks(), consumed, presented,
+                !(body instanceof GhostMobHarnessEntity), (tick, animate) ->
+                predictTick(body, tick.effectiveState(), tick.logicalTick(), tick.sequence(), animate)
+                        == PredictionStepOutcome.COMPLETED);
+        if (body instanceof GhostMobHarnessEntity) lastGhostPredictedLogicalTick = progress.consumedThrough();
+        else lastPresentedCharacterApplicationTick = progress.presentedThrough();
+    }
+
     private static void applyClientTickPrediction() {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
@@ -1586,6 +1639,7 @@ public final class GhostControlClient {
                 || !player.isSpectator() || predictionHistory == null) return;
         Entity body = currentBody(minecraft, ghostEntityId, harnessKind);
         if (body == null || minecraft.getCameraEntity() != body) return;
+        reconcileSnapshotOnClientTick(minecraft, player);
         applyPendingSnapshot(minecraft, player);
     }
 
@@ -1614,10 +1668,16 @@ public final class GhostControlClient {
                 return PredictionStepOutcome.SKIPPED;
             var originalIntent = predictionHistory == null ? java.util.Optional.<GhostControlPayloads.Intent>empty()
                     : predictionHistory.pendingIntent(diagnosticSequence);
-            if (originalIntent.isEmpty()) return PredictionStepOutcome.SKIPPED;
-            boolean bindFreshEvidence = predictionHistory.associatedApplication(diagnosticSequence).isEmpty();
+            // Settled controls seeded from the authoritative held state still cover physical
+            // intervals. Absence of a pending wire intent is not absence of movement; it only
+            // means there is no intent-scoped historical reference/evidence to reuse.
+            boolean bindFreshEvidence = originalIntent.isPresent()
+                    && predictionHistory.associatedApplication(diagnosticSequence).isEmpty();
+            var supportedReference = originalIntent.map(GhostControlPayloads.Intent::supportedMovementReference)
+                    .orElseGet(() -> predictionHistory.appliedSupportedMovementReference(diagnosticSequence));
             return predictCharacter(mob, controls, logicalSimulationTick, diagnosticSequence,
-                    originalIntent.get().supportedMovementReference(), bindFreshEvidence, animate);
+                    supportedReference,
+                    bindFreshEvidence, animate);
         }
         return PredictionStepOutcome.SKIPPED;
     }
@@ -1635,14 +1695,20 @@ public final class GhostControlClient {
         restorePredictionBase(body, base);
         GhostPredictionHistory.TickReplayResult plan = predictionHistory.planReplayTicks(base, targetTick);
         if (plan.status() == GhostPredictionHistory.SnapshotStatus.REPLAY) {
-            for (var tick : plan.ticks()) {
-                PredictionStepOutcome outcome=predictTick(body, tick.effectiveState(), tick.logicalTick(), tick.sequence(), false);
+            long consumed = body instanceof GhostMobHarnessEntity ? base.serverGameTick() : ownedSimulationClock.applicationTick();
+            long presented = body instanceof GhostMobHarnessEntity ? -1 : lastPresentedCharacterApplicationTick;
+            var progress = snapshotApplication.dispatchTicks(plan.ticks(), consumed, presented,
+                    animate && !(body instanceof GhostMobHarnessEntity), (tick, animateTick) -> {
+                PredictionStepOutcome outcome = predictTick(body, tick.effectiveState(), tick.logicalTick(), tick.sequence(), animateTick);
                 if(counts!=null) counts.observe(switch(outcome) {
                     case COMPLETED -> com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceStepCounts.Outcome.COMPLETED;
                     case STOPPED_AFTER_MOVE -> com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceStepCounts.Outcome.FAILED_AFTER_MOVE;
                     case SKIPPED -> com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceStepCounts.Outcome.SKIPPED;
                 });
-            }
+                return outcome == PredictionStepOutcome.COMPLETED;
+            });
+            if (body instanceof GhostMobHarnessEntity) lastGhostPredictedLogicalTick = progress.consumedThrough();
+            else lastPresentedCharacterApplicationTick = progress.presentedThrough();
         }
         long rebuildNanos=traceContext==null?0:Math.max(0,System.nanoTime()-rebuildStart);
         if(traceContext!=null) com.juicyslew.moonstation14.ms14.player_body_control.client.MovementTraceClient.safeRecord(traceContext,"REBUILD",System.nanoTime(),targetTick,
@@ -1657,8 +1723,8 @@ public final class GhostControlClient {
             if (body instanceof GhostMobHarnessEntity ghost) setOwnedBodyLook(ghost, visualYaw, visualPitch);
             else if (body instanceof Mob mob) setOwnedBodyLook(mob, visualYaw, visualPitch);
         }
-        if (animate && body instanceof LivingEntity living)
-            OwnedHarnessWalkAnimation.update(living, body.position().subtract(before));
+        // The replay loop is historical reconstruction, not a new actor application.
+        // predictCharacter animates only accepted own-body displacement on an advancing step.
     }
 
     private static int predictionLeadTicks(Minecraft minecraft, LocalPlayer player) {

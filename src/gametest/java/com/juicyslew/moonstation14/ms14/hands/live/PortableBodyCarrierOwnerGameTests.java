@@ -811,6 +811,8 @@ public final class PortableBodyCarrierOwnerGameTests {
         var worldOwner = containment.ownerOf(mouse).orElseThrow();
         require(worldOwner instanceof PortableWorldStorageOwner owner && owner.rootId().equals(host.getUUID())
                 && owner.reference().token().equals(keyId), "world bag UUID and child key derive canonical owner");
+        require(PortableBodyCarrying.eligibleLivingTarget(carrier, mouse),
+                "exact currently registered world-storage owner remains eligible for portable pickup");
         var hostGrid = com.juicyslew.moonstation14.ms14.storage.grid.GridContents.read(host.getItem()).orElseThrow();
         var child = hostGrid.entries().getFirst();
         require(child.token().equals("world-key") && PortableBodyKeys.reference(child.stack()).body().equals(mouse.getUUID()),

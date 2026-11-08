@@ -146,9 +146,10 @@ public final class PlayerPullsSupportedMouseGameTests {
                         hands.revision(), mouse.getUUID(), null));
                 require(pickup.reason() == BodyHandActionResult.Reason.OK, "authenticated pickup creates portable key: " + pickup.reason());
                 hands = actor.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
-                var thrown = BodyHandRequestService.apply(fixture.player(), new BodyHandActionRequest(
-                        BodyHandActionRequest.Action.THROW_ITEM, hands.activeHand(), ready.epoch(), 2,
-                        hands.revision(), null, pickup.itemToken()));
+                var thrown = BodyHandRequestService.apply(fixture.player(), BodyHandActionRequest.throwItem(
+                        hands.activeHand(), ready.epoch(), 2, hands.revision(), pickup.itemToken(),
+                        com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget.world(
+                                actor.getEyePosition().add(actor.getLookAngle().scale(4)))));
                 require(thrown.reason() == BodyHandActionResult.Reason.OK, "production authenticated throw releases portable body: " + thrown.reason());
                 var originalId = mouse.getUUID();
                 require(level.getEntity(originalId) == mouse && com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight

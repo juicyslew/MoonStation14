@@ -54,7 +54,12 @@ public final class PortableBodyCarrying {
                 || !(carrier.level() instanceof ServerLevel level) || target.level() != level
                 || !BodyContainmentService.isValidBody(target, level)) return false;
         var capability = resolvedPortableBodyCapability(target).orElse(null);
-        if (capability == null || BodyContainmentService.forLevel(level).registeredOwnerOf(target).isPresent()) return false;
+        if (capability == null) return false;
+        ContainedBodyOwner registered = BodyContainmentService.forLevel(level).registeredOwnerOf(target).orElse(null);
+        if (registered != null && !(registered instanceof PortableWorldStorageOwner world
+                && world.reference().body().equals(target.getUUID())
+                && world.reference().dimension().equals(level.dimension().location())
+                && world.isValid())) return false;
         try { LooseObjectProfile.resolve(capability.profileId()); return true; }
         catch (RuntimeException missingProfile) { return false; }
     }

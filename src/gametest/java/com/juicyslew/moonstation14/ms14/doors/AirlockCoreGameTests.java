@@ -150,14 +150,18 @@ public final class AirlockCoreGameTests {
         var lower=ModBlocks.AIRLOCK.get().defaultBlockState();helper.setBlock(relative,lower);
         helper.setBlock(relative.above(),lower.setValue(AirlockBlock.HALF,DoubleBlockHalf.UPPER));
         AirlockBlockEntity be=(AirlockBlockEntity)level.getBlockEntity(root);var identity=be.identity();
-        for(BlockPos pos:new BlockPos[]{root,root.above()})level.setBlock(pos,level.getBlockState(pos).setValue(AirlockBlock.OPEN,true),3);
-        require(com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root),"lower opened cell passable");
-        require(com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root.above()),"upper opened cell passable");
-        for(BlockPos pos:new BlockPos[]{root,root.above()})level.setBlock(pos,level.getBlockState(pos).setValue(AirlockBlock.OPEN,false),3);
-        require(!com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root),"closed lower is airtight again");
-        require(!com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root.above()),"closed upper is airtight again");
-        require(level.getBlockEntity(root)==be&&be.identity().equals(identity),"door state changes preserve root identity");
-        helper.succeed();
+        require(be.setPowered(true)&&be.activate(),"powered root accepts normal opening transition");
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,12,()->{
+            require(com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root),"lower opened cell passable");
+            require(com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root.above()),"upper opened cell passable");
+            require(be.activate(),"normal close transition accepted");
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,12,()->{
+                require(!com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root),"closed lower is airtight again");
+                require(!com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root.above()),"closed upper is airtight again");
+                require(level.getBlockEntity(root)==be&&be.identity().equals(identity),"door state changes preserve root identity");
+                helper.succeed();
+            });
+        });
     }
     @GameTestTags("repair-airlock-unload")
     @GameTest(templateNamespace="moonstation14",template="empty",batch="airlock_unload_lifecycle",timeoutTicks=500)
@@ -529,14 +533,20 @@ public final class AirlockCoreGameTests {
         var leftClosed=atmosphere.sample(level,left).orElseThrow();
         var rightClosed=atmosphere.sample(level,right).orElseThrow();
         require(leftClosed.totalMoles()==2&&rightClosed.totalMoles()==3,"closed door cells retain separate finite inventories");
-        for(BlockPos pos:new BlockPos[]{root,root.above()})level.setBlock(pos,level.getBlockState(pos).setValue(AirlockBlock.OPEN,true),3);
-        require(com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root)
-                &&com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root.above()),"open door connects both atmosphere cells");
-        require(atmosphere.sample(level,left).orElseThrow().totalMoles()+atmosphere.sample(level,right).orElseThrow().totalMoles()==5,"open cycle retains both finite gas inventories");
-        for(BlockPos pos:new BlockPos[]{root,root.above()})level.setBlock(pos,level.getBlockState(pos).setValue(AirlockBlock.OPEN,false),3);
-        leftClosed=atmosphere.sample(level,left).orElseThrow();rightClosed=atmosphere.sample(level,right).orElseThrow();
-        require(leftClosed.totalMoles()==2&&rightClosed.totalMoles()==3,"closed cycle retains finite-cell ownership and conserves all gas");
-        helper.succeed();
+        AirlockBlockEntity door=(AirlockBlockEntity)level.getBlockEntity(root);
+        require(door.setPowered(true)&&door.activate(),"paid-state root accepts normal opening transition");
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,12,()->{
+            require(com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root)
+                    &&com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTopology.isPassable(level,root.above()),"open door connects both atmosphere cells");
+            require(atmosphere.sample(level,left).orElseThrow().totalMoles()+atmosphere.sample(level,right).orElseThrow().totalMoles()==5,"open cycle retains both finite gas inventories");
+            require(door.activate(),"normal close transition accepted");
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,12,()->{
+                var leftAfter=atmosphere.sample(level,left).orElseThrow();
+                var rightAfter=atmosphere.sample(level,right).orElseThrow();
+                require(leftAfter.totalMoles()==2&&rightAfter.totalMoles()==3,"closed cycle retains finite-cell ownership and conserves all gas");
+                helper.succeed();
+            });
+        });
     }
     @GameTest(templateNamespace="moonstation14",template="power_live_chain_clear",batch="airlock_prototype_power_override",timeoutTicks=280)
      @GameTestTags({"airlock_override", "shuttle-pry-power-diagnostic"})

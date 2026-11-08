@@ -389,6 +389,26 @@ class GhostPredictionHistoryTest {
         assertEquals(2, history.pendingCount());
     }
 
+    @Test void settledHeldControlsUseAppliedReferenceAndNeverForgeSkippedSequence() {
+        GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY, MobHarnessKind.CHARACTER);
+        var frame = java.util.UUID.randomUUID();
+        var reference = new GhostControlPayloads.SupportedMovementReference(frame, 42f);
+        var applied = new GhostControlPayloads.Intent(EPOCH, 1, 1, (short) 100, (short) 0, (byte) 0,
+                0, 0, 0, java.util.Optional.of(reference));
+        history.record(applied);
+        history.record(tickIntent(2, 2, 0, 0));
+        var anchor = characterSnapshot(EPOCH, BODY, 10, 1).withInputSettlement(2)
+                .withControlState(new com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlState(
+                                (short) 100, (short) 0, (byte) 0, 0, 0, 0),
+                        com.juicyslew.moonstation14.ms14.animals.flight.FlightState.GROUNDED);
+        assertEquals(GhostPredictionHistory.SnapshotStatus.REPLAY, history.reconcile(anchor).status());
+        assertEquals(java.util.Optional.of(reference), history.appliedSupportedMovementReference(1));
+        var ticks = history.planReplayTicks(anchor, 12).ticks();
+        assertEquals(1, ticks.get(0).sequence()); // actual applied ACK, not settled-through 2
+        assertEquals(11, ticks.get(0).logicalTick());
+        assertEquals(java.util.Optional.empty(), history.pendingIntent(ticks.get(0).sequence()));
+    }
+
     @Test
     void replayPlanCapsTicksRetainsFutureCommandsAndHeldState() {
         GhostPredictionHistory history = new GhostPredictionHistory(EPOCH, BODY);

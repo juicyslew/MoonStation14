@@ -120,8 +120,9 @@ public final class TomatoItemDamageGameTests {
                 var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(owner.epoch(), 2));
                 var handSnapshot = query.hands().stream().filter(candidate -> candidate.id().equals(hand)).findFirst().orElseThrow();
                 require(handSnapshot.token() != null && handSnapshot.itemId().equals("moonstation14:tomato"), "fresh authoritative query identifies held tomato");
-                var request = new BodyHandActionRequest(BodyHandActionRequest.Action.THROW_ITEM, hand, owner.epoch(), 1,
-                        query.revision(), null, handSnapshot.token());
+                var request = BodyHandActionRequest.throwItem(hand, owner.epoch(), 1, query.revision(), handSnapshot.token(),
+                        com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget.world(
+                                body.getEyePosition().add(body.getLookAngle().scale(7))));
                 var result = BodyHandRequestService.apply(fixture.player(), request);
                 if (!result.accepted() || result.hostTransition() == null
                         || result.hostTransition().direction() != com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.HostTransition.Direction.DROP) {

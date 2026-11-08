@@ -84,7 +84,10 @@ public final class BolaBreakoutGameTests {
                 var carried = thrower.queryHands(sourceEpoch);
                 var sourceHand = carried.hands().stream().filter(h -> h.id().equals(handId)).findFirst().orElseThrow();
                 source.setYRot(-90); source.setYHeadRot(-90); source.setXRot(0);
-                var thrown = com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService.apply(thrower.player(), new com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.THROW_ITEM, handId, sourceEpoch, 2, carried.revision(), null, sourceHand.token()));
+                var thrown = com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService.apply(thrower.player(),
+                        com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.throwItem(handId, sourceEpoch, 2,
+                                carried.revision(), sourceHand.token(), com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget.world(
+                                        source.getEyePosition().add(source.getLookAngle().scale(4)))));
                 if (thrown.reason() != com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK || thrown.hostTransition() == null) throw new GameTestAssertException("bola throw denied: " + thrown.reason());
                 var output = level.getEntity(thrown.hostTransition().worldEntity());
                 if (!(output instanceof com.juicyslew.moonstation14.entities.LooseItemEntity item)) throw new GameTestAssertException("throw transition did not resolve to loose bola");
@@ -153,4 +156,3 @@ public final class BolaBreakoutGameTests {
         else throw new GameTestAssertException("fixture character is not a Mob");
     }
 }
-

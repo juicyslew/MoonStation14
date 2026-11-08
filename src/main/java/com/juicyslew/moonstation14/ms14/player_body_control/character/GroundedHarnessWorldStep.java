@@ -109,12 +109,15 @@ public final class GroundedHarnessWorldStep {
         return stepNpc(body, 0, 0, false, false, body.getYRot(), 0d, () -> isNpcFlightBodyEligible(body));
     }
     public Optional<CharacterMovementState> stepNaturalFlight(Mob body) {
-        if (body == null || FlightSystem.capability(body).isEmpty() || !FlightSystem.isFlying(body)
-                || !isNaturalFlightBodyEligible(body)) return Optional.empty();
+        if (!isNaturalFlightStepEligible(body)) return Optional.empty();
         return stepCore(body, 0, 0, false, false, false, body.getYRot(), 0L, 0d,
-                () -> isNaturalFlightBodyEligible(body),
+                () -> isNaturalFlightStepEligible(body),
                 FlightTransitionPolicy.naturalFlightVerticalWish(FlightSystem.state(body), body.onGround()), null,
                 null, false, Optional.empty());
+    }
+    private static boolean isNaturalFlightStepEligible(Mob body) {
+        return body != null && FlightSystem.capability(body).isPresent() && FlightSystem.isFlying(body)
+                && isNaturalFlightBodyEligible(body);
     }
     public static boolean hasNpcFlightCharacterProfile(Mob body) {
         if (body == null) return false;
@@ -211,9 +214,11 @@ public final class GroundedHarnessWorldStep {
             Optional<com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads.SupportedMovementReference> supportedMovementReference) {
         boolean npcRoute = !(body instanceof MindControlledMob owner && owner.moonstation14$isMovementOwned())
                 && body instanceof NpcMovementDriven driven && driven.moonstation14$isNpcMovementDriven();
-        if (!(npcRoute ? isNpcBodyEligible(body) : GroundedHarnessLease.isOwnedBodyEligible(body) || isOwnedPlayerCharacterEligible(body)
+        boolean naturalFlightRoute = !npcRoute && isNaturalFlightStepEligible(body);
+        if (!(npcRoute ? isNpcBodyEligible(body) : naturalFlightRoute || GroundedHarnessLease.isOwnedBodyEligible(body) || isOwnedPlayerCharacterEligible(body)
                     || (passive && isPassivePlayerCharacterEligible(body)))
-                || (!npcRoute && !passive && !((MindControlledMob) body).moonstation14$isMovementOwned())
+                || (!npcRoute && !naturalFlightRoute && !passive
+                    && (!(body instanceof MindControlledMob owner) || !owner.moonstation14$isMovementOwned()))
                 || wishX < -GroundedHarnessMotor.INPUT_QUANTIZATION
                 || wishX > GroundedHarnessMotor.INPUT_QUANTIZATION
                 || wishZ < -GroundedHarnessMotor.INPUT_QUANTIZATION

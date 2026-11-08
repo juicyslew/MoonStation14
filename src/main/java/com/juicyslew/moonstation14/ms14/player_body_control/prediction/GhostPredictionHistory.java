@@ -32,6 +32,8 @@ public final class GhostPredictionHistory {
     private long lastSettledThroughSequence;
     private long lastServerGameTick = -1;
     private long lastRecordedIntendedTick;
+    private long lastAppliedReferenceSequence;
+    private Optional<GhostControlPayloads.SupportedMovementReference> lastAppliedReference = Optional.empty();
 
     public GhostPredictionHistory(long epoch, int ghostEntityId) {
         this(epoch, ghostEntityId, MobHarnessKind.GHOST);
@@ -192,6 +194,10 @@ public final class GhostPredictionHistory {
         lastServerGameTick = snapshot.serverGameTick();
         lastAcknowledgedSequence = acknowledged;
         lastSettledThroughSequence = settledThrough;
+        pending.stream().filter(intent -> intent.sequence() == acknowledged).findFirst().ifPresent(intent -> {
+            lastAppliedReferenceSequence = acknowledged;
+            lastAppliedReference = intent.supportedMovementReference();
+        });
         while (!pending.isEmpty() && pending.peekFirst().sequence() <= settledThrough) {
             long removed = pending.removeFirst().sequence();
             evidence.remove(removed);
@@ -215,6 +221,8 @@ public final class GhostPredictionHistory {
         lastSettledThroughSequence = 0;
         lastServerGameTick = -1;
         lastRecordedIntendedTick = 0;
+        lastAppliedReferenceSequence = 0;
+        lastAppliedReference = Optional.empty();
     }
 
     /** Clears buffered inputs after an authority barrier without resetting this session's tracking. */
@@ -226,6 +234,8 @@ public final class GhostPredictionHistory {
     public void onPredictionFailureBarrier() {
         pending.clear();
         evidence.clear();
+        lastAppliedReferenceSequence = 0;
+        lastAppliedReference = Optional.empty();
     }
 
     /** Starts a fresh session, suitable after stop, teleport, or dimension change. */
@@ -248,6 +258,9 @@ public final class GhostPredictionHistory {
     public long lastRecordedIntendedTick() { return lastRecordedIntendedTick; }
     public long lastSettledThroughSequence() { return lastSettledThroughSequence; }
     public int pendingCount() { return pending.size(); }
+    public Optional<GhostControlPayloads.SupportedMovementReference> appliedSupportedMovementReference(long acknowledgedSequence) {
+        return acknowledgedSequence == lastAppliedReferenceSequence ? lastAppliedReference : Optional.empty();
+    }
 
     /** Builds a bounded fixed-step plan from the currently accepted authoritative anchor, without mutating history. */
     public TickReplayResult planReplayTicks(GhostControlPayloads.Snapshot base, long targetTick) {
@@ -264,7 +277,9 @@ public final class GhostPredictionHistory {
             return new TickReplayResult(SnapshotStatus.REPLAY, List.of());
         long count = Math.min((long) MAX_REPLAY_TICKS, targetTick - base.serverGameTick());
         GhostControlInputAccumulator accumulator = new GhostControlInputAccumulator();
-        accumulator.seed(base.heldControlState(), lastSettledThroughSequence);
+        // The held state belongs to the applied acknowledgement, not a later settled
+        // sequence that may include permanently skipped inputs.
+        accumulator.seed(base.heldControlState(), base.acknowledgedAppliedSequence());
         ArrayList<GhostControlInputAccumulator.TickInput> plan = new ArrayList<>((int) count);
         int frameIndex = 0;
         for (long offset = 1; offset <= count; offset++) {

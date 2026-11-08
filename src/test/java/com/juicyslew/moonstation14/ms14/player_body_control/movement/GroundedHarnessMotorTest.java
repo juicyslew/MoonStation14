@@ -72,17 +72,13 @@ class GroundedHarnessMotorTest {
     @Test
     void takeoffUsesPreStepGroundStateAndZeroGravityAndFlightAreUnchanged() {
         CharacterMovementPolicy policy = CharacterMovementPolicy.HUMAN;
-        double substep = DT / 3d;
-        double friction = Math.max(0d, Math.min(1d,
-                1d - policy.groundFrictionWithInputPerSecond() * substep));
-        double acceleration = policy.accelerationPerSecondSquared() * substep * policy.walkSpeedPerSecond();
-        double terminalSpeed = acceleration * (1d + friction + friction * friction);
-        assertTrue(terminalSpeed < policy.walkSpeedPerSecond(), "fixture must remain below the speed cap");
-        double takeoffDistance = substep * acceleration * (3d + 2d * friction + friction * friction);
+        double takeoffSpeed = Math.min(policy.walkSpeedPerSecond(),
+                policy.accelerationPerSecondSquared() * DT * policy.walkSpeedPerSecond());
+        double takeoffDistance = takeoffSpeed * DT;
         CharacterMovementState takeoff = motor.tick(state(MovementVector.ZERO, true),
                 0, 1000, true, false, 0d, env(32d, 8.4d, OPEN), false);
         assertEquals(takeoffDistance, takeoff.position().z(), 1e-12);
-        assertEquals(terminalSpeed, takeoff.velocity().z(), 1e-12, "no air retention on takeoff tick");
+        assertEquals(takeoffSpeed, takeoff.velocity().z(), 1e-12, "no air retention on takeoff tick");
         assertEquals(.42d, takeoff.position().y(), 1e-12);
         assertEquals((8.4d - 32d * DT) * .98d, takeoff.velocity().y(), 1e-12);
         CharacterMovementState zeroG = motor.tick(state(new MovementVector(2d, 0d, 0d), false),
@@ -171,6 +167,46 @@ class GroundedHarnessMotorTest {
             assertEquals(0d, requests.get(i * 2 + 1).z(), 1e-12);
             assertEquals(0d, requests.get(i * 2 + 1).x(), 1e-12);
         }
+    }
+
+    @Test
+    void profileRetentionAppliesOnceToRelativeMotionAndPreservesBaseline() {
+        var baseline = new MovementVector(2d, 0d, 0d);
+        var reference = new com.juicyslew.moonstation14.ms14.movement.AirMotionReference(
+                java.util.UUID.randomUUID(), baseline);
+        var environment = new CharacterMovementEnvironment(DT, 32d, 8.4d, .98d,
+                MovementVector.ZERO, 0d, 0d, OPEN, 1d, 1d, MovementVector.ZERO,
+                GroundedHarnessPhysics.gravityAirControl(false));
+        var initial = new CharacterMovementState(MovementVector.ZERO,
+                new MovementVector(4d, 0d, 0d), false, reference);
+        var result = motor.tick(initial, 0, 0, false, false, 0d, environment, false);
+        assertEquals(2d + 2d * .91F, result.velocity().x(), 1e-12);
+    }
+
+    @Test
+    void profilePathStillSnapsTinyRelativeVelocityWithoutDampingBaseline() {
+        var baseline = new MovementVector(2d, 0d, 0d);
+        var reference = new com.juicyslew.moonstation14.ms14.movement.AirMotionReference(
+                java.util.UUID.randomUUID(), baseline);
+        var environment = new CharacterMovementEnvironment(DT, 32d, 8.4d, .98d,
+                MovementVector.ZERO, 0d, 0d, OPEN, 1d, 1d, MovementVector.ZERO,
+                GroundedHarnessPhysics.gravityAirControl(false));
+        var initial = new CharacterMovementState(MovementVector.ZERO,
+                new MovementVector(2.05d, 0d, 0d), false, reference);
+        var result = motor.tick(initial, 0, 0, false, false, 0d, environment, false);
+        assertEquals(2d, result.velocity().x(), 1e-12);
+    }
+
+    @Test
+    void absentProfileRetainsLegacyAdapterConditioningWithBaseline() {
+        var baseline = new MovementVector(2d, 0d, 0d);
+        var reference = new com.juicyslew.moonstation14.ms14.movement.AirMotionReference(
+                java.util.UUID.randomUUID(), baseline);
+        var initial = new CharacterMovementState(MovementVector.ZERO,
+                new MovementVector(4d, 0d, 0d), false, reference);
+        var result = motor.tick(initial, 0, 0, false, false, 0d,
+                env(32d, 8.4d, OPEN), false);
+        assertEquals(2d + 2d * .91F, result.velocity().x(), 1e-12);
     }
 
     @Test
@@ -267,7 +303,7 @@ class GroundedHarnessMotorTest {
     void neutralGroundFrictionStopsHumanMomentumAtTwentyHertz() {
         CharacterMovementState result = tick(state(new MovementVector(2.5d, 0d, 0d), true),
                 0, 0, false, false, 0d, env(0d, 0d, GROUNDED), false);
-        assertEquals(.740740740740741d, result.velocity().x(), 1e-12);
+        assertEquals(0d, result.velocity().x(), 1e-12);
     }
 
     @Test
@@ -276,7 +312,8 @@ class GroundedHarnessMotorTest {
                 MovementVector.ZERO, 0d, 0d, GROUNDED, .05d, 1d);
         CharacterMovementState onLube = tick(state(MovementVector.ZERO, true), 0, 1000,
                 false, false, 0d, lube, false);
-        assertEquals(.12292824074074071d, onLube.velocity().z(), 1e-12);
+        assertEquals(.125d, onLube.velocity().z(), 1e-12,
+                "single-tick surface acceleration is 20 * .05 * .05 * 2.5");
 
         CharacterMovementEnvironment knockdown = new CharacterMovementEnvironment(DT, 0d, 0d, .98d,
                 MovementVector.ZERO, 0d, 0d, GROUNDED, 1d,

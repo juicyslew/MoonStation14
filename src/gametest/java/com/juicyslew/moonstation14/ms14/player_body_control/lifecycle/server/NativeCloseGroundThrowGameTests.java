@@ -82,9 +82,10 @@ public final class NativeCloseGroundThrowGameTests {
                 throw new GameTestAssertException(label + " pickup changed source stack");
             body.setYRot(-90); body.setYHeadRot(-90); body.setXRot(89);
             var thrown = com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService.apply(fixture.player(),
-                    new com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest(
-                            com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.THROW_ITEM,
-                            hand, active.epoch(), 2, heldHands.revision(), null, held.token()));
+                    com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.throwItem(
+                            hand, active.epoch(), 2, heldHands.revision(), held.token(),
+                            com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget.world(
+                                    body.getEyePosition().add(body.getLookAngle().scale(4)))));
             if (thrown.reason() != com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK || thrown.hostTransition() == null)
                 throw new GameTestAssertException(label + " close-ground throw denied: " + thrown.reason());
             var output = level.getEntity(thrown.hostTransition().worldEntity());

@@ -93,7 +93,9 @@ public final class CharacterMovementMotor {
                 && environment.gravityPerSecondSquared() > 0d && !externalFlight;
         double horizontalX = 0d, horizontalZ = 0d;
         boolean dampHorizontal = (state.onGround() || naturalFlight) && !externalFlight;
-        int horizontalSubsteps = dampHorizontal
+        // Grounded movement retains M1's single frame-time-scaled friction/acceleration step.
+        // Natural flight keeps the incoming bounded integration cadence.
+        int horizontalSubsteps = dampHorizontal && !state.onGround()
                 ? Math.max(1, (int) Math.ceil(dt * 60d)) : 1;
         double horizontalDt = dt / horizontalSubsteps;
         for (int substep = 0; substep < horizontalSubsteps; substep++) {
@@ -152,6 +154,11 @@ public final class CharacterMovementMotor {
             horizontalZ += velocity.z() * horizontalDt;
         }
 
+        if (state.onGround()) {
+            // M1 applies the resulting grounded velocity for the full adapter tick.
+            horizontalX = velocity.x() * dt;
+            horizontalZ = velocity.z() * dt;
+        }
         boolean motorJumpInitiated = !externalFlight && effective.jumpRequested() && state.onGround();
         if (motorJumpInitiated) {
             velocity = new MovementVector(velocity.x(), environment.jumpVelocityPerSecond(), velocity.z());

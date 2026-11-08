@@ -104,9 +104,10 @@ public final class PlayerControlledPortableMouseEscapeGameTests {
                             "ordinary player pickup request admits committed mouse: " + pickup.reason());
                     String token = pickup.itemToken();
                     var hands = carrier.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
-                    var request = new com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest(
-                            com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.THROW_ITEM,
-                            hand, ready.epoch(), 2, hands.revision(), null, token);
+                    var request = com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.throwItem(
+                            hand, ready.epoch(), 2, hands.revision(), token,
+                            com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget.world(
+                                    carrier.getEyePosition().add(carrier.getLookAngle().scale(4))));
                     var result = com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService.apply(
                             carrierFixture.player(), request);
                     require(result.reason() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK,
@@ -188,10 +189,10 @@ public final class PlayerControlledPortableMouseEscapeGameTests {
                                 .canLaunchAfterPortableRelease(mouse),
                         "resolved retained-corpse movement profile passes release flight preflight");
                 var throwResult = com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService.apply(
-                        carrierFixture.player(), new com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest(
-                                com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.THROW_ITEM,
-                                hands.activeHand(), ready.epoch(), 2, hands.revision(), null,
-                                hands.token(hands.activeHand()).orElseThrow()));
+                        carrierFixture.player(), com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.throwItem(
+                                hands.activeHand(), ready.epoch(), 2, hands.revision(), hands.token(hands.activeHand()).orElseThrow(),
+                                com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget.world(
+                                        carrier.getEyePosition().add(carrier.getLookAngle().scale(4)))));
                 require(throwResult.reason() == com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK,
                         "normal throw request accepts retained dead mouse: " + throwResult.reason()
                                 + "; gate=" + com.juicyslew.moonstation14.ms14.hands.live.BodyLooseThrow

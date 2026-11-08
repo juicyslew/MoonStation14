@@ -188,7 +188,7 @@ public final class LifecycleMovementRecoveryGameTests {
         long sequence = owner.neutralIntent(body);
         BoundedGameTestWait.await(helper, 40,
                 () -> "post-move fault was not authoritatively corrected body=" + body.getUUID() + " seq=" + sequence,
-                () -> owner.drainAppliedSequence() >= sequence
+                 () -> owner.drainSettledSequence() >= sequence
                         && owner.latestSnapshot().get() != null
                         && owner.latestSnapshot().get().movementRebaseRevision() > previousRevision,
                 () -> {

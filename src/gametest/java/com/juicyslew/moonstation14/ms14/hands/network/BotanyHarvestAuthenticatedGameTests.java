@@ -90,7 +90,7 @@ public final class BotanyHarvestAuthenticatedGameTests {
                                 e -> !e.getItem().isEmpty()).stream().map(net.minecraft.world.entity.Entity::getUUID)
                                 .collect(java.util.stream.Collectors.toSet());
                         var body = com.juicyslew.moonstation14.ms14.hands.HandActorAuthority.resolve(fixture.player()).orElseThrow().body();
-                        var query = BodyHandStateService.query(fixture.player(), new BodyHandStateQuery(epoch, 3));
+                        var query = fixture.queryHands(epoch);
                         var hit = RegisteredPlayerReadyDriver.aimAt(body, level, pos);
                         require(BodyHandActionNetworking.handleBlockUse(fixture.player(), new BodyBlockUseRequest(epoch, 2,
                                 query.revision(), hand, null, pos, hit.getDirection(), false, BodyBlockUseRequest.Intent.USE))

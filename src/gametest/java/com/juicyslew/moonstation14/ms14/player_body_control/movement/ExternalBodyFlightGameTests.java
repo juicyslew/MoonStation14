@@ -170,7 +170,7 @@ public final class ExternalBodyFlightGameTests {
                 body.getType().trackDeltas(), packet -> emitted.add(packet.getClass().getSimpleName()));
         long launchTick = level.getGameTime();
         long endTick = launchTick + 15;
-        ExternalBodyFlight.launch(body, new Vec3(.5, .35, 0), 15);
+        ExternalBodyFlight.launchPortableBodyThrow(body, new Vec3(.5, .35, 0), 15);
         List<String> samples = new ArrayList<>();
         double startY = body.getY();
         recordFlightSample(helper, body, tracker, emitted, movementPacketsPerTick, samples, startY,

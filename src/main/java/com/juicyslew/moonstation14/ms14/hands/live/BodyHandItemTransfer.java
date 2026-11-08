@@ -268,7 +268,7 @@ public final class BodyHandItemTransfer {
         if (authority.isEmpty() || itemEntityUuid == null) return Result.DENIED;
         LivingEntity body = authority.orElseThrow().body();
         return pickupOwned(body, itemEntityUuid, hand, expectedHandRevision,
-                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedSource);
+                () -> HandActorAuthority.revalidate(actor, authority.orElseThrow()), committedSource, true);
     }
 
     /** Trusted server-created output pickup. Exact entity and stack are proofs, not reach/authority grants. */

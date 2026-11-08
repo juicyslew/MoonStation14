@@ -121,15 +121,21 @@ public final class SlipSystem {
         double lengthSqr = acceptedDisplacement.lengthSqr();
         if (!Double.isFinite(lengthSqr) || lengthSqr <= 1.0e-8d || lengthSqr > 2.25d) return;
         admitEndpointContacts(level, body, acceptedDisplacement, body.getDeltaMovement(), lengthSqr);
+        ItemStepContactSystem.scan(level, body, body.getBoundingBox(), body.getDeltaMovement(),
+                Math.sqrt(lengthSqr) * 20d, context -> {
+                    com.juicyslew.moonstation14.ms14.loose_objects.ItemStepDamageSystem.onContact(context);
+                    onItemContact(context);
+                });
     }
 
     private static void admitEndpointContacts(ServerLevel level, LivingEntity body,
                                               Vec3 acceptedDisplacement, Vec3 launchVelocity, double lengthSqr) {
         SharedPuddleContactQuery.Result result = SharedPuddleContactQuery.query(body, body.getBoundingBox());
-        if (!result.available()) return;
-        StepContactEpisodes.reconcile(level, body, body.getBoundingBox(), result);
-        for (SharedPuddleContactQuery.Contact contact : result.contacts())
-            admitContact(level, contact, body, launchVelocity, Math.sqrt(lengthSqr) * 20d);
+        if (result.available()) {
+            StepContactEpisodes.reconcile(level, body, body.getBoundingBox(), result);
+            for (SharedPuddleContactQuery.Contact contact : result.contacts())
+                admitContact(level, contact, body, launchVelocity, Math.sqrt(lengthSqr) * 20d);
+        }
     }
 
     private static void admitContact(ServerLevel level, SharedPuddleContactQuery.Contact contact, LivingEntity target,

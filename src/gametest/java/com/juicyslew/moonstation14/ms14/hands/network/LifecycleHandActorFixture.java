@@ -30,6 +30,12 @@ import java.util.function.Consumer;
 /** Real first-join lifecycle authority on a NeoForge-compatible embedded server connection. */
 public final class LifecycleHandActorFixture {
     private LifecycleHandActorFixture() { }
+    private static final java.util.Map<EmbeddedChannel, java.util.ArrayDeque<Object>> RETAINED_OUTBOUND =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    private static java.util.ArrayDeque<Object> retained(EmbeddedChannel channel) {
+        return RETAINED_OUTBOUND.computeIfAbsent(channel, ignored -> new java.util.ArrayDeque<>());
+    }
 
     public record Ready(ServerPlayer actor, HandActorAuthority.Snapshot authority,
                          EmbeddedChannel channel, long epoch, AtomicLong intentSequence, AtomicLong appliedSequence,
@@ -37,7 +43,8 @@ public final class LifecycleHandActorFixture {
                           java.util.concurrent.atomic.AtomicInteger wishX, java.util.concurrent.atomic.AtomicInteger wishZ,
                           java.util.concurrent.atomic.AtomicInteger buttons,
                            java.util.concurrent.atomic.AtomicReference<GhostControlPayloads.Snapshot> latestSnapshot,
-                           java.util.concurrent.atomic.AtomicReference<java.util.Optional<GhostControlPayloads.SupportedMovementReference>> supportedMovementReference) {
+                            java.util.concurrent.atomic.AtomicReference<java.util.Optional<GhostControlPayloads.SupportedMovementReference>> supportedMovementReference,
+                            java.util.concurrent.atomic.AtomicLong settledSequence) {
         /** Select the real quantized lifecycle control wish sent by the normal per-tick fixture pump. */
         public void setWish(int x, int z) {
             if (Math.abs(x) > 1000 || Math.abs(z) > 1000)
@@ -109,10 +116,18 @@ public final class LifecycleHandActorFixture {
             return appliedSequence.get();
         }
 
+        /** Largest real lifecycle settlement watermark observed (distinct from successful application). */
+        public long drainSettledSequence() {
+            for (GhostControlPayloads.Snapshot snapshot : drainSnapshots())
+                settledSequence.accumulateAndGet(snapshot.settledThroughSequence(), Math::max);
+            return settledSequence.get();
+        }
+
         public java.util.List<GhostControlPayloads.Snapshot> drainSnapshots() {
             channel.runPendingTasks();
             channel.runScheduledPendingTasks();
             java.util.ArrayList<GhostControlPayloads.Snapshot> snapshots = new java.util.ArrayList<>();
+            var deferred = retained(channel);
             Object value;
             while ((value = channel.readOutbound()) != null)
                 if (value instanceof ClientboundCustomPayloadPacket packet
@@ -120,7 +135,7 @@ public final class LifecycleHandActorFixture {
                         && snapshot.epoch() == epoch) {
                     latestSnapshot.set(snapshot);
                     snapshots.add(snapshot);
-                }
+                } else deferred.addLast(value);
             return java.util.List.copyOf(snapshots);
         }
 
@@ -155,8 +170,12 @@ public final class LifecycleHandActorFixture {
             channel.runPendingTasks();
             channel.runScheduledPendingTasks();
             BodyBlockUseResult match = null;
+            var queue = retained(channel);
+            var pending = new java.util.ArrayDeque<Object>();
+            pending.addAll(queue);
+            queue.clear();
             Object value;
-            while ((value = channel.readOutbound()) != null) {
+            while ((value = !pending.isEmpty() ? pending.removeFirst() : channel.readOutbound()) != null) {
                 if (value instanceof ClientboundCustomPayloadPacket packet) {
                     var payload = packet.payload();
                     String evidence = payload.getClass().getSimpleName() + "[" + payload.type().id() + "]";
@@ -169,9 +188,10 @@ public final class LifecycleHandActorFixture {
                     if (payload instanceof BodyBlockUseResult result && result.epoch() == requestEpoch
                             && result.sequence() == requestSequence)
                         retainMatchedEvidence(payloadEvidence, evidence);
-                    else addPayloadEvidence(payloadEvidence, evidence);
+                    else { addPayloadEvidence(payloadEvidence, evidence); queue.addLast(value); }
                 } else {
                     addPayloadEvidence(payloadEvidence, value.getClass().getSimpleName());
+                    queue.addLast(value);
                 }
             }
             return match;
@@ -286,9 +306,10 @@ public final class LifecycleHandActorFixture {
                                         new java.util.concurrent.atomic.AtomicReference<>(),
                                          new java.util.concurrent.atomic.AtomicInteger(),
                                          new java.util.concurrent.atomic.AtomicInteger(),
-                                         new java.util.concurrent.atomic.AtomicInteger(),
-                                          new java.util.concurrent.atomic.AtomicReference<>(),
-                                          new java.util.concurrent.atomic.AtomicReference<>(java.util.Optional.empty()));
+                                 new java.util.concurrent.atomic.AtomicInteger(),
+                                         new java.util.concurrent.atomic.AtomicReference<>(),
+                                           new java.util.concurrent.atomic.AtomicReference<>(java.util.Optional.empty()),
+                                         new AtomicLong(-1));
                                 MoonStation14.LOGGER.info("[authority fixture] headless mock actor={} body={} mind={} epoch={} handIds={}",
                                         uuid, authority.body().getUUID(), authority.mindId(), epoch, authority.handIds());
                                 callback.accept(ready);
@@ -435,9 +456,10 @@ public final class LifecycleHandActorFixture {
                                         new AtomicLong(-1), new java.util.concurrent.atomic.AtomicReference<>(),
                                         new java.util.concurrent.atomic.AtomicInteger(),
                                         new java.util.concurrent.atomic.AtomicInteger(),
-                                        new java.util.concurrent.atomic.AtomicInteger(),
-                                         new java.util.concurrent.atomic.AtomicReference<>(),
-                                         new java.util.concurrent.atomic.AtomicReference<>(java.util.Optional.empty())));
+                                         new java.util.concurrent.atomic.AtomicInteger(),
+                                          new java.util.concurrent.atomic.AtomicReference<>(),
+                                          new java.util.concurrent.atomic.AtomicReference<>(java.util.Optional.empty()),
+                                         new AtomicLong(-1)));
                             });
                 });
     }

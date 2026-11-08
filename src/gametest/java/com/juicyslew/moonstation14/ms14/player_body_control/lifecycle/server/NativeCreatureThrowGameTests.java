@@ -227,7 +227,11 @@ public final class NativeCreatureThrowGameTests {
                  var hands = fixture.queryHands(active.epoch());
                 var hand = hands.hands().stream().filter(h -> h.id().equals("left")).findFirst().orElseThrow();
                  body.setYRot(-90); body.setYHeadRot(-90); body.setXRot(pitch);
-                 var thrown = com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService.apply(player, new com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest(com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.Action.THROW_ITEM, "left", active.epoch(), 2, hands.revision(), null, hand.token()));
+                  var throwTarget = com.juicyslew.moonstation14.ms14.hands.network.CapturedHandTarget.world(
+                          body.getEyePosition().add(body.getLookAngle().scale(4)));
+                  var thrown = com.juicyslew.moonstation14.ms14.hands.network.BodyHandRequestService.apply(player,
+                          com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest.throwItem(
+                                  "left", active.epoch(), 2, hands.revision(), hand.token(), throwTarget));
                    if (thrown.reason() != com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionResult.Reason.OK || thrown.hostTransition() == null) throw new GameTestAssertException(label + " throw rejected: " + thrown.reason() + " gate=" + com.juicyslew.moonstation14.ms14.hands.live.BodyLooseThrow.lastPortableThrowGateForDiagnostics());
                   var output = level.getEntity(thrown.hostTransition().worldEntity());
                   if (!(output instanceof com.juicyslew.moonstation14.entities.LooseItemEntity item)) throw new GameTestAssertException("throw output was not a loose item entity");

@@ -95,7 +95,7 @@ public final class BoundedGameTestWait {
                     perTick.accept(event);
                     if (stopCondition.getAsBoolean()) { remove(); stopped.run(); return; }
                     if (++observed[0] == maxTicks) { remove(); timeout.run(); }
-                } catch (RuntimeException | AssertionError failure) {
+                } catch (Exception | AssertionError failure) {
                     remove();
                     com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
                             "GameTest server-tick observer failed test={} serverTick={} message={}",

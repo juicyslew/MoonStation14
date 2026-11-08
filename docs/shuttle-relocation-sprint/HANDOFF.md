@@ -38,6 +38,7 @@ SS14 DROP forwards captured pointer `EntityCoordinates`; the floor ray, physical
 ## DECISIONS / WHY
 
 - Keep stock Sable 2.0.6 release `fg9dTRz9`, six substeps and near-base roughly 5,000-block operating assumptions. No native fork, copied world geometry, smoothing, camera-offset workaround, forced grounding, or collision-tolerance relaxation.
+- Stock gyro limitation: on 2026-11-07 the owner explicitly retired the upright/tilted `NativeGyroscopicResponseGameTests` and their diagnostic-only JVM model test. No recorded stock run passed their frame-correct assertion: R29's diagnostic PASS confirmed the omission, while R41's corrected results used the experimental R40 native candidate. Stock asymmetric free-spin remains physically imperfect; removal does not fix it. Preserve historical evidence in `OWNER-FEEDBACK.md:675–688,791–816`; gameplay/carry/collision/controlled-yaw coverage remains required. See the merge decision log for the removal authorization.
 - Manual bay is 20×7×13 with five clear interior height blocks. Its ceiling sea lantern occupies local `(14,6,6)`; loaded-only `bay_light` retrofit verifies plot ownership before reads, idempotent success or mutation.
 - Native diagnostics are optional correction evidence, not universal grounding certificates. Direct fresh native below-contact may have `Branch.NONE`; ordinary idle contact may have `PositionStage.NOT_EVALUATED`. Preserve strict primary contact/frame/completed-step checks and applicable negative correction rejection.
 

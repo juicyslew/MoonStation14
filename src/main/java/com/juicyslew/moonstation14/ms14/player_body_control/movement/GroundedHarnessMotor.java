@@ -91,11 +91,12 @@ public final class GroundedHarnessMotor {
         double worldX = localStrafe * cosine - localForward * sine;
         double worldZ = localForward * cosine + localStrafe * sine;
 
-        boolean applyMinecraftAirConditioning = !externalFlight && !naturalFlight
+        boolean applyMinecraftAirSnap = !externalFlight && !naturalFlight
                 && environment.gravityPerSecondSquared() > 0d;
+        boolean applyLegacyAirRetention = applyMinecraftAirSnap && environment.gravityAirControl().isEmpty();
         CharacterMovementState prepared = state;
         var airReference = !state.onGround() ? state.airMotionReference() : null;
-        if (applyMinecraftAirConditioning) {
+        if (applyMinecraftAirSnap) {
             var velocity = state.velocity();
             if (airReference != null) velocity = relative(velocity, baselineInMotorBasis == null
                     ? airReference.pointVelocity() : baselineInMotorBasis);
@@ -115,7 +116,7 @@ public final class GroundedHarnessMotor {
         CharacterMovementState result = motor.tick(prepared, command, environment, stunned,
                 externalFlight, baseline, verticalSpeed, naturalFlight, flightPhysics);
         // Players receive Minecraft's 0.91 airborne horizontal retention (not the 0.98 NoAI multiplier).
-        if (applyMinecraftAirConditioning && !state.onGround()) {
+        if (applyLegacyAirRetention && !state.onGround()) {
             var velocity = result.velocity();
             if (airReference != null) velocity = relative(velocity, baseline);
             result = new CharacterMovementState(result.position(),
@@ -123,7 +124,7 @@ public final class GroundedHarnessMotor {
                             velocity.y(), velocity.z() * GroundedHarnessPhysics.AIR_HORIZONTAL_RETENTION),
                     result.onGround(), airReference);
         }
-        if (airReference != null && applyMinecraftAirConditioning) {
+        if (airReference != null && applyLegacyAirRetention) {
             MovementVector restoreBaseline = baselineInMotorBasis == null
                     ? airReference.pointVelocity() : baselineInMotorBasis;
             result = new CharacterMovementState(result.position(), restore(result.velocity(), restoreBaseline),
