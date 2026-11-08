@@ -1,0 +1,16 @@
+test_provider_pause_local_health_cancel_closes_without_verdict (test_workflow_provider_pause_service.ProviderPauseServiceTests.test_provider_pause_local_health_cancel_closes_without_verdict) ... C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14\tooling\agent_workflow\test_workflow_provider_pause_service.py:42: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient
+native-dispatch-identities:{'launcher_pid': 2096, 'worker_identity': {'created_ms': 1792202062977, 'pid': 4536}}
+ok
+test_actual_factory_uses_one_review_pipeline_and_frozen_roles_without_provider_calls (test_workflow_review_service.ReviewServiceTests.test_actual_factory_uses_one_review_pipeline_and_frozen_roles_without_provider_calls) ... ok
+native-dispatch-identities:{'launcher_pid': 20900, 'worker_identity': {'created_ms': 1792202068294, 'pid': 16988}}
+test_native_failure_decides_fail_without_reviewer_dispatch (test_workflow_review_service.ReviewServiceTests.test_native_failure_decides_fail_without_reviewer_dispatch) ... ok
+native-dispatch-identities:{'launcher_pid': 28436, 'worker_identity': {'created_ms': 1792202071570, 'pid': 3620}}
+test_native_pass_then_two_real_review_api_results_decide_pass (test_workflow_review_service.ReviewServiceTests.test_native_pass_then_two_real_review_api_results_decide_pass) ... ok
+native-dispatch-identities:{'launcher_pid': 20412, 'worker_identity': {'created_ms': 1792202077118, 'pid': 6960}}
+test_owner_retry_unpauses_same_task_then_sdk_pass_decides_attempt (test_workflow_review_retry_service.ReviewRetryServiceTests.test_owner_retry_unpauses_same_task_then_sdk_pass_decides_attempt) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 19.064s
+
+OK

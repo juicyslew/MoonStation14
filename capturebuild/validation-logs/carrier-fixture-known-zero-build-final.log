@@ -1,0 +1,27 @@
+Starting a Gradle Daemon, 1 busy and 89 stopped Daemons could not be reused, use --status for details
+Reusing configuration cache.
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :generateModMetadata UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :jarJar NO-SOURCE
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :compileGametestJava
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :gametestClasses
+> Task :compileTestJava UP-TO-DATE
+> Task :downloadAssets UP-TO-DATE
+> Task :writeNeoForgeTestClasspath UP-TO-DATE
+> Task :prepareNeoForgeTestFiles UP-TO-DATE
+> Task :processTestResources UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+> Task :test
+> Task :check
+> Task :build
+
+BUILD SUCCESSFUL in 1m 1s
+14 actionable tasks: 2 executed, 12 up-to-date
+Configuration cache entry reused.

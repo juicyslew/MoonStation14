@@ -20,3 +20,4 @@ public final class StatusDurationCadence {
         return OptionalInt.of(MINIMUM_TICKS);
     }
 }
+

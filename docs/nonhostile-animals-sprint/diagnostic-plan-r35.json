@@ -1,0 +1,32 @@
+{
+  "title": "Population measurements without automatic development-station placement",
+  "kind": "diagnostic",
+  "acceptance_criteria": [
+    "Does the isolated population server explicitly omit automatic development-station generation while preserving real authenticated join and committed body control?",
+    "What route reuse, collision work, tick/frame and separate JVM GC evidence accompanies visible parrot and mixed populations on the isolated flat fixture?"
+  ],
+  "fixture": "docs/nonhostile-animals-sprint/OWNER-FEEDBACK.md",
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Parrots"],
+      "rationale": "Lead-owned isolated real-client 100-parrot capture. Require explicit station-builder opt-out evidence and retained matching join/commit/control/first-intent proof. Automatic station placement obstructed all R34 candidates. Existing bounded preflight, ownership admission and native limits remain unchanged. R34 already passed all four focused native route equivalence/work-reduction/freshness fixtures; do not redundantly rerun them here.",
+      "covers": [
+        "Does the isolated population server explicitly omit automatic development-station generation while preserving real authenticated join and committed body control?",
+        "What route reuse, collision work, tick/frame and separate JVM GC evidence accompanies visible parrot and mixed populations on the isolated flat fixture?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-parrots-r35.log"
+    },
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1", "-PopulationScenario", "Mixed"],
+      "rationale": "40 animals, eight each bat/kobold/parrot/hamster/cow. Capture actual rendering, route requests/hits/computations and collision work after real committed ownership. No body/camera teleport or alternate admission flow. Normal station bootstrap remains default outside population fixtures. Removing the station changes baseline geometry/tick workload: these results alone cannot establish a controlled before/after timing improvement over R33. Short stationary captures do not establish prolonged growth, physical jumping/movement, native visual quality, manual readiness or owner acceptance. Retain exact failures and partial artifacts.",
+      "covers": [
+        "Does the isolated population server explicitly omit automatic development-station generation while preserving real authenticated join and committed body control?",
+        "What route reuse, collision work, tick/frame and separate JVM GC evidence accompanies visible parrot and mixed populations on the isolated flat fixture?"
+      ],
+      "log": "build/reports/nonhostile-animals/population-mixed-r35.log"
+    }
+  ]
+}

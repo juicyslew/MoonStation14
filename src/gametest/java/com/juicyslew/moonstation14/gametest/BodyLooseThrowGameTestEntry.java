@@ -26,4 +26,16 @@ public final class BodyLooseThrowGameTestEntry {
     public static void jugThrowUnderLowCeiling(GameTestHelper helper) {
         BodyLooseThrowGameTests.jugThrowFitsUnderTwoBlockCeiling(helper);
     }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
+    @GameTestTags({"living-carry", "npc-flight"})
+    public static void portableBodyThrowPreservesOriginal(GameTestHelper helper) {
+        BodyLooseThrowGameTests.portableKeyThrowReleasesAndFliesOriginalBody(helper);
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 70)
+    @GameTestTags({"living-carry", "npc-flight"})
+    public static void portableBodyThrowCooldownConservesKey(GameTestHelper helper) {
+        BodyLooseThrowGameTests.portableKeyThrowCooldownPreservesKeyAndBody(helper);
+    }
 }

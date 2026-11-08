@@ -105,3 +105,4 @@ public final class PrototypeReloadListener
         return exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
     }
 }
+

@@ -8,3 +8,4 @@ record MedicalCameraFollowPolicy(Vec3 previous, Vec3 current) {
         return previous.lerp(current, partialTick);
     }
 }
+

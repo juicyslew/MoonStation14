@@ -23,18 +23,24 @@ import java.util.function.Consumer;
 public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
                                      UUID bodyId, long epoch, long revision, String activeHand,
                                        List<Hand> hands, List<EquipmentSlot> equipment, List<GridHost> grids, boolean push,
-                                       ResourceLocation templateId) implements CustomPacketPayload {
+                                        ResourceLocation templateId, long serverTick) implements CustomPacketPayload {
     public enum Reason { OK, NO_AUTHORITY, RATE_LIMITED, REPLAY, NOT_READY }
 
     public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
                                  UUID bodyId, long epoch, long revision, String activeHand, List<Hand> hands) {
-         this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, List.of(), List.of(), false, null);
+          this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, List.of(), List.of(), false, null, 0);
+    }
+
+    public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId, UUID bodyId,
+            long epoch, long revision, String activeHand, List<Hand> hands, List<EquipmentSlot> equipment,
+            List<GridHost> grids, boolean push, ResourceLocation templateId) {
+        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, grids, push, templateId, 0);
     }
 
     public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId, UUID bodyId,
             long epoch, long revision, String activeHand, List<Hand> hands, List<EquipmentSlot> equipment,
             List<GridHost> grids, boolean push) {
-        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, grids, push, null);
+        this(requestedEpoch, sequence, reason, accountId, bodyId, epoch, revision, activeHand, hands, equipment, grids, push, null, 0);
     }
 
     public BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason reason, UUID accountId,
@@ -69,7 +75,8 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
     public record GridHost(String hostToken, String kind, int width, int height, List<GridEntry> entries) {
         public GridHost {
             if (hostToken == null || hostToken.isBlank() || hostToken.length() > ItemToken.MAX_LENGTH
-                    || !("bag".equals(kind) || "belt".equals(kind)) || width != ("bag".equals(kind) ? 7 : 8)
+                    || !("bag".equals(kind) || "belt".equals(kind) || "pill".equals(kind))
+                    || width != ("bag".equals(kind) ? 7 : "pill".equals(kind) ? 5 : 8)
                     || height != ("bag".equals(kind) ? 4 : 2) || entries == null || entries.size() > 32)
                 throw new IllegalArgumentException("Invalid grid host");
             entries = List.copyOf(entries);
@@ -79,7 +86,9 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                 ResourceLocation id = ResourceLocation.tryParse(entry.itemId());
                 if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) throw new IllegalArgumentException("Unregistered grid item");
                 if (entry.itemId().equals("moonstation14:pouch") || entry.itemId().equals(ModItems.BAG.getId().toString())
-                        || entry.itemId().equals(ModItems.BELT.getId().toString())) throw new IllegalArgumentException("Nested grid host");
+                        || entry.itemId().equals(ModItems.BELT.getId().toString())
+                        || entry.itemId().equals(ModItems.PILL_CANISTER.getId().toString())) throw new IllegalArgumentException("Nested grid host");
+                if ("pill".equals(kind) && !entry.itemId().equals(ModItems.PILL.getId().toString())) throw new IllegalArgumentException("Non-pill in canister");
                 if (entry.x() >= width || entry.y() >= height) throw new IllegalArgumentException("Out-of-bounds grid anchor");
             }
         }
@@ -108,8 +117,9 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                                             || childToken.equals(token) || childItemId == null || childItemId.isBlank()
                                             || childItemId.length() > 256 || childCount < 1 || childCount > 64
                                             || childItemId.equals("moonstation14:pouch")
-                                            || childItemId.equals(ModItems.BELT.getId().toString())
-                                             || childItemId.equals(ModItems.BAG.getId().toString()))))
+                            || childItemId.equals(ModItems.BELT.getId().toString())
+                                              || childItemId.equals(ModItems.BAG.getId().toString())
+                                              || childItemId.equals(ModItems.PILL_CANISTER.getId().toString()))))
                 throw new IllegalArgumentException("Invalid equipment snapshot slot");
             if (token != null && presentation != null
                     && (!presentation.stack().getItem().equals(BuiltInRegistries.ITEM.get(resource))
@@ -147,12 +157,13 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                     || (token != null && "moonstation14:pouch".equals(itemId))
                      || pullTarget != null && (pullTarget.isBlank() || pullTarget.length() > 64)
                      || (childToken == null ? childItemId != null || childCount != 0
-                            : !(pouch || token != null && (ModItems.BAG.getId().toString().equals(itemId)
-                                    || ModItems.BELT.getId().toString().equals(itemId)))
+                             : !(pouch || token != null && (ModItems.BAG.getId().toString().equals(itemId)
+                                     || ModItems.BELT.getId().toString().equals(itemId)
+                                     || ModItems.PILL_CANISTER.getId().toString().equals(itemId)))
                                     || childToken.isBlank() || childToken.length() > ItemToken.MAX_LENGTH
                                     || childToken.equals(token) || childItemId == null || childItemId.isBlank()
                                      || childItemId.length() > 256 || childItemId.equals("moonstation14:pouch")
-                                    || childItemId.equals(ModItems.BAG.getId().toString()) || childItemId.equals(ModItems.BELT.getId().toString())
+                                     || childItemId.equals(ModItems.BAG.getId().toString()) || childItemId.equals(ModItems.BELT.getId().toString()) || childItemId.equals(ModItems.PILL_CANISTER.getId().toString())
                                      || childCount < 1 || childCount > 64
                                      || "moonstation14:pouch".equals(childItemId)))
                 throw new IllegalArgumentException("Invalid hand snapshot slot");
@@ -172,6 +183,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                     buf.writeUUID(snapshot.bodyId);
                     buf.writeVarLong(snapshot.epoch);
                     buf.writeVarLong(snapshot.revision);
+                    buf.writeVarLong(snapshot.serverTick);
                     buf.writeUtf(snapshot.activeHand, HandState.MAX_ID_LENGTH);
                     buf.writeBoolean(snapshot.templateId != null);
                     if (snapshot.templateId != null) buf.writeResourceLocation(snapshot.templateId);
@@ -241,6 +253,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                 UUID body = buf.readUUID();
                 long epoch = buf.readVarLong();
                 long revision = buf.readVarLong();
+                long serverTick = buf.readVarLong();
                 String active = buf.readUtf(HandState.MAX_ID_LENGTH);
                 ResourceLocation templateId = buf.readBoolean() ? buf.readResourceLocation() : null;
                 int size = buf.readVarInt();
@@ -302,7 +315,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
                 }
                 if (buf.isReadable()) throw new IllegalArgumentException("Unexpected snapshot payload");
                 return new BodyHandStateSnapshot(requestedEpoch, sequence, reason, account, body,
-                        epoch, revision, active, slots, equipment, grids, push, templateId);
+                        epoch, revision, active, slots, equipment, grids, push, templateId, serverTick);
             }));
 
     private static BodyHandStateSnapshot decodeGuarded(RegistryFriendlyByteBuf buf,
@@ -314,7 +327,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
     }
 
     public BodyHandStateSnapshot {
-        if (requestedEpoch < 0 || (push ? sequence != 0 : sequence <= 0) || reason == null || hands == null || equipment == null || grids == null)
+        if (requestedEpoch < 0 || serverTick < 0 || (push ? sequence != 0 : sequence <= 0) || reason == null || hands == null || equipment == null || grids == null)
             throw new IllegalArgumentException("Invalid hand state snapshot");
         hands = List.copyOf(hands);
         equipment = List.copyOf(equipment);
@@ -360,6 +373,7 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
     private static String hostKind(String itemId) {
         if (ModItems.BAG.getId().toString().equals(itemId)) return "bag";
         if (ModItems.BELT.getId().toString().equals(itemId)) return "belt";
+        if (ModItems.PILL_CANISTER.getId().toString().equals(itemId)) return "pill";
         return null;
     }
 
@@ -396,3 +410,4 @@ public record BodyHandStateSnapshot(long requestedEpoch, long sequence, Reason r
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

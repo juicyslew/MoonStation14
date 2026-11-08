@@ -1,0 +1,29 @@
+{
+  "id": "botany-genetics-catalog-items-c-20261015-r1",
+  "title": "Botany catalog items C source-faithful item art",
+  "brief": "Prepare art-only for exactly 34 primary item identities. Follow CATALOG-ITEMS-C-ASSET-BRIEF.md for verified source, exact RSI state and inherited layers, full source animation/frame and provenance requirements, established native generated-item PNG-strip plus adjacent .png.mcmeta animation contract, the holymelon exact 6-tick frames and extradimensional-orange 115-entry/184-tick cumulative-rounded native timing adaptation, license/copyright, source-first gameplay-scale animation previews, and boundaries. No secondary outputs, grown-art dependency, code, runtime registration/import, mechanics, audio, publication, acceptance, or delivery is authorized. Preserve all existing request/package scopes. Request metadata is preparation only and does not claim or perform publication.",
+  "scope": "art-only",
+  "target_runtime": "Minecraft Java 1.21.1 / NeoForge 21.1.224 existing native generated-item model, animated PNG strip, and adjacent .png.mcmeta pipeline",
+  "source_pin": "SS14 space-station-14 revision c9df5ef5d675b0d1d226828bddf6b78c28502d91; verified at C:/Users/William/Documents/SS14-dev/space-station-14",
+  "asset_ids": [
+    "LemonSeeds", "FoodLemon", "LemoonSeeds", "FoodLemoon", "LimeSeeds", "FoodLime", "OrangeSeeds", "FoodOrange",
+    "ExtradimensionalOrangeSeeds", "FoodExtradimensionalOrange", "GrapeSeeds", "FoodGrape", "WatermelonSeeds", "FoodWatermelon",
+    "HolymelonSeeds", "FoodHolymelon", "BerrySeeds", "FoodBerries", "CherrySeeds", "FoodCherry", "LingzhiSeeds", "FoodLingzhi",
+    "AmbrosiaVulgarisSeeds", "FoodAmbrosiaVulgaris", "AmbrosiaDeusSeeds", "FoodAmbrosiaDeus", "GalaxythistleSeeds", "FoodGalaxythistle",
+    "GlasstleSeeds", "FoodGlasstle", "FlyAmanitaSeeds", "FoodFlyAmanita", "SpacemansTrumpetSeeds", "FoodSpacemansTrumpet"
+  ],
+  "dependencies": [],
+  "context": [
+    "docs/botany-genetics-sprint/CATALOG-ITEMS-C-ASSET-BRIEF.md",
+    "docs/botany-genetics-sprint/CATALOG-REFERENCES.md",
+    "docs/botany-genetics-sprint/CATALOG-REFERENCES.json",
+    "docs/botany-genetics-sprint/CATALOG-ITEMS-A-ASSET-BRIEF.md",
+    "docs/botany-genetics-sprint/CATALOG-ITEMS-A-REQUEST.json",
+    "docs/botany-genetics-sprint/CATALOG-ITEMS-B-ASSET-BRIEF.md",
+    "docs/botany-genetics-sprint/CATALOG-ITEMS-B-REQUEST.json",
+    "docs/botany-genetics-sprint/ITEM-ASSET-BRIEF.md",
+    "docs/botany-genetics-sprint/item-asset-request.json",
+    "docs/botany-genetics-sprint/PLANT-MODEL-BRIEF.md",
+    "docs/botany-genetics-sprint/plant-model-request.json"
+  ]
+}

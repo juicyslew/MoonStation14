@@ -20,3 +20,4 @@ public final class CharacterMovementSnapshotPolicy {
         return allowsMotor(mode) && result == GhostPredictionHistory.SnapshotStatus.REPLAY && !predictionStopped;
     }
 }
+

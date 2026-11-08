@@ -30,3 +30,4 @@ public final class Ss14VentilationDefaults {
 
     private Ss14VentilationDefaults() { }
 }
+

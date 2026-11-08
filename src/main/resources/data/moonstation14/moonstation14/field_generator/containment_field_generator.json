@@ -1,0 +1,5 @@
+{
+  "id": "moonstation14:containment_field_generator",
+  "type": "moonstation14:field_generator",
+  "parent": "moonstation14:field_generator_base"
+}

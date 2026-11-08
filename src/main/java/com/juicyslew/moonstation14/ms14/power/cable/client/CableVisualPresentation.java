@@ -27,3 +27,4 @@ public final class CableVisualPresentation {
 
     public record Rgb(float red, float green, float blue) { }
 }
+

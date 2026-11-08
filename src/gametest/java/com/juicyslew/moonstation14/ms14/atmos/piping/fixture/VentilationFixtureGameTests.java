@@ -67,9 +67,12 @@ public final class VentilationFixtureGameTests {
                                              VentilationFixturePlan plan, int tick,
                                              Set<Long> newlyForced) {
         try {
-            if (!AtmosphereService.INSTANCE.sample(level, origin.offset(plan.sourceCells().getFirst())).isPresent()
-                    || !AtmosphereService.INSTANCE.sample(level, origin.offset(plan.recipientCells().getFirst())).isPresent()) {
-                if (tick >= 300) throw new GameTestAssertException("normal atmosphere loop did not claim both fixture rooms");
+            boolean roomsOwned = plan.sourceCells().stream().allMatch(p ->
+                    AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, origin.offset(p)).isPresent())
+                    && plan.recipientCells().stream().allMatch(p ->
+                    AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level, origin.offset(p)).isPresent());
+            if (!roomsOwned) {
+                if (tick >= 300) throw new GameTestAssertException("normal atmosphere loop did not establish finite ownership for every fixture room cell");
                 helper.runAtTickTime(tick + 10, () -> initializeWhenReady(helper, level, origin, plan, tick + 10, newlyForced));
                 return;
             }

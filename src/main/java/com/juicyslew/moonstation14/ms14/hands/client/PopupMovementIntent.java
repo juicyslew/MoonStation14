@@ -26,3 +26,4 @@ public final class PopupMovementIntent {
         return (actual & mask) == required;
     }
 }
+

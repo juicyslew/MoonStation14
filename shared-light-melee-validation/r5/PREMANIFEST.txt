@@ -1,0 +1,3 @@
+PREMANIFEST r5
+Created before validation command: 2026-10-21T07:50:00-07:00
+Allowed command: .\gradlew.bat compileJava compileTestJava compileGametestJava test --tests '*MeleeAttackPolicyTest' --tests '*CombatMeleeTargetProbeTest' --tests '*MeleeCooldownTest' --tests '*DamageModifierDataTest' --tests '*ItemDamageKernelTest' --tests '*MeleeTargetAttackedEventTest'

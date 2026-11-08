@@ -64,7 +64,7 @@ public final class ChemMasterLayout {
                   rect(w,h,sortX,bufferHeadingY,sortWidth,14),
                    rect(w,h,w-MARGIN-8-108,bufferHeadingY,actionsFit?50:0,14),
                    rect(w,h,w-MARGIN-8-54,bufferHeadingY,actionsFit?54:0,14),
-                inputView,
+                 rect(w,h,MARGIN,HEADER+6,Math.max(0,w-2*MARGIN),Math.max(0,h-HEADER-14)),
                 rect(w,h,MARGIN,inputHeadingY,w-2*MARGIN,10),
                 rect(w,h,MARGIN,bufferHeadingY,36,10),
                  rect(w,h,MARGIN+listWidth,inputView.y(),8,inputView.height()),
@@ -151,3 +151,4 @@ public final class ChemMasterLayout {
         return null;
     }
 }
+

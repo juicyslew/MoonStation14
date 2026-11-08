@@ -183,3 +183,4 @@ public final class ApcMenu extends AbstractContainerMenu {
     @Override public void removed(Player player) { super.removed(player); }
     @Override public ItemStack quickMoveStack(Player player, int index) { return ItemStack.EMPTY; }
 }
+

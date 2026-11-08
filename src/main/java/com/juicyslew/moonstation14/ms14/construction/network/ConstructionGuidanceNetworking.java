@@ -45,3 +45,4 @@ public final class ConstructionGuidanceNetworking {
         PacketDistributor.sendToPlayer(p,new ConstructionGuidanceState(r.epoch(),r.sequence(),body,r.target(),host,content==null?"":content.goal(),content==null?"":content.requirement()));
     }
 }
+

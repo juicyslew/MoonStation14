@@ -61,3 +61,4 @@ final class LoadedPipeEqualization {
                 && Double.compare(a.temperatureKelvin(), b.temperatureKelvin()) == 0;
     }
 }
+

@@ -46,3 +46,4 @@ public record BloodstreamComponent(BloodstreamPolicy policy) implements Characte
         }
     });
 }
+

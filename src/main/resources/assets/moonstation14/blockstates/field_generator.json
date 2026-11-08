@@ -1,0 +1,89 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/base"
+      }
+    },
+    {
+      "when": {
+        "power": 0
+      },
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/power0_lens"
+      }
+    },
+    {
+      "when": {
+        "power": 1
+      },
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/p1"
+      }
+    },
+    {
+      "when": {
+        "power": 2
+      },
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/p3"
+      }
+    },
+    {
+      "when": {
+        "power": 3
+      },
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/p6"
+      }
+    },
+    {
+      "when": {
+        "field": 0
+      },
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/field0_lobes"
+      }
+    },
+    {
+      "when": {
+        "field": 1
+      },
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/a1"
+      }
+    },
+    {
+      "when": {
+        "field": 2
+      },
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/a2"
+      }
+    },
+    {
+      "when": {
+        "field": 3
+      },
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/a3"
+      }
+    },
+    {
+      "when": {
+        "active": "false"
+      },
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/inactive_lens"
+      }
+    },
+    {
+      "when": {
+        "active": "true"
+      },
+      "apply": {
+        "model": "moonstation14:block/reactor_bindings/field_generator/active"
+      }
+    }
+  ]
+}

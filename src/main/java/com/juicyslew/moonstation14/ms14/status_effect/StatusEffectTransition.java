@@ -10,3 +10,4 @@ public enum StatusEffectTransition {
     /** Compatibility spelling for callers describing an undefined prototype. */
     public static final StatusEffectTransition UNDEFINED = INVALIDATED;
 }
+

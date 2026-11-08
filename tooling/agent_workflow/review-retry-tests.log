@@ -1,0 +1,45 @@
+native-dispatch-identities:{'launcher_pid': 9200, 'worker_identity': {'created_ms': 1792196599143, 'pid': 12408}}
+test_current_auth_error_pauses_once_and_persists_without_further_history (test_workflow_review_dependency.ReviewDependencyTests.test_current_auth_error_pauses_once_and_persists_without_further_history) ... ok
+native-dispatch-identities:{'launcher_pid': 15932, 'worker_identity': {'created_ms': 1792196602507, 'pid': 23704}}
+test_pre_dispatch_error_and_wrong_resource_binding_are_ignored (test_workflow_review_dependency.ReviewDependencyTests.test_pre_dispatch_error_and_wrong_resource_binding_are_ignored) ... ok
+native-dispatch-identities:{'launcher_pid': 29548, 'worker_identity': {'created_ms': 1792196606429, 'pid': 22660}}
+test_foreign_inbox_rejects_without_patch (test_workflow_review_retry.ReviewRetryTests.test_foreign_inbox_rejects_without_patch) ... FAIL
+native-dispatch-identities:{'launcher_pid': 2524, 'worker_identity': {'created_ms': 1792196609959, 'pid': 29284}}
+test_lost_patch_reply_is_durable_unknown_and_never_repeated (test_workflow_review_retry.ReviewRetryTests.test_lost_patch_reply_is_durable_unknown_and_never_repeated) ... FAIL
+native-dispatch-identities:{'launcher_pid': 22432, 'worker_identity': {'created_ms': 1792196613418, 'pid': 11696}}
+test_queue_patch_once_resume_and_command_replay_without_api (test_workflow_review_retry.ReviewRetryTests.test_queue_patch_once_resume_and_command_replay_without_api) ... FAIL
+
+======================================================================
+FAIL: test_foreign_inbox_rejects_without_patch (test_workflow_review_retry.ReviewRetryTests.test_foreign_inbox_rejects_without_patch)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14\tooling\agent_workflow\test_workflow_review_retry.py", line 65, in test_foreign_inbox_rejects_without_patch
+    self.assertNotEqual('RESUMED',service.retry(task['task_id'],'cmd3','trusted')['status'])
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'RESUMED' == 'RESUMED'
+
+======================================================================
+FAIL: test_lost_patch_reply_is_durable_unknown_and_never_repeated (test_workflow_review_retry.ReviewRetryTests.test_lost_patch_reply_is_durable_unknown_and_never_repeated)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14\tooling\agent_workflow\test_workflow_review_retry.py", line 59, in test_lost_patch_reply_is_durable_unknown_and_never_repeated
+    self.assertEqual(calls,len(fake.calls)); self.assertTrue(store.task_is_dependency_paused(task['task_id']))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 3 != 6
+
+======================================================================
+FAIL: test_queue_patch_once_resume_and_command_replay_without_api (test_workflow_review_retry.ReviewRetryTests.test_queue_patch_once_resume_and_command_replay_without_api)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14\tooling\agent_workflow\test_workflow_review_retry.py", line 48, in test_queue_patch_once_resume_and_command_replay_without_api
+    self.assertEqual('RESUMED',first['status']); self.assertEqual(1,sum(c[0]=='PATCH' for c in fake.calls))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'RESUMED' != 'UNKNOWN'
+- RESUMED
++ UNKNOWN
+
+
+----------------------------------------------------------------------
+Ran 5 tests in 17.623s
+
+FAILED (failures=3)

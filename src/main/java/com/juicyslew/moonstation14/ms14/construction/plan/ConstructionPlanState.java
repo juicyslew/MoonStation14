@@ -16,3 +16,4 @@ public record ConstructionPlanState(UUID body, long epoch, long sequence, long r
     }, b->{UUID body=b.readUUID();long epoch=b.readVarLong(),sequence=b.readVarLong(),revision=b.readVarLong();String recipe=b.readUtf(256);int rotation=b.readVarInt();return new ConstructionPlanState(body,epoch,sequence,revision,recipe.isEmpty()?null:recipe,rotation);});
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

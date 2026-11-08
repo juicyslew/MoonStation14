@@ -19,3 +19,4 @@ public record CableFaceNode(BlockPos host, Direction face, CableTier tier) {
         return host;
     }
 }
+

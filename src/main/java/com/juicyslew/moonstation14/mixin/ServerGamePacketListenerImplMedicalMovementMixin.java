@@ -28,3 +28,4 @@ public abstract class ServerGamePacketListenerImplMedicalMovementMixin {
         if (medicalBody || session != null) callback.cancel();
     }
 }
+

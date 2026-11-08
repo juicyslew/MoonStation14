@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.block.custom;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereBlockPolicy;
 import com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 
@@ -14,8 +15,9 @@ public final class ConstructionStructureBlock extends Block implements Atmospher
         if (entityPrototype == null || entityPrototype.isBlank()) throw new IllegalArgumentException("blank construction entity prototype");
         this.entityPrototype = entityPrototype;
     }
+    public ResourceLocation entityPrototypeId() { return ModConstruction.id(entityPrototype); }
     @Override public boolean atmospherePassable() {
-        var data = PrototypeRuntime.serverConstructionEntities().get(ModConstruction.id(entityPrototype));
+        var data = PrototypeRuntime.serverConstructionEntities().get(entityPrototypeId());
         return data != null && !data.airtight();
     }
 }

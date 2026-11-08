@@ -129,3 +129,4 @@ public record CharacterData(List<ResourceLocation> hostEntityTypes,
     public boolean canSpeakText() { return component(SpeechComponent.class).isPresent(); }
 
 }
+

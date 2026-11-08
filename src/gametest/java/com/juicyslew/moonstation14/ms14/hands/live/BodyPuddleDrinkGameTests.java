@@ -25,6 +25,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @PrefixGameTestTemplate(false)
 @GameTestTags({"hands", "chemistry", "physiology", "interaction"})
@@ -62,10 +64,29 @@ public final class BodyPuddleDrinkGameTests {
         PuddleBlockEntity puddle = (PuddleBlockEntity) level.getBlockEntity(puddlePos);
         MS14Provider.update(puddle, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(WATER, 10f)));
         LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
-        require(BodyPuddleDrinkService.start(body, hands.activeHand(), hands.revision(), puddlePos, () -> true)
+        AtomicLong receipt = new AtomicLong();
+        require(BodyPuddleDrinkService.finishTimed(body, puddlePos, puddle, 100, true, () -> true,
+                        receipt::set)
                         == BodyLiquidInteraction.Result.SUCCESS, "visible puddle sip is accepted");
         require(water(puddle) == 900 && water(body) == 100,
                 "one exact 100-cent dose commits immediately to stomach and conserves source");
+        require(receipt.get() == 100, "committed puddle transaction reports its actual 100-cent transfer");
+
+        MS14Provider.update(puddle, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(WATER, .25f)));
+        receipt.set(0);
+        require(BodyPuddleDrinkService.finishTimed(body, puddlePos, puddle, 100, true, () -> true,
+                        receipt::set) == BodyLiquidInteraction.Result.SUCCESS,
+                "source-limited puddle sip commits");
+        require(receipt.get() == 25 && water(puddle) == 0,
+                "receipt reports actual partial transfer rather than requested dose");
+
+        MS14Provider.update(puddle, MS14Bridges.REAGENT, new ReagentAttachment(Map.of(WATER, 1f)));
+        AtomicBoolean receiptPublished = new AtomicBoolean();
+        java.util.concurrent.atomic.AtomicInteger authorityChecks = new java.util.concurrent.atomic.AtomicInteger();
+        var failed = BodyPuddleDrinkService.finishTimed(body, puddlePos, puddle, 100, true,
+                () -> authorityChecks.incrementAndGet() < 3, ignored -> receiptPublished.set(true));
+        require(failed != BodyLiquidInteraction.Result.SUCCESS && !receiptPublished.get() && water(puddle) == 100,
+                "failed transaction rolls back without publishing a receipt");
         helper.succeed();
     }
 

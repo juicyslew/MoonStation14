@@ -54,3 +54,4 @@ abstract class LivingEntityDamageFeedbackMixin {
         else moonstation14$clearNativeHurtCounter = DamageFeedbackPresentationPolicy.clearServerHurtCounter(profile);
     }
 }
+

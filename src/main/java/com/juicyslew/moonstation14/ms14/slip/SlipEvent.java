@@ -10,3 +10,4 @@ public record SlipEvent(ServerLevel level, BlockPos sourcePosition, PuddleBlockE
                         LivingEntity target, SlipperySolution.Outcome solution,
                         boolean wasSliding) {
 }
+

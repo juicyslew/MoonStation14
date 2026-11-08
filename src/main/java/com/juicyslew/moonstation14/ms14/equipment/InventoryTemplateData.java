@@ -7,6 +7,12 @@ import java.util.Set;
 /** Resolved ordered inventory layout and supported upstream slot policy. */
 public record InventoryTemplateData(List<Slot> slots) {
     public enum SlotFlag { FEET, INNERCLOTHING, OUTERCLOTHING, GLOVES, NECK, MASK, EYES, EARS, HEAD, POCKET, SUITSTORAGE, IDCARD, BELT, BACK, PREVENTEQUIP }
+    /** Whitelist predicates resolved from typed item capabilities rather than synthetic tags. */
+    public enum SlotComponent { GAS_TANK }
+    public static final Codec<SlotComponent> SLOT_COMPONENT_CODEC=Codec.STRING.comapFlatMap(value->{
+        try{return com.mojang.serialization.DataResult.success(SlotComponent.valueOf(value));}
+        catch(IllegalArgumentException exception){return com.mojang.serialization.DataResult.error(()->"unknown slot component "+value);}
+    },SlotComponent::name);
     public static final Codec<SlotFlag> SLOT_FLAG_CODEC=Codec.STRING.comapFlatMap(value->{try{return com.mojang.serialization.DataResult.success(SlotFlag.valueOf(value));}catch(IllegalArgumentException exception){return com.mojang.serialization.DataResult.error(()->"unknown slot flag "+value);}},SlotFlag::name);
     public static final Codec<Slot> SLOT_CODEC = RecordCodecBuilder.create(i -> i.group(
             Codec.STRING.fieldOf("id").forGetter(Slot::id), Codec.STRING.fieldOf("display_name").forGetter(Slot::displayName),
@@ -15,6 +21,8 @@ public record InventoryTemplateData(List<Slot> slots) {
             SLOT_FLAG_CODEC.listOf().optionalFieldOf("flags", List.of(SlotFlag.PREVENTEQUIP)).forGetter(Slot::flags),
             Codec.STRING.listOf().optionalFieldOf("depends_on", List.of()).forGetter(Slot::dependsOn),
             EquipmentTag.CODEC.listOf().optionalFieldOf("blacklist", List.of()).forGetter(Slot::blacklist),
+            EquipmentTag.CODEC.listOf().optionalFieldOf("whitelist", List.of()).forGetter(Slot::whitelist),
+            SLOT_COMPONENT_CODEC.listOf().optionalFieldOf("whitelist_components", List.of()).forGetter(Slot::whitelistComponents),
             Codec.BOOL.optionalFieldOf("allow_suit_storage", false).forGetter(Slot::allowSuitStorage),
             Codec.DOUBLE.optionalFieldOf("strip_time", 4.0).forGetter(Slot::stripTime),
             Codec.BOOL.optionalFieldOf("strip_hidden", false).forGetter(Slot::stripHidden)
@@ -40,8 +48,10 @@ public record InventoryTemplateData(List<Slot> slots) {
         for(String dependency:current.dependsOn())ensureAcyclic(dependency,slotsById,active,done);
         active.remove(id);done.add(id);
     }
-    public record Slot(String id,String displayName,ResourceLocation icon,String group,int x,int y,List<SlotFlag> flags,List<String> dependsOn,List<EquipmentTag> blacklist,boolean allowSuitStorage,double stripTime,boolean stripHidden) {
-        public Slot(String id,String displayName,ResourceLocation icon,String group,int x,int y,List<SlotFlag> flags,List<String> dependsOn,List<EquipmentTag> blacklist,boolean allowSuitStorage) { this(id,displayName,icon,group,x,y,flags,dependsOn,blacklist,allowSuitStorage,4.0,false); }
-        public Slot { if(id==null||displayName==null||displayName.isBlank()||icon==null||!Set.of("Default","MainHotbar","SecondHotbar").contains(group)||!Double.isFinite(stripTime)||stripTime<0) throw new IllegalArgumentException("invalid slot metadata"); flags=List.copyOf(flags);dependsOn=List.copyOf(dependsOn);blacklist=List.copyOf(blacklist);if(new java.util.HashSet<>(flags).size()!=flags.size()||new java.util.HashSet<>(dependsOn).size()!=dependsOn.size()||new java.util.HashSet<>(blacklist).size()!=blacklist.size())throw new IllegalArgumentException("duplicate slot policy value"); }
+    public record Slot(String id,String displayName,ResourceLocation icon,String group,int x,int y,List<SlotFlag> flags,List<String> dependsOn,List<EquipmentTag> blacklist,List<EquipmentTag> whitelist,List<SlotComponent> whitelistComponents,boolean allowSuitStorage,double stripTime,boolean stripHidden) {
+        public Slot(String id,String displayName,ResourceLocation icon,String group,int x,int y,List<SlotFlag> flags,List<String> dependsOn,List<EquipmentTag> blacklist,boolean allowSuitStorage) { this(id,displayName,icon,group,x,y,flags,dependsOn,blacklist,List.of(),List.of(),allowSuitStorage,4.0,false); }
+        public Slot(String id,String displayName,ResourceLocation icon,String group,int x,int y,List<SlotFlag> flags,List<String> dependsOn,List<EquipmentTag> blacklist,boolean allowSuitStorage,double stripTime,boolean stripHidden) { this(id,displayName,icon,group,x,y,flags,dependsOn,blacklist,List.of(),List.of(),allowSuitStorage,stripTime,stripHidden); }
+        public Slot(String id,String displayName,ResourceLocation icon,String group,int x,int y,List<SlotFlag> flags,List<String> dependsOn,List<EquipmentTag> blacklist,List<SlotComponent> whitelistComponents,boolean allowSuitStorage,double stripTime,boolean stripHidden) { this(id,displayName,icon,group,x,y,flags,dependsOn,blacklist,List.of(),whitelistComponents,allowSuitStorage,stripTime,stripHidden); }
+        public Slot { if(id==null||displayName==null||displayName.isBlank()||icon==null||!Set.of("Default","MainHotbar","SecondHotbar").contains(group)||!Double.isFinite(stripTime)||stripTime<0) throw new IllegalArgumentException("invalid slot metadata"); flags=List.copyOf(flags);dependsOn=List.copyOf(dependsOn);blacklist=List.copyOf(blacklist);whitelist=List.copyOf(whitelist);whitelistComponents=List.copyOf(whitelistComponents);if(new java.util.HashSet<>(flags).size()!=flags.size()||new java.util.HashSet<>(dependsOn).size()!=dependsOn.size()||new java.util.HashSet<>(blacklist).size()!=blacklist.size()||new java.util.HashSet<>(whitelist).size()!=whitelist.size()||new java.util.HashSet<>(whitelistComponents).size()!=whitelistComponents.size())throw new IllegalArgumentException("duplicate slot policy value"); }
     }
 }

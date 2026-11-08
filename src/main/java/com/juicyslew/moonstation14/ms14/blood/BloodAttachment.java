@@ -24,3 +24,4 @@ public final class BloodAttachment implements IMS14Attachment<BloodAttachment, B
     @Override public Codec<BloodAttachment> getCodec() { return CODEC; }
     @Override public StreamCodec<RegistryFriendlyByteBuf, BloodAttachment> getStreamCodec() { return STREAM_CODEC; }
 }
+

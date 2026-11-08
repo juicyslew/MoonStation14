@@ -10,3 +10,4 @@ public enum DisposalDirection {
     public Direction toMC() { return Direction.valueOf(name()); }
     public static DisposalDirection fromMC(Direction direction) { return valueOf(direction.name()); }
 }
+

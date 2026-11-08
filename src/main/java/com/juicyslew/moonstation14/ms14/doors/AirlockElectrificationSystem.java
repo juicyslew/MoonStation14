@@ -100,3 +100,4 @@ public final class AirlockElectrificationSystem {
     }
     private static long ticks(float seconds) { return Math.max(1, (long) Math.ceil(seconds * 20)); }
 }
+

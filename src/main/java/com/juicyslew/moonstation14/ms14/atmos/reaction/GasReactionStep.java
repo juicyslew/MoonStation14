@@ -129,3 +129,4 @@ public final class GasReactionStep {
         return HotspotKernel.process(catalog, gas, state, priorWholeFireExtent);
     }
 }
+

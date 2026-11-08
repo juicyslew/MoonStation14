@@ -63,3 +63,4 @@ public record TimedInteractionSnapshot(ResourceLocation dimension, int bodyEntit
     }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

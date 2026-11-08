@@ -191,3 +191,4 @@ public final class QueueWidget extends AbstractWidget {
     @Override
     protected void updateWidgetNarration(NarrationElementOutput output) { defaultButtonNarrationText(output); }
 }
+

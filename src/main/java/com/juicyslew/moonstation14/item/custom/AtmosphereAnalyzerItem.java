@@ -81,3 +81,4 @@ public class AtmosphereAnalyzerItem extends Item {
 
     public record TargetSample<T>(TargetStatus status, Optional<T> sample) { }
 }
+

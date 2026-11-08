@@ -6,6 +6,35 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ClientOwnedSimulationClockTest {
+    @Test void applicationClockKeepsNativeAndLogicalCoordinatesDistinctAndAllowsHeldInput() {
+        var clock = new ClientOwnedSimulationClock();
+        clock.restore(7, 120, 40, 900);
+        var first = clock.prepare(7, 901, 40);
+        assertEquals(new ClientOwnedSimulationClock.Interval(120, 121), first);
+        assertTrue(clock.commit(first, 7, 901, 40));
+        assertEquals(121, clock.tick());
+        assertEquals(901, clock.applicationTick());
+        var second = clock.prepare(7, 902, 40);
+        assertEquals(new ClientOwnedSimulationClock.Interval(121, 122), second);
+        assertTrue(clock.commit(second, 7, 902, 40));
+        assertNull(clock.prepare(7, 902, 40));
+        assertEquals(40, clock.lastSequence());
+    }
+
+    @Test void applicationClockRejectsStaleEpochAndResetClearsBothCoordinates() {
+        var clock = new ClientOwnedSimulationClock();
+        clock.restore(7, 120, 40, 900);
+        assertNull(clock.prepare(6, 901, 40));
+        var pending = clock.prepare(7, 901, 40);
+        clock.reset();
+        assertFalse(clock.commit(pending, 7, 901, 40));
+        assertFalse(clock.anchored());
+        assertEquals(0, clock.tick());
+        assertEquals(0, clock.applicationTick());
+        clock.restore(8, 5, 2, 50);
+        assertEquals(new ClientOwnedSimulationClock.Interval(5, 6), clock.prepare(8, 51, 2));
+    }
+
     @Test void restoredAuthorityAndEachReplayIntentOwnConsecutiveSteps() {
         var clock = new ClientOwnedSimulationClock();
         clock.restore(7, 120, 40);

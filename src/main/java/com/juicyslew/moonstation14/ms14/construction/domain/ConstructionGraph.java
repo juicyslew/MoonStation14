@@ -38,3 +38,4 @@ public record ConstructionGraph(String start, Map<String, Node> nodes) {
     private static void positive(int n){if(n<=0)throw new IllegalArgumentException("amount must be positive");}
     private static void duration(double n){if(!Double.isFinite(n)||n<0)throw new IllegalArgumentException("duration must be finite and nonnegative");}
 }
+

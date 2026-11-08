@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:fly_amanita",
+  "capacity_cents": 1500,
+  "contents_cents": {
+    "moonstation14:amatoxin": 1000,
+    "moonstation14:nutriment": 500
+  },
+  "refillable": true
+}

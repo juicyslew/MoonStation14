@@ -1,0 +1,15 @@
+test_coordinator_retries_known_busy_review_after_claim_lease_expires (test_workflow_review_transport.ReviewTransportTests.test_coordinator_retries_known_busy_review_after_claim_lease_expires) ... ok
+test_real_assignment_ack_registers_receipt_without_claim_and_replay_is_applied (test_workflow_review_transport.ReviewTransportTests.test_real_assignment_ack_registers_receipt_without_claim_and_replay_is_applied) ... ok
+test_registered_invalid_prompt_evidence_blocks_absence_and_replay (test_workflow_review_transport.ReviewTransportTests.test_registered_invalid_prompt_evidence_blocks_absence_and_replay) ... ok
+test_planner_role_bindings_are_instance_isolated (test_workflow_review_cancellation.ReviewCancellationTests.test_planner_role_bindings_are_instance_isolated) ... ok
+test_refusal_and_mismatched_reviewer_role_hold_unknown_without_confirmation (test_workflow_review_cancellation.ReviewCancellationTests.test_refusal_and_mismatched_reviewer_role_hold_unknown_without_confirmation) ... ok
+test_registered_but_unreadable_prompt_artifacts_block_zeroeffect_cleanup (test_workflow_review_cancellation.ReviewCancellationTests.test_registered_but_unreadable_prompt_artifacts_block_zeroeffect_cleanup) ... ok
+test_released_before_confirm_replay_confirms_without_api (test_workflow_review_cancellation.ReviewCancellationTests.test_released_before_confirm_replay_confirms_without_api) ... ok
+test_reserved_without_creation_intent_is_released_and_replayable (test_workflow_review_cancellation.ReviewCancellationTests.test_reserved_without_creation_intent_is_released_and_replayable) ... ok
+test_saved_review_continuation_control_and_synthetic_are_drained (test_workflow_review_cancellation.ReviewCancellationTests.test_saved_review_continuation_control_and_synthetic_are_drained) ... ok
+test_valid_original_and_control_history_records_allow_drain (test_workflow_review_cancellation.ReviewCancellationTests.test_valid_original_and_control_history_records_allow_drain) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 13.831s
+
+OK

@@ -46,3 +46,4 @@ public final class ThermalRegulatorMath {
         return Math.max(MIN_BODY_KELVIN, Math.min(MAX_BODY_KELVIN, value));
     }
 }
+

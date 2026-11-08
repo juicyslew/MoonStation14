@@ -1,1 +1,1 @@
-{"parent":"base_clothing","item":{"size":"Small"},"clothing":{"slot_flags":["EYES"],"region":"EYES","color":-1,"worn_model":{"mesh":"moonstation14:wearables/meshes/glasses.json","body_shape":"WIDE"}}}
+{"parent":"base_clothing","item":{"size":"Small"},"clothing":{"slot_flags":["EYES"],"region":"EYES","color":-1,"worn_model":{"mesh":"moonstation14:wearables/meshes/glasses.json","body_shape":"WIDE"}},"tags":["HamsterWearable"]}

@@ -216,3 +216,4 @@ public final class StatusEffectReducer {
         return new StatusEffectReduction(kind, next);
     }
 }
+

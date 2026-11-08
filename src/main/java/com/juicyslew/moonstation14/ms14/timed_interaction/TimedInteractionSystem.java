@@ -22,7 +22,7 @@ public final class TimedInteractionSystem {
     public static final double DEFAULT_MOVE_BREAK_DISTANCE = 0.3d;
     public enum Completion { REPEAT, STOP, DENIED, RECOVERY_REQUIRED }
     private record Key(UUID body, long id) { }
-    private record Context(IntSupplier repeatDuration, double damageThreshold, double movementThreshold, BooleanSupplier valid, Supplier<Completion> completion, Runnable cancelled, ServerLevel level, LoadedFrameRayQuery.ActorPoint start) { }
+    private record Context(IntSupplier repeatDuration, double damageThreshold, double movementThreshold, BooleanSupplier valid, Supplier<Completion> completion, Runnable cancelled, ServerLevel level, LoadedFrameRayQuery.ActorPoint actorStart, net.minecraft.world.phys.Vec3 movementStart, Supplier<net.minecraft.world.phys.Vec3> movementPosition) { }
     private record Presentation(long origin, ServerPlayer owner, Optional<net.minecraft.core.BlockPos> worldTarget) { }
     private static final Map<Key, Context> CALLBACKS = new HashMap<>();
     private static final Map<Key, Presentation> PRESENTATION = new HashMap<>();
@@ -35,6 +35,12 @@ public final class TimedInteractionSystem {
         if (serverThread != Thread.currentThread()) throw new IllegalStateException("Timed interactions require server thread");
     }
     private static long now(ServerLevel level) { return level.getServer().overworld().getGameTime(); }
+    private static boolean finite(net.minecraft.world.phys.Vec3 value) {
+        return value != null && Double.isFinite(value.x) && Double.isFinite(value.y) && Double.isFinite(value.z);
+    }
+    private static net.minecraft.world.phys.Vec3 readMovementPosition(Supplier<net.minecraft.world.phys.Vec3> source) {
+        try { return source.get(); } catch (RuntimeException ignored) { return null; }
+    }
     public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
             String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
             BooleanSupplier valid, Supplier<Completion> completion) {
@@ -76,29 +82,44 @@ public final class TimedInteractionSystem {
             double damageThreshold, double movementThreshold, IntSupplier repeatDuration,
             BooleanSupplier valid, Supplier<Completion> completion,
             Optional<net.minecraft.core.BlockPos> worldTarget, Runnable cancelled) {
+        return startWithMovementPosition(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage,
+                breakMove, damageThreshold, movementThreshold, repeatDuration, valid, completion, worldTarget,
+                cancelled, body::position);
+    }
+    /** Movement break check can use another authoritative coordinate frame; existing calls use world position. */
+    public static TimedInteractionEngine.StartResult startWithMovementPosition(LivingEntity body, ServerPlayer owner,
+            long originSequence, String kind, String sourceKey, int durationTicks, boolean breakDamage,
+            boolean breakMove, double damageThreshold, double movementThreshold, IntSupplier repeatDuration,
+            BooleanSupplier valid, Supplier<Completion> completion,
+            Optional<net.minecraft.core.BlockPos> worldTarget, Runnable cancelled,
+            Supplier<net.minecraft.world.phys.Vec3> movementPosition) {
         Objects.requireNonNull(body); Objects.requireNonNull(kind); Objects.requireNonNull(sourceKey); Objects.requireNonNull(valid); Objects.requireNonNull(completion);
+        Objects.requireNonNull(movementPosition);
         return startInternal(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove,
-                damageThreshold, movementThreshold, repeatDuration, valid, completion, worldTarget, cancelled);
+                damageThreshold, movementThreshold, repeatDuration, valid, completion, worldTarget, cancelled, movementPosition);
     }
     public static TimedInteractionEngine.StartResult start(LivingEntity body, ServerPlayer owner, long originSequence,
             String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
             double damageThreshold, BooleanSupplier valid, Supplier<Completion> completion,
             Optional<net.minecraft.core.BlockPos> worldTarget, Runnable cancelled) {
-        return startInternal(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove,
+        return start(body, owner, originSequence, kind, sourceKey, durationTicks, breakDamage, breakMove,
                 damageThreshold, DEFAULT_MOVE_BREAK_DISTANCE, () -> durationTicks, valid, completion, worldTarget, cancelled);
     }
     private static TimedInteractionEngine.StartResult startInternal(LivingEntity body, ServerPlayer owner, long originSequence,
             String kind, String sourceKey, int durationTicks, boolean breakDamage, boolean breakMove,
             double damageThreshold, double movementThreshold, IntSupplier repeatDuration, BooleanSupplier valid,
-            Supplier<Completion> completion, Optional<net.minecraft.core.BlockPos> worldTarget, Runnable cancelled) {
+            Supplier<Completion> completion, Optional<net.minecraft.core.BlockPos> worldTarget, Runnable cancelled,
+            Supplier<net.minecraft.world.phys.Vec3> movementPosition) {
         Objects.requireNonNull(body); Objects.requireNonNull(kind); Objects.requireNonNull(sourceKey); Objects.requireNonNull(valid); Objects.requireNonNull(completion);
         Objects.requireNonNull(cancelled);
         if (!Double.isFinite(damageThreshold) || damageThreshold <= 0 || !Double.isFinite(movementThreshold) || movementThreshold <= 0) return TimedInteractionEngine.StartResult.DENIED;
         if (!(body.level() instanceof ServerLevel level)) return TimedInteractionEngine.StartResult.DENIED;
         checkThread(level);
         if (body.isRemoved() || !body.isAlive() || durationTicks < 1) return TimedInteractionEngine.StartResult.DENIED;
-        LoadedFrameRayQuery.ActorPoint startPoint=LoadedFrameRayQuery.currentActorPoint(level,body);
-        if(startPoint==null)return TimedInteractionEngine.StartResult.DENIED;
+        net.minecraft.world.phys.Vec3 movementStart = breakMove ? readMovementPosition(movementPosition) : body.position();
+        if (breakMove && !finite(movementStart)) return TimedInteractionEngine.StartResult.DENIED;
+        LoadedFrameRayQuery.ActorPoint startPoint = breakMove ? LoadedFrameRayQuery.currentActorPoint(level, body) : null;
+        if (breakMove && startPoint == null) return TimedInteractionEngine.StartResult.DENIED;
         TimedOperationState state = body.getData(ModDataAttachments.TIMED_OPERATIONS.get());
         long current = now(level);
         TimedInteractionEngine.Start result = TimedInteractionEngine.start(state, kind, sourceKey, current, durationTicks, breakDamage, breakMove);
@@ -107,7 +128,7 @@ public final class TimedInteractionSystem {
         UUID uuid = body.getUUID(); ACTORS.put(uuid, body);
         if (result.result() == TimedInteractionEngine.StartResult.STARTED) {
             Key key = new Key(uuid, result.operation().id());
-            CALLBACKS.put(key, new Context(repeatDuration, damageThreshold, movementThreshold, valid, completion, cancelled, level, startPoint));
+            CALLBACKS.put(key, new Context(repeatDuration, damageThreshold, movementThreshold, valid, completion, cancelled, level, startPoint, movementStart, movementPosition));
             PRESENTATION.put(key, new Presentation(originSequence, owner, worldTarget == null ? Optional.empty() : worldTarget));
         }
         cleanupCallbacks(body, result.state());
@@ -141,22 +162,14 @@ public final class TimedInteractionSystem {
             long current=now(level); TimedOperationState next=state;
             for (TimedOperation op : state.operations()) if(op.phase()==TimedOperation.Phase.ACTIVE) {
                 Key key=new Key(body.getUUID(),op.id()); Context c=CALLBACKS.get(key);
-                String invalidReason = c==null ? "callback-missing" : c.level()!=level ? "level-changed"
-                        : body.isRemoved() ? "body-removed" : !body.isAlive() ? "body-dead" : null;
-                try { if (invalidReason == null && !c.valid().getAsBoolean()) invalidReason="operation-invalid"; }
-                catch (RuntimeException ex) { invalidReason="validity-exception:"+ex.getClass().getSimpleName(); }
-                if (invalidReason == null && op.breakOnMove()) {
-                    double distance = movementDistance(level,body,c.start());
-                    if (distance > c.movementThreshold()) invalidReason="movement(distance="+distance
-                            +",threshold="+c.movementThreshold()+")";
-                }
-                if(invalidReason != null) {
-                    if ("airlock-pry".equals(op.kind()))
-                        com.juicyslew.moonstation14.MoonStation14.LOGGER.debug(
-                                "[timed-interaction-cancel] body={} operation={} kind={} source={} now={} reason={}",
-                                body.getUUID(), op.id(), op.kind(), op.sourceKey(), current, invalidReason);
-                    next=TimedInteractionEngine.cancel(next,op.id(),current);
-                }
+                boolean invalid=c==null || c.level()!=level || body.isRemoved() || !body.isAlive();
+                try { if (!invalid) invalid=!c.valid().getAsBoolean(); } catch (RuntimeException ex) { invalid=true; }
+                net.minecraft.world.phys.Vec3 movementNow = invalid || !op.breakOnMove()
+                        ? null : readMovementPosition(c.movementPosition());
+                if (!invalid && op.breakOnMove() && (!finite(movementNow)
+                        || c.movementStart().distanceTo(movementNow) > c.movementThreshold()
+                        || movementDistance(level, body, c.actorStart()) > c.movementThreshold())) invalid=true;
+                if(invalid) next=TimedInteractionEngine.cancel(next,op.id(),current);
             }
             var advanced=TimedInteractionEngine.advance(next,current); next=advanced.state();
             for(TimedOperation due:advanced.completed()) {
@@ -173,9 +186,14 @@ public final class TimedInteractionSystem {
                     }
                     else {
                         next=TimedInteractionEngine.repeat(next,due.id(),current,duration);
-                        var repeated=LoadedFrameRayQuery.currentActorPoint(level,body);
-                        if(repeated==null){next=TimedInteractionEngine.cancel(next,due.id(),current);CALLBACKS.remove(key);try{c.cancelled().run();}catch(RuntimeException ignored){}}
-                        else CALLBACKS.put(key, new Context(c.repeatDuration(), c.damageThreshold(), c.movementThreshold(), c.valid(), c.completion(), c.cancelled(), c.level(), repeated));
+                        net.minecraft.world.phys.Vec3 movementStart = readMovementPosition(c.movementPosition());
+                        LoadedFrameRayQuery.ActorPoint repeated = due.breakOnMove()
+                                ? LoadedFrameRayQuery.currentActorPoint(level, body) : c.actorStart();
+                        if (!finite(movementStart) || due.breakOnMove() && repeated == null) {
+                            next = TimedInteractionEngine.cancel(next, due.id(), current);
+                            CALLBACKS.remove(key);
+                            try { c.cancelled().run(); } catch (RuntimeException ignored) { }
+                        } else CALLBACKS.put(key, new Context(c.repeatDuration(), c.damageThreshold(), c.movementThreshold(), c.valid(), c.completion(), c.cancelled(), c.level(), repeated, movementStart, c.movementPosition()));
                     }
                 }
                 else {
@@ -187,13 +205,32 @@ public final class TimedInteractionSystem {
              if(next!=state){body.setData(ModDataAttachments.TIMED_OPERATIONS.get(),next);publish(body);cleanupCallbacks(body,next);cleanupActor(body,next);}
         }
     }
-    private static double movementDistance(ServerLevel level,LivingEntity body,LoadedFrameRayQuery.ActorPoint start){
-        var current=LoadedFrameRayQuery.currentActorPoint(level,body);
-        if(current==null)return Double.POSITIVE_INFINITY;
-        if(start.frameId()!=null&&start.frameId().equals(current.frameId()))
+    private static double movementDistance(ServerLevel level, LivingEntity body, LoadedFrameRayQuery.ActorPoint start) {
+        var current = LoadedFrameRayQuery.currentActorPoint(level, body);
+        if (current == null) return Double.POSITIVE_INFINITY;
+        if (start.frameId() != null && start.frameId().equals(current.frameId()))
             return start.storagePoint().distanceTo(current.storagePoint());
-        var origin=start.frameId()==null?start.worldPoint():LoadedFrameRayQuery.projectActorPoint(level,start.frameId(),start.storagePoint());
-        return origin==null?Double.POSITIVE_INFINITY:origin.distanceTo(body.position());
+        var origin = start.frameId() == null ? start.worldPoint()
+                : LoadedFrameRayQuery.projectActorPoint(level, start.frameId(), start.storagePoint());
+        return origin == null ? Double.POSITIVE_INFINITY : origin.distanceTo(body.position());
+    }
+    /** Cancels only active operations selected by an authoritative server-side policy. */
+    public static void cancelMatching(LivingEntity body, java.util.function.Predicate<TimedOperation> selector) {
+        if (body == null || selector == null || !(body.level() instanceof ServerLevel level)) return;
+        checkThread(level);
+        TimedOperationState state = body.getExistingDataOrNull(ModDataAttachments.TIMED_OPERATIONS.get());
+        if (state == null) return;
+        TimedOperationState next = state;
+        long current = now(level);
+        for (TimedOperation operation : state.operations())
+            if (operation.phase() == TimedOperation.Phase.ACTIVE && selector.test(operation))
+                next = TimedInteractionEngine.cancel(next, operation.id(), current);
+        if (next != state) {
+            body.setData(ModDataAttachments.TIMED_OPERATIONS.get(), next);
+            publish(body);
+            cleanupCallbacks(body, next);
+            cleanupActor(body, next);
+        }
     }
     private static void cleanupCallbacks(LivingEntity body, TimedOperationState state) {
         Set<Long> ids=new HashSet<>(); for(TimedOperation op:state.operations()) if(op.phase()==TimedOperation.Phase.ACTIVE) ids.add(op.id());

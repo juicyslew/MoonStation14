@@ -96,3 +96,4 @@ public final class DamageKeys {
         return result;
     }
 }
+

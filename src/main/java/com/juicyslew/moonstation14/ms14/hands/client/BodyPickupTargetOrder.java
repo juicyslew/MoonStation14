@@ -12,3 +12,4 @@ final class BodyPickupTargetOrder {
                 && bestId != null && id.compareTo(bestId) < 0);
     }
 }
+

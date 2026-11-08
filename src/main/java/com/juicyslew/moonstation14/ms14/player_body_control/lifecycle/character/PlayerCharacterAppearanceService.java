@@ -82,3 +82,4 @@ public final class PlayerCharacterAppearanceService {
                 && profile.bodyId().equals(bodyId);
     }
 }
+

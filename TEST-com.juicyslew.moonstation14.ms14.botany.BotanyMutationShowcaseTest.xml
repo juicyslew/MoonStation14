@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.botany.BotanyMutationShowcaseTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-23T04:59:58.281Z" hostname="DESKTOP-4F0ER3K" time="0.522">
+  <properties/>
+  <testcase name="speciesPresetRequiresResolvedReachableTargetAndGasPresetsAreExclusive()" classname="com.juicyslew.moonstation14.ms14.botany.BotanyMutationShowcaseTest" time="0.35"/>
+  <testcase name="ordinaryMetabolismKillsShowcaseMutantsButNotTheirPairedControlsAcrossSeeds()" classname="com.juicyslew.moonstation14.ms14.botany.BotanyMutationShowcaseTest" time="0.09"/>
+  <testcase name="pairedPresetsChangeOnlyTheirIntendedFieldsAndPreserveResolvedComposition()" classname="com.juicyslew.moonstation14.ms14.botany.BotanyMutationShowcaseTest" time="0.073"/>
+  <testcase name="everyResolvedMainMutationRowIsMappedOrExplicitlyUnsupported()" classname="com.juicyslew.moonstation14.ms14.botany.BotanyMutationShowcaseTest" time="0.007"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

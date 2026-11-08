@@ -47,6 +47,7 @@ class ExplosionPrototypeTest {
         valid.addProperty("reroll_reduction", 20);
         assertTrue(ExplosionData.CODEC.parse(JsonOps.INSTANCE, valid).result().isPresent());
         ExplosionData absent = ExplosionData.CODEC.parse(JsonOps.INSTANCE, valid).result().orElseThrow();
+        assertEquals(1f, absent.maxCombineDistance());
         JsonObject absentRoundTrip = ExplosionData.CODEC.encodeStart(JsonOps.INSTANCE, absent).getOrThrow().getAsJsonObject();
         assertFalse(absentRoundTrip.has("temperature_kelvin"));
         assertFalse(absentRoundTrip.has("fire_stacks"));
@@ -54,6 +55,14 @@ class ExplosionPrototypeTest {
         ExplosionData presentData = ExplosionData.CODEC.parse(JsonOps.INSTANCE, present).result().orElseThrow();
         assertEquals(Optional.of(800f), presentData.temperatureKelvin());
         assertEquals(Optional.of(2), presentData.fireStacks());
+        JsonObject combineZero = valid.deepCopy(); combineZero.addProperty("max_combine_distance", 0);
+        assertEquals(0f, ExplosionData.CODEC.parse(JsonOps.INSTANCE, combineZero).result().orElseThrow().maxCombineDistance());
+        for (String invalid : new String[]{"-1", "null", "\"1\""}) {
+            JsonObject bad = valid.deepCopy(); bad.add("max_combine_distance", JsonParser.parseString(invalid));
+            assertTrue(ExplosionData.CODEC.parse(JsonOps.INSTANCE, bad).error().isPresent(), invalid);
+        }
+        assertThrows(IllegalArgumentException.class, () -> new ExplosionData(Map.of("blunt", 1f), java.util.List.of(0f, 1f), java.util.List.of(0f, 1f), 1f, Optional.empty(), Optional.empty(), Float.NaN));
+        assertThrows(IllegalArgumentException.class, () -> new ExplosionData(Map.of("blunt", 1f), java.util.List.of(0f, 1f), java.util.List.of(0f, 1f), 1f, Optional.empty(), Optional.empty(), Float.POSITIVE_INFINITY));
         assertEquals(presentData, ExplosionData.CODEC.parse(JsonOps.INSTANCE,
                 ExplosionData.CODEC.encodeStart(JsonOps.INSTANCE, presentData).getOrThrow()).result().orElseThrow());
         for (String invalid : new String[]{"-1", "1e999", "null", "\"800\""}) {

@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /** Lifecycle reconnect policy and live embedded-connection regression fixtures. */
-@GameTestTags({"lifecycle", "character", "lifecycle-reconnect"})
+@GameTestTags({"lifecycle", "character", "lifecycle-reconnect", "character-identity-return"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleCreativeReconnectPolicyGameTests {
     private LifecycleCreativeReconnectPolicyGameTests() { }

@@ -1,0 +1,48 @@
+{
+  "title": "Botany genetics foundation: carried profile inheritance through harvest and seed renewal",
+  "kind": "feature",
+  "acceptance_criteria": [
+    "Genetic values preserve species identity and a full resolved typed profile through persistent/network codecs, with independent plant instances and inherited defaults.",
+    "Pinned upstream seed, packet, tray, produce and extractor composition/defaults are mapped to resolved local typed prototypes and live consumers, with explicit adaptation boundaries.",
+    "Extractor resolves the inherited 1000 W demand, denies unsupplied operation, and normal registered extraction and the playable fixture receive fresh allocation through the shared power service.",
+    "Live tray growth, appearance and warning projection, harvest chemistry and capacity consume carried instance genetics rather than catalog baselines.",
+    "A registered actor plants an altered seed, grows and harvests it, uses the extractor and replants an extracted packet through authenticated ordinary interactions without losing genetics or duplicating source ownership.",
+    "Existing baseline botany and publication regressions pass and a candidate-bound jar is produced."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/BotanyHarvestAuthenticatedGameTests.java",
+  "manual_steps": [
+      "Use /ms14 botany_fixture, then /ms14 botany_fixture status, to verify extractor demand is 1000 W and powered, and check that normal seed planting, harvest, extraction and replant remain usable. This foundation does not expose mutation controls, the expanded plant catalog or its final showcases; nonbaseline inheritance is exercised by the registered native fixture, not claimed as connected-client manual evidence. Review FOUNDATION-COMPOSITION.md against the pinned upstream mappings and adaptation boundaries; this is a documentation review, not an automated test claim."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Compile new genetics component/codec consumers and the complete native transmission fixture, and force jar production. Reproducible identical jar bytes are not evidence of skipped task execution; inspect fresh task log and bound artifact hash.",
+      "covers": ["Existing baseline botany and publication regressions pass and a candidate-bound jar is produced."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.prototype.SeedProfileTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest --tests com.juicyslew.moonstation14.ms14.botany.TrayRulesTest --tests com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.HydroponicsWarningAppearanceTest --tests com.juicyslew.moonstation14.ms14.botany.BotanyMachineProfileTest --tests com.juicyslew.moonstation14.gametest.GameTestStructureTemplateEncodingTest --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Resolved seed defaults, genetics persistence/isolation, effective profile appearance/environment, produce chemistry/capacity, and extractor machine-profile behavior regression coverage. TrayRulesTest directly exercises the full nonbaseline profile through GeneticValue.CODEC; native coverage separately checks actual ItemStack component serialization. GameTestStructureTemplateEncodingTest adds fixture-owned vertical-volume regression coverage for the dedicated botany_extractor_power_clear template; its asset repair is underway, so passing is not yet claimed.",
+      "covers": ["Genetic values preserve species identity and a full resolved typed profile through persistent/network codecs, with independent plant instances and inherited defaults.", "Live tray growth, appearance and warning projection, harvest chemistry and capacity consume carried instance genetics rather than catalog baselines.", "Extractor resolves the inherited 1000 W demand, denies unsupplied operation, and normal registered extraction and the playable fixture receive fresh allocation through the shared power service."],
+      "source_files": ["src/test/java/com/juicyslew/moonstation14/ms14/botany/TrayRulesTest.java", "src/test/java/com/juicyslew/moonstation14/ms14/botany/BotanyMachineProfileTest.java"]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=interaction,prediction' --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Affected authenticated interaction and carried-state transport boundaries. These JVM selectors do not substitute for native admission or codec/runtime evidence.",
+      "covers": ["A registered actor plants an altered seed, grows and harvests it, uses the extractor and replants an extracted packet through authenticated ordinary interactions without losing genetics or duplicating source ownership."],
+      "selectors": ["interaction", "prediction"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "$fixture='build/gametest-botany-genetics-foundation-'+[guid]::NewGuid().ToString('N'); ./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,botany-genetics' \"-Pms14GameTestDir=$fixture\" --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "Authenticated altered-genetics harvest/extract/replant plus existing botany authority, lifecycle, collision placement and compensation regressions. ProduceFactoryGameTests (tag botany-genetics) verifies the newly registered component on ItemStack through persistence and network-stream fixtures while exercising full authenticated transmission. ExtractorFoundation verifies registered 1000 W demand/authorization, Genetics1000 verifies powered extraction, and BotanyFixtureCommandGameTests verifies the playable fixture's real 1000 W extractor plus 750 W grinder status and fresh allocation. The fixture-owned vertical-volume regression uses the dedicated botany_extractor_power_clear template; its asset repair is underway, so passing is not yet claimed. Fresh isolated world avoids lifecycle recovery contamination; preserve failed artifacts. This is focused coverage, not a full suite.",
+      "covers": ["Genetic values preserve species identity and a full resolved typed profile through persistent/network codecs, with independent plant instances and inherited defaults.", "Pinned upstream seed, packet, tray, produce and extractor composition/defaults are mapped to resolved local typed prototypes and live consumers, with explicit adaptation boundaries.", "Extractor resolves the inherited 1000 W demand, denies unsupplied operation, and normal registered extraction and the playable fixture receive fresh allocation through the shared power service.", "Live tray growth, appearance and warning projection, harvest chemistry and capacity consume carried instance genetics rather than catalog baselines.", "A registered actor plants an altered seed, grows and harvests it, uses the extractor and replants an extracted packet through authenticated ordinary interactions without losing genetics or duplicating source ownership.", "Existing baseline botany and publication regressions pass and a candidate-bound jar is produced."],
+      "source_files": ["src/gametest/java/com/juicyslew/moonstation14/ms14/botany/ProduceFactoryGameTests.java", "src/gametest/java/com/juicyslew/moonstation14/ms14/botany/BotanyFixtureCommandGameTests.java"],
+      "selectors": ["botany", "botany-genetics"],
+      "log": "build/reports/botany-genetics/foundation-gate-native.log"
+    }
+  ]
+}

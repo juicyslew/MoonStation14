@@ -1,0 +1,78 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml": {
+      "sha256": "a28ed494a096cf63f7887f45e4967e89600b60022fd2b49af22e131f9bafb385"
+    },
+    "Resources/Prototypes/Entities/Clothing/Head/hats.yml": {
+      "sha256": "9b9fd3841ffe47c6d30c6ca56f7e798bf2398cfeed1bde8ca82dbc1df3f2c21a"
+    },
+    "Resources/Prototypes/Entities/Clothing/Head/base_clothinghead.yml": {
+      "sha256": "50a62f1a608cf8ef2a01166cec4b0bb126b679e5166029a72c75035256bbeaf4"
+    },
+    "Resources/Prototypes/Entities/Clothing/base_clothing.yml": {
+      "sha256": "e86689d00e3615ac01d2d9b5b7089eafdf7557afdd6e3e199a591afe080e9463"
+    },
+    "Resources/Prototypes/Entities/Objects/Decoration/jackolantern.yml": {
+      "sha256": "a10d7cbb4e64d4f31553fd0cd8aeb980edead33093d4bbf40bde6fe8180fe8b8"
+    },
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/ingredients.yml": {
+      "sha256": "9990749b40110047da2408474f4930ab621885c9665fa5777ffac3c1b6aee539"
+    }
+  },
+  "requestedLeafIds": [
+    "FoodWatermelon",
+    "FoodHolymelon",
+    "FoodHolymelonSlice",
+    "FoodPumpkin",
+    "ClothingHeadHatWatermelon",
+    "ClothingHeadHatHolyWatermelon",
+    "CarvedPumpkin"
+  ],
+  "capturedConcreteProductCount": 7,
+  "capturedAdditionalAncestorCount": 3,
+  "capturedRawRecordCount": 10,
+  "capturedEntityIds": [
+    "CarvedPumpkin",
+    "Clothing",
+    "ClothingHeadBase",
+    "ClothingHeadHatHolyWatermelon",
+    "ClothingHeadHatWatermelon",
+    "FoodHolymelon",
+    "FoodHolymelonSlice",
+    "FoodPumpkin",
+    "FoodWatermelon",
+    "ItemHeftyBase"
+  ],
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Boolean-tagged scalar mapping keys are preserved as their original lexical scalar strings (for example True and False); boolean scalar values remain booleans. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "parentClosureVerifiedAgainstExisting68ReferenceIdsAndMelonPumpkinRows": true,
+  "fullUnionParentClosureRecordCount": 78,
+  "parentResolution": {
+    "CarvedPumpkin": "BaseItem",
+    "Clothing": "BaseItem",
+    "ClothingHeadBase": "Clothing",
+    "ClothingHeadHatHolyWatermelon": "ClothingHeadBase",
+    "ClothingHeadHatWatermelon": "ClothingHeadBase",
+    "FoodHolymelon": [
+      "FoodProduceBase",
+      "ItemHeftyBase"
+    ],
+    "FoodHolymelonSlice": "ProduceSliceBase",
+    "FoodPumpkin": "FoodProduceBase",
+    "FoodWatermelon": [
+      "FoodProduceBase",
+      "ItemHeftyBase"
+    ],
+    "ItemHeftyBase": null
+  },
+  "overlapWithExisting68ReferenceIds": [],
+  "parsedMappingEqualityVerified": true,
+  "opaqueYamlTagStringsVerified": [
+    "!type:DamageTrigger",
+    "!type:DoActsBehavior",
+    "!type:PlaySoundBehavior",
+    "!type:SpillBehavior"
+  ],
+  "rawRowsSha256": "46a9659d28fd1f25ce165f341d4d7dd6f0601ef870700a5803d0d91b52d275ea"
+}

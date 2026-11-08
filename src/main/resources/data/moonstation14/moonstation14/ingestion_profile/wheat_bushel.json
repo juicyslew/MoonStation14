@@ -1,0 +1,1 @@
+{"id":"moonstation14:wheat_bushel","parent":"moonstation14:food_base","edible":{"kind":"FOOD","force_feed_delay_ticks":60,"requires_special_digestion":true}}

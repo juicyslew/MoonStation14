@@ -1,0 +1,8 @@
+{
+  "id": "moonstation14:food_meat_wheat",
+  "capacity_cents": 2000,
+  "contents_cents": {
+    "moonstation14:uncookedanimalproteins": 100
+  },
+  "refillable": true
+}

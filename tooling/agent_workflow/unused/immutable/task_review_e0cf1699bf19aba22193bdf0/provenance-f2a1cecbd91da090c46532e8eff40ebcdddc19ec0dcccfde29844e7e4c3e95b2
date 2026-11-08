@@ -1,0 +1,1 @@
+{"body_sha256":"bb5b6dfaaf71e7cca538323716de339ed35b38f675a9750d5ec8872fdfb291f1","created":1792200172834,"message":"invalid API key","message_id":"message-auth-1","mode":"HISTORY_CONSUMED","original_message_id":"msg_fba3406b273d868a89e8b8eb5c9680c7059fd3a2","ownership_basis":"exclusive_session_exact_queued_prompt_no_foreign_postdispatch_user","status":401,"type":"provider.auth"}

@@ -34,3 +34,4 @@ public record MetabolismResult<T>(float actualRemoved, float scale, Map<T, Float
         return requestedProduction;
     }
 }
+

@@ -142,3 +142,4 @@ public record AtmosphereVisualPayload(ResourceLocation dimension, int chunkX, in
         }
     }
 }
+

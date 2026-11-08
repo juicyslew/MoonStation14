@@ -152,3 +152,4 @@ public final class StatusEffectReferenceValidator {
         return new IllegalArgumentException("Reagent " + source + " at " + path + ": " + message);
     }
 }
+

@@ -23,3 +23,4 @@ public record StandingStateComponent(boolean standingEligible, boolean proneElig
 
     @Override public String type() { return TYPE; }
 }
+

@@ -1,0 +1,39 @@
+{
+  "disabled": true,
+  "configuration": {
+    "repo": "<private-fixture-worktree>",
+    "authenticated_author": {"session_id":"<private-fixture-session>","worktree":"<private-fixture-worktree>","role":"author"},
+    "policy": {
+      "contract_version": 1,
+      "sprint_id": "fixture-sprint",
+      "source_worktree": "<private-fixture-worktree>",
+      "author": {"session_id":"<private-fixture-session>","worktree":"<private-fixture-worktree>","role":"author"},
+      "criteria": ["criterion-example"],
+      "coverage": {"criterion-example":["package","provenance"]},
+      "selector_requirements": {},
+      "fixture": "manual.md",
+      "package_artifacts": ["build/output.zip"],
+      "owner_exceptions": [],
+      "review_roles": ["implementation"],
+      "review_summaries": {"implementation":"Review the example criterion and bound evidence."},
+      "review_envelope_limit_bytes": 16000,
+      "config_overrides": []
+    },
+    "artifacts": [{
+      "contract_version": 1,
+      "artifact_id": "artifact_example",
+      "run_id": null,
+      "producer_task_id": null,
+      "type": "SOURCE_MANIFEST",
+      "path": "<private-fixture-artifact-path>",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size_bytes": 1,
+      "immutable": true,
+      "producer_kind": "SUBMISSION",
+      "producer_id": "submit_example",
+      "submission_id": "submit_example"
+    }],
+    "publication_receipt_path": "<private-fixture-receipt-path>",
+    "publication_receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

@@ -17,10 +17,11 @@ final class CharacterMovementRebasePolicyTest {
 
     @Test void stoppedPredictionResumesOnlyAtKnownFreshAcknowledgedAuthorityBarrier() {
         assertEquals(CharacterMovementRebasePolicy.Decision.RESUME_BARRIER,
-                CharacterMovementRebasePolicy.decide(4, 4, true, 12, 12, true, true));
+                CharacterMovementRebasePolicy.decide(4, 4, true, 12, 12, true, true),
+                "settlement can retire a permanently skipped failed intent without application");
         assertEquals(CharacterMovementRebasePolicy.Decision.BARRIER,
                 CharacterMovementRebasePolicy.decide(4, 4, true, 12, 11, true, true),
-                "an older acknowledgement cannot settle the failed intent");
+                "queued but unsettled intent cannot resume prediction");
         assertEquals(CharacterMovementRebasePolicy.Decision.REJECT,
                 CharacterMovementRebasePolicy.decide(4, 4, true, 12, 12, false, true),
                 "duplicate/stale sample cannot resume prediction");

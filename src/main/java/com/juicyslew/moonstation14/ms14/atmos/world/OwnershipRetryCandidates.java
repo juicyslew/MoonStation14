@@ -62,3 +62,4 @@ final class OwnershipRetryCandidates {
         Batch(List<BlockPos> positions) { this.positions = positions; }
     }
 }
+

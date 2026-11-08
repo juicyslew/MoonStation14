@@ -87,3 +87,4 @@ public final class MachineDraftField extends AbstractButton {
         } finally { graphics.disableScissor(); }
     }
 }
+

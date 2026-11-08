@@ -21,15 +21,19 @@ import com.juicyslew.moonstation14.ms14.organ.BodyAttachment;
 import com.juicyslew.moonstation14.ms14.organ.BodyState;
 import com.juicyslew.moonstation14.ms14.lung.LungAttachment;
 import com.juicyslew.moonstation14.ms14.lung.GaspCooldownAttachment;
+import com.juicyslew.moonstation14.ms14.lung.InternalsState;
 import com.juicyslew.moonstation14.ms14.atmos.exposure.BodyTemperatureAttachment;
 import com.juicyslew.moonstation14.ms14.slip.SlidingAttachment;
 import com.juicyslew.moonstation14.ms14.hands.HandAttachment;
 import com.juicyslew.moonstation14.ms14.hands.live.LiveHands;
+import com.juicyslew.moonstation14.ms14.hands.live.PortableBodyContainmentRelation;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CreativeParkedInventory;
 import com.juicyslew.moonstation14.ms14.interaction.ComplexInteractionAttachment;
 import com.juicyslew.moonstation14.ms14.timed_interaction.TimedOperationState;
 import com.juicyslew.moonstation14.ms14.mobs.MobStateAttachment;
 import com.juicyslew.moonstation14.ms14.standing.PostureAttachment;
+import com.juicyslew.moonstation14.ms14.combat.CombatModeAttachment;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -38,8 +42,34 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import java.util.function.Supplier;
 
 public class ModDataAttachments {
-    // Create the DeferredRegister for attachment types
+    // Create the DeferredRegister for attachment types before registering feature attachments.
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, MoonStation14.MOD_ID);
+    public static final Supplier<AttachmentType<InternalsState>> INTERNALS = ATTACHMENT_TYPES.register(
+            "internals", () -> AttachmentType.builder(() -> InternalsState.DISCONNECTED)
+                    .serialize(InternalsState.CODEC).build());
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.loose_objects.ItemContactTimer>> ITEM_CONTACT_TIMER = ATTACHMENT_TYPES.register(
+            "item_contact_timer", () -> AttachmentType.builder(com.juicyslew.moonstation14.ms14.loose_objects.ItemContactTimer::new).build());
+
+    /** Natural flight mode is retained across save/load and replicated for state-dependent presentation. */
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment>> FLIGHT = ATTACHMENT_TYPES.register(
+            "flight", () -> AttachmentType.builder((Supplier<com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment>) com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment::new)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment.CODEC)
+                    .sync(com.juicyslew.moonstation14.ms14.animals.flight.FlightAttachment.STREAM_CODEC)
+                    .build()
+    );
+
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.actions.BodyActionRuntimeState>> ACTION_RUNTIME = ATTACHMENT_TYPES.register(
+            "action_runtime", () -> AttachmentType.builder(com.juicyslew.moonstation14.ms14.actions.BodyActionRuntimeState::new).build());
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.UdderAttachment>> UDDER = ATTACHMENT_TYPES.register(
+            "udder", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.UdderAttachment.EMPTY)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.UdderAttachment.CODEC).build());
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.EggLayerAttachment>> EGG_LAYER = ATTACHMENT_TYPES.register(
+            "egg_layer", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.EggLayerAttachment.EMPTY)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.EggLayerAttachment.CODEC).build());
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.animals.AbsorbentCleaningAttachment>> ABSORBENT_CLEANING = ATTACHMENT_TYPES.register(
+            "absorbent_cleaning", () -> AttachmentType.builder(() -> com.juicyslew.moonstation14.ms14.animals.AbsorbentCleaningAttachment.EMPTY)
+                    .serialize(com.juicyslew.moonstation14.ms14.animals.AbsorbentCleaningAttachment.CODEC,
+                            state -> state.nextUseTick() != 0 || state.nextCycleTick() != 0).build());
 
     public static final Supplier<AttachmentType<ReagentAttachment>> REAGENT = ATTACHMENT_TYPES.register(
             "reagent", () -> AttachmentType.builder(() -> new ReagentAttachment())
@@ -77,7 +107,9 @@ public class ModDataAttachments {
 
     public static final Supplier<AttachmentType<DamageData>> DAMAGE = ATTACHMENT_TYPES.register(
             "damage", () -> AttachmentType.builder(() -> new DamageData())
-                    .serialize(DamageData.CODEC, damage -> !damage.isEmpty())
+                    // Empty damage is meaningful: the client must distinguish a
+                    // synchronized healthy body from an attachment not yet synced.
+                    .serialize(DamageData.CODEC)
                     .sync(DamageData.STREAM_CODEC)
                     .build()
     );
@@ -85,6 +117,16 @@ public class ModDataAttachments {
     public static final Supplier<AttachmentType<StatusEffectAttachment>> STATUS_EFFECT = ATTACHMENT_TYPES.register(
             "status_effect", () -> AttachmentType.builder(() -> new StatusEffectAttachment()).serialize(StatusEffectAttachment.CODEC, attachment -> !attachment.isEmpty()).sync(StatusEffectAttachment.STREAM_CODEC).build()
     );
+
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment>> STAMINA = ATTACHMENT_TYPES.register(
+            "stamina", () -> AttachmentType.builder(() -> new com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment(
+                    com.juicyslew.moonstation14.ms14.character.stamina.StaminaState.EMPTY))
+                    .serialize(com.juicyslew.moonstation14.ms14.character.stamina.StaminaState.CODEC.xmap(
+                            com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment::new,
+                            com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment::state))
+                    .sync(com.juicyslew.moonstation14.ms14.character.stamina.StaminaState.STREAM_CODEC.map(
+                            com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment::new,
+                            com.juicyslew.moonstation14.ms14.character.stamina.StaminaAttachment::state)).build());
 
     public static final Supplier<AttachmentType<AlertAttachment>> ALERT = ATTACHMENT_TYPES.register(
             "alert", () -> AttachmentType.builder((Supplier<AlertAttachment>) AlertAttachment::new)
@@ -147,6 +189,12 @@ public class ModDataAttachments {
             "complex_interaction", () -> AttachmentType.builder(() -> new ComplexInteractionAttachment(false, false))
                     .serialize(ComplexInteractionAttachment.CODEC, ComplexInteractionAttachment::initialized)
                     .build());
+
+    /** Persisted relation hint used only to reconcile a loaded body with its real portable root ledger. */
+    public static final Supplier<AttachmentType<PortableBodyContainmentRelation>> PORTABLE_BODY_CONTAINMENT =
+            ATTACHMENT_TYPES.register("portable_body_containment", () -> AttachmentType.builder(
+                    (Supplier<PortableBodyContainmentRelation>) () -> null)
+                    .serialize(PortableBodyContainmentRelation.CODEC).sync(PortableBodyContainmentRelation.STREAM_CODEC).build());
 
     /** Persisted scalar blood state; presence records one-time initialization, even at zero values. */
     public static final Supplier<AttachmentType<BloodAttachment>> BLOOD = ATTACHMENT_TYPES.register(
@@ -211,6 +259,23 @@ public class ModDataAttachments {
             "posture", () -> AttachmentType.builder((Supplier<PostureAttachment>) PostureAttachment::new)
                     .serialize(PostureAttachment.CODEC).sync(PostureAttachment.STREAM_CODEC).build()
     );
+
+    /** Persisted and synchronized body-owned combat-mode toggle. */
+    public static final Supplier<AttachmentType<CombatModeAttachment>> COMBAT_MODE = ATTACHMENT_TYPES.register(
+            "combat_mode", () -> AttachmentType.builder((Supplier<CombatModeAttachment>) CombatModeAttachment::new)
+                    .serialize(CombatModeAttachment.CODEC).sync(CombatModeAttachment.STREAM_CODEC).build());
+
+    /** Body-owned unarmed melee cooldown; weapon deadlines remain on weapon stack components. */
+    public static final Supplier<AttachmentType<com.juicyslew.moonstation14.ms14.combat.MeleeCooldownAttachment>> MELEE_COOLDOWN = ATTACHMENT_TYPES.register(
+            "melee_cooldown", () -> AttachmentType.builder((Supplier<com.juicyslew.moonstation14.ms14.combat.MeleeCooldownAttachment>) com.juicyslew.moonstation14.ms14.combat.MeleeCooldownAttachment::new)
+                    .serialize(com.juicyslew.moonstation14.ms14.combat.MeleeCooldownAttachment.CODEC)
+                    .sync(com.juicyslew.moonstation14.ms14.combat.MeleeCooldownAttachment.STREAM_CODEC).build());
+
+    /** Persisted server-only lifecycle identity for ordinary mapped role mobs; never synchronized or copied. */
+    public static final Supplier<AttachmentType<PlayerCharacterBinding>> MOB_LIFECYCLE_BINDING = ATTACHMENT_TYPES.register(
+            "mob_lifecycle_binding", () -> AttachmentType.<PlayerCharacterBinding>builder((Supplier<PlayerCharacterBinding>) () -> {
+                throw new IllegalStateException("Lifecycle binding requires an explicit authenticated assignment");
+            }).serialize(PlayerCharacterBinding.CODEC).build());
 
     /** Sparse server-persisted chunk atmosphere state; deliberately not synchronized. */
     public static final Supplier<AttachmentType<AtmosphereChunkData>> ATMOSPHERE_CHUNK = ATTACHMENT_TYPES.register(

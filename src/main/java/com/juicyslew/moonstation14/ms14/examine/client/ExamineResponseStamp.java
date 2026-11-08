@@ -35,3 +35,4 @@ public final class ExamineResponseStamp {
                 : correlates(response, requestId, pendingTarget, selectedTarget, actor, epoch));
     }
 }
+

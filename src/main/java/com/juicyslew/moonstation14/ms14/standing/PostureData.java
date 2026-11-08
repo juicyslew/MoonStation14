@@ -75,3 +75,4 @@ public record PostureData(boolean down, boolean voluntaryAutoStand, long knockdo
         return baseSeconds * totalHands / (free + totalHands);
     }
 }
+

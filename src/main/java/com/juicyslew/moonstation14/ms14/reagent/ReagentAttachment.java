@@ -359,3 +359,4 @@ public final class ReagentAttachment implements IMS14Attachment<ReagentAttachmen
     @Override public Codec<ReagentAttachment> getCodec() { return CODEC; }
     @Override public StreamCodec<RegistryFriendlyByteBuf, ReagentAttachment> getStreamCodec() { return STREAM_CODEC; }
 }
+

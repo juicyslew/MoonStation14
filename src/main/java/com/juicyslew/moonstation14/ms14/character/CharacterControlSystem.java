@@ -53,6 +53,18 @@ public final class CharacterControlSystem {
         return applyStun(entity, StatusEffectSystem.secondsToTicks(seconds));
     }
 
+    /** Slip stun refresh that preserves a longer existing stun and does not pre-empt knockdown ordering. */
+    public static boolean updateStun(LivingEntity entity, int durationTicks) {
+        Objects.requireNonNull(entity, "entity");
+        if (durationTicks <= 0 || !(entity.level() instanceof ServerLevel level)
+                || ActiveCharacterPolicy.resolveActor(entity).filter(data -> data.component(StunnableComponent.class).isPresent()).isEmpty()
+                || !(entity instanceof IStatusEffectTrait statusTrait)) return false;
+        StatusEffectSystem.apply(statusTrait.toHandleSelf(), level, STUNNED,
+                StatusEffectOperation.UPDATE, OptionalInt.of(durationTicks), 0);
+        if (entity instanceof Mob mob) mob.getNavigation().stop();
+        return true;
+    }
+
     /** Applies the SS14-style paralyze projection: action-blocking stun plus visible knockdown. */
     public static boolean applyParalyze(LivingEntity entity, int durationTicks) {
         if (!applyStun(entity, durationTicks) || !(entity instanceof IStatusEffectTrait statusTrait)
@@ -64,6 +76,20 @@ public final class CharacterControlSystem {
 
     public static boolean applyParalyze(LivingEntity entity, float seconds) {
         return applyParalyze(entity, StatusEffectSystem.secondsToTicks(seconds));
+    }
+
+    /** Extends existing paralysis without shortening another feature's longer duration. */
+    public static boolean extendParalyze(LivingEntity entity, int durationTicks) {
+        Objects.requireNonNull(entity, "entity");
+        if (durationTicks <= 0 || !(entity.level() instanceof ServerLevel level)
+                || ActiveCharacterPolicy.resolveActor(entity).filter(data -> data.component(StunnableComponent.class).isPresent()).isEmpty()
+                || !(entity instanceof IStatusEffectTrait statusTrait)) return false;
+        StatusEffectSystem.apply(statusTrait.toHandleSelf(), level, STUNNED,
+                StatusEffectOperation.UPDATE, OptionalInt.of(durationTicks), 0);
+        StatusEffectSystem.apply(statusTrait.toHandleSelf(), level, KNOCKDOWN,
+                StatusEffectOperation.UPDATE, OptionalInt.of(durationTicks), 0);
+        if (entity instanceof Mob mob) mob.getNavigation().stop();
+        return true;
     }
 
     /** True only for active action-blocking statuses on an eligible bound profile. */
@@ -152,6 +178,23 @@ public final class CharacterControlSystem {
                 && !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(entity);
     }
 
+    /** Whether voluntary input may change an actor's physical facing. Movement eligibility is separate. */
+    public static boolean canChangeDirection(LivingEntity entity) {
+        Objects.requireNonNull(entity, "entity");
+        return entity.isAlive() && !entity.isDeadOrDying()
+                && !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(entity);
+    }
+
+    /** Applies accepted voluntary facing through the shared medical direction gate. */
+    public static boolean applyVoluntaryLook(LivingEntity entity, float yaw, float pitch) {
+        Objects.requireNonNull(entity, "entity");
+        if (!canChangeDirection(entity) || !Float.isFinite(yaw) || !Float.isFinite(pitch)) return false;
+        entity.setYRot(yaw);
+        entity.setXRot(pitch);
+        entity.setYHeadRot(yaw);
+        return true;
+    }
+
     /** Movement eligibility shared by voluntary movement and containment escape. */
     public static boolean canMove(LivingEntity entity) {
         Objects.requireNonNull(entity, "entity");
@@ -159,3 +202,4 @@ public final class CharacterControlSystem {
                 && !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(entity);
     }
 }
+

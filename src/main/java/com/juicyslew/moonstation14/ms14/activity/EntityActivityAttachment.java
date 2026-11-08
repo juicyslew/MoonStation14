@@ -41,3 +41,4 @@ public final class EntityActivityAttachment {
         return active.isEmpty();
     }
 }
+

@@ -21,3 +21,4 @@ public record DisposalConstructionState(UUID bodyUUID,long epoch,long sequence,b
     public static void setClientReceiver(Consumer<DisposalConstructionState> receiver){clientReceiver=receiver;}
     public static void deliverClient(DisposalConstructionState state){var receiver=clientReceiver;if(receiver!=null)receiver.accept(state);}
 }
+

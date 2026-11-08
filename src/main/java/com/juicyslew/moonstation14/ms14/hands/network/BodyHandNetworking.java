@@ -48,3 +48,4 @@ public final class BodyHandNetworking {
         var snapshot=BodyAppearanceSnapshot.from(body,state); if(snapshot!=null) PacketDistributor.sendToPlayer(player,snapshot);
     }
 }
+

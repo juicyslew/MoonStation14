@@ -21,6 +21,13 @@ import com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime;
 import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosDevicePayload;
 import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosVentilationReducer;
 import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosMonitorSubscriptions;
+import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosMonitorReportPublisher;
+import com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosAlarmPayload;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosMonitorSampler;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmPortSignals;
+import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
+import com.juicyslew.moonstation14.ms14.atmos.device.AtmosphereDeviceRules;
 
 
 /** Persisted configuration prototype only: no ticking, gas ownership, or gas transfer. */
@@ -29,6 +36,10 @@ public final class VentilationDeviceBlockEntity extends BlockEntity {
     private boolean settingsValid = true;
     private UUID deviceId;
     private final AtmosMonitorSubscriptions monitorSubscriptions = new AtmosMonitorSubscriptions();
+    private AtmosAlarmSeverity lastMonitorSeverity;
+    private com.juicyslew.moonstation14.ms14.devicenet.atmos.AtmosAlarmPayload.Measurement lastMonitorMeasurement;
+    private long lastMonitorCycleIdentity = Long.MIN_VALUE;
+    private boolean monitorWasPowered;
 
     public VentilationDeviceBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.VENTILATION_DEVICE.get(), pos, state);
@@ -61,6 +72,7 @@ public final class VentilationDeviceBlockEntity extends BlockEntity {
         super.onLoad();
         deviceId();
         if (level instanceof ServerLevel server && deviceId != null) {
+            com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.monitorDeviceLoaded(server, this);
             try { DeviceNetworkRuntime.forLevel(server).loaded(networkEndpoint(server)); }
             catch (RuntimeException invalidComposition) { System.err.println("Ventilation network endpoint unavailable at " + worldPosition + ": " + invalidComposition.getMessage()); }
         }
@@ -69,7 +81,90 @@ public final class VentilationDeviceBlockEntity extends BlockEntity {
     @Override public void setRemoved() {
         if (level instanceof ServerLevel server && deviceId != null)
             DeviceNetworkRuntime.forLevel(server).unloaded(new DeviceIdentity(deviceId));
+        if (level instanceof ServerLevel server && deviceId != null)
+            com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.monitorDeviceUnloaded(server, worldPosition, deviceId);
+        monitorSubscriptions.clear();
+        lastMonitorSeverity = null;
         super.setRemoved();
+    }
+
+    /** Power-solve transition hook only: no atmosphere sampling is performed in the billing cadence. */
+    public void observeMonitorPower(ServerLevel server, boolean powered) {
+        if (server == null || level != server || isRemoved()) return;
+        if (!powered) {
+            monitorWasPowered = false;
+            return;
+        }
+        monitorWasPowered = true;
+    }
+    /** Last authoritative monitor power observation, used only to label retained reports in the UI. */
+    public boolean monitorPowered() { return monitorWasPowered; }
+
+    /** Called only from AtmosphereService's bounded ATMOS_DEVICES stage. */
+    public void monitorAfterAtmosphereCycle(ServerLevel server, long cycleIdentity) {
+        if (server == null || level != server || isRemoved() || !monitorWasPowered || prototype() == null
+                || prototype().atmosMonitor() == null || !settingsValid() || lastMonitorCycleIdentity == cycleIdentity) return;
+        lastMonitorCycleIdentity = cycleIdentity;
+        BlockPos target = AtmosphereDeviceRules.target(worldPosition,
+                getBlockState().getValue(VentilationDeviceBlock.FACING));
+        var sampled = AtmosphereService.INSTANCE.sample(server, target);
+        // Empty means unavailable/provisional ownership: never turn it into a false Normal report.
+        int fire = AtmosphereService.INSTANCE.fireIntensity(server, target);
+        if (sampled.isEmpty()) {
+            var alarmable = prototype().atmosAlarmable();
+            if (alarmable != null && !alarmable.sourceTags().isEmpty()) {
+                AtmosAlarmSeverity retained = lastMonitorSeverity == null ? AtmosAlarmSeverity.NORMAL : lastMonitorSeverity;
+                lastMonitorMeasurement = new AtmosAlarmPayload.Measurement(retained, Double.NaN, Double.NaN, Double.NaN,
+                        alarmable.sourceTags(), false, fire > 0);
+                if (fire > 0) {
+                    lastMonitorMeasurement = new AtmosAlarmPayload.Measurement(AtmosAlarmSeverity.DANGER,
+                            Double.NaN, Double.NaN, Double.NaN, alarmable.sourceTags(), false, true);
+                    if (lastMonitorSeverity != AtmosAlarmSeverity.DANGER) {
+                        emitSourcePortTransition(server, networkEndpoint(server), AtmosAlarmSeverity.DANGER);
+                        lastMonitorSeverity = AtmosAlarmSeverity.DANGER;
+                    }
+                }
+                sendCurrentMonitorReport(server, lastMonitorMeasurement);
+            }
+            return;
+        }
+        AtmosAlarmPayload.Measurement observation;
+        try { observation = AtmosMonitorSampler.observe(PrototypeRuntime.serverAtmosAlarmThresholds(), prototype(), sampled, fire).orElse(null); }
+        catch (RuntimeException unresolved) { return; }
+        if (observation == null) return;
+        AtmosAlarmSeverity severity = observation.severity();
+        DeviceEndpoint endpoint = networkEndpoint(server);
+        var sourceNetwork = endpoint.composition().network().orElse(null);
+        if (sourceNetwork == null || !sourceNetwork.transmit() || sourceNetwork.address().isBlank()) return;
+        var payload = observation;
+        lastMonitorMeasurement = payload;
+        sendCurrentMonitorReport(server, payload);
+        if (severity != lastMonitorSeverity) emitSourcePortTransition(server, endpoint, severity);
+        lastMonitorSeverity = severity;
+    }
+
+    private void sendCurrentMonitorReport(ServerLevel server, AtmosAlarmPayload.Measurement payload) {
+        DeviceEndpoint endpoint = networkEndpoint(server);
+        AtmosMonitorReportPublisher.publish(DeviceNetworkRuntime.forLevel(server).transport(), endpoint,
+                monitorSubscriptions.addresses(), payload);
+    }
+
+    private void emitMonitorReset(ServerLevel server) {
+        DeviceEndpoint endpoint = networkEndpoint(server);
+        AtmosMonitorReportPublisher.publish(DeviceNetworkRuntime.forLevel(server).transport(), endpoint,
+                monitorSubscriptions.addresses(), new AtmosAlarmPayload.Reset());
+        lastMonitorSeverity = null;
+    }
+
+    private static void emitSourcePortTransition(ServerLevel server, DeviceEndpoint endpoint, AtmosAlarmSeverity severity) {
+        var runtime = DeviceNetworkRuntime.forLevel(server);
+        AtmosAlarmPortSignals.emit(runtime.links(), runtime.graph(), endpoint, severity);
+    }
+
+    private void sendCachedMonitorReport(ServerLevel server, String address) {
+        if (lastMonitorMeasurement == null || !monitorWasPowered) return;
+        AtmosMonitorReportPublisher.publish(DeviceNetworkRuntime.forLevel(server).transport(), networkEndpoint(server),
+                java.util.List.of(address), lastMonitorMeasurement);
     }
 
     private DeviceEndpoint networkEndpoint(ServerLevel server) {
@@ -94,12 +189,27 @@ public final class VentilationDeviceBlockEntity extends BlockEntity {
                         && chunk.getBlockState(worldPosition).getBlock() instanceof VentilationDeviceBlock block
                         && block.kind() == config.kind() && prototype() != null;
             }
+            public boolean powered() { return com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.ventilationMeter(server, VentilationDeviceBlockEntity.this).known(); }
             public void receive(com.juicyslew.moonstation14.ms14.devicenet.DevicePayload payload, String sourceAddress) {
                 if (!available() || !settingsValid()) return;
                 if (payload instanceof AtmosDevicePayload.SetState command) {
-                    if (AtmosVentilationReducer.apply(config(), command)) setChanged();
+                    if (sourceAddress == null || sourceAddress.isBlank()) return;
+                    boolean applied = AtmosVentilationReducer.apply(config(), command);
+                    if (applied) setChanged();
+                    var network = composition().network().orElse(null);
+                    if (network != null && network.transmit() && !sourceAddress.isBlank()) {
+                        var current = AtmosDevicePayload.State.from(config().settings());
+                        DeviceNetworkRuntime.forLevel(server).transport().enqueue(new com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkPacket(
+                                identity(), network.networkId(), network.transmitFrequency(), network.address(), sourceAddress,
+                                false, new AtmosDevicePayload.CommandResult(command.requestId(), applied, current),
+                                network.networkId(), network.transmitFrequency()));
+                    }
                     return;
                 }
+                if ((payload instanceof AtmosDevicePayload.Register || payload instanceof AtmosDevicePayload.Deregister
+                        || payload instanceof AtmosDevicePayload.Sync)
+                        && !com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.ventilationMeter(server,
+                        VentilationDeviceBlockEntity.this).known()) return;
                 if (!monitorSubscriptions.receive(payload instanceof AtmosDevicePayload.Register
                         || payload instanceof AtmosDevicePayload.Deregister || payload instanceof AtmosDevicePayload.Sync
                         ? (AtmosDevicePayload) payload : null, sourceAddress)) return;
@@ -110,6 +220,8 @@ public final class VentilationDeviceBlockEntity extends BlockEntity {
                         identity(), network.networkId(), network.transmitFrequency(), network.address(), sourceAddress,
                         false, state, network.networkId(), network.transmitFrequency());
                 DeviceNetworkRuntime.forLevel(server).transport().enqueue(packet);
+                if (payload instanceof AtmosDevicePayload.Sync || payload instanceof AtmosDevicePayload.Register)
+                    sendCachedMonitorReport(server, sourceAddress);
             }
         };
     }
@@ -117,6 +229,8 @@ public final class VentilationDeviceBlockEntity extends BlockEntity {
     @Override public void onChunkUnloaded() {
         if (level instanceof ServerLevel server && deviceId != null)
             DeviceNetworkRuntime.forLevel(server).unloaded(new DeviceIdentity(deviceId));
+        if (level instanceof ServerLevel server && deviceId != null)
+            com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.monitorDeviceUnloaded(server, worldPosition, deviceId);
         super.onChunkUnloaded();
     }
 

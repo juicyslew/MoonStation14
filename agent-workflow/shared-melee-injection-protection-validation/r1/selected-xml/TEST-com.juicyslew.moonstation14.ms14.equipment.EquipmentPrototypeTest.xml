@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-21T16:07:59.512Z" hostname="DESKTOP-4F0ER3K" time="0.071">
+  <properties/>
+  <testcase name="noSlipMarkerCodecAndPrototypeInheritanceArePresenceOnly()" classname="com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest" time="0.005"/>
+  <testcase name="armorCodecAndInheritancePreserveOverridesAndAbsentDefaults()" classname="com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest" time="0.009"/>
+  <testcase name="humanoidTemplateAndComposedStarterItemsResolveInheritedDefaults()" classname="com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest" time="0.023"/>
+  <testcase name="templatesPermitSubsetAndApplyOnlyOmittedSlotFlagDefaults()" classname="com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest" time="0.002"/>
+  <testcase name="protectedStepTriggerMaskCodecDefaultsToFeetAndAllowsEmptyMask()" classname="com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest" time="0.0"/>
+  <testcase name="protectedStepTriggerEquipmentMaskInherits()" classname="com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest" time="0.0"/>
+  <testcase name="resolvedCompositionControlsFitAndDependencies()" classname="com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest" time="0.025"/>
+  <testcase name="quickEquipDefaultAndInheritedFalseSurviveChildOverrides()" classname="com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

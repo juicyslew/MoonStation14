@@ -124,6 +124,51 @@ class StoragePopupWorkspaceTest {
         assertNull(workspace.window(bag).drag());
     }
 
+    @Test void authoritativeRemovalCancelsHandAndGridChildDragSources() {
+        var workspace = new StoragePopupWorkspace(320, 240);
+        workspace.bind(UUID.randomUUID(), 1);
+        workspace.open(bag, true, 0, 0, 100, 80);
+
+        workspace.beginDrag(bag, null, null, new GridGeometry.Cell(1, 0), GridGeometry.Rotation.DEG_0,
+                "portable-hand", true);
+        // An unchanged authoritative token preserves a valid captured drag.
+        workspace.validateHandSources(List.of("portable-hand"));
+        assertNotNull(workspace.window(bag).drag());
+        // Escape/removal or replacement changes identity; the old drag must not survive.
+        workspace.validateHandSources(List.of("replacement-hand"));
+        assertNull(workspace.window(bag).drag());
+
+        workspace.beginDrag(bag, new GridGeometry.Cell(0, 0), GridGeometry.Rotation.DEG_0,
+                new GridGeometry.Cell(2, 0), GridGeometry.Rotation.DEG_0, "portable-child", false);
+        workspace.snapshot(bag, true, true, List.of("portable-child"));
+        assertNotNull(workspace.window(bag).drag());
+        workspace.snapshot(bag, true, true, List.of("replacement-child"));
+        assertNull(workspace.window(bag).drag());
+    }
+
+    @Test void capturedChildReconciliationRequiresExactSettledIdentityAndPreservesUnavailableProof() {
+        var workspace = new StoragePopupWorkspace(320, 240);
+        workspace.open(bag, true, 0, 0, 100, 80);
+        var cell = new GridGeometry.Cell(0, 0);
+        workspace.beginDrag(bag, cell, GridGeometry.Rotation.DEG_0, cell, GridGeometry.Rotation.DEG_0,
+                "child", false, "minecraft:stone", 3);
+        var unchanged = List.of(new StoragePopupWorkspace.SourceIdentity("child", "minecraft:stone", 3));
+        assertTrue(workspace.reconcileChildSource(bag, false, List.of()));
+        assertNotNull(workspace.window(bag).drag());
+        assertTrue(workspace.reconcileChildSource(bag, true, unchanged));
+        assertNotNull(workspace.window(bag).drag());
+        assertFalse(workspace.reconcileChildSource(bag, true,
+                List.of(new StoragePopupWorkspace.SourceIdentity("child", "minecraft:dirt", 3))));
+
+        workspace.beginDrag(bag, cell, GridGeometry.Rotation.DEG_0, cell, GridGeometry.Rotation.DEG_0,
+                "child", false, "minecraft:stone", 3);
+        assertFalse(workspace.reconcileChildSource(bag, true,
+                List.of(new StoragePopupWorkspace.SourceIdentity("child", "minecraft:stone", 4))));
+        workspace.beginDrag(bag, cell, GridGeometry.Rotation.DEG_0, cell, GridGeometry.Rotation.DEG_0,
+                "child", false, "minecraft:stone", 3);
+        assertFalse(workspace.reconcileChildSource(bag, true, List.of()));
+    }
+
     @Test void threeWorldHostsUseSharedVisibleQuotaAndHiddenWindowsCannotBypassIt() {
         var workspace = new StoragePopupWorkspace(320, 240);
         workspace.bind(UUID.randomUUID(), 1);

@@ -16,13 +16,16 @@ import com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.PlayerLifecycleRegistry;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessBinder;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessLease;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlNetworking;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlPayloads;
 import com.juicyslew.moonstation14.ms14.containment.BodyContainmentService;
 import com.juicyslew.moonstation14.ms14.player_body_control.network.CharacterMovementModeResolver;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostIntentGate;
+import com.juicyslew.moonstation14.ms14.player_body_control.prediction.GhostControlInputAccumulator;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.CommittedSpectatorGuard;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
@@ -56,12 +59,14 @@ import java.util.UUID;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.Objects;
+import com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceRecorder;
+import com.juicyslew.moonstation14.ms14.player_body_control.diagnostics.MovementTraceSession;
 
 /** Durable-ACTIVE CHARACTER controller; production activation is limited to the first-account join transaction. */
 @EventBusSubscriber(modid = com.juicyslew.moonstation14.MoonStation14.MOD_ID)
 public final class LifecycleCharacterSessionControl {
     private static final long READY_TIMEOUT_TICKS = 100;
-    private static final int MAX_INTENTS_PER_TICK = 8;
+    private static final int MAX_INTENTS_PER_TICK = GhostControlPayloads.MAX_PENDING_INTENTS;
     private static final GroundedHarnessWorldStep CHARACTER_WORLD_STEP = new GroundedHarnessWorldStep();
     private static final Map<MinecraftServer, Map<UUID, Session>> SERVERS = new IdentityHashMap<>();
     private LifecycleCharacterSessionControl() { }
@@ -80,14 +85,14 @@ public final class LifecycleCharacterSessionControl {
      * shared camera retention recognizes debug sessions only, so beginning a lifecycle camera here
      * could silently fall back to the vanilla spectator camera.
      */
-    public static StartResult start(ServerPlayer player, PlayerCharacterHarnessEntity body,
+    public static StartResult start(ServerPlayer player, Mob body,
                                      PlayerLifecycleRegistry lifecycle, long epoch) {
         StartResult preflight = preflight(player, body, lifecycle, epoch);
         if (preflight != null) return preflight;
         return StartResult.CONTROLLER_INTEGRATION_REQUIRED;
     }
 
-    private static StartResult preflight(ServerPlayer player, PlayerCharacterHarnessEntity body,
+    private static StartResult preflight(ServerPlayer player, Mob body,
                                          PlayerLifecycleRegistry lifecycle, long epoch) {
         if (player == null || body == null || lifecycle == null || epoch <= 0
                 || !(player.level() instanceof ServerLevel level) || level.getServer() == null
@@ -101,7 +106,7 @@ public final class LifecycleCharacterSessionControl {
         if (GhostMobHarnessControl.ownsDebugSession(player)) return StartResult.DEBUG_SESSION_CONFLICT;
 
         var profile = lifecycle.profile(player.getUUID()).orElse(null);
-        var binding = body.playerCharacterBinding();
+        var binding = PlayerCharacterHarnessBinder.binding(body);
         var identity = body.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
         MobHarnessId bodyId = new MobHarnessId(body.getUUID());
         if (profile == null || !profile.active() || profile.state() != PlayerLifecycleRegistry.LifecycleState.ACTIVE
@@ -109,10 +114,10 @@ public final class LifecycleCharacterSessionControl {
                 || binding == null || !binding.accountId().equals(player.getUUID())
                 || !binding.profileKey().equals(profile.profileId())
                 || !binding.mindId().equals(profile.mindId().value())
-                || identity == null || !identity.isBound() || !ModCharacters.HUMAN_ID.equals(identity.characterId())
+                || identity == null || !identity.isBound()
                 || body.isRemoved() || !body.isAlive() || !body.isAddedToLevel() || body.isPassenger()
                 || body.level() != level || level.getEntity(body.getUUID()) != body || !body.isNoAi()
-                || CharacterIdentitySystem.resolve(body).isEmpty()
+                || CharacterIdentitySystem.resolveForActor(body).isEmpty()
                 || !lifecycle.authorizes(player.getUUID(), epoch, bodyId,
                         harness -> harness.id().equals(bodyId)
                                 && harness.kind() == com.juicyslew.moonstation14.ms14.player_body_control.MobHarnessKind.CHARACTER)) {
@@ -123,20 +128,163 @@ public final class LifecycleCharacterSessionControl {
     }
 
     /** Prepares the authenticated Begin/Ready/Commit handshake after durable ACTIVE promotion. */
-    static StartResult beginPrepared(ServerPlayer player, PlayerCharacterHarnessEntity body,
+    static StartResult beginPrepared(ServerPlayer player, Mob body,
                                      PlayerLifecycleRegistry lifecycle, long epoch) {
+        return beginPrepared(player, body, lifecycle, epoch, null);
+    }
+
+    static StartResult beginPrepared(ServerPlayer player, Mob body,
+                                     PlayerLifecycleRegistry lifecycle, long epoch, GroundedHarnessLease preparedLease) {
+        boolean acquiredHere = false;
+        if (preparedLease == null && requiresReconnectRoleLease(body)) {
+            preparedLease = acquireReconnectRoleLease(body);
+            acquiredHere = preparedLease != null;
+            if (preparedLease == null) return StartResult.INVALID_ACTIVE_BODY;
+        }
         StartResult rejection = preflight(player, body, lifecycle, epoch);
-        if (rejection != null) return rejection;
+        if (rejection != null) {
+            if (acquiredHere) preparedLease.close();
+            return rejection;
+        }
         MinecraftServer server = ((ServerLevel) player.level()).getServer();
         Map<UUID, Session> sessions = SERVERS.computeIfAbsent(server, ignored -> new java.util.HashMap<>());
-        if (sessions.containsKey(player.getUUID())) return StartResult.DEBUG_SESSION_CONFLICT;
-        Session session = new Session(player, body, lifecycle, epoch);
+        if (sessions.containsKey(player.getUUID())) {
+            if (acquiredHere) preparedLease.close();
+            return StartResult.DEBUG_SESSION_CONFLICT;
+        }
+        Session session = new Session(player, body, lifecycle, epoch, preparedLease);
+        session.roleTaken = reconnectRoleAdoption(player, body, lifecycle, epoch);
         sessions.put(player.getUUID(), session);
         LifecycleSessionPacketRouter.instance().installCharacterHandler(LifecycleCharacterSessionControl::onPayload,
                 LifecycleCharacterSessionControl::ownsAny);
         // Login callbacks can precede client player/level binding. The first server Post tick
         // sends Begin only after rechecking the exact connected owner and body.
         return StartResult.PREPARED;
+    }
+
+    static boolean roleAdoptionReady(ServerPlayer player, Mob body, PlayerLifecycleRegistry lifecycle,
+                                     long ghostEpoch, GroundedHarnessLease lease, boolean authorizedOperatorDevelopment) {
+        if (player == null || body == null || lifecycle == null || lease == null
+                || !(player.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread() || !connectedExact(level.getServer(), player)
+                || player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR || player.isPassenger()
+                || hasSession(player)
+                || !live(body, level) || !body.isNoAi() || !(body instanceof MindControlledMob owner)
+                || !owner.moonstation14$isMovementOwned() || !GroundedHarnessLease.isOwnedRoleTargetEligible(body)
+                || !roleAdoptionPrototypeEligible(roleTargetPrototypeEligible(body), authorizedOperatorDevelopment)) return false;
+        var ghost = LifecycleGhostSessionControl.canonicalGhost(player).orElse(null);
+        var profile = lifecycle.profile(player.getUUID()).orElse(null);
+        var identity = body.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        return ghost != null && ghost.epoch() == ghostEpoch && profile != null && profile.active()
+                && profile.state() == PlayerLifecycleRegistry.LifecycleState.GHOST
+                && profile.connectionGeneration() == ghostEpoch && identity != null && identity.isBound()
+                && PlayerCharacterHarnessBinder.canBindMappedMob(body, player.getUUID(),
+                        com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding
+                                .profileKeyForBody(body.getUUID()),
+                        profile.mindId().value(), identity.characterId());
+    }
+
+    static boolean roleAdoptionPrototypeEligible(boolean roleTargetEligible, boolean authorizedOperatorDevelopment) {
+        return roleTargetEligible || authorizedOperatorDevelopment;
+    }
+
+    static boolean activateAlreadyOffered(ServerPlayer player, Mob body, PlayerLifecycleRegistry lifecycle,
+                                           long epoch, GroundedHarnessLease lease,
+                                           LifecycleGhostSessionControl.OfferOrigin offerOrigin) {
+        StartResult rejection = preflight(player, body, lifecycle, epoch);
+        if (rejection != null || lease == null || !GroundedHarnessLease.isOwnedRoleTargetEligible(body)) return false;
+        MinecraftServer server = ((ServerLevel) player.level()).getServer();
+        Map<UUID, Session> sessions = SERVERS.computeIfAbsent(server, ignored -> new java.util.HashMap<>());
+        if (sessions.containsKey(player.getUUID())) return false;
+        Session session = new Session(player, body, lifecycle, epoch, lease);
+        session.roleTaken = true;
+        session.offerOrigin = offerOrigin;
+        session.committed = true;
+        session.beginSent = true;
+        session.startedTick = player.level().getGameTime();
+        sessions.put(player.getUUID(), session);
+        LifecycleSessionPacketRouter.instance().installCharacterHandler(LifecycleCharacterSessionControl::onPayload,
+                LifecycleCharacterSessionControl::ownsAny);
+        player.setCamera(body);
+        try {
+            if (BodyCarrierIsolationBootstrap.ensure(player, body) == BodyCarrierIsolationBootstrap.Result.REJECTED)
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                        "Lifecycle role carrier isolation rejected; hand actions remain denied (body={})", body.getId());
+        } catch (RuntimeException | Error failure) {
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                    "Lifecycle role carrier isolation failed; hand actions remain denied (body={})", body.getId(), failure);
+        }
+        if (resolvedHands(body)) try {
+            BodyHandBootstrap.Result hands = BodyHandBootstrap.ensure(body);
+            if (hands == BodyHandBootstrap.Result.REJECTED)
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                        "Lifecycle role hand bootstrap rejected (body={})", body.getId());
+        } catch (RuntimeException | Error failure) {
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                    "Lifecycle role hand bootstrap failed (body={})", body.getId(), failure);
+        }
+        GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Begin(epoch, body.getId(), MobHarnessKind.CHARACTER));
+        GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Commit(epoch));
+        sendSavedIdentity(server, session);
+        return true;
+    }
+
+    /** Reuse ordinary disconnect persistence for a failed post-CAS role activation, including partial sessions. */
+    static boolean cleanupFailedRoleAdoption(ServerPlayer player, Mob body, PlayerLifecycleRegistry lifecycle,
+                                              long epoch, GroundedHarnessLease lease) {
+        if (player == null || body == null || lifecycle == null || lease == null
+                || !(player.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread() || epoch <= 0) return false;
+        MinecraftServer server = level.getServer();
+        Session pinned = session(server, player.getUUID());
+        if (roleAdoptionCleanupUsesSession(pinned != null && pinned.player == player && pinned.body == body
+                && pinned.lifecycle == lifecycle && pinned.epoch == epoch)) {
+            cleanLogout(server, pinned);
+            var profile = lifecycle.profile(player.getUUID()).orElse(null);
+            return profile != null && !profile.active()
+                    && profile.state() == PlayerLifecycleRegistry.LifecycleState.OFFLINE;
+        }
+        boolean offline = false;
+        LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
+        var profile = lifecycle.profile(player.getUUID()).orElse(null);
+        if (context != null && profile != null && profile.active()
+                && profile.connectionGeneration() == epoch && profile.bodyId().value().equals(body.getUUID())) try {
+            offline = context.disconnectCleanly(player.getUUID(), epoch, profile.mindId().value(), body.getUUID(),
+                    level.dimension().location().toString(), new SavedLifecycleProfile.Location(
+                            body.getX(), body.getY(), body.getZ()), lifecycleAppearance(body),
+                    Math.max(0L, System.currentTimeMillis()));
+        } catch (IOException | RuntimeException ignored) { offline = false; }
+        try { lease.close(); } catch (RuntimeException | Error ignored) { }
+        if (!offline) {
+            var failedProfile = lifecycle.profile(player.getUUID()).orElse(null);
+            if (failedProfile != null && failedProfile.connectionGeneration() == epoch && failedProfile.bodyId().equals(
+                    new MobHarnessId(body.getUUID())))
+                lifecycle.suspendActiveSessionForRecovery(player.getUUID(), failedProfile.mindId(), failedProfile.bodyId(), epoch);
+        }
+        return offline;
+    }
+
+    static boolean roleAdoptionCleanupUsesSession(boolean exactSession) { return exactSession; }
+
+    private static boolean roleTargetPrototypeEligible(Mob body) {
+        return CharacterIdentitySystem.resolveForActor(body)
+                .flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent.class))
+                .map(com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent::takeover)
+                .orElse(false);
+    }
+
+    static boolean requiresReconnectRoleLease(Mob body) {
+        return body != null && !(body instanceof PlayerCharacterHarnessEntity) && roleTargetPrototypeEligible(body);
+    }
+
+    static GroundedHarnessLease acquireReconnectRoleLease(Mob body) {
+        return requiresReconnectRoleLease(body) ? GroundedHarnessLease.tryAcquireRoleTarget(body).orElse(null) : null;
+    }
+
+    private static boolean resolvedHands(Mob body) {
+        return CharacterIdentitySystem.resolveForActor(body)
+                .map(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.HandsPrototypeComponent.class).isPresent())
+                .orElse(false);
     }
 
     /**
@@ -157,6 +305,31 @@ public final class LifecycleCharacterSessionControl {
         return Optional.ofNullable(committedControlSnapshot(player).owned());
     }
 
+    /** Resolved capabilities only for the exact committed canonical role-adoption session. */
+    public static Optional<RoleCapabilities> roleCapabilities(ServerPlayer player, Mob body, long epoch) {
+        if (player == null || body == null || !(player.level() instanceof ServerLevel level)) return Optional.empty();
+        MinecraftServer server = level.getServer();
+        if (server == null || !server.isSameThread()) return Optional.empty();
+        Session pinned = session(server, player.getUUID());
+        if (pinned == null || !pinned.roleTaken || !pinned.committed || pinned.player != player
+                || pinned.body != body || pinned.epoch != epoch || !authorized(pinned)
+                || !connectedExact(server, player) || !live(body, level)
+                || session(server, player.getUUID()) != pinned) return Optional.empty();
+        var role = CharacterIdentitySystem.resolveForActor(body)
+                .flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent.class));
+        return role.map(value -> new RoleCapabilities(body, epoch, value.allowMovement(), value.allowSpeech()));
+    }
+
+    public record RoleCapabilities(Mob body, long epoch, boolean allowMovement, boolean allowSpeech) { }
+
+    public static boolean roleSpeechAllowed(ServerPlayer player, Mob body, long epoch) {
+        if (player == null || !(player.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread()) return false;
+        Session pinned = session(level.getServer(), player.getUUID());
+        if (pinned == null || pinned.player != player || pinned.body != body || pinned.epoch != epoch) return false;
+        return !pinned.roleTaken || roleCapabilities(player, body, epoch).map(RoleCapabilities::allowSpeech).orElse(false);
+    }
+
     public static CommittedSpectatorGuard.Ownership committedControlSnapshot(ServerPlayer player) {
         var absent = CommittedSpectatorGuard.Ownership.absent();
         if (player == null || !(player.level() instanceof ServerLevel level)) return absent;
@@ -169,10 +342,10 @@ public final class LifecycleCharacterSessionControl {
                 || !player.isAlive() || player.isPassenger()
                 || player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR
                 || !live(pinned.body, level) || !pinned.bodyId.value().equals(pinned.body.getUUID())
-                || pinned.body.playerCharacterBinding() == null
-                || !pinned.accountId.equals(pinned.body.playerCharacterBinding().accountId())
-                || !pinned.profileId.equals(pinned.body.playerCharacterBinding().profileKey())
-                || !pinned.mindId.value().equals(pinned.body.playerCharacterBinding().mindId())
+                || PlayerCharacterHarnessBinder.binding(pinned.body) == null
+                || !pinned.accountId.equals(PlayerCharacterHarnessBinder.binding(pinned.body).accountId())
+                || !pinned.profileId.equals(PlayerCharacterHarnessBinder.binding(pinned.body).profileKey())
+                || !pinned.mindId.value().equals(PlayerCharacterHarnessBinder.binding(pinned.body).mindId())
                 || !pinned.lifecycle.authorizesActiveCharacterReadOnly(pinned.accountId, pinned.mindId,
                          pinned.epoch, pinned.bodyId)) return unavailable;
         return session(server, player.getUUID()) == pinned
@@ -183,12 +356,12 @@ public final class LifecycleCharacterSessionControl {
     /** Exact committed controlled body and epoch for read-only queries, independent of camera position. */
     public static Optional<ActiveCharacterBody> committedActorSnapshot(ServerPlayer player) {
         var ownership = committedControlSnapshot(player);
-        if (!ownership.committed() || !(ownership.owned() instanceof PlayerCharacterHarnessEntity body)
+        if (!ownership.committed() || !(ownership.owned() instanceof Mob body)
                 || !(player.level() instanceof ServerLevel level)) return Optional.empty();
         Session pinned = session(level.getServer(), player.getUUID());
         if (pinned == null || pinned.player != player || !pinned.committed || pinned.body != body
                 || !live(body, level) || !connectedExact(level.getServer(), player)
-                || !activeBodyBindingMatches(body.playerCharacterBinding(), pinned.accountId, pinned.profileId, pinned.mindId)
+                || !activeBodyBindingMatches(PlayerCharacterHarnessBinder.binding(body), pinned.accountId, pinned.profileId, pinned.mindId)
                 || !pinned.lifecycle.authorizesActiveCharacterReadOnly(pinned.accountId, pinned.mindId,
                         pinned.epoch, pinned.bodyId)
                 || session(level.getServer(), player.getUUID()) != pinned) return Optional.empty();
@@ -209,7 +382,7 @@ public final class LifecycleCharacterSessionControl {
                 connectedExact(server, player), server.isSameThread(), player.isAlive(),
                 player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR, player.isPassenger(),
                 player.getCamera() == pinned.body, live(pinned.body, level))
-                || !activeBodyBindingMatches(pinned.body.playerCharacterBinding(), pinned.accountId,
+                || !activeBodyBindingMatches(PlayerCharacterHarnessBinder.binding(pinned.body), pinned.accountId,
                         pinned.profileId, pinned.mindId))
             return Optional.empty();
 
@@ -219,13 +392,13 @@ public final class LifecycleCharacterSessionControl {
         // Keep the same session pinned throughout this snapshot; only cheap identity/entity checks follow.
         if (session(server, player.getUUID()) != pinned || pinned.player != player || pinned.body.level() != level
                 || !connectedExact(server, player) || !live(pinned.body, level)
-                || !activeBodyBindingMatches(pinned.body.playerCharacterBinding(), pinned.accountId,
+                || !activeBodyBindingMatches(PlayerCharacterHarnessBinder.binding(pinned.body), pinned.accountId,
                         pinned.profileId, pinned.mindId)) return Optional.empty();
         return Optional.of(new ActiveCharacterBody(pinned.body, pinned.epoch, pinned.mindId, pinned.bodyId));
     }
 
     /** Read-only Shift state from an intent that this exact committed body successfully applied this tick. */
-    public static boolean hasAppliedSneak(ServerPlayer player, PlayerCharacterHarnessEntity body, long epoch) {
+    public static boolean hasAppliedSneak(ServerPlayer player, Mob body, long epoch) {
         if (player == null || body == null || !(player.level() instanceof ServerLevel level)
                 || level.getServer() == null || !level.getServer().isSameThread()) return false;
         Session session = session(level.getServer(), player.getUUID());
@@ -237,11 +410,17 @@ public final class LifecycleCharacterSessionControl {
     }
 
     /** Immutable point-in-time authority view for the lifecycle-owned CHARACTER body. */
-    public record ActiveCharacterBody(PlayerCharacterHarnessEntity body, long epoch,
+    public record ActiveCharacterBody(Mob body, long epoch,
                                       MindId mindId, MobHarnessId harnessId) { }
 
     static void onPayload(CustomPacketPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player) || !(player.level() instanceof ServerLevel level)) return;
+        onPayload(payload, player);
+    }
+
+    /** Shared authority owner for the decoded network payload and package-local lifecycle fixtures. */
+    static void onPayload(CustomPacketPayload payload, ServerPlayer player) {
+        if (player == null || !(player.level() instanceof ServerLevel level)) return;
         MinecraftServer server = level.getServer();
         Session session = server == null ? null : session(server, player.getUUID());
         if (session == null || session.player != player || !connectedExact(server, player)) return;
@@ -281,7 +460,7 @@ public final class LifecycleCharacterSessionControl {
                         "Lifecycle CHARACTER carrier isolation failed; hand actions remain denied (body={})",
                         session.body.getId(), failure);
             }
-            try {
+            if (resolvedHands(session.body)) try {
                 BodyHandBootstrap.Result hands = BodyHandBootstrap.ensure(session.body);
                 if (hands == BodyHandBootstrap.Result.REJECTED)
                     com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
@@ -292,11 +471,19 @@ public final class LifecycleCharacterSessionControl {
                         session.body.getId(), failure);
             }
             session.committed = true;
+            // The identity was resolved before lifecycle binding completed, so its known-zero
+            // ledger may have skipped the initial native projection. Reproject only now that
+            // this exact body has passed Ready authority checks; this preserves saved damage/death.
+            com.juicyslew.moonstation14.ms14.damage.DamageSystem.reconcile(session.body);
+            // The body can have entered tracking before its client acknowledged Ready. Republish
+            // the authoritative ledger only after the exact lifecycle owner is committed.
+            com.juicyslew.moonstation14.ms14.damage.DamageSystem.publishHealthState(session.body);
             GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Commit(session.epoch));
             // Commit reaches the client before this full owner snapshot; its receive path reconciles
             // the just-committed account/body/epoch before applying the strict snapshot policy.
             com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService
                     .publishLifecycleReady(player, session.body, session.epoch);
+            sendCharacterSnapshot(server, session, (Mob) session.body);
             sendSavedIdentity(server, session);
             com.juicyslew.moonstation14.MoonStation14.LOGGER.info(
                     "Lifecycle CHARACTER Ready committed (epoch={}, body={})", session.epoch, session.body.getId());
@@ -304,6 +491,14 @@ public final class LifecycleCharacterSessionControl {
             if (!session.committed || intent.epoch() != session.epoch) return;
             if (!authorized(session) || !connectedExact(server, player) || !shouldKeepCharacterCamera(player)
                     || !intentEligible(session, level)) {
+                String reason = !authorized(session) ? "AUTHORITY" : !connectedExact(server, player)
+                        ? "CONNECTION" : !shouldKeepCharacterCamera(player) ? "CAMERA" : "INTENT_ELIGIBILITY";
+                String observation = runtimeIntentObservation(session, level, reason);
+                if (!observation.equals(session.lastIntentRejection)) {
+                    session.lastIntentRejection = observation;
+                    com.juicyslew.moonstation14.MoonStation14.LOGGER.info("[harness control] server epoch={} entity={} rejection={}",
+                            session.epoch, session.body.getId(), observation);
+                }
                 fail(server, session, FailureReason.RUNTIME_INELIGIBLE);
                 return;
             }
@@ -320,8 +515,7 @@ public final class LifecycleCharacterSessionControl {
                         + " rateAccepted=false queueOfferAccepted=false queuedSize=" + session.gate.queuedSize());
                 return;
             }
-            boolean offered = session.gate.offerQueued(intent.sequence(), intent,
-                    com.juicyslew.moonstation14.ms14.player_body_control.prediction.GhostPredictionHistory.CAPACITY);
+            boolean offered = session.gate.offer(intent.sequence(), intent.intendedSimulationTick(), intent);
             boolean changed = intent.wishX() != session.traceWishX || intent.wishZ() != session.traceWishZ
                     || intent.buttons() != session.traceButtons || (!offered && !session.traceOfferRejected)
                     || session.traceRateRejected;
@@ -332,6 +526,13 @@ public final class LifecycleCharacterSessionControl {
                     "clientSeq=" + intent.sequence() + " wish=" + intent.wishX() + "," + intent.wishZ()
                             + " buttons=" + intent.buttons() + " rateAccepted=true queueOfferAccepted=" + offered
                             + " queuedSize=" + session.gate.queuedSize());
+            if (offered && !session.intentAcceptedLogged) {
+                session.intentAcceptedLogged = true;
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.info(
+                        "[harness control] server epoch={} entity={} uuid={} acceptedFirstIntent sequence={} noAi={} movementOwned={}",
+                        session.epoch, session.body.getId(), session.body.getUUID(), intent.sequence(), session.body.isNoAi(),
+                        session.body instanceof MindControlledMob controlled && controlled.moonstation14$isMovementOwned());
+            }
             if (session.gate.exhausted()) fail(server, session, FailureReason.INTENT_GATE_EXHAUSTED);
         } else if (payload instanceof GhostControlPayloads.Stop stop && stop.epoch() == session.epoch) {
             fail(server, session, FailureReason.CLIENT_STOP);
@@ -343,15 +544,15 @@ public final class LifecycleCharacterSessionControl {
         ServerPlayer player = session.player;
         if (!server.isSameThread() || !connectedExact(server, player) || !session.committed
                 || session(server, session.accountId) != session || !shouldKeepCharacterCamera(player)
-                || !activeBodyBindingMatches(session.body.playerCharacterBinding(), session.accountId,
+                || !activeBodyBindingMatches(PlayerCharacterHarnessBinder.binding(session.body), session.accountId,
                         session.profileId, session.mindId)) return;
         try {
-            var identity = ChatIdentitySavedData.existing(server.overworld())
-                    .flatMap(data -> data.character(new ChatIdentityRegistry.CharacterKey(
-                            session.accountId, session.profileId))).orElse(null);
+            var identity = com.juicyslew.moonstation14.ms14.character.CharacterPublicName
+                    .savedIdentity(session.body).orElse(null);
             if (identity == null) return; // No lookup may create or allocate an identity here.
             LocalSpeechNetworking.sendIdentity(player, new LocalCharacterIdentityPayload(
-                    identity.name(), identity.rgb(), session.body.level().dimension().location()));
+                    com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(session.body).getString(),
+                    identity.rgb(), session.body.level().dimension().location(), session.body.getUUID(), session.epoch));
         } catch (RuntimeException failure) {
             com.juicyslew.moonstation14.MoonStation14.LOGGER.warn("Could not load or deliver committed character identity to owner", failure);
         }
@@ -372,6 +573,8 @@ public final class LifecycleCharacterSessionControl {
         long serverTick = server.getTickCount();
         session.traceCallbacks = session.traceCallbackTick == serverTick ? session.traceCallbacks + 1 : 1;
         session.traceCallbackTick = serverTick;
+
+        // Authority barriers precede intake and dispatch, so held movement can never escape suspension.
         if (session.movementSuspended) {
             boolean exactHeldOwner = heldOwnerEligible(session, player, body, level);
             var decision = com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterMovementHoldPolicy
@@ -383,9 +586,9 @@ public final class LifecycleCharacterSessionControl {
             clearQueuedMovement(session);
             if (decision == com.juicyslew.moonstation14.ms14.player_body_control.movement.CharacterMovementHoldPolicy.Decision.HOLD) {
                 body.setDeltaMovement(Vec3.ZERO);
-                boolean holdChanged = !session.traceHeld;
+                boolean changed = !session.traceHeld;
                 session.traceHeld = true;
-                trace(session, "PLAYER_POST_HOLD", traceTick, holdChanged, "callbacks=" + session.traceCallbacks
+                trace(session, "PLAYER_POST_HOLD", traceTick, changed, "callbacks=" + session.traceCallbacks
                         + " queued=" + session.gate.queuedSize() + " ack=" + session.lastAppliedSequence
                         + " pos=" + body.position() + " onGround=" + body.onGround() + " suspended=true reason=HOLD");
                 return;
@@ -396,68 +599,108 @@ public final class LifecycleCharacterSessionControl {
             session.unsafePoseLogged = false;
             clearQueuedMovement(session);
             body.setDeltaMovement(Vec3.ZERO);
-                return;
+            return;
         }
         if (!intentEligible(session, level)) {
             fail(server, session, FailureReason.RUNTIME_INELIGIBLE);
             return;
         }
-        // This is callback dispatch ownership, not a physical-step test: another owner
-        // may already have advanced this actor (e.g. flight) on this tick.
+        // Dispatch is once per server tick, independently of whether another owner advanced physics.
         if (session.lastInputDispatchTick == serverTick) return;
-        session.lastInputDispatchTick = serverTick; // failed/rejected attempts cannot retry this batch this tick
+        session.lastInputDispatchTick = serverTick;
         GhostControlPayloads.Intent freshIntent = session.movementInput.acceptQueued(session.gate);
-        if (freshIntent != null) session.lastAppliedSequence = freshIntent.sequence();
+        long now = level.getGameTime();
+        GhostControlInputAccumulator.TickInput sampled = session.movementInput.consumeForTick(now);
+        MovementTraceRecorder.Context tickTraceContext = MovementTraceSession.activeContext();
+        if (tickTraceContext != null && characterTraceMatches(tickTraceContext, session, level)) try {
+            Vec3 pos = bodyPosition(body);
+            MovementTraceSession.record(tickTraceContext, "SERVER_TICK", System.nanoTime(), now,
+                    session.gate.settledThroughSequence(), Map.ofEntries(
+                            Map.entry("owner", "LIFECYCLE_CHARACTER"), Map.entry("sampleAvailable", sampled != null),
+                            Map.entry("receivedInput", sampled != null && sampled.receivedInput()),
+                            Map.entry("ack", session.lastAppliedSequence),
+                            Map.entry("heldWishX", session.movementInput.heldState().wishX()),
+                            Map.entry("heldWishZ", session.movementInput.heldState().wishZ()),
+                            Map.entry("bodyX", pos.x), Map.entry("bodyY", pos.y), Map.entry("bodyZ", pos.z),
+                            Map.entry("grounded", body.onGround())));
+        } catch (RuntimeException ignored) { }
+        if (sampled == null) return;
+
+        MovementTraceRecorder.Context traceContext = MovementTraceSession.activeContext();
+        if (traceContext != null && !characterTraceMatches(traceContext, session, level)) traceContext = null;
         GhostControlPayloads.Intent intent = session.movementInput.held();
-        Boolean physicalConsumedBefore = observedPhysicalStepConsumed(body, level, serverTick);
-        Boolean physicalConsumedAfter = physicalConsumedBefore;
-        boolean stepAttempted = false;
-        boolean stepJump = false;
-        String traceOutcome = freshIntent == null && intent != null ? "QUEUEEMPTY_HELD" : intent == null ? "INACTIVE" : "PENDING";
-        if (intent != null) {
+        var role = roleCapabilities(player, body, session.epoch).orElse(null);
+        boolean motorApplies = sampled.receivedInput() && roleMovementAllowed(session.roleTaken,
+                role != null, role != null && role.allowMovement(), session.offerOrigin, player.hasPermissions(2));
+        if (intent != null && !session.intentMotorLogged) {
+            session.intentMotorLogged = true;
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.info(
+                    "[harness control] server epoch={} entity={} intentMotor sequence={} applies={} wishX={} wishZ={} yaw={} pitch={}",
+                    session.epoch, body.getId(), intent.sequence(), motorApplies, intent.wishX(), intent.wishZ(), intent.yaw(), intent.pitch());
+        }
+
+        Boolean physicalBefore = observedPhysicalStepConsumed(body, level, serverTick);
+        Boolean physicalAfter = physicalBefore;
+        boolean attempted = false;
+        boolean jump = false;
+        String outcome = intent == null ? "INACTIVE" : sampled.receivedInput() ? "PENDING" : "QUEUEEMPTY_HELD";
+        if (sampled.receivedInput() && !motorApplies) {
+            session.gate.settleSkippedThroughSequence(sampled.sequence());
+            outcome = "ROLE_BLOCKED";
+        }
+        if (motorApplies && intent != null) {
+            var state = sampled.effectiveState();
             try {
-                stepAttempted = true;
-                stepJump = session.movementInput.jumpForStep();
-                var result = session.worldStep.step(body, intent.wishX(), intent.wishZ(),
-                        stepJump,
-                        (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw(),
-                        intent.supportedMovementReference());
+                attempted = true;
+                jump = session.movementInput.jumpForStep(sampled);
+                Vec3 before = body.position();
+                boolean groundedBefore = body.onGround();
+                long started = traceContext == null ? 0L : System.nanoTime();
+                var result = session.worldStep.step(body, state.wishX(), state.wishZ(), jump,
+                        (state.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0,
+                        (state.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, state.yaw(),
+                        sampled.sequence(), null, intent.supportedMovementReference());
                 if (result.isEmpty()) {
-                    traceOutcome = "REJECTED";
+                    outcome = "REJECTED";
+                    recordCharacterStep(traceContext, session, level, now, sampled, true, false, started, body.position(), body.onGround());
                     recoverWorldStep(session, body, intent, FailureReason.WORLD_STEP_REJECTED, null);
                 } else {
-                    traceOutcome = "APPLIED";
-                    body.setYRot(intent.yaw());
-                    body.setXRot(intent.pitch());
-                    body.setYHeadRot(intent.yaw());
-                    session.appliedSneak = (intent.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0;
+                    outcome = "APPLIED";
+                    com.juicyslew.moonstation14.ms14.character.CharacterControlSystem.applyVoluntaryLook(body, state.yaw(), state.pitch());
+                    if (sampled.receivedInput()) {
+                        session.lastAppliedSequence = sampled.sequence();
+                        session.gate.markApplied(sampled.sequence());
+                    }
+                    session.appliedSneak = (state.buttons() & GhostControlPayloads.BUTTON_SNEAK) != 0;
                     session.appliedIntentTick = level.getGameTime();
+                    recordCharacterStep(traceContext, session, level, now, sampled, true, true, started, body.position(), body.onGround());
+                    if (com.juicyslew.moonstation14.ms14.animals.diagnostics.AnimalPopulationDiagnostic.sustained())
+                        com.juicyslew.moonstation14.ms14.animals.diagnostics.AnimalPopulationScenarioDriver.observeAcceptedInput(
+                                player, body, session.epoch, jump, before, groundedBefore, body.position());
                 }
-                session.movementInput.afterStep();
-                physicalConsumedAfter = observedPhysicalStepConsumed(body, level, serverTick);
+                physicalAfter = observedPhysicalStepConsumed(body, level, serverTick);
             } catch (RuntimeException | LinkageError failure) {
-                traceOutcome = "ERROR";
-                recoverWorldStep(session, body, intent, FailureReason.WORLD_STEP_ERROR, failure);
+                outcome = "ERROR";
+                try { recordCharacterStep(traceContext, session, level, now, sampled, true, false, 0L, Vec3.ZERO, false); }
+                finally { recoverWorldStep(session, body, intent, FailureReason.WORLD_STEP_ERROR, failure); }
             }
         }
-        boolean changed = traceOutcome.equals("REJECTED") || traceOutcome.equals("ERROR")
-                || session.traceLastOutcome == null || !traceOutcome.equals(session.traceLastOutcome);
+        boolean changed = outcome.equals("REJECTED") || outcome.equals("ERROR")
+                || session.traceLastOutcome == null || !outcome.equals(session.traceLastOutcome);
         if (changed || (serverTick % 20 == 0 && session.tracePlayerPostTick != serverTick)) {
             session.tracePlayerPostTick = serverTick;
             trace(session, "PLAYER_POST", traceTick, changed,
-                "queued=" + session.gate.queuedSize() + " freshSeq=" + (freshIntent == null ? -1 : freshIntent.sequence())
-                        + " ack=" + session.lastAppliedSequence + " held=" + (intent == null ? "none" : intent.wishX()+","+intent.wishZ())
-                        + " jump=" + stepJump + " stepAttempted=" + stepAttempted + " physicalStepConsumed="
-                        + physicalConsumedBefore + "->" + physicalConsumedAfter
-                        + " callbacks=" + session.traceCallbacks + " pos=" + body.position() + " delta=" + body.getDeltaMovement()
-                        + " onGround=" + body.onGround() + " suspended=" + session.movementSuspended
-                        + " result=" + traceOutcome + " recovery=" + (session.movementSuspended ? "held" : "none")
-                        + " reconciliation={"+session.latestSnapshotDiagnostic+"} samplesSuppressed="+session.traceSamplesSuppressed);
+                    "queued=" + session.gate.queuedSize() + " freshSeq=" + (freshIntent == null ? -1 : freshIntent.sequence())
+                            + " ack=" + session.lastAppliedSequence + " held=" + (intent == null ? "none" : intent.wishX()+","+intent.wishZ())
+                            + " jump=" + jump + " stepAttempted=" + attempted + " physicalStepConsumed=" + physicalBefore + "->" + physicalAfter
+                            + " callbacks=" + session.traceCallbacks + " pos=" + body.position() + " delta=" + body.getDeltaMovement()
+                            + " onGround=" + body.onGround() + " suspended=" + session.movementSuspended + " result=" + outcome
+                            + " recovery=" + (session.movementSuspended ? "held" : "none")
+                            + " reconciliation={"+session.latestSnapshotDiagnostic+"} samplesSuppressed="+session.traceSamplesSuppressed);
         }
-        session.traceLastOutcome = traceOutcome;
-        // Normal per-tick publication runs in the SERVER_POST fallback, after level-owned passive physics.
+        session.traceLastOutcome = outcome;
+        // Publication is owned by SERVER_POST after level-owned passive physics.
     }
-
     /** Publishes committed character state after the level's physical fallback has completed. */
     public static void publishAfterPhysicalTick(MinecraftServer server) {
         if (server == null || !server.isSameThread()) return;
@@ -475,7 +718,7 @@ public final class LifecycleCharacterSessionControl {
     }
 
     private static boolean heldOwnerEligible(Session session, ServerPlayer player, Mob body, ServerLevel level) {
-        var binding = session.body.playerCharacterBinding();
+        var binding = PlayerCharacterHarnessBinder.binding(session.body);
         return session.player == player && player.isAlive()
                 && player.gameMode.getGameModeForPlayer() == GameType.SPECTATOR && !player.isPassenger()
                 && session.body == body && live(session.body, level)
@@ -489,7 +732,9 @@ public final class LifecycleCharacterSessionControl {
     @FunctionalInterface
     interface WorldStep {
         java.util.Optional<com.juicyslew.moonstation14.ms14.movement.CharacterMovementState> step(
-                Mob body, int wishX, int wishZ, boolean jump, boolean sprint, float yaw,
+                Mob body, int wishX, int wishZ, boolean jump, boolean sneak, boolean sprint, float yaw,
+                long originSequence,
+                java.util.function.Consumer<com.juicyslew.moonstation14.ms14.shuttle.sable.SableOwnedBodyMotion.MoveResult> observer,
                 java.util.Optional<GhostControlPayloads.SupportedMovementReference> supportedMovementReference);
     }
 
@@ -540,6 +785,7 @@ public final class LifecycleCharacterSessionControl {
 
     private static void recoverWorldStep(Session session, Mob body, GhostControlPayloads.Intent intent,
                                          FailureReason reason, Throwable failure) {
+        session.gate.settleSkippedThroughSequence(intent.sequence());
         ServerLevel level = body.level() instanceof ServerLevel serverLevel ? serverLevel : null;
         MinecraftServer server = level == null ? null : level.getServer();
         boolean ownerValid = server != null && connectedExact(server, session.player)
@@ -602,9 +848,31 @@ public final class LifecycleCharacterSessionControl {
 
     /** Discards real not-yet-applied commands at a movement authority barrier; ACK settles that real skipped range. */
     private static void clearQueuedMovement(Session session) {
-        long discardedThrough = session.gate.discardQueuedThroughSequence();
-        if (discardedThrough >= 0) session.lastAppliedSequence = Math.max(session.lastAppliedSequence, discardedThrough);
+        session.gate.discardQueuedThroughSequence();
         session.movementInput.clear();
+    }
+
+    private static boolean characterTraceMatches(MovementTraceRecorder.Context context, Session session, ServerLevel level) {
+        return context.epoch() == session.epoch && context.bodyEntityId() == session.body.getId()
+                && context.bodyUuid().equals(session.body.getUUID())
+                && context.dimension().equals(level.dimension().location().toString())
+                && context.harnessKind().equals(MobHarnessKind.CHARACTER.name());
+    }
+
+    private static Vec3 bodyPosition(Mob body) { return body.position(); }
+
+    private static void recordCharacterStep(MovementTraceRecorder.Context context, Session session, ServerLevel level,
+            long tick, GhostControlInputAccumulator.TickInput sampled, boolean motorApplies, boolean success,
+            long started, Vec3 after, boolean grounded) {
+        if (context == null) return;
+        try {
+            MovementTraceSession.record(context, "SERVER_STEP", System.nanoTime(), tick, sampled.sequence(),
+                    Map.ofEntries(Map.entry("owner", "LIFECYCLE_CHARACTER"), Map.entry("receivedInput", sampled.receivedInput()),
+                            Map.entry("motorApplies", motorApplies), Map.entry("settledSequence", session.lastAppliedSequence),
+                            Map.entry("stepDurationNanos", started == 0L ? 0L : Math.max(0L, System.nanoTime() - started)),
+                            Map.entry("success", success), Map.entry("afterX", after.x), Map.entry("afterY", after.y),
+                            Map.entry("afterZ", after.z), Map.entry("grounded", grounded)));
+        } catch (RuntimeException ignored) { }
     }
 
     @SubscribeEvent
@@ -681,7 +949,7 @@ public final class LifecycleCharacterSessionControl {
         Map<UUID, Session> sessions = SERVERS.get(server);
         if (sessions == null || sessions.get(session.accountId) != session) return false;
         ServerLevel level = session.body.level() instanceof ServerLevel serverLevel ? serverLevel : null;
-        var binding = session.body.playerCharacterBinding();
+        var binding = PlayerCharacterHarnessBinder.binding(session.body);
         boolean exactBody = level != null && live(session.body, level) && session.body.isNoAi()
                 && binding != null && binding.accountId().equals(session.accountId)
                 && binding.profileKey().equals(session.profileId) && binding.mindId().equals(session.mindId.value())
@@ -691,8 +959,7 @@ public final class LifecycleCharacterSessionControl {
         if (exactBody) {
             var context = LifecycleStartupRuntime.contextFor(server).orElse(null);
             if (context != null) {
-                var appearance = Map.of("appearance", session.body.appearance().name(),
-                        "bodyShape", session.body.bodyShape().name());
+                var appearance = lifecycleAppearance(session.body);
                 try {
                     offline = context.disconnectCleanly(session.accountId, session.epoch, session.mindId.value(),
                             session.bodyId.value(), level.dimension().location().toString(),
@@ -703,7 +970,8 @@ public final class LifecycleCharacterSessionControl {
                 }
             }
         }
-        if (offline && exactBody) session.body.setOfflineSinceMillis(offlineSinceMillis);
+        if (offline && exactBody && session.body instanceof PlayerCharacterHarnessEntity human)
+            human.setOfflineSinceMillis(offlineSinceMillis);
         if (!offline) {
             session.lifecycle.suspendActiveSessionForRecovery(session.accountId, session.mindId,
                     session.bodyId, session.epoch);
@@ -712,6 +980,15 @@ public final class LifecycleCharacterSessionControl {
         if (sessions.isEmpty()) SERVERS.remove(server);
         session.gate.reset();
         session.movementInput.clear();
+        if (session.preparedLease != null) {
+            try { session.preparedLease.close(); }
+            catch (RuntimeException | Error failure) {
+                disconnectAfterDeathClaim(server, session.player,
+                        "Your character died, but movement authority could not be released safely. Reconnect for recovery.");
+                clearOwnedMarkerForSession(session);
+                return false;
+            }
+        }
         clearOwnedMarkerForSession(session);
         if (SERVERS.isEmpty()) LifecycleSessionPacketRouter.instance().clearCharacterHandler();
         return offline;
@@ -726,8 +1003,7 @@ public final class LifecycleCharacterSessionControl {
         var context = LifecycleStartupRuntime.contextFor(server).orElse(null);
         if (context == null) return false;
         long offlineSinceMillis = Math.max(0L, System.currentTimeMillis());
-        var appearance = Map.of("appearance", session.body.appearance().name(),
-                "bodyShape", session.body.bodyShape().name());
+        var appearance = lifecycleAppearance(session.body);
         boolean persisted;
         try {
             persisted = context.disconnectCleanly(session.accountId, session.epoch, session.mindId.value(),
@@ -738,7 +1014,7 @@ public final class LifecycleCharacterSessionControl {
             persisted = false;
         }
         return finishDevelopmentPark(persisted, () -> {
-        session.body.setOfflineSinceMillis(offlineSinceMillis);
+        if (session.body instanceof PlayerCharacterHarnessEntity human) human.setOfflineSinceMillis(offlineSinceMillis);
         Map<UUID, Session> sessions = SERVERS.get(server);
         if (sessions != null && sessions.get(session.accountId) == session) {
             sessions.remove(session.accountId);
@@ -869,12 +1145,17 @@ public final class LifecycleCharacterSessionControl {
 
     private static void clearOwnedMarkerForSession(Session session) {
         Mob body = session.body;
+        if (session.preparedLease != null) {
+            try { session.preparedLease.close(); }
+            catch (RuntimeException | Error ignored) { }
+            return;
+        }
         if (body instanceof MindControlledMob owner
                 && session.bodyId.equals(new MobHarnessId(session.body.getUUID()))
-                && session.body.playerCharacterBinding() != null
-                && session.body.playerCharacterBinding().accountId().equals(session.accountId)
-                && session.body.playerCharacterBinding().profileKey().equals(session.profileId)
-                && session.body.playerCharacterBinding().mindId().equals(session.mindId.value())) {
+                && PlayerCharacterHarnessBinder.binding(session.body) != null
+                && PlayerCharacterHarnessBinder.binding(session.body).accountId().equals(session.accountId)
+                && PlayerCharacterHarnessBinder.binding(session.body).profileKey().equals(session.profileId)
+                && PlayerCharacterHarnessBinder.binding(session.body).mindId().equals(session.mindId.value())) {
             try {
                 owner.moonstation14$setMovementOwned(false);
             } catch (RuntimeException | Error ignored) {
@@ -926,21 +1207,28 @@ public final class LifecycleCharacterSessionControl {
                 ? com.juicyslew.moonstation14.ms14.movement.CharacterMovementPolicy.HUMAN_KNOCKDOWN_SPEED_FACTOR : 1d);
         var owner = BodyContainmentService.forLevel((ServerLevel) body.level()).ownerOf(body).orElse(null);
         var movementMode = CharacterMovementModeResolver.fromExactOwner(owner);
+        var role = roleCapabilities(session.player, body, session.epoch).orElse(null);
+        boolean roleAllowsMovement = roleMovementAllowed(session.roleTaken, role != null,
+                role != null && role.allowMovement(), session.offerOrigin, session.player.hasPermissions(2));
         try {
             var snapshot = new GhostControlPayloads.Snapshot(session.epoch, body.getId(), MobHarnessKind.CHARACTER,
                     tick, session.lastAppliedSequence, position.x, position.y, position.z, yaw, pitch,
                     velocity.x, velocity.y, velocity.z, body.onGround(), surface, voluntary,
-                    !CharacterControlSystem.canMove(body), movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
+                     !CharacterControlSystem.canMove(body) || !roleAllowsMovement, movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
                             ? com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.remainingTicks(body) : 0,
-                     movementMode, java.util.Optional.ofNullable(owner).map(com.juicyslew.moonstation14.ms14.containment.ContainedBodyOwner::view),
+                      movementMode, java.util.Optional.ofNullable(owner).map(value -> value.viewFor(body)),
                      (movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED ? java.util.Optional.ofNullable(actorPoint.frameId()) : java.util.Optional.<java.util.UUID>empty()).map(id -> new GhostControlPayloads.Snapshot.FrameState(
                              id, actorPoint.storagePoint().x, actorPoint.storagePoint().y, actorPoint.storagePoint().z)),
                       session.movementRebaseRevision).withAngularRecoveryState(
                                body instanceof PlayerCharacterHarnessEntity character
                                        && movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
                                        ? character.authoritativeAngularRecoveryState() : java.util.Optional.empty())
-                     .withServerTemporalMetadata(completedSableStep((ServerLevel) body.level()),
-                             body instanceof PlayerCharacterHarnessEntity character ? character.airMotionReference() : java.util.Optional.empty());
+                      .withServerTemporalMetadata(completedSableStep((ServerLevel) body.level()),
+                              body instanceof PlayerCharacterHarnessEntity character ? character.airMotionReference() : java.util.Optional.empty())
+                       .withInputSettlement(session.gate.settledThroughSequence())
+                       .withControlState(session.movementInput.heldState(),
+                               com.juicyslew.moonstation14.ms14.animals.flight.FlightSystem.state(body));
+             snapshot = snapshot.withExternalFlightPhysics(com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.physics(body));
             if (!snapshotBoundToSession(snapshot, session.epoch, body.getId())) {
                 fail(server, session, FailureReason.SNAPSHOT_BINDING_MISMATCH);
                 return;
@@ -959,7 +1247,22 @@ public final class LifecycleCharacterSessionControl {
                             + " velocity=" + velocity + " movementBlocked=" + snapshot.movementBlocked()
                             + " frameState=" + (snapshot.frameState().isPresent()
                                     ? "FRAME:" + snapshot.frameState().get().frameId() : "WORLD"));
+            var traceContext = MovementTraceSession.activeContext();
+            if (traceContext != null && characterTraceMatches(traceContext, session, (ServerLevel) body.level())) try {
+                MovementTraceSession.record(traceContext, "SERVER_SNAPSHOT", System.nanoTime(), tick,
+                        session.lastAppliedSequence, Map.ofEntries(Map.entry("owner", "LIFECYCLE_CHARACTER"),
+                                Map.entry("sendInvocationReturned", true), Map.entry("delivery", "UNVERIFIED"),
+                                Map.entry("ack", session.lastAppliedSequence), Map.entry("heldWishX", session.movementInput.heldState().wishX()),
+                                Map.entry("heldWishZ", session.movementInput.heldState().wishZ()),
+                                Map.entry("naturalFlight", com.juicyslew.moonstation14.ms14.animals.flight.FlightSystem.state(body).name())));
+            } catch (RuntimeException ignored) { }
         } catch (RuntimeException failure) {
+            com.juicyslew.moonstation14.MoonStation14.LOGGER.error(
+                    "Character snapshot construction failed: epoch={} player={} body={} tick={} flightTicks={} mode={}",
+                    session.epoch, session.player.getUUID(), body.getUUID(), tick,
+                    movementMode == GhostControlPayloads.Snapshot.MovementMode.GROUNDED
+                            ? com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.remainingTicks(body) : 0,
+                    movementMode, failure);
             fail(server, session, FailureReason.SNAPSHOT_SEND_ERROR);
         }
     }
@@ -968,11 +1271,30 @@ public final class LifecycleCharacterSessionControl {
         return session.lifecycle.authorizes(session.player.getUUID(), session.epoch, session.bodyId,
                 harness -> harness.id().equals(session.bodyId) && harness.kind() == MobHarnessKind.CHARACTER)
                 && session.player.getUUID().equals(session.accountId)
-                && session.profileId.equals(session.body.playerCharacterBinding() == null ? null
-                : session.body.playerCharacterBinding().profileKey());
+                && session.profileId.equals(PlayerCharacterHarnessBinder.binding(session.body) == null ? null
+                : PlayerCharacterHarnessBinder.binding(session.body).profileKey());
     }
 
-    private static boolean live(PlayerCharacterHarnessEntity body, ServerLevel level) {
+    private static String runtimeIntentObservation(Session session, ServerLevel level, String reason) {
+        Mob body = session.body;
+        boolean cameraMatches = session.player.getCamera() == body;
+        boolean liveBody = live(body, level);
+        boolean noAi = body.isNoAi();
+        boolean movementOwned = body instanceof MindControlledMob controlled && controlled.moonstation14$isMovementOwned();
+        boolean nativeId = session.bodyId.equals(new MobHarnessId(body.getUUID()));
+        return reason + " uuid=" + body.getUUID() + " nativeId=" + body.getId() + " cameraMatches=" + cameraMatches
+                + " live=" + liveBody + " noAi=" + noAi + " movementOwned=" + movementOwned + " nativeIdMatches=" + nativeId;
+    }
+
+    private static Map<String, String> lifecycleAppearance(Mob body) {
+        if (body instanceof PlayerCharacterHarnessEntity human)
+            return Map.of("appearance", human.appearance().name(), "bodyShape", human.bodyShape().name());
+        var identity = body.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        if (identity == null || !identity.isBound()) return Map.of();
+        return Map.of("prototype", identity.characterId().toString());
+    }
+
+    private static boolean live(Mob body, ServerLevel level) {
         return body != null && !body.isRemoved() && body.isAlive() && body.isAddedToLevel()
                 && body.level() == level && level.getEntity(body.getUUID()) == body && !body.isPassenger();
     }
@@ -1035,23 +1357,25 @@ public final class LifecycleCharacterSessionControl {
     }
 
     /** Durably claim an exact connected corpse before dropping its ACTIVE session. */
-    static boolean hasExactDeathSession(PlayerCharacterHarnessEntity body) {
-        if (body == null || !(body.level() instanceof ServerLevel level) || level.getServer() == null
-                || body.playerCharacterBinding() == null) return false;
-        Session session = session(level.getServer(), body.playerCharacterBinding().accountId());
+    static boolean hasExactDeathSession(Mob body) {
+        var binding = PlayerCharacterHarnessBinder.binding(body);
+        if (body == null || !(body.level() instanceof ServerLevel level) || level.getServer() == null || binding == null) return false;
+        Session session = session(level.getServer(), binding.accountId());
         return session != null && session.body == body && session.bodyId.value().equals(body.getUUID());
     }
 
-    static boolean claimConfirmedDeath(PlayerCharacterHarnessEntity body, LifecycleServerContext context) {
+    static boolean claimConfirmedDeath(Mob body, LifecycleServerContext context) {
         if (body == null || context == null || !(body.level() instanceof ServerLevel level)) return false;
         MinecraftServer server = level.getServer();
-        Session session = server == null ? null : session(server, body.playerCharacterBinding() == null
-                ? new UUID(0, 0) : body.playerCharacterBinding().accountId());
+        var binding = PlayerCharacterHarnessBinder.binding(body);
+        Session session = server == null ? null : session(server, binding == null ? new UUID(0, 0) : binding.accountId());
         if (session == null || session.body != body || !session.bodyId.value().equals(body.getUUID())) return false;
-        var binding = body.playerCharacterBinding();
         var identity = body.getExistingDataOrNull(ModDataAttachments.CHARACTER_IDENTITY.get());
+        var state = body.getExistingDataOrNull(ModDataAttachments.MOB_STATE.get());
+        boolean confirmedDead = body instanceof PlayerCharacterHarnessEntity human ? human.hasConfirmedDeath()
+                : state != null && state.data().state() == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD;
         boolean exact = connectedDeathDecision(binding != null && identity != null && identity.isBound()
-                && ModCharacters.HUMAN_ID.equals(identity.characterId()), binding != null
+                && CharacterIdentitySystem.resolve(body).isPresent(), binding != null
                 && session.accountId.equals(binding.accountId()) && session.profileId.equals(binding.profileKey())
                 && session.mindId.value().equals(binding.mindId()) && session.player.getUUID().equals(session.accountId)
                 && session.body == body && session.bodyId.value().equals(body.getUUID()),
@@ -1062,13 +1386,13 @@ public final class LifecycleCharacterSessionControl {
                 connectedExact(server, session.player), level.getServer().isSameThread());
         boolean claimed = false;
         if (exact) {
-            var appearance = Map.of("appearance", body.appearance().name(), "bodyShape", body.bodyShape().name());
+            var appearance = lifecycleAppearance(body);
             try {
                 claimed = context.claimActiveDeath(session.accountId, session.profileId, session.mindId.value(),
                         session.bodyId.value(), level.dimension().location().toString(),
                         new SavedLifecycleProfile.Location(body.getX(), body.getY(), body.getZ()), appearance,
                         session.epoch, candidate -> candidate.equals(new com.juicyslew.moonstation14.ms14.player_body_control.MobHarness(
-                                session.bodyId, MobHarnessKind.CHARACTER)) && body.hasConfirmedDeath()
+                                session.bodyId, MobHarnessKind.CHARACTER)) && confirmedDead
                                 && body.getHealth() <= 0 && !body.isRemoved() && body.level() == level
                                 && level.getEntity(body.getUUID()) == body
                                 && binding.accountId().equals(session.accountId)
@@ -1156,9 +1480,12 @@ public final class LifecycleCharacterSessionControl {
     }
 
     private static final class Session {
-        final ServerPlayer player; final PlayerCharacterHarnessEntity body; final PlayerLifecycleRegistry lifecycle;
+        final ServerPlayer player; final Mob body; final PlayerLifecycleRegistry lifecycle;
         final long epoch; long startedTick = -1; final UUID accountId; final String profileId;
         final MindId mindId; final MobHarnessId bodyId; boolean committed, beginSent;
+        final GroundedHarnessLease preparedLease;
+        boolean roleTaken;
+        LifecycleGhostSessionControl.OfferOrigin offerOrigin;
         final GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
         final CharacterMovementInputState movementInput = new CharacterMovementInputState();
         long intentTick = Long.MIN_VALUE, lastAppliedSequence, lastSnapshotTick = Long.MIN_VALUE;
@@ -1166,8 +1493,8 @@ public final class LifecycleCharacterSessionControl {
         long lastMovementDiagnosticTick = Long.MIN_VALUE / 2;
         boolean movementSuspended, unsafePoseLogged;
         long lastInputDispatchTick = Long.MIN_VALUE;
-        WorldStep worldStep = (body, x, z, jump, sprint, yaw, reference) ->
-                CHARACTER_WORLD_STEP.step(body, x, z, jump, sprint, yaw, null, reference);
+        WorldStep worldStep = (body, x, z, jump, sneak, sprint, yaw, origin, observer, reference) ->
+                CHARACTER_WORLD_STEP.step(body, x, z, jump, sneak, sprint, yaw, origin, observer, reference);
         boolean worldStepInjected;
         SafePoseObserver safePoseObserver = LifecycleCharacterSessionControl::defaultSafePose;
         boolean safePoseInjected;
@@ -1182,9 +1509,13 @@ public final class LifecycleCharacterSessionControl {
         boolean traceRateRejected;
         boolean traceOfferRejected;
         String traceSnapshotDeniedReason;
-        Session(ServerPlayer player, PlayerCharacterHarnessEntity body, PlayerLifecycleRegistry lifecycle,
-                 long epoch) {
+        boolean intentAcceptedLogged;
+        boolean intentMotorLogged;
+        String lastIntentRejection;
+        Session(ServerPlayer player, Mob body, PlayerLifecycleRegistry lifecycle,
+                  long epoch, GroundedHarnessLease preparedLease) {
             this.player = player; this.body = body; this.lifecycle = lifecycle; this.epoch = epoch;
+            this.preparedLease = preparedLease;
             this.accountId = player.getUUID();
             var profile = lifecycle.profile(accountId).orElseThrow();
             this.profileId = profile.profileId(); this.mindId = profile.mindId(); this.bodyId = profile.bodyId();
@@ -1223,6 +1554,46 @@ public final class LifecycleCharacterSessionControl {
 
     static boolean intentRateAllows(int intentCount) {
         return intentCount > 0 && intentCount <= MAX_INTENTS_PER_TICK;
+    }
+
+    static boolean roleMovementAllowed(boolean roleTaken, boolean capabilityResolved, boolean allowed) {
+        return !roleTaken || capabilityResolved && allowed;
+    }
+
+    static boolean roleMovementAllowed(boolean roleTaken, boolean capabilityResolved, boolean allowed,
+                                       LifecycleGhostSessionControl.OfferOrigin origin) {
+        return roleMovementAllowed(roleTaken, capabilityResolved, allowed, origin,
+                origin == LifecycleGhostSessionControl.OfferOrigin.OPERATOR_DEVELOPMENT);
+    }
+
+    static boolean roleMovementAllowed(boolean roleTaken, boolean capabilityResolved, boolean allowed,
+                                       LifecycleGhostSessionControl.OfferOrigin origin, boolean operator) {
+        return roleTaken && operator && origin == LifecycleGhostSessionControl.OfferOrigin.OPERATOR_DEVELOPMENT
+                || roleMovementAllowed(roleTaken, capabilityResolved, allowed);
+    }
+
+    /**
+     * Reconstruct role provenance for a durable-session reconnect. Canonical mapped ordinary
+     * bodies are role adoptions; the custom player-character harness used by normal first join is not.
+     * The decision is bound to the server's current exact ACTIVE profile/body, never client selection.
+     */
+    static boolean reconnectRoleAdoption(ServerPlayer player, Mob body, PlayerLifecycleRegistry lifecycle, long epoch) {
+        if (player == null || body == null || lifecycle == null || epoch <= 0
+                || body instanceof PlayerCharacterHarnessEntity) return false;
+        var profile = lifecycle.profile(player.getUUID()).orElse(null);
+        var binding = PlayerCharacterHarnessBinder.binding(body);
+        var role = CharacterIdentitySystem.resolveForActor(body)
+                .flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent.class));
+        boolean exact = profile != null && profile.active() && profile.state() == PlayerLifecycleRegistry.LifecycleState.ACTIVE
+                && profile.connectionGeneration() == epoch && profile.bodyId().value().equals(body.getUUID())
+                && binding != null && binding.accountId().equals(player.getUUID())
+                && binding.profileKey().equals(profile.profileId()) && binding.mindId().equals(profile.mindId().value());
+        return reconnectRoleDecision(body instanceof PlayerCharacterHarnessEntity, exact, role.isPresent());
+    }
+
+    static boolean reconnectRoleDecision(boolean customPlayerHarness, boolean exactProfileBodyBinding,
+                                         boolean resolvedRoleComponent) {
+        return !customPlayerHarness && exactProfileBodyBinding && resolvedRoleComponent;
     }
 
     static boolean snapshotBoundToSession(GhostControlPayloads.Snapshot snapshot, long epoch, int entityId) {

@@ -1,0 +1,1 @@
+{"body_sha256":"8cf3d69f4b0497958d3a4572e5a1c5065b0825b5ec5123aa83d36e106dab305e","created":1792217430709,"message":"bad","message_id":"err","mode":"HISTORY_CONSUMED","original_message_id":"msg_3d52af4cb86d214f75f4ffdb81519ba9be9e30cd","ownership_basis":"exclusive_session_exact_queued_prompt_no_foreign_postdispatch_user","status":401,"type":"provider.auth"}

@@ -356,3 +356,4 @@ public final class AtmosphereVisualServerHooks {
         }
     }
 }
+

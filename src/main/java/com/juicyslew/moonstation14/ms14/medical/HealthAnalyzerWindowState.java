@@ -14,3 +14,4 @@ public record HealthAnalyzerWindowState(UUID scannerId, long epoch, UUID actorId
         if (!open && readings.isPresent()) throw new IllegalArgumentException("closed window cannot carry readings");
     }
 }
+

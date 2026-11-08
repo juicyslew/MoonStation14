@@ -17,3 +17,4 @@ public record StripViewRequest(Operation operation, long epoch, long sequence, U
     public StripViewRequest { if(operation==null||epoch<=0||sequence<=0||target==null||targetRevision<0)throw new IllegalArgumentException("Invalid strip request"); }
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

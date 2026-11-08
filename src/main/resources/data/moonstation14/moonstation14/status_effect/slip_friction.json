@@ -1,0 +1,8 @@
+{
+  "translation_key": "status_effect.moonstation14.slip_friction",
+  "beneficial": false,
+  "color": "0x808080",
+  "behaviors": ["friction"],
+  "eligibility": ["living_entity"],
+  "friction": 0.5
+}

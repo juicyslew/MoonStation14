@@ -263,9 +263,16 @@ public final class AirlockConnectedGameTests {
                 Villager boundary=enrolledBody(f.level,f.root.getX()-.5,f.root.getY()+.1,f.root.getZ()+.5);
                 victim.setNoGravity(true);
                 boundary.setNoGravity(true);
-                boundary.setPos(f.root.getX()-.30001,boundary.getY(),boundary.getZ());
+                double expectedGap=5.0E-6;
+                boundary.setPos(f.root.getX()-boundary.getBbWidth()/2.0-expectedGap,boundary.getY(),boundary.getZ());
                 var boundaryPos=boundary.position();
-                require(AirlockGeometry.touchesDoorway(boundary.getBoundingBox(),new net.minecraft.world.phys.AABB(f.root.getX(),f.root.getY(),f.root.getZ(),f.root.getX()+1,f.root.getY()+2,f.root.getZ()+1)),"boundary fixture begins within static-contact tolerance body="+boundary.getBoundingBox()+" root="+f.root+" width="+boundary.getBbWidth());
+                var doorway=new net.minecraft.world.phys.AABB(f.root.getX(),f.root.getY(),f.root.getZ(),f.root.getX()+1,f.root.getY()+2,f.root.getZ()+1);
+                double initialGap=doorway.minX-boundary.getBoundingBox().maxX;
+                require(initialGap>0&&initialGap<=1.0E-5&&!boundary.getBoundingBox().intersects(doorway)
+                                &&AirlockGeometry.touchesDoorway(boundary.getBoundingBox(),doorway),
+                        "fixture must have a real positive face gap within static-contact tolerance; gap="+initialGap
+                                +", expectedGap="+expectedGap+", body="+boundary.getBoundingBox()+", doorway="+doorway
+                                +", root="+f.root+", width="+boundary.getBbWidth());
                 float boundaryBlunt=DamageSystem.existingOrVanillaBaseline(boundary).getOrDefault(DamageKeys.BLUNT,0f);
                 float boundaryShock=DamageSystem.existingOrVanillaBaseline(boundary).getOrDefault(DamageKeys.SHOCK,0f);
                 float nearbyShockBefore=DamageSystem.existingOrVanillaBaseline(nearby).getOrDefault(DamageKeys.SHOCK,0f);
@@ -278,6 +285,11 @@ public final class AirlockConnectedGameTests {
                 require(f.door.activate(),"unsafe close begins");
                 var solidificationSamples=new java.util.ArrayList<String>();
                 sampleCriticalSolidification(helper,f,victim,boundary,9,solidificationSamples,()->{
+                    double contactGap=doorway.minX-boundary.getBoundingBox().maxX;
+                    require(contactGap>0&&contactGap<=1.0E-5&&!boundary.getBoundingBox().intersects(doorway)
+                                    &&AirlockGeometry.touchesDoorway(boundary.getBoundingBox(),doorway),
+                            "boundary contact must retain a positive non-overlapping gap within tolerance; gap="+contactGap
+                                    +", initialGap="+initialGap+", body="+boundary.getBoundingBox()+", root="+f.root);
                     float victimShock=DamageSystem.existingOrVanillaBaseline(victim).getOrDefault(DamageKeys.SHOCK,0f)-shockBefore;
                     if(Math.abs(victimShock-7f)>=.001f){
                         String tag="critical-solidification:"+victim.getUUID();
@@ -436,17 +448,30 @@ public final class AirlockConnectedGameTests {
             corpse.setNoGravity(true);
             require(DamageSystem.applyHealthChange(corpse,java.util.Map.of(DamageKeys.BLUNT,200f),1f,true)==DamageSystem.Result.APPLIED
                             &&MobStateSystem.isDead(corpse)&&!corpse.isAlive(),"loaded body is typed medical DEAD before unsafe closing");
+            // Death changes the native villager pose/collider. Place the now-dead
+            // entity at the doorway before testing the crush collision query.
+            corpse.setPos(f.root.getX()+.5,f.root.getY()+.1,f.root.getZ()+.5);
+            require(!corpse.noPhysics&&corpse.getBoundingBox().intersects(doorwayBounds(f.root)),
+                    "unsafe-close fixture starts with a loaded physical medical-dead collider overlapping doorway; uuid="
+                            +corpse.getUUID()+" bounds="+corpse.getBoundingBox()+" doorway="+doorwayBounds(f.root)
+                            +" noPhysics="+corpse.noPhysics+" damage="+DamageSystem.existingOrVanillaBaseline(corpse));
             require(f.door.applyWire(f.door.identity(),f.door.state().revision(),AirlockState.Wire.SAFETY,AirlockState.WireAction.CUT),"safety wire permits unsafe crush");
              require(f.door.activate(),"unsafe close begins around the dead physical body; "+criticalCloseDiagnostic(f,corpse));
              com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 9,()->{
                 require(f.door.state().phase()==AirlockState.DoorPhase.CLOSING_PASSABLE,"dead collider participates in unsafe partial-close capture");
-                require(f.door.getUpdateTag(f.level.registryAccess()).getList("CrushVictims",net.minecraft.nbt.Tag.TAG_COMPOUND).stream()
-                                .anyMatch(tag->tag instanceof net.minecraft.nbt.CompoundTag compound&&compound.hasUUID("Id")&&compound.getUUID("Id").equals(corpse.getUUID())),
-                        "retained medical corpse is root-owned by the existing crush collision exemption");
-                require(f.door.crushReopenRetryAt()>f.level.getGameTime(),"corpse capture retains the normal separate paid-reopen deadline");
-                 com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 8,()->{
-                    require(f.door.state().phase()==AirlockState.DoorPhase.CLOSED&&MobStateSystem.isDead(corpse),"dead body remains loaded through the ordinary sealed interval");
-                    waitForCloseRecovery(helper,f,60,()->{
+                 require(f.door.getUpdateTag(f.level.registryAccess()).getList("CrushVictims",net.minecraft.nbt.Tag.TAG_COMPOUND).stream()
+                                 .anyMatch(tag->tag instanceof net.minecraft.nbt.CompoundTag compound&&compound.hasUUID("Id")&&compound.getUUID("Id").equals(corpse.getUUID())),
+                         "retained medical corpse is root-owned by the existing crush collision exemption");
+                 long capturedReopenDeadline=f.door.crushReopenRetryAt();
+                 require(capturedReopenDeadline>f.level.getGameTime(),"corpse capture retains the normal separate paid-reopen deadline");
+                  com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 8,()->{
+                     require(f.door.state().phase()==AirlockState.DoorPhase.CLOSED&&MobStateSystem.isDead(corpse),"dead body remains loaded through the ordinary sealed interval");
+                     require(f.level.getGameTime()<capturedReopenDeadline
+                                     &&f.door.crushReopenRetryAt()==capturedReopenDeadline,
+                             "sealed interval neither starts paid reopen early nor changes captured retry deadline");
+                     waitForCloseRecovery(helper,f,60,()->{
+                         require(f.level.getGameTime()>=capturedReopenDeadline,
+                                 "paid reopen cannot begin before the unchanged captured crush deadline");
                         require(f.door.state().phase()==AirlockState.DoorPhase.OPENING||f.door.state().phase()==AirlockState.DoorPhase.OPEN,
                                 "existing fresh-paid crush reopen releases the loaded medical corpse");
                         corpse.discard();helper.succeed();
@@ -696,33 +721,103 @@ public final class AirlockConnectedGameTests {
 
     private static void waitForPoweredPhase(GameTestHelper helper, Fixture f, AirlockState.DoorPhase expected,
                                              int waited, Runnable admitted) {
-        waitForPoweredPhase(helper,f,expected,waited,80,admitted);
+        waitForPoweredPhase(helper,f,expected,waited,80,null,null,admitted);
     }
 
     private static void waitForPoweredPhase(GameTestHelper helper, Fixture f, AirlockState.DoorPhase expected,
                                              int waited,int maxWait,Runnable admitted) {
+        waitForPoweredPhase(helper,f,expected,waited,maxWait,null,null,admitted);
+    }
+
+    private static void waitForPoweredPhase(GameTestHelper helper, Fixture f, AirlockState.DoorPhase expected,
+                                             int waited,TangentTrace trace,String closeLabel,Runnable admitted) {
+        waitForPoweredPhase(helper,f,expected,waited,80,trace,closeLabel,admitted);
+    }
+
+    private static void waitForPoweredPhase(GameTestHelper helper, Fixture f, AirlockState.DoorPhase expected,
+                                             int waited,int maxWait,TangentTrace trace,String closeLabel,Runnable admitted) {
         var observation=PowerRuntime.airlockPower(f.level,f.door);
-        double demand=f.door.prototype().apcPowerReceiver().requestedWatts();
         var phase=f.door.state().phase();
-        if(observation.known()&&observation.deliveredWatts()==demand) {
-            require(f.level.getBlockEntity(f.root)==f.door,"root controller identity before later activation");
-            require(phase==expected,"fresh full-power readiness phase mismatch; expected="+expected+" actual="+phase
-                    +" known="+observation.known()+" watts="+observation.deliveredWatts()+" demand="+demand
-                    +" bolts="+f.door.state().boltsDown()+" disabled="+f.door.state().receiverPowerDisabled()
-                    +" now="+f.level.getGameTime()+" deadline="+f.door.state().autoCloseAt()+" root="+f.root);
-            admitted.run();return;
+        if(trace!=null)trace.poll(closeLabel,observation);
+        if(phase==expected) {
+            AirlockCoreGameTests.waitForFullPower(helper,
+                    new AirlockCoreGameTests.Fixture(f.level,f.root,f.door),maxWait,()->{
+                require(f.level.getBlockEntity(f.root)==f.door,"root controller identity before later activation");
+                require(f.door.state().phase()==expected,"fresh full-power readiness phase mismatch close="+closeLabel
+                        +" expected="+expected+" actual="+f.door.state().phase()+" now="+f.level.getGameTime()
+                        +" root="+f.root+(trace==null?"":" trace="+trace));
+                admitted.run();
+            });
+            return;
         }
         if(waited>=maxWait || (f.door.state().autoCloseAt()>0&&f.level.getGameTime()>=f.door.state().autoCloseAt()))
-            throw new GameTestAssertException("fresh full-power readiness timeout; expectedPhase="+expected+" actualPhase="+phase
-                    +" known="+observation.known()+" watts="+observation.deliveredWatts()+" demand="+demand
+            throw new GameTestAssertException("powered phase readiness timeout; expectedPhase="+expected+" actualPhase="+phase
                     +" bolts="+f.door.state().boltsDown()+" disabled="+f.door.state().receiverPowerDisabled()
-                    +" now="+f.level.getGameTime()+" deadline="+f.door.state().autoCloseAt()+" root="+f.root);
-        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,()->waitForPoweredPhase(helper,f,expected,waited+1,maxWait,admitted));
+                    +" power="+observation+" now="+f.level.getGameTime()+" deadline="+f.door.state().autoCloseAt()
+                    +" root="+f.root+" close="+closeLabel+(trace==null?"":" trace="+trace));
+        com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper,1,
+                ()->waitForPoweredPhase(helper,f,expected,waited+1,maxWait,trace,closeLabel,admitted));
+    }
+
+    private static final class TangentTrace {
+        private final GameTestHelper helper;
+        private final Fixture f;
+        private final java.util.ArrayList<String> entries=new java.util.ArrayList<>();
+        private String lastKey="",stage="init",latest="";
+        private int omitted;
+
+        private TangentTrace(GameTestHelper helper,Fixture f){this.helper=helper;this.f=f;}
+
+        private void mark(String next){stage=next;record(null);}
+
+        private void poll(String label,PowerRuntime.VentMeterObservation observation){
+            stage=label+"-pending";
+            record(observation);
+        }
+
+        private void assertOpen(String operation){
+            require(f.door.state().phase()==AirlockState.DoorPhase.OPEN,
+                    "tangent fixture unexpectedly left OPEN after "+operation+"; trace="+this);
+        }
+
+        private void record(PowerRuntime.VentMeterObservation supplied){
+            var observation=supplied==null?PowerRuntime.airlockPower(f.level,f.door):supplied;
+            long topologyGeneration=com.juicyslew.moonstation14.ms14.power.graph.PowerGraphService
+                    .topologyGeneration(f.level);
+            String key=stage+"|"+f.level.getGameTime()+"|"+f.door.state().phase()+"|"+observation.known()+"|"
+                    +observation.deliveredWatts()+"|"+topologyGeneration;
+            if(key.equals(lastKey))return;
+            lastKey=key;
+            String line="AIRLOCK_TANGENT_TRACE stage="+stage+" helperTick="+helper.getTick()
+                    +" globalTime="+f.level.getGameTime()+" phase="+f.door.state().phase()
+                    +" autoCloseAt="+f.door.state().autoCloseAt()+" powerKnown="+observation.known()
+                    +" watts="+observation.deliveredWatts()+" topologyGeneration="+topologyGeneration
+                    +" rootCurrent="+(f.level.getBlockEntity(f.root)==f.door)
+                    +" rootIdentity="+System.identityHashCode(f.door);
+            if(entries.size()<79)entries.add(line);else omitted++;
+            latest=line;
+        }
+
+        @Override public String toString(){
+            int shown=Math.min(entries.size(),4);
+            return "first="+entries.subList(0,shown)+", omitted="+(omitted+entries.size()-shown)+", latest="+latest;
+        }
     }
 
     private static String criticalCloseDiagnostic(Fixture f,Villager actor) {
         return "power="+PowerRuntime.airlockPower(f.level,f.door)+", actorBBox="+actor.getBoundingBox()
                 +", doorState="+f.door.state();
+    }
+
+    private static String contactDiagnostic(Fixture f,Villager actor,float shockBefore,float shockAfter) {
+        var sample=PowerRuntime.airlockPower(f.level,f.door);
+        return "postPhaseSample={gameTime="+f.level.getGameTime()+",serverTick="+f.level.getServer().getTickCount()
+                +",phase="+f.door.state().phase()+",transitionAt="+f.door.state().transitionAt()
+                +",powerKnown="+sample.known()+",watts="+sample.deliveredWatts()+",requested="+f.door.prototype().apcPowerReceiver().requestedWatts()+"}"
+                +", shockLedger={before="+shockBefore+",after="+shockAfter+",delta="+(shockAfter-shockBefore)+"}"
+                +", actor={uuid="+actor.getUUID()+",pos="+actor.position()+",health="+actor.getHealth()+",alive="+actor.isAlive()
+                +",critical="+MobStateSystem.isCritical(actor)+",dead="+MobStateSystem.isDead(actor)+",bounds="+actor.getBoundingBox()+"}"
+                +", doorway="+doorwayBounds(f.root)+", doorState="+f.door.state()+", doorView="+f.door.clientView();
     }
 
     private static void sampleCriticalPartialClose(GameTestHelper helper,Fixture f,Villager actor,int remaining,
@@ -809,7 +904,7 @@ public final class AirlockConnectedGameTests {
         require(door != null, "root controller exists");
 
         int[] atmosphereClock = {0};
-        forcePowerFixtureChunks(level,root,door.prototype().extensionCableReceiver().localReachBlocks());
+        acquirePowerFixtureTickets(helper,root,door.prototype().extensionCableReceiver().localReachBlocks());
         Fixture fixture = new Fixture(level, root, door);
         waitForPoweredAdmission(helper, fixture, 0, () -> {
             List<BlockPos> inventoryCells = List.of(left, right, root, root.above());
@@ -884,7 +979,7 @@ public final class AirlockConnectedGameTests {
         level.setBlock(root, lower, 3);
         level.setBlock(root.above(), lower.setValue(AirlockBlock.HALF, DoubleBlockHalf.UPPER), 3);
         AirlockBlockEntity door=(AirlockBlockEntity)level.getBlockEntity(root);
-        forcePowerFixtureChunks(level,root,door.prototype().extensionCableReceiver().localReachBlocks());
+        acquirePowerFixtureTickets(helper,root,door.prototype().extensionCableReceiver().localReachBlocks());
         return new Fixture(level, root, door);
     }
 
@@ -901,14 +996,11 @@ public final class AirlockConnectedGameTests {
         return new Fixture(level, root, existing);
     }
 
-    private static void forcePowerFixtureChunks(ServerLevel level,BlockPos root,int reach){
+    private static void acquirePowerFixtureTickets(GameTestHelper helper,BlockPos root,int reach){
         int minX=root.getX()-Math.max(reach,1)-2,maxX=root.getX()+Math.max(reach,1)+2;
         int minZ=root.getZ()-9,maxZ=root.getZ()+Math.max(reach,1)+2;
-        for(int cx=(minX>>4);cx<=(maxX>>4);cx++)for(int cz=(minZ>>4);cz<=(maxZ>>4);cz++){
-            long key=net.minecraft.world.level.ChunkPos.asLong(cx,cz);
-            if(!level.getForcedChunks().contains(key)){level.setChunkForced(cx,cz,true);FORCED_POWER_FIXTURE_CHUNKS.add(key);}
-            level.getChunk(cx,cz);
-        }
+        FixtureChunkTickets.acquire(helper,new net.minecraft.world.phys.AABB(minX,root.getY(),minZ,
+                Math.nextDown(maxX+1.0),root.getY()+3,Math.nextDown(maxZ+1.0)));
     }
 
     private static void clearFixtureVolume(ServerLevel level, BlockPos root, int horizontalRadius, int depth) {

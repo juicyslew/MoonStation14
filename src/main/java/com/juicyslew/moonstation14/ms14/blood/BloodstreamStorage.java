@@ -69,3 +69,4 @@ public final class BloodstreamStorage {
         return MS14Provider.getDetached(entity, MS14Bridges.BLOODSTREAM);
     }
 }
+

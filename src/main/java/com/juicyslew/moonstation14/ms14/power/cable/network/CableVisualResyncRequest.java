@@ -33,3 +33,4 @@ public record CableVisualResyncRequest(int chunkX, int chunkZ) implements Custom
         return new CableVisualResyncRequest(x, z);
     }
 }
+

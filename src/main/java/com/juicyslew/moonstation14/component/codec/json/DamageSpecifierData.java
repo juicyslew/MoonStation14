@@ -21,3 +21,4 @@ public record DamageSpecifierData(Map<String, Float> types) {
                     .forGetter(DamageSpecifierData::types)
     ).apply(inst, DamageSpecifierData::new));
 }
+

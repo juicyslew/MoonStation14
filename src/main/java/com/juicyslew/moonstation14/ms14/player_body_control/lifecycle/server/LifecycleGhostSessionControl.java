@@ -9,6 +9,7 @@ import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistenc
 import com.juicyslew.moonstation14.ms14.player_body_control.ghost.GhostMobHarnessEntity;
 import com.juicyslew.moonstation14.ms14.player_body_control.movement.GhostMovementMotor;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostIntentGate;
+import com.juicyslew.moonstation14.ms14.player_body_control.prediction.GhostControlInputAccumulator;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl;
 import com.juicyslew.moonstation14.ms14.player_body_control.server.CommittedSpectatorGuard;
 import com.juicyslew.moonstation14.ms14.hands.quarantine.CarrierHandInventoryGate;
@@ -16,6 +17,7 @@ import com.juicyslew.moonstation14.ms14.movement.MovementCollisionResolver;
 import com.juicyslew.moonstation14.ms14.movement.MovementVector;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -37,13 +39,18 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Optional;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessLease;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessBinder;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.persistence.SavedLifecycleProfile;
 import java.io.IOException;
 
 /** Prepared durable GHOST handshake. No death or reconnect path invokes this controller yet. */
 @EventBusSubscriber(modid = com.juicyslew.moonstation14.MoonStation14.MOD_ID)
 public final class LifecycleGhostSessionControl {
     private static final long READY_TIMEOUT_TICKS = 100;
-    private static final int MAX_INTENTS_PER_TICK = 8;
+    private static final int MAX_INTENTS_PER_TICK = GhostControlPayloads.MAX_PENDING_INTENTS;
     private static final double WORLD_BOUND = 30_000_000.0;
     private static final double MOTION_BOUNDARY_ULPS = 4d;
     private static final GhostMovementMotor DEFAULT_GHOST_MOVEMENT_MOTOR = new GhostMovementMotor();
@@ -105,8 +112,13 @@ public final class LifecycleGhostSessionControl {
         return null;
     }
 
-    private static void onPayload(CustomPacketPayload payload, IPayloadContext context) {
-        if (!(context.player() instanceof ServerPlayer player) || !(player.level() instanceof ServerLevel level)) return;
+    static void onPayload(CustomPacketPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        onPayload(payload, player);
+    }
+
+    static void onPayload(CustomPacketPayload payload, ServerPlayer player) {
+        if (player == null || !(player.level() instanceof ServerLevel level)) return;
         MinecraftServer server = level.getServer();
         Session session = session(server, player.getUUID());
         if (session == null || session.player != player || !connectedExact(server, player)) return;
@@ -125,6 +137,12 @@ public final class LifecycleGhostSessionControl {
             session.committed = true;
             GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Commit(session.epoch));
             session.commitSent = true;
+        } else if (payload instanceof GhostControlPayloads.OfferReady ready) {
+            if (!roleOfferReadyDecision(session.committed, ready.currentEpoch(), session.epoch,
+                    ready.targetEntityId(), session.offeredTarget == null ? -1 : session.offeredTarget.getId(),
+                    ready.targetKind(), session.offeredLease != null, connectedExact(server, player),
+                    player == session.player)) return;
+            commitRoleOffer(server, session, level);
         } else if (payload instanceof GhostControlPayloads.Intent intent) {
             if (!session.committed || !intentMatchesSession(intent, session.epoch)) return;
             if (!intentEligible(session, level)) {
@@ -138,7 +156,7 @@ public final class LifecycleGhostSessionControl {
                 session.intentCount = 0;
             }
             if (!intentRateAllows(++session.intentCount)) return;
-            session.gate.offer(intent.sequence(), tick, intent);
+            session.gate.offer(intent.sequence(), intent);
             if (session.gate.exhausted()) end(server, session, true, "intent_gate_exhausted");
         } else if (payload instanceof GhostControlPayloads.Stop stop && stop.epoch() == session.epoch) {
             end(server, session, true, "client_requested_stop");
@@ -158,18 +176,23 @@ public final class LifecycleGhostSessionControl {
                     authorityDiagnostic(server, session, level));
             return;
         }
-        GhostControlPayloads.Intent intent = session.gate.take();
-        if (intent != null) {
+        long now = level.getGameTime();
+        for (GhostControlPayloads.Intent admitted : session.gate.takeBatch(now))
+            session.controls.accept(admitted.toControlState(), admitted.sequence());
+        GhostControlInputAccumulator.TickInput sampled = session.controls.consumeForTick(now);
+        if (sampled == null) return;
+        var state = sampled == null ? null : sampled.effectiveState();
+        if (state != null) {
             try {
                 GhostMobHarnessEntity ghost = session.ghost;
                 ghost.setNoGravity(true);
                 ghost.noPhysics = true;
                 com.juicyslew.moonstation14.ms14.medical_observer.ObserverGhostLook.apply(
-                        ghost, intent.yaw(), intent.pitch());
+                        ghost, state.yaw(), state.pitch());
                 ghost.setDeltaMovement(Vec3.ZERO);
                 MovementVector before = movementPosition(ghost);
-                var result = session.movementMotor.tick(before, intent.wishX(), intent.wishZ(), intent.verticalWish(),
-                        (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw(),
+                var result = session.movementMotor.tick(before, state.wishX(), state.wishZ(), state.verticalWish(),
+                        (state.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, state.yaw(),
                         (position, requested, wasOnGround) -> {
                             Vec3 prior = ghost.position();
                             ghost.move(MoverType.SELF, new Vec3(requested.x(), requested.y(), requested.z()));
@@ -186,7 +209,7 @@ public final class LifecycleGhostSessionControl {
                     return;
                 }
                 ghost.setDeltaMovement(Vec3.ZERO);
-                session.lastAppliedSequence = intent.sequence();
+                if (sampled.receivedInput()) session.lastAppliedSequence = sampled.sequence();
             } catch (RuntimeException | Error failure) {
                 end(server, session, true, "movement_processing_failed",
                         failure instanceof Error ? "failureType=error" : "failureType=runtime_exception");
@@ -227,6 +250,7 @@ public final class LifecycleGhostSessionControl {
         if (sessions == null || !sessions.remove(player.getUUID(), pinned)) return false;
         if (sessions.isEmpty()) SERVERS.remove(server);
         pinned.gate.reset();
+        pinned.controls.reset();
         if (player.getCamera() == pinned.ghost) player.setCamera(player);
         GhostControlNetworking.sendToPlayer(player, new GhostControlPayloads.Stop(pinned.epoch));
         clearRouterIfEmpty();
@@ -296,6 +320,7 @@ public final class LifecycleGhostSessionControl {
             sessions.remove(pinned.accountId, pinned);
             if (sessions.isEmpty()) SERVERS.remove(server);
             pinned.gate.reset();
+            pinned.controls.reset();
             if (!pinned.lifecycle.unregisterTransientGhost(pinned.accountId, pinned.ghostId))
                 throw new IllegalStateException("transient ghost could not be unregistered");
             if (!pinned.ghost.isRemoved()) pinned.ghost.discard();
@@ -316,6 +341,7 @@ public final class LifecycleGhostSessionControl {
         Map<UUID, Session> sessions = SERVERS.get(server);
         if (sessions != null && sessions.remove(pinned.accountId, pinned) && sessions.isEmpty()) SERVERS.remove(server);
         pinned.gate.reset();
+        pinned.controls.reset();
         try {
             var profile = pinned.lifecycle.profile(pinned.accountId).orElse(null);
             if (profile != null && profile.active() && profile.state() == PlayerLifecycleRegistry.LifecycleState.GHOST)
@@ -377,6 +403,251 @@ public final class LifecycleGhostSessionControl {
 
     public record CommittedGhostActor(Entity ghost, long epoch) { }
 
+    /** Offer an explicitly resolved and registered role target while retaining the committed ghost. */
+    public static boolean offerRoleTarget(ServerPlayer player, Mob target) {
+        return offerTarget(player, target, OfferOrigin.NORMAL_GHOST_ROLE);
+    }
+
+    /** Operator-only test admission; origin is created exclusively by the server command. */
+    public static boolean offerDevelopmentTarget(ServerPlayer player, Mob target) {
+        return offerTarget(player, target, OfferOrigin.OPERATOR_DEVELOPMENT);
+    }
+
+    enum OfferOrigin { NORMAL_GHOST_ROLE, OPERATOR_DEVELOPMENT }
+
+    static boolean offerOriginAllowed(boolean development, boolean operator, boolean roleEligible) {
+        return development ? operator : roleEligible;
+    }
+
+    static boolean developmentCommitAllowed(boolean development, boolean operator, boolean targetAlive,
+                                             boolean targetUnclaimed, boolean exactTarget, boolean sameDimension) {
+        return !development || operator && targetAlive && targetUnclaimed && exactTarget && sameDimension;
+    }
+
+    private static boolean contextUnclaimed(MinecraftServer server, MobHarnessId targetId) {
+        LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
+        return context != null && context.ownership().registeredHarness(targetId)
+                .filter(harness -> harness.id().equals(targetId) && harness.kind() == MobHarnessKind.CHARACTER).isPresent();
+    }
+
+    private static boolean offerTarget(ServerPlayer player, Mob target, OfferOrigin origin) {
+        if (player == null || target == null || !(player.level() instanceof ServerLevel level)
+                || level.getServer() == null || !level.getServer().isSameThread()) return false;
+        MinecraftServer server = level.getServer();
+        Session session = session(server, player.getUUID());
+        if (session == null || session.player != player || !session.committed || !connectedExact(server, player)
+                || !authorized(session) || (origin == OfferOrigin.OPERATOR_DEVELOPMENT && !player.hasPermissions(2))
+                || player.getCamera() != session.ghost
+                || !live(session.ghost, level) || !live(target, level) || target == session.ghost
+                || !offerOriginAllowed(origin == OfferOrigin.OPERATOR_DEVELOPMENT, player.hasPermissions(2),
+                        roleTargetEligible(target))) return false;
+        LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
+        if (context == null) return false;
+        MobHarnessId targetId = new MobHarnessId(target.getUUID());
+        if (context.ownership().registeredHarness(targetId).isPresent()
+                || PlayerCharacterHarnessBinder.binding(target) != null) return false;
+        var characterId = ModCharacters.characterForHost(level,
+                net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(target.getType())).orElse(null);
+        var character = characterId == null ? Optional.<com.juicyslew.moonstation14.component.codec.json.CharacterData>empty()
+                : CharacterIdentitySystem.resolve(level, characterId);
+        if (character.isEmpty() || (!offerOriginAllowed(origin == OfferOrigin.OPERATOR_DEVELOPMENT,
+                player.hasPermissions(2), character.flatMap(data -> data.component(
+                com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent.class))
+                .map(com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent::takeover)
+                .orElse(false)))) return false;
+        if (characterId == null || !CharacterIdentitySystem.enroll(target, level, characterId)
+                || !context.reserveRoleTarget(targetId)) return false;
+        GroundedHarnessLease lease = GroundedHarnessLease.tryAcquireRoleTarget(target).orElse(null);
+        if (lease == null) {
+            context.releaseUnclaimedRoleTarget(targetId);
+            return false;
+        }
+        if (session.offeredLease != null) closeOffer(session);
+        session.offeredTarget = target;
+        session.offerOrigin = origin;
+        session.offeredDimension = level.dimension().location().toString();
+        session.offeredTargetId = targetId;
+        session.offeredLease = lease;
+        session.offeredContext = context;
+        session.offeredRegistered = true;
+        session.offerStartedTick = level.getGameTime();
+        try {
+            GhostControlNetworking.sendToPlayer(player,
+                    new GhostControlPayloads.Offer(session.epoch, target.getId(), MobHarnessKind.CHARACTER));
+            return true;
+        } catch (RuntimeException | Error failure) {
+            closeOffer(session);
+            context.releaseUnclaimedRoleTarget(targetId);
+            return false;
+        }
+    }
+
+    /** Canonical committed ghost snapshot for request handlers; no client-selected account or Mind is accepted. */
+    public static Optional<CommittedGhostActor> canonicalGhost(ServerPlayer player) {
+        return committedActorSnapshot(player);
+    }
+
+    private static void closeOffer(Session session) {
+        if (session.offeredLease != null) try { session.offeredLease.close(); }
+        catch (RuntimeException | Error ignored) { }
+        if (session.offeredRegistered && session.offeredContext != null && session.offeredTargetId != null)
+            session.offeredContext.releaseUnclaimedRoleTarget(session.offeredTargetId);
+        session.offeredLease = null;
+        session.offeredTarget = null;
+        session.offerOrigin = null;
+        session.offeredDimension = null;
+        session.offeredTargetId = null;
+        session.offeredContext = null;
+        session.offeredRegistered = false;
+        session.offerStartedTick = -1;
+    }
+
+    static boolean roleOfferReadyDecision(boolean committed, long receivedEpoch, long currentEpoch,
+                                          int receivedTarget, int currentTarget,
+                                          MobHarnessKind kind, boolean leaseHeld,
+                                          boolean exactConnection, boolean exactPlayer) {
+        return committed && receivedEpoch == currentEpoch && receivedTarget >= 0
+                && receivedTarget == currentTarget && kind == MobHarnessKind.CHARACTER && leaseHeld
+                && exactConnection && exactPlayer;
+    }
+
+    private static void commitRoleOffer(MinecraftServer server, Session session, ServerLevel level) {
+        Mob target = session.offeredTarget;
+        GroundedHarnessLease lease = session.offeredLease;
+        if (target == null || lease == null || level.getGameTime() - session.offerStartedTick >= READY_TIMEOUT_TICKS
+                || !connectedExact(server, session.player) || session(server, session.accountId) != session
+                || !authorized(session) || session.player.getCamera() != session.ghost
+                || !live(session.ghost, level) || !live(target, level) || target.level() != level
+                || !GroundedHarnessLease.isOwnedRoleTargetEligible(target)
+                || session.offerOrigin == null
+                || (session.offerOrigin == OfferOrigin.NORMAL_GHOST_ROLE && !roleTargetEligible(target))
+                || !developmentCommitAllowed(session.offerOrigin == OfferOrigin.OPERATOR_DEVELOPMENT,
+                    session.player.hasPermissions(2), target.isAlive(),
+                    contextUnclaimed(server, session.offeredTargetId), target.getUUID().equals(session.offeredTargetId.value()),
+                    level.dimension().location().toString().equals(session.offeredDimension))) {
+            closeOffer(session);
+            return;
+        }
+        LifecycleServerContext context = LifecycleStartupRuntime.contextFor(server).orElse(null);
+        var identity = target.getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.CHARACTER_IDENTITY.get());
+        if (context == null || identity == null || !identity.isBound()) {
+            closeOffer(session);
+            return;
+        }
+        MobHarnessId targetId = session.offeredTargetId;
+        var registered = context.ownership().registeredHarness(targetId).orElse(null);
+        boolean exactReservation = registered != null && registered.equals(
+                new com.juicyslew.moonstation14.ms14.player_body_control.MobHarness(targetId, MobHarnessKind.CHARACTER));
+        boolean bindingAbsent = PlayerCharacterHarnessBinder.binding(target) == null;
+        boolean authorizedOperatorDevelopment = session.offerOrigin == OfferOrigin.OPERATOR_DEVELOPMENT
+                && session.player.hasPermissions(2);
+        boolean adoptionReady = LifecycleCharacterSessionControl.roleAdoptionReady(session.player, target,
+                session.lifecycle, session.epoch, lease, authorizedOperatorDevelopment);
+        if (!roleOfferPrecommitDecision(exactReservation, bindingAbsent, identity.isBound(), adoptionReady)) {
+            closeOffer(session);
+            return;
+        }
+        String nextProfileKey = com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
+                .PlayerCharacterBinding.profileKeyForBody(target.getUUID());
+        var publicName = com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(target)
+                .getString();
+        try {
+            var ledger = com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentitySavedData
+                    .forFirstEnrollment(server.overworld());
+            var existingNpc = ledger.npc(target.getUUID());
+            if (existingNpc.isPresent()) {
+                ledger.allocateNpcDurably(server.overworld(), target.getUUID(), existingNpc.get().type());
+            } else {
+                ledger.allocateBodyCharacterDurably(server.overworld(), new com.juicyslew.moonstation14.ms14.chat.identity
+                        .ChatIdentityRegistry.CharacterKey(session.accountId, nextProfileKey), publicName);
+            }
+        } catch (RuntimeException | Error failure) {
+            closeOffer(session);
+            return;
+        }
+        String dimension = level.dimension().location().toString();
+        var location = new SavedLifecycleProfile.Location(target.getX(), target.getY(), target.getZ());
+        var appearance = Map.of("prototype", identity.characterId().toString());
+        PlayerLifecycleRegistry.Snapshot next;
+        try {
+            next = context.takeOverGhostRole(session.accountId, session.epoch, session.ghostId, targetId,
+                    dimension, location, appearance, harness -> harness.id().equals(targetId)
+                            && harness.kind() == MobHarnessKind.CHARACTER && live(target, level)
+                            && context.ownership().registeredHarness(targetId).filter(harness::equals).isPresent()
+                            && target.getUUID().equals(targetId.value()) && target.level() == level
+                            && GroundedHarnessLease.isOwnedRoleTargetEligible(target)
+                            && (session.offerOrigin == OfferOrigin.OPERATOR_DEVELOPMENT
+                                ? session.player.hasPermissions(2)
+                                    && level.dimension().location().toString().equals(session.offeredDimension)
+                                : roleTargetEligible(target))).orElse(null);
+        } catch (IOException | RuntimeException failure) {
+            closeOffer(session);
+            return;
+        }
+        if (next == null || !next.active()
+                || next.state() != PlayerLifecycleRegistry.LifecycleState.ACTIVE
+                || next.connectionGeneration() <= session.epoch || !next.profileId().equals(nextProfileKey)) {
+            closeOffer(session);
+            return;
+        }
+        Map<UUID, Session> sessions = SERVERS.get(server);
+        if (sessions == null || sessions.get(session.accountId) != session) {
+            closeOffer(session);
+            LifecycleCharacterSessionControl.cleanupFailedRoleAdoption(session.player, target, session.lifecycle,
+                    next.connectionGeneration(), lease);
+            if (!session.ghost.isRemoved()) session.ghost.discard();
+            if (connectedExact(server, session.player)) session.player.connection.disconnect(
+                    net.minecraft.network.chat.Component.literal("Role takeover committed; reconnect for recovery."));
+            return;
+        }
+        sessions.remove(session.accountId);
+        OfferOrigin committedOrigin = session.offerOrigin;
+        if (sessions.isEmpty()) SERVERS.remove(server);
+        session.gate.reset();
+        session.controls.reset();
+        session.offeredLease = null; // Ownership of the acquired grounded lease transfers to the character session.
+        session.offeredTarget = null;
+        session.offerOrigin = null;
+        session.offeredDimension = null;
+        session.offeredTargetId = null;
+        session.offeredContext = null;
+        session.offeredRegistered = false;
+        if (SERVERS.isEmpty()) LifecycleSessionPacketRouter.instance().clearGhostHandler();
+        try {
+            if (!PlayerCharacterHarnessBinder.bind(target, session.accountId,
+                    next.profileId(), session.mindId.value(),
+                    identity.characterId())) throw new IllegalStateException("role body binding failed after takeover");
+            if (!LifecycleCharacterSessionControl.activateAlreadyOffered(session.player, target, session.lifecycle,
+                    next.connectionGeneration(), lease, committedOrigin)) throw new IllegalStateException("offered character activation failed");
+            var oldObserver = com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.query(session.player);
+            if (oldObserver != null && oldObserver.boundAuthority() != null
+                    && session.ghost.getUUID().equals(oldObserver.ghostId())
+                    && !com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem.finishBoundObserverTakeover(
+                    session.player, oldObserver.ghostId(), oldObserver.epoch()))
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.warn("[observer] bound context takeover cleanup failed owner={} ghost={} epoch={}",
+                        session.accountId, oldObserver.ghostId(), oldObserver.epoch());
+            if (!session.ghost.isRemoved()) session.ghost.discard();
+        } catch (RuntimeException | Error failure) {
+            LifecycleCharacterSessionControl.cleanupFailedRoleAdoption(session.player, target, session.lifecycle,
+                    next.connectionGeneration(), lease);
+            if (!session.ghost.isRemoved()) session.ghost.discard();
+            if (connectedExact(server, session.player)) session.player.connection.disconnect(
+                    net.minecraft.network.chat.Component.literal("Role takeover committed; reconnect for recovery."));
+        }
+    }
+
+    static boolean roleOfferPrecommitDecision(boolean exactReservation, boolean bindingAbsent,
+                                              boolean identityBound, boolean adoptionReady) {
+        return exactReservation && bindingAbsent && identityBound && adoptionReady;
+    }
+
+    private static boolean roleTargetEligible(Mob target) {
+        return CharacterIdentitySystem.resolveForActor(target)
+                .flatMap(data -> data.component(com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent.class))
+                .map(com.juicyslew.moonstation14.ms14.character.components.GhostRoleComponent::takeover)
+                .orElse(false);
+    }
+
     private static boolean authorizedReadOnly(Session session) {
         var profile = session.lifecycle.profile(session.accountId).orElse(null);
         return profile != null && profile.active() && profile.deadClaim()
@@ -393,6 +664,9 @@ public final class LifecycleGhostSessionControl {
         Map<UUID, Session> sessions = SERVERS.get(server);
         if (sessions == null) return;
         for (Session session : sessions.values().toArray(Session[]::new)) {
+            if (session.offeredLease != null
+                    && session.player.level().getGameTime() - session.offerStartedTick >= READY_TIMEOUT_TICKS)
+                closeOffer(session);
             var ghostLevel = session.ghost.level();
             long age = session.player.level().getGameTime() - session.startedTick;
             var diagnostic = new TickTerminalDiagnostic(
@@ -483,6 +757,8 @@ public final class LifecycleGhostSessionControl {
         sessions.remove(session.accountId);
         if (sessions.isEmpty()) SERVERS.remove(server);
         session.gate.reset();
+        session.controls.reset();
+        closeOffer(session);
         boolean returned = session.lifecycle.returnGhostToDeadClaim(session.accountId, session.mindId,
                 session.ghostId, session.corpseId, session.epoch).isPresent();
         com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
@@ -633,7 +909,9 @@ public final class LifecycleGhostSessionControl {
         try {
             var snapshot = new GhostControlPayloads.Snapshot(session.epoch, ghost.getId(), MobHarnessKind.GHOST,
                     tick, session.lastAppliedSequence, position.x, position.y, position.z, yaw, pitch,
-                    velocity.x, velocity.y, velocity.z, false, 1f, 1f, false);
+                    velocity.x, velocity.y, velocity.z, false, 1f, 1f, false, 0,
+                    GhostControlPayloads.Snapshot.MovementMode.GROUNDED, Optional.empty(),
+                    session.controls.heldState(), com.juicyslew.moonstation14.ms14.animals.flight.FlightState.GROUNDED);
             if (!snapshotBoundToSession(snapshot, session.epoch, ghost.getId())
                     || !session.ghostId.equals(new MobHarnessId(ghost.getUUID()))) {
                 end(server, session, true, "snapshot_binding_invalid");
@@ -657,6 +935,11 @@ public final class LifecycleGhostSessionControl {
 
     static boolean intentRateAllows(int count) {
         return count > 0 && count <= MAX_INTENTS_PER_TICK;
+    }
+
+    private static boolean live(Mob body, ServerLevel level) {
+        return body != null && !body.isRemoved() && body.isAlive() && body.isAddedToLevel()
+                && body.level() == level && level.getEntity(body.getUUID()) == body && !body.isPassenger();
     }
 
     private static boolean live(GhostMobHarnessEntity ghost, ServerLevel level) {
@@ -712,8 +995,17 @@ public final class LifecycleGhostSessionControl {
         boolean committed;
         boolean beginSent, readyAccepted, commitSent;
         final GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
+        final GhostControlInputAccumulator controls = new GhostControlInputAccumulator();
         long intentTick = Long.MIN_VALUE, lastAppliedSequence, lastSnapshotTick = Long.MIN_VALUE;
         int intentCount;
+        Mob offeredTarget;
+        OfferOrigin offerOrigin;
+        String offeredDimension;
+        MobHarnessId offeredTargetId;
+        GroundedHarnessLease offeredLease;
+        LifecycleServerContext offeredContext;
+        boolean offeredRegistered;
+        long offerStartedTick = -1;
 
         Session(ServerPlayer player, GhostMobHarnessEntity ghost, PlayerLifecycleRegistry lifecycle,
                 long epoch, MobHarnessId corpseId, long startedTick, GhostMovementMotor movementMotor) {

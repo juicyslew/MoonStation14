@@ -16,3 +16,4 @@ public record MobStateData(MobStateComponent.State state, long revision) {
         if (state == null || revision < 0) throw new IllegalArgumentException("invalid mob state data");
     }
 }
+

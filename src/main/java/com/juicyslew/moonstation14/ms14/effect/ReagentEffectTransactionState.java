@@ -129,3 +129,4 @@ public final class ReagentEffectTransactionState {
                                   float physicalAmount, float effectiveCapacity) {
     }
 }
+

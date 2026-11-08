@@ -167,3 +167,4 @@ final class DisposalFixtureTourPlan {
         return Direction.fromDelta(to.getX()-from.getX(),to.getY()-from.getY(),to.getZ()-from.getZ());
     }
 }
+

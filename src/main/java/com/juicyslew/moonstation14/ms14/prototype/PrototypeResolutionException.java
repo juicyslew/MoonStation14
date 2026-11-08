@@ -10,3 +10,4 @@ public class PrototypeResolutionException extends IllegalArgumentException {
         super(message, cause);
     }
 }
+

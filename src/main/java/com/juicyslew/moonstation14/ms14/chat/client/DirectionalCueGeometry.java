@@ -97,3 +97,4 @@ public final class DirectionalCueGeometry {
 
     private static boolean finite(double value) { return Double.isFinite(value); }
 }
+

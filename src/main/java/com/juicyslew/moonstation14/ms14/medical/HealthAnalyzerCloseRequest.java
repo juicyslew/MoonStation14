@@ -17,3 +17,4 @@ public record HealthAnalyzerCloseRequest(UUID scannerId, long epoch, UUID actorI
     public HealthAnalyzerCloseRequest { if (scannerId == null || actorId == null || epoch < 0) throw new IllegalArgumentException("invalid close request"); }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

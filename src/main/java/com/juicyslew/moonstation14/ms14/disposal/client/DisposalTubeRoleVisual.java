@@ -98,3 +98,4 @@ public final class DisposalTubeRoleVisual {
         return dot>=0?new DisposalMeshGeometry.Quad(a,b,c,d,false):new DisposalMeshGeometry.Quad(a,d,c,b,false);
     }
 }
+

@@ -1,0 +1,1 @@
+{"id":"moonstation14:defaults","poll_delay_ticks":60,"cycle_delay_ticks":300,"initial_water":100,"initial_nutrition":100,"draw_warnings":false,"soil_capacity_cents":20000,"refill_maximum_cents":5000}

@@ -103,6 +103,29 @@ final class PowerTopologyTest {
         assertFalse(PowerTopology.deviceAdjacent(null, touching));
     }
 
+    @Test void careWingLampCablePlanHasExactTurnRunAndDeviceContact() {
+        var main = new BlockPos(0, 0, 0);
+        var plan = com.juicyslew.moonstation14.ms14.botany.SmallBotanyFixtureLayout.careLightingCablePlan(main);
+        var first = new CableFaceNode(plan.get(0).pos(), plan.get(0).face(), CableTier.APC);
+        var second = new CableFaceNode(plan.get(1).pos(), plan.get(1).face(), CableTier.APC);
+        var existing = new CableFaceNode(main.offset(8, 3, 2), Direction.WEST, CableTier.APC);
+        assertEquals(PowerTopology.EdgeKind.EDGE_TURN, PowerTopology.cableEdge(existing, first).orElseThrow().kind());
+        for (int i = 1; i < plan.size(); i++) {
+            var a = plan.get(i - 1); var b = plan.get(i);
+            assertEquals(PowerTopology.EdgeKind.COPLANAR,
+                    PowerTopology.cableEdge(new CableFaceNode(a.pos(), a.face(), CableTier.APC),
+                            new CableFaceNode(b.pos(), b.face(), CableTier.APC)).orElseThrow().kind());
+        }
+        var wing = com.juicyslew.moonstation14.ms14.botany.SmallBotanyFixtureLayout.careOrigin(main);
+        var lamp = com.juicyslew.moonstation14.ms14.botany.SmallBotanyFixtureLayout.careLamp(wing);
+        var port = new DevicePort(lamp, Direction.NORTH, CableTier.APC);
+        var last = plan.get(plan.size() - 1);
+        assertTrue(PowerTopology.deviceAdjacent(port, new CableFaceNode(last.pos(), last.face(), CableTier.APC)));
+        var footprint = com.juicyslew.moonstation14.ms14.botany.SmallBotanyFixtureLayout.plannedFootprint(main);
+        assertTrue(plan.stream().allMatch(node -> footprint.contains(node.pos())));
+        assertTrue(footprint.contains(lamp));
+    }
+
     private static CableFaceNode node(int x, int y, int z, Direction face, CableTier tier) {
         return new CableFaceNode(new BlockPos(x, y, z), face, tier);
     }

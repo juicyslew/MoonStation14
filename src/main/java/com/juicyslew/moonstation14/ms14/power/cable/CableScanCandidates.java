@@ -67,3 +67,4 @@ public final class CableScanCandidates {
         return ((int) Math.floor(coordinate)) >> 4;
     }
 }
+

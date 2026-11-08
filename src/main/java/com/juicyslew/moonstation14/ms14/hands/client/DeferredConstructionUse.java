@@ -34,3 +34,4 @@ public final class DeferredConstructionUse {
     public Intent intent() { return pending; }
     public void clear() { pending = null; }
 }
+

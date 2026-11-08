@@ -1,0 +1,1 @@
+{"parent":"moonstation14:possum","host_entity_types":["moonstation14:possum_poppy"],"metadata":{"name":"Poppy"},"components":[{"type":"AnimalAppearance","model_ids":["poppy"]}]}

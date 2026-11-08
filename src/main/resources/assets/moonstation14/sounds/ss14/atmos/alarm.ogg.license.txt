@@ -1,0 +1,7 @@
+SS14 upstream source: Resources/Audio/Machines/alarm.ogg at commit c9df5ef5d675b0d1d226828bddf6b78c28502d91.
+SHA-256: 407cc41a7a554780a51bdcc0a543baaa7bd5a05eb0deb43752d7879b08317a43
+License: CC-BY-SA-3.0
+Copyright: Taken and edited from source
+Source: https://github.com/Baystation12/Baystation12/commit/41c3cfd386b11aee101b3f89ab7fefe77a57a1ba#diff-07f56c449048fdb4cef954ea18c4111e53ccb92624a948f15879a74cdf5fc7fa
+Attribution source: Resources/Audio/Ambience/Objects/attributions.yml (alarm.ogg).
+The pinned-revision Ambience/Objects/alarm.ogg is byte-identical (same SHA-256).

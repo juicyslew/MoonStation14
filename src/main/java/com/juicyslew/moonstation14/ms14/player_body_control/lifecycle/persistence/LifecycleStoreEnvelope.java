@@ -17,3 +17,4 @@ public record LifecycleStoreEnvelope(int schemaVersion, long storeRevision, UUID
         LifecycleProfileCodec.validateStoreProfiles(epochToken, generationCounter, profiles);
     }
 }
+

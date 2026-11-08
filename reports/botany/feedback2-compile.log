@@ -1,0 +1,33 @@
+Starting a Gradle Daemon, 9 busy and 8 stopped Daemons could not be reused, use --status for details
+Reusing configuration cache.
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :generateModMetadata UP-TO-DATE
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :processResources UP-TO-DATE
+
+> Task :compileJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :classes
+
+> Task :compileGametestJava
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-04\src\gametest\java\com\juicyslew\moonstation14\gametest\support\GameTestTagRegistrar.java:19: warning: [removal] bus() in EventBusSubscriber has been deprecated and marked for removal
+@EventBusSubscriber(modid = MoonStation14.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+                                                  ^
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-04\src\gametest\java\com\juicyslew\moonstation14\gametest\support\GameTestTagRegistrar.java:19: warning: [removal] Bus in EventBusSubscriber has been deprecated and marked for removal
+@EventBusSubscriber(modid = MoonStation14.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+                                                                          ^
+Note: C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-04\src\gametest\java\com\juicyslew\moonstation14\gametest\AtmosphereRoomGameTests.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+2 warnings
+
+> Task :gametestClasses
+> Task :compileTestJava
+
+[Incubating] Problems report is available at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-04/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 23s
+8 actionable tasks: 3 executed, 5 up-to-date
+Configuration cache entry reused.

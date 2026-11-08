@@ -3,9 +3,12 @@ package com.juicyslew.moonstation14.ms14.hands.client;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionRequest;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
+import java.util.UUID;
 
 class PrimaryWorldGestureTest {
     @Test void routesOnlyOwnedWorldPrimaryGestures() {
+        assertEquals(PrimaryWorldGesture.Route.MELEE, PrimaryWorldGesture.route(true, true, true, true, true, true));
+        assertEquals(PrimaryWorldGesture.Route.VANILLA, PrimaryWorldGesture.route(false, true, true, true, true, true));
         assertEquals(PrimaryWorldGesture.Route.VANILLA, PrimaryWorldGesture.route(false, true, true, true));
         assertEquals(PrimaryWorldGesture.Route.TARGET_USE, PrimaryWorldGesture.route(true, true, true, true));
         assertEquals(PrimaryWorldGesture.Route.MEDICAL_USE, PrimaryWorldGesture.route(true, true, true, true, true));
@@ -23,5 +26,95 @@ class PrimaryWorldGestureTest {
         assertEquals(PrimaryWorldGesture.Route.BLOCK_USE, PrimaryWorldGesture.route(true, true, true, false));
         assertEquals(PrimaryWorldGesture.Route.CONTROLLED_NONE, PrimaryWorldGesture.route(true, false, false, false));
         assertNull(PrimaryWorldGesture.action(PrimaryWorldGesture.Route.VANILLA));
+    }
+
+    @Test void emptyHandPortableNominationProducesSelectedPickupEvenWithBackgroundBlock() {
+        UUID portable = UUID.randomUUID();
+        var click = PrimaryWorldGesture.click(true, false, null, portable, false, null);
+        assertEquals(PrimaryWorldGesture.Route.PICKUP, click.route());
+        assertEquals(BodyHandActionRequest.Action.PICKUP_SELECTED, click.action());
+        assertEquals(portable, click.target());
+    }
+
+    @Test void pileWinsAndPortableLivingDoesNotBecomeHeldHandTarget() {
+        UUID pile = UUID.randomUUID(), portable = UUID.randomUUID();
+        var emptyHand = PrimaryWorldGesture.click(false, false, pile, portable, false, null);
+        assertEquals(BodyHandActionRequest.Action.PICKUP_SELECTED, emptyHand.action());
+        assertEquals(pile, emptyHand.target());
+
+        var heldHand = PrimaryWorldGesture.click(false, true, null, portable, false, null);
+        assertEquals(PrimaryWorldGesture.Route.HELD_USE, heldHand.route());
+        assertEquals(BodyHandActionRequest.Action.USE_HELD, heldHand.action());
+        assertNull(heldHand.target());
+
+        var heldHandWithPile = PrimaryWorldGesture.click(false, true, pile, portable, false, null);
+        assertEquals(BodyHandActionRequest.Action.USE_TARGET, heldHandWithPile.action());
+        assertEquals(pile, heldHandWithPile.target());
+    }
+
+    @Test void noCandidateAndMedicalHeldUseRetainExistingRoutes() {
+        var blocked = PrimaryWorldGesture.click(true, false, null, null, false, null);
+        assertEquals(PrimaryWorldGesture.Route.BLOCK_USE, blocked.route());
+        assertNull(blocked.action());
+
+        UUID portable = UUID.randomUUID(), patient = UUID.randomUUID();
+        var medical = PrimaryWorldGesture.click(false, true, null, portable, true, patient);
+        assertEquals(PrimaryWorldGesture.Route.MEDICAL_USE, medical.route());
+        assertEquals(BodyHandActionRequest.Action.USE_BODY, medical.action());
+        assertEquals(patient, medical.target());
+    }
+
+    @Test void outlineSharesPilePriorityAndOnlyAddsPortableCandidateWhenPickupIsAvailable() {
+        UUID pile = UUID.randomUUID(), portable = UUID.randomUUID();
+        assertEquals(pile, PrimaryWorldGesture.outlineTarget(false, true, pile, portable));
+        assertEquals(portable, PrimaryWorldGesture.outlineTarget(true, false, null, portable));
+        assertNull(PrimaryWorldGesture.outlineTarget(false, false, null, portable));
+        assertNull(PrimaryWorldGesture.outlineTarget(true, true, null, portable));
+    }
+
+    @Test void resolvedClickRecipientIsAlsoThePresentationCandidateAcrossPriorities() {
+        UUID medical = UUID.randomUUID(), pile = UUID.randomUUID(), portable = UUID.randomUUID();
+        var treatment = PrimaryWorldGesture.resolve(true, true, pile, portable, true, medical);
+        assertEquals(PrimaryWorldGesture.Route.MEDICAL_USE, treatment.route());
+        assertEquals(medical, treatment.target());
+
+        var ordinaryHeld = PrimaryWorldGesture.resolve(true, true, pile, portable, false, null);
+        assertEquals(PrimaryWorldGesture.Route.TARGET_USE, ordinaryHeld.route());
+        assertEquals(pile, ordinaryHeld.target());
+        var noMobTarget = PrimaryWorldGesture.resolve(true, true, null, portable, false, null);
+        assertEquals(PrimaryWorldGesture.Route.BLOCK_USE, noMobTarget.route());
+        assertNull(noMobTarget.target());
+        var emptyHand = PrimaryWorldGesture.resolve(true, false, null, portable, false, null);
+        assertEquals(BodyHandActionRequest.Action.PICKUP_SELECTED, emptyHand.action());
+        assertEquals(portable, emptyHand.target());
+        var medicalMiss = PrimaryWorldGesture.resolve(true, true, pile, portable, false, null);
+        assertEquals(PrimaryWorldGesture.Route.TARGET_USE, medicalMiss.route());
+        assertEquals(pile, medicalMiss.target());
+    }
+
+    @Test void combatPickupRequiresConfirmedEmptyNonPullingHandAndAnActualPickupDecision() {
+        UUID item = UUID.randomUUID(), portableMob = UUID.randomUUID();
+        var ordinary = PrimaryWorldGesture.resolve(false, false, item, null, false, null);
+        var portableLiving = PrimaryWorldGesture.resolve(false, false, null, portableMob, false, null);
+        var deadEligibleBody = PrimaryWorldGesture.resolve(false, false, null, portableMob, false, null);
+        var heldTarget = PrimaryWorldGesture.resolve(false, true, item, portableMob, false, null);
+        assertTrue(PrimaryWorldGesture.combatPickupMayRoute(true, false, false, ordinary));
+        assertTrue(PrimaryWorldGesture.combatPickupMayRoute(true, false, false, portableLiving));
+        assertTrue(PrimaryWorldGesture.combatPickupMayRoute(true, false, false, deadEligibleBody));
+        assertFalse(PrimaryWorldGesture.combatPickupMayRoute(true, true, false, heldTarget));
+        assertFalse(PrimaryWorldGesture.combatPickupMayRoute(true, false, true, ordinary));
+        assertFalse(PrimaryWorldGesture.combatPickupMayRoute(false, false, false, ordinary));
+        assertFalse(PrimaryWorldGesture.combatPickupMayRoute(false, false, false, null));
+        assertFalse(PrimaryWorldGesture.combatPickupMayRoute(true, false, false,
+                PrimaryWorldGesture.resolve(false, false, null, null, false, null)));
+        assertTrue(PrimaryWorldGesture.targetAllowsCombatHandInteract(false, false)); // ordinary loose item
+        assertFalse(PrimaryWorldGesture.targetAllowsCombatHandInteract(true, false)); // alive portable creature
+        assertTrue(PrimaryWorldGesture.targetAllowsCombatHandInteract(true, true)); // dead portable body
+        assertTrue(PrimaryWorldGesture.combatPickupTargetEligible(true, true, false, false));
+        assertTrue(PrimaryWorldGesture.combatPickupTargetEligible(true, false, true, true));
+        assertFalse(PrimaryWorldGesture.combatPickupTargetEligible(true, false, true, false));
+        assertFalse(PrimaryWorldGesture.combatPickupTargetEligible(false, false, false, false)); // unresolved nomination
+        assertFalse(PrimaryWorldGesture.combatPickupTargetEligible(true, false, false, false)); // unrelated entity
+        assertEquals(item, ordinary.target()); // ordinary loose item remains ahead of portable body candidate
     }
 }

@@ -18,3 +18,4 @@ public enum StatusEffectState {
             state -> state == PENDING ? "pending" : "active"
     );
 }
+

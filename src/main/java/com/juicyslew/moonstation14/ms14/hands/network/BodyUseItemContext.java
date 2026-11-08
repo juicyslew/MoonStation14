@@ -16,3 +16,4 @@ public record BodyUseItemContext(ServerPlayer actor, HandActorAuthority.Snapshot
     }
     @Override public ItemStack stack() { return stack.copy(); }
 }
+

@@ -413,3 +413,4 @@ public final class PostureSystem {
             save(body, posture(body).facing(net.minecraft.util.Mth.wrapDegrees(posture(body).movementFacingYaw() + turn)));
     }
 }
+

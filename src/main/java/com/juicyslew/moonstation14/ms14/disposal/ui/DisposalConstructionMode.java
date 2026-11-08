@@ -78,3 +78,4 @@ public final class DisposalConstructionMode {
         return Set.of("disposal_pipe","disposal_bend","disposal_trunk","disposal_junction","disposal_junction_flipped","disposal_y_junction","disposal_x_junction","disposal_tagger","disposal_router","disposal_router_flipped").contains(id.getPath());
     }
 }
+

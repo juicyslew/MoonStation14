@@ -51,3 +51,4 @@ public abstract class EntityAirlockBumpMixin implements AirlockBumpMoveAccess {
     @Override public AirlockBumpMoveAccess.Move moonstation14$getAirlockMove() { return moonstation14$airlockMove; }
     @Override public void moonstation14$clearAirlockMove() { moonstation14$airlockMove = null; moonstation14$airlockTravelActive = false; }
 }
+

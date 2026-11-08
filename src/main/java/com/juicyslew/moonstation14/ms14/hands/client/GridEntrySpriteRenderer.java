@@ -85,3 +85,4 @@ final class GridEntrySpriteRenderer {
         return stack;
     }
 }
+

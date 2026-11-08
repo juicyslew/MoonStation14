@@ -53,7 +53,8 @@ public final class ExamineTargetResolver {
     public static Optional<Resolved> resolve(ServerLevel level, Entity actor, ExamineTarget target) {
         if (level == null || actor == null || target == null || actor.level() != level || actor.isRemoved())
             return Optional.empty();
-        if (target.kind() == ExamineTarget.Kind.SCENE) return Optional.empty();
+        if (target.kind() == ExamineTarget.Kind.SCENE || target.kind() == ExamineTarget.Kind.ITEM
+                || target.kind() == ExamineTarget.Kind.STORED_ITEM) return Optional.empty();
         if (target.kind() == ExamineTarget.Kind.ENTITY) {
             Entity entity = level.getEntity(target.entityId());
             if (entity == null || entity.isRemoved() || !entity.getUUID().equals(target.entityUuid())

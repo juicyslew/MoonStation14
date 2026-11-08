@@ -31,6 +31,59 @@ public final class ExamineService {
         ExamineAuthority.Actor authority = ExamineAuthority.resolve(player, request);
         if (authority == null) return result(denied(request, empty, null), Admission.NO_EXACT_ROLE);
         Entity actor = authority.entity();
+        if (request.target().kind() == ExamineTarget.Kind.ITEM || request.target().kind() == ExamineTarget.Kind.STORED_ITEM) {
+            if (!(actor instanceof net.minecraft.world.entity.LivingEntity body)
+                    || request.controllerIncarnation() != null) return result(denied(request, empty, null), Admission.TARGET_ABSENT);
+            net.minecraft.world.item.ItemStack stack;
+            boolean ownedItem = true;
+            double itemDistance = 0;
+            boolean itemVisible = true;
+            if (request.target().kind() == ExamineTarget.Kind.ITEM) {
+                var owned = com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.read(body,
+                        request.target().ownedItem().binding()).orElse(null);
+                if (owned == null) return result(denied(request, empty, null), Admission.TARGET_ABSENT);
+                stack = owned.stack();
+            } else {
+                var stored = request.target().storedItem();
+                if (stored.worldSession()) {
+                    ownedItem = false;
+                    stack = com.juicyslew.moonstation14.ms14.hands.network.BodyWorldGridService.inspectOpenChild(
+                            player, body, authority.epoch(), stored.hostUuid(), stored.sessionNonce(), stored.revision(),
+                            stored.hostRevision(), stored.childToken()).orElse(null);
+                    Entity host = level.getEntity(stored.hostUuid());
+                    var hostResolved = host == null ? null : ExamineTargetResolver.resolve(level, actor,
+                            ExamineTarget.entity(host)).orElse(null);
+                    if (hostResolved == null) return result(denied(request, empty, null), Admission.TARGET_ABSENT);
+                    itemDistance = hostResolved.distance();
+                    itemVisible = ExamineTargetResolver.visibility(level, actor, hostResolved).visible();
+                } else {
+                    var host = new com.juicyslew.moonstation14.ms14.hands.live.LiveHands.GridHost(
+                            stored.location() == com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.EQUIPMENT,
+                            stored.hostId(), stored.hostToken());
+                    stack = com.juicyslew.moonstation14.ms14.hands.live.BodyEquippedStorageTransfer.readGridItem(
+                            body, host, stored.childToken(), stored.revision()).orElse(null);
+                }
+                if (stack == null || stack.isEmpty()) return result(denied(request, empty, null), Admission.TARGET_ABSENT);
+            }
+            var policyExaminer = new ExaminationPolicy.Examiner(authority.examiner().skipChecks(), authority.examiner().checkInRangeUnOccluded());
+            boolean allowed = ExaminationPolicy.canExamine(policyExaminer, authority.state(), authority.blind(),
+                    authority.blurMagnitude(), itemDistance, true, itemVisible,
+                    ExamineContributorRegistry.attemptsAllow(actor, request.target(), level));
+            if (!allowed) return result(denied(request, empty, null), itemDistance > ExaminationPolicy.NORMAL_RANGE
+                    ? Admission.OUT_OF_RANGE : !itemVisible ? Admission.LOS_BLOCKED : Admission.ATTEMPT_DENIED);
+            boolean details = ExaminationPolicy.detailsAllowed(policyExaminer, authority.state(), authority.ghost(),
+                    itemDistance, true, itemVisible);
+            ExamineCollector collector = new ExamineCollector(details, stack.getHoverName());
+            ExamineContext context = new ExamineContext(actor, level, request.target(), null, null, null, null, details, stack, ownedItem);
+            for (ExamineContributor contributor : ExamineContributorRegistry.contributors()) {
+                try { contributor.contribute(context, collector); }
+                catch (RuntimeException failure) { com.juicyslew.moonstation14.MoonStation14.LOGGER.warn("Examine provider failed; skipping its contribution", failure); }
+            }
+            return result(acceptedResponse(request, authority, collector, details, null), Admission.ACCEPTED,
+                    new Diagnostic(new ExamineTargetResolver.VisibilityResult(itemVisible, null,
+                            ownedItem ? "owned_item" : "world_storage_child"), itemDistance,
+                            authority.state(), actor.getEyePosition(), actor.getEyePosition()));
+        }
         if (request.target().kind() == ExamineTarget.Kind.SCENE) {
             if (request.controllerIncarnation() != null)
                 return result(denied(request, empty, null), Admission.ACTOR_STAMP_MISMATCH);
@@ -69,11 +122,13 @@ public final class ExamineService {
 
         boolean detailsAllowed = ExaminationPolicy.detailsAllowed(policyExaminer, authority.state(),
                 authority.ghost(), resolved.distance(), true, visible);
-        Component nativeName = resolved.entity() != null ? resolved.entity().getDisplayName()
+        Component nativeName = resolved.entity() != null ? com.juicyslew.moonstation14.ms14.character.CharacterPublicName.component(resolved.entity())
                 : resolved.state().getBlock().getName();
         ExamineCollector collector = new ExamineCollector(detailsAllowed, nativeName);
+        net.minecraft.world.item.ItemStack itemStack = resolved.entity() instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose
+                ? loose.getItem().copy() : net.minecraft.world.item.ItemStack.EMPTY;
         ExamineContext context = new ExamineContext(actor, level, request.target(), resolved.entity(),
-                resolved.root(), resolved.state(), resolved.blockEntity(), detailsAllowed);
+                resolved.root(), resolved.state(), resolved.blockEntity(), detailsAllowed, itemStack, false);
         for (ExamineContributor contributor : ExamineContributorRegistry.contributors()) {
             try { contributor.contribute(context, collector); }
             catch (RuntimeException failure) {

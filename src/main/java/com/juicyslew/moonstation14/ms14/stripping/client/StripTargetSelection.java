@@ -19,3 +19,4 @@ public final class StripTargetSelection {
         return first.id();
     }
 }
+

@@ -19,3 +19,4 @@ public final class NetworkConfiguratorLinkWindowState {
     public boolean drag(double x,double y){return window.drag(x,y);}
     public void endDrag(){window.endDrag();}
 }
+

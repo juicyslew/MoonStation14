@@ -1,0 +1,17 @@
+# M4A species-mutation foundation validation
+
+## Scope and status
+
+This is a bounded typed species-change/runtime foundation, not a completed species-mutation feature. Generic M4 data/runtime parity review passed; independent native-source review also passed for acquired-chemical/source-level-1/target-packet behavior and the shared authenticated pipeline. Author ran the exact 19-class selection in the plan with `-x compileGametestJava`: all 19 expected classes matched, no missing/unexpected classes, fresh XML **108 tests, 108 passed, 0 failures, 0 errors, 0 skipped**; `compileJava` and `compileTestJava` passed. Earlier 97-test counts were incomplete and are not evidence. The corrected native sources now pass `./gradlew.bat compileGametestJava --no-configuration-cache` (**BUILD SUCCESSFUL**). The native GameTest itself has not run. All integration-gate checks remain pending: jar-producing build, readiness, and native GameTest execution; author compile/JVM and source reviews are not gate passes.
+
+Five production seed profiles currently have empty `mutation_targets`; live genuine target edges are absent. The foundation's new species descriptor therefore has no authentic production edge to traverse yet. It does not claim four newly targeted/registered species, a species-mutation showcase, full 71-seed integration, or completion of special mutation outputs. The 65-family asset request remains open; no four leaves/models have been delivered. No manual scenario is requested for this foundation: existing `/ms14 botany_fixture` A/B/C remains a harvest-mode comparison, not a species-mutation showcase.
+
+Prior M4 data-only focused results (16 classes) are historical, before the runtime work. The M3C R8 gate was technically ready (jar/build, 101 JVM, 101 readiness, and 39/862 native) but not owner acceptance and does not validate M4A. R8's earlier gas/manual evidence is not a request to repeat it. R6–R8 and earlier artifacts remain preserved.
+
+## R1 gate
+
+Use [species-mutation-gate-plan.json](species-mutation-gate-plan.json). The serialized gate must execute all four checks freshly; retain candidate-bound XML/log evidence and report selected/total plus all-required-passed for native. Do not turn pending worker reports into results. The 19 JVM selections are the exact existing 17 M3C classes plus `PlantSpeciesMutationTest` and `PlantSpeciesMutationCycleTest`. Readiness is interaction/prediction only. Native selects the previous seven botany/harvest tags plus `botany-species-mutation` in a fresh world.
+
+The plan covers immutable target descriptors and resolved profile behavior; mutation-target copy preservation and source-order selection; exact target/adopted gene and chemical inheritance, atomic state update, uniform nonempty target choice before resolution, observable failure/order, and strict chance boundary; real-catalog explicit-cycle/produce and authenticated extraction-packet-replant native paths; plus build/runtime and honest catalog/asset/special-trait limits. Existing 5 targetless production profiles and the unfulfilled 65-family asset request are explicit boundaries, not passing criteria for feature completeness.
+
+Full 71-entry/catalog and special-output behavior, four new registered production targets, delivered assets, full suite, GPU/visual/connected-client review, deterministic showcase, and owner acceptance remain unverified/out of scope.

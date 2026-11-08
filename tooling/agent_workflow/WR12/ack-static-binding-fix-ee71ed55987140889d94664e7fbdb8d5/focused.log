@@ -1,0 +1,21 @@
+C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14\tooling\agent_workflow\test_workflow_feedback_service.py:7: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient
+native-dispatch-identities:{'launcher_pid': 42548, 'worker_identity': {'created_ms': 1792233968231, 'pid': 30528}}
+test_kindless_terminal_event_reaches_author_and_acknowledges (test_workflow_feedback_service.FeedbackServiceTests.test_kindless_terminal_event_reaches_author_and_acknowledges) ... ok
+test_status_and_valid_author_ack_remain_available_under_hold (test_workflow_intake_control.HeldIntakeExistingRouteTests.test_status_and_valid_author_ack_remain_available_under_hold) ... ok
+test_valid_ack_and_exact_replay_are_accepted (test_workflow_result_ack.ResultAckRouteTests.test_valid_ack_and_exact_replay_are_accepted) ... ok
+test_wrong_binding_and_untrusted_author_field_are_rejected_without_state_change (test_workflow_result_ack.ResultAckRouteTests.test_wrong_binding_and_untrusted_author_field_are_rejected_without_state_change) ... ok
+test_dynamic_status_without_run_or_key_is_allowed (test_workflow_dynamic_author.DynamicAuthorMcpTests.test_dynamic_status_without_run_or_key_is_allowed) ... ok
+test_session_is_required_forwarded_only_as_header (test_workflow_dynamic_author.DynamicAuthorMcpTests.test_session_is_required_forwarded_only_as_header) ... ok
+test_binding_plan_uses_worktree_slot_without_pinning_session (test_workflow_dynamic_author.WorktreeFloorTests.test_binding_plan_uses_worktree_slot_without_pinning_session) ... ok
+test_empty_configured_floor_rejects_before_token_receipt_or_database_access (test_workflow_dynamic_author.WorktreeFloorTests.test_empty_configured_floor_rejects_before_token_receipt_or_database_access) ... ok
+test_existing_identity_verifier_rejects_wrong_directory_agent_and_role (test_workflow_dynamic_author.WorktreeFloorTests.test_existing_identity_verifier_rejects_wrong_directory_agent_and_role) ... ok
+test_floor_schema_is_strict_and_normalizes_existing_comparison_shape (test_workflow_dynamic_author.WorktreeFloorTests.test_floor_schema_is_strict_and_normalizes_existing_comparison_shape) ... ok
+test_per_call_status_context_isolated_by_verified_session (test_workflow_dynamic_author.WorktreeFloorTests.test_per_call_status_context_isolated_by_verified_session) ... ok
+test_two_sessions_register_and_submit_same_keys_in_isolated_namespaces (test_workflow_dynamic_author.WorktreeFloorTests.test_two_sessions_register_and_submit_same_keys_in_isolated_namespaces) ... ok
+test_live_submit_consumer_is_held_before_identity_and_store_effects (test_workflow_intake_control.IntakeControlTests.test_live_submit_consumer_is_held_before_identity_and_store_effects) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 4.685s
+
+OK

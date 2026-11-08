@@ -21,7 +21,7 @@ class AirAlarmDeviceLinksTest {
         item.putInt("X", x);
         item.putInt("Y", 70);
         item.putInt("Z", 0);
-        item.putString("Kind", "VENT");
+        item.putString("Role", "VENT");
         item.putUUID("DeviceId", UUID.randomUUID());
         return item;
     }
@@ -40,18 +40,34 @@ class AirAlarmDeviceLinksTest {
         assertTrue(links.valid());
         var expected = new AirAlarmDeviceLinks.Link(ResourceKey.create(Registries.DIMENSION,
                 ResourceLocation.parse("minecraft:overworld")), new BlockPos(7, 70, 0),
-                VentilationDeviceConfig.Kind.VENT, list.getCompound(0).getUUID("DeviceId"));
+                AirAlarmDeviceLinks.EndpointRole.VENT, list.getCompound(0).getUUID("DeviceId"));
         assertEquals(java.util.List.of(expected), links.snapshot());
         CompoundTag saved = new CompoundTag();
         links.save(saved);
         AirAlarmDeviceLinks restored = new AirAlarmDeviceLinks();
         restored.load(saved, 32);
         assertEquals(links.snapshot(), restored.snapshot());
-        assertNotEquals(expected, new AirAlarmDeviceLinks.Link(Level.NETHER, expected.pos(), expected.kind(), expected.deviceId()));
+        assertNotEquals(expected, new AirAlarmDeviceLinks.Link(Level.NETHER, expected.pos(), expected.role(), expected.deviceId()));
         assertNotEquals(expected, new AirAlarmDeviceLinks.Link(expected.dimension(), expected.pos(),
-                VentilationDeviceConfig.Kind.SCRUBBER, expected.deviceId()));
+                AirAlarmDeviceLinks.EndpointRole.SCRUBBER, expected.deviceId()));
         assertNotEquals(expected, new AirAlarmDeviceLinks.Link(expected.dimension(), expected.pos(),
-                expected.kind(), UUID.randomUUID()));
+                expected.role(), UUID.randomUUID()));
+    }
+
+    @Test void rolesPersistAndVentAdapterExcludesNonVentRoles() {
+        assertEquals(java.util.Optional.of(VentilationDeviceConfig.Kind.VENT), AirAlarmDeviceLinks.EndpointRole.VENT.ventilationKind());
+        assertEquals(java.util.Optional.of(VentilationDeviceConfig.Kind.SCRUBBER), AirAlarmDeviceLinks.EndpointRole.SCRUBBER.ventilationKind());
+        assertTrue(AirAlarmDeviceLinks.EndpointRole.FIRELOCK.ventilationKind().isEmpty());
+        assertTrue(AirAlarmDeviceLinks.EndpointRole.AIR_ALARM.ventilationKind().isEmpty());
+        ListTag roles = new ListTag();
+        for (var role : AirAlarmDeviceLinks.EndpointRole.values()) {
+            CompoundTag value = item(role.ordinal()); value.putString("Role", role.name()); roles.add(value);
+        }
+        AirAlarmDeviceLinks links = new AirAlarmDeviceLinks(); links.load(tagged(roles), 32);
+        assertTrue(links.valid()); assertEquals(4, links.snapshot().size());
+        CompoundTag saved = new CompoundTag(); links.save(saved);
+        AirAlarmDeviceLinks restored = new AirAlarmDeviceLinks(); restored.load(saved, 32);
+        assertEquals(links.snapshot(), restored.snapshot());
     }
 
     @Test void duplicatesAndOversizeRejectEntireListAndStayInvalidAfterSave() {
@@ -75,6 +91,11 @@ class AirAlarmDeviceLinksTest {
             restored.load(saved, 32);
             assertFalse(restored.valid());
         }
+        ListTag duplicateId = new ListTag();
+        CompoundTag first=item(1), second=item(2); second.putUUID("DeviceId", first.getUUID("DeviceId"));
+        duplicateId.add(first); duplicateId.add(second);
+        AirAlarmDeviceLinks repeated = new AirAlarmDeviceLinks(); repeated.load(tagged(duplicateId),32);
+        assertFalse(repeated.valid());
     }
 
     @Test void malformedIdentityCannotBecomeAnEmptyValidAllowList() {

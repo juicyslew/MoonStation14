@@ -23,3 +23,4 @@ public record VentilationControlRequest(int containerId, UUID session, long requ
     }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

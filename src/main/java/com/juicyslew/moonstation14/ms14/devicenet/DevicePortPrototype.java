@@ -21,3 +21,4 @@ public record DevicePortPrototype(String portId, String name, String description
     }
     public DevicePort port() { return new DevicePort(portId, name, description, defaultLinks); }
 }
+

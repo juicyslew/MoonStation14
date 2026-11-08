@@ -33,3 +33,4 @@ public record ElectrifiedData(boolean enabled, boolean usesApcPower, boolean req
         if (probability > 1) throw new IllegalArgumentException("electrified probability exceeds one");
     }
 }
+

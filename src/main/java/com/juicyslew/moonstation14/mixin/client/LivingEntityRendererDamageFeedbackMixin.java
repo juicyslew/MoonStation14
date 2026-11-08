@@ -24,3 +24,4 @@ abstract class LivingEntityRendererDamageFeedbackMixin {
                     OverlayTexture.v(false)));
     }
 }
+

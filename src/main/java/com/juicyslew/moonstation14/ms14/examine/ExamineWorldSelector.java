@@ -15,9 +15,13 @@ public final class ExamineWorldSelector {
     public static final int MAX_CANDIDATES = 32;
     public static final double MAX_VISIBLE_RANGE = 128;
     public record Candidate(ExamineTarget target, Vec3 hitPoint, double distance, String publicName, AABB box,
-                            boolean transparent) {
+                            boolean transparent, boolean looseItem) {
+        public Candidate(ExamineTarget target, Vec3 hitPoint, double distance, String publicName, AABB box,
+                         boolean transparent) {
+            this(target, hitPoint, distance, publicName, box, transparent, false);
+        }
         public Candidate(ExamineTarget target, Vec3 hitPoint, double distance, String publicName, AABB box) {
-            this(target, hitPoint, distance, publicName, box, false);
+            this(target, hitPoint, distance, publicName, box, false, false);
         }
     }
     private record ShapeHit(BlockPos root, Vec3 point, AABB bounds, boolean transparent) { }
@@ -29,7 +33,7 @@ public final class ExamineWorldSelector {
     }
     public static AABB currentBounds(Level level, ExamineTarget target, float partialTick) {
         if (level == null || target == null) return null;
-        if (target.kind() == ExamineTarget.Kind.SCENE) return null;
+        if (!target.kind().hasWorldGeometry()) return null;
         if (target.frameId() != null) return FrameExamineGeometry.worldBounds(level, target, partialTick);
         if (target.kind() == ExamineTarget.Kind.ENTITY) {
             Entity entity = level.getEntity(target.entityId());
@@ -121,6 +125,7 @@ public final class ExamineWorldSelector {
             Vec3 hitPoint;
             double hitDistance;
             AABB candidateBox;
+            boolean looseItem = entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity;
             if (entity instanceof com.juicyslew.moonstation14.entities.LooseItemEntity loose) {
                 var geometry = com.juicyslew.moonstation14.ms14.loose_objects.LooseItemQueryGeometry.forEntity(loose, partialTick);
                 if (geometry == null) continue;
@@ -134,10 +139,8 @@ public final class ExamineWorldSelector {
                 hitPoint = hit.point(); hitDistance = hit.distance(); candidateBox = entity.getBoundingBox();
             }
             if (hitDistance <= Math.min(limit, opaqueStop)) candidates.add(new Candidate(ExamineTarget.entity(entity), hitPoint, hitDistance,
-                    entity.getDisplayName().getString(), candidateBox, false));
+                    entity.getDisplayName().getString(), candidateBox, false, looseItem));
         }
-        // Native Sable plot cells use the same bounded ray/shape admission as ordinary cells.
-        // SDK discovery, pose selection and loaded cell reads reuse the shared native query context.
         if (level.isClientSide || level instanceof net.minecraft.server.level.ServerLevel) {
             for (var frameRay : com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery
                     .frameRayContexts(level, rayOrigin, end, partialTick)) {
@@ -173,32 +176,44 @@ public final class ExamineWorldSelector {
                     boolean transparent = ExamineVision.isTransparent(state);
                     double nearestDistance = Double.POSITIVE_INFINITY;
                     for (ShapeHit shapeHit : hits) {
-                        Vec3 worldHit = pose.transformPosition(shapeHit.point());
-                        double distance = rayOrigin.distanceTo(worldHit);
+                        Vec3 worldHit = pose.transformPosition(shapeHit.point()); double distance = rayOrigin.distanceTo(worldHit);
                         nearestDistance = Math.min(nearestDistance, distance);
-                        if (distance <= opaqueStop && distance <= limit) candidates.add(new Candidate(
-                                ExamineTarget.frameBlock(frame.getUniqueId(), shapeHit.root()), worldHit, distance,
-                                state.getBlock().getName().getString(),
-                                FrameExamineGeometry.transformedBounds(shapeHit.bounds(), pose), transparent));
+                        if (distance <= opaqueStop && distance <= limit) candidates.add(new Candidate(ExamineTarget.frameBlock(frame.getUniqueId(), shapeHit.root()), worldHit, distance,
+                                state.getBlock().getName().getString(), FrameExamineGeometry.transformedBounds(shapeHit.bounds(), pose), transparent));
                     }
-                    if (!transparent && Double.isFinite(nearestDistance)) {
-                        opaqueStop = Math.min(opaqueStop, nearestDistance);
-                        break;
-                    }
+                    if (!transparent && Double.isFinite(nearestDistance)) { opaqueStop = Math.min(opaqueStop, nearestDistance); break; }
                 }
             }
         }
         LinkedHashMap<ExamineTarget, Candidate> unique = new LinkedHashMap<>();
-        candidates.stream().sorted(Comparator.comparingDouble(Candidate::distance))
-                .forEach(candidate -> unique.putIfAbsent(candidate.target(), candidate));
+        candidates.stream().sorted(Comparator.comparingDouble(Candidate::distance)).forEach(candidate -> unique.putIfAbsent(candidate.target(), candidate));
         ArrayList<Candidate> sorted = new ArrayList<>(unique.values());
-        sorted.sort(Comparator.comparingDouble(Candidate::distance).thenComparing(c -> c.target().kind().ordinal())
+        sorted.sort(candidateOrdering());
+        double finalOpaqueStop = opaqueStop; sorted.removeIf(candidate -> candidate.distance() > finalOpaqueStop + 1.0e-7);
+        return boundedCandidates(sorted);
+    }
+    /** Applies the shared candidate budget while retaining the nearest admitted world block. */
+    static List<Candidate> boundedCandidates(List<Candidate> sorted) {
+        if (sorted.size() <= MAX_CANDIDATES) return List.copyOf(sorted);
+        Candidate nearestBlock = sorted.stream().filter(c -> c.target().kind() == ExamineTarget.Kind.BLOCK)
+                .findFirst().orElse(null);
+        ArrayList<Candidate> bounded = new ArrayList<>(sorted.subList(0, MAX_CANDIDATES));
+        if (nearestBlock != null && !bounded.contains(nearestBlock)) {
+            for (int i = bounded.size() - 1; i >= 0; i--) {
+                if (bounded.get(i).target().kind() == ExamineTarget.Kind.ENTITY) {
+                    bounded.set(i, nearestBlock);
+                    bounded.sort(candidateOrdering());
+                    break;
+                }
+            }
+        }
+        return List.copyOf(bounded);
+    }
+    private static Comparator<Candidate> candidateOrdering() {
+        return Comparator.comparingDouble(Candidate::distance).thenComparing(c -> c.target().kind().ordinal())
                 .thenComparing(c -> c.target().kind() == ExamineTarget.Kind.BLOCK
-                        ? (c.target().frameId() == null ? "world" : c.target().frameId().toString())
-                        + ":" + c.target().blockPos().toShortString() : c.target().entityUuid().toString()));
-        double finalOpaqueStop = opaqueStop;
-        sorted.removeIf(candidate -> candidate.distance() > finalOpaqueStop + 1.0e-7);
-        return List.copyOf(sorted.subList(0, Math.min(MAX_CANDIDATES, sorted.size())));
+                        ? (c.target().frameId() == null ? "world" : c.target().frameId().toString()) + ":" + c.target().blockPos().toShortString()
+                        : c.target().entityUuid().toString());
     }
     private static Vec3 normalized(Vec3 d) {
         if (d == null || !Double.isFinite(d.x) || !Double.isFinite(d.y) || !Double.isFinite(d.z) || d.lengthSqr() < 1e-12) return Vec3.ZERO;
@@ -206,8 +221,7 @@ public final class ExamineWorldSelector {
     }
     private record Hit(double distance, Vec3 point) { }
     private static Hit intersect(Vec3 origin, Vec3 direction, double range, AABB box) {
-        double near=0, far=range;
-        double[] o={origin.x,origin.y,origin.z}, d={direction.x,direction.y,direction.z};
+        double near=0, far=range; double[] o={origin.x,origin.y,origin.z}, d={direction.x,direction.y,direction.z};
         double[] lo={box.minX,box.minY,box.minZ}, hi={box.maxX,box.maxY,box.maxZ};
         for(int a=0;a<3;a++) { if(Math.abs(d[a])<1e-12) { if(o[a]<lo[a]||o[a]>hi[a])return null; continue; }
             double x=(lo[a]-o[a])/d[a], y=(hi[a]-o[a])/d[a]; if(x>y){double t=x;x=y;y=t;} near=Math.max(near,x);far=Math.min(far,y);if(near>far)return null; }
@@ -215,91 +229,53 @@ public final class ExamineWorldSelector {
     }
     private static int floor(double v) { return (int)Math.floor(v); }
     public static double airlockOpenness(Level level, BlockPos root, BlockState fallback) {
-        return airlockOpenness(level, root, fallback,
-                com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.existingBlockEntity(level, root));
+        return airlockOpenness(level, root, fallback, com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.existingBlockEntity(level, root));
     }
-    public static double airlockOpenness(Level level,BlockPos root,BlockState fallback,
-            net.minecraft.world.level.block.entity.BlockEntity existingController) {
+    public static double airlockOpenness(Level level,BlockPos root,BlockState fallback, net.minecraft.world.level.block.entity.BlockEntity existingController) {
         if(existingController instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity door) {
-            var view=door.clientView(); var data=door.prototype();
-            double elapsed=Math.max(0,level.getGameTime()-view.transitionStartedAt())/20.0;
-            return com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.openness(view.phase(),elapsed,
-                    data==null?.4:data.door().openTimeOneSeconds(),data==null?.2:data.door().openTimeTwoSeconds(),
-                    data==null?.4:data.door().closeTimeOneSeconds(),data==null?.2:data.door().closeTimeTwoSeconds());
+            var view=door.clientView(); var data=door.prototype(); double elapsed=Math.max(0,level.getGameTime()-view.transitionStartedAt())/20.0;
+            return com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.openness(view.phase(),elapsed,data==null?.4:data.door().openTimeOneSeconds(),data==null?.2:data.door().openTimeTwoSeconds(),data==null?.4:data.door().closeTimeOneSeconds(),data==null?.2:data.door().closeTimeTwoSeconds());
         }
         return fallback.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.OPEN)?1:0;
     }
-    public static boolean airlockPanelOpen(Level level,BlockPos root) {
-        return airlockPanelOpen(level, root,
-                com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.existingBlockEntity(level, root));
-    }
-    public static boolean airlockPanelOpen(Level level,BlockPos root,
-            net.minecraft.world.level.block.entity.BlockEntity existingController) {
-        if(existingController instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity door) {
-            var view=door.clientView();
-            return view.panelVisible()&&view.panelOpen()&&view.phase()!=com.juicyslew.moonstation14.ms14.doors.AirlockState.DoorPhase.OPEN;
-        }
+    public static boolean airlockPanelOpen(Level level,BlockPos root) { return airlockPanelOpen(level, root, com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.existingBlockEntity(level, root)); }
+    public static boolean airlockPanelOpen(Level level,BlockPos root, net.minecraft.world.level.block.entity.BlockEntity existingController) {
+        if(existingController instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity door) { var view=door.clientView(); return view.panelVisible()&&view.panelOpen()&&view.phase()!=com.juicyslew.moonstation14.ms14.doors.AirlockState.DoorPhase.OPEN; }
         return false;
     }
-    public static AABB airlockLocalBounds(Level level, BlockPos root, BlockState state) {
-        return airlockLocalBounds(level, root, state,
-                com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.existingBlockEntity(level, root));
-    }
-    public static AABB airlockLocalBounds(Level level, BlockPos root, BlockState state,
-            net.minecraft.world.level.block.entity.BlockEntity existingController) {
+    public static AABB airlockLocalBounds(Level level, BlockPos root, BlockState state) { return airlockLocalBounds(level, root, state, com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.existingBlockEntity(level, root)); }
+    public static AABB airlockLocalBounds(Level level, BlockPos root, BlockState state, net.minecraft.world.level.block.entity.BlockEntity existingController) {
         AABB result = null;
-        for (AABB piece : com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.worldBounds(root,
-                state.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.FACING),
-                airlockOpenness(level, root, state, existingController), airlockPanelOpen(level, root, existingController)))
-            result = result == null ? piece : result.minmax(piece);
+        for (AABB piece : com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.worldBounds(root, state.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.FACING), airlockOpenness(level, root, state, existingController), airlockPanelOpen(level, root, existingController))) result = result == null ? piece : result.minmax(piece);
         return result;
     }
     private static net.minecraft.world.phys.shapes.VoxelShape visualShape(BlockState state, Level level, BlockPos pos) {
         if (state.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock) {
             var facing=state.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.FACING);
-            return facing.getAxis()==net.minecraft.core.Direction.Axis.Z
-                    ? net.minecraft.world.phys.shapes.Shapes.box(0,0,7.9/16,1,1,8.1/16)
-                    : net.minecraft.world.phys.shapes.Shapes.box(7.9/16,0,0,8.1/16,1,1);
+            return facing.getAxis()==net.minecraft.core.Direction.Axis.Z ? net.minecraft.world.phys.shapes.Shapes.box(0,0,7.9/16,1,1,8.1/16) : net.minecraft.world.phys.shapes.Shapes.box(7.9/16,0,0,8.1/16,1,1);
         }
         return state.getShape(level,pos);
     }
-
-    /** Shared world/storage cell geometry: actual airlock pieces, otherwise the block's visual shape. */
-    private static List<ShapeHit> blockShapeHits(Level level, BlockState state, BlockPos pos, BlockPos resolvedRoot,
-                                                  Vec3 from, Vec3 to,
-                                                  Function<BlockPos, BlockState> rootLookup,
-                                                  Function<BlockPos, net.minecraft.world.level.block.entity.BlockEntity> entityLookup) {
+    private static List<ShapeHit> blockShapeHits(Level level, BlockState state, BlockPos pos, BlockPos resolvedRoot, Vec3 from, Vec3 to, Function<BlockPos, BlockState> rootLookup, Function<BlockPos, net.minecraft.world.level.block.entity.BlockEntity> entityLookup) {
         if (state.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock) {
             BlockPos root = resolvedRoot == null ? canonicalRoot(level, state, pos) : resolvedRoot;
             BlockState rootState = root.equals(pos) ? state : rootLookup.apply(root);
-            if (rootState == null || !(rootState.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock))
-                return List.of();
+            if (rootState == null || !(rootState.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock)) return List.of();
             var controller = entityLookup.apply(root);
-            List<AABB> pieces = com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.worldBounds(root,
-                    rootState.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.FACING),
-                    airlockOpenness(level, root, rootState, controller), airlockPanelOpen(level, root, controller));
-            AABB assembly = null;
-            for (AABB piece : pieces) assembly = assembly == null ? piece : assembly.minmax(piece);
-            AABB assemblyBounds = assembly;
-            ArrayList<ShapeHit> hits = new ArrayList<>();
-            for (AABB piece : pieces) piece.clip(from, to).ifPresent(point ->
-                    hits.add(new ShapeHit(root, point, assemblyBounds, false)));
+            List<AABB> pieces = com.juicyslew.moonstation14.ms14.doors.AirlockGeometry.worldBounds(root, rootState.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.FACING), airlockOpenness(level, root, rootState, controller), airlockPanelOpen(level, root, controller));
+            AABB assembly = null; for (AABB piece : pieces) assembly = assembly == null ? piece : assembly.minmax(piece);
+            AABB assemblyBounds = assembly; ArrayList<ShapeHit> hits = new ArrayList<>();
+            for (AABB piece : pieces) piece.clip(from, to).ifPresent(point -> hits.add(new ShapeHit(root, point, assemblyBounds, false)));
             return List.copyOf(hits);
         }
-        var shape = visualShape(state, level, pos);
-        var hit = shape.clip(from, to, pos);
-        return hit == null ? List.of() : List.of(new ShapeHit(canonicalRoot(level, state, pos),
-                hit.getLocation(), shape.bounds().move(pos), ExamineVision.isTransparent(state)));
+        var shape = visualShape(state, level, pos); var hit = shape.clip(from, to, pos);
+        return hit == null ? List.of() : List.of(new ShapeHit(canonicalRoot(level, state, pos), hit.getLocation(), shape.bounds().move(pos), ExamineVision.isTransparent(state)));
     }
-    private static BlockPos canonicalRoot(Level level, BlockState state, BlockPos pos) {
-        return canonicalRoot(state, pos, root -> level.hasChunkAt(root) ? level.getBlockState(root) : null);
-    }
+    private static BlockPos canonicalRoot(Level level, BlockState state, BlockPos pos) { return canonicalRoot(state, pos, root -> level.hasChunkAt(root) ? level.getBlockState(root) : null); }
     public static BlockPos canonicalRoot(BlockState state, BlockPos pos, Function<BlockPos, BlockState> knownState) {
-        if(state.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock
-                && state.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.HALF)==net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER) {
+        if(state.getBlock() instanceof com.juicyslew.moonstation14.ms14.doors.AirlockBlock && state.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.HALF)==net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER) {
             BlockPos lowerPos=pos.below(); BlockState lower=knownState.apply(lowerPos);
-            if(lower!=null && lower.getBlock()==state.getBlock()&&lower.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.HALF)
-                    ==net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER)return lowerPos.immutable();}
+            if(lower!=null && lower.getBlock()==state.getBlock()&&lower.getValue(com.juicyslew.moonstation14.ms14.doors.AirlockBlock.HALF)==net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER)return lowerPos.immutable();}
         return pos.immutable();
     }
     private static int sign(double v){return v>0?1:v<0?-1:0;}

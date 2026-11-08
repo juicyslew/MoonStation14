@@ -14,3 +14,4 @@ public record LooseChunkBounds(int minX, int maxX, int minZ, int maxZ) {
         return (int) Math.floor(max > min ? Math.nextDown(max) : min) >> 4;
     }
 }
+

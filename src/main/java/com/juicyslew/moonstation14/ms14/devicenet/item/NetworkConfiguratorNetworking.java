@@ -32,3 +32,4 @@ public final class NetworkConfiguratorNetworking {
         if(actor!=null&&snapshot!=null)PacketDistributor.sendToPlayer(actor,new NetworkConfiguratorPayloads.ListSnapshot(snapshot));
     }
 }
+

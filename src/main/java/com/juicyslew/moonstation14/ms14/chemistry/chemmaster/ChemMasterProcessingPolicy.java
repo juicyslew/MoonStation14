@@ -20,3 +20,4 @@ public final class ChemMasterProcessingPolicy {
 
     public static boolean shouldReactOnReturn(long admittedCents) { return admittedCents > 0; }
 }
+

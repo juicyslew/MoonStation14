@@ -1,0 +1,61 @@
+{
+  "title": "Shared moving-target admission, analyzer extension contracts, and retained corpse damage",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/mobs/OwnedCorpsePhysicsGameTests.java",
+  "acceptance_criteria": [
+    "Nominated living pickup and pull share reach and block-LOS admission without requiring the current server aim ray; Pullable, authority, containment and hand reservations remain action-specific, and automatic item selection is unchanged.",
+    "Analyzer presentation has no mob-specific branches; entity-owned immutable appearance capture drives copy and comparison, and dynamic resolved-catalog contracts reject missing species, missing factories and unsupported appearance fallback for newly supported hosts of any namespace.",
+    "Already-retained medically Dead bodies receive native and typed damage through normal NeoForge mitigation, cancellation and canonical typed-ledger events without resurrection, duplicate commits or repeated death processing; unsupported native corpses are unchanged.",
+    "Corpse fall/native hits and physical pressure, temperature, fire and explosion eligibility preserve identity and component/source conditions; respiration and bloodloss shutdown rules are not globally relaxed.",
+    "Fresh full JVM, full native, affected UI/interaction/prediction readiness, isolated client startup and packaging pass; connected input and GPU quality remain owner checks."
+  ],
+  "manual_steps": [
+    "Throw a mouse horizontally and immediately Ctrl-left-click it to pull. Compare pickup; repeat with a critical/dead mouse. Out-of-reach and wall-blocked targets must still deny.",
+    "Drop a dead mouse and a dead Human/Pig from a damaging height. Compare analyzer damage before/after; the same body must remain Dead. Check existing fire/explosion exposure where available.",
+    "Scan healthy/critical/dead Mouse and Human/Pig: correct state, species and appearance. Confirm held-camera smoothness, five-second escape across hand transfers, real-drop interruption and cursor cleanup remain intact."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "rationale": "Central native damage and shared interaction changes warrant the complete JVM suite, including dynamic prototype contracts.",
+      "covers": ["Analyzer presentation has no mob-specific branches; entity-owned immutable appearance capture drives copy and comparison, and dynamic resolved-catalog contracts reject missing species, missing factories and unsupported appearance fallback for newly supported hosts of any namespace."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-tags-fixture", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r44/native.log",
+      "rationale": "Full native suite is required for the central hurt adaptation; inspect fresh source-specific corpse and nominated-target regressions, not only unrelated passing fixtures.",
+      "covers": [
+        "Nominated living pickup and pull share reach and block-LOS admission without requiring the current server aim ray; Pullable, authority, containment and hand reservations remain action-specific, and automatic item selection is unchanged.",
+        "Analyzer presentation has no mob-specific branches; entity-owned immutable appearance capture drives copy and comparison, and dynamic resolved-catalog contracts reject missing species, missing factories and unsupported appearance fallback for newly supported hosts of any namespace.",
+        "Already-retained medically Dead bodies receive native and typed damage through normal NeoForge mitigation, cancellation and canonical typed-ledger events without resurrection, duplicate commits or repeated death processing; unsupported native corpses are unchanged.",
+        "Corpse fall/native hits and physical pressure, temperature, fire and explosion eligibility preserve identity and component/source conditions; respiration and bloodloss shutdown rules are not globally relaxed."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui,interaction,prediction", "--console=plain"],
+      "selectors": ["ui", "interaction", "prediction"],
+      "rationale": "Shared portrait presentation and nominated interaction admission; these checks do not certify authenticated input or GPU visuals.",
+      "covers": ["Fresh full JVM, full native, affected UI/interaction/prediction readiness, isolated client startup and packaging pass; connected input and GPU quality remain owner checks."]
+    },
+    {
+      "kind": "launch-smoke",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runClient", "-Pms14ClientRunDir=build/client-mouse-character-r44", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r44/client.log",
+      "ready_patterns": ["Created: .*minecraft:textures/atlas/blocks\\.png"],
+      "error_patterns": ["InvalidInjectionException", "MixinApplyError", "InjectionError", "FATAL"],
+      "timeout": 120,
+      "rationale": "Verify mixin application and isolated startup, with controlled owned-process stop; no connected or visual acceptance claim.",
+      "covers": ["Fresh full JVM, full native, affected UI/interaction/prediction readiness, isolated client startup and packaging pass; connected input and GPU quality remain owner checks."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Bind the fresh packaged artifact only after all checks pass; no deployment or owner acceptance.",
+      "covers": ["Fresh full JVM, full native, affected UI/interaction/prediction readiness, isolated client startup and packaging pass; connected input and GPU quality remain owner checks."]
+    }
+  ]
+}

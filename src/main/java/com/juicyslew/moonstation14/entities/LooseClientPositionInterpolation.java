@@ -114,3 +114,4 @@ public final class LooseClientPositionInterpolation {
         return new double[]{targetX, targetY, targetZ};
     }
 }
+

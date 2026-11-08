@@ -9,3 +9,4 @@ public record DeviceNetworkPrototype(int networkId) {
             Codec.INT.fieldOf("networkId").forGetter(DeviceNetworkPrototype::networkId)).apply(i, DeviceNetworkPrototype::new));
     public DeviceNetworkPrototype { if (networkId < 0) throw new IllegalArgumentException("negative network ID"); }
 }
+

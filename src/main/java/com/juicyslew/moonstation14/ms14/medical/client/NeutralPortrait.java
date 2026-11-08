@@ -47,3 +47,4 @@ final class NeutralPortrait {
         return com.juicyslew.moonstation14.ms14.medical.MedicalPortraitSnapshot.create(source);
     }
 }
+

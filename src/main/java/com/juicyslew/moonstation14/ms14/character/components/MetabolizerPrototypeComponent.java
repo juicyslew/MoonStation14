@@ -26,3 +26,4 @@ public record MetabolizerPrototypeComponent(Set<MetabolizerTypeEnum> types) impl
 
     @Override public String type() { return TYPE; }
 }
+

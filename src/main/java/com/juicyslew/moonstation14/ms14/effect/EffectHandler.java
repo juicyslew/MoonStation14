@@ -6,3 +6,4 @@ import com.juicyslew.moonstation14.component.codec.json.EffectData;
 public interface EffectHandler<T extends EffectData> {
     EffectResult apply(T effect, EffectContext context);
 }
+

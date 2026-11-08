@@ -64,3 +64,4 @@ public final class AirlockToolInteraction {
                 &&AirlockToolLineOfSight.canReachRoot(authority.body(),level,pos,door,identity);
     }
 }
+

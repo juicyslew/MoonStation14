@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-10-21T12:31:11.351Z" hostname="DESKTOP-4F0ER3K" time="0.203">
+  <properties/>
+  <testcase name="capturedAmbrosiaHeadwearMatchesResolvedEquipmentAndClothingDefault()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.011"/>
+  <testcase name="capturedPoppyAndLilyHeadwearMatchesMainAndInheritedEquipmentProfiles()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.009"/>
+  <testcase name="capturedPoppyResolvedSourceItemSizeMatchesEquipmentAndFootprintProjections()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.007"/>
+  <testcase name="capturedProduceItemDamageMatchesResolvedLooseObjectCandidates()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.011"/>
+  <testcase name="capturedButcherableOutputsMatchResolvedItemProcessingProfiles()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.009"/>
+  <testcase name="sourceFieldSemanticsUseSerializedTargetAndExactConversions()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.001"/>
+  <testcase name="resolvedFoodAndExtractionMatchCapturedRawSource()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.107"/>
+  <testcase name="capturedBotanyOutputItemSizesMatchResolvedFootprintProfiles()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.026"/>
+  <testcase name="capturedBananaPeelSlipAndHeadwearSourceFieldsMatchCandidateDefaults()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.006"/>
+  <testcase name="rawComponentCompositionRecursivelyMergesMappingsAndReplacesSequences()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.0"/>
+  <testcase name="capturedProductRowsAndVerifiedDefaultsAreBoundedAndComplete()" classname="com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest" time="0.01"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -24,3 +24,4 @@ public record ObserverSession(UUID ownerId, UUID corpseBodyId, UUID ghostId, lon
         this(ownerId, corpseBodyId, ghostId, epoch, mode, returnAvailable, null, 0);
     }
 }
+

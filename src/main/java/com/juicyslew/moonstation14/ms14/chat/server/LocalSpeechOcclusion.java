@@ -169,3 +169,4 @@ public final class LocalSpeechOcclusion {
 
     private static final class SamplingFailure extends RuntimeException { }
 }
+

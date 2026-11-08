@@ -72,3 +72,4 @@ public record MetabolismReport(List<MetabolismAttempt> attempts) {
         }
     }
 }
+

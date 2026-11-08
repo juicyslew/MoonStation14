@@ -1,6 +1,6 @@
 # Authenticated player–character–Mob Harness lifecycle — proposal
 
-**Status — 2026-09-28:** active, owner-authorized sprint planning and implementation, proceeding only through the conditional stage gates below. M0 and M1 are accepted; M2, M3, M4, and all later milestones are not accepted. This authorizes work within the documented scope; it does not mean any unaccepted stage is implemented or accepted. M0 was documentation-only and read-only against source/config. See the [M0 contract and verified local source map](m0-contract.md), the [current roadmap priority](../next-systems-roadmap.md), the [bounded Player Body Control closure](../player-body-control-sprint/closure.md), and the [deferred device UI platform proposal](../device-ui-platform-sprint/proposal.md).
+**Status — 2026-09-28:** active, owner-authorized sprint planning and implementation, proceeding only through the conditional stage gates below. M0 and M1 are accepted; M2, M3, M4, and all later milestones are not accepted. This authorizes work within the documented scope; it does not mean any unaccepted stage is implemented or accepted. M0 was documentation-only and read-only against source/config. See the [M0 contract and verified local source map](m0-contract.md), the [current roadmap priority](../project-reference/next-systems-roadmap.md), the [bounded Player Body Control closure](../player-body-control-sprint/closure.md), and the [deferred device UI platform proposal](../device-ui-platform-sprint/proposal.md).
 
 ### Runtime opt-in boundary (applies to every new effect)
 

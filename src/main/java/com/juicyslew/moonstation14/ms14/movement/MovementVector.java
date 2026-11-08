@@ -23,3 +23,4 @@ public record MovementVector(double x, double y, double z) {
         return Math.hypot(x, z);
     }
 }
+

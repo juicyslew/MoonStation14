@@ -62,3 +62,4 @@ public record RadioChannelData(String labelTranslationKey, char keycode, int col
         }
     }
 }
+

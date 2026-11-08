@@ -13,3 +13,4 @@ public record DisposalUnitAction(int containerId, UUID session, Operation operat
     public static final StreamCodec<RegistryFriendlyByteBuf,DisposalUnitAction> STREAM_CODEC=StreamCodec.of((buf,v)->{buf.writeVarInt(v.containerId);buf.writeUUID(v.session);buf.writeEnum(v.operation);},buf->new DisposalUnitAction(buf.readVarInt(),buf.readUUID(),buf.readEnum(Operation.class)));
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

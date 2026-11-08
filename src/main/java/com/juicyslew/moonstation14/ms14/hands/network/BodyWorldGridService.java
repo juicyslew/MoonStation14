@@ -25,6 +25,41 @@ import java.util.UUID;
 /** Main-thread world-host sessions. A nonce never substitutes for current authority or reach. */
 public final class BodyWorldGridService {
     private BodyWorldGridService() { }
+
+    /** Read-only child lookup under an already-opened actor session; all session admission checks are reused. */
+    public static java.util.Optional<ItemStack> inspectOpenChild(ServerPlayer actor, LivingEntity body, long epoch,
+            UUID hostUuid, UUID nonce, long bodyRevision, long hostRevision, String childToken) {
+        if (actor == null || body == null || hostUuid == null || nonce == null || childToken == null
+                || actor.getServer() == null || !actor.getServer().isSameThread()) return java.util.Optional.empty();
+        var authority = HandActorAuthority.resolve(actor).orElse(null);
+        if (authority == null || authority.body() != body || authority.epoch() != epoch
+                || !HandActorAuthority.revalidate(actor, authority) || !(body.level() instanceof ServerLevel level))
+            return java.util.Optional.empty();
+        ActorState state = ACTORS.get(actor);
+        Session session = state == null ? null : state.sessions.get(nonce);
+        if (session == null || session.actor() != actor || session.authority().body() != body
+                || session.authority().epoch() != epoch || session.level() != level
+                || !session.target().equals(hostUuid) || session.hostRevision() != hostRevision
+                || !actionLeaseValid(actor.getServer().getTickCount(), session.expiresAt())
+                || !sessionBindingValid(actor, authority, session)) return java.util.Optional.empty();
+        LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (hands == null || !hands.compatible(body) || hands.revision() != bodyRevision) return java.util.Optional.empty();
+        ItemStack reference = session.entity().getItem();
+        ItemStack copy = reference.copy();
+        boolean reachable;
+        try { reachable = BodyItemTargetProbe.reachableStorageHost(level, body, session.entity(), BodyItemTargetProbe.MAX_REACH); }
+        catch (RuntimeException failure) { return java.util.Optional.empty(); }
+        if (!reachable) return java.util.Optional.empty();
+        var contents = storageHost(copy) && sameStorageHost(session.copy(), copy) ? GridContents.read(copy) : java.util.Optional.<GridContents>empty();
+        var child = contents.stream().flatMap(grid -> grid.entries().stream())
+                .filter(entry -> entry.token().equals(childToken)).findFirst().orElse(null);
+        if (child == null || !valid(actor, authority, session) || session.entity().getItem() != reference
+                || !ItemStack.matches(copy, reference) || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                || hands.revision() != bodyRevision || !HandActorAuthority.revalidate(actor, authority)
+                || !BodyItemTargetProbe.reachableStorageHost(level, body, session.entity(), BodyItemTargetProbe.MAX_REACH)
+                || state.sessions.get(nonce) != session) return java.util.Optional.empty();
+        return java.util.Optional.of(child.stack());
+    }
     private static final long LIFETIME_TICKS = 100;
     static final int MAX_SESSIONS = 3;
 
@@ -269,9 +304,8 @@ public final class BodyWorldGridService {
                         BodyItemTargetProbe.MAX_REACH);
                 if (!allowed) state.postDrop = null;
                 observed = allowed ? GridContents.read(copy).map(contents -> new BodyWorldStorageView.Summary(
-                        q.target(), BuiltInRegistries.ITEM.getKey(copy.getItem()), copy.is(com.juicyslew.moonstation14.item.ModItems.BAG) ? "bag" : "belt",
-                        copy.is(com.juicyslew.moonstation14.item.ModItems.BAG) ? 7 : 8,
-                        copy.is(com.juicyslew.moonstation14.item.ModItems.BAG) ? 4 : 2,
+                        q.target(), BuiltInRegistries.ITEM.getKey(copy.getItem()), copy.is(com.juicyslew.moonstation14.item.ModItems.PILL_CANISTER) ? "pill" : copy.is(com.juicyslew.moonstation14.item.ModItems.BAG) ? "bag" : "belt",
+                        GridContents.width(copy), GridContents.height(copy),
                         contents.entries(), q.epoch(), q.handRevision())) : java.util.Optional.empty();
             } else observed = BodyWorldStorageView.inspect(actor, q.target(), q.epoch(), q.handRevision());
         } catch (RuntimeException callbackFailure) {
@@ -323,13 +357,13 @@ public final class BodyWorldGridService {
     }
 
     private static boolean storageHost(ItemStack stack) {
-        return stack.is(com.juicyslew.moonstation14.item.ModItems.BAG)
-                || stack.is(com.juicyslew.moonstation14.item.ModItems.BELT);
+        return GridContents.isHost(stack);
     }
 
     private static boolean sameStorageHost(ItemStack original, ItemStack current) {
         return original.is(com.juicyslew.moonstation14.item.ModItems.BAG) == current.is(com.juicyslew.moonstation14.item.ModItems.BAG)
-                && original.is(com.juicyslew.moonstation14.item.ModItems.BELT) == current.is(com.juicyslew.moonstation14.item.ModItems.BELT);
+                && original.is(com.juicyslew.moonstation14.item.ModItems.BELT) == current.is(com.juicyslew.moonstation14.item.ModItems.BELT)
+                && original.is(com.juicyslew.moonstation14.item.ModItems.PILL_CANISTER) == current.is(com.juicyslew.moonstation14.item.ModItems.PILL_CANISTER);
     }
 
     private static void revoke(ActorState state, UUID nonce) {
@@ -658,7 +692,7 @@ public final class BodyWorldGridService {
         var projected = entries.stream().map(e -> new BodyWorldGridSnapshot.Entry(e.token(),
                 BuiltInRegistries.ITEM.getKey(e.stack().getItem()).toString(), e.stack().getCount(),
                 e.x(), e.y(), e.rotation().degrees(), e.stack().get(com.juicyslew.moonstation14.component.ModDataComponents.REAGENT.get()),
-                ItemPresentation.fromStack(e.stack()))).toList();
+                ItemPresentation.fromStack(e.stack(), body.level()))).toList();
         return new BodyWorldGridSnapshot(q.epoch(), q.sequence(), BodyWorldGridSnapshot.Reason.OK,
                 actor.getUUID(), body.getUUID(), q.epoch(), revision, target, bag ? "bag" : "belt",
                 bag ? 7 : 8, bag ? 4 : 2, projected, nonce, hostRevision);

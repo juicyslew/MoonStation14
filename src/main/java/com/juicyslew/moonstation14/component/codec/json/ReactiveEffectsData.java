@@ -14,3 +14,4 @@ public record ReactiveEffectsData(List<String> methods, List<EffectData> effects
             Codec.list(EffectData.CODEC).fieldOf("effects").forGetter(ReactiveEffectsData::effects) // If the reactive effect exists, these fields MUST be defined.
     ).apply(inst, ReactiveEffectsData::new));
 }
+

@@ -123,3 +123,4 @@ final class ConstructionRecipeIconResolver {
         return ResourceLocation.tryParse(id.indexOf(':')<0?"moonstation14:"+id:id);
     }
 }
+

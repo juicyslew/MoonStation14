@@ -86,7 +86,20 @@ public final class PowerAppearanceGameTests {
              require(level.getBlockState(apc).getValue(PowerDeviceBlock.GLOW),"powered APC glow follows its charged battery");
               var apcProfile = ModPowerAppearances.catalog(level).get(ModPowerAppearances.APC);
               require(ModBlocks.APC.get().getLightEmission(level.getBlockState(apc),level,apc)==apcProfile.lightLevel(),"APC uses resolved minor-light profile");
-             require(level.getBrightness(LightLayer.BLOCK,apc.above())>0,"powered APC contributes nearby block light");
+              int apcLight = ModBlocks.APC.get().getLightEmission(level.getBlockState(apc), level, apc);
+              int aboveLight = level.getBrightness(LightLayer.BLOCK, apc.above());
+              require(aboveLight > 0,"powered APC contributes nearby block light; tick=" + level.getGameTime()
+                      + ", apc=" + apc + ", state=" + level.getBlockState(apc) + ", glow="
+                      + level.getBlockState(apc).getValue(PowerDeviceBlock.GLOW) + ", lit="
+                      + level.getBlockState(apc).getValue(PowerDeviceBlock.LIT) + ", emission=" + apcLight
+                      + ", above=" + apc.above() + ", aboveState=" + level.getBlockState(apc.above())
+                      + ", aboveBrightness=" + aboveLight + ", energy=" + original.energyJoules()
+                      + ", resolvedLight=" + apcProfile.lightLevel() + ", sourceBrightness="
+                      + level.getBrightness(LightLayer.BLOCK, apc) + ", lightWork="
+                      + level.getLightEngine().hasLightWork()
+                      + ", belowBrightness=" + level.getBrightness(LightLayer.BLOCK, apc.below())
+                      + ", northBrightness=" + level.getBrightness(LightLayer.BLOCK, apc.north())
+                      + ", southBrightness=" + level.getBrightness(LightLayer.BLOCK, apc.south()));
              require(level.getBlockState(lamp).getValue(PowerDeviceBlock.LIT),"lamp remains powered through full chain");
              require(level.getBlockEntity(apc)==original,"visual state transition retains BE identity");
              require(original.energyJoules()>500_000,"visual transition does not reset or replace APC battery");

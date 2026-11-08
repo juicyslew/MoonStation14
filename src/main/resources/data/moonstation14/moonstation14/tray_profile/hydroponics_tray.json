@@ -1,0 +1,1 @@
+{"id":"moonstation14:hydroponics_tray","parent":"moonstation14:defaults","draw_warnings":true,"watering_sound":{"sound_resource_id":"moonstation14:chemistry/chemmaster/dump","volume_db":-6,"pitch_variation":0.2}}

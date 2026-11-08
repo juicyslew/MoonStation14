@@ -75,8 +75,7 @@ class CharacterPredictionCoalescingTraceTest {
             GhostControlPayloads.Intent dequeued = gate.takeQueued();
             assertEquals(sequence, dequeued.sequence());
             held.accept(dequeued);
-            server = step(motor, world, server, held.held());
-            held.afterStep();
+            server = stepServer(motor, world, server, held, sequence);
             SnapshotApplication correction = reconcile(history, motor, world, client,
                     snapshot(sequence, sequence, server));
             client = correction.state;
@@ -88,7 +87,7 @@ class CharacterPredictionCoalescingTraceTest {
             acks.add((long) sequence);
         }
         // Quiet server tick runs held movement. Same ACK is valid; it cannot cause backward correction.
-        server = step(motor, world, server, held.held());
+        server = stepServer(motor, world, server, held, 3);
         SnapshotApplication quiet = reconcile(history, motor, world, client, snapshot(3, 2, server));
         events.add("tick3:pred=" + quiet.beforeZ + " auth=" + server.position().z()
                 + " ack=2 replay=" + quiet.replayCount + " after=" + quiet.state.position().z()
@@ -121,8 +120,7 @@ class CharacterPredictionCoalescingTraceTest {
         GhostControlPayloads.Intent first = gate.takeQueued();
         assertEquals(1, first.sequence());
         held.accept(first);
-        server = step(motor, world, server, held.held()); // exactly one server step this tick
-        held.afterStep();
+        server = stepServer(motor, world, server, held, 100); // exactly one server step this tick
         SnapshotApplication firstSnapshot = reconcile(history, motor, world, client, snapshot(100, 1, server));
         client = firstSnapshot.state;
         events.add("tick100:clientBefore=" + firstSnapshot.beforeZ + " auth=" + server.position().z()
@@ -136,8 +134,7 @@ class CharacterPredictionCoalescingTraceTest {
         GhostControlPayloads.Intent second = gate.takeQueued();
         assertEquals(2, second.sequence());
         held.accept(second);
-        server = step(motor, world, server, held.held());
-        held.afterStep();
+        server = stepServer(motor, world, server, held, 101);
         SnapshotApplication secondSnapshot = reconcile(history, motor, world, client, snapshot(101, 2, server));
         client = secondSnapshot.state;
         events.add("tick101:clientBefore=" + secondSnapshot.beforeZ + " auth=" + server.position().z()
@@ -148,7 +145,7 @@ class CharacterPredictionCoalescingTraceTest {
         acks.add(2L);
 
         assertNull(gate.takeQueued());
-        server = step(motor, world, server, held.held()); // empty queue: last applied forward remains held
+        server = stepServer(motor, world, server, held, 102); // empty queue: last applied forward remains held
         SnapshotApplication quiet = reconcile(history, motor, world, client, snapshot(102, 2, server));
         events.add("tick102:clientBefore=" + quiet.beforeZ + " auth=" + server.position().z()
                 + " ack=2 replay=" + quiet.replayCount + " after=" + quiet.state.position().z()
@@ -174,8 +171,19 @@ class CharacterPredictionCoalescingTraceTest {
     }
 
     private static CharacterMovementState step(GroundedHarnessMotor motor, CharacterMovementEnvironment world,
-                                                CharacterMovementState state, GhostControlPayloads.Intent intent) {
-        return motor.tick(state, intent.wishX(), intent.wishZ(), false,
+                                                 CharacterMovementState state, GhostControlPayloads.Intent intent) {
+        return step(motor, world, state, intent, false);
+    }
+
+    private static CharacterMovementState stepServer(GroundedHarnessMotor motor, CharacterMovementEnvironment world,
+            CharacterMovementState state, CharacterMovementInputState input, long applicationTick) {
+        var sampled = input.consumeForTick(applicationTick);
+        return step(motor, world, state, input.held(), input.jumpForStep(sampled));
+    }
+
+    private static CharacterMovementState step(GroundedHarnessMotor motor, CharacterMovementEnvironment world,
+            CharacterMovementState state, GhostControlPayloads.Intent intent, boolean jump) {
+        return motor.tick(state, intent.wishX(), intent.wishZ(), jump,
                 (intent.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, intent.yaw(), world, false);
     }
 

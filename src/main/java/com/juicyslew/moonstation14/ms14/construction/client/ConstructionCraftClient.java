@@ -14,3 +14,4 @@ public final class ConstructionCraftClient {
     }
     private static void state(ConstructionCraftState state){var target=window;if(target!=null)target.accept(state);}
 }
+

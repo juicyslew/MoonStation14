@@ -24,6 +24,31 @@ import static org.junit.jupiter.api.Assertions.*;
 class LifecycleStartupRuntimeTest {
     @TempDir Path directory;
 
+    @Test void relocationFacadeRequiresExactOfflineBindingBodyAndGeneration() {
+        UUID account = UUID.randomUUID(), mind = UUID.randomUUID(), body = UUID.randomUUID(), epoch = UUID.randomUUID();
+        var binding = new com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
+                .PlayerCharacterBinding(account, "role_1", mind);
+        var row = new SavedLifecycleProfile(SavedLifecycleProfile.CURRENT_SCHEMA, account, "role_1", mind,
+                body, "minecraft:overworld", new SavedLifecycleProfile.Location(1, 64, 1), java.util.Map.of(),
+                epoch, 9, SavedLifecycleProfile.State.OFFLINE, 2, 1234L);
+        assertTrue(LifecycleStartupRuntime.offlineRelocationBindingMatches(row, binding, body, 9));
+        assertFalse(LifecycleStartupRuntime.offlineRelocationBindingMatches(row,
+                new com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
+                        .PlayerCharacterBinding(UUID.randomUUID(), "role_1", mind), body, 9));
+        assertFalse(LifecycleStartupRuntime.offlineRelocationBindingMatches(row,
+                new com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character
+                        .PlayerCharacterBinding(account, "role_1", UUID.randomUUID()), body, 9));
+        assertFalse(LifecycleStartupRuntime.offlineRelocationBindingMatches(row, binding, UUID.randomUUID(), 9));
+        assertFalse(LifecycleStartupRuntime.offlineRelocationBindingMatches(row, binding, body, 8));
+        assertFalse(LifecycleStartupRuntime.offlineRelocationBindingMatches(null, binding, body, 9));
+        var otherEpoch = new SavedLifecycleProfile(row.schemaVersion(), row.accountId(), row.profileKey(), row.mindId(),
+                row.bodyId(), row.dimension(), row.location(), row.appearance(), UUID.randomUUID(),
+                row.connectionGeneration(), row.state(), row.revision(), row.offlineSinceMillis());
+        assertFalse(LifecycleStartupRuntime.offlineRelocationRowUnchanged(row, otherEpoch));
+        assertFalse(LifecycleStartupRuntime.offlineRelocationRowUnchanged(row, null));
+        assertTrue(LifecycleStartupRuntime.offlineRelocationRowUnchanged(row, row));
+    }
+
     @Test void absentStoreIsUninitializedWithoutCreatingAnything() throws Exception {
         Path root = Files.createDirectory(directory.resolve("world"));
         var snapshot = LifecycleStartupRuntime.inspect(() -> {

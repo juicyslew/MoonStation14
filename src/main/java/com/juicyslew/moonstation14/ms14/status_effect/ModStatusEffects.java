@@ -68,3 +68,4 @@ public final class ModStatusEffects {
                 ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, id.toLowerCase()));
     }
 }
+

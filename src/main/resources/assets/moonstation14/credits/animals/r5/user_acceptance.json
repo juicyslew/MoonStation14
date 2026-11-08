@@ -1,0 +1,38 @@
+{
+  "status": "USER_ACCEPTED_AS_IS_complete_R4_collection_PLUS_five_R5_overrides",
+  "decision": "accepted",
+  "decision_owner": "William",
+  "user_quotes": [
+    "Can you jump over to C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Mobs\\Animals\\Collection\\candidates\\backpack_scale_r5 and approve that work for me.",
+    "It should be for r5 and r4. R5 doesn't have the full range of models."
+  ],
+  "date": "2026-10-15",
+  "scope": "Complete R4 baseline (65 appearances/130 editable projects) AND five R5 overrides (10 additional revision projects). Effective current collection remains65 appearances/130 selected projects:60 R4 +5 R5. R5 replaces the same five R4 IDs for current retrieval; no duplicate bodies/classes or mixed atlases. Not R1/R2/R3 or unrelated-family approval.",
+  "package": "assets/Mobs/Animals/Collection/candidates/backpack_scale_r5",
+  "both_accepted_packages": {
+    "r4": "assets/Mobs/Animals/Collection/candidates/source_detail_r4",
+    "r5": "assets/Mobs/Animals/Collection/candidates/backpack_scale_r5"
+  },
+  "effective_appearances": 65,
+  "effective_selected_projects": 130,
+  "all_saved_revision_projects": 140,
+  "accepted_output_hashes_sha256": "83c641b8d91fe6c5211a75bc38454697d171a9a2bb84743df0e402c0c1eb7b08",
+  "before_snapshot": "work/Mobs/Animals/Collection/r4_r5_owner_acceptance_2026_10_15/before_metadata",
+  "existing_file_changes": [
+    "README.md",
+    "approval.json",
+    "delivery_hashes.json",
+    "generated_hashes.json"
+  ],
+  "new_files": [
+    "accepted_output_hashes.json",
+    "user_acceptance.json"
+  ],
+  "not_implied": [
+    "No Blockbench application/NeoForge-loader/Minecraft client-server or production renderer validation implied.",
+    "No runtime installation, entity/renderer/controller/state/optical/glow/material/network/AI/collision/equipment-fit/lighting/alpha/performance integration authorized.",
+    "Existing source projection, inferred hidden depth, stepped anatomy, conservative corpse materials, persistent accessory/hat PORT limitations and source-only triggers remain documented.",
+    "Preserve licenses/attribution including NonCommercial restrictions; acceptance does not relicense artwork."
+  ],
+  "validation_boundary": "Fresh hash/embedded-PNG/dependency/pinned-tool checks only. Prior reviewed-image hashes rechecked, NOT a new independent visual review or new native API/game execution."
+}

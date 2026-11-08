@@ -73,6 +73,30 @@ public final class AirlockBlockEntity extends BlockEntity {
         if(!hasClientSnapshot()||(!armDoorCorrectionTrace()&&!correctionTraceBudget.armed()))return;
         if(doorCorrectionTracePermit())doorCorrectionTrace("client-native-contact","bodyUUID="+actor+",inputSeq=unknown,frame="+frame+",root="+root+",selected="+selected);
     }
+    private com.juicyslew.moonstation14.ms14.doors.FirelockController firelockController;
+    private com.juicyslew.moonstation14.ms14.doors.FirelockController.Presentation firelockClientSnapshot;
+    private boolean firelockClientAttached;
+    private boolean lastFirelockPassable=true;
+    private final com.juicyslew.moonstation14.ms14.doors.FirelockHost firelockHost = new com.juicyslew.moonstation14.ms14.doors.FirelockHost() {
+        public BlockEntity owner(){return AirlockBlockEntity.this;}
+        public BlockPos root(){return worldPosition;}
+        public net.minecraft.core.Direction facing(){return getBlockState().getValue(AirlockBlock.FACING);}
+        public com.juicyslew.moonstation14.ms14.doors.prototype.FirelockData prototype(){return firelockPrototype();}
+        public com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.VentMeterObservation powerObservation(){return level instanceof ServerLevel server&&firelockController!=null?com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.firelockPowerForHost(server,this):com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.VentMeterObservation.UNKNOWN;}
+        public void projectPassability(boolean passable){sync();}
+        public void changedAndSync(){sync();}
+        public void scheduleAt(long at){reconcileScheduledTick(true);}
+        public boolean pairCollides(LivingEntity actor){return AirlockPassagePolicy.pairCollides(actor,AirlockBlockEntity.this);}
+        public net.minecraft.world.level.Level level(){return AirlockBlockEntity.this.level;}
+        public com.juicyslew.moonstation14.ms14.doors.FirelockState state(){return firelockController==null?null:firelockController.state();}
+        public void state(com.juicyslew.moonstation14.ms14.doors.FirelockState value){if(firelockController!=null)firelockController.state(value);}
+        public boolean initialized(){return firelockController!=null&&firelockController.initialized();}
+        public boolean setPaidPower(boolean powered){return firelockController!=null&&firelockController.setPaidPower(this,powered);}
+        public boolean obstructed(ServerLevel server){return !DoorCloseAdmission.obstructingBodies(server,doorwayBounds(),this::pairCollides).isEmpty();}
+        public void play(net.minecraft.sounds.SoundEvent sound){AirlockBlockEntity.this.play(sound);}
+        public boolean live(ServerLevel server){var c=server.getChunkSource().getChunkNow(worldPosition.getX()>>4,worldPosition.getZ()>>4);return !isRemoved()&&getLevel()==server&&c!=null&&c.getBlockEntity(worldPosition)==AirlockBlockEntity.this&&c.getBlockState(worldPosition).getBlock() instanceof AirlockBlock;}
+        public String displayName(){return getBlockState().getBlock().getName().getString();}
+    };
     private com.juicyslew.moonstation14.ms14.devicenet.DeviceEndpoint networkEndpoint;
     private AirlockState state;
     private long transitionStartedAt;
@@ -129,7 +153,8 @@ public final class AirlockBlockEntity extends BlockEntity {
                              boolean passable,boolean powered,boolean boltsDown,boolean boltLightsVisible,boolean panelOpen,boolean panelVisible) { }
     public AirlockBlockEntity(BlockPos pos,BlockState blockState) { super(ModBlockEntities.AIRLOCK.get(),pos,blockState); state=AirlockState.initial(UUID.randomUUID(),true,true); }
     @Override public void onLoad(){super.onLoad();if(level instanceof ServerLevel)ensureInitialized();
-        if(level instanceof ServerLevel server){com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockChanged(server,worldPosition);reconcileScheduledTick(true);registerDeviceEndpoint(server);}}
+        if(level instanceof ServerLevel server){com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockChanged(server,worldPosition);if(firelockController!=null){firelockController.onLoaded();firelockController.initialize(firelockHost);lastFirelockPassable=firelockPassable();com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.firelockChanged(server,worldPosition);}reconcileScheduledTick(true);registerDeviceEndpoint(server);registerAttachedFirelockEndpoint(server);}}
+    @Override public void onChunkUnloaded(){if(level instanceof ServerLevel server&&firelockController!=null)com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime.forLevel(server).unloaded(new com.juicyslew.moonstation14.ms14.devicenet.DeviceIdentity(firelockController.identity()));if(firelockController!=null)firelockController.onUnloaded();super.onChunkUnloaded();}
     private boolean ensureInitialized(){
         if(initialized)return true;
         if(!(level instanceof ServerLevel))return false;
@@ -145,7 +170,7 @@ public final class AirlockBlockEntity extends BlockEntity {
         persistedElectrification=true;
         initialized=true;setChanged();return true;
     }
-     @Override public void setRemoved(){clientPrediction.reset();crushVictims.clear();clearDeferredContact();if(level instanceof ServerLevel server){
+     @Override public void setRemoved(){clientPrediction.reset();firelockClientSnapshot=null;firelockClientAttached=false;crushVictims.clear();clearDeferredContact();if(level instanceof ServerLevel server){if(firelockController!=null)com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.firelockRemoved(server,worldPosition);
         var runtime=com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime.forLevel(server);
         var id=new com.juicyslew.moonstation14.ms14.devicenet.DeviceIdentity(state.identity());
         // Chunk teardown invokes setRemoved after the FULL cache entry is gone. Never
@@ -154,9 +179,11 @@ public final class AirlockBlockEntity extends BlockEntity {
         // to distinguish actual block replacement (retire) from lifecycle unload.
         var chunk=server.getChunkSource().getChunkNow(worldPosition.getX()>>4,worldPosition.getZ()>>4);
         boolean replaced=chunk!=null&&!(chunk.getBlockState(worldPosition).getBlock() instanceof AirlockBlock);
-        if(networkEndpoint!=null&&replaced)runtime.retired(id);else runtime.unloaded(id);
+         if(networkEndpoint!=null&&replaced)runtime.retired(id);else runtime.unloaded(id);
+         if(firelockController!=null){var firelockId=new com.juicyslew.moonstation14.ms14.devicenet.DeviceIdentity(firelockController.identity());if(replaced)runtime.retired(firelockId);else runtime.unloaded(firelockId);firelockController.onRemoved();}
         com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockRemoved(server,worldPosition);
-    }super.setRemoved();}
+     }else if(firelockController!=null)firelockController.onRemoved();super.setRemoved();}
+    private void registerAttachedFirelockEndpoint(ServerLevel server){if(firelockController==null)return;var endpoint=firelockController.endpoint(firelockHost,server);if(endpoint!=null)com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime.forLevel(server).loaded(endpoint);}
     private void registerDeviceEndpoint(ServerLevel server){
         try{
             networkEndpoint=new com.juicyslew.moonstation14.ms14.devicenet.DeviceEndpoint(){
@@ -176,6 +203,7 @@ public final class AirlockBlockEntity extends BlockEntity {
                             &&server.getBlockState(worldPosition).getValue(AirlockBlock.HALF)==net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER
                             &&server.getBlockEntity(worldPosition)==AirlockBlockEntity.this;
                 }
+                public int targetPriority(BlockPos target){return target.equals(worldPosition)?10:0;}
                 public String displayName(){return getBlockState().getBlock().getName().getString();}
                 public com.juicyslew.moonstation14.ms14.devicenet.DeviceComposition composition(){
                     AirlockData data=prototype();if(data==null)return com.juicyslew.moonstation14.ms14.devicenet.DeviceComposition.empty();
@@ -212,6 +240,46 @@ public final class AirlockBlockEntity extends BlockEntity {
         }catch(RuntimeException unavailable){networkEndpoint=null;}
     }
     public UUID identity() { return state.identity(); }
+    public boolean firelockPassable(){if(level!=null&&level.isClientSide)return !firelockClientAttached||firelockClientSnapshot!=null&&firelockClientSnapshot.state().passable();return firelockController==null||firelockController.state()!=null&&firelockController.state().passable();}
+    public boolean composedPassable(){return DoorPassabilityComposition.passable(state.doorPassable(),firelockController!=null,firelockPassable());}
+    /** Optional independent firelock composition; absent on ordinary airlocks. */
+    public com.juicyslew.moonstation14.ms14.doors.FirelockController firelockController(){return firelockController;}
+    public com.juicyslew.moonstation14.ms14.doors.FirelockHost firelockHost(){return firelockHost;}
+    public com.juicyslew.moonstation14.ms14.doors.FirelockController.Presentation firelockPresentation(){return level!=null&&level.isClientSide?firelockClientSnapshot:firelockController==null?null:firelockController.presentation(firelockHost);}
+    public com.juicyslew.moonstation14.ms14.doors.prototype.FirelockData firelockPrototypeForPresentation(){return firelockPrototype();}
+    public boolean canInstallFirelock(){return prepareFirelockInstallation(worldPosition)!=null;}
+    public PreparedFirelockInstallation prepareFirelockInstallation(BlockPos root){
+        if(!(level instanceof ServerLevel server)||!server.getServer().isSameThread()||!worldPosition.equals(root)
+                ||!server.hasChunkAt(worldPosition)||!server.hasChunkAt(worldPosition.above())
+                ||!server.getWorldBorder().isWithinBounds(worldPosition)||!server.getWorldBorder().isWithinBounds(worldPosition.above())
+                ||isRemoved()||server.getBlockEntity(worldPosition)!=this||firelockController!=null||!ensureInitialized())return null;
+        var lower=server.getBlockState(worldPosition);var upper=server.getBlockState(worldPosition.above());
+        if(!(lower.getBlock() instanceof AirlockBlock)||lower.getValue(AirlockBlock.HALF)!=net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER
+                ||upper.getBlock()!=lower.getBlock()||upper.getValue(AirlockBlock.HALF)!=net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER)return null;
+        var prototype=firelockPrototype();if(prototype==null)return null;
+        var candidate=new com.juicyslew.moonstation14.ms14.doors.FirelockController();
+        if(!candidate.prepareInstallation(prototype))return null;
+        return new PreparedFirelockInstallation(this,candidate,state.identity(),root.immutable());
+    }
+    public final class PreparedFirelockInstallation {
+        private final AirlockBlockEntity owner;private final com.juicyslew.moonstation14.ms14.doors.FirelockController candidate;
+        private final UUID airlockIdentity;private final BlockPos root;private boolean published;
+        private PreparedFirelockInstallation(AirlockBlockEntity owner,com.juicyslew.moonstation14.ms14.doors.FirelockController candidate,UUID airlockIdentity,BlockPos root){this.owner=owner;this.candidate=candidate;this.airlockIdentity=airlockIdentity;this.root=root;}
+        public boolean isCurrent(){return !published&&owner==AirlockBlockEntity.this&&root.equals(worldPosition)&&state.identity().equals(airlockIdentity)
+                &&firelockController==null&&level instanceof ServerLevel server&&server.getServer().isSameThread()
+                &&server.getBlockEntity(root)==AirlockBlockEntity.this&&server.getBlockState(root).getBlock() instanceof AirlockBlock
+                &&server.getBlockState(root).getValue(AirlockBlock.HALF)==net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER
+                &&server.getBlockState(root.above()).getBlock() instanceof AirlockBlock
+                &&server.getBlockState(root.above()).getValue(AirlockBlock.HALF)==net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER;}
+        /** Cannot reject after held mutation: preparation and commit run synchronously on the server thread. */
+        public void publish(){if(published)return;published=true;firelockController=candidate;
+            try{firelockHost.projectPassability(candidate.state().passable());}catch(RuntimeException ignored){}
+            if(level instanceof ServerLevel server){try{com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.firelockChanged(server,worldPosition);}catch(RuntimeException ignored){}
+                try{registerAttachedFirelockEndpoint(server);}catch(RuntimeException ignored){}}
+            try{setChanged();sync();}catch(RuntimeException ignored){}}
+    }
+    public boolean installFirelock(){var prepared=prepareFirelockInstallation(worldPosition);if(prepared==null)return false;prepared.publish();return true;}
+    private com.juicyslew.moonstation14.ms14.doors.prototype.FirelockData firelockPrototype(){if(level==null)return null;var data=(level.isClientSide?PrototypeRuntime.clientFirelocks():PrototypeRuntime.serverFirelocks()).get(com.juicyslew.moonstation14.ms14.doors.prototype.ModFirelocks.STANDARD);if(data==null)return null;try{data.validate();return data;}catch(RuntimeException invalid){return null;}}
     public AirlockState state() { return state; }
     public long crushReopenRetryAt(){return crushReopenRetryAt;}
     public AirlockElectrificationSystem.State electrificationState(){return electrification;}
@@ -370,8 +438,8 @@ public final class AirlockBlockEntity extends BlockEntity {
     }
     private boolean obstructed(ServerLevel level) {
         AABB box=doorwayBounds();
-        var actors=AirlockDoorwayActors.query(level,worldPosition,box,false);
-        return !actors.known()||!actors.actors().isEmpty();
+        var query=AirlockDoorwayActors.query(level,worldPosition,box,false);
+        return !query.known()||query.actors().stream().anyMatch(actor->AirlockPassagePolicy.pairCollides(actor,this));
     }
     private java.util.Map<LivingEntity,net.minecraft.world.phys.Vec3> crushOccupants(ServerLevel level,AirlockData data) {
         AABB box=doorwayBounds();
@@ -379,6 +447,7 @@ public final class AirlockBlockEntity extends BlockEntity {
         var query=AirlockDoorwayActors.query(level,worldPosition,box,false);
         if(!query.known())return positions;
         for(LivingEntity actor:query.actors()) {
+            if(!AirlockPassagePolicy.pairCollides(actor,this))continue;
             positions.put(actor,actor.position());
             crushVictims.add(actor.getUUID());
             com.juicyslew.moonstation14.ms14.damage.DamageSystem.applyHealthChange(actor,java.util.Map.of(com.juicyslew.moonstation14.ms14.damage.DamageKeys.BLUNT,(float)data.door().crushDamageBlunt()),1f,false);
@@ -395,7 +464,8 @@ public final class AirlockBlockEntity extends BlockEntity {
     private AABB doorwayBounds(){return new AABB(worldPosition.getX(),worldPosition.getY(),worldPosition.getZ(),worldPosition.getX()+1,worldPosition.getY()+2,worldPosition.getZ()+1);}
     private java.util.List<LivingEntity> doorwayContactActors(ServerLevel server){
         AABB doorway=doorwayBounds();
-        return AirlockDoorwayActors.query(server,worldPosition,doorway,true).actors();
+        return AirlockDoorwayActors.query(server,worldPosition,doorway,true).actors().stream()
+                .filter(actor->AirlockPassagePolicy.pairCollides(actor,this)).toList();
     }
     void onScheduledTick(ServerLevel server) {
         scheduledDeadline=0;
@@ -481,6 +551,7 @@ public final class AirlockBlockEntity extends BlockEntity {
                 if(state.phase()==AirlockState.DoorPhase.OPEN){state=state.scheduleAutoCloseAt(now+20);sync();}
             }
         }
+        if(firelockController!=null)firelockController.tick(firelockHost,server);
         reconcileScheduledTick(false);
     }
     private void setOpenBlocks(boolean open) {
@@ -501,6 +572,7 @@ public final class AirlockBlockEntity extends BlockEntity {
     private void reconcileScheduledTick(boolean force){
         if(!(level instanceof ServerLevel server)||!server.getServer().isSameThread())return;
         long now=server.getGameTime(),deadline=state.nextDeadline();
+        if(firelockController!=null){long fd=firelockController.nextDeadline();if(fd>0&&(deadline==0||fd<deadline))deadline=fd;}
         if(deferredContactActor!=null&&(deadline==0||deferredContactAt<deadline))deadline=deferredContactAt;
         if(crushReopenRetryAt>0&&(deadline==0||crushReopenRetryAt<deadline))deadline=crushReopenRetryAt;
         if(electrification.pulseCancelAt()>0&&(deadline==0||electrification.pulseCancelAt()<deadline))deadline=electrification.pulseCancelAt();
@@ -512,27 +584,27 @@ public final class AirlockBlockEntity extends BlockEntity {
         if(deadline>0){int delay=(int)Math.max(1,Math.min(Integer.MAX_VALUE,deadline-now));server.scheduleTick(pos,getBlockState().getBlock(),delay);scheduledDeadline=now+delay;}
     }
     private void clearDeferredContact(){deferredContactActor=null;deferredContactAt=0;deferredContactUntil=0;}
-     private void sync(){setChanged();if(level instanceof ServerLevel&&doorCorrectionTracePermit())doorCorrectionTrace("server-sync","logical="+AirlockSignalConsumer.logicalDoorState(state.phase()));AirlockState.DoorPhase logical=AirlockSignalConsumer.logicalDoorState(state.phase());if(lastPublishedPhase!=logical){lastPublishedPhase=logical;publishDoorStatus();} if(level instanceof ServerLevel) { BlockState s=getBlockState(); level.sendBlockUpdated(worldPosition,s,s,3);reconcileScheduledTick(false); } }
+     private void sync(){setChanged();if(level instanceof ServerLevel server&&firelockController!=null){boolean current=firelockPassable();if(current!=lastFirelockPassable){com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService.INSTANCE.topologyChanged(server,worldPosition);com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService.INSTANCE.topologyChanged(server,worldPosition.above());lastFirelockPassable=current;}}if(level instanceof ServerLevel&&doorCorrectionTracePermit())doorCorrectionTrace("server-sync","logical="+AirlockSignalConsumer.logicalDoorState(state.phase()));AirlockState.DoorPhase logical=AirlockSignalConsumer.logicalDoorState(state.phase());if(lastPublishedPhase!=logical){lastPublishedPhase=logical;publishDoorStatus();} if(level instanceof ServerLevel) { BlockState s=getBlockState(); level.sendBlockUpdated(worldPosition,s,s,3);reconcileScheduledTick(false); } }
      @Override public net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket getUpdatePacket(){return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);}
-      @Override public CompoundTag getUpdateTag(HolderLookup.Provider registries){CompoundTag tag=new CompoundTag();ClientView v=stateView();tag.putUUID("ViewIdentity",v.identity());tag.putLong("ViewRevision",v.revision());tag.putString("ViewPhase",v.phase().name());tag.putLong("ViewStarted",v.transitionStartedAt());tag.putLong("ViewTransition",v.transitionAt());tag.putLong("ViewAutoClose",v.autoCloseAt());tag.putBoolean("ViewPassable",v.passable());tag.putBoolean("ViewPowered",v.powered());tag.putBoolean("ViewBolts",v.boltsDown());tag.putBoolean("ViewBoltLights",v.boltLightsVisible());tag.putBoolean("ViewPanelOpen",v.panelOpen());tag.putBoolean("ViewPanelVisible",v.panelVisible());net.minecraft.nbt.ListTag victims=new net.minecraft.nbt.ListTag();for(UUID id:crushVictims){CompoundTag entry=new CompoundTag();entry.putUUID("Id",id);victims.add(entry);}tag.put("CrushVictims",victims);return tag;}
+       @Override public CompoundTag getUpdateTag(HolderLookup.Provider registries){CompoundTag tag=new CompoundTag();ClientView v=stateView();tag.putUUID("ViewIdentity",v.identity());tag.putLong("ViewRevision",v.revision());tag.putString("ViewPhase",v.phase().name());tag.putLong("ViewStarted",v.transitionStartedAt());tag.putLong("ViewTransition",v.transitionAt());tag.putLong("ViewAutoClose",v.autoCloseAt());tag.putBoolean("ViewPassable",v.passable());tag.putBoolean("ViewPowered",v.powered());tag.putBoolean("ViewBolts",v.boltsDown());tag.putBoolean("ViewBoltLights",v.boltLightsVisible());tag.putBoolean("ViewPanelOpen",v.panelOpen());tag.putBoolean("ViewPanelVisible",v.panelVisible());net.minecraft.nbt.ListTag victims=new net.minecraft.nbt.ListTag();for(UUID id:crushVictims){CompoundTag entry=new CompoundTag();entry.putUUID("Id",id);victims.add(entry);}tag.put("CrushVictims",victims);FirelockPresentationNbt.write(tag,"FirelockView",firelockController==null?null:firelockController.presentation(firelockHost));return tag;}
       @Override public void handleUpdateTag(CompoundTag tag,HolderLookup.Provider registries){
           try{
                 ClientView received=new ClientView(tag.getUUID("ViewIdentity"),tag.getLong("ViewRevision"),AirlockState.DoorPhase.valueOf(tag.getString("ViewPhase")),tag.getLong("ViewStarted"),tag.getLong("ViewTransition"),tag.getLong("ViewAutoClose"),tag.getBoolean("ViewPassable"),tag.getBoolean("ViewPowered"),tag.getBoolean("ViewBolts"),tag.getBoolean("ViewBoltLights"),tag.getBoolean("ViewPanelOpen"),tag.getBoolean("ViewPanelVisible"));
                net.minecraft.nbt.ListTag victims=tag.getList("CrushVictims",net.minecraft.nbt.Tag.TAG_COMPOUND);
                java.util.Set<UUID> receivedVictims=new HashSet<>();
                for(int i=0;i<victims.size();i++)if(victims.getCompound(i).hasUUID("Id"))receivedVictims.add(victims.getCompound(i).getUUID("Id"));
-               if(!clientPrediction.accept(received,receivedVictims))return;
-           }catch(RuntimeException ignored){clientPrediction.reset();return;}
+                if(!clientPrediction.accept(received,receivedVictims))return;
+                firelockClientSnapshot=FirelockPresentationNbt.read(tag,"FirelockView").orElse(null);firelockClientAttached=firelockClientSnapshot!=null;
+            }catch(RuntimeException ignored){clientPrediction.reset();firelockClientSnapshot=null;firelockClientAttached=false;return;}
            if(doorCorrectionTracePermit()){ClientView accepted=clientPrediction.authoritative();doorCorrectionTrace("client-update-tag","snapshotPhase="+accepted.phase()+",snapshotPassable="+accepted.passable());}
       }
      @Override public void onDataPacket(Connection connection, ClientboundBlockEntityDataPacket packet, HolderLookup.Provider registries) {
-         CompoundTag tag=packet.getTag();
+          CompoundTag tag=packet.getTag();
          if(tag!=null&&doorCorrectionTracePermit())doorCorrectionTrace("client-packet-received","packetIdentity="+(tag.hasUUID("ViewIdentity")?tag.getUUID("ViewIdentity"):"missing")+",packetRevision="+tag.getLong("ViewRevision")+",packetPhase="+tag.getString("ViewPhase")+",packetPassable="+tag.getBoolean("ViewPassable"));
          if(tag!=null) handleUpdateTag(tag,registries);
     }
     private void play(net.minecraft.sounds.SoundEvent sound){if(level!=null)level.playSound(null,worldPosition,sound,net.minecraft.sounds.SoundSource.BLOCKS,1f,1f);}
     static void onNeighborChanged(ServerLevel level,BlockPos pos) { if(level.getBlockEntity(pos) instanceof AirlockBlockEntity be && be.state.phase()==AirlockState.DoorPhase.OPEN&&be.prototype()!=null&&be.state.autoClose()&&be.state.powerAvailable()&&!be.state.boltsDown()){be.state=be.state.scheduleAutoCloseAt(level.getGameTime()+1);be.sync();} }
-       @Override protected void saveAdditional(CompoundTag t,HolderLookup.Provider registries){super.saveAdditional(t,registries);t.putUUID("AirlockIdentity",state.identity());t.putBoolean("AirlockPanelOpen",panelOpen);t.putLong("AirlockTransitionStartedAt",transitionStartedAt);t.putLong("AirlockRevision",state.revision());t.putString("AirlockPhase",state.phase().name());t.putBoolean("AirlockPowered",state.powered());t.putBoolean("AirlockBolts",state.boltsDown());t.putBoolean("AirlockSafety",state.safety());t.putBoolean("AirlockAutoClose",state.autoClose());t.putLong("AirlockTransitionAt",state.transitionAt());t.putLong("AirlockAutoCloseAt",state.autoCloseAt());t.putBoolean("AirlockPowerWireOneCut",state.powerWireOneCut());t.putBoolean("AirlockPowerWireTwoCut",state.powerWireTwoCut());t.putLong("AirlockPowerPulseUntil",state.powerPulseUntil());t.putBoolean("AirlockPowerPulseLatched",state.powerPulseLatched());t.putBoolean("AirlockBoltWireCut",state.boltWireCut());t.putBoolean("AirlockBoltLightWireCut",state.boltLightWireCut());t.putBoolean("AirlockTimingWireCut",state.timingWireCut());t.putBoolean("AirlockSafetyWireCut",state.safetyWireCut());t.putBoolean("AirlockAiInteractWireCut",state.aiInteractWireCut());t.putBoolean("AirlockLogWireCut",state.logWireCut());t.putBoolean("AirlockLogCircuitDisabled",state.logCircuitDisabled());t.putLong("AirlockLogPulseUntil",state.logPulseUntil());t.putBoolean("AirlockBoltLights",state.boltLightsEnabled());t.putBoolean("AirlockReceiverDisabled",state.receiverPowerDisabled());t.putDouble("AirlockTimingModifier",state.autoCloseModifier());t.putLong("AirlockTimingModifierUntil",state.timingModifierUntil());t.putDouble("AirlockSafetyModifier",state.safetyModifier());t.putLong("AirlockSafetyModifierUntil",state.safetyModifierUntil());t.putBoolean("AirlockElectrified",electrification.enabled());t.putBoolean("AirlockElectrifiedWireCut",electrification.wireCut());t.putBoolean("AirlockElectrifiedPulsed",electrification.pulsed());t.putLong("AirlockElectrifiedCancelAt",electrification.pulseCancelAt());t.putLong("AirlockElectrifiedUntil",electrification.activatedUntil());t.putLong("AirlockCrushReopenRetryAt",crushReopenRetryAt);}
-      @Override protected void loadAdditional(CompoundTag t,HolderLookup.Provider registries){super.loadAdditional(t,registries);transitionStartedAt=t.getLong("AirlockTransitionStartedAt");panelOpen=t.getBoolean("AirlockPanelOpen");crushReopenRetryAt=t.getLong("AirlockCrushReopenRetryAt");persistedState=false;persistedElectrification=false;initialized=false;try{if(t.contains("AirlockPhase")){AirlockState decoded=new AirlockState(t.hasUUID("AirlockIdentity")?t.getUUID("AirlockIdentity"):UUID.randomUUID(),Math.max(0,t.getLong("AirlockRevision")),AirlockState.DoorPhase.valueOf(t.getString("AirlockPhase")),t.getBoolean("AirlockPowered"),t.getBoolean("AirlockBolts"),t.getBoolean("AirlockSafety"),t.getBoolean("AirlockAutoClose"),t.getLong("AirlockTransitionAt"),t.getLong("AirlockAutoCloseAt"),t.getBoolean("AirlockPowerWireOneCut"),t.getBoolean("AirlockPowerWireTwoCut"),t.getLong("AirlockPowerPulseUntil"),t.getBoolean("AirlockPowerPulseLatched"),t.getBoolean("AirlockBoltWireCut"),t.getBoolean("AirlockBoltLightWireCut"),t.getBoolean("AirlockTimingWireCut"),t.getBoolean("AirlockSafetyWireCut"),t.getBoolean("AirlockBoltLights"),t.getBoolean("AirlockReceiverDisabled"),t.contains("AirlockTimingModifier")?t.getDouble("AirlockTimingModifier"):1,t.contains("AirlockSafetyModifier")?t.getDouble("AirlockSafetyModifier"):1,t.getLong("AirlockSafetyModifierUntil"),t.getLong("AirlockTimingModifierUntil"),t.getBoolean("AirlockAiInteractWireCut"),t.getBoolean("AirlockLogWireCut"),t.getBoolean("AirlockLogCircuitDisabled"),t.getLong("AirlockLogPulseUntil"));state=decoded;if(t.contains("AirlockElectrified")){electrification=new AirlockElectrificationSystem.State(t.getBoolean("AirlockElectrified"),t.getBoolean("AirlockElectrifiedWireCut"),t.getBoolean("AirlockElectrifiedPulsed"),t.getLong("AirlockElectrifiedCancelAt"),t.getLong("AirlockElectrifiedUntil"));persistedElectrification=true;}persistedState=true;initialized=true;}}catch(RuntimeException bad){state=AirlockState.initial(UUID.randomUUID(),true,true);electrification=AirlockElectrificationSystem.State.initial(com.juicyslew.moonstation14.ms14.doors.prototype.ElectrifiedData.AIRLOCK_DEFAULTS);persistedState=false;persistedElectrification=false;initialized=false;}}
+       @Override protected void saveAdditional(CompoundTag t,HolderLookup.Provider registries){super.saveAdditional(t,registries);t.putUUID("AirlockIdentity",state.identity());t.putBoolean("AirlockPanelOpen",panelOpen);t.putLong("AirlockTransitionStartedAt",transitionStartedAt);t.putLong("AirlockRevision",state.revision());t.putString("AirlockPhase",state.phase().name());t.putBoolean("AirlockPowered",state.powered());t.putBoolean("AirlockBolts",state.boltsDown());t.putBoolean("AirlockSafety",state.safety());t.putBoolean("AirlockAutoClose",state.autoClose());t.putLong("AirlockTransitionAt",state.transitionAt());t.putLong("AirlockAutoCloseAt",state.autoCloseAt());t.putBoolean("AirlockPowerWireOneCut",state.powerWireOneCut());t.putBoolean("AirlockPowerWireTwoCut",state.powerWireTwoCut());t.putLong("AirlockPowerPulseUntil",state.powerPulseUntil());t.putBoolean("AirlockPowerPulseLatched",state.powerPulseLatched());t.putBoolean("AirlockBoltWireCut",state.boltWireCut());t.putBoolean("AirlockBoltLightWireCut",state.boltLightWireCut());t.putBoolean("AirlockTimingWireCut",state.timingWireCut());t.putBoolean("AirlockSafetyWireCut",state.safetyWireCut());t.putBoolean("AirlockAiInteractWireCut",state.aiInteractWireCut());t.putBoolean("AirlockLogWireCut",state.logWireCut());t.putBoolean("AirlockLogCircuitDisabled",state.logCircuitDisabled());t.putLong("AirlockLogPulseUntil",state.logPulseUntil());t.putBoolean("AirlockBoltLights",state.boltLightsEnabled());t.putBoolean("AirlockReceiverDisabled",state.receiverPowerDisabled());t.putDouble("AirlockTimingModifier",state.autoCloseModifier());t.putLong("AirlockTimingModifierUntil",state.timingModifierUntil());t.putDouble("AirlockSafetyModifier",state.safetyModifier());t.putLong("AirlockSafetyModifierUntil",state.safetyModifierUntil());t.putBoolean("AirlockElectrified",electrification.enabled());t.putBoolean("AirlockElectrifiedWireCut",electrification.wireCut());t.putBoolean("AirlockElectrifiedPulsed",electrification.pulsed());t.putLong("AirlockElectrifiedCancelAt",electrification.pulseCancelAt());t.putLong("AirlockElectrifiedUntil",electrification.activatedUntil());t.putLong("AirlockCrushReopenRetryAt",crushReopenRetryAt);if(firelockController!=null){CompoundTag attached=new CompoundTag();firelockController.save(attached);t.put("AttachedFirelock",attached);}}
+      @Override protected void loadAdditional(CompoundTag t,HolderLookup.Provider registries){super.loadAdditional(t,registries);firelockController=null;if(t.contains("AttachedFirelock",net.minecraft.nbt.Tag.TAG_COMPOUND)){firelockController=new com.juicyslew.moonstation14.ms14.doors.FirelockController();firelockController.load(t.getCompound("AttachedFirelock"));}transitionStartedAt=t.getLong("AirlockTransitionStartedAt");panelOpen=t.getBoolean("AirlockPanelOpen");crushReopenRetryAt=t.getLong("AirlockCrushReopenRetryAt");persistedState=false;persistedElectrification=false;initialized=false;try{if(t.contains("AirlockPhase")){AirlockState decoded=new AirlockState(t.hasUUID("AirlockIdentity")?t.getUUID("AirlockIdentity"):UUID.randomUUID(),Math.max(0,t.getLong("AirlockRevision")),AirlockState.DoorPhase.valueOf(t.getString("AirlockPhase")),t.getBoolean("AirlockPowered"),t.getBoolean("AirlockBolts"),t.getBoolean("AirlockSafety"),t.getBoolean("AirlockAutoClose"),t.getLong("AirlockTransitionAt"),t.getLong("AirlockAutoCloseAt"),t.getBoolean("AirlockPowerWireOneCut"),t.getBoolean("AirlockPowerWireTwoCut"),t.getLong("AirlockPowerPulseUntil"),t.getBoolean("AirlockPowerPulseLatched"),t.getBoolean("AirlockBoltWireCut"),t.getBoolean("AirlockBoltLightWireCut"),t.getBoolean("AirlockTimingWireCut"),t.getBoolean("AirlockSafetyWireCut"),t.getBoolean("AirlockBoltLights"),t.getBoolean("AirlockReceiverDisabled"),t.contains("AirlockTimingModifier")?t.getDouble("AirlockTimingModifier"):1,t.contains("AirlockSafetyModifier")?t.getDouble("AirlockSafetyModifier"):1,t.getLong("AirlockSafetyModifierUntil"),t.getLong("AirlockTimingModifierUntil"),t.getBoolean("AirlockAiInteractWireCut"),t.getBoolean("AirlockLogWireCut"),t.getBoolean("AirlockLogCircuitDisabled"),t.getLong("AirlockLogPulseUntil"));state=decoded;if(t.contains("AirlockElectrified")){electrification=new AirlockElectrificationSystem.State(t.getBoolean("AirlockElectrified"),t.getBoolean("AirlockElectrifiedWireCut"),t.getBoolean("AirlockElectrifiedPulsed"),t.getLong("AirlockElectrifiedCancelAt"),t.getLong("AirlockElectrifiedUntil"));persistedElectrification=true;}persistedState=true;initialized=true;}}catch(RuntimeException bad){state=AirlockState.initial(UUID.randomUUID(),true,true);electrification=AirlockElectrificationSystem.State.initial(com.juicyslew.moonstation14.ms14.doors.prototype.ElectrifiedData.AIRLOCK_DEFAULTS);persistedState=false;persistedElectrification=false;initialized=false;}}
 }
-

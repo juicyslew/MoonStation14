@@ -50,4 +50,12 @@ class PressureExposureTest {
     @Test void cadenceRoundsToAtLeastOneTickWithoutOverflow() {
         assertEquals(20, BarotraumaAtmospherePolicy.CADENCE_TICKS);
     }
+
+    @Test void completePressureProtectionTransformsKnownVacuumAndRequiresEverySlot() {
+        var gear = new com.juicyslew.moonstation14.ms14.equipment.EquipmentItemData.PressureProtection(.6, 1000, 0, 0);
+        assertTrue(PressureExposure.damageAt(0, HUMAN, gear).isEmpty());
+        assertTrue(PressureExposure.damageAt(20, HUMAN, gear).isEmpty());
+        assertTrue(PressureExposure.damageAt(600, HUMAN, gear).isEmpty());
+        assertEquals(PressureExposure.damageAt(0, HUMAN), PressureExposure.damageAt(0, HUMAN, null));
+    }
 }

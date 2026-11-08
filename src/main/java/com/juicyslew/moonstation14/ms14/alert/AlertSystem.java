@@ -93,3 +93,4 @@ public final class AlertSystem {
         MS14Provider.updateIfChanged(handle, MS14Bridges.ALERT, before, state);
     }
 }
+

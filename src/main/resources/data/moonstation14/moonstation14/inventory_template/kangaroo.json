@@ -1,0 +1,7 @@
+{"slots":[
+{"id":"mask","display_name":"Mask","icon":"moonstation14:textures/gui/equipment/mask.png","group":"Default","x":1,"y":1,"flags":["MASK"],"whitelist":["PetWearable"]},
+{"id":"suitstorage","display_name":"Suit Storage","icon":"moonstation14:textures/gui/equipment/suit_storage.png","group":"SecondHotbar","x":2,"y":0,"flags":["SUITSTORAGE"],"whitelist_components":["GAS_TANK"],"allow_suit_storage":true,"strip_time":3.0},
+{"id":"gloves","display_name":"Gloves","icon":"moonstation14:textures/gui/equipment/gloves.png","group":"Default","x":0,"y":1,"flags":["GLOVES"],"whitelist":["Kangaroo"]},
+{"id":"belt","display_name":"Belt","icon":"moonstation14:textures/gui/equipment/belt.png","group":"SecondHotbar","x":3,"y":1,"flags":["BELT"],"whitelist":["Kangaroo"],"strip_time":6.0},
+{"id":"pocket1","display_name":"Pouch","icon":"moonstation14:textures/gui/equipment/pocket.png","group":"MainHotbar","x":2,"y":3,"flags":["POCKET"],"strip_time":3.0,"strip_hidden":true}
+]}

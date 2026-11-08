@@ -1,0 +1,1332 @@
+[
+  {
+    "id": "FoodChiliPepper",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "chili pepper",
+      "parent": "FoodProduceBase",
+      "id": "FoodChiliPepper",
+      "description": "Spicy, best not touch your eyes.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "spicy"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 18,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 4
+                },
+                {
+                  "ReagentId": "CapsaicinOil",
+                  "Quantity": 10
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 4
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/chili.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "chili"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "ChiliPepper",
+            "Burger": "ChiliPepper",
+            "Skewer": "ChiliPepperSkewer"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodChillyPepper",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "chilly pepper",
+      "parent": "FoodProduceBase",
+      "id": "FoodChillyPepper",
+      "description": "Icy hot.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "spicy",
+            "cold"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 18,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 4
+                },
+                {
+                  "ReagentId": "FrostOil",
+                  "Quantity": 10
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 4
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/chilly.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "chilly"
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "ChillyPepper",
+            "Burger": "ChillyPepper",
+            "Skewer": "ChillyPepperSkewer"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodFlyAmanita",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "fly amanita",
+      "parent": "FoodProduceBase",
+      "id": "FoodFlyAmanita",
+      "description": "A delicious-looking mushroom like you see in those cartoons.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "mushroom"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 15,
+              "reagents": [
+                {
+                  "ReagentId": "Amatoxin",
+                  "Quantity": 10
+                },
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 5
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/fly_amanita.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "flyAmanita"
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food"
+        },
+        {
+          "type": "BadFood"
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "FlyAmanita",
+            "Burger": "FlyAmanita"
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Mushroom"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodKoibean",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "koibean",
+      "description": "These beans seem a little bit fishy.",
+      "id": "FoodKoibean",
+      "parent": "ProduceBaseRuminant",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/koibean.rsi"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 7,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 5
+                },
+                {
+                  "ReagentId": "CarpoToxin",
+                  "Quantity": 2
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Produce",
+          "seedId": "koibean"
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "CarpoToxin",
+                "Quantity": 2
+              }
+            ]
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "Koibean",
+            "Burger": "KoibeanBurger"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodLaughinPeaPod",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "parent": "FoodProduceBase",
+      "id": "FoodLaughinPeaPod",
+      "name": "laughin' pea pod",
+      "description": "The clown's favorite plant.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "peas"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 13,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 3
+                },
+                {
+                  "ReagentId": "Sugar",
+                  "Quantity": 5
+                },
+                {
+                  "ReagentId": "Laughter",
+                  "Quantity": 5
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "LaughinSyrup",
+                "Quantity": 5
+              }
+            ]
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/laughin_pea.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "laughinPea"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable",
+            "Ruminant"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodLily",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "lily",
+      "parent": "FoodPoppy",
+      "id": "FoodLily",
+      "description": "A beautiful orange flower.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "medicine"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 22,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 2
+                },
+                {
+                  "ReagentId": "Bicaridine",
+                  "Quantity": 20
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/lily.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "lily"
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Flower"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "Lily",
+            "Burger": "Lily"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodMushroom",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "chanterelle cluster",
+      "parent": "FoodProduceBase",
+      "id": "FoodMushroom",
+      "description": "Cantharellus Cibarius: These jolly yellow little shrooms sure look tasty!",
+      "components": [
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 5
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/chanterelle.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "chanterelle"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable",
+            "Mushroom"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodOnion",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "onion",
+      "parent": "FoodProduceBase",
+      "id": "FoodOnion",
+      "description": "Nothing to cry over.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "onion"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 18,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 10
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 4
+                },
+                {
+                  "ReagentId": "Allicin",
+                  "Quantity": 4
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/onion.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "onion"
+        },
+        {
+          "type": "SliceableFood",
+          "count": 5,
+          "slice": "FoodOnionSlice"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodOnionRed",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "red onion",
+      "parent": "FoodProduceBase",
+      "id": "FoodOnionRed",
+      "description": "Purple despite the name.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "onion"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 18,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 10
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 4
+                },
+                {
+                  "ReagentId": "Allicin",
+                  "Quantity": 4
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/onion_red.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "onionred"
+        },
+        {
+          "type": "SliceableFood",
+          "count": 5,
+          "slice": "FoodOnionRedSlice"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodOnionRedSlice",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "red onion slice",
+      "parent": "ProduceSliceBase",
+      "id": "FoodOnionRedSlice",
+      "description": "Purple despite the name.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "onion"
+          ]
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/onion_red.rsi"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 5,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 2
+                },
+                {
+                  "ReagentId": "Allicin",
+                  "Quantity": 1
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 1
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable",
+            "Slice"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Burger": "OnionRedSliceBurger",
+            "Taco": "OnionRedSlice"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodOnionSlice",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "onion slice",
+      "parent": "ProduceSliceBase",
+      "id": "FoodOnionSlice",
+      "description": "Nothing to cry over.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "onion"
+          ]
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/onion.rsi"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 5,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 2
+                },
+                {
+                  "ReagentId": "Allicin",
+                  "Quantity": 1
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 1
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable",
+            "Slice"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Burger": "OnionSliceBurger",
+            "Taco": "OnionSlice"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodPeaPod",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "parent": "FoodProduceBase",
+      "id": "FoodPeaPod",
+      "name": "pea pod",
+      "description": "A duck's favorite treat!",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "peas"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 5,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 3
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 2
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/pea.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "pea"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "Pea",
+            "Burger": "Pea"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodPoppy",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "poppy",
+      "parent": "FoodProduceBase",
+      "id": "FoodPoppy",
+      "description": "A flower with extracts often used in the production of medicine.",
+      "components": [
+        {
+          "type": "Clothing",
+          "slots": [
+            "HEAD"
+          ],
+          "quickEquip": false
+        },
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "medicine"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 22,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 2
+                },
+                {
+                  "ReagentId": "Bicaridine",
+                  "Quantity": 20
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/poppy.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "poppy"
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Flower"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "Poppy",
+            "Burger": "Poppy"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodSoybeans",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "soybeans",
+      "description": "For those who can't stand seeing good old meat.",
+      "id": "FoodSoybeans",
+      "parent": "ProduceBaseRuminant",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/soybeans.rsi"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 4,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 4
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Produce",
+          "seedId": "soybeans"
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "MilkSoy",
+                "Quantity": 5
+              }
+            ]
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "Soybeans",
+            "Burger": "SoybeansBurger"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodWorldPeas",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "parent": "FoodProduceBase",
+      "id": "FoodWorldPeas",
+      "name": "cluster of world peas",
+      "description": "It's rumored to bring peace to any who consume it.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "numbingtranquility"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 8,
+              "reagents": [
+                {
+                  "ReagentId": "Happiness",
+                  "Quantity": 3
+                },
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 3
+                },
+                {
+                  "ReagentId": "Pax",
+                  "Quantity": 2
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/world_pea.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "worldPea"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Vegetable"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Taco": "WorldPea",
+            "Burger": "WorldPeaBurger"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "LeavesCannabis",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Specific/Hydroponics/leaves.yml",
+    "record": {
+      "type": "entity",
+      "name": "cannabis leaves",
+      "parent": "ProduceBaseRuminant",
+      "id": "LeavesCannabis",
+      "description": "Recently legalized in most galaxies.",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/cannabis.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "cannabis"
+        },
+        {
+          "type": "Edible"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "THC",
+                  "Quantity": 15
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "LeavesCannabisRainbow",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Specific/Hydroponics/leaves.yml",
+    "record": {
+      "type": "entity",
+      "name": "rainbow cannabis leaves",
+      "parent": "LeavesCannabis",
+      "id": "LeavesCannabisRainbow",
+      "description": "Is it supposed to be glowing like that...?",
+      "components": [
+        {
+          "type": "Sprite",
+          "layers": [
+            {
+              "sprite": "Objects/Specific/Hydroponics/rainbow_cannabis.rsi",
+              "state": "produce",
+              "shader": "unshaded"
+            }
+          ]
+        },
+        {
+          "type": "Produce",
+          "seedId": "rainbowCannabis"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "SpaceDrugs",
+                  "Quantity": 3
+                },
+                {
+                  "ReagentId": "Lipolicide",
+                  "Quantity": 3
+                },
+                {
+                  "ReagentId": "MindbreakerToxin",
+                  "Quantity": 2
+                },
+                {
+                  "ReagentId": "Happiness",
+                  "Quantity": 2
+                },
+                {
+                  "ReagentId": "Psicodine",
+                  "Quantity": 0.6
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "LeavesTea",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Specific/Hydroponics/leaves.yml",
+    "record": {
+      "type": "entity",
+      "name": "tea leaves",
+      "parent": "ProduceBaseRuminant",
+      "id": "LeavesTea",
+      "description": "Can be dried out to make tea.",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/tea_plant.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "teaPlant"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 2
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "LeavesTobacco",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Specific/Hydroponics/leaves.yml",
+    "record": {
+      "type": "entity",
+      "name": "tobacco leaves",
+      "parent": "ProduceBaseRuminant",
+      "id": "LeavesTobacco",
+      "description": "Dry them out to make some smokes.",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/tobacco.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "tobacco"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "Nicotine",
+                  "Quantity": 2
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "MeatwheatBushel",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "meatwheat bushel",
+      "description": "Some blood-drenched wheat stalks. You can crush them into what passes for meat if you squint hard enough.",
+      "id": "MeatwheatBushel",
+      "parent": "ProduceBaseRuminant",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/meatwheat.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "UncookedAnimalProteins",
+                  "Quantity": 10
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "SpawnItemsOnUse",
+          "items": [
+            {
+              "id": "FoodMeatWheat"
+            }
+          ],
+          "sound": {
+            "path": "/Audio/Voice/Slime/slime_squish.ogg"
+          }
+        },
+        {
+          "type": "Produce",
+          "seedId": "meatwheat"
+        }
+      ]
+    }
+  },
+  {
+    "id": "OatBushel",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "oat bushel",
+      "description": "Eat oats, do squats.",
+      "id": "OatBushel",
+      "parent": "ProduceBaseRuminant",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/oat.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "Oats",
+                  "Quantity": 10
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Produce",
+          "seedId": "oat"
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "MilkOat",
+                "Quantity": 5
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "ProduceBase",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "parent": "BaseItem",
+      "id": "ProduceBase",
+      "abstract": true,
+      "components": [
+        {
+          "type": "SolutionContainerManager"
+        },
+        {
+          "type": "Sprite",
+          "state": "produce"
+        },
+        {
+          "type": "Produce"
+        },
+        {
+          "type": "PotencyVisuals"
+        },
+        {
+          "type": "Appearance"
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ProduceBaseRuminant",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "parent": "ProduceBase",
+      "id": "ProduceBaseRuminant",
+      "abstract": true,
+      "components": [
+        {
+          "type": "Edible",
+          "requiresSpecialDigestion": true
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Ruminant"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "RiceBushel",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "rice bushel",
+      "description": "Can be ground into rice, perfect for pudding or sake.",
+      "id": "RiceBushel",
+      "parent": "ProduceBaseRuminant",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/rice.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "Rice",
+                  "Quantity": 10
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Produce",
+          "seedId": "rice"
+        }
+      ]
+    }
+  },
+  {
+    "id": "Sugarcane",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "sugarcane",
+      "description": "Sickly sweet.",
+      "id": "Sugarcane",
+      "parent": "ProduceBaseRuminant",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/sugarcane.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "Sugar",
+                  "Quantity": 10
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Produce",
+          "seedId": "sugarcane"
+        }
+      ]
+    }
+  }
+]

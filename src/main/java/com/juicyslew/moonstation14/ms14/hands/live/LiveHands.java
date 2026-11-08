@@ -223,8 +223,8 @@ public final class LiveHands {
     }
 
     /** Pure component update for an owned stack; item identity and count cannot change. */
-    Optional<LiveHands> replaceOwnedComponents(long expectedRevision, String hand, ItemToken expectedToken,
-                                                ItemStack replacement) {
+    public Optional<LiveHands> replaceOwnedComponents(long expectedRevision, String hand, ItemToken expectedToken,
+                                                 ItemStack replacement) {
         if (revision != expectedRevision || revision == Long.MAX_VALUE || hand == null || expectedToken == null
                 || replacement == null || replacement.isEmpty()) return Optional.empty();
         int index = handIds().indexOf(hand);
@@ -236,6 +236,110 @@ public final class LiveHands {
         ArrayList<Slot> next = new ArrayList<>(hands);
         next.set(index, new Slot(hand, Optional.of(new Occupant(expectedToken.value(), replacement))));
         return Optional.of(new LiveHands(next, active, revision + 1, equipment));
+    }
+
+    /** Component-only patch on the exact equipped owner; preserves all hand and equipment ownership. */
+    public Optional<LiveHands> replaceEquipmentOwnedComponents(long expectedRevision, String slot,
+            ItemToken expectedToken, ItemStack replacement) {
+        if (revision != expectedRevision || revision == Long.MAX_VALUE || slot == null || expectedToken == null
+                || replacement == null || replacement.isEmpty()) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(equipment.orElse(List.of()));
+        int index = -1;
+        for (int i = 0; i < next.size(); i++) if (next.get(i).id().equals(slot)) { index = i; break; }
+        if (index < 0) return Optional.empty();
+        Slot currentSlot = next.get(index);
+        Occupant owner = currentSlot.occupant().orElse(null);
+        if (owner == null || !owner.token().equals(expectedToken.value())
+                || !owner.stack().is(replacement.getItem()) || owner.stack().getCount() != replacement.getCount()) return Optional.empty();
+        next.set(index, new Slot(slot, Optional.of(new Occupant(expectedToken.value(), replacement))));
+        return Optional.of(new LiveHands(hands, active, revision + 1,
+                equipment.isPresent() ? Optional.of(next) : Optional.empty()));
+    }
+
+    /** Passive debit of the exact currently equipped tank; unlike explicit edits this preserves action revision. */
+    public Optional<LiveHands> debitEquippedTank(long expectedRevision, String slot, ItemToken expectedToken,
+                                                  ItemStack replacement) {
+        if (revision != expectedRevision || slot == null || expectedToken == null || replacement == null
+                || replacement.isEmpty()) return Optional.empty();
+        ArrayList<Slot> next = new ArrayList<>(equipment.orElse(List.of()));
+        int index = -1;
+        for (int i = 0; i < next.size(); i++) if (next.get(i).id().equals(slot)) { index = i; break; }
+        if (index < 0) return Optional.empty();
+        Occupant owner = next.get(index).occupant().orElse(null);
+        if (owner == null || !owner.token().equals(expectedToken.value())) return Optional.empty();
+        ItemStack original = owner.stack();
+        if (!tankDebitOnly(original,replacement)) return Optional.empty();
+        next.set(index, new Slot(slot, Optional.of(new Occupant(expectedToken.value(), replacement))));
+        return Optional.of(new LiveHands(hands, active, revision, Optional.of(next)));
+    }
+
+    /** Passive debit for the exact currently held tank. Explicit component edits must use replaceOwnedComponents. */
+    public Optional<LiveHands> debitHeldTank(long expectedRevision, String hand, ItemToken expectedToken,
+                                              ItemStack replacement) {
+        if (revision != expectedRevision || hand == null || expectedToken == null || replacement == null || replacement.isEmpty()) return Optional.empty();
+        int index=handIds().indexOf(hand);
+        if(index<0 || hands.get(index).reservation().isPresent()) return Optional.empty();
+        Occupant owner=hands.get(index).occupant().orElse(null);
+        if(owner==null || !owner.token().equals(expectedToken.value()) || !tankDebitOnly(owner.stack(),replacement)) return Optional.empty();
+        ArrayList<Slot> next=new ArrayList<>(hands);
+        next.set(index,new Slot(hand,Optional.of(new Occupant(owner.token(),replacement))));
+        return Optional.of(new LiveHands(next,active,revision,equipment));
+    }
+
+    /** Proves that a timed snapshot differs only by an exact passive gas debit in an equipped slot. */
+    public boolean continuesAcrossPassiveTankDebit(Entity body, LiveHands captured) {
+        return body != null && compatible(body) && captured != null && captured.compatible(body)
+                && continuesAcrossPassiveTankDebit(captured);
+    }
+
+    /** Detached-state proof; callers must separately establish both snapshots are compatible with the body. */
+    public boolean continuesAcrossPassiveTankDebit(LiveHands captured) {
+        if (captured == null || revision != captured.revision
+                || !active.equals(captured.active) || !handIds().equals(captured.handIds())
+                || !equipmentIds().equals(captured.equipmentIds()) || equipment.isPresent() != captured.equipment.isPresent()) return false;
+        int changed = 0;
+        for (int i = 0; i < hands.size(); i++) {
+            Slot a=hands.get(i), b=captured.hands.get(i);
+            if (sameOwner(a,b)) continue;
+            if(a.id().equals(b.id()) && a.occupant().isPresent() && b.occupant().isPresent()
+                    && a.reservation().equals(b.reservation())) {
+                Occupant x=a.occupant().orElseThrow(), y=b.occupant().orElseThrow();
+                if(x.token().equals(y.token()) && tankDebitOnly(y.stack(),x.stack())) { changed++; continue; }
+            }
+            return false;
+        }
+        List<Slot> current = equipment.orElse(List.of()), old = captured.equipment.orElse(List.of());
+        for (int i = 0; i < current.size(); i++) {
+            Slot a = current.get(i), b = old.get(i);
+            if (a.id().equals(b.id()) && a.occupant().isEmpty() && b.occupant().isEmpty()) continue;
+            if (a.id().equals(b.id()) && a.occupant().isPresent() && b.occupant().isPresent()) {
+                Occupant x = a.occupant().orElseThrow(), y = b.occupant().orElseThrow();
+                if (x.token().equals(y.token()) && ItemStack.isSameItemSameComponents(x.stack(), y.stack())) continue;
+                if (x.token().equals(y.token()) && tankDebitOnly(y.stack(), x.stack())) { changed++; continue; }
+            }
+            return false;
+        }
+        return changed == 1;
+    }
+
+    private static boolean sameOwner(Slot a, Slot b) {
+        if (!a.id().equals(b.id()) || !a.reservation().equals(b.reservation()) || a.occupant().isPresent() != b.occupant().isPresent()) return false;
+        if (a.occupant().isEmpty()) return true;
+        Occupant x=a.occupant().orElseThrow(), y=b.occupant().orElseThrow();
+        return x.token().equals(y.token()) && ItemStack.isSameItemSameComponents(x.stack(), y.stack());
+    }
+
+    private static boolean tankDebitOnly(ItemStack before, ItemStack after) {
+        var type = com.juicyslew.moonstation14.component.ModDataComponents.GAS_TANK_CONTENTS.get();
+        var x = before.get(type); var y = after.get(type);
+        if (x == null || y == null || !before.is(after.getItem()) || before.getCount() != after.getCount()
+                || !x.prototypeId().equals(y.prototypeId()) || Math.abs(x.mixture().volumeCubicMeters()-y.mixture().volumeCubicMeters()) > 1e-9
+                || Math.abs(x.mixture().temperatureKelvin()-y.mixture().temperatureKelvin()) > 1e-6
+                || !x.mixture().gasMoles().keySet().containsAll(y.mixture().gasMoles().keySet())) return false;
+        for (var gas : com.juicyslew.moonstation14.ms14.atmos.core.GasType.values())
+            if (y.mixture().moles(gas) > x.mixture().moles(gas)) return false;
+        ItemStack normalized=after.copy(); normalized.set(type,x);
+        return ItemStack.isSameItemSameComponents(before,normalized);
     }
 
     public Optional<LiveHands> releaseHand(String hand, java.util.UUID exactTarget) {
@@ -355,13 +459,13 @@ public final class LiveHands {
                     var grid = GridContents.read(occupant.stack());
                     if (grid.isPresent()) {
                         var geometry = GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(
-                                occupant.stack().is(ModItems.BAG) ? 7 : 8, occupant.stack().is(ModItems.BAG) ? 4 : 2));
+                                GridContents.width(occupant.stack()), GridContents.height(occupant.stack())));
                         for (var entry : grid.orElseThrow().entries()) geometry = geometry.place(entry.token(),
                                 com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(entry.stack()),
                                 new GridGeometry.Cell(entry.x(), entry.y()), entry.rotation()).snapshot();
                         var shape = com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(output);
-                        int width = occupant.stack().is(ModItems.BAG) ? 7 : 8;
-                        int height = occupant.stack().is(ModItems.BAG) ? 4 : 2;
+                        int width = GridContents.width(occupant.stack());
+                        int height = GridContents.height(occupant.stack());
                         for (int y=0; y<height && !output.isEmpty(); y++) for (int x=0; x<width && !output.isEmpty(); x++) {
                             var cell = new GridGeometry.Cell(x,y);
                             var placed = geometry.place(outputToken, shape, cell, GridGeometry.Rotation.DEG_0);
@@ -411,7 +515,7 @@ public final class LiveHands {
         ArrayList<Slot> handsNext = new ArrayList<>(hands);
         for (int i=0;i<equipmentNext.size();i++) {
             Slot hostSlot=equipmentNext.get(i); Occupant host=hostSlot.occupant().orElse(null);
-            if (host==null || !(host.stack().is(ModItems.BAG)||host.stack().is(ModItems.BELT))) continue;
+            if (host==null || !GridContents.isHost(host.stack())) continue;
             GridContents grid=GridContents.read(host.stack()).orElse(null); if(grid==null) continue;
             for (GridContents.Entry child:grid.entries()) {
                 ItemStack stack=child.stack();
@@ -431,7 +535,7 @@ public final class LiveHands {
                 if(!placed) {
                     Optional<GridContents> reduced=GridContents.read(changed.orElseThrow());
                     if(reduced.isPresent()) {
-                        int w=host.stack().is(ModItems.BAG)?7:8, h=host.stack().is(ModItems.BAG)?4:2;
+                        int w=GridContents.width(host.stack()), h=GridContents.height(host.stack());
                         var geo=GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(w,h));
                         for(var e:reduced.orElseThrow().entries()) geo=geo.place(e.token(),com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(e.stack()),new GridGeometry.Cell(e.x(),e.y()),e.rotation()).snapshot();
                         var shape=com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(product);
@@ -483,9 +587,9 @@ public final class LiveHands {
         ArrayList<Slot> nextEquipment = new ArrayList<>(equipment.orElse(List.of()));
         for(int i=0;i<nextEquipment.size();i++) {
             Slot slot=nextEquipment.get(i); Occupant host=slot.occupant().orElse(null);
-            if(host==null||!(host.stack().is(ModItems.BAG)||host.stack().is(ModItems.BELT))) continue;
+            if(host==null||!GridContents.isHost(host.stack())) continue;
             var grid=GridContents.read(host.stack()); if(grid.isEmpty()) continue;
-            int w=host.stack().is(ModItems.BAG)?7:8,h=host.stack().is(ModItems.BAG)?4:2;
+            int w=GridContents.width(host.stack()),h=GridContents.height(host.stack());
             var geo=GridGeometry.Snapshot.<String>empty(GridGeometry.StorageMask.rectangle(w,h));
             for(var entry:grid.orElseThrow().entries()) geo=geo.place(entry.token(),com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(entry.stack()),new GridGeometry.Cell(entry.x(),entry.y()),entry.rotation()).snapshot();
             var shape=com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.forStack(output);
@@ -604,6 +708,12 @@ public final class LiveHands {
         next.set(index, new Slot(hand, Optional.empty()));
         return new WholeResult(new LiveHands(next, active, revision + 1, equipment),
                 Optional.of(occupant.orElseThrow().stack()), Optional.empty());
+    }
+
+    /** Owner-facing immutable whole-stack clear; the returned state preserves every other owner. */
+    public Optional<LiveHands> clearHeldWhole(long expectedRevision, String hand, ItemToken expectedToken) {
+        WholeResult result = takeWhole(expectedRevision, hand, expectedToken);
+        return result.rejection().isPresent() ? Optional.empty() : Optional.of(result.state());
     }
 
     /** Pure consumption of exactly one unit from the exact active hand. */
@@ -1004,7 +1114,7 @@ public final class LiveHands {
         for (Occupant occupant : allOccupants()) if (!tokens.add(occupant.token())) return Optional.empty();
         for (Slot slot : hands) if (slot.occupant().isPresent()) {
             Occupant occupant = slot.occupant().orElseThrow();
-            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+            if (GridContents.isHost(occupant.stack())) {
                 var nested = GridContents.read(occupant.stack()); if (nested.isEmpty()) return Optional.empty();
                 if (!( !source.worn() && source.id().equals(slot.id()) && source.token().equals(occupant.token())))
                 for (var entry : nested.orElseThrow().entries()) if (!tokens.add(entry.token())) return Optional.empty();
@@ -1012,7 +1122,7 @@ public final class LiveHands {
         }
         for (Slot slot : layout) if (slot.occupant().isPresent()) {
             Occupant occupant = slot.occupant().orElseThrow();
-            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+            if (GridContents.isHost(occupant.stack())) {
                 var nested = GridContents.read(occupant.stack()); if (nested.isEmpty()) return Optional.empty();
                 if (!(source.worn() && source.id().equals(slot.id()) && source.token().equals(occupant.token())))
                     for (var entry : nested.orElseThrow().entries()) if (!tokens.add(entry.token())) return Optional.empty();
@@ -1108,7 +1218,7 @@ public final class LiveHands {
         if (grid.isEmpty()) return Optional.empty();
         for (Occupant occupant : allOccupants()) {
             if (occupant.token().equals(childToken)) return Optional.empty();
-            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+            if (GridContents.isHost(occupant.stack())) {
                 var contents = GridContents.read(occupant.stack());
                 if (contents.isEmpty() || contents.orElseThrow().entries().stream().anyMatch(e -> e.token().equals(childToken)))
                     return Optional.empty();
@@ -1143,7 +1253,7 @@ public final class LiveHands {
         for (Occupant occupant : allOccupants()) if (!tokens.add(occupant.token())) return Optional.empty();
         // Check all body-owned grids, not only the two selected hosts.
         for (Occupant occupant : allOccupants()) {
-            if (!occupant.stack().is(ModItems.BAG) && !occupant.stack().is(ModItems.BELT)) continue;
+            if (!GridContents.isHost(occupant.stack())) continue;
             var grid = GridContents.read(occupant.stack());
             if (grid.isEmpty()) return Optional.empty();
             for (GridContents.Entry entry : grid.orElseThrow().entries())
@@ -1178,7 +1288,7 @@ public final class LiveHands {
                 .filter(o -> o.token().equals(host.token()))
                 .filter(o -> host.worn() ? host.id().equals("back") && o.stack().is(ModItems.BAG)
                         || host.id().equals("belt") && o.stack().is(ModItems.BELT)
-                        : o.stack().is(ModItems.BAG) || o.stack().is(ModItems.BELT)).orElse(null);
+                        : GridContents.isHost(o.stack())).orElse(null);
     }
 
     private static void setGridHost(ArrayList<Slot> hands, ArrayList<Slot> equipment, GridHost host, ItemStack stack) {
@@ -1476,7 +1586,7 @@ public final class LiveHands {
     private boolean bodyContainsToken(String token) {
         for (Occupant occupant : allOccupants()) {
             if (occupant.token().equals(token)) return true;
-            if (occupant.stack().is(ModItems.BAG) || occupant.stack().is(ModItems.BELT)) {
+            if (GridContents.isHost(occupant.stack())) {
                 var grid = GridContents.read(occupant.stack());
                 if (grid.isEmpty() || grid.orElseThrow().entries().stream().anyMatch(entry -> entry.token().equals(token)))
                     return true;

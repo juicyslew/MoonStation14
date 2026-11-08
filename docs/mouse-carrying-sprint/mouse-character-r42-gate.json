@@ -1,0 +1,64 @@
+{
+  "title": "Shared character correction: retained owner refresh and default medical state",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/PortableBodyEscapeMotionGameTests.java",
+  "acceptance_criteria": [
+    "Same-holder hand transfer preserves the original escape operation/start tick even when the carrier owner instance is retained; fresh strict custody snapshot checks remain and unrelated handles are rejected.",
+    "Same-tick real world drop and selected pickup of the original living body cancels the original escape operation rather than refreshing it.",
+    "Analyzer reports canonical default Alive without allocating a missing attachment, typed Critical/healing/Dead transitions, resolved Species and appearance-preserving detached portraits; unsupported policy remains Unknown.",
+    "Exact settled-source cursor drag reconciliation and smooth held camera behavior remain intact; cadence fixture observes actual entity ticking and target-attributed production sound without changing runtime timing.",
+    "Fresh focused JVM, full native, UI/interaction/prediction readiness, isolated client startup and packaging pass; connected cursor/portrait GPU and physical input remain manual."
+  ],
+  "manual_steps": [
+    "Pick up an AI mouse and repeatedly transfer it between hands during escape: its five-second attempt should finish. Check a real drop/re-pickup interrupts that old attempt.",
+    "Drag a mouse icon under the cursor until escape: stale icon/preview should clear without checkerboard texture or phantom drop. Check a normal item drag too.",
+    "Scan healthy, critical and dead mice: verify state, Mouse species and matching visible portrait. Compare Human/Pig; confirm held camera remains smooth."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--tests", "*CharacterPrototypeTest", "--tests", "*HandEquipmentGestureTest", "--tests", "*StoragePopupWorkspaceTest", "--tests", "*PrimaryWorldGestureTest", "--tests", "*ContainedCameraPolicyTest", "--rerun-tasks", "--console=plain"],
+      "rationale": "Fresh prototype and source reconciliation tests; no GPU or authenticated input claim.",
+      "covers": [
+        "Analyzer reports canonical default Alive without allocating a missing attachment, typed Critical/healing/Dead transitions, resolved Species and appearance-preserving detached portraits; unsupported policy remains Unknown.",
+        "Exact settled-source cursor drag reconciliation and smooth held camera behavior remain intact; cadence fixture observes actual entity ticking and target-attributed production sound without changing runtime timing."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-mouse-character-r42", "--rerun-tasks", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r42/native.log",
+      "rationale": "Fresh full suite must resolve all four r41 failures and preserve shared custody, medical, jump escape and disposal behavior; require all-required-passed marker.",
+      "covers": [
+        "Same-holder hand transfer preserves the original escape operation/start tick even when the carrier owner instance is retained; fresh strict custody snapshot checks remain and unrelated handles are rejected.",
+        "Same-tick real world drop and selected pickup of the original living body cancels the original escape operation rather than refreshing it.",
+        "Analyzer reports canonical default Alive without allocating a missing attachment, typed Critical/healing/Dead transitions, resolved Species and appearance-preserving detached portraits; unsupported policy remains Unknown.",
+        "Exact settled-source cursor drag reconciliation and smooth held camera behavior remain intact; cadence fixture observes actual entity ticking and target-attributed production sound without changing runtime timing."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui,interaction,prediction", "--console=plain"],
+      "selectors": ["ui", "interaction", "prediction"],
+      "rationale": "Affected pointer, admission and timed prediction contracts; not connected input or visual acceptance.",
+      "covers": ["Fresh focused JVM, full native, UI/interaction/prediction readiness, isolated client startup and packaging pass; connected cursor/portrait GPU and physical input remain manual."]
+    },
+    {
+      "kind": "launch-smoke",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runClient", "-Pms14ClientRunDir=build/client-mouse-character-r42", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r42/client.log",
+      "ready_patterns": ["Created: .*minecraft:textures/atlas/blocks\\.png"],
+      "error_patterns": ["InvalidInjectionException", "MixinApplyError", "InjectionError", "FATAL"],
+      "timeout": 120,
+      "rationale": "Isolated serial client bootstrap with controlled owned-tree stop; not live GPU gameplay evidence.",
+      "covers": ["Fresh focused JVM, full native, UI/interaction/prediction readiness, isolated client startup and packaging pass; connected cursor/portrait GPU and physical input remain manual."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Bind packaged artifact after all preceding checks pass; no deployment or acceptance.",
+      "covers": ["Fresh focused JVM, full native, UI/interaction/prediction readiness, isolated client startup and packaging pass; connected cursor/portrait GPU and physical input remain manual."]
+    }
+  ]
+}

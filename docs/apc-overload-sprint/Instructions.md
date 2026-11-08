@@ -14,7 +14,7 @@ The existing local power solver cadence is 20 ticks. Keep protection sampling bo
 
 - Station event scheduling, event prototypes, event announcements, or station-wide overload consequences.
 - Ghost roles, ghost haunting, ghost interaction, or any haunt-related UX.
-- Low-power flicker or low-power audio. Neither is authenticated here as a core upstream effect; defer both pending separate design. This exclusion does not apply to the separately authorized server-side APC breaker-switch sound on accepted manual changes and overload trips: SS14 `machine_switch.ogg` has been imported and registered as described in [audio-milestone.md](audio-milestone.md). Its file-specific license remains unresolved; follow the [media-use and attribution policy](../media-use-and-attribution.md) and [adjacent notice](../../src/main/resources/assets/moonstation14/sounds/apc/machine_switch.ogg.license.txt).
+- Low-power flicker or low-power audio. Neither is authenticated here as a core upstream effect; defer both pending separate design. This exclusion does not apply to the separately authorized server-side APC breaker-switch sound on accepted manual changes and overload trips: SS14 `machine_switch.ogg` has been imported and registered as described in [audio-milestone.md](audio-milestone.md). Its file-specific license remains unresolved; follow the [media-use and attribution policy](../project-reference/media-use-and-attribution.md) and [adjacent notice](../../src/main/resources/assets/moonstation14/sounds/apc/machine_switch.ogg.license.txt).
 - APC UI sprint changes or treating UI milestone acceptance as a dependency or acceptance proxy.
 - General power graph rewrites, force-loading, unrelated cleanup, or unapproved architecture replacement.
 

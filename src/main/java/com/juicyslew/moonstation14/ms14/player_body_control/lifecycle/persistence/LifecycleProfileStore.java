@@ -263,7 +263,15 @@ public final class LifecycleProfileStore {
             SavedLifecycleProfile current = nextByAccount.get(prior.accountId());
             if (current == null)
                 throw new IllegalArgumentException("an existing account profile cannot be removed");
-            if (!prior.profileKey().equals(current.profileKey()) || !prior.mindId().equals(current.mindId()))
+            boolean validTakeoverRotation = (prior.state() == SavedLifecycleProfile.State.DEAD_CLAIM
+                    || prior.state() == SavedLifecycleProfile.State.GHOST)
+                    && current.state() == SavedLifecycleProfile.State.ACTIVE
+                    && !prior.bodyId().equals(current.bodyId())
+                    && prior.accountId().equals(current.accountId()) && prior.mindId().equals(current.mindId())
+                    && current.connectionGeneration() > prior.connectionGeneration()
+                    && current.profileKey().equals(com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterBinding.profileKeyForBody(java.util.UUID.fromString(current.bodyId().toString())));
+            if ((!prior.profileKey().equals(current.profileKey()) && !validTakeoverRotation)
+                    || !prior.mindId().equals(current.mindId()))
                 throw new IllegalArgumentException("an existing account profile key and Mind identity cannot change");
         }
     }

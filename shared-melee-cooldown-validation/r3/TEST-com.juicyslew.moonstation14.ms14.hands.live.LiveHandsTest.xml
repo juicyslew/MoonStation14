@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" tests="19" skipped="0" failures="0" errors="0" timestamp="2026-10-21T14:35:32.547Z" hostname="DESKTOP-4F0ER3K" time="0.432">
+  <properties/>
+  <testcase name="consumeOneConsumesOnlyExactActiveHandItemAndKeepsRemainingOwnershipToken()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.251"/>
+  <testcase name="consumeOneRejectsMismatchWrongHandOverflowAndOversizedExpectedStackWithoutMutation()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.013"/>
+  <testcase name="worldOutputFitsWornGridWithoutChangingInputSnapshot()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.028"/>
+  <testcase name="wholeTransitionsRejectWithoutChangingSnapshots()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.011"/>
+  <testcase name="stagedCraftMergesMatchingOutputAndCapacityFailureIsNoMutation()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.009"/>
+  <testcase name="wholeTransitionsCopyBothWaysAndKeepActiveHandIndependent()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.008"/>
+  <testcase name="emptyLayoutHasIndependentOrderedIdentityAndRevision()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.009"/>
+  <testcase name="componentReplacementPreservesOwnedItemAndToken()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.007"/>
+  <testcase name="reservationClaimsOnlyItsEmptyHandAndIsTransientAcrossCodec()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.007"/>
+  <testcase name="passiveOwnedStackProgressPreservesTokenAndActionRevision()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.008"/>
+  <testcase name="switchingAllowsIndependentPickupSlotsWithoutMovingStacks()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.008"/>
+  <testcase name="adequateHandMaterialCapacityFailureDoesNotFallThroughToWornGridSource()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.012"/>
+  <testcase name="activeUseMutationPreservesOwnerAndOtherHandsAndBoundsQuantityAndType()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.007"/>
+  <testcase name="bodyMaterialSelectionConsumesWornGridChildAndFitsOutputIntoFreedGridCell()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.01"/>
+  <testcase name="invalidLayoutsFailAtCodecBoundary()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.01"/>
+  <testcase name="stagedCraftConsumesMultipleUnitsAndUsesFreedSourceHand()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.009"/>
+  <testcase name="stagedCraftRejectsStaleAndMismatchedSourceWithoutChangingInput()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.007"/>
+  <testcase name="equipmentComponentReplacementPreservesIdentityAndRejectsStaleOrChangedOwner()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.008"/>
+  <testcase name="worldCraftOutputPreflightDoesNotMutateAndChecksCapacity()" classname="com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

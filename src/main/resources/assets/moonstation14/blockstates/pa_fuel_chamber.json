@@ -1,0 +1,144 @@
+{
+  "variants": {
+    "facing=north,visual=default": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/default",
+      "y": 0,
+      "uvlock": false
+    },
+    "facing=north,visual=completed": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/completed",
+      "y": 0,
+      "uvlock": false
+    },
+    "facing=north,visual=unlitp": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp",
+      "y": 0,
+      "uvlock": false
+    },
+    "facing=north,visual=unlitp0": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp0",
+      "y": 0,
+      "uvlock": false
+    },
+    "facing=north,visual=unlitp1": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp1",
+      "y": 0,
+      "uvlock": false
+    },
+    "facing=north,visual=unlitp2": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp2",
+      "y": 0,
+      "uvlock": false
+    },
+    "facing=north,visual=unlitp3": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp3",
+      "y": 0,
+      "uvlock": false
+    },
+    "facing=east,visual=default": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/default",
+      "y": 90,
+      "uvlock": false
+    },
+    "facing=east,visual=completed": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/completed",
+      "y": 90,
+      "uvlock": false
+    },
+    "facing=east,visual=unlitp": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp",
+      "y": 90,
+      "uvlock": false
+    },
+    "facing=east,visual=unlitp0": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp0",
+      "y": 90,
+      "uvlock": false
+    },
+    "facing=east,visual=unlitp1": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp1",
+      "y": 90,
+      "uvlock": false
+    },
+    "facing=east,visual=unlitp2": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp2",
+      "y": 90,
+      "uvlock": false
+    },
+    "facing=east,visual=unlitp3": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp3",
+      "y": 90,
+      "uvlock": false
+    },
+    "facing=south,visual=default": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/default",
+      "y": 180,
+      "uvlock": false
+    },
+    "facing=south,visual=completed": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/completed",
+      "y": 180,
+      "uvlock": false
+    },
+    "facing=south,visual=unlitp": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp",
+      "y": 180,
+      "uvlock": false
+    },
+    "facing=south,visual=unlitp0": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp0",
+      "y": 180,
+      "uvlock": false
+    },
+    "facing=south,visual=unlitp1": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp1",
+      "y": 180,
+      "uvlock": false
+    },
+    "facing=south,visual=unlitp2": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp2",
+      "y": 180,
+      "uvlock": false
+    },
+    "facing=south,visual=unlitp3": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp3",
+      "y": 180,
+      "uvlock": false
+    },
+    "facing=west,visual=default": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/default",
+      "y": 270,
+      "uvlock": false
+    },
+    "facing=west,visual=completed": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/completed",
+      "y": 270,
+      "uvlock": false
+    },
+    "facing=west,visual=unlitp": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp",
+      "y": 270,
+      "uvlock": false
+    },
+    "facing=west,visual=unlitp0": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp0",
+      "y": 270,
+      "uvlock": false
+    },
+    "facing=west,visual=unlitp1": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp1",
+      "y": 270,
+      "uvlock": false
+    },
+    "facing=west,visual=unlitp2": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp2",
+      "y": 270,
+      "uvlock": false
+    },
+    "facing=west,visual=unlitp3": {
+      "model": "moonstation14:block/reactor_bindings/pa_fuel_chamber/unlitp3",
+      "y": 270,
+      "uvlock": false
+    }
+  }
+}

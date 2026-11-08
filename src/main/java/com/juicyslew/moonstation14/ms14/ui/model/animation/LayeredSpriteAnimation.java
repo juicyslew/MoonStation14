@@ -20,3 +20,4 @@ public final class LayeredSpriteAnimation {
     public int size() { return layers.size(); }
     public Layer layer(int index) { return layers.get(index); }
 }
+

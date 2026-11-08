@@ -153,3 +153,4 @@ public final class HandState {
         return HandOperation.success(new HandState(next, activeHand));
     }
 }
+

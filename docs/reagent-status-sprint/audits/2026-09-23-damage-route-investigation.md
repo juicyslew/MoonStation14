@@ -29,3 +29,15 @@ Fall damage is delivered to the typed ledger for a Player, including preservatio
 ## Peaceful regeneration regression
 
 `PeacefulPlayerRegenerationGameTests.eligibleCharacterSkipsPeacefulNutritionButExplicitHealingWorks` exercises the exact `Player.aiStep()` route on an eligible Player test double with Peaceful difficulty and natural regeneration enabled only inside a `try/finally` fixture. It checks no health/typed-ledger change and no food/saturation refill at tick zero, then checks explicit healing still works. A test double successfully invoking `aiStep` is server-side code-path coverage, not a connected-client verification.
+# Native admission receipts
+
+`DamageSystem.applyHealthChange` continues to return `APPLIED` when a valid
+request was processed, including when the native hurt was canceled. Callers
+that need to know whether positive native damage committed use
+`applyHealthChangeWithAdmission`; its `positiveDamageAdmitted` value comes
+from the matching `PendingTransaction.claimCommit()` path in
+`DamageSystem.observePost`, not a vanilla-health delta or separate ledger.
+The particle accelerator uses this detailed outcome: rejected/canceled damage
+marks the projectile spent for further living hits, but does not discard it,
+so singularity and generator contacts remain available. Existing callers retain
+the original processing-receipt contract.

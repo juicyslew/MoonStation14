@@ -60,3 +60,4 @@ public final class BeakerItem extends Item implements IReagentTrait, com.juicysl
     public static float capacityFromResolved(BeakerData data) { return data == null ? 0f : data.solutionContainer().maxVolume(); }
     public static boolean fitsInDispenserFromResolved(BeakerData data) { return data != null && data.fitsInDispenser(); }
 }
+

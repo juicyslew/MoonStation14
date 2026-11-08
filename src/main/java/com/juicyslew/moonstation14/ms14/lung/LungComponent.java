@@ -17,3 +17,4 @@ public record LungComponent(Map<String, Double> gasMoles, double temperatureKelv
     public static LungComponent from(GasMixture mixture,double saturation,boolean initialized) { return from(mixture, saturation, initialized, Phase.INHALING); }
     public static LungComponent from(GasMixture mixture,double saturation,boolean initialized,Phase phase) { Map<String,Double> m=new TreeMap<>(); mixture.gasMoles().forEach((g,n)->m.put(g.id(),n)); return new LungComponent(m,mixture.temperatureKelvin(),saturation,initialized,phase); }
 }
+

@@ -104,3 +104,4 @@ public final class ImmutableAtmosphereBoundary {
         return new Result(finiteAfter, exported, finite.thermalEnergy() - finiteAfter.thermalEnergy());
     }
 }
+

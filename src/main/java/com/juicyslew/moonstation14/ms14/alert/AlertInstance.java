@@ -36,3 +36,4 @@ public record AlertInstance(OptionalLong deadline, boolean showCooldown) {
             throw new IllegalArgumentException("alert deadline must be positive");
     }
 }
+

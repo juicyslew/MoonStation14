@@ -29,3 +29,4 @@ public final class ModInjectorModes {
         PrototypeRuntime.clientManager().reload(TYPE, raw);
     }
 }
+

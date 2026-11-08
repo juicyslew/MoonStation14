@@ -1,0 +1,5530 @@
+{
+  "assets": [
+    {
+      "asset_id": "borg_charger",
+      "resource": "Structures/Power/borg_charger.rsi",
+      "prototype_ids": [
+        "BorgCharger"
+      ],
+      "master": "authoring/borg_charger/borg_charger.bbmodel",
+      "texture": "textures/borg_charger/default.png",
+      "parts": 38,
+      "bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.32
+        ],
+        "max": [
+          8.0,
+          24.0,
+          6.0
+        ]
+      },
+      "states": 9,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/borg_charger/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.3
+        ],
+        "max": [
+          8.0,
+          24.0,
+          6.0
+        ],
+        "size_units": [
+          16.0,
+          24.0,
+          12.3
+        ],
+        "size_blocks": [
+          1.0,
+          1.5,
+          0.76875
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "borgcharger-u1",
+          "map": [
+            "base"
+          ],
+          "sprite": "Structures/Power/borg_charger.rsi",
+          "color": null
+        },
+        {
+          "state": "borgcharger0",
+          "map": [
+            "enum.PowerDeviceVisualLayers.Powered"
+          ],
+          "shader": "unshaded",
+          "sprite": "Structures/Power/borg_charger.rsi",
+          "color": null
+        },
+        {
+          "state": "borgcharger1",
+          "map": [
+            "charged"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/borg_charger.rsi",
+          "color": null
+        },
+        {
+          "state": "borgdecon1",
+          "map": [
+            "enum.WiresVisualLayers.MaintenancePanel"
+          ],
+          "visible": false,
+          "sprite": "Structures/Power/borg_charger.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.StorageVisuals.Open": {
+            "base": {
+              "true": {
+                "state": "borgcharger-u0"
+              },
+              "false": {
+                "state": "borgcharger-u1"
+              }
+            },
+            "enum.PowerDeviceVisualLayers.Powered": {
+              "true": {
+                "state": "borgcharger0"
+              },
+              "false": {
+                "state": "borgcharger2"
+              }
+            },
+            "charged": {
+              "true": {
+                "visible": false
+              },
+              "false": {
+                "visible": true
+              }
+            }
+          },
+          "enum.PowerDeviceVisuals.Powered": {
+            "enum.PowerDeviceVisualLayers.Powered": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            },
+            "charged": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          },
+          "enum.CellVisual.Light": {
+            "charged": {
+              "Off": {
+                "visible": false
+              },
+              "Empty": {
+                "visible": false
+              },
+              "Charging": {
+                "visible": true,
+                "state": "borgcharger3"
+              },
+              "Charged": {
+                "visible": true,
+                "state": "borgcharger1"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45",
+              "radius": 0.48
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": true,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "cable_terminal",
+      "resource": "Structures/Power/cable_terminal.rsi",
+      "prototype_ids": [
+        "CableTerminal",
+        "CableTerminalUncuttable"
+      ],
+      "master": "authoring/cable_terminal/cable_terminal.bbmodel",
+      "texture": "textures/cable_terminal/default.png",
+      "parts": 8,
+      "bounds": {
+        "min": [
+          -2.5,
+          0.2,
+          -5.0
+        ],
+        "max": [
+          2.5,
+          2.14,
+          5.0
+        ]
+      },
+      "states": 1,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/cable_terminal/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -2.5,
+          0.2,
+          -5.0
+        ],
+        "max": [
+          2.5,
+          2.14,
+          5.0
+        ],
+        "size_units": [
+          5.0,
+          1.9400000000000002,
+          10.0
+        ],
+        "size_blocks": [
+          0.3125,
+          0.12125000000000001,
+          0.625
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "term",
+          "sprite": "Structures/Power/cable_terminal.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {},
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "cables_ex_cable",
+      "resource": "Structures/Power/Cables/ex_cable.rsi",
+      "prototype_ids": [
+        "CableDet"
+      ],
+      "master": "authoring/cables_ex_cable/cables_ex_cable.bbmodel",
+      "texture": "textures/cables_ex_cable/default.png",
+      "parts": 5,
+      "bounds": {
+        "min": [
+          -8.0,
+          0.12,
+          -8.0
+        ],
+        "max": [
+          8.0,
+          0.6,
+          8.0
+        ]
+      },
+      "states": 16,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/cables_ex_cable/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -0.55,
+          0.12,
+          -0.55
+        ],
+        "max": [
+          0.55,
+          0.6,
+          0.55
+        ],
+        "size_units": [
+          1.1,
+          0.48,
+          1.1
+        ],
+        "size_blocks": [
+          0.06875,
+          0.03,
+          0.06875
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "excable_0",
+          "sprite": "Structures/Power/Cables/ex_cable.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures"
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "cage_recharger",
+      "resource": "Structures/Power/cage_recharger.rsi",
+      "prototype_ids": [
+        "PowerCageRecharger"
+      ],
+      "master": "authoring/cage_recharger/cage_recharger.bbmodel",
+      "texture": "textures/cage_recharger/default.png",
+      "parts": 16,
+      "bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -5.16
+        ],
+        "max": [
+          7.0,
+          22.15,
+          5.0
+        ]
+      },
+      "states": 7,
+      "loops": 3,
+      "default_model": "moonstation14:block/power_collection/cage_recharger/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -5.16
+        ],
+        "max": [
+          7.0,
+          22.15,
+          5.0
+        ],
+        "size_units": [
+          15.0,
+          22.15,
+          10.16
+        ],
+        "size_blocks": [
+          0.9375,
+          1.384375,
+          0.635
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "map": [
+            "enum.PowerChargerVisualLayers.Base"
+          ],
+          "state": "empty",
+          "sprite": "Structures/Power/cage_recharger.rsi",
+          "color": null
+        },
+        {
+          "map": [
+            "enum.PowerChargerVisualLayers.Light"
+          ],
+          "state": "light-off",
+          "shader": "unshaded",
+          "sprite": "Structures/Power/cage_recharger.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.25,-0.35,0.25,0.35"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "cell_recharger",
+      "resource": "Structures/Power/cell_recharger.rsi",
+      "prototype_ids": [
+        "PowerCellRecharger"
+      ],
+      "master": "authoring/cell_recharger/cell_recharger.bbmodel",
+      "texture": "textures/cell_recharger/default.png",
+      "parts": 16,
+      "bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -4.0
+        ],
+        "max": [
+          6.0,
+          9.0,
+          4.0
+        ]
+      },
+      "states": 7,
+      "loops": 3,
+      "default_model": "moonstation14:block/power_collection/cell_recharger/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -4.0
+        ],
+        "max": [
+          6.0,
+          9.0,
+          4.0
+        ],
+        "size_units": [
+          12.0,
+          9.0,
+          8.0
+        ],
+        "size_blocks": [
+          0.75,
+          0.5625,
+          0.5
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "map": [
+            "enum.PowerChargerVisualLayers.Base"
+          ],
+          "state": "empty",
+          "sprite": "Structures/Power/cell_recharger.rsi",
+          "color": null
+        },
+        {
+          "map": [
+            "enum.PowerChargerVisualLayers.Light"
+          ],
+          "state": "light-off",
+          "shader": "unshaded",
+          "sprite": "Structures/Power/cell_recharger.rsi",
+          "color": null
+        },
+        {
+          "state": "open",
+          "map": [
+            "enum.WiresVisualLayers.MaintenancePanel"
+          ],
+          "visible": false,
+          "sprite": "Structures/Power/cell_recharger.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.WiresVisuals.MaintenancePanelState": {
+            "enum.WiresVisualLayers.MaintenancePanel": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.10,-0.10,0.10,0.10"
+            },
+            "density": 500,
+            "mask": [
+              "TabletopMachineMask"
+            ],
+            "layer": [
+              "BulletImpassable"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_ame",
+      "resource": "Structures/Power/Generation/ame.rsi",
+      "prototype_ids": [
+        "AmeController",
+        "AmeControllerUnanchored"
+      ],
+      "master": "authoring/generation_ame/generation_ame.bbmodel",
+      "texture": "textures/generation_ame/default.png",
+      "parts": 7,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.16
+        ],
+        "max": [
+          7.0,
+          11.15,
+          5.0
+        ]
+      },
+      "states": 6,
+      "loops": 4,
+      "default_model": "moonstation14:block/power_collection/generation_ame/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.16
+        ],
+        "max": [
+          7.0,
+          11.15,
+          5.0
+        ],
+        "size_units": [
+          14.0,
+          11.15,
+          10.16
+        ],
+        "size_blocks": [
+          0.875,
+          0.696875,
+          0.635
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "control",
+          "sprite": "Structures/Power/Generation/ame.rsi",
+          "color": null
+        },
+        {
+          "state": "control_on",
+          "map": [
+            "display"
+          ],
+          "visible": false,
+          "sprite": "Structures/Power/Generation/ame.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.AmeControllerVisuals.DisplayState": {
+            "display": {
+              "Off": {
+                "visible": false
+              },
+              "On": {
+                "state": "control_on",
+                "visible": true
+              },
+              "Warning": {
+                "state": "control_warning",
+                "visible": true
+              },
+              "Critical": {
+                "state": "control_critical",
+                "visible": true
+              },
+              "Fuck": {
+                "state": "control_fuck",
+                "visible": true
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "FullTileMask"
+            ],
+            "layer": [
+              "WallLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_ame__ameshielding",
+      "resource": "Structures/Power/Generation/ame.rsi",
+      "prototype_ids": [
+        "AmeShielding"
+      ],
+      "master": "authoring/generation_ame__ameshielding/generation_ame__ameshielding.bbmodel",
+      "texture": "textures/generation_ame__ameshielding/default.png",
+      "parts": 2,
+      "bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          8.0,
+          1.65,
+          8.0
+        ]
+      },
+      "states": 19,
+      "loops": 2,
+      "default_model": "moonstation14:block/power_collection/generation_ame__ameshielding/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          8.0,
+          1.65,
+          8.0
+        ],
+        "size_units": [
+          16.0,
+          1.65,
+          16.0
+        ],
+        "size_blocks": [
+          1.0,
+          0.103125,
+          1.0
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "shield_0",
+          "sprite": "Structures/Power/Generation/ame.rsi",
+          "color": null
+        },
+        {
+          "state": "core",
+          "map": [
+            "core"
+          ],
+          "visible": false,
+          "sprite": "Structures/Power/Generation/ame.rsi",
+          "color": null
+        },
+        {
+          "state": "core_weak",
+          "map": [
+            "core_glow"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/Generation/ame.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.AmeShieldVisuals.Core": {
+            "core": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          },
+          "enum.AmeShieldVisuals.CoreState": {
+            "core_glow": {
+              "Off": {
+                "visible": false
+              },
+              "Weak": {
+                "state": "core_weak",
+                "visible": true
+              },
+              "Strong": {
+                "state": "core_strong",
+                "visible": true
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.5,-0.5,0.5,0.5"
+            },
+            "density": 190,
+            "mask": [
+              "FullTileMask"
+            ],
+            "layer": [
+              "WallLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_control_box",
+      "resource": "Structures/Power/Generation/PA/control_box.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorControlBox"
+      ],
+      "master": "authoring/generation_pa_control_box/generation_pa_control_box.bbmodel",
+      "texture": "textures/generation_pa_control_box/default.png",
+      "parts": 8,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.32
+        ],
+        "max": [
+          7.0,
+          16.0,
+          5.0
+        ]
+      },
+      "states": 8,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/generation_pa_control_box/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.16
+        ],
+        "max": [
+          7.0,
+          16.0,
+          5.0
+        ],
+        "size_units": [
+          14.0,
+          16.0,
+          10.16
+        ],
+        "size_blocks": [
+          0.875,
+          1.0,
+          0.635
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "completed",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Base"
+          ],
+          "sprite": "Structures/Power/Generation/PA/control_box.rsi",
+          "color": null
+        },
+        {
+          "state": "unlitp",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Unlit"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/Generation/PA/control_box.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_control_box__particleacceleratorcontrolboxunfinished",
+      "resource": "Structures/Power/Generation/PA/control_box.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorControlBoxUnfinished"
+      ],
+      "master": "authoring/generation_pa_control_box__particleacceleratorcontrolboxunfinished/generation_pa_control_box__particleacceleratorcontrolboxunfinished.bbmodel",
+      "texture": "textures/generation_pa_control_box__particleacceleratorcontrolboxunfinished/default.png",
+      "parts": 8,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.32
+        ],
+        "max": [
+          7.0,
+          16.0,
+          5.0
+        ]
+      },
+      "states": 8,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/generation_pa_control_box__particleacceleratorcontrolboxunfinished/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.16
+        ],
+        "max": [
+          7.0,
+          16.0,
+          5.0
+        ],
+        "size_units": [
+          14.0,
+          16.0,
+          10.16
+        ],
+        "size_blocks": [
+          0.875,
+          1.0,
+          0.635
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "unwired",
+          "map": [
+            "enum.ConstructionVisuals.Layer"
+          ],
+          "sprite": "Structures/Power/Generation/PA/control_box.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.ConstructionVisuals.Key": {
+            "enum.ConstructionVisuals.Layer": {
+              "start": {
+                "state": "unwired"
+              },
+              "wired": {
+                "state": "wired"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_emitter_fore",
+      "resource": "Structures/Power/Generation/PA/emitter_fore.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorEmitterFore"
+      ],
+      "master": "authoring/generation_pa_emitter_fore/generation_pa_emitter_fore.bbmodel",
+      "texture": "textures/generation_pa_emitter_fore/default.png",
+      "parts": 20,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.0,
+          10.15,
+          8.16
+        ]
+      },
+      "states": 8,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_emitter_fore/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.0,
+          10.15,
+          8.16
+        ],
+        "size_units": [
+          14.0,
+          10.15,
+          14.16
+        ],
+        "size_blocks": [
+          0.875,
+          0.634375,
+          0.885
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "completed",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Base"
+          ],
+          "sprite": "Structures/Power/Generation/PA/emitter_fore.rsi",
+          "color": null
+        },
+        {
+          "state": "unlitp",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Unlit"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/Generation/PA/emitter_fore.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_emitter_fore__particleacceleratoremitterforeunfinished",
+      "resource": "Structures/Power/Generation/PA/emitter_fore.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorEmitterForeUnfinished"
+      ],
+      "master": "authoring/generation_pa_emitter_fore__particleacceleratoremitterforeunfinished/generation_pa_emitter_fore__particleacceleratoremitterforeunfinished.bbmodel",
+      "texture": "textures/generation_pa_emitter_fore__particleacceleratoremitterforeunfinished/default.png",
+      "parts": 20,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.0,
+          10.15,
+          8.16
+        ]
+      },
+      "states": 8,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_emitter_fore__particleacceleratoremitterforeunfinished/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.0,
+          10.15,
+          8.16
+        ],
+        "size_units": [
+          14.0,
+          10.15,
+          14.16
+        ],
+        "size_blocks": [
+          0.875,
+          0.634375,
+          0.885
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "unwired",
+          "map": [
+            "enum.ConstructionVisuals.Layer"
+          ],
+          "sprite": "Structures/Power/Generation/PA/emitter_fore.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.ConstructionVisuals.Key": {
+            "enum.ConstructionVisuals.Layer": {
+              "start": {
+                "state": "unwired"
+              },
+              "wired": {
+                "state": "wired"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_emitter_port",
+      "resource": "Structures/Power/Generation/PA/emitter_port.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorEmitterPort"
+      ],
+      "master": "authoring/generation_pa_emitter_port/generation_pa_emitter_port.bbmodel",
+      "texture": "textures/generation_pa_emitter_port/default.png",
+      "parts": 21,
+      "bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.0,
+          10.15,
+          8.16
+        ]
+      },
+      "states": 8,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_emitter_port/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.0,
+          10.15,
+          8.16
+        ],
+        "size_units": [
+          15.0,
+          10.15,
+          14.16
+        ],
+        "size_blocks": [
+          0.9375,
+          0.634375,
+          0.885
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "completed",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Base"
+          ],
+          "sprite": "Structures/Power/Generation/PA/emitter_port.rsi",
+          "color": null
+        },
+        {
+          "state": "unlitp",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Unlit"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/Generation/PA/emitter_port.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_emitter_port__particleacceleratoremitterportunfinished",
+      "resource": "Structures/Power/Generation/PA/emitter_port.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorEmitterPortUnfinished"
+      ],
+      "master": "authoring/generation_pa_emitter_port__particleacceleratoremitterportunfinished/generation_pa_emitter_port__particleacceleratoremitterportunfinished.bbmodel",
+      "texture": "textures/generation_pa_emitter_port__particleacceleratoremitterportunfinished/default.png",
+      "parts": 21,
+      "bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.0,
+          10.15,
+          8.16
+        ]
+      },
+      "states": 8,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_emitter_port__particleacceleratoremitterportunfinished/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.0,
+          10.15,
+          8.16
+        ],
+        "size_units": [
+          15.0,
+          10.15,
+          14.16
+        ],
+        "size_blocks": [
+          0.9375,
+          0.634375,
+          0.885
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "unwired",
+          "map": [
+            "enum.ConstructionVisuals.Layer"
+          ],
+          "sprite": "Structures/Power/Generation/PA/emitter_port.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.ConstructionVisuals.Key": {
+            "enum.ConstructionVisuals.Layer": {
+              "start": {
+                "state": "unwired"
+              },
+              "wired": {
+                "state": "wired"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_emitter_starboard",
+      "resource": "Structures/Power/Generation/PA/emitter_starboard.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorEmitterStarboard"
+      ],
+      "master": "authoring/generation_pa_emitter_starboard/generation_pa_emitter_starboard.bbmodel",
+      "texture": "textures/generation_pa_emitter_starboard/default.png",
+      "parts": 21,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          8.0,
+          10.15,
+          8.16
+        ]
+      },
+      "states": 8,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_emitter_starboard/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          8.0,
+          10.15,
+          8.16
+        ],
+        "size_units": [
+          15.0,
+          10.15,
+          14.16
+        ],
+        "size_blocks": [
+          0.9375,
+          0.634375,
+          0.885
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "completed",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Base"
+          ],
+          "sprite": "Structures/Power/Generation/PA/emitter_starboard.rsi",
+          "color": null
+        },
+        {
+          "state": "unlitp",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Unlit"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/Generation/PA/emitter_starboard.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_emitter_starboard__particleacceleratoremitterstarboardunfinished",
+      "resource": "Structures/Power/Generation/PA/emitter_starboard.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorEmitterStarboardUnfinished"
+      ],
+      "master": "authoring/generation_pa_emitter_starboard__particleacceleratoremitterstarboardunfinished/generation_pa_emitter_starboard__particleacceleratoremitterstarboardunfinished.bbmodel",
+      "texture": "textures/generation_pa_emitter_starboard__particleacceleratoremitterstarboardunfinished/default.png",
+      "parts": 21,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          8.0,
+          10.15,
+          8.16
+        ]
+      },
+      "states": 8,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_emitter_starboard__particleacceleratoremitterstarboardunfinished/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          8.0,
+          10.15,
+          8.16
+        ],
+        "size_units": [
+          15.0,
+          10.15,
+          14.16
+        ],
+        "size_blocks": [
+          0.9375,
+          0.634375,
+          0.885
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "unwired",
+          "map": [
+            "enum.ConstructionVisuals.Layer"
+          ],
+          "sprite": "Structures/Power/Generation/PA/emitter_starboard.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.ConstructionVisuals.Key": {
+            "enum.ConstructionVisuals.Layer": {
+              "start": {
+                "state": "unwired"
+              },
+              "wired": {
+                "state": "wired"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_end_cap",
+      "resource": "Structures/Power/Generation/PA/end_cap.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorEndCap"
+      ],
+      "master": "authoring/generation_pa_end_cap/generation_pa_end_cap.bbmodel",
+      "texture": "textures/generation_pa_end_cap/default.png",
+      "parts": 9,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          7.0,
+          7.15,
+          8.0
+        ]
+      },
+      "states": 3,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_end_cap/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          7.0,
+          7.15,
+          8.0
+        ],
+        "size_units": [
+          14.0,
+          7.15,
+          16.0
+        ],
+        "size_blocks": [
+          0.875,
+          0.446875,
+          1.0
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "completed",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Base"
+          ],
+          "sprite": "Structures/Power/Generation/PA/end_cap.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_end_cap__particleacceleratorendcapunfinished",
+      "resource": "Structures/Power/Generation/PA/end_cap.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorEndCapUnfinished"
+      ],
+      "master": "authoring/generation_pa_end_cap__particleacceleratorendcapunfinished/generation_pa_end_cap__particleacceleratorendcapunfinished.bbmodel",
+      "texture": "textures/generation_pa_end_cap__particleacceleratorendcapunfinished/default.png",
+      "parts": 9,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          7.0,
+          7.15,
+          8.0
+        ]
+      },
+      "states": 3,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_end_cap__particleacceleratorendcapunfinished/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          7.0,
+          7.15,
+          8.0
+        ],
+        "size_units": [
+          14.0,
+          7.15,
+          16.0
+        ],
+        "size_blocks": [
+          0.875,
+          0.446875,
+          1.0
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "unwired",
+          "map": [
+            "enum.ConstructionVisuals.Layer"
+          ],
+          "sprite": "Structures/Power/Generation/PA/end_cap.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.ConstructionVisuals.Key": {
+            "enum.ConstructionVisuals.Layer": {
+              "start": {
+                "state": "unwired"
+              },
+              "wired": {
+                "state": "wired"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_fuel_chamber",
+      "resource": "Structures/Power/Generation/PA/fuel_chamber.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorFuelChamber"
+      ],
+      "master": "authoring/generation_pa_fuel_chamber/generation_pa_fuel_chamber.bbmodel",
+      "texture": "textures/generation_pa_fuel_chamber/default.png",
+      "parts": 10,
+      "bounds": {
+        "min": [
+          -6.5,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          6.5,
+          7.7,
+          8.0
+        ]
+      },
+      "states": 8,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_fuel_chamber/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -6.5,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          6.5,
+          7.7,
+          8.0
+        ],
+        "size_units": [
+          13.0,
+          7.7,
+          16.0
+        ],
+        "size_blocks": [
+          0.8125,
+          0.48125,
+          1.0
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "completed",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Base"
+          ],
+          "sprite": "Structures/Power/Generation/PA/fuel_chamber.rsi",
+          "color": null
+        },
+        {
+          "state": "unlitp",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Unlit"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/Generation/PA/fuel_chamber.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_fuel_chamber__particleacceleratorfuelchamberunfinished",
+      "resource": "Structures/Power/Generation/PA/fuel_chamber.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorFuelChamberUnfinished"
+      ],
+      "master": "authoring/generation_pa_fuel_chamber__particleacceleratorfuelchamberunfinished/generation_pa_fuel_chamber__particleacceleratorfuelchamberunfinished.bbmodel",
+      "texture": "textures/generation_pa_fuel_chamber__particleacceleratorfuelchamberunfinished/default.png",
+      "parts": 10,
+      "bounds": {
+        "min": [
+          -6.5,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          6.5,
+          7.7,
+          8.0
+        ]
+      },
+      "states": 8,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_fuel_chamber__particleacceleratorfuelchamberunfinished/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -6.5,
+          0.0,
+          -8.0
+        ],
+        "max": [
+          6.5,
+          7.7,
+          8.0
+        ],
+        "size_units": [
+          13.0,
+          7.7,
+          16.0
+        ],
+        "size_blocks": [
+          0.8125,
+          0.48125,
+          1.0
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "unwired",
+          "map": [
+            "enum.ConstructionVisuals.Layer"
+          ],
+          "sprite": "Structures/Power/Generation/PA/fuel_chamber.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.ConstructionVisuals.Key": {
+            "enum.ConstructionVisuals.Layer": {
+              "start": {
+                "state": "unwired"
+              },
+              "wired": {
+                "state": "wired"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_power_box",
+      "resource": "Structures/Power/Generation/PA/power_box.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorPowerBox"
+      ],
+      "master": "authoring/generation_pa_power_box/generation_pa_power_box.bbmodel",
+      "texture": "textures/generation_pa_power_box/default.png",
+      "parts": 5,
+      "bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -7.16
+        ],
+        "max": [
+          6.16,
+          13.16,
+          6.0
+        ]
+      },
+      "states": 8,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_power_box/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -7.16
+        ],
+        "max": [
+          6.16,
+          13.16,
+          6.0
+        ],
+        "size_units": [
+          12.16,
+          13.16,
+          13.16
+        ],
+        "size_blocks": [
+          0.76,
+          0.8225,
+          0.8225
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "completed",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Base"
+          ],
+          "sprite": "Structures/Power/Generation/PA/power_box.rsi",
+          "color": null
+        },
+        {
+          "state": "unlitp",
+          "map": [
+            "enum.ParticleAcceleratorVisualLayers.Unlit"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/Generation/PA/power_box.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_pa_power_box__particleacceleratorpowerboxunfinished",
+      "resource": "Structures/Power/Generation/PA/power_box.rsi",
+      "prototype_ids": [
+        "ParticleAcceleratorPowerBoxUnfinished"
+      ],
+      "master": "authoring/generation_pa_power_box__particleacceleratorpowerboxunfinished/generation_pa_power_box__particleacceleratorpowerboxunfinished.bbmodel",
+      "texture": "textures/generation_pa_power_box__particleacceleratorpowerboxunfinished/default.png",
+      "parts": 5,
+      "bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -7.16
+        ],
+        "max": [
+          6.16,
+          13.16,
+          6.0
+        ]
+      },
+      "states": 8,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_pa_power_box__particleacceleratorpowerboxunfinished/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -7.16
+        ],
+        "max": [
+          6.16,
+          13.16,
+          6.0
+        ],
+        "size_units": [
+          12.16,
+          13.16,
+          13.16
+        ],
+        "size_blocks": [
+          0.76,
+          0.8225,
+          0.8225
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "unwired",
+          "map": [
+            "enum.ConstructionVisuals.Layer"
+          ],
+          "sprite": "Structures/Power/Generation/PA/power_box.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.ConstructionVisuals.Key": {
+            "enum.ConstructionVisuals.Layer": {
+              "start": {
+                "state": "unwired"
+              },
+              "wired": {
+                "state": "wired"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_portable_generator",
+      "resource": "Structures/Power/Generation/portable_generator.rsi",
+      "prototype_ids": [
+        "PortableGeneratorPacman"
+      ],
+      "master": "authoring/generation_portable_generator/generation_portable_generator.bbmodel",
+      "texture": "textures/generation_portable_generator/default.png",
+      "parts": 21,
+      "bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.75,
+          10.0,
+          6.375
+        ]
+      },
+      "states": 3,
+      "loops": 2,
+      "default_model": "moonstation14:block/power_collection/generation_portable_generator/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.75,
+          10.0,
+          6.375
+        ],
+        "size_units": [
+          15.75,
+          10.0,
+          12.375
+        ],
+        "size_blocks": [
+          0.984375,
+          0.625,
+          0.7734375
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "portgen0",
+          "map": [
+            "enum.GeneratorVisualLayers.Body"
+          ],
+          "sprite": "Structures/Power/Generation/portable_generator.rsi",
+          "color": null
+        },
+        {
+          "state": "portgen_on_unlit",
+          "map": [
+            "enum.GeneratorVisualLayers.Unlit"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/Generation/portable_generator.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.GeneratorVisuals.Running": {
+            "enum.GeneratorVisualLayers.Body": {
+              "true": {
+                "state": "portgen0on"
+              },
+              "false": {
+                "state": "portgen0"
+              }
+            },
+            "enum.GeneratorVisualLayers.Unlit": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.40,-0.40,0.40,0.40"
+            },
+            "density": 155,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": true,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_portable_generator__portablegeneratorjrpacman",
+      "resource": "Structures/Power/Generation/portable_generator.rsi",
+      "prototype_ids": [
+        "PortableGeneratorJrPacman"
+      ],
+      "master": "authoring/generation_portable_generator__portablegeneratorjrpacman/generation_portable_generator__portablegeneratorjrpacman.bbmodel",
+      "texture": "textures/generation_portable_generator__portablegeneratorjrpacman/default.png",
+      "parts": 20,
+      "bounds": {
+        "min": [
+          -6.5,
+          0.0,
+          -5.0
+        ],
+        "max": [
+          6.25,
+          8.0,
+          5.375
+        ]
+      },
+      "states": 3,
+      "loops": 2,
+      "default_model": "moonstation14:block/power_collection/generation_portable_generator__portablegeneratorjrpacman/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -6.5,
+          0.0,
+          -5.0
+        ],
+        "max": [
+          6.25,
+          8.0,
+          5.375
+        ],
+        "size_units": [
+          12.75,
+          8.0,
+          10.375
+        ],
+        "size_blocks": [
+          0.796875,
+          0.5,
+          0.6484375
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "portgen3",
+          "map": [
+            "enum.GeneratorVisualLayers.Body"
+          ],
+          "sprite": "Structures/Power/Generation/portable_generator.rsi",
+          "color": null
+        },
+        {
+          "state": "portgen3on_unlit",
+          "map": [
+            "enum.GeneratorVisualLayers.Unlit"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/Generation/portable_generator.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.GeneratorVisuals.Running": {
+            "enum.GeneratorVisualLayers.Body": {
+              "true": {
+                "state": "portgen3on"
+              },
+              "false": {
+                "state": "portgen3"
+              }
+            },
+            "enum.GeneratorVisualLayers.Unlit": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.30,-0.30,0.30,0.30"
+            },
+            "density": 80,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": true,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_portable_generator__portablegeneratorsuperpacman",
+      "resource": "Structures/Power/Generation/portable_generator.rsi",
+      "prototype_ids": [
+        "PortableGeneratorSuperPacman"
+      ],
+      "master": "authoring/generation_portable_generator__portablegeneratorsuperpacman/generation_portable_generator__portablegeneratorsuperpacman.bbmodel",
+      "texture": "textures/generation_portable_generator__portablegeneratorsuperpacman/default.png",
+      "parts": 21,
+      "bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.75,
+          10.0,
+          6.375
+        ]
+      },
+      "states": 4,
+      "loops": 3,
+      "default_model": "moonstation14:block/power_collection/generation_portable_generator__portablegeneratorsuperpacman/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -6.0
+        ],
+        "max": [
+          7.75,
+          10.0,
+          6.375
+        ],
+        "size_units": [
+          15.75,
+          10.0,
+          12.375
+        ],
+        "size_blocks": [
+          0.984375,
+          0.625,
+          0.7734375
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "portgen1",
+          "map": [
+            "enum.GeneratorVisualLayers.Body"
+          ],
+          "sprite": "Structures/Power/Generation/portable_generator.rsi",
+          "color": null
+        },
+        {
+          "state": "portgen_on_unlit",
+          "map": [
+            "enum.GeneratorVisualLayers.Unlit"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/Generation/portable_generator.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.GeneratorVisuals.Running": {
+            "enum.GeneratorVisualLayers.Body": {
+              "true": {
+                "state": "portgen1on"
+              },
+              "false": {
+                "state": "portgen1"
+              }
+            },
+            "enum.GeneratorVisualLayers.Unlit": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.40,-0.40,0.40,0.40"
+            },
+            "density": 155,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": true,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_rtg",
+      "resource": "Structures/Power/Generation/rtg.rsi",
+      "prototype_ids": [
+        "GeneratorRTG"
+      ],
+      "master": "authoring/generation_rtg/generation_rtg.bbmodel",
+      "texture": "textures/generation_rtg/default.png",
+      "parts": 13,
+      "bounds": {
+        "min": [
+          -5.7,
+          0.0,
+          -4.66
+        ],
+        "max": [
+          5.7,
+          24.0,
+          4.5
+        ]
+      },
+      "states": 4,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/generation_rtg/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -5.7,
+          0.0,
+          -4.66
+        ],
+        "max": [
+          5.7,
+          24.0,
+          4.5
+        ],
+        "size_units": [
+          11.4,
+          24.0,
+          9.16
+        ],
+        "size_blocks": [
+          0.7125,
+          1.5,
+          0.5725
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "rtg",
+          "sprite": "Structures/Power/Generation/rtg.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.4,-0.5,0.4,0.3"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_rtg__generatorrtgdamaged",
+      "resource": "Structures/Power/Generation/rtg.rsi",
+      "prototype_ids": [
+        "GeneratorRTGDamaged"
+      ],
+      "master": "authoring/generation_rtg__generatorrtgdamaged/generation_rtg__generatorrtgdamaged.bbmodel",
+      "texture": "textures/generation_rtg__generatorrtgdamaged/default.png",
+      "parts": 16,
+      "bounds": {
+        "min": [
+          -5.7,
+          0.0,
+          -4.66
+        ],
+        "max": [
+          5.7,
+          24.0,
+          4.5
+        ]
+      },
+      "states": 4,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/generation_rtg__generatorrtgdamaged/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -5.7,
+          0.0,
+          -4.66
+        ],
+        "max": [
+          5.7,
+          24.002497313905828,
+          4.5
+        ],
+        "size_units": [
+          11.4,
+          24.002497313905828,
+          9.16
+        ],
+        "size_blocks": [
+          0.7125,
+          1.5001560821191142,
+          0.5725
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "rtg_damaged",
+          "sprite": "Structures/Power/Generation/rtg.rsi",
+          "color": null
+        },
+        {
+          "state": "rtg_glow",
+          "sprite": "Structures/Power/Generation/rtg.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.4,-0.5,0.4,0.3"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [
+        "rtg_glow"
+      ],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_singularity_collector",
+      "resource": "Structures/Power/Generation/Singularity/collector.rsi",
+      "prototype_ids": [
+        "RadiationCollector",
+        "RadiationCollectorNoTank",
+        "RadiationCollectorFullTank"
+      ],
+      "master": "authoring/generation_singularity_collector/generation_singularity_collector.bbmodel",
+      "texture": "textures/generation_singularity_collector/default.png",
+      "parts": 5,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.16
+        ],
+        "max": [
+          7.0,
+          11.0,
+          5.0
+        ]
+      },
+      "states": 11,
+      "loops": 3,
+      "default_model": "moonstation14:block/power_collection/generation_singularity_collector/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.16
+        ],
+        "max": [
+          7.0,
+          11.0,
+          5.0
+        ],
+        "size_units": [
+          14.0,
+          11.0,
+          10.16
+        ],
+        "size_blocks": [
+          0.875,
+          0.6875,
+          0.635
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "ca_off",
+          "map": [
+            "enum.RadiationCollectorVisualLayers.Main"
+          ],
+          "sprite": "Structures/Power/Generation/Singularity/collector.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.RadiationCollectorVisuals.TankInserted": {
+            "tankInserted": {
+              "false": {
+                "state": "ca-tank",
+                "visible": false
+              },
+              "true": {
+                "state": "ca-tank",
+                "visible": true
+              }
+            }
+          },
+          "enum.RadiationCollectorVisuals.PressureState": {
+            "pressureLight": {
+              "0": {
+                "state": "ca-o0",
+                "shader": "unshaded"
+              },
+              "1": {
+                "state": "ca-o1",
+                "shader": "unshaded"
+              },
+              "2": {
+                "state": "ca-o2",
+                "shader": "unshaded"
+              },
+              "3": {
+                "state": "ca-o3",
+                "shader": "unshaded"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_singularity_containment",
+      "resource": "Structures/Power/Generation/Singularity/containment.rsi",
+      "prototype_ids": [
+        "ContainmentFieldGenerator"
+      ],
+      "master": "authoring/generation_singularity_containment/generation_singularity_containment.bbmodel",
+      "texture": "textures/generation_singularity_containment/default.png",
+      "parts": 9,
+      "bounds": {
+        "min": [
+          -5.0,
+          0.0,
+          -5.0
+        ],
+        "max": [
+          5.0,
+          24.0,
+          5.0
+        ]
+      },
+      "states": 11,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_singularity_containment/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -5.0,
+          0.0,
+          -5.0
+        ],
+        "max": [
+          5.0,
+          24.0,
+          5.0
+        ],
+        "size_units": [
+          10.0,
+          24.0,
+          10.0
+        ],
+        "size_blocks": [
+          0.625,
+          1.5,
+          0.625
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "icon",
+          "sprite": "Structures/Power/Generation/Singularity/containment.rsi",
+          "color": null
+        },
+        {
+          "state": "p1",
+          "map": [
+            "powerLight"
+          ],
+          "visible": false,
+          "shader": "unshaded",
+          "sprite": "Structures/Power/Generation/Singularity/containment.rsi",
+          "color": null
+        },
+        {
+          "state": "a1",
+          "map": [
+            "fieldLight"
+          ],
+          "visible": false,
+          "shader": "unshaded",
+          "sprite": "Structures/Power/Generation/Singularity/containment.rsi",
+          "color": null
+        },
+        {
+          "state": "on",
+          "map": [
+            "connectedLight"
+          ],
+          "visible": false,
+          "shader": "unshaded",
+          "sprite": "Structures/Power/Generation/Singularity/containment.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.ContainmentFieldGeneratorVisuals.PowerLight": {
+            "powerLight": {
+              "NoPower": {
+                "visible": false
+              },
+              "LowPower": {
+                "visible": true,
+                "state": "p1"
+              },
+              "MediumPower": {
+                "visible": true,
+                "state": "p3"
+              },
+              "HighPower": {
+                "visible": true,
+                "state": "p6"
+              }
+            }
+          },
+          "enum.ContainmentFieldGeneratorVisuals.FieldLight": {
+            "fieldLight": {
+              "NoLevel": {
+                "visible": false
+              },
+              "On": {
+                "visible": true,
+                "state": "a1"
+              },
+              "OneField": {
+                "visible": true,
+                "state": "a2"
+              },
+              "MultipleFields": {
+                "visible": true,
+                "state": "a3"
+              }
+            }
+          },
+          "enum.ContainmentFieldGeneratorVisuals.OnLight": {
+            "connectedLight": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45",
+              "radius": 0.4
+            },
+            "density": 190,
+            "mask": [
+              "FullTileMask"
+            ],
+            "layer": [
+              "WallLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": true,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_singularity_containment_field",
+      "resource": "Structures/Power/Generation/Singularity/containment_field.rsi",
+      "prototype_ids": [
+        "ContainmentField"
+      ],
+      "master": "authoring/generation_singularity_containment_field/generation_singularity_containment_field.bbmodel",
+      "texture": "textures/generation_singularity_containment_field/default.png",
+      "parts": 1,
+      "bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -0.0625
+        ],
+        "max": [
+          8.0,
+          16.0,
+          0.0625
+        ]
+      },
+      "states": 1,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/generation_singularity_containment_field/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -8.0,
+          0.0,
+          -0.0625
+        ],
+        "max": [
+          8.0,
+          16.0,
+          0.0625
+        ],
+        "size_units": [
+          16.0,
+          16.0,
+          0.125
+        ],
+        "size_blocks": [
+          1.0,
+          1.0,
+          0.0078125
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "field",
+          "sprite": "Structures/Power/Generation/Singularity/containment_field.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.5,-0.5,0.5,0.5"
+            },
+            "mask": [
+              "FullTileMask"
+            ],
+            "layer": [
+              "GlassLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": true,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_singularity_emitter",
+      "resource": "Structures/Power/Generation/Singularity/emitter.rsi",
+      "prototype_ids": [
+        "Emitter"
+      ],
+      "master": "authoring/generation_singularity_emitter/generation_singularity_emitter.bbmodel",
+      "texture": "textures/generation_singularity_emitter/default.png",
+      "parts": 68,
+      "bounds": {
+        "min": [
+          -5.3,
+          -0.5149999999999997,
+          -6.44
+        ],
+        "max": [
+          5.3,
+          10.1,
+          6.975
+        ]
+      },
+      "states": 6,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/generation_singularity_emitter/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -5.371320343559643,
+          0.0,
+          -6.44
+        ],
+        "max": [
+          5.371320343559643,
+          10.1,
+          6.975
+        ],
+        "size_units": [
+          10.742640687119286,
+          10.1,
+          13.415
+        ],
+        "size_blocks": [
+          0.6714150429449554,
+          0.63125,
+          0.8384375
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "emitter2",
+          "sprite": "Structures/Power/Generation/Singularity/emitter.rsi",
+          "color": null
+        },
+        {
+          "state": "beam",
+          "shader": "unshaded",
+          "visible": false,
+          "map": [
+            "enum.EmitterVisualLayers.Lights"
+          ],
+          "sprite": "Structures/Power/Generation/Singularity/emitter.rsi",
+          "color": null
+        },
+        {
+          "state": "locked",
+          "shader": "unshaded",
+          "visible": false,
+          "map": [
+            "enum.LockVisualLayers.Lock"
+          ],
+          "sprite": "Structures/Power/Generation/Singularity/emitter.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.25,-0.25,0.25,0.25"
+            },
+            "density": 400,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "R6 emitter/upperTesla correction"
+    },
+    {
+      "asset_id": "generation_singularity_generator",
+      "resource": "Structures/Power/Generation/Singularity/generator.rsi",
+      "prototype_ids": [
+        "SingularityGenerator"
+      ],
+      "master": "authoring/generation_singularity_generator/generation_singularity_generator.bbmodel",
+      "texture": "textures/generation_singularity_generator/default.png",
+      "parts": 10,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.0
+        ],
+        "max": [
+          7.0,
+          23.0,
+          5.0
+        ]
+      },
+      "states": 1,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_singularity_generator/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.0
+        ],
+        "max": [
+          7.0,
+          23.0,
+          5.0
+        ],
+        "size_units": [
+          14.0,
+          23.0,
+          10.0
+        ],
+        "size_blocks": [
+          0.875,
+          1.4375,
+          0.625
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "icon",
+          "sprite": "Structures/Power/Generation/Singularity/generator.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "radius": 0.45
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "Opaque"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_solar_panel",
+      "resource": "Structures/Power/Generation/solar_panel.rsi",
+      "prototype_ids": [
+        "SolarPanelBasePhysSprite",
+        "SolarPanel"
+      ],
+      "master": "authoring/generation_solar_panel/generation_solar_panel.bbmodel",
+      "texture": "textures/generation_solar_panel/default.png",
+      "parts": 29,
+      "bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5
+        ],
+        "max": [
+          7.5,
+          6.3297438976228495,
+          4.5
+        ]
+      },
+      "states": 3,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_solar_panel/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5401413286658805
+        ],
+        "max": [
+          7.5,
+          7.14595497815419,
+          4.080921209827772
+        ],
+        "size_units": [
+          15.0,
+          7.14595497815419,
+          8.621062538493653
+        ],
+        "size_blocks": [
+          0.9375,
+          0.4466221861346369,
+          0.5388164086558533
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "solar_panel_glass",
+          "sprite": "Structures/Power/Generation/solar_panel.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.1,0.45,0.1"
+            },
+            "density": 550,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MidImpassable, LowImpassable, BulletImpassable"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_solar_panel__solarassembly",
+      "resource": "Structures/Power/Generation/solar_panel.rsi",
+      "prototype_ids": [
+        "SolarAssembly"
+      ],
+      "master": "authoring/generation_solar_panel__solarassembly/generation_solar_panel__solarassembly.bbmodel",
+      "texture": "textures/generation_solar_panel__solarassembly/default.png",
+      "parts": 26,
+      "bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5
+        ],
+        "max": [
+          7.5,
+          5.5,
+          4.5
+        ]
+      },
+      "states": 2,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_solar_panel__solarassembly/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5401413286658805
+        ],
+        "max": [
+          7.5,
+          7.14595497815419,
+          4.080921209827772
+        ],
+        "size_units": [
+          15.0,
+          7.14595497815419,
+          8.621062538493653
+        ],
+        "size_blocks": [
+          0.9375,
+          0.4466221861346369,
+          0.5388164086558533
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "solar_assembly",
+          "sprite": "Structures/Power/Generation/solar_panel.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "radius": 0.25
+            },
+            "density": 375,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_solar_panel__solarpanelbroken",
+      "resource": "Structures/Power/Generation/solar_panel.rsi",
+      "prototype_ids": [
+        "SolarPanelBroken"
+      ],
+      "master": "authoring/generation_solar_panel__solarpanelbroken/generation_solar_panel__solarpanelbroken.bbmodel",
+      "texture": "textures/generation_solar_panel__solarpanelbroken/default.png",
+      "parts": 29,
+      "bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5
+        ],
+        "max": [
+          7.5,
+          6.3297438976228495,
+          4.5
+        ]
+      },
+      "states": 2,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_solar_panel__solarpanelbroken/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5401413286658805
+        ],
+        "max": [
+          7.5,
+          7.14595497815419,
+          4.080921209827772
+        ],
+        "size_units": [
+          15.0,
+          7.14595497815419,
+          8.621062538493653
+        ],
+        "size_blocks": [
+          0.9375,
+          0.4466221861346369,
+          0.5388164086558533
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "solar_panel_glass_broken",
+          "sprite": "Structures/Power/Generation/solar_panel.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.1,0.45,0.1"
+            },
+            "density": 550,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MidImpassable, LowImpassable, BulletImpassable"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_solar_panel__solarpanelplasma",
+      "resource": "Structures/Power/Generation/solar_panel.rsi",
+      "prototype_ids": [
+        "SolarPanelPlasma"
+      ],
+      "master": "authoring/generation_solar_panel__solarpanelplasma/generation_solar_panel__solarpanelplasma.bbmodel",
+      "texture": "textures/generation_solar_panel__solarpanelplasma/default.png",
+      "parts": 29,
+      "bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5
+        ],
+        "max": [
+          7.5,
+          6.3297438976228495,
+          4.5
+        ]
+      },
+      "states": 3,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_solar_panel__solarpanelplasma/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5401413286658805
+        ],
+        "max": [
+          7.5,
+          7.14595497815419,
+          4.080921209827772
+        ],
+        "size_units": [
+          15.0,
+          7.14595497815419,
+          8.621062538493653
+        ],
+        "size_blocks": [
+          0.9375,
+          0.4466221861346369,
+          0.5388164086558533
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "solar_panel_plasma",
+          "sprite": "Structures/Power/Generation/solar_panel.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.1,0.45,0.1"
+            },
+            "density": 550,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MidImpassable, LowImpassable, BulletImpassable"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_solar_panel__solarpanelplasmabroken",
+      "resource": "Structures/Power/Generation/solar_panel.rsi",
+      "prototype_ids": [
+        "SolarPanelPlasmaBroken"
+      ],
+      "master": "authoring/generation_solar_panel__solarpanelplasmabroken/generation_solar_panel__solarpanelplasmabroken.bbmodel",
+      "texture": "textures/generation_solar_panel__solarpanelplasmabroken/default.png",
+      "parts": 29,
+      "bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5
+        ],
+        "max": [
+          7.5,
+          6.3297438976228495,
+          4.5
+        ]
+      },
+      "states": 2,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_solar_panel__solarpanelplasmabroken/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5401413286658805
+        ],
+        "max": [
+          7.5,
+          7.14595497815419,
+          4.080921209827772
+        ],
+        "size_units": [
+          15.0,
+          7.14595497815419,
+          8.621062538493653
+        ],
+        "size_blocks": [
+          0.9375,
+          0.4466221861346369,
+          0.5388164086558533
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "solar_panel_plasma_broken",
+          "sprite": "Structures/Power/Generation/solar_panel.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.1,0.45,0.1"
+            },
+            "density": 550,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MidImpassable, LowImpassable, BulletImpassable"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_solar_panel__solarpaneluranium",
+      "resource": "Structures/Power/Generation/solar_panel.rsi",
+      "prototype_ids": [
+        "SolarPanelUranium"
+      ],
+      "master": "authoring/generation_solar_panel__solarpaneluranium/generation_solar_panel__solarpaneluranium.bbmodel",
+      "texture": "textures/generation_solar_panel__solarpaneluranium/default.png",
+      "parts": 29,
+      "bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5
+        ],
+        "max": [
+          7.5,
+          6.3297438976228495,
+          4.5
+        ]
+      },
+      "states": 3,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_solar_panel__solarpaneluranium/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5401413286658805
+        ],
+        "max": [
+          7.5,
+          7.14595497815419,
+          4.080921209827772
+        ],
+        "size_units": [
+          15.0,
+          7.14595497815419,
+          8.621062538493653
+        ],
+        "size_blocks": [
+          0.9375,
+          0.4466221861346369,
+          0.5388164086558533
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "solar_panel_uranium",
+          "sprite": "Structures/Power/Generation/solar_panel.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.1,0.45,0.1"
+            },
+            "density": 550,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MidImpassable, LowImpassable, BulletImpassable"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_solar_panel__solarpaneluraniumbroken",
+      "resource": "Structures/Power/Generation/solar_panel.rsi",
+      "prototype_ids": [
+        "SolarPanelUraniumBroken"
+      ],
+      "master": "authoring/generation_solar_panel__solarpaneluraniumbroken/generation_solar_panel__solarpaneluraniumbroken.bbmodel",
+      "texture": "textures/generation_solar_panel__solarpaneluraniumbroken/default.png",
+      "parts": 29,
+      "bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5
+        ],
+        "max": [
+          7.5,
+          6.3297438976228495,
+          4.5
+        ]
+      },
+      "states": 2,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_solar_panel__solarpaneluraniumbroken/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5401413286658805
+        ],
+        "max": [
+          7.5,
+          7.14595497815419,
+          4.080921209827772
+        ],
+        "size_units": [
+          15.0,
+          7.14595497815419,
+          8.621062538493653
+        ],
+        "size_blocks": [
+          0.9375,
+          0.4466221861346369,
+          0.5388164086558533
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "solar_panel_uranium_broken",
+          "sprite": "Structures/Power/Generation/solar_panel.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.1,0.45,0.1"
+            },
+            "density": 550,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MidImpassable, LowImpassable, BulletImpassable"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_solar_panel__solartracker",
+      "resource": "Structures/Power/Generation/solar_panel.rsi",
+      "prototype_ids": [
+        "SolarTracker"
+      ],
+      "master": "authoring/generation_solar_panel__solartracker/generation_solar_panel__solartracker.bbmodel",
+      "texture": "textures/generation_solar_panel__solartracker/default.png",
+      "parts": 29,
+      "bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5
+        ],
+        "max": [
+          7.5,
+          6.3297438976228495,
+          4.5
+        ]
+      },
+      "states": 4,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_solar_panel__solartracker/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.5,
+          0.0,
+          -4.5401413286658805
+        ],
+        "max": [
+          7.5,
+          7.14595497815419,
+          4.080921209827772
+        ],
+        "size_units": [
+          15.0,
+          7.14595497815419,
+          8.621062538493653
+        ],
+        "size_blocks": [
+          0.9375,
+          0.4466221861346369,
+          0.5388164086558533
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "solar_tracker",
+          "sprite": "Structures/Power/Generation/solar_panel.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {},
+            "density": 100,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_teg",
+      "resource": "Structures/Power/Generation/teg.rsi",
+      "prototype_ids": [
+        "TegCenter"
+      ],
+      "master": "authoring/generation_teg/generation_teg.bbmodel",
+      "texture": "textures/generation_teg/default.png",
+      "parts": 10,
+      "bounds": {
+        "min": [
+          -7.16,
+          0.0,
+          -7.17
+        ],
+        "max": [
+          7.0,
+          7.16,
+          7.0
+        ]
+      },
+      "states": 17,
+      "loops": 4,
+      "default_model": "moonstation14:block/power_collection/generation_teg/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.16,
+          0.0,
+          -7.17
+        ],
+        "max": [
+          7.0,
+          7.16,
+          7.0
+        ],
+        "size_units": [
+          14.16,
+          7.16,
+          14.17
+        ],
+        "size_blocks": [
+          0.885,
+          0.4475,
+          0.885625
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "teg",
+          "sprite": "Structures/Power/Generation/teg.rsi",
+          "color": null
+        },
+        {
+          "state": "teg_mid",
+          "shader": "unshaded",
+          "map": [
+            "enum.PowerDeviceVisualLayers.Powered"
+          ],
+          "sprite": "Structures/Power/Generation/teg.rsi",
+          "color": null
+        },
+        {
+          "state": "teg-op1",
+          "shader": "unshaded",
+          "visible": false,
+          "map": [
+            "enum.TegVisualLayers.PowerOutput"
+          ],
+          "sprite": "Structures/Power/Generation/teg.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.PowerDeviceVisuals.Powered": {
+            "enum.PowerDeviceVisualLayers.Powered": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          },
+          "enum.TegVisuals.PowerOutput": {
+            "enum.TegVisualLayers.PowerOutput": {
+              "0": {
+                "visible": false
+              },
+              "1": {
+                "visible": true,
+                "state": "teg-op1"
+              },
+              "2": {
+                "visible": true,
+                "state": "teg-op2"
+              },
+              "3": {
+                "visible": true,
+                "state": "teg-op3"
+              },
+              "4": {
+                "visible": true,
+                "state": "teg-op4"
+              },
+              "5": {
+                "visible": true,
+                "state": "teg-op5"
+              },
+              "6": {
+                "visible": true,
+                "state": "teg-op6"
+              },
+              "7": {
+                "visible": true,
+                "state": "teg-op7"
+              },
+              "8": {
+                "visible": true,
+                "state": "teg-op8"
+              },
+              "9": {
+                "visible": true,
+                "state": "teg-op9"
+              },
+              "10": {
+                "visible": true,
+                "state": "teg-op10"
+              },
+              "11": {
+                "visible": true,
+                "state": "teg-op11"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_teg__tegcirculator",
+      "resource": "Structures/Power/Generation/teg.rsi",
+      "prototype_ids": [
+        "TegCirculator"
+      ],
+      "master": "authoring/generation_teg__tegcirculator/generation_teg__tegcirculator.bbmodel",
+      "texture": "textures/generation_teg__tegcirculator/default.png",
+      "parts": 9,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -7.0
+        ],
+        "max": [
+          7.0,
+          9.16,
+          6.12
+        ]
+      },
+      "states": 6,
+      "loops": 4,
+      "default_model": "moonstation14:block/power_collection/generation_teg__tegcirculator/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -7.0
+        ],
+        "max": [
+          7.0,
+          9.16,
+          6.12
+        ],
+        "size_units": [
+          14.0,
+          9.16,
+          13.120000000000001
+        ],
+        "size_blocks": [
+          0.875,
+          0.5725,
+          0.8200000000000001
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "circ-0",
+          "map": [
+            "enum.TegVisualLayers.CirculatorBase"
+          ],
+          "sprite": "Structures/Power/Generation/teg.rsi",
+          "color": null
+        },
+        {
+          "state": "circ-0-light",
+          "shader": "unshaded",
+          "map": [
+            "enum.TegVisualLayers.CirculatorLight"
+          ],
+          "sprite": "Structures/Power/Generation/teg.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.TegVisuals.CirculatorPower": {
+            "enum.TegVisualLayers.CirculatorLight": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          },
+          "enum.TegVisuals.CirculatorSpeed": {
+            "enum.TegVisualLayers.CirculatorBase": {
+              "SpeedStill": {
+                "state": "circ-0"
+              },
+              "SpeedSlow": {
+                "state": "circ-1"
+              },
+              "SpeedFast": {
+                "state": "circ-2"
+              }
+            },
+            "enum.TegVisualLayers.CirculatorLight": {
+              "SpeedStill": {
+                "state": "circ-0-light"
+              },
+              "SpeedSlow": {
+                "state": "circ-1-light"
+              },
+              "SpeedFast": {
+                "state": "circ-2-light"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_tesla_coil",
+      "resource": "Structures/Power/Generation/Tesla/coil.rsi",
+      "prototype_ids": [
+        "TeslaCoil"
+      ],
+      "master": "authoring/generation_tesla_coil/generation_tesla_coil.bbmodel",
+      "texture": "textures/generation_tesla_coil/default.png",
+      "parts": 39,
+      "bounds": {
+        "min": [
+          -5.0,
+          0.0,
+          -4.2
+        ],
+        "max": [
+          5.0,
+          25.0,
+          4.2
+        ]
+      },
+      "states": 2,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_tesla_coil/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -5.0,
+          0.0,
+          -4.2
+        ],
+        "max": [
+          5.0,
+          25.0,
+          4.2
+        ],
+        "size_units": [
+          10.0,
+          25.0,
+          8.4
+        ],
+        "size_blocks": [
+          0.625,
+          1.5625,
+          0.525
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "coil",
+          "map": [
+            "enabled"
+          ],
+          "sprite": "Structures/Power/Generation/Tesla/coil.rsi",
+          "color": null
+        },
+        {
+          "state": "coilhit",
+          "visible": false,
+          "map": [
+            "hit"
+          ],
+          "sprite": "Structures/Power/Generation/Tesla/coil.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.TeslaCoilVisuals.Enabled": {
+            "enabled": {
+              "true": {
+                "state": "coil_open"
+              },
+              "false": {
+                "state": "coil"
+              }
+            }
+          },
+          "enum.TeslaCoilVisuals.Lightning": {
+            "hit": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": true,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_tesla_coil__teslagroundingrod",
+      "resource": "Structures/Power/Generation/Tesla/coil.rsi",
+      "prototype_ids": [
+        "TeslaGroundingRod"
+      ],
+      "master": "authoring/generation_tesla_coil__teslagroundingrod/generation_tesla_coil__teslagroundingrod.bbmodel",
+      "texture": "textures/generation_tesla_coil__teslagroundingrod/default.png",
+      "parts": 11,
+      "bounds": {
+        "min": [
+          -5.0,
+          0.0,
+          -4.17
+        ],
+        "max": [
+          5.0,
+          25.0,
+          4.0
+        ]
+      },
+      "states": 2,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_tesla_coil__teslagroundingrod/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -5.0,
+          0.0,
+          -4.17
+        ],
+        "max": [
+          5.0,
+          25.0,
+          4.0
+        ],
+        "size_units": [
+          10.0,
+          25.0,
+          8.17
+        ],
+        "size_blocks": [
+          0.625,
+          1.5625,
+          0.510625
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "grounding_rod",
+          "map": [
+            "power"
+          ],
+          "sprite": "Structures/Power/Generation/Tesla/coil.rsi",
+          "color": null
+        },
+        {
+          "state": "grounding_rodhit",
+          "visible": false,
+          "map": [
+            "hit"
+          ],
+          "sprite": "Structures/Power/Generation/Tesla/coil.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.TeslaCoilVisuals.Lightning": {
+            "hit": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          },
+          "enum.TeslaCoilVisuals.Enabled": {
+            "power": {
+              "true": {
+                "state": "grounding_rod"
+              },
+              "false": {
+                "state": "grounding_rod_open"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45"
+            },
+            "density": 110,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": true,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_tesla_generator",
+      "resource": "Structures/Power/Generation/Tesla/generator.rsi",
+      "prototype_ids": [
+        "TeslaGenerator"
+      ],
+      "master": "authoring/generation_tesla_generator/generation_tesla_generator.bbmodel",
+      "texture": "textures/generation_tesla_generator/default.png",
+      "parts": 74,
+      "bounds": {
+        "min": [
+          -4.25,
+          0.0,
+          -3.0
+        ],
+        "max": [
+          4.25,
+          25.0,
+          3.0
+        ]
+      },
+      "states": 1,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/generation_tesla_generator/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -4.052601910021414,
+          0.0,
+          -4.052601910021414
+        ],
+        "max": [
+          4.052601910021414,
+          25.0,
+          4.052601910021414
+        ],
+        "size_units": [
+          8.105203820042828,
+          25.0,
+          8.105203820042828
+        ],
+        "size_blocks": [
+          0.5065752387526767,
+          1.5625,
+          0.5065752387526767
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "icon",
+          "sprite": "Structures/Power/Generation/Tesla/generator.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45",
+              "radius": 0.45
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "Opaque"
+            ]
+          }
+        }
+      },
+      "source_noRot": true,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "R6 emitter/upperTesla correction"
+    },
+    {
+      "asset_id": "generation_wallmount_generator",
+      "resource": "Structures/Power/Generation/wallmount_generator.rsi",
+      "prototype_ids": [
+        "BaseGeneratorWallmountFrame"
+      ],
+      "master": "authoring/generation_wallmount_generator/generation_wallmount_generator.bbmodel",
+      "texture": "textures/generation_wallmount_generator/default.png",
+      "parts": 3,
+      "bounds": {
+        "min": [
+          -3.0,
+          2.0,
+          3.65
+        ],
+        "max": [
+          3.0,
+          16.0,
+          7.0
+        ]
+      },
+      "states": 4,
+      "loops": 2,
+      "default_model": "moonstation14:block/power_collection/generation_wallmount_generator/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -3.0,
+          2.0,
+          3.65
+        ],
+        "max": [
+          3.0,
+          16.0,
+          7.0
+        ],
+        "size_units": [
+          6.0,
+          14.0,
+          3.35
+        ],
+        "size_blocks": [
+          0.375,
+          0.875,
+          0.209375
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "panel",
+          "sprite": "Structures/Power/Generation/wallmount_generator.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {},
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "generation_wallmount_generator__generatorwallmountbasic",
+      "resource": "Structures/Power/Generation/wallmount_generator.rsi",
+      "prototype_ids": [
+        "GeneratorWallmountBasic",
+        "GeneratorWallmountAPU",
+        "GeneratorWallmountAPULV"
+      ],
+      "master": "authoring/generation_wallmount_generator__generatorwallmountbasic/generation_wallmount_generator__generatorwallmountbasic.bbmodel",
+      "texture": "textures/generation_wallmount_generator__generatorwallmountbasic/default.png",
+      "parts": 3,
+      "bounds": {
+        "min": [
+          -3.0,
+          2.0,
+          3.65
+        ],
+        "max": [
+          3.0,
+          16.0,
+          7.0
+        ]
+      },
+      "states": 4,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/generation_wallmount_generator__generatorwallmountbasic/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -3.0,
+          2.0,
+          3.65
+        ],
+        "max": [
+          3.0,
+          16.0,
+          7.0
+        ],
+        "size_units": [
+          6.0,
+          14.0,
+          3.35
+        ],
+        "size_blocks": [
+          0.375,
+          0.875,
+          0.209375
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "panel",
+          "sprite": "Structures/Power/Generation/wallmount_generator.rsi",
+          "color": null
+        },
+        {
+          "state": "on",
+          "shader": "unshaded",
+          "sprite": "Structures/Power/Generation/wallmount_generator.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.4,-0.5,0.4,0.3"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "power",
+      "resource": "Structures/Power/power.rsi",
+      "prototype_ids": [
+        "DebugGenerator",
+        "GeneratorBasic",
+        "GeneratorBasic15kW"
+      ],
+      "master": "authoring/power/power.bbmodel",
+      "texture": "textures/power/default.png",
+      "parts": 23,
+      "bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.0
+        ],
+        "max": [
+          7.0,
+          14.0,
+          6.0
+        ]
+      },
+      "states": 1,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/power/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          0.0,
+          -5.0
+        ],
+        "max": [
+          7.0,
+          14.0,
+          6.0
+        ],
+        "size_units": [
+          14.0,
+          14.0,
+          11.0
+        ],
+        "size_blocks": [
+          0.875,
+          0.875,
+          0.6875
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "generator",
+          "sprite": "Structures/Power/power.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.4,-0.5,0.4,0.3"
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "power__debugbatterystorage",
+      "resource": "Structures/Power/power.rsi",
+      "prototype_ids": [
+        "DebugBatteryStorage",
+        "DebugBatteryDischarger"
+      ],
+      "master": "authoring/power__debugbatterystorage/power__debugbatterystorage.bbmodel",
+      "texture": "textures/power__debugbatterystorage/default.png",
+      "parts": 2,
+      "bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -4.17
+        ],
+        "max": [
+          6.0,
+          12.0,
+          4.0
+        ]
+      },
+      "states": 1,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/power__debugbatterystorage/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -4.17
+        ],
+        "max": [
+          6.0,
+          12.0,
+          4.0
+        ],
+        "size_units": [
+          12.0,
+          12.0,
+          8.17
+        ],
+        "size_blocks": [
+          0.75,
+          0.75,
+          0.510625
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "provider",
+          "sprite": "Structures/Power/power.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.5,-0.5,0.5,0.5"
+            },
+            "layer": [
+              "MobMask",
+              "Opaque"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "power__debugconsumer",
+      "resource": "Structures/Power/power.rsi",
+      "prototype_ids": [
+        "DebugConsumer"
+      ],
+      "master": "authoring/power__debugconsumer/power__debugconsumer.bbmodel",
+      "texture": "textures/power__debugconsumer/default.png",
+      "parts": 6,
+      "bounds": {
+        "min": [
+          -5.0,
+          0.0,
+          -4.17
+        ],
+        "max": [
+          5.0,
+          24.0,
+          4.0
+        ]
+      },
+      "states": 1,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/power__debugconsumer/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -5.0,
+          0.0,
+          -4.17
+        ],
+        "max": [
+          5.0,
+          24.0,
+          4.0
+        ],
+        "size_units": [
+          10.0,
+          24.0,
+          8.17
+        ],
+        "size_blocks": [
+          0.625,
+          1.5,
+          0.510625
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "wiredmachine",
+          "sprite": "Structures/Power/power.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.5,-0.5,0.5,0.5"
+            },
+            "layer": [
+              "MobMask",
+              "Opaque"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "power__debugpowerreceiver",
+      "resource": "Structures/Power/power.rsi",
+      "prototype_ids": [
+        "DebugPowerReceiver"
+      ],
+      "master": "authoring/power__debugpowerreceiver/power__debugpowerreceiver.bbmodel",
+      "texture": "textures/power__debugpowerreceiver/default.png",
+      "parts": 3,
+      "bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -4.17
+        ],
+        "max": [
+          6.0,
+          19.0,
+          4.0
+        ]
+      },
+      "states": 1,
+      "loops": 0,
+      "default_model": "moonstation14:block/power_collection/power__debugpowerreceiver/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -6.0,
+          0.0,
+          -4.17
+        ],
+        "max": [
+          6.0,
+          19.0,
+          4.0
+        ],
+        "size_units": [
+          12.0,
+          19.0,
+          8.17
+        ],
+        "size_blocks": [
+          0.75,
+          1.1875,
+          0.510625
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "wirelessmachine",
+          "sprite": "Structures/Power/power.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.5,-0.5,0.5,0.5"
+            },
+            "layer": [
+              "MobMask",
+              "Opaque"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "recharger",
+      "resource": "Structures/Power/recharger.rsi",
+      "prototype_ids": [
+        "WeaponCapacitorRecharger"
+      ],
+      "master": "authoring/recharger/recharger.bbmodel",
+      "texture": "textures/recharger/default.png",
+      "parts": 9,
+      "bounds": {
+        "min": [
+          -3.5,
+          0.0,
+          -3.66
+        ],
+        "max": [
+          3.5,
+          6.0,
+          3.5
+        ]
+      },
+      "states": 6,
+      "loops": 3,
+      "default_model": "moonstation14:block/power_collection/recharger/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -3.5,
+          0.0,
+          -3.66
+        ],
+        "max": [
+          3.5,
+          5.0,
+          3.5
+        ],
+        "size_units": [
+          7.0,
+          5.0,
+          7.16
+        ],
+        "size_blocks": [
+          0.4375,
+          0.3125,
+          0.4475
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "map": [
+            "enum.PowerChargerVisualLayers.Base"
+          ],
+          "state": "empty",
+          "sprite": "Structures/Power/recharger.rsi",
+          "color": null
+        },
+        {
+          "map": [
+            "enum.PowerChargerVisualLayers.Light"
+          ],
+          "state": "light-off",
+          "shader": "unshaded",
+          "sprite": "Structures/Power/recharger.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.10,-0.10,0.10,0.10"
+            },
+            "density": 500,
+            "mask": [
+              "TabletopMachineMask"
+            ],
+            "layer": [
+              "BulletImpassable"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "substation",
+      "resource": "Structures/Power/substation.rsi",
+      "prototype_ids": [
+        "DebugSubstationWallRecharging",
+        "BaseSubstationWall",
+        "SubstationWallBasic"
+      ],
+      "master": "authoring/substation/substation.bbmodel",
+      "texture": "textures/substation/default.png",
+      "parts": 4,
+      "bounds": {
+        "min": [
+          -7.0,
+          3.0,
+          1.84
+        ],
+        "max": [
+          7.0,
+          12.0,
+          7.0
+        ]
+      },
+      "states": 3,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/substation/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          3.0,
+          1.84
+        ],
+        "max": [
+          7.0,
+          12.0,
+          7.0
+        ],
+        "size_units": [
+          14.0,
+          9.0,
+          5.16
+        ],
+        "size_blocks": [
+          0.875,
+          0.5625,
+          0.3225
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "substation_wall",
+          "sprite": "Structures/Power/substation.rsi",
+          "color": null
+        },
+        {
+          "state": "screen_wall",
+          "shader": "unshaded",
+          "sprite": "Structures/Power/substation.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures"
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "substation__basesubstationwallframe",
+      "resource": "Structures/Power/substation.rsi",
+      "prototype_ids": [
+        "BaseSubstationWallFrame"
+      ],
+      "master": "authoring/substation__basesubstationwallframe/substation__basesubstationwallframe.bbmodel",
+      "texture": "textures/substation__basesubstationwallframe/default.png",
+      "parts": 4,
+      "bounds": {
+        "min": [
+          -7.0,
+          3.0,
+          1.84
+        ],
+        "max": [
+          7.0,
+          12.0,
+          7.0
+        ]
+      },
+      "states": 3,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/substation__basesubstationwallframe/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.0,
+          3.0,
+          1.84
+        ],
+        "max": [
+          7.0,
+          12.0,
+          7.0
+        ],
+        "size_units": [
+          14.0,
+          9.0,
+          5.16
+        ],
+        "size_blocks": [
+          0.875,
+          0.5625,
+          0.3225
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "substation_wall",
+          "sprite": "Structures/Power/substation.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures"
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "turbo_recharger",
+      "resource": "Structures/Power/turbo_recharger.rsi",
+      "prototype_ids": [
+        "TurboItemRecharger"
+      ],
+      "master": "authoring/turbo_recharger/turbo_recharger.bbmodel",
+      "texture": "textures/turbo_recharger/default.png",
+      "parts": 13,
+      "bounds": {
+        "min": [
+          -3.5,
+          0.0,
+          -3.66
+        ],
+        "max": [
+          6.0,
+          8.0,
+          3.5
+        ]
+      },
+      "states": 6,
+      "loops": 3,
+      "default_model": "moonstation14:block/power_collection/turbo_recharger/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -3.5,
+          0.0,
+          -3.66
+        ],
+        "max": [
+          6.0,
+          7.0,
+          3.5
+        ],
+        "size_units": [
+          9.5,
+          7.0,
+          7.16
+        ],
+        "size_blocks": [
+          0.59375,
+          0.4375,
+          0.4475
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "map": [
+            "enum.PowerChargerVisualLayers.Base"
+          ],
+          "state": "empty",
+          "sprite": "Structures/Power/turbo_recharger.rsi",
+          "color": null
+        },
+        {
+          "map": [
+            "enum.PowerChargerVisualLayers.Light"
+          ],
+          "state": "light-off",
+          "shader": "unshaded",
+          "sprite": "Structures/Power/turbo_recharger.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.10,-0.10,0.10,0.10"
+            },
+            "density": 500,
+            "mask": [
+              "TabletopMachineMask"
+            ],
+            "layer": [
+              "BulletImpassable"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "wall_recharger",
+      "resource": "Structures/Power/wall_recharger.rsi",
+      "prototype_ids": [
+        "WallWeaponCapacitorRecharger"
+      ],
+      "master": "authoring/wall_recharger/wall_recharger.bbmodel",
+      "texture": "textures/wall_recharger/default.png",
+      "parts": 10,
+      "bounds": {
+        "min": [
+          -5.0,
+          4.0,
+          1.83
+        ],
+        "max": [
+          5.16,
+          10.0,
+          7.0
+        ]
+      },
+      "states": 6,
+      "loops": 3,
+      "default_model": "moonstation14:block/power_collection/wall_recharger/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -5.0,
+          4.0,
+          1.83
+        ],
+        "max": [
+          5.16,
+          9.0,
+          7.0
+        ],
+        "size_units": [
+          10.16,
+          5.0,
+          5.17
+        ],
+        "size_blocks": [
+          0.635,
+          0.3125,
+          0.323125
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "map": [
+            "enum.PowerChargerVisualLayers.Base"
+          ],
+          "state": "empty",
+          "sprite": "Structures/Power/wall_recharger.rsi",
+          "color": null
+        },
+        {
+          "map": [
+            "enum.PowerChargerVisualLayers.Light"
+          ],
+          "state": "light-off",
+          "shader": "unshaded",
+          "sprite": "Structures/Power/wall_recharger.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {},
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.10,-0.10,0.10,0.10"
+            },
+            "density": 500,
+            "mask": [
+              "TabletopMachineMask"
+            ],
+            "layer": [
+              "BulletImpassable"
+            ]
+          }
+        }
+      },
+      "source_noRot": false,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    },
+    {
+      "asset_id": "xenoborg_charger",
+      "resource": "Structures/Power/xenoborg_charger.rsi",
+      "prototype_ids": [
+        "BorgChargerXenoborg"
+      ],
+      "master": "authoring/xenoborg_charger/xenoborg_charger.bbmodel",
+      "texture": "textures/xenoborg_charger/default.png",
+      "parts": 60,
+      "bounds": {
+        "min": [
+          -8.4,
+          0.0,
+          -7.6
+        ],
+        "max": [
+          8.4,
+          30.75,
+          7.6
+        ]
+      },
+      "states": 7,
+      "loops": 1,
+      "default_model": "moonstation14:block/power_collection/xenoborg_charger/default",
+      "actual_default_render_bounds": {
+        "min": [
+          -7.845584412271572,
+          0.0,
+          -7.845584412271571
+        ],
+        "max": [
+          7.845584412271572,
+          30.75,
+          7.845584412271571
+        ],
+        "size_units": [
+          15.691168824543144,
+          30.75,
+          15.691168824543142
+        ],
+        "size_blocks": [
+          0.9806980515339465,
+          1.921875,
+          0.9806980515339464
+        ]
+      },
+      "default_layer_rules": [
+        {
+          "state": "borgcharger-u1",
+          "map": [
+            "base"
+          ],
+          "sprite": "Structures/Power/xenoborg_charger.rsi",
+          "color": null
+        },
+        {
+          "state": "borgcharger0",
+          "map": [
+            "enum.PowerDeviceVisualLayers.Powered"
+          ],
+          "shader": "unshaded",
+          "sprite": "Structures/Power/xenoborg_charger.rsi",
+          "color": null
+        },
+        {
+          "state": "borgcharger1",
+          "map": [
+            "charged"
+          ],
+          "shader": "unshaded",
+          "visible": false,
+          "sprite": "Structures/Power/xenoborg_charger.rsi",
+          "color": null
+        },
+        {
+          "state": "borgdecon1",
+          "map": [
+            "enum.WiresVisualLayers.MaintenancePanel"
+          ],
+          "visible": false,
+          "sprite": "Structures/Power/xenoborg_charger.rsi",
+          "color": null
+        }
+      ],
+      "source_visualizer": {
+        "type": "GenericVisualizer",
+        "visuals": {
+          "enum.StorageVisuals.Open": {
+            "base": {
+              "true": {
+                "state": "borgcharger-u0"
+              },
+              "false": {
+                "state": "borgcharger-u1"
+              }
+            },
+            "enum.PowerDeviceVisualLayers.Powered": {
+              "true": {
+                "state": "borgcharger0"
+              },
+              "false": {
+                "state": "borgcharger2"
+              }
+            },
+            "charged": {
+              "true": {
+                "visible": false
+              },
+              "false": {
+                "visible": true
+              }
+            }
+          },
+          "enum.PowerDeviceVisuals.Powered": {
+            "enum.PowerDeviceVisualLayers.Powered": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            },
+            "charged": {
+              "true": {
+                "visible": true
+              },
+              "false": {
+                "visible": false
+              }
+            }
+          },
+          "enum.CellVisual.Light": {
+            "charged": {
+              "Off": {
+                "visible": false
+              },
+              "Empty": {
+                "visible": false
+              },
+              "Charging": {
+                "visible": true,
+                "state": "borgcharger3"
+              },
+              "Charged": {
+                "visible": true,
+                "state": "borgcharger1"
+              }
+            }
+          }
+        }
+      },
+      "source_fixtures": {
+        "type": "Fixtures",
+        "fixtures": {
+          "fix1": {
+            "shape": {
+              "bounds": "-0.45,-0.45,0.45,0.45",
+              "radius": 0.48
+            },
+            "density": 190,
+            "mask": [
+              "MachineMask"
+            ],
+            "layer": [
+              "MachineLayer"
+            ]
+          }
+        }
+      },
+      "source_noRot": true,
+      "surface_axis_conversion": {
+        "vertical_north": "source X increases toward canonical -X; source Y down maps -Y",
+        "horizontal_up": "source X increases toward canonical +X; source Y increases toward +Z; host must remap tile topology/tracking axes explicitly"
+      },
+      "collision": "host owned; render bounds not collider",
+      "default_effect_components": [],
+      "art_revision": "EXACT saved R5"
+    }
+  ],
+  "known_unresolved_source_states": [
+    {
+      "asset_id": "generation_tesla_coil",
+      "resource": "Structures/Power/Generation/Tesla/coil.rsi",
+      "state": "coil_open",
+      "reason": "Prototype requests state absent from this RSI metadata; no invented source evidence."
+    },
+    {
+      "asset_id": "generation_tesla_coil__teslagroundingrod",
+      "resource": "Structures/Power/Generation/Tesla/coil.rsi",
+      "state": "grounding_rod_open",
+      "reason": "Prototype requests state absent from this RSI metadata; no invented source evidence."
+    }
+  ],
+  "aliases": {
+    "BorgCharger": "borg_charger",
+    "CableTerminal": "cable_terminal",
+    "CableTerminalUncuttable": "cable_terminal",
+    "CableDet": "cables_ex_cable",
+    "PowerCageRecharger": "cage_recharger",
+    "PowerCellRecharger": "cell_recharger",
+    "AmeController": "generation_ame",
+    "AmeControllerUnanchored": "generation_ame",
+    "AmeShielding": "generation_ame__ameshielding",
+    "ParticleAcceleratorControlBox": "generation_pa_control_box",
+    "ParticleAcceleratorControlBoxUnfinished": "generation_pa_control_box__particleacceleratorcontrolboxunfinished",
+    "ParticleAcceleratorEmitterFore": "generation_pa_emitter_fore",
+    "ParticleAcceleratorEmitterForeUnfinished": "generation_pa_emitter_fore__particleacceleratoremitterforeunfinished",
+    "ParticleAcceleratorEmitterPort": "generation_pa_emitter_port",
+    "ParticleAcceleratorEmitterPortUnfinished": "generation_pa_emitter_port__particleacceleratoremitterportunfinished",
+    "ParticleAcceleratorEmitterStarboard": "generation_pa_emitter_starboard",
+    "ParticleAcceleratorEmitterStarboardUnfinished": "generation_pa_emitter_starboard__particleacceleratoremitterstarboardunfinished",
+    "ParticleAcceleratorEndCap": "generation_pa_end_cap",
+    "ParticleAcceleratorEndCapUnfinished": "generation_pa_end_cap__particleacceleratorendcapunfinished",
+    "ParticleAcceleratorFuelChamber": "generation_pa_fuel_chamber",
+    "ParticleAcceleratorFuelChamberUnfinished": "generation_pa_fuel_chamber__particleacceleratorfuelchamberunfinished",
+    "ParticleAcceleratorPowerBox": "generation_pa_power_box",
+    "ParticleAcceleratorPowerBoxUnfinished": "generation_pa_power_box__particleacceleratorpowerboxunfinished",
+    "PortableGeneratorPacman": "generation_portable_generator",
+    "PortableGeneratorJrPacman": "generation_portable_generator__portablegeneratorjrpacman",
+    "PortableGeneratorSuperPacman": "generation_portable_generator__portablegeneratorsuperpacman",
+    "GeneratorRTG": "generation_rtg",
+    "GeneratorRTGDamaged": "generation_rtg__generatorrtgdamaged",
+    "RadiationCollector": "generation_singularity_collector",
+    "RadiationCollectorNoTank": "generation_singularity_collector",
+    "RadiationCollectorFullTank": "generation_singularity_collector",
+    "ContainmentFieldGenerator": "generation_singularity_containment",
+    "ContainmentField": "generation_singularity_containment_field",
+    "Emitter": "generation_singularity_emitter",
+    "SingularityGenerator": "generation_singularity_generator",
+    "SolarPanelBasePhysSprite": "generation_solar_panel",
+    "SolarPanel": "generation_solar_panel",
+    "SolarAssembly": "generation_solar_panel__solarassembly",
+    "SolarPanelBroken": "generation_solar_panel__solarpanelbroken",
+    "SolarPanelPlasma": "generation_solar_panel__solarpanelplasma",
+    "SolarPanelPlasmaBroken": "generation_solar_panel__solarpanelplasmabroken",
+    "SolarPanelUranium": "generation_solar_panel__solarpaneluranium",
+    "SolarPanelUraniumBroken": "generation_solar_panel__solarpaneluraniumbroken",
+    "SolarTracker": "generation_solar_panel__solartracker",
+    "TegCenter": "generation_teg",
+    "TegCirculator": "generation_teg__tegcirculator",
+    "TeslaCoil": "generation_tesla_coil",
+    "TeslaGroundingRod": "generation_tesla_coil__teslagroundingrod",
+    "TeslaGenerator": "generation_tesla_generator",
+    "BaseGeneratorWallmountFrame": "generation_wallmount_generator",
+    "GeneratorWallmountBasic": "generation_wallmount_generator__generatorwallmountbasic",
+    "GeneratorWallmountAPU": "generation_wallmount_generator__generatorwallmountbasic",
+    "GeneratorWallmountAPULV": "generation_wallmount_generator__generatorwallmountbasic",
+    "DebugGenerator": "power",
+    "GeneratorBasic": "power",
+    "GeneratorBasic15kW": "power",
+    "DebugBatteryStorage": "power__debugbatterystorage",
+    "DebugBatteryDischarger": "power__debugbatterystorage",
+    "DebugConsumer": "power__debugconsumer",
+    "DebugPowerReceiver": "power__debugpowerreceiver",
+    "WeaponCapacitorRecharger": "recharger",
+    "DebugSubstationWallRecharging": "substation",
+    "BaseSubstationWall": "substation",
+    "SubstationWallBasic": "substation",
+    "BaseSubstationWallFrame": "substation__basesubstationwallframe",
+    "TurboItemRecharger": "turbo_recharger",
+    "WallWeaponCapacitorRecharger": "wall_recharger",
+    "BorgChargerXenoborg": "xenoborg_charger"
+  }
+}

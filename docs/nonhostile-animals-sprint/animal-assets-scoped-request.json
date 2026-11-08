@@ -1,0 +1,11 @@
+{
+  "id": "nonhostile-animals-r4r5-scoped-r3",
+  "title": "Accepted non-hostile animal native models and provenance",
+  "brief": "Transport the dependency-checked 43-appearance subset of the owner-accepted R4 baseline plus R5 overrides, retaining native models, animations, state textures, attribution and binding records.",
+  "scope": "227 unchanged saved-source files. Exclude every mouse destination and hostile-only model group. Supersedes the unapplied complete-package transport nonhostile-animals-r4r5-runtime, which must not be imported because its mouse destination conflicts with legitimate existing work. No art regeneration, overwrite, hostile entity registration, deployment or gameplay acceptance.",
+  "target_runtime": "Java 1.21.1 / NeoForge 21.1.224",
+  "source_pin": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "asset_ids": ["nonhostile-animals-43-appearances"],
+  "dependencies": [],
+  "context": ["docs/nonhostile-animals-sprint/PLAN.md", "docs/nonhostile-animals-sprint/prepare_asset_manifest.py"]
+}

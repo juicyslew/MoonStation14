@@ -1,0 +1,8 @@
+{
+  "request_id": "botany-peels-3d-loose-production-20261028",
+  "package": "assets/Objects/Botany/Peels/candidates/source_peels_r1",
+  "frozen_hashes_sha256": "983c45fe00bc3b196d99184594d8f750ab0af3ab3a72a6fb558450d6f598e2a3",
+  "archive": "source_peels_r1.zip",
+  "archive_sha256": "a3352f4868a0d9d736f97a60a384d7d8fffa702a8692787ad26b16948dce16c0",
+  "status": "frozen complete pair, independent review sidecar pending"
+}

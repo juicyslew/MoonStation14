@@ -12,6 +12,7 @@ import java.util.UUID;
 
 /** Server-only, append-only speaker identity ledger. Call allocateCharacter ONLY on confirmed first enrollment. */
 public final class ChatIdentityRegistry {
+    public static final int MAX_CHARACTER_NAME_LENGTH = 80;
     private static final String[] FIRST = {"Ada", "Arden", "Astrid", "Basil", "Celia", "Dara", "Elias", "Eliza",
             "Felix", "Greta", "Hana", "Iris", "Jasper", "Jonah", "Kira", "Lena", "Mara", "Nadia",
             "Nico", "Orion", "Piper", "Quinn", "Rosa", "Rowan", "Sable", "Selene", "Talia", "Theo",
@@ -45,7 +46,7 @@ public final class ChatIdentityRegistry {
     /** Saved actual name and RGB are immutable; alias is never stored in this record. */
     public record Entry(String name, int rgb) {
         public Entry {
-            if (!validHumanName(name) || !validColor(rgb)) throw new IllegalArgumentException("Invalid identity entry");
+            if (!validCharacterName(name) || !validColor(rgb)) throw new IllegalArgumentException("Invalid identity entry");
         }
     }
 
@@ -76,6 +77,26 @@ public final class ChatIdentityRegistry {
             }
         }
         throw new IllegalStateException("Character name space exhausted");
+    }
+
+    /** Idempotent enrollment for a body identity. A known key always retains its original name. */
+    public synchronized Entry allocateBodyCharacter(CharacterKey key, String publicName) {
+        Objects.requireNonNull(key, "key");
+        Entry existing = characters.get(key);
+        if (existing != null) return existing;
+        if (!validCharacterName(publicName)) throw new IllegalArgumentException("Invalid body character name");
+        String name = publicName.strip();
+        String base = name;
+        int suffix = 1;
+        while (claimedColors.containsKey(normalize(name))) {
+            name = base + " (" + suffix++ + ")";
+            if (suffix > MAX_NPC_NUMBER) throw new IllegalStateException("Character name space exhausted");
+        }
+        Entry entry = new Entry(name, PALETTE[Math.floorMod(key.hashCode(), PALETTE.length)]);
+        characters.put(key, entry);
+        names.put(normalize(name), entry);
+        claimedColors.put(normalize(name), entry.rgb());
+        return entry;
     }
 
     public synchronized Optional<Entry> character(CharacterKey key) {
@@ -125,7 +146,12 @@ public final class ChatIdentityRegistry {
     }
 
     private static boolean validHumanName(String name) {
-        if (name == null || !name.matches("[A-Za-z]{2,24} [A-Za-z]{2,24}")) return false;
+        return name != null && name.matches("[A-Za-z]{2,24} [A-Za-z]{2,24}") && validCharacterName(name);
+    }
+
+    public static boolean validCharacterName(String name) {
+        if (name == null || name.isBlank() || name.length() > MAX_CHARACTER_NAME_LENGTH || name.codePoints().anyMatch(c -> Character.isISOControl(c))) return false;
+        if (name.contains("§")) return false;
         String value = normalize(name);
         return !Set.of("system", "server", "admin", "administrator", "console", "narrator", "unknown")
                 .contains(value);
@@ -161,7 +187,7 @@ public final class ChatIdentityRegistry {
         Set<String> seen = new HashSet<>();
         for (var item : characters.entrySet()) {
             String name = normalize(item.getValue().name());
-            if (!seen.add(name) || !validHumanName(item.getValue().name()))
+            if (!seen.add(name) || !validCharacterName(item.getValue().name()))
                 throw new IllegalArgumentException("Duplicate or invalid saved character name");
             ledger.characters.put(item.getKey(), item.getValue());
             ledger.names.put(name, item.getValue());

@@ -28,11 +28,47 @@ public final class BuiltinExamineContributors {
     public static void register() {
         if (!REGISTERED.compareAndSet(false, true)) return;
         ExamineContributorRegistry.register("domain-metadata", BuiltinExamineContributors::metadata);
+        ExamineContributorRegistry.register("structural-damage", BuiltinExamineContributors::structuralDamage);
         ExamineContributorRegistry.register("receiver-power", BuiltinExamineContributors::receiverPower);
         ExamineContributorRegistry.register("apc-battery", BuiltinExamineContributors::apcBattery);
         ExamineContributorRegistry.register("puddle-solution", BuiltinExamineContributors::puddleSolution);
         ExamineContributorRegistry.register("jug-solution", BuiltinExamineContributors::jugSolution);
         ExamineContributorRegistry.register("beaker-solution", BuiltinExamineContributors::beakerSolution);
+        ExamineContributorRegistry.register("syringe-solution", BuiltinExamineContributors::syringeSolution);
+        ExamineContributorRegistry.register("botany-tray", BotanyExamineContributor::contribute);
+        ExamineContributorRegistry.register("botany-seed-packet", BotanySeedPacketExamineContributor::contribute);
+        ExamineContributorRegistry.register("gas-tank", BuiltinExamineContributors::gasTank);
+    }
+
+    /** Supported SS14 tank examination subset: detail-range pressure; connection and sealed valve state. */
+    static void gasTank(ExamineContext context, ExamineCollector collector) {
+        var stack = context.itemStack();
+        if (stack.isEmpty() || !(stack.getItem() instanceof com.juicyslew.moonstation14.item.custom.GasTankItem)) return;
+        var catalog = com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.catalog(context.level());
+        var contents = com.juicyslew.moonstation14.item.custom.GasTankItem.contents(stack, catalog).orElse(null);
+        var profile = contents == null ? null : catalog.get(contents.prototypeId());
+        if (profile == null) return;
+        if (context.detailsAllowed()) {
+            double pressure = contents.mixture().pressureKpa(profile.volumeCubicMeters());
+            collector.detailEntry(Component.translatable("examine.moonstation14.gas-tank.pressure",
+                    GasTankExaminePresentation.examinedPressure(pressure)).withStyle(net.minecraft.ChatFormatting.GOLD), "gas-tank", 40);
+        }
+        boolean connected = context.ownedItem() && context.target() != null
+                && context.target().kind() == ExamineTarget.Kind.ITEM && context.actor() instanceof LivingEntity body
+                && com.juicyslew.moonstation14.ms14.lung.InternalsSystem.selectedTank(body)
+                        .map(source -> source.token().equals(context.target().ownedItem().token())).orElse(false);
+        collector.publicEntry(Component.translatable(connected ? "examine.moonstation14.gas-tank.connected"
+                : "examine.moonstation14.gas-tank.disconnected"), "gas-tank", 30);
+        collector.publicEntry(Component.translatable("examine.moonstation14.gas-tank.valve-closed"), "gas-tank", 20);
+    }
+
+    /** SS14 ExaminableDamage WindowMessages, backed by resolved machine composition and persisted damage. */
+    static void structuralDamage(ExamineContext context, ExamineCollector collector) {
+        if (!(context.blockEntity() instanceof com.juicyslew.moonstation14.ms14.tesla.TeslaMachineBlockEntity machine)) return;
+        var profile = machine.profile();
+        if (profile == null || profile.examineDamageMessages().size() != 6) return;
+        int band = StructuralDamageExamineFormatter.band(machine.structuralDamage(), profile.destructionThreshold());
+        collector.publicEntry(Component.translatable(profile.examineDamageMessages().get(band)), "damage", 60);
     }
 
     static void metadata(ExamineContext context, ExamineCollector collector) {
@@ -45,7 +81,16 @@ public final class BuiltinExamineContributors {
             var data = puddle.getResolvedPuddleData();
             if (data != null) collector.metadata(data.metadata());
         }
-        if (context.targetEntity() instanceof LivingEntity living) {
+        if (!context.itemStack().isEmpty()) {
+            var stack = context.itemStack();
+            if (stack.getItem() instanceof com.juicyslew.moonstation14.item.custom.JugItem jug) {
+                var data = jug.getResolvedComposition(context.level());
+                if (data != null) collector.metadata(data.metadata());
+            } else {
+                var profile = ToolQualities.profile(stack);
+                if (profile != null) collector.metadata(profile.metadata());
+            }
+        } else if (context.targetEntity() instanceof LivingEntity living) {
             if (living.hasCustomName()) collector.preserveName();
             CharacterIdentitySystem.resolveForActor(living).ifPresent(data -> collector.metadata(data.metadata()));
         } else if (context.targetEntity() instanceof ItemEntity item) {
@@ -117,13 +162,14 @@ public final class BuiltinExamineContributors {
 
     /** Read-only supported Jug composition + current stack reagent snapshot. */
     static void jugSolution(ExamineContext context, ExamineCollector collector) {
-        if (!context.detailsAllowed() || !(context.targetEntity() instanceof ItemEntity item)
-                || !(item.getItem().getItem() instanceof com.juicyslew.moonstation14.item.custom.JugItem jug)) return;
+        if (!context.detailsAllowed()) return;
+        var stack = itemStack(context);
+        if (stack.isEmpty() || !(stack.getItem() instanceof com.juicyslew.moonstation14.item.custom.JugItem jug)) return;
         var data = jug.getResolvedComposition(context.level());
         if (data == null || !data.examinableSolution().solutionName().equals(data.solutionContainer().solutionName())) return;
         // The existing trait handle keeps ItemStack as the sole authoritative owner;
         // MS14Provider returns a detached snapshot and does not initialize stored data.
-        ReagentAttachment solution = MS14Provider.getDetached(jug.toHandle(item.getItem()), MS14Bridges.REAGENT);
+        ReagentAttachment solution = MS14Provider.getDetached(jug.toHandle(stack), MS14Bridges.REAGENT);
         var output = SolutionExamineFormatter.format(solution, context.level(),
                 data.solutionContainer().maxVolume(), data.examinableSolution().exactVolume(),
                 SolutionExamineFormatter.Templates.GENERIC, id -> lookup(context, id));
@@ -132,20 +178,53 @@ public final class BuiltinExamineContributors {
         for (int i = 0; i < count; i++) collector.detailEntry(output.details().get(i), "jug-solution", 39 - i);
     }
 
-    /** World-item beaker inspection; held-stack examine targets are not supported by ExamineContext. */
+    /** Fresh, resolved stack view shared by floor, held and stored-item examination. */
     static void beakerSolution(ExamineContext context, ExamineCollector collector) {
-        if (!context.detailsAllowed() || !(context.targetEntity() instanceof ItemEntity item)
-                || !(item.getItem().getItem() instanceof com.juicyslew.moonstation14.item.custom.BeakerItem beaker)) return;
+        if (!context.detailsAllowed()) return;
+        var stack = itemStack(context);
+        if (stack.isEmpty() || !(stack.getItem() instanceof com.juicyslew.moonstation14.item.custom.BeakerItem beaker)) return;
         var data = com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.resolved(context.level(), beaker.prototypeId());
-        if (data == null || !data.examinableSolution().enabled() || data.examinableSolution().heldOnly()
+        if (data == null || !beakerExaminable(data.examinableSolution(), context)
                 || !data.examinableSolution().solutionName().equals(data.solutionContainer().solutionName())) return;
-        ReagentAttachment solution = MS14Provider.getDetached(beaker.toHandle(item.getItem()), MS14Bridges.REAGENT);
-        var output = SolutionExamineFormatter.format(solution, context.level(), beaker.getCapacity(item.getItem(), context.level()),
+        ReagentAttachment solution = MS14Provider.getDetached(beaker.toHandle(stack), MS14Bridges.REAGENT);
+        var output = SolutionExamineFormatter.format(solution, context.level(), beaker.getCapacity(stack, context.level()),
                 data.examinableSolution().exactVolume(), SolutionExamineFormatter.Templates.GENERIC,
                 id -> lookup(context, id));
         collector.detailEntry(output.volume(), "beaker-solution", 40);
         for (int i = 0; i < output.details().size(); i++)
             collector.detailEntry(output.details().get(i), "beaker-solution", 39 - i);
+    }
+
+    static boolean beakerExaminable(com.juicyslew.moonstation14.ms14.chemistry.beaker.BeakerData.ExaminableSolution policy,
+                                    ExamineContext context) {
+        if (policy == null || !policy.enabled()) return false;
+        if (!policy.heldOnly()) return true;
+        return context.ownedItem() && context.target() != null && context.target().kind() == ExamineTarget.Kind.ITEM
+                && context.target().ownedItem().location() == com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD;
+    }
+
+    private static net.minecraft.world.item.ItemStack itemStack(ExamineContext context) {
+        var stack = context.itemStack();
+        if (!stack.isEmpty()) return stack;
+        return context.targetEntity() instanceof ItemEntity item ? item.getItem().copy() : net.minecraft.world.item.ItemStack.EMPTY;
+    }
+
+    /** Syringe solution inspection from a detached authoritative stack snapshot. */
+    static void syringeSolution(ExamineContext context, ExamineCollector collector) {
+        if (!context.detailsAllowed()) return;
+        var stack = itemStack(context);
+        if (stack.isEmpty() || !(stack.getItem() instanceof com.juicyslew.moonstation14.item.custom.SyringeItem syringe)) return;
+        var data = com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
+                com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.catalog(context.level()),
+                com.juicyslew.moonstation14.item.custom.SyringeItem.PROTOTYPE_ID);
+        var policy = data.syringePolicy().orElse(null);
+        if (policy == null) return;
+        ReagentAttachment solution = MS14Provider.getDetached(syringe.toHandle(stack), MS14Bridges.REAGENT);
+        var output = SolutionExamineFormatter.format(solution, context.level(), policy.capacityUnits(), true,
+                SolutionExamineFormatter.Templates.GENERIC, id -> lookup(context, id));
+        collector.detailEntry(output.volume(), "syringe-solution", 40);
+        for (int i = 0; i < output.details().size(); i++)
+            collector.detailEntry(output.details().get(i), "syringe-solution", 39 - i);
     }
 
     private static ReagentData lookup(ExamineContext context, ResourceLocation id) {

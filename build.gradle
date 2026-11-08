@@ -1,3 +1,9 @@
+import groovy.xml.XmlSlurper
+import groovy.json.JsonSlurper
+import java.util.zip.ZipFile
+import java.security.MessageDigest
+import java.nio.file.Files
+
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -52,6 +58,73 @@ sourceSets.main.resources {
     exclude("src/generated/**/.cache") // datagen cache files
 }
 
+// Keep the Tesla package gate tied to the accepted import manifest and source bytes.
+// Run after jar/assemble so it inspects the artifact that will actually be delivered.
+def verifyTeslaPackage = tasks.register('verifyTeslaPackage') {
+    group = 'verification'
+    description = 'Verifies Tesla runtime assets and accepted imports are present byte-for-byte in the mod jar.'
+    dependsOn tasks.named('jar')
+    def sourceRoot = file('src/main/resources')
+    def manifestPath = file('src/main/resources/assets/moonstation14/power-reactor-provenance/tesla/model-import-manifest.json')
+    def artifact = tasks.named('jar').flatMap { it.archiveFile }
+    def reportDirectory = layout.buildDirectory.dir('agent-workflow/tesla-sprint')
+    doLast {
+        def resourcesRoot = sourceRoot
+        def manifestFile = manifestPath
+        def manifest = new JsonSlurper().parse(manifestFile)
+        def expected = new LinkedHashSet<String>()
+        manifest.families.each { family -> family.imported_resources.each { item ->
+            expected.add(item.runtime_resource.substring('src/main/resources/'.length()))
+        } }
+        def visualDirs = [
+                'assets/moonstation14/textures/ss14/structures/power/generation/tesla/energy_ball.rsi',
+                'assets/moonstation14/textures/ss14/structures/power/generation/tesla/energy_miniball.rsi',
+                'assets/moonstation14/textures/ss14/effects/lightning.rsi',
+                'assets/moonstation14/textures/ss14/effects/emp.rsi'
+        ]
+        visualDirs.each { relativeDir ->
+            def dir = new File(resourcesRoot, relativeDir)
+            def contents = dir.isDirectory() ? Files.walk(dir.toPath()).withCloseable { stream -> stream.filter { Files.isRegularFile(it) }.map { it.toFile() }.toList() } : []
+            if (!dir.isDirectory() || contents.empty) throw new GradleException("Expected Tesla presentation asset directory missing/empty: ${relativeDir}")
+            contents.each { f -> expected.add(f.path.substring(resourcesRoot.path.length() + 1).replace('\\', '/')) }
+        }
+        def teslaSounds = new File(resourcesRoot, 'assets/moonstation14/sounds/tesla')
+        Files.list(teslaSounds.toPath()).withCloseable { stream -> stream.filter { Files.isRegularFile(it) }.forEach { p -> expected.add(p.toFile().path.substring(resourcesRoot.path.length() + 1).replace('\\', '/')) } }
+        ['assets/moonstation14/sounds/lightning/lightningshock.ogg',
+         'assets/moonstation14/sounds/lightning/lightningshock.ogg.provenance.json'].each { expected.add(it) }
+        expected.add('assets/moonstation14/sounds.json')
+
+        def jarFile = artifact.get().asFile
+        def failures = []
+        def details = []
+        def zip = new ZipFile(jarFile)
+        try {
+            expected.each { name ->
+                def matches = zip.entries().findAll { it.name == name }
+                def source = new File(resourcesRoot, name)
+                def sourceHash = source.isFile() ? MessageDigest.getInstance('SHA-256').digest(source.bytes).encodeHex().toString() : null
+                def status = matches.size() == 0 ? 'MISSING' : matches.size() > 1 ? 'DUPLICATE' : 'OK'
+                def packagedHash = null
+                if (matches.size() == 1) {
+                    packagedHash = MessageDigest.getInstance('SHA-256').digest(zip.getInputStream(matches[0]).bytes).encodeHex().toString()
+                    if (sourceHash == null || packagedHash != sourceHash) status = 'BYTE_MISMATCH'
+                }
+                if (status != 'OK') failures.add("${name}: ${status}")
+                details.add([entry: name, status: status, sourceSha256: sourceHash, jarSha256: packagedHash])
+            }
+        } finally { zip.close() }
+        def report = [jar: jarFile.name, jarSha256: MessageDigest.getInstance('SHA-256').digest(jarFile.bytes).encodeHex().toString(),
+                      jarSize: jarFile.length(), manifestSha256: MessageDigest.getInstance('SHA-256').digest(manifestFile.bytes).encodeHex().toString(),
+                      expectedCount: expected.size(), files: details, failures: failures]
+        def reportFile = new File(reportDirectory.get().asFile, "package-content-check-${System.currentTimeMillis()}.json")
+        reportFile.parentFile.mkdirs()
+        reportFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(report))
+        println "Tesla package content: ${details.count { it.status == 'OK' }}/${expected.size()} OK; jarSha256=${report.jarSha256}; manifestSha256=${report.manifestSha256}; report=${reportFile}"
+        if (!failures.empty) throw new GradleException("Tesla package content check failed: ${failures.join('; ')}")
+    }
+}
+tasks.named('assemble') { dependsOn verifyTeslaPackage }
+
 repositories {
     // Add here additional repositories if required by some of the dependencies below.
     maven {
@@ -76,6 +149,10 @@ base {
 
 // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+tasks.withType(Test).configureEach {
+    systemProperty 'moonstation14.mappedMinecraftJar', layout.buildDirectory.file("moddev/artifacts/neoforge-${project.neo_version}-merged.jar").get().asFile.absolutePath
+}
 
 neoForge {
     // Specify the version of NeoForge to use.
@@ -107,6 +184,10 @@ neoForge {
             }
             if (project.hasProperty('ms14MixinDebugExport')) {
                 systemProperty 'mixin.debug.export', project.property('ms14MixinDebugExport').toString()
+            }
+            // Diagnostic-only opt-in; explicitly forwarded to the client JVM (not Gradle).
+            if (project.hasProperty('ms14ClientStartupProbe')) {
+                systemProperty 'ms14.clientStartupProbe', project.property('ms14ClientStartupProbe').toString()
             }
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
@@ -240,6 +321,7 @@ dependencies {
 
     gametestImplementation sourceSets.main.output
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.12.0'
     testImplementation sourceSets.gametest.output
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
 
@@ -268,21 +350,398 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    useJUnitPlatform {
+        if (project.hasProperty('ms14NativeShaderCompile')) includeTags 'native-shader-compile'
+        else if (!project.hasProperty('ms14IncludeNativeShaderCompile')) excludeTags 'native-shader-compile'
+    }
     systemProperty 'moonstation14.projectDir', projectDir.toString()
     systemProperty 'moonstation14.gametestClasses', sourceSets.gametest.output.classesDirs.singleFile.toString()
     classpath += sourceSets.gametest.output
 }
 
-if (project.hasProperty('ms14GameTestTags')) {
-    def gameTestTagPreflight = tasks.register('gameTestTagPreflight', JavaExec) {
-        dependsOn tasks.named('compileGametestJava')
-        classpath = sourceSets.gametest.runtimeClasspath
-        mainClass = 'com.juicyslew.moonstation14.gametest.support.GameTestTagPreflight'
-        args sourceSets.gametest.output.classesDirs.singleFile.absolutePath, project.property('ms14GameTestTags').toString()
+// Opt-in bounded catalog; never falls back to the complete JUnit suite.
+def readinessCatalog = [
+    ui: ['com.juicyslew.moonstation14.ms14.actions.client.BodyActionSlotsTest', 'com.juicyslew.moonstation14.ms14.actions.client.BodyActionChatWorkspaceTest', 'com.juicyslew.moonstation14.ms14.actions.client.BodyActionMenuWindowTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterPaintPendingTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireScreenLayoutTest', 'com.juicyslew.moonstation14.ms14.doors.ui.client.AirlockWireLifecycleTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowChromeButtonsTest', 'com.juicyslew.moonstation14.ms14.ui.window.WindowGeometryControllerTest', 'com.juicyslew.moonstation14.ms14.ui.window.TitlePressRoutingTest', 'com.juicyslew.moonstation14.ms14.player_body_control.client.GameplayWindowMovementDispatchTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistryTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerWorkspaceRoutingTest', 'com.juicyslew.moonstation14.ms14.hands.client.PointerModePolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HandBarLayoutTest', 'com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerWorkspaceLayersTest', 'com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.hands.client.NativeMovementKeySamplerTest', 'com.juicyslew.moonstation14.ms14.actions.client.BodyActionLayoutTest'],
+    interaction: ['com.juicyslew.moonstation14.ms14.actions.client.BodyActionSlotsTest', 'com.juicyslew.moonstation14.ms14.actions.client.BodyActionChatWorkspaceTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterLayoutTest', 'com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterPrototypeTest', 'com.juicyslew.moonstation14.ms14.doors.prototype.AirlockPrototypeTest', 'com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest', 'com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.AimReleaseWorldDumpTest', 'com.juicyslew.moonstation14.ms14.hands.client.PrimaryWorldGestureTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.chat.server.EmoteCommandTest', 'com.juicyslew.moonstation14.ms14.singularity.SingularityGameplayProfileTest', 'com.juicyslew.moonstation14.ms14.singularity.beacon.SingularityBeaconProfileTest', 'com.juicyslew.moonstation14.ms14.actions.BodyActionAdmissionTest', 'com.juicyslew.moonstation14.ms14.actions.BodyActionDiscoveryTest', 'com.juicyslew.moonstation14.ms14.actions.prototype.ActionPrototypeTest', 'com.juicyslew.moonstation14.ms14.character.CharacterPrototypeTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaProfilesTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaBatteryStateTest', 'com.juicyslew.moonstation14.ms14.tesla.TeslaLightningSelectionTest', 'com.juicyslew.moonstation14.ms14.singularity.pa.ParticleAcceleratorParticlePrototypeTest'],
+    prediction: ['com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionPacketScheduleTest', 'com.juicyslew.moonstation14.ms14.timed_interaction.client.TimedInteractionClockPolicyTest', 'com.juicyslew.moonstation14.ms14.hands.client.HeldUseRequestDispatchTest', 'com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest', 'com.juicyslew.moonstation14.ms14.actions.client.BodyActionClientStateTest', 'com.juicyslew.moonstation14.ms14.actions.network.BodyActionPayloadsCodecTest'],
+    preview: ['com.juicyslew.moonstation14.ms14.ui.preview.MinecraftBitmapFontTest', 'com.juicyslew.moonstation14.ms14.ui.preview.CpuOrderedPaintTest', 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest']
+]
+readinessCatalog.interaction.add('com.juicyslew.moonstation14.ms14.botany.BotanyInspectCommandTest')
+readinessCatalog.interaction.add('com.juicyslew.moonstation14.gametest.support.ScopedPrototypeCatalogFixtureTest')
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.doors.FirelockStateTest',
+    'com.juicyslew.moonstation14.ms14.doors.FirelockPryServiceTest',
+    'com.juicyslew.moonstation14.ms14.tools.ToolProfileTest'
+])
+readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.actions.BodyActionServicePresentationTest')
+readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicyTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineRayTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineCandidateCycleTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineLatchSessionTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineRefreshPolicyTest',
+    'com.juicyslew.moonstation14.ms14.examine.ExamineWorldSelectorBoundTest',
+    'com.juicyslew.moonstation14.ms14.hands.client.StoragePopupHostFocusRoutingTest'
+])
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.hands.network.EquipmentTimedInteractionTest',
+    'com.juicyslew.moonstation14.ms14.actions.BodyActionServicePresentationTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineClientPolicyTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineRayTest',
+    'com.juicyslew.moonstation14.ms14.examine.ExamineResponseContractTest',
+    'com.juicyslew.moonstation14.ms14.examine.GasTankExaminePresentationTest',
+    'com.juicyslew.moonstation14.ms14.examine.client.ExamineResponseStampTest',
+    'com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemBindingTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyWorldGridActionPolicyTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyWorldGridPolicyTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyWorldWorldCrossActionCodecTest',
+    'com.juicyslew.moonstation14.ms14.audio.EntityAttachedSoundPacketTest',
+    'com.juicyslew.moonstation14.ms14.audio.BodyViewAudioAudienceTest',
+    'com.juicyslew.moonstation14.ms14.actions.BodyActionVocalTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentWearAudioTest',
+    'com.juicyslew.moonstation14.ms14.audio.ItemSlotAudioProfileTest',
+    'com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest',
+    'com.juicyslew.moonstation14.ms14.hands.live.LiveEquipmentStateTest',
+    'com.juicyslew.moonstation14.ms14.hands.LiveHandsWriteArchitectureTest',
+    'com.juicyslew.moonstation14.ms14.eva.fixture.EvaFixturePlanTest',
+    'com.juicyslew.moonstation14.ms14.fixture.FixtureSiteContextTest'
+])
+readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.hands.network.EquipmentTimedInteractionTest')
+readinessCatalog.prediction.add('com.juicyslew.moonstation14.ms14.doors.FirelockPryServiceTest')
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.prototype.NettleProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.ItemContactDamageRuntimeTest',
+    'com.juicyslew.moonstation14.ms14.equipment.ContactDamageProtectionTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.NettleDestructionSoundTest',
+    'com.juicyslew.moonstation14.ms14.audio.MeleeAudioResourceTest',
+    'com.juicyslew.moonstation14.ms14.prototype.EggyProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.MutationTargetProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentFitPolicyDependencyTest',
+    'com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprintResourceTest',
+    'com.juicyslew.moonstation14.ms14.effect.StatusDerivedEffectHandlerTest',
+    'com.juicyslew.moonstation14.ms14.chat.server.LocalSpeechPolicyTest',
+    'com.juicyslew.moonstation14.ms14.character.StaminaReducerTest',
+    'com.juicyslew.moonstation14.ms14.character.StaminaRuntimeTest',
+    'com.juicyslew.moonstation14.ms14.character.CharacterPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.status_effect.StatusEffectFrictionQueryTest',
+    'com.juicyslew.moonstation14.ms14.status_effect.StatusEffectPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.status_effect.StatusEffectCoreTest',
+    'com.juicyslew.moonstation14.ms14.status_effect.StatusEffectStorageTest',
+    'com.juicyslew.moonstation14.ms14.slip.ItemStepTriggerDataTest',
+    'com.juicyslew.moonstation14.ms14.slip.SlipResponseProfileTest',
+    'com.juicyslew.moonstation14.ms14.slip.ItemSlipContactGeometryTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfileTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectSlipperyStackTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.LooseSlipPrototypeManagerTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantMutationRecordTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantSpeciesMutationCycleTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantPollenCrossTest',
+    'com.juicyslew.moonstation14.ms14.botany.PlantSeedReferenceTest',
+    'com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest',
+    'com.juicyslew.moonstation14.ms14.damage.DamageModifierDataTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentStepTriggerProtectionPolicyTest',
+    'com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.explosion.core.PendingExplosionQueueTest',
+    'com.juicyslew.moonstation14.ms14.explosion.grenade.network.SmallExplosionAudioResourceTest',
+    'com.juicyslew.moonstation14.ms14.explosion.grenade.network.GrenadeSoundPayloadTest',
+    'com.juicyslew.moonstation14.ms14.explosion.grenade.network.GrenadeSoundPolicyTest',
+    'com.juicyslew.moonstation14.ms14.prototype.DestructionExplosionCompositionTest',
+    'com.juicyslew.moonstation14.ms14.slip.GlassAudioResourceTest'
+])
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.combat.MeleeWideAttackPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeWideNominationTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeAttackRequestTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeSecondaryGestureTest',
+    'com.juicyslew.moonstation14.ms14.combat.DisarmPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeDisarmPolicyTest',
+    'com.juicyslew.moonstation14.ms14.hands.live.ForcedThrowPolicyTest',
+    'com.juicyslew.moonstation14.ms14.character.CombatModeComponentTest',
+    'com.juicyslew.moonstation14.ms14.character.StatusEffectsPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeSelectionInsertionTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldownTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeMultiInjectionTest',
+    'com.juicyslew.moonstation14.ms14.damage.CommittedDamageResultTest',
+    'com.juicyslew.moonstation14.ms14.damage.DamageOriginTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeTargetEligibilityTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponResolverTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponProfileTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeRosterCompositionTest',
+    'com.juicyslew.moonstation14.ms14.combat.CombatWorldPressRouteTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeWeaponDataTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeTargetAttackedEventTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeStaminaPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeCooldownTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeAttackPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.CombatMeleeTargetProbeTest',
+    'com.juicyslew.moonstation14.ms14.construction.ConstructionEntityPrototypeTest'
+])
+readinessCatalog.prediction.addAll([
+    'com.juicyslew.moonstation14.ms14.standing.ClientBodyEntityRayTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleePredictionAdmissionTest',
+    'com.juicyslew.moonstation14.ms14.hands.network.BodyHandSnapshotClockTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeAttackClientPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.ClientDisarmAdmissionTest',
+    'com.juicyslew.moonstation14.ms14.combat.client.MeleeArcClientPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcPayloadTest',
+    'com.juicyslew.moonstation14.ms14.combat.HeldMeleeInputPolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.TypedMeleeSubmissionTest'
+])
+readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcTimelineTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcProfileTest',
+    'com.juicyslew.moonstation14.ms14.combat.MeleeArcResourceTest',
+    'com.juicyslew.moonstation14.ms14.combat.CombatModeHudPolicyTest',
+    'com.juicyslew.moonstation14.ms14.loose_objects.client.LooseItemPresentationRendererPoseTest',
+    'com.juicyslew.moonstation14.ms14.player_body_control.client.BodyStaminaHudPolicyTest',
+    'com.juicyslew.moonstation14.ms14.player_body_control.client.BodyHudSourcePolicyTest',
+    'com.juicyslew.moonstation14.ms14.combat.client.DisarmFlightRendererTest',
+    'com.juicyslew.moonstation14.ms14.combat.client.DisarmFlightHudTest'
+])
+readinessCatalog.ui.add('com.juicyslew.moonstation14.ms14.loose_objects.client.WorldItemPresentationRendererAlphaTest')
+readinessCatalog.ui.addAll([
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmControlProtocolTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.AirAlarmLayoutTest',
+    'com.juicyslew.moonstation14.ms14.atmos.piping.alarm.ui.client.AirAlarmScreenTest'
+])
+readinessCatalog.interaction.addAll([
+    'com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BotanyCatalogProductionTest',
+    'com.juicyslew.moonstation14.ms14.botany.BotanySpeciesAvailabilityTest',
+    'com.juicyslew.moonstation14.ms14.botany.BotanyCatalogSupplyPlanTest',
+    'com.juicyslew.moonstation14.resource.BotanyCatalogItemResourcesTest',
+    'com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest',
+    'com.juicyslew.moonstation14.ms14.botany.SeedItemProfileTest',
+    'com.juicyslew.moonstation14.ms14.botany.GeneticCarriersTest',
+    'com.juicyslew.moonstation14.ms14.botany.processing.GrindingPlanTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.ExtractableProfileTest',
+    'com.juicyslew.moonstation14.ms14.machine.itemslots.MachineItemSlotTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.ExtractableMaterialSourceTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.FixedCropOutputCompositionTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.HeldItemConversionTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BotanyProductSourceParityTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BotanyProductIdentityTest',
+    'com.juicyslew.moonstation14.ms14.prototype.CocoaConversionCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.EggplantProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.AmbrosiaProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.SeedItemSourceParityTest',
+    'com.juicyslew.moonstation14.ms14.prototype.SeedItemCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfileTest',
+    'com.juicyslew.moonstation14.ms14.prototype.FruitPitProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.BluePumpkinProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.ExtradimensionalOrangeProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentArmorSystemTest',
+    'com.juicyslew.moonstation14.ms14.equipment.EquipmentPrototypeTest',
+    'com.juicyslew.moonstation14.ms14.prototype.MelonProductCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.MelonHeadwearCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.item_processing.MelonProcessingCatalogCandidateTest',
+    'com.juicyslew.moonstation14.ms14.prototype.PumpkinProductCatalogCandidateTest'
+])
+if (project.hasProperty('ms14Readiness')) {
+    def rawSelection = project.property('ms14Readiness').toString()
+    def selected = rawSelection.split(',', -1).collect { it.trim() }
+    if (rawSelection.trim().isEmpty() || selected.any { it.isEmpty() } || selected.unique().size() != selected.size())
+        throw new GradleException('ms14Readiness must be a non-empty comma-separated set of unique selectors: ui,interaction,prediction,preview')
+    def unknown = selected.findAll { !readinessCatalog.containsKey(it) }
+    if (!unknown.isEmpty()) throw new GradleException("Unknown ms14Readiness selector(s): ${unknown.join(', ')}. Choose: ${readinessCatalog.keySet().join(', ')}")
+    def selectedTests = selected.collectMany { readinessCatalog[it] }.unique()
+    def reportFile = layout.buildDirectory.file('reports/feature-readiness/readiness.md')
+    def resultBinaryDirectory = layout.buildDirectory.dir('test-results/featureReadiness/binary').get()
+    def resultXmlDirectoryProvider = layout.buildDirectory.dir('test-results/featureReadiness/xml')
+    def resultXmlDirectory = resultXmlDirectoryProvider.get().asFile
+    def readinessOutputFile = reportFile.get().asFile
+    def readinessProjectRoot = projectDir.absolutePath
+    def previewManifestFile = new File(projectDir, 'build/reports/feature-readiness/previews/manifest.json')
+    def readinessStartedFile = layout.buildDirectory.file('reports/feature-readiness/current-run-started.txt').get().asFile
+    def gameResourcesJar = providers.gradleProperty('moonstation14.gameResourcesJar')
+        .orElse(providers.systemProperty('moonstation14.gameResourcesJar'))
+        .orElse(layout.buildDirectory.file('moddev/artifacts/neoforge-21.1.224-client-extra-aka-minecraft-resources.jar').get().asFile.absolutePath).get()
+    def readinessBegin = tasks.register('featureReadinessBegin') {
+        group = 'verification'
+        description = 'Writes an unverified current-run marker before readiness compilation.'
+        doLast {
+            def started = java.time.Instant.now()
+            readinessStartedFile.parentFile.mkdirs()
+            readinessStartedFile.text = "${started}\nselection=${selected.join(',')}\ncatalog=${selectedTests.join(',')}\nresources=${gameResourcesJar}\n"
+            if (selected.contains('preview') && previewManifestFile.exists()) java.nio.file.Files.delete(previewManifestFile.toPath())
+            readinessOutputFile.parentFile.mkdirs()
+            readinessOutputFile.text = """# Feature readiness run
+
+- Status: **UNVERIFIED — readiness run started; test results are not yet available**.
+- Run started: ${started}; selection: `${selected.join(',')}`.
+- Selected catalog: `${selectedTests.join('`, `')}`.
+- Resource input: `${gameResourcesJar}`.
+- No current test results are claimed. If compilation/prerequisites fail, this marker remains instead of a previous PASS.
+"""
+        }
     }
-    tasks.named('runGameTestServer').configure {
-        dependsOn gameTestTagPreflight
+    // Ordering is scoped to this opt-in task graph; normal compile/test behavior is unchanged.
+    tasks.configureEach { candidate ->
+        if (candidate.name in ['compileJava', 'compileGametestJava', 'compileTestJava', 'processResources', 'processGametestResources', 'processTestResources', 'writeNeoForgeTestClasspath', 'prepareNeoForgeTestFiles']) {
+            candidate.mustRunAfter(readinessBegin)
+        }
     }
+    // Reuse Gradle's repository test task: ModDev owns its NeoForge classpath/files
+    // preparation dependencies and JVM setup. These adjustments exist only when opted in.
+    def checkTask = tasks.named('test', Test)
+    checkTask.configure {
+        dependsOn readinessBegin
+        filter { selectedTests.each { includeTestsMatching(it) } }
+        systemProperty 'moonstation14.gameResourcesJar', gameResourcesJar
+        binaryResultsDirectory = resultBinaryDirectory
+        reports.junitXml.outputLocation = resultXmlDirectoryProvider
+        reports.html.outputLocation = layout.buildDirectory.dir('reports/tests/featureReadiness')
+        outputs.upToDateWhen { false }
+        outputs.cacheIf { false }
+        doFirst {
+            // Clear only stale XML: Gradle owns and manages its independent binary result directory.
+            def xmlRoot = resultXmlDirectory.toPath()
+            if (java.nio.file.Files.exists(xmlRoot))
+                java.nio.file.Files.walk(xmlRoot).sorted(java.util.Comparator.reverseOrder()).forEach { java.nio.file.Files.delete(it) }
+            java.nio.file.Files.createDirectories(xmlRoot)
+        }
+    }
+    def readinessReport = tasks.register('featureReadinessReport') {
+        doLast {
+            def xmlFiles = resultXmlDirectory.exists() ? java.nio.file.Files.walk(resultXmlDirectory.toPath()).filter { it.fileName.toString().startsWith('TEST-') && it.fileName.toString().endsWith('.xml') }.map { it.toFile() }.toList() : []
+            def counts = [tests: 0, failures: 0, errors: 0, skipped: 0]
+            def suitesByClass = [:]
+            xmlFiles.each { f ->
+                def suite = new XmlSlurper().parse(f)
+                ['tests', 'failures', 'errors', 'skipped'].each { key -> counts[key] += (suite.@"${key}".text() ?: '0') as int }
+                suitesByClass[suite.@name.text()] = [tests: (suite.@tests.text() ?: '0') as int, failures: (suite.@failures.text() ?: '0') as int, errors: (suite.@errors.text() ?: '0') as int, skipped: (suite.@skipped.text() ?: '0') as int]
+            }
+            def status = counts.failures || counts.errors ? 'FAIL' : (selectedTests.every { suitesByClass.containsKey(it) } && counts.tests > 0 && counts.skipped == 0 ? 'PASS' : 'UNVERIFIED')
+            def out = readinessOutputFile
+            out.parentFile.mkdirs()
+            def previewStatus = 'UNVERIFIED — no current preview manifest; no image evidence claimed.'
+            def previewSuite = 'com.juicyslew.moonstation14.ms14.ui.preview.ProductionUiPreviewTest'
+            def previewValidation = 'UNVERIFIED'
+            def previewDetails = 'generator suite did not produce current evidence'
+            if (selected.contains('preview') && suitesByClass.containsKey(previewSuite) && suitesByClass[previewSuite].failures == 0 && suitesByClass[previewSuite].errors == 0 && previewManifestFile.isFile()) {
+                def manifest = new JsonSlurper().parse(previewManifestFile)
+                def allCases = manifest.cases instanceof List ? manifest.cases : []
+                def fullCases = allCases.findAll { it.full }
+                def sheets = allCases.findAll { it.contactSheet }
+                def expectedViewports = [[320, 240], [640, 360]]
+                def failures = []
+                if (!manifest.source?.contains('ChemMasterPaint.paint') || !manifest.source?.contains('AirlockWirePaint.paint')) failures << 'source does not identify both production painters'
+                if (fullCases.size() != 72) failures << "expected 72 full cases, found ${fullCases.size()}"
+                if (fullCases.collect { it.screen }.toSet() != (['chemmaster', 'airlock-wire'] as Set)) failures << 'full cases do not cover both expected screens'
+                if (fullCases.collect { it.guiScale as int }.toSet() != ([1, 2, 3] as Set)) failures << 'full cases do not cover GUI scales 1–3'
+                if (fullCases.collect { it.viewport }.toSet() != expectedViewports.collect { it as List }.toSet()) failures << 'full cases do not cover both expected viewports'
+                def groups = fullCases.groupBy { [it.screen, it.guiScale as int, it.viewport] }
+                if (groups.size() != 12 || groups.any { key, entries ->
+                    def states = entries.collect { it.state }
+                    def expected = key[0] == 'chemmaster' ? 8 : 4
+                    states.any { !(it instanceof String) || it.isBlank() } || states.toSet().size() != expected || entries.size() != expected
+                }) failures << 'expected eight ChemMaster and four wire distinct, named states for every screen/scale/viewport combination'
+                if (sheets.size() != 2) failures << "expected two contact sheets, found ${sheets.size()}"
+                def previewRoot = new File(readinessProjectRoot, 'build/reports/feature-readiness/previews').canonicalFile.toPath()
+                def imageCount = 0
+                def requiredImages = []
+                fullCases.each { item ->
+                    // Every fixture record must carry its schema-required artifacts; never skip a missing path.
+                    ['full', 'detail'].each { key ->
+                        if (!item[key]) failures << "full-case record missing required ${key} path (${item.screen}/${item.state})"
+                        else requiredImages.add([item, key])
+                    }
+                }
+                sheets.each { item ->
+                    if (!item.contactSheet) failures << "contact-sheet record missing required contactSheet path (${item.screen})"
+                    else requiredImages.add([item, 'contactSheet'])
+                }
+                requiredImages.each { pair ->
+                    def item = pair[0]
+                    def key = pair[1]
+                    try {
+                        def imagePath = java.nio.file.Paths.get(item[key].toString())
+                        def resolved = (imagePath.isAbsolute() ? imagePath : new File(readinessProjectRoot, item[key].toString()).toPath()).toFile().canonicalFile
+                        if (!resolved.toPath().startsWith(previewRoot)) failures << "${key} path escapes preview output: ${item[key]}"
+                        else if (!resolved.isFile() || resolved.length() == 0) failures << "missing/empty ${key} image: ${item[key]}"
+                        else {
+                            def dimensions = javax.imageio.ImageIO.read(resolved)
+                            if (dimensions == null || dimensions.width <= 0 || dimensions.height <= 0) failures << "undecodable/invalid ${key} image: ${item[key]}"
+                            else imageCount++
+                            dimensions?.flush()
+                        }
+                    } catch (Exception invalidImage) {
+                        failures << "invalid ${key} image path/content ${item[key]}: ${invalidImage.message}"
+                    }
+                }
+                previewValidation = failures ? 'FAIL' : 'PASS'
+                previewDetails = failures ? failures.join('; ') : "72 full cases and 2 contact sheets; ${imageCount} listed PNGs exist and decode under preview output"
+                previewStatus = "${previewValidation}: manifest `${previewManifestFile}`; ${previewDetails}. This validates generated artifacts, not visual/aesthetic acceptance."
+            } else if (selected.contains('preview') && suitesByClass.containsKey(previewSuite) && (suitesByClass[previewSuite].failures || suitesByClass[previewSuite].errors)) {
+                previewValidation = 'FAIL'
+                previewDetails = 'production preview generator test failed'
+                previewStatus = "FAIL: ${previewDetails}; no image evidence accepted."
+            }
+            if (previewValidation == 'FAIL') status = 'FAIL'
+            def categoryRows = readinessCatalog.collect { category, classes ->
+                def chosen = selected.contains(category)
+                def available = classes.every { selectedTests.contains(it) }
+                def classResults = classes.findAll { selectedTests.contains(it) }.collect { suitesByClass[it] }
+                def categoryStatus = !chosen ? 'NOT-SELECTED' : (classResults.any { it != null && (it.failures || it.errors) } ? 'FAIL' : (available && classResults.size() == classes.size() && classResults.every { it != null && it.tests > 0 && it.skipped == 0 } ? 'PASS' : 'UNVERIFIED'))
+                if (category == 'preview' && chosen) {
+                    // Preview evidence is conjunctive: passing JUnit alone cannot certify generated artifacts.
+                    if (classResults.any { it != null && (it.failures || it.errors) }) categoryStatus = 'FAIL'
+                    else if (available && classResults.size() == classes.size() && classResults.every { it != null && it.tests > 0 && it.skipped == 0 }) categoryStatus = previewValidation
+                    else categoryStatus = 'UNVERIFIED'
+                }
+                "| ${category} | ${categoryStatus} | ${chosen ? classes.join(', ') : '—'} |"
+            }.join('\n')
+            def startedAt = readinessStartedFile.isFile() ? java.time.Instant.parse(readinessStartedFile.readLines().first()) : null
+            def finishedAt = java.time.Instant.now()
+            def elapsed = startedAt == null ? 'unavailable (start marker missing)' : java.time.Duration.between(startedAt, finishedAt).toMillis() + ' ms wall-clock attempt'
+            out.text = """# Feature readiness run
+
+- Selection: `${selected.join(',')}`; catalog: `${selectedTests.join('`, `')}`
+- Focused JUnit route: **${status}**; no Minecraft process required. Fresh XML suites: ${xmlFiles.size()}.
+- Run identity: ${startedAt ?: 'missing start marker'}; finished: ${finishedAt}; elapsed: ${elapsed}.
+- Current XML totals: ${counts.tests} tests, ${counts.failures} failures, ${counts.errors} errors, ${counts.skipped} skipped. Checks are forced to execute; no cached/up-to-date result can count as pass.
+- Peak heap: not measured (no supported peak-heap sampler in this task).
+- Category status (PASS requires a fresh complete, non-skipped class set):
+| Category | Status | Selected evidence classes |
+|---|---|---|
+${categoryRows}
+- Preview images/manifest: ${previewStatus}
+- Prototype resolution/unit checks are not proof of a live runtime consumer; connected/runtime-consumer evidence remains **UNVERIFIED** unless separately established.
+- Latency cases: ${selected.contains('prediction') ? '`TimedInteractionPacketScheduleTest` and `HeldUseRequestDispatchTest` where selected; report only delays asserted by those current tests.' : '**NOT-APPLICABLE** (prediction not selected).'}
+- Native cursor/GPU and visual review: **UNVERIFIED**; owner acceptance is separate.
+
+Per-invocation report. This task clears its own XML result directory before execution; this report is not owner acceptance.
+"""
+            logger.lifecycle("Readiness report: ${out}")
+        }
+    }
+    checkTask.configure { finalizedBy readinessReport }
+    tasks.register('featureReadiness') {
+        group = 'verification'
+        description = 'Run focused feature readiness checks; requires -Pms14Readiness=<selectors>.'
+        dependsOn readinessBegin
+        dependsOn checkTask
+    }
+} else {
+    tasks.register('featureReadiness') {
+        group = 'verification'
+        description = 'Run focused feature readiness checks; requires -Pms14Readiness=<selectors>.'
+        doFirst { throw new GradleException('featureReadiness requires -Pms14Readiness=<ui,interaction,prediction,preview>; no full-suite fallback is available.') }
+    }
+}
+
+def gameTestTagPreflight = tasks.register('gameTestTagPreflight', JavaExec) {
+    dependsOn tasks.named('compileGametestJava')
+    classpath = sourceSets.gametest.runtimeClasspath
+    mainClass = 'com.juicyslew.moonstation14.gametest.support.GameTestTagPreflight'
+    args sourceSets.gametest.output.classesDirs.singleFile.absolutePath
+    if (project.hasProperty('ms14GameTestTags')) args project.property('ms14GameTestTags').toString()
+}
+tasks.named('runGameTestServer').configure {
+    dependsOn gameTestTagPreflight
 }
 
 neoForge {

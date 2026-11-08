@@ -89,10 +89,16 @@ class AngularRecoveryRenderInterpolationTest {
         assertTrue(renderer.contains("AngularRecoveryPresentation\n                .orientation(entity, partialTick)"));
         assertTrue(owned.contains("publishedAngular(level,epoch,body.getUUID())"));
         assertTrue(owned.contains("committedOrientation(committed,partialTick)"));
-        assertTrue(control.contains("angularBefore=angularPose(body);\n            predictCharacterInTemporalScope(body, intent, animate, interval);\n            angularAfter=angularPose(body);"),
-                "publication endpoints bracket the exact prediction step");
+        var compactControl=control.replaceAll("\\s+", "")
+                .replace("com.juicyslew.moonstation14.ms14.shuttle.sable.ClientFrameTimelineStore", "ClientFrameTimelineStore");
+        assertTrue(compactControl.contains("angularBefore=angularPose(body);predictCharacterInTemporalScope(body,controls,applicationTick,diagnosticSequence,supportedReference,bindFreshEvidence,animate,interval);angularAfter=angularPose(body);"),
+                "angular endpoints bracket the actual native prediction step");
+        assertTrue(compactControl.contains("angularBefore=angularPose(body);predictCharacterInTemporalScope(body,controls,applicationTick,diagnosticSequence,supportedReference,bindFreshEvidence,animate,interval);angularAfter=angularPose(body);if(characterPredictionStopped||clientFrameState.paused())"),
+                "endpoints are captured inside the owned simulation interval");
+        assertTrue(compactControl.contains("ClientFrameTimelineStore.publish(body.level(),activeEpoch,body.getUUID(),interval.from(),interval.to(),temporal.presentationSnapshot(airFrame),ClientFrameTimelineStore.AngularPair.capture(angularBefore,angularAfter))"),
+                "the same accepted interval publishes the captured endpoints");
         assertTrue(control.contains("AngularPair.capture(angular,angular)"),"authority restore publishes S,S");
-        assertTrue(control.contains("AngularPair.capture(\n                            angularBefore,angularAfter)"),
+        assertTrue(compactControl.contains("AngularPair.capture(angularBefore,angularAfter)"),
                 "successful commit publishes the last replay/live interval pair");
     }
 

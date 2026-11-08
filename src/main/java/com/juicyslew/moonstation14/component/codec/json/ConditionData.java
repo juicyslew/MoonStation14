@@ -165,3 +165,4 @@ public sealed interface ConditionData permits
         @Override public String type() { return "HungerCondition"; }
     }
 }
+

@@ -14,3 +14,4 @@ public record PostureRollRequest(UUID target) implements CustomPacketPayload {
             buf -> new PostureRollRequest(buf.readBoolean() ? buf.readUUID() : null));
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

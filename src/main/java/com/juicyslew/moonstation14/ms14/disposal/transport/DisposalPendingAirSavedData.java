@@ -45,3 +45,4 @@ public final class DisposalPendingAirSavedData extends SavedData {
         ListTag list=new ListTag(); records.values().forEach(r->{ CompoundTag t=new CompoundTag(); t.putUUID("Owner",r.owner()); t.putLong("Floor",r.floor().asLong()); t.put("Air",DisposalTransitHolder.encodeAir(r.gas(),1)); list.add(t); }); tag.put("Records",list); return tag;
     }
 }
+

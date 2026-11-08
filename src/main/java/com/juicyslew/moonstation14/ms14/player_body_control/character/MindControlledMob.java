@@ -11,3 +11,4 @@ public interface MindControlledMob {
 
     void moonstation14$markPhysicalStep(net.minecraft.world.level.Level level, long serverTick);
 }
+

@@ -121,4 +121,18 @@ class MedicalPredictionPolicyTest {
         assertTrue(resumed.ownsTracker());
         assertTrue(resumed.replaySnapshot());
     }
+
+    @Test
+    void physicalDirectionIsIndependentOfExternalMovementSuspensionAndRecovers() {
+        assertTrue(MedicalPredictionPolicy.canChangeDirection(MobHarnessKind.CHARACTER,
+                MobStateComponent.State.ALIVE)); // includes externally-moved/held actors
+        assertFalse(MedicalPredictionPolicy.canChangeDirection(MobHarnessKind.CHARACTER,
+                MobStateComponent.State.CRITICAL));
+        assertFalse(MedicalPredictionPolicy.canChangeDirection(MobHarnessKind.CHARACTER,
+                MobStateComponent.State.DEAD));
+        assertTrue(MedicalPredictionPolicy.canChangeDirection(MobHarnessKind.CHARACTER,
+                MobStateComponent.State.ALIVE)); // recovery
+        for (var state : MobStateComponent.State.values())
+            assertTrue(MedicalPredictionPolicy.canChangeDirection(MobHarnessKind.GHOST, state));
+    }
 }

@@ -1,0 +1,63 @@
+{
+  "title": "Carrier jump escape retention and generic primary recipient outline",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/PlayerControlledPortableMouseEscapeGameTests.java",
+  "acceptance_criteria": [
+    "Portable escape pairs the body's position with its canonical pin root frame, retaining five-second progress during carrier jumps while keeping true relative displacement, damage, incapacity and stale custody cancellation.",
+    "Registered player holder jump input attests the old mixed-frame displacement exceeds 0.3 while the canonical frame stays stable; the original escape operation/start tick survives and releases the original committed mouse.",
+    "One primary target resolver feeds ordinary clicks, gameplay-window clicks and entity outline nomination; held medical items highlight the actual generic living recipient and non-body routes preserve item/block fallback and pickup priority.",
+    "Canonical containment pinning and frame cleanup reuse the existing owner service, preserve strict release transactions and do not change camera, prototype capability or physical jump rules.",
+    "Fresh focused JVM, full native, affected UI/interaction/prediction readiness and isolated client startup pass before packaging; connected outlines/input and continuous-jump presentation remain manual or unresolved."
+  ],
+  "manual_steps": [
+    "As a held playable mouse, start escape. Have the holder repeatedly jump while moving: the same five-second progress should finish rather than restart. Check backpack escape too.",
+    "Hold a bruise pack, analyzer or syringe and aim at a mouse and another supported character: the white outline should match the clicked body. With an unrelated item, check the appropriate item/block fallback rather than a misleading mob outline.",
+    "Check true damage/incapacity/drop interruption and r38 held-camera smoothness remain intact. Same-holder physical hand-transfer escape and continuous-jump observer landings are not claimed fixed."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--tests", "*PrimaryWorldGestureTest", "--tests", "*TimedInteractionPacketScheduleTest", "--tests", "*TimedInteractionClockPolicyTest", "--tests", "*ContainedCameraPolicyTest", "--rerun-tasks", "--console=plain"],
+      "rationale": "Fresh primary route priority/fallback, timed feedback and retained camera policy tests; policy checks are not live outline or input evidence.",
+      "covers": [
+        "One primary target resolver feeds ordinary clicks, gameplay-window clicks and entity outline nomination; held medical items highlight the actual generic living recipient and non-body routes preserve item/block fallback and pickup priority.",
+        "Fresh focused JVM, full native, affected UI/interaction/prediction readiness and isolated client startup pass before packaging; connected outlines/input and continuous-jump presentation remain manual or unresolved."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-escape-outline-r39", "--rerun-tasks", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-escape-outline-r39/native.log",
+      "rationale": "Fresh full native regression run for shared pin/service changes, canonical jump escape, actual relative displacement, drop, medical and disposal consumers.",
+      "covers": [
+        "Portable escape pairs the body's position with its canonical pin root frame, retaining five-second progress during carrier jumps while keeping true relative displacement, damage, incapacity and stale custody cancellation.",
+        "Registered player holder jump input attests the old mixed-frame displacement exceeds 0.3 while the canonical frame stays stable; the original escape operation/start tick survives and releases the original committed mouse.",
+        "Canonical containment pinning and frame cleanup reuse the existing owner service, preserve strict release transactions and do not change camera, prototype capability or physical jump rules."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui,interaction,prediction", "--console=plain"],
+      "selectors": ["ui", "interaction", "prediction"],
+      "rationale": "Affected gameplay-window click, admission and timed presentation contracts; no authenticated or GPU acceptance claim.",
+      "covers": ["Fresh focused JVM, full native, affected UI/interaction/prediction readiness and isolated client startup pass before packaging; connected outlines/input and continuous-jump presentation remain manual or unresolved."]
+    },
+    {
+      "kind": "launch-smoke",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runClient", "-Pms14ClientRunDir=build/client-escape-outline-r39", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-escape-outline-r39/client.log",
+      "ready_patterns": ["Created: .*minecraft:textures/atlas/blocks\\.png"],
+      "error_patterns": ["InvalidInjectionException", "MixinApplyError", "InjectionError", "FATAL"],
+      "timeout": 120,
+      "rationale": "Serial isolated native bootstrap verifies client loading, with controlled stop of only its owned tree. Not outline or connected held-POV visual proof.",
+      "covers": ["Fresh focused JVM, full native, affected UI/interaction/prediction readiness and isolated client startup pass before packaging; connected outlines/input and continuous-jump presentation remain manual or unresolved."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Record packaged artifact only after required checks pass; no deployment or owner acceptance.",
+      "covers": ["Fresh focused JVM, full native, affected UI/interaction/prediction readiness and isolated client startup pass before packaging; connected outlines/input and continuous-jump presentation remain manual or unresolved."]
+    }
+  ]
+}

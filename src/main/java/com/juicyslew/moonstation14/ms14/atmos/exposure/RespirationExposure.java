@@ -12,3 +12,4 @@ public final class RespirationExposure {
         // No-op by design: EffectHandlers.Oxygenate and AdjustTemperature remain unsupported.
     }
 }
+

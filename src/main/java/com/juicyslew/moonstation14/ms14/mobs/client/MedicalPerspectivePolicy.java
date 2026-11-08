@@ -36,3 +36,4 @@ public final class MedicalPerspectivePolicy<T> {
         return new Decision<>(false, override.restore());
     }
 }
+

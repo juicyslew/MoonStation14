@@ -166,3 +166,4 @@ public final class CableVisualServerHooks {
     private record SendJob(ServerLevel level, UUID player, CableVisualPayload payload, boolean requesterOnly) { }
     private record RequestBudget(long tick, int count) { }
 }
+

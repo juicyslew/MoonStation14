@@ -5,3 +5,4 @@ package com.juicyslew.moonstation14.ms14.player_body_control;
 public interface TargetEligibility {
     boolean isEligible(MobHarness target);
 }
+

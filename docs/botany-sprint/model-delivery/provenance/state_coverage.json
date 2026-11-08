@@ -1,0 +1,535 @@
+{
+  "wheat": [
+    {
+      "state": "dead",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/wheat/dead",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "harvest",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/wheat/harvest",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "produce",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "seed",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-1",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/wheat/stage-1",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-2",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/wheat/stage-2",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-3",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/wheat/stage-3",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-4",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/wheat/stage-4",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-5",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/wheat/stage-5",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-6",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/wheat/stage-6",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "produce-inhand-left",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 4,
+      "native_delays": null
+    },
+    {
+      "state": "produce-inhand-right",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 4,
+      "native_delays": null
+    }
+  ],
+  "tomato": [
+    {
+      "state": "dead",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/tomato/dead",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "harvest",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/tomato/harvest",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "produce",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "seed",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-1",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/tomato/stage-1",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-2",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/tomato/stage-2",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-3",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/tomato/stage-3",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-4",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/tomato/stage-4",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-5",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/tomato/stage-5",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-6",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/tomato/stage-6",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "produce-inhand-left",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 4,
+      "native_delays": null
+    },
+    {
+      "state": "produce-inhand-right",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 4,
+      "native_delays": null
+    }
+  ],
+  "potato": [
+    {
+      "state": "dead",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/potato/dead",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "harvest",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/potato/harvest",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "produce",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "seed",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-1",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/potato/stage-1",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-2",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/potato/stage-2",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-3",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/potato/stage-3",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-4",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/potato/stage-4",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "produce-inhand-left",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 4,
+      "native_delays": null
+    },
+    {
+      "state": "produce-inhand-right",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 4,
+      "native_delays": null
+    }
+  ],
+  "poppy": [
+    {
+      "state": "dead",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/poppy/dead",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "harvest",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/poppy/harvest",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "produce",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "seed",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-1",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/poppy/stage-1",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-2",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/poppy/stage-2",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-3",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/poppy/stage-3",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "equipped-HELMET",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 4,
+      "native_delays": null
+    }
+  ],
+  "aloe": [
+    {
+      "state": "dead",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/aloe/dead",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "harvest",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/aloe/harvest",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "produce",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "seed",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-1",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/aloe/stage-1",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-2",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/aloe/stage-2",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-3",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/aloe/stage-3",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-4",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/aloe/stage-4",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "stage-5",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/plants/aloe/stage-5",
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "cream",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "produce-inhand-left",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 4,
+      "native_delays": null
+    },
+    {
+      "state": "produce-inhand-right",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 4,
+      "native_delays": null
+    }
+  ],
+  "containers": [
+    {
+      "state": "claypot",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "claypot-item",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "claypot-large",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "hydrocover",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "hydrotray",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "hydrotray2",
+      "coverage": "source_only_other_style_or_UI_item_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "hydrotray3",
+      "coverage": "implemented",
+      "model": "moonstation14:block/botany/hydroponics_tray",
+      "directions": 1,
+      "native_delays": null
+    }
+  ],
+  "overlays": [
+    {
+      "state": "alert3",
+      "coverage": "renderer_owned_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": [
+        [
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1
+        ]
+      ]
+    },
+    {
+      "state": "harvest3",
+      "coverage": "renderer_owned_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": [
+        [
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1
+        ]
+      ]
+    },
+    {
+      "state": "lowhealth3",
+      "coverage": "renderer_owned_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": [
+        [
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1
+        ]
+      ]
+    },
+    {
+      "state": "lownutri",
+      "coverage": "renderer_owned_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": null
+    },
+    {
+      "state": "lownutri3",
+      "coverage": "renderer_owned_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": [
+        [
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1
+        ]
+      ]
+    },
+    {
+      "state": "lowwater3",
+      "coverage": "renderer_owned_not_commissioned",
+      "model": null,
+      "directions": 1,
+      "native_delays": [
+        [
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-10-21T14:35:32.980Z" hostname="DESKTOP-4F0ER3K" time="0.026">
+  <properties/>
+  <testcase name="gridMoveCarriesBothPlacementsAndRotationAndRejectsTrailingData()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.005"/>
+  <testcase name="rejectsReplayAndBoundsRatePerTick()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.001"/>
+  <testcase name="rejectsMalformedIntent()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.001"/>
+  <testcase name="selectHandRequiresPayloadFreeIntentAndSequenceGate()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.001"/>
+  <testcase name="equipmentIntentsCarryOnlyHandAndSourceToken()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.003"/>
+  <testcase name="pouchActionsKeepTheDropShapeAndRejectClientSuppliedTargets()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.003"/>
+  <testcase name="gridActionsRoundTripRotation270AndRejectMalformedGeometry()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.002"/>
+  <testcase name="activateTargetCarriesExactUuidWithoutOccupantToken()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.0"/>
+  <testcase name="worldActionIntentsEncodeOnlyExplicitTargetsAndRequiredTokens()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.001"/>
+  <testcase name="smartEquipmentActionsRoundTripWithoutClientGeometry()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.002"/>
+  <testcase name="crossHostIntentAppendsOnlyDestinationTokenAndBoundsGeometry()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.001"/>
+  <testcase name="directBodyHostActionsAppendLocationsWithoutChangingOldPackets()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.002"/>
+  <testcase name="heldGridActionsRoundTripAndRejectTrailingPayload()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.001"/>
+  <testcase name="equipmentRoutePrecheckSeparatesLegacyAndGridTransfers()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.0"/>
+  <testcase name="grenadeIntentsCarryOnlyTheActiveHandToken()" classname="com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

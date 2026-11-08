@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.prototype.CocoaConversionCatalogCandidateTest" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-10-16T11:11:46.652Z" hostname="DESKTOP-4F0ER3K" time="0.283">
+  <properties/>
+  <testcase name="cocoaAndMeatwheatCandidateCatalogsResolveWithoutPublishing()" classname="com.juicyslew.moonstation14.ms14.prototype.CocoaConversionCatalogCandidateTest" time="0.283">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;moonstation14:botany/produce/packetrip&gt; but was: &lt;null&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;moonstation14:botany/produce/packetrip&gt; but was: &lt;null&gt;
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at app//org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:182)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:177)
+	at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.CocoaConversionCatalogCandidateTest.assertProcessing(CocoaConversionCatalogCandidateTest.java:109)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.CocoaConversionCatalogCandidateTest.cocoaAndMeatwheatCandidateCatalogsResolveWithoutPublishing(CocoaConversionCatalogCandidateTest.java:86)
+	at java.base@21.0.10/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

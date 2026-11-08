@@ -859,3 +859,4 @@ public sealed interface EffectData permits
                 (value, common) -> factory.apply(common));
     }
 }
+

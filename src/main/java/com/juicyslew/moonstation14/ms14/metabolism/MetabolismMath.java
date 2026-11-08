@@ -97,3 +97,4 @@ public final class MetabolismMath {
         return value;
     }
 }
+

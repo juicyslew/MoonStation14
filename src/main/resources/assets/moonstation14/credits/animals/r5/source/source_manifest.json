@@ -1,0 +1,3432 @@
+{
+  "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "rsi_spec": "v1, direction-major frames, row-major PNG; S/N/E/W, NE etc use established rsi_reference direction ordering; seconds per actual direction-frame",
+  "resources": [
+    {
+      "resource": "Resources/Textures/Mobs/Animals/bat.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Sprite by Cohnway",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "bat",
+          "directions": 4,
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "bat.png": "5320d50273615dc87fb6102f3d2b67260a33f20e445bfdc69eb0cf0b8ca1eeae",
+        "dead.png": "985c418f1c2603110e294b542cbae99ea70c302e5c283b45b44f8092b84f4552",
+        "meta.json": "1fa8c3639c12b31dc2755547fdae15fcea587558069b7471157368e2f2ccbf0e"
+      },
+      "id": "bat"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/bear.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b , remade by Alekshhh",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "bear",
+          "directions": 4
+        },
+        {
+          "name": "glow",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "bear_dead"
+        }
+      ],
+      "hashes": {
+        "bear.png": "4fede5b467238c4767404882ea3f5e1cdde05a7ffed1978695ebf627bc7d0628",
+        "bear_dead.png": "6fa5412d57b0192865bdda0bc9bc490705e77ed58bfb193ce7c33a216c22efb3",
+        "glow.png": "d9c2a632493c7931d4ad9f34e08fe4f93e6e8a6d567cb5e1e65e5bd22f3218ce",
+        "meta.json": "fa6b3f79efed37fe6a770f8adf0aa83c0696e1b68af2ccb93f8135961be0d5a5"
+      },
+      "id": "bear"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/bee.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "0",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "1",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "2",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "3",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "4",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "0.png": "6cde71276f95d024021604bd37cf839c943d3d27742036804634cf4515b04369",
+        "1.png": "e79767d06487475eec2d55756fb16e4a54d9de8b14d528ecc0a9ac1884025a97",
+        "2.png": "93af52d5f35700ee184f812036b03f8dfbb7d48daeaef3d70c4a5ff6686a1fe1",
+        "3.png": "6cde71276f95d024021604bd37cf839c943d3d27742036804634cf4515b04369",
+        "4.png": "b28bdb19a9cf085c4a7d5b6b75705fa50a68dc7eda082b5fadf4872a657bab3c",
+        "dead.png": "1e4ded8d4a943a318e380a6af2e08aa889604cab599f0c007ad3cbe893800b27",
+        "meta.json": "d81c69328721a4e318fb7814a497cf436071ba1fc03910098a769921e489c987"
+      },
+      "id": "bee"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/buffrat.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-NC-SA-4.0",
+      "copyright": "Created by RamZ + eyes added by jamessimo",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead"
+        },
+        {
+          "name": "icon"
+        },
+        {
+          "name": "regalrat",
+          "directions": 4
+        },
+        {
+          "name": "eyes",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "dead.png": "a3bbf9c058abdf890e6a1e394e5ee6ebd200ac0b6adef7a57590118d25a1c4a1",
+        "eyes.png": "5966760c5ed6eb43f6261b101eb9be2700bbb16bafe6644001ee1a384727cc68",
+        "icon.png": "f0573f0e0eaf2d22788813da02e8f2c63b6b0d3da0dbbb6d4a9378cdcd4daa84",
+        "meta.json": "7d9348979deecd2984eeab437cbcb33ee342a24927beee982811c0d8d638c861",
+        "regalrat.png": "22b8c34f113d8a1a500468f80fd8e0bac3a61b7c1457205e48db7f3cc841b10c"
+      },
+      "id": "buffrat"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/butterfly.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "butterfly",
+          "directions": 4,
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "butterfly.png": "cc433f4f53ae9ef4a360ef8c96afa3532caf76e8cee1b687a06966f39eb13aa4",
+        "dead.png": "4233b6a9b8327ee9a463a23e460173d9f08e3c9fed6775f6e00a26db431bcf64",
+        "meta.json": "4a1461e20ffbb23901b96f79af917813dcd8e4b6310877f9342b3e57fea59036"
+      },
+      "id": "butterfly"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/chick.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "chick",
+          "directions": 4
+        },
+        {
+          "name": "gib",
+          "delays": [
+            [
+              0.6,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "chick.png": "72428ee3dc593d8c582f87ced8c4b57e4ce8a8d4c38faa8bf19ce7e3a67b5111",
+        "dead.png": "5e334df6545492f4d5d8f0a5373f41455b1f509db05951b48042a230185f9a75",
+        "gib.png": "bb49e0d3a4acb1b7c12b38f07ea461fb6b257d9ed997887b523a6c634adfab43",
+        "meta.json": "8c95c37726cce6a76a50a054a57ab13dad727272f92cad92d243e3100422ef03"
+      },
+      "id": "chick"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/chicken.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/e15c63d100db65eaaa5231133b8a2662ff439131#diff-8dd94e19fdb2ff341b57e31bce101298",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "icon-0",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "icon-1",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "icon-2",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "chicken-0",
+          "directions": 4
+        },
+        {
+          "name": "chicken-moving-0",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "chicken-1",
+          "directions": 4
+        },
+        {
+          "name": "chicken-moving-1",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "chicken-2",
+          "directions": 4
+        },
+        {
+          "name": "chicken-moving-2",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "dead-0",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "dead-1",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "dead-2",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "chicken-0.png": "0f18ecd6b3b2fd9eca0a73e13342c39c0961210969e06c1e78541bf4e9aee664",
+        "chicken-1.png": "53d6105a39909356917bc43bd5fc015cb7b54cbe5d45f3314d1443ed375ed3ea",
+        "chicken-2.png": "ca2424aca59ddf78f5c04cbeef5b9ac034174baec7dde907154db73a28d625da",
+        "chicken-moving-0.png": "20a2ab40b906db12e33fdeb95926277f4d6d946b20c10dc8d1b0e6755b070449",
+        "chicken-moving-1.png": "12234650be9d225a361993e66b58a330808a7a2643d8aaf8d59daf5d8d22ad35",
+        "chicken-moving-2.png": "5a992acaff7d56cb4a63080eb4963423b03970a1d5c9eb0477d87b1d15b05efa",
+        "dead-0.png": "bfe213705c71a6c6479ef2a3db4f8c864e8ad5f0637b635d0da86dafa58bdd84",
+        "dead-1.png": "2e93e614b3528b9fade3dfea1019eb0eeb8b9772312c1b54d5942593dff850d4",
+        "dead-2.png": "0729923703f34eaf3f610f3dccbbf042e7bd8cbe9275e306d25918a7a0c55e3d",
+        "icon-0.png": "b3512e7d5ff198f472b72094d7efc1a9884bc7ad43215fcb69144dd76edf9dc2",
+        "icon-1.png": "b08b661e313a2ed0efce303c8ece271fc653fb51438acd5e024f3d853fddbcde",
+        "icon-2.png": "e170848efbcd696c595e952282d2ecedcd95e38ca2f9025c6607ed55233d9e6d",
+        "meta.json": "ec6e368653c90e1b9bcef3b839c53abc3bf03ddb0570acfd503adfd99c13323e"
+      },
+      "id": "chicken"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/clownspider.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Made by Alekshhh and brainfood1183 (github) for ss14",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "clown",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "clown.png": "68f9796e7bf82cf8fb60d546b7905b84e96ed9e191809b0bb7cc9495d0688981",
+        "dead.png": "cf6d3582475cbe372d89fd5d8ba064cb0a30c9952fbfc929819abe0485b90ca2",
+        "meta.json": "71a33cc973ebd12072994fd483158acc903958e1ba649edb23350060895ac2f4"
+      },
+      "id": "clownspider"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/cockroach.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "cockroach",
+          "directions": 4,
+          "delays": [
+            [
+              0.25,
+              0.25
+            ],
+            [
+              0.25,
+              0.25
+            ],
+            [
+              0.25,
+              0.25
+            ],
+            [
+              0.25,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "cockroach_dead"
+        },
+        {
+          "name": "cockroach_icon"
+        },
+        {
+          "name": "glockroach",
+          "directions": 4,
+          "delays": [
+            [
+              0.25,
+              0.25
+            ],
+            [
+              0.25,
+              0.25
+            ],
+            [
+              0.25,
+              0.25
+            ],
+            [
+              0.25,
+              0.25
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "cockroach.png": "57aac938c981c7f1fdecfc1ea8e133389598ecceb630477484fcc4f66d0f8cee",
+        "cockroach_dead.png": "66af7c181209e32acaad220612d58809ac6f336307b6d82cd6d35c3e520fe12f",
+        "cockroach_icon.png": "d908b8c170683f0b9c6db091158dfdb4ed72137fdec506000235ce350759d652",
+        "glockroach.png": "cd2b5f430c4932d0d934d2934bdb4d07831b694db1e778e0b495b514e62d0cdc",
+        "meta.json": "c3bab1a0999b536c8ae8de65dcb24afe0d082c1089ab19ce77bd677a32c07460"
+      },
+      "id": "cockroach"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/cow.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "cow",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "gib",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "cow.png": "93f8edb9e9652fce7849109b8be78710158a836a8d297dfaf035785ca66b9060",
+        "dead.png": "239006e14f861a8347cfc6d851c440406c43082a97dece573d79c63813f5261a",
+        "gib.png": "3633a9d4491f859aa3ca9152b58176e663610435f3b047409f61be0110aeeef1",
+        "meta.json": "cd5f7c457a21893be4c45f5049175f9ebed50ef7082d5e4a6b0dd5a4671136a6"
+      },
+      "id": "cow"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/crab.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "crab",
+          "directions": 4
+        },
+        {
+          "name": "crab-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "dead"
+        }
+      ],
+      "hashes": {
+        "crab-moving.png": "ff7c827bb046996e97170c88f3c2be8bf93da7b8ebf6bc8b9f9bceab705fb726",
+        "crab.png": "bce1ca5b6f748cd0a3bed24fb59dcdfa990bd2acde5178e72b2e5a45ece274ed",
+        "dead.png": "d0a5f3e22980679be25c9941e42f46305c13577362b25614eb69a54b9296fd9e",
+        "meta.json": "8cf2c9cd0abfa9a1e6c246bae3e8bc4ec4516eda12757f961d0edf786b9f305d"
+      },
+      "id": "crab"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/duck.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC0-1.0",
+      "copyright": "Created By https://github.com/Mith-randalf",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "icon-0",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "icon-1",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "icon-2",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "duck-0",
+          "directions": 4
+        },
+        {
+          "name": "duck-1",
+          "directions": 4
+        },
+        {
+          "name": "duck-2",
+          "directions": 4
+        },
+        {
+          "name": "dead-0",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "dead-1",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "dead-2",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "dead-0.png": "6c7ac838a11877ef4dab2d6d79bc9fee6f55de1c3be9611ecd82f9796418c343",
+        "dead-1.png": "e84a6251688c1325c7255a5e72e08eb142f5e5b9a8fc3c64d6582f6e6e54895d",
+        "dead-2.png": "9a2a774787de021e19dcd0ba9c8483a79456cc6bf3273e9052762a2ba3819483",
+        "duck-0.png": "813ebd78746459a4fe98cc66608c696a5bdb2011c5898d1f4965d2595b55a6e5",
+        "duck-1.png": "fd9896d8551a6edcebe8a3c47cea86ee78e7470add775fd18ff4af18b1d8582d",
+        "duck-2.png": "317f0dd29e4cac61f405430827978fc98a56f5e623ab00ab70a2f9827e1f4f72",
+        "icon-0.png": "26a875014368584d43711cf0e8d6499c3bfc00bd8c97294e40a93d0934613f69",
+        "icon-1.png": "1a622d72a932297cee281d694f32c4325877b4efc6f754ef7d4154a75f770104",
+        "icon-2.png": "b0f0e2d0205058f055ec0fa077f27d873c7577974e86d0aab36617c2115fc926",
+        "meta.json": "efe884e36b3624746fb2694fc7ad28430a152cb22261423609e377f30a8f1f6e"
+      },
+      "id": "duck"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/fox.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from TG git https://github.com/tgstation/tgstation/blob/master/icons/mob/pets.dmi",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "fox",
+          "directions": 4
+        },
+        {
+          "name": "fox-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "fox_dead"
+        }
+      ],
+      "hashes": {
+        "fox-moving.png": "38265be54bfaec41b68a5078ef7cfe20110196b0d7adc0d999520e0990368cce",
+        "fox.png": "4887b776ecf37df2cb434e6ecc26a0e2bf84d4b7e50e556e2537bead1f90eccb",
+        "fox_dead.png": "dadb39fa41b44d94947ef3ead735e12530b36f73cbf8eaeb36695a40c3ca8fe4",
+        "meta.json": "b43bfa56d0caed2001daa12ba8e8d623381774e38f71aec8cb4ac3342d77602b"
+      },
+      "id": "fox"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/frog.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "frog",
+          "directions": 4
+        },
+        {
+          "name": "frog-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "dead.png": "8a80578544e7acb9d4d007488bf3d98140e6a73fa86440ecf4f6ecf6acb298f4",
+        "frog-moving.png": "d103ad3fb2d31059ad42cdc83121ec248e050e0bdb8b28b09f8f2e6f5c070c29",
+        "frog.png": "b7e8b8e7164e48c1cb63bab593de2a58a91729dfc3195ab800cccf8bd2f0a008",
+        "meta.json": "dc9e2af2c16a0a1a76da202f59b58a8b82609e1713c0999e55ba7751e2a5b5b6"
+      },
+      "id": "frog"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/goat.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "goat",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "dead.png": "a563c193bc7ab46796f177f2f257d3aac0e1e158ea8308e2c9afbae951b1dd25",
+        "goat.png": "e64f791d60e0803405fd6ddf008b45a62e9236c5f728a3f9c409eabb825f3b94",
+        "meta.json": "b09ec3693ea1224a333f98e04bea77e43782f090c5101d6ad49817615f514391"
+      },
+      "id": "goat"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/goose.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "goose",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "vomit",
+          "directions": 4,
+          "delays": [
+            [
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "vomit_end",
+          "directions": 4,
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "vomit_start",
+          "directions": 4,
+          "delays": [
+            [
+              0.5,
+              0.1,
+              0.1,
+              0.1,
+              0.2,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.5,
+              0.1,
+              0.1,
+              0.1,
+              0.2,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.5,
+              0.1,
+              0.1,
+              0.1,
+              0.2,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.5,
+              0.1,
+              0.1,
+              0.1,
+              0.2,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "dead.png": "e57a49379e18a1c9f7e7ef1c098f69c8257d8f60fe3159967b68b670d9e7ef95",
+        "goose.png": "61a9485fe11b90697718251d051a9fee37bae0632e66dcb02739a484d55fc6a7",
+        "meta.json": "b2b0f4abb0aedac7d6b39bc1fd33427808cf326924a72572a2d049953ffaa2ff",
+        "vomit.png": "bef620085f77974d2accbfc3bd63fdc225acdff399bc9df4a0f0d431ed4e89f1",
+        "vomit_end.png": "a9a9687d5872e0ffb7af87024668ad1ba72036dd20026bdea6024f671c65680f",
+        "vomit_start.png": "d6c15d447dde0190e144f1a940fdf83c2b6312aa4b49bdcf89ca67329b93bc0b"
+      },
+      "id": "goose"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/gorilla.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 64
+      },
+      "states": [
+        {
+          "name": "icon",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "crawling",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "standing",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "crawling.png": "04a6fa72545df7cc34af086276ea65763380aa675ba73319b3a739975f6e9647",
+        "dead.png": "caf540771881e5c0c6c999ceb18ab78cebc9d0ac5ef3c373c6eef8d0624dfd94",
+        "icon.png": "5897fbd779e859aafe423d900c44b0dd74c5c9de176df6371bf018bf757004c0",
+        "meta.json": "1a42987a463ca444d40ae1f9e28b44ab9b3d941211fd0747c81a31c246b6e535",
+        "standing.png": "52205b51a7b39f8fdd4455aa6804da787875efce52e19aa10376d52db1a55ba8"
+      },
+      "id": "gorilla"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/grenadepenguin.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Created by EmoGarbage404, inhands by mubururu_ (github)",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "icon"
+        },
+        {
+          "name": "inhand-left",
+          "directions": 4,
+          "delays": [
+            [
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "inhand-right",
+          "directions": 4,
+          "delays": [
+            [
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "penguin",
+          "directions": 4
+        },
+        {
+          "name": "dead"
+        }
+      ],
+      "hashes": {
+        "dead.png": "5bdf4e0b82c2ed0687a7a5ab95f0772a0cccb2bd8429de7e9eb3295a946a8138",
+        "icon.png": "e39e22787d3595600793ad260e97a33468ea15bf7081a64546233d8f1a9dc186",
+        "inhand-left.png": "024094ed24d252883f24bbef6f6aa988f87bcf6218f9cb7b757dd4eba2fc37bb",
+        "inhand-right.png": "ccaf203bc1ac39faa6d5ea840231d8750e68aa095a83f638e300c671caa20b9a",
+        "meta.json": "eedc8f11cbbe2a89eca5da0249a63ca467df4a7a55db89971d1802aecc4b2865",
+        "penguin.png": "bd6b1d71e783ee2392bc5eeae0869ca16c1b2ae28ea0fde31d75acfe5ca6e3f2"
+      },
+      "id": "grenadepenguin"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/hamster.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Created by brainfood# 7460, hamster-0 resprite by RamZ (discord), inhands resprited by Vermidia.",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "icon-0"
+        },
+        {
+          "name": "hamster-0",
+          "directions": 4
+        },
+        {
+          "name": "hamster-moving-0",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "dead-0"
+        },
+        {
+          "name": "splat-0"
+        },
+        {
+          "name": "inhand-left",
+          "directions": 4
+        },
+        {
+          "name": "inhand-right",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "dead-0.png": "1365aedd02f41e9f94e3bd25bbd030f26e390fd711fb6ecc12cc79f974a9473a",
+        "hamster-0.png": "e95fb70a03a4da8728eda7c7d4f0b61bb3c590a987faa2c8d67ae8535444b609",
+        "hamster-moving-0.png": "613dd9028c802371133d907588d40315de9fcdca44ccf6fb8efb97027d06efed",
+        "icon-0.png": "b276266e94ddc9cd6c20c28d4cec9f78d23e4466108e6941df64cd1ad6564474",
+        "inhand-left.png": "872a941888391e4b3e2211a24f1fee076798cefdbae860da28426acd9862f075",
+        "inhand-right.png": "742ad858b4a9da86df3afa4e9b430088286f96cbec34b99b2a1ea5b34d9fd367",
+        "meta.json": "28436255e32993d20c3dd5aad4777eff6dc8dd3d0e726b78ab5b25148b282939",
+        "splat-0.png": "4dd0382398cbbe77e12561c0efe258a7f1c896a88e740503d49248eb8ffc5f16"
+      },
+      "id": "hamster"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/kangaroo.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/austation/austation/tree/30f0ba9c2dab3ec8e55ab6fae03bde1566a154ca, space kangaroo made by and kangaroo modified by brainfood1183 (github)",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "kangaroo",
+          "directions": 4
+        },
+        {
+          "name": "kangaroo-dead"
+        },
+        {
+          "name": "kangaroo-crit"
+        },
+        {
+          "name": "kangaroo-space-crit"
+        },
+        {
+          "name": "kangaroo-space",
+          "directions": 4
+        },
+        {
+          "name": "glow",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "kangaroo-space-dead"
+        }
+      ],
+      "hashes": {
+        "glow.png": "2d88879b7f01bd127eb3f1808841c0aa7ba17539847228b0ac1704121f663139",
+        "kangaroo-crit.png": "76dd7ba172a575137752cc71ec9dbe2e82614c68f045c2956c66059de23739e1",
+        "kangaroo-dead.png": "118e0483ab54d13232ee2e21bd7ffa0c3691ced8368ab2a9eadad9b689724630",
+        "kangaroo-space-crit.png": "584d8975372273b55e9803eb82ce8f00526b36975b7e8b1e8010220ea575caa0",
+        "kangaroo-space-dead.png": "53914fe27942c5dce2a566fed59b75b08c69f4623f3e5eef7706fd5210fb6eb1",
+        "kangaroo-space.png": "a5b2801ae9a5cd3c9a780b13f1cdbb519b4baeec44b246f312158b4f6a618f60",
+        "kangaroo.png": "dd989ed781da86359a1748eff201e09b3fd4a5f66deae674efe9b0deb973b81c",
+        "meta.json": "2dc156802d69221859ae523c3369818b2bebe61c6406e14b03a457bf83170290"
+      },
+      "id": "kangaroo"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/kobold.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Drawn by Ubaser, modified by Bhijn and Myr",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "kobold",
+          "directions": 4
+        },
+        {
+          "name": "outline",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "kobold.png": "cf8b8eb121352fd3fa57d1348762ad076bf6c8432213ff3029a22d6bc1403cda",
+        "meta.json": "a401784c5995623dbf3ec20bb675c218d6249141e76d17576b978f6eb4138663",
+        "outline.png": "55c5bc1ed78c16fcdaef4e3a22ffb513186c818f05838e7e04ba5fde0ed60ded"
+      },
+      "id": "kobold"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/lizard.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Made by Mithrandalf",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "lizard",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "gib",
+          "delays": [
+            [
+              0.6,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "space",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "dead.png": "5d68883c83a79e737ebd000e073b88f32dcd92efd1d1ff8bb6ececceeadfe633",
+        "gib.png": "a566cc72ba32c4fe6764a12f87249097af1680118f1023b119121a7fff4d945a",
+        "lizard.png": "474c354f39335795e5961275ad255cf3b1fe76056c9df79146cde3b8296c4a89",
+        "meta.json": "5b9b85b33234249ba8a4ae6dff4cc7bc91ea63892161e2c557ce16291baafa1a",
+        "space.png": "ef1d18b36cb0d5d543a28c975f1b8db3800d15d2610de64bb38ca955a51b438e"
+      },
+      "id": "lizard"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/monkey.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b , edited by Alekshhh",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "monkey",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "meta.json": "62540572d92ceb9e92150c6bcdfffe44fe8ba6f4b810c71f2d6c4b791380de54",
+        "monkey.png": "47db924449276e433459bf32174f177903c0895966786bc2ceebce3c248770ba"
+      },
+      "id": "monkey"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/mothroach/displacement.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Made by Vermidia",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "head",
+          "directions": 4
+        },
+        {
+          "name": "mask",
+          "directions": 4
+        },
+        {
+          "name": "suitstorage",
+          "directions": 4
+        },
+        {
+          "name": "eyes",
+          "directions": 4
+        },
+        {
+          "name": "neck",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "eyes.png": "f1f7e8a671af0bbcd245d21236367bf920f99419e70a84151c870fcce2ebcc08",
+        "head.png": "c45fd9192da127fc5a663cd7a3b1d969e754f5f900c137fd4996395bf096dd07",
+        "mask.png": "1f4f2fe99858421d77d835c3cb5640d4b409561c951a26d1416b3ef86944d9cb",
+        "meta.json": "ee80933594a3ffa2a3d5f715fa5a65034b8f73375131917bd86b532045fd5707",
+        "neck.png": "e2edd7a385bcc0480de4ba07da8273ebac285e01306b15315b335584ff90f65f",
+        "suitstorage.png": "a5541367d847fccd1cf84847eea5b672fe47069a333a6e9a13a85863daa25a09"
+      },
+      "id": "mothroach_displacement"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/mothroach/moproach.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from fulpstation at https://github.com/fulpstation/fulpstation/commit/edb232b692ec9f356ec554ea1971da552b9bc447. 'mothroach-moving' by MilenVolf, all edited by lzk228",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "icon"
+        },
+        {
+          "name": "mothroach",
+          "directions": 4
+        },
+        {
+          "name": "mothroach-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "mothroach_dead",
+          "directions": 4
+        },
+        {
+          "name": "inhand-left",
+          "directions": 4
+        },
+        {
+          "name": "inhand-right",
+          "directions": 4
+        },
+        {
+          "name": "0-equipped-HELMET",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "0-equipped-HELMET.png": "00f27e32415c2296bf7b726ab102b66c65561d4f5d604df550c8bc49b7ae26bb",
+        "icon.png": "e395c1bb73f171614bcc992b29c5ffdce9747fb99d60bcfb7e08ab3c36eea856",
+        "inhand-left.png": "3d7d6680b961064141dc2ee3c61fa4063ae652134a771c212bb03af75581badd",
+        "inhand-right.png": "319c0fe4e8ace2b1bec8a64e395043aa02adc2ce8feeca99f916407283370611",
+        "meta.json": "db292f13436d9cacd010612da6ce42cefec74ab2d40e521b0400aacdf5591978",
+        "mothroach-moving.png": "5a7326a8fb64d9f8923b651d3334ad3436925d1d64412b92101031142f8a5867",
+        "mothroach.png": "95b2baa77724ceb9413f7f6865f10048d6c429e95dc835b6a55cd9f07fa86b4b",
+        "mothroach_dead.png": "ff07e5952a3802847a40cea434ea20a87bec45b68b9f8c7f78b2a5e9f8c2d688"
+      },
+      "id": "mothroach_moproach"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/mothroach/mothroach.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from fulpstation at https://github.com/fulpstation/fulpstation/commit/edb232b692ec9f356ec554ea1971da552b9bc447. 'mothroach-moving' by MilenVolf",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "icon"
+        },
+        {
+          "name": "mothroach",
+          "directions": 4
+        },
+        {
+          "name": "mothroach-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "mothroach_lazy",
+          "directions": 4
+        },
+        {
+          "name": "mothroach_sleep",
+          "directions": 4
+        },
+        {
+          "name": "mothroach_dead",
+          "directions": 4
+        },
+        {
+          "name": "inhand-left",
+          "directions": 4
+        },
+        {
+          "name": "inhand-right",
+          "directions": 4
+        },
+        {
+          "name": "0-equipped-HELMET",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "0-equipped-HELMET.png": "bb626536dedb8cdb4204187bfeb5a0f4a1f61b90ea6fe386afc958456b4239e8",
+        "icon.png": "03924bc114bf2e73757a8fd9a747f3b0a8c6764e01038f712e88ca7d745dcea0",
+        "inhand-left.png": "72e58303fba9633241226a44703290d781ea762b77346915881190c4f6b8e3ec",
+        "inhand-right.png": "bebd279cde6b24d75ed52c188f60b233a811622d8ac3e94169fe01e23012da18",
+        "meta.json": "ab551484a5bbe1d04180cb1d362f0afd1d511e66e0039f4c427d24e35a7e463e",
+        "mothroach-moving.png": "1ce99dfac3068a5cd311ac3aa25d4c95de80b57ccf08984d0eaf55971b924817",
+        "mothroach.png": "c4d1a0cce3db95ec779d0ba89cfc783b6db5250a744f9d1f1e07e2a96df10bed",
+        "mothroach_dead.png": "b09484995e3e43e6c2dd081a96ae8a3182d631f86eb7032b6f9da1ce8cc92485",
+        "mothroach_lazy.png": "c5268e8e3d80df25bdd071d898b8d79ad19849128cc45f4b084ae732c82e0e0f",
+        "mothroach_sleep.png": "5748dc7d32e70de7efe5ae733a18d4b91fdda434a59add7ef86913768afa75c8"
+      },
+      "id": "mothroach_mothroach"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/mouse.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/e15c63d100db65eaaa5231133b8a2662ff439131#diff-8dd94e19fdb2ff341b57e31bce101298, modified by Vermidia.",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "icon-0"
+        },
+        {
+          "name": "icon-1"
+        },
+        {
+          "name": "icon-2"
+        },
+        {
+          "name": "mouse-0",
+          "directions": 4
+        },
+        {
+          "name": "mouse-moving-0",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "mouse-1",
+          "directions": 4
+        },
+        {
+          "name": "mouse-moving-1",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "mouse-2",
+          "directions": 4
+        },
+        {
+          "name": "mouse-moving-2",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "dead-0"
+        },
+        {
+          "name": "dead-1"
+        },
+        {
+          "name": "dead-2"
+        },
+        {
+          "name": "splat-0"
+        },
+        {
+          "name": "splat-1"
+        },
+        {
+          "name": "splat-2"
+        },
+        {
+          "name": "0-equipped-HELMET",
+          "directions": 4
+        },
+        {
+          "name": "1-equipped-HELMET",
+          "directions": 4
+        },
+        {
+          "name": "2-equipped-HELMET",
+          "directions": 4
+        },
+        {
+          "name": "0-inhand-left",
+          "directions": 4
+        },
+        {
+          "name": "1-inhand-left",
+          "directions": 4
+        },
+        {
+          "name": "2-inhand-left",
+          "directions": 4
+        },
+        {
+          "name": "0-inhand-right",
+          "directions": 4
+        },
+        {
+          "name": "1-inhand-right",
+          "directions": 4
+        },
+        {
+          "name": "2-inhand-right",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "0-equipped-HELMET.png": "3ca0d726909f0f552b0b7d6a6be2e4504d46be32307787cb213881da49453276",
+        "0-inhand-left.png": "45a25bfdf63e790d2a65c64605432c1ddcb1d18bb4d0af8da61e6b67209f9d57",
+        "0-inhand-right.png": "0416b4feec473e00fbb4158b119a900139ba483a715fe94cc2f8351f9b53098d",
+        "1-equipped-HELMET.png": "6aa0adb24551832ab0ca646be5c34094d021507150474c1eb828bef7ddd7ef9f",
+        "1-inhand-left.png": "199e5e9afd3780d3d22d5ffc0b8c5620f20f84e4e00b7436ad12e1c0b71ff492",
+        "1-inhand-right.png": "fdeb519c29220dfb5e6abf7d582a53423ee28b440b241d0842742c189edb3d4f",
+        "2-equipped-HELMET.png": "ba129f5eb8d52b21f06d10f6c8234f2c89844e8084c23b3f1b4217c673cfb365",
+        "2-inhand-left.png": "73100fad299ef8ae91ec685d47a0573d9c1e0b74c2f32c663ce819c3dc011c40",
+        "2-inhand-right.png": "2a222a9f2f435ae4495b048acee6c907805f26c23058f7b5aa80639a882103c0",
+        "dead-0.png": "3e26646f1f2405d55ba9567ac4442204ecd57028e739358719fcc93ab9b6f5df",
+        "dead-1.png": "e6df89731135e60d6f425920bb7b41777de9cc1969a2a153962d120152b088f8",
+        "dead-2.png": "5911efc1541e0e463fc220c8d4faa07a22196458a21cbf5819a98253a7257eb5",
+        "icon-0.png": "2b12d45fdb79904641b9b652b0d89e6bf5c2659934e7b7cd891f26bc7ca38a33",
+        "icon-1.png": "0906509f69947c584dbc2186109f70a8e233831e2f0be245753e02639ecd86e3",
+        "icon-2.png": "24da3fbac4e9f89ee7ef593d8c271303ead82e74a85da538755fddc80dc27348",
+        "meta.json": "80e1fbd791c2f87c9c002aeae4ce59d8404761eb1f49badeaa417a32a6d9a04e",
+        "mouse-0.png": "221e25eb250315cd112e80901acd2d7c62adbbd9fc8435126f760361dfa5fb31",
+        "mouse-1.png": "a86ffd9cb899babbc9bb7d291ce6418252dbfa0cb5a306dd01fdbcec74d66c17",
+        "mouse-2.png": "8b4a5a5d7ebb1ba8cc1928d1eedaa911caa88417f8961018087dbd7841ca33e8",
+        "mouse-moving-0.png": "b0b964dacd0adcd2a329c30d9b6f012388a1c4bec4980c520d825872787dd20f",
+        "mouse-moving-1.png": "a8455efea773f9de4a746d819df70e5c281f2a6501daae62ba5670b4a936c4e4",
+        "mouse-moving-2.png": "8083c750e2b5e08ce17e58d2457b47cd4e73fbbdb80ba545e22c7743cdcb1b7f",
+        "splat-0.png": "9da3bec7303759a633bd000061b70abd8feaa8c5234296f0bc499193b2cda7d3",
+        "splat-1.png": "5669b005bc5240c110a874582e7cf6ba591eedfcb561bb88cd9d95bcce839f1f",
+        "splat-2.png": "45504f14fc58f373b980fff5d99a4be9cf229c5212c8685d0161c7e6a0d28831"
+      },
+      "id": "mouse"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/nymph.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "https://github.com/ParadiseSS13/Paradise/commit/f367d7de199969a5fb5054de44faa5618092f487",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "nymph",
+          "directions": 4,
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "nymph_dead"
+        },
+        {
+          "name": "nymph_sleep",
+          "directions": 4
+        },
+        {
+          "name": "icon"
+        }
+      ],
+      "hashes": {
+        "icon.png": "6f735d1e52074ec54221dc88bc63606cfac8a9b7c9ae4cc30253efef542793e7",
+        "meta.json": "178fa07942c2065f455abc24b08caa8f65581183bf4e630f5630be1c92b4006a",
+        "nymph.png": "cb4a697e6463bc004d56bdc4718433150292ff39d253c614f2705899a7fe744e",
+        "nymph_dead.png": "3a9e4ddc94ea3c0a7db41bd467335229e48aba41475a15b0bd9dd69bf1089029",
+        "nymph_sleep.png": "633f865dd2317bc0256591d19c14b5689f0928071d41d4585e09806dae620e31"
+      },
+      "id": "nymph"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/parrot/displacement.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-3.0",
+      "copyright": "Made by Crude Oil",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "ears",
+          "directions": 1
+        }
+      ],
+      "hashes": {
+        "ears.png": "3b725ae97521a30eec9086476b0affafbaf4ec8e0a9bcea86747930065b8c535",
+        "meta.json": "70f045e844ff4f1e80ca25d236f0844bede89921a53ac939bef99026b1568dcf"
+      },
+      "id": "parrot_displacement"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/parrot/parrot.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "icon",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "parrot",
+          "directions": 4,
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "sit",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "dead.png": "30a165e0d764b9846c79e63815f248dc13d8a759c3f0b4453831cb453606d0f6",
+        "icon.png": "ccea18720b9f0b3515dd535b6b6bdb612c4abc53636ff6aa71ef771bfb17eb04",
+        "meta.json": "330637e6cf1320018df4085797ad669d14d676a8354777acb7e3179beb1914dc",
+        "parrot.png": "38a4924b60c10cf9514ef9ffdc9d583df3bb6bfb552dba490644f9208181ad6b",
+        "sit.png": "8a5bc3d4705b0f39ebcdb0f4275ce8ee67fc5d63d9ce07fda1d8e8ebfa5d8c79"
+      },
+      "id": "parrot_parrot"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/penguin.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "penguin",
+          "directions": 4,
+          "delays": [
+            [
+              1.0
+            ],
+            [
+              1.0
+            ],
+            [
+              1.0
+            ],
+            [
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "penguin_baby",
+          "directions": 4,
+          "delays": [
+            [
+              1.0
+            ],
+            [
+              1.0
+            ],
+            [
+              1.0
+            ],
+            [
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "penguin_baby_dead",
+          "delays": [
+            [
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "penguin_baby_dead_blood",
+          "delays": [
+            [
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "penguin_dead",
+          "delays": [
+            [
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "penguin_dead_blood",
+          "delays": [
+            [
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "penguin_egg",
+          "delays": [
+            [
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "penguin_egg_broken",
+          "delays": [
+            [
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "penguin_shamebrero",
+          "directions": 4,
+          "delays": [
+            [
+              1.0
+            ],
+            [
+              1.0
+            ],
+            [
+              1.0
+            ],
+            [
+              1.0
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "meta.json": "74d82cccd8305182484aac5a2edc1830ebe5abe9a19a5f80662900be230b4509",
+        "penguin.png": "acc5d13b2e7d4a44205b7a56b122fdfbdaa63bae8d39798177cad53658fbf3dc",
+        "penguin_baby.png": "004b5aec0fdc988eddf03eb251e9194f6141d814eb023b4a8293c1f88e9e95e8",
+        "penguin_baby_dead.png": "da4caf98452223ec7eaff031e28c94d7497db3676b7abb033631c71127219e1f",
+        "penguin_baby_dead_blood.png": "a49590f352641cb0f9cf0a7e602237e3cd834d0d0a2163d3d437ec7c908254c0",
+        "penguin_dead.png": "85eefd6107db487e0cdec55a558a52b334d35556c2aa7cba6ad34af450e209f2",
+        "penguin_dead_blood.png": "953cfa10cf98dfbef73806fef20c62388436c87534de0bb490ada4e61184a124",
+        "penguin_egg.png": "c49a8119bf802887c868d3e4c894149034e8d5c4858bf47ae599582059aa74c9",
+        "penguin_egg_broken.png": "bfe0d33676ee8ce54003b1fe60dd9c758b7e13e04cf2d5d97d5f161b9f614e9f",
+        "penguin_shamebrero.png": "900d52ee98dca0b4c30bf48bf34ba51681514083529bb82bd55e4c566699e5dc"
+      },
+      "id": "penguin"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/pig.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/ParadiseSS13/Paradise/commit/4d15f109da833a44d05c402da63178d36fc199e6",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "pig",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "dead.png": "cad700b9f2b92c61d8e069031c83e070ddbd547c4e292a81a306fdc4ff9b4464",
+        "meta.json": "520990c9941a6ccdea36ee054f40bf7ec20a71183991efe60418700a9994e50b",
+        "pig.png": "7fb43d5b8056c347342d5288d7839f76b5cdd6ceedb2b1d06c81670567ad705d"
+      },
+      "id": "pig"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/possum.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from Baystation12 at https://github.com/Baystation12/Baystation12/blob/c7442716b52ce4edeef5eaf5d2fc7c57a08a3f01/icons/mob/simple_animal/possum.dmi",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "possum",
+          "directions": 4
+        },
+        {
+          "name": "possum_dead",
+          "directions": 4
+        },
+        {
+          "name": "poppy",
+          "directions": 4
+        },
+        {
+          "name": "poppy_dead",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "meta.json": "750961c94511efdb7e59b35b1984be9f85ebbf6be9da06446395b1ba057fb092",
+        "poppy.png": "f978a5ba83ca6398c9564a5b5da4f4d6c9ffd4eeb6a1c475914f84ecdd03ff6b",
+        "poppy_dead.png": "d7de227e93c4c0f63ea74db8e0fa98e56459c3b54def84d2630da9a522e31eb9",
+        "possum.png": "fa22293477be0943c6c5e5ab306e840b1619c3d20af9196002fc01690ab4d211",
+        "possum_dead.png": "5853e43503801822d3f9f6979a27b96f73e6b9243b44edc52d4bcbfddec3f9d2"
+      },
+      "id": "possum"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/possum_old.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-NC-SA-3.0",
+      "copyright": "Taken from goonstation https://github.com/goonstation/goonstation/commit/c98666f47a90d106c7a154cedffc747b3769e933",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "possum_old",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "possum_dead_old",
+          "directions": 1,
+          "delays": [
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "meta.json": "1be188378ba5c802e6379dd61d92538b5d0c30e9fce2e7ca6c10fc782fca21af",
+        "possum_dead_old.png": "4ce3f12465ad78da6e3ce62ad593a1232b8ecdc95ba2923ed4728d9991bad3a8",
+        "possum_old.png": "63c058a81b7e407fe55bec740ac711eed21c35512c7943014681075cc86b773f"
+      },
+      "id": "possum_old"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/raccoon.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-NC-SA-3.0",
+      "copyright": "https://github.com/goonstation/goonstation/commit/c98666f47a90d106c7a154cedffc747b3769e933",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "raccoon",
+          "directions": 4,
+          "delays": [
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "raccoon_dead",
+          "directions": 1,
+          "delays": [
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "meta.json": "f08160fc4a5b7c1e1cc17761ee699c1483e9b1bd067f764c8f5a14380635c40a",
+        "raccoon.png": "9305c058a762993256a9512d2c333ca3b2b821a79bf7eedb2afc0ecf37e3b1a8",
+        "raccoon_dead.png": "24013ebb89a35c36cb3315ecab95c28b24315e6b3c1a5213bc3b541861c84994"
+      },
+      "id": "raccoon"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/rat.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/e15c63d100db65eaaa5231133b8a2662ff439131#diff-8dd94e19fdb2ff341b57e31bce101298 eyes added by jamessimo",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "icon"
+        },
+        {
+          "name": "rat",
+          "directions": 4
+        },
+        {
+          "name": "eyes",
+          "directions": 4
+        },
+        {
+          "name": "rat-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "eyes-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "dead"
+        },
+        {
+          "name": "splat"
+        }
+      ],
+      "hashes": {
+        "dead.png": "dbd879a788bdc40783f183879b522221d2b8899d48bc94dc2b64ca0f4ecbaa75",
+        "eyes-moving.png": "90eaa6f362a1942550f4fde28aa8934254af8ba9033984698a72132ef2edd198",
+        "eyes.png": "9fa8f4b4f5fcacdbb0a21d37e7d50b5129baf3cd1507f4db87d09c7c8995a12e",
+        "icon.png": "5baa1fa9166413f80e34af3a14689b013894bde7f2583d8dd914fe9b58e5ce28",
+        "meta.json": "3c1baa9da5801df7e3ea94696024ff65a79913d108fff760a559f91cc3fbc19d",
+        "rat-moving.png": "7808a78b22d5c7e886c7cc986c4a9ab7ae18b971271895507811b4e8b643f604",
+        "rat.png": "fcdf0e9d21206d95dd9aac157afd7b51831a07250903eded62f90b4d33e96fd1",
+        "splat.png": "4601ae7b970c97b5f178aaa13ef3a0352a6d556a928daeba21f153a9d9535d0b"
+      },
+      "id": "rat"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/regalrat.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b Changed by Alekshhh + eyes added by jamessimo",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "critical"
+        },
+        {
+          "name": "dead"
+        },
+        {
+          "name": "icon"
+        },
+        {
+          "name": "regalrat",
+          "directions": 4
+        },
+        {
+          "name": "eyes",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "critical.png": "1fc8d32506eb409211e43b0f81356ea6ae73b8f6dc1a5ecaf7f9495ef4516b63",
+        "dead.png": "a567759e121a84f3a305ac27f794249d767f3fd2a3db22f8d53947b2d7873463",
+        "eyes.png": "4a7f77c95e5ea2a4ce3b34a72a8e9be27fd2fabd0227f4dbbe727ae872c661e7",
+        "icon.png": "c67b4793e3f877aba7f10583694c19b975e72907d56acf06d76e40344b49ec6c",
+        "meta.json": "fb0f49a76092e34cbddf47db8936b6221136fdc9774deb227d384127d8cb7217",
+        "regalrat.png": "e7a96e68155ee2ddb6444b173e336aca04bcd5bac44ce0436a70cb526b0c3b0e"
+      },
+      "id": "regalrat"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/reindeer_buck.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Deer by Calciumtrice, usable under Creative Commons Attribution 3.0 license, from https://opengameart.org/content/deer, edited by IProduceWidgets (github)",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "reindeer_buck",
+          "directions": 4,
+          "delays": [
+            [
+              1,
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              1,
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              1
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              1
+            ]
+          ]
+        },
+        {
+          "name": "reindeer_buck_still",
+          "directions": 4
+        },
+        {
+          "name": "reindeer_buck_dead"
+        }
+      ],
+      "hashes": {
+        "meta.json": "820b76f4610b43d0b9e38e61d283cc0fe4fc6379bd5441fdc0d204415cabf60d",
+        "reindeer_buck.png": "da1f0f0fa4e572a24e80ad6a8e5f1c95dfc1c65c861c8ff33c700ab7f0b66b50",
+        "reindeer_buck_dead.png": "49d7dfb15bf4f6c0807f215bbd84a393c497169d60de7a8f23b8635e946b9189",
+        "reindeer_buck_still.png": "0cf38c37bc090ba9dd1d21434bb7cb6f18bb3dcfee17f1286c1cda0f69342441"
+      },
+      "id": "reindeer_buck"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/reindeer_doe.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Deer by Calciumtrice, usable under Creative Commons Attribution 3.0 license, from https://opengameart.org/content/deer, edited by IProduceWidgets (github)",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "reindeer_doe",
+          "directions": 4,
+          "delays": [
+            [
+              1,
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              1,
+              0.2,
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              1
+            ],
+            [
+              0.2,
+              0.2,
+              0.2,
+              0.2,
+              1
+            ]
+          ]
+        },
+        {
+          "name": "reindeer_doe_still",
+          "directions": 4
+        },
+        {
+          "name": "reindeer_doe_dead"
+        }
+      ],
+      "hashes": {
+        "meta.json": "035880385548f8caf8f3f39ecb7442f6b942c11b86e7dc423cea6177d3ccf74b",
+        "reindeer_doe.png": "d0f39554ad4cda6523ae0571adad5107712ffe61bbc9a2b232a9d676060c34e7",
+        "reindeer_doe_dead.png": "70f186d50f91e50398da85e66ae245d74e9360f098634a51718641b2de06b7c7",
+        "reindeer_doe_still.png": "0a6f4d785e83f2207eaebabc4c723077c68b673e430bf819fa51e50b3ffd2ba0"
+      },
+      "id": "reindeer_doe"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/scurret/displacement.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Displacement maps made by Hannah 'FairlySadPanda' Dawson (Github), with assistance by TheShuEd (Discord). Wawa!",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "jumpsuit",
+          "directions": 4
+        },
+        {
+          "name": "head",
+          "directions": 4
+        },
+        {
+          "name": "neck",
+          "directions": 4
+        },
+        {
+          "name": "ears",
+          "directions": 4
+        },
+        {
+          "name": "eyes",
+          "directions": 4
+        },
+        {
+          "name": "mask",
+          "directions": 4
+        },
+        {
+          "name": "id",
+          "directions": 4
+        },
+        {
+          "name": "gloves",
+          "directions": 4
+        },
+        {
+          "name": "hand",
+          "directions": 4
+        },
+        {
+          "name": "back",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "back.png": "c438f27ebf52059224d684e0b1c9807450858bbe2123867583a38b4537848f2b",
+        "ears.png": "7a68246e1ac81b2c4b685ed0161a6842f6ee9640e1335753557ade47ee6e7a82",
+        "eyes.png": "0a0617f6c3682d2d51651268873ac03c21dd1df0f1f6c94efd9b6e1741f56e6c",
+        "gloves.png": "067786b5b16dbe9f52b11e7c5d7b6b6a07cad3cb4834456481a650754b07d9cd",
+        "hand.png": "4d100e6d9dca7c280f454050282b867a16650a2a2c13b20634274ef28c17b974",
+        "head.png": "968c25f7b10b424a6eeb75ff531b5098f92033d6daba6b9ce359846a234cd7d1",
+        "id.png": "9e73348a5697ed9d0641d5e531a3ccdd15fd6785762283edd68e45b2a558fd1e",
+        "jumpsuit.png": "8f8c20bc5fb9b65c2397c95a449479b54884a10fc9f632470650df3dcd21e5fb",
+        "mask.png": "b7a6e9c5117b64cb45f4a09e0ffb10d825b1e62a0d2965173bfbdb07ee327652",
+        "meta.json": "794c9c16fc646cfd471c0eb82f3fd68dd1c3b6950ce08737ec9445f3f6b85115",
+        "neck.png": "6f4d984fc6822edb221f342bcc9f5637354958f4b2f820c2ff9252ac73d08cda"
+      },
+      "id": "scurret_displacement"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/scurret/scurret.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-NC-SA-3.0",
+      "copyright": "Original sprite by Very-Soft (https://github.com/Very-Soft), edits by Hannah 'FairlySadPanda' Dawson. Displacement maps by Hannah 'FairlySadPanda' Dawson. Original creature concept by VIDEOCULT, and used with kind permission.",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "scurret",
+          "directions": 4
+        },
+        {
+          "name": "scurret_rip"
+        },
+        {
+          "name": "scurret_oof"
+        }
+      ],
+      "hashes": {
+        "meta.json": "659f30b08717166e28ddd1e1c6f1fef8a5d8c318bfe6010efc5109e92ecaf09f",
+        "scurret.png": "2ec576f5b061ace4d340bcaa3a07dc51d5c9c4935ff3648ca5c7505ce2de3393",
+        "scurret_oof.png": "771f79d777634a4e7c1dfd3a0c62d70c884ddf681ea6e195b4d6385cfe22fbe3",
+        "scurret_rip.png": "ff71a6ad4100ffe4efc21ca43a1af1d4b34215cabd15f19f7d07616fbb5bc034"
+      },
+      "id": "scurret_scurret"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/slug.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "slug",
+          "directions": 4
+        },
+        {
+          "name": "dead"
+        }
+      ],
+      "hashes": {
+        "dead.png": "deac10894842d89f3b7ef3e1e6f805544689a6e6a19943beee964a19f9de1c81",
+        "meta.json": "46027069204ff724d5aa961cf491f8cbcf663ec6bff53909c3f54ecbc31c7cc3",
+        "slug.png": "6c77e35092002bc8b490f55ebd879a82d74ad00a8da9df214e7616a8fcd5ff13"
+      },
+      "id": "slug"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/snail.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Created by Kezu (discord) & IProduceWidgets (github)",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "snail",
+          "directions": 4
+        },
+        {
+          "name": "dead"
+        },
+        {
+          "name": "spacesnail",
+          "directions": 4
+        },
+        {
+          "name": "spacedead"
+        },
+        {
+          "name": "snoth",
+          "directions": 4
+        },
+        {
+          "name": "snothdead"
+        }
+      ],
+      "hashes": {
+        "dead.png": "1511e11a59b56781f8f206d34930c200eb631a8b70dc3bc98296613ba9962a2f",
+        "meta.json": "49a29087b84a621149f6d5345a81a7a51504d2f6c5ecc9a66760d4be9e428ecc",
+        "snail.png": "c320f2469b2e81b3ab8d1c57a22eea7036094e9484b7a3b9cfddd6b38124a64d",
+        "snoth.png": "90ef22bcae949b9130f926fd676f8fa0ed07e6ea907c869fe16d616c0c3cb9f7",
+        "snothdead.png": "0891e7c418f6b385ae53dbffbad738448d389b7daf257f4655b0bedb9ad77dc6",
+        "spacedead.png": "13297cbf1232034baf65e22413fe52600e403e01167a3c7ea8b4edb79e7b2f83",
+        "spacesnail.png": "27239f5b7857ce013f0b368bd81b8aefac464d1c7fe8cfa70b0935a73181a4f2"
+      },
+      "id": "snail"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/snake.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "icon",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "snake",
+          "directions": 4,
+          "delays": [
+            [
+              2.5,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              2.5,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              2.5,
+              0.1,
+              0.1,
+              0.1
+            ],
+            [
+              2.5,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "dead",
+          "delays": [
+            [
+              0.2
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "dead.png": "1e9673a500f85977c976c62608382ad2eaee84f0a0380e7f8ae64ac716641bd9",
+        "icon.png": "8becefc5df73b9280b188f74898cc54cc3a6dbd42e9b75864ca4f5642324c356",
+        "meta.json": "2a59202c784af6d31ad943482d207380094b863c86f0820f20adfff97a9c843a",
+        "snake.png": "02ddd0fb8cb0f666d64fd4fd2fed49fbc9a4d74b4f6d06399bd55413e1032b88"
+      },
+      "id": "snake"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/spacecobra.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Sprited by Nimfar11 (Github) for Space Station 14",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "spacecobra",
+          "directions": 4,
+          "delays": [
+            [
+              0.3,
+              0.2,
+              0.2,
+              0.4,
+              0.2,
+              0.2,
+              0.3
+            ],
+            [
+              0.3,
+              0.2,
+              0.2,
+              0.4,
+              0.2,
+              0.2,
+              0.3
+            ],
+            [
+              0.3,
+              0.2,
+              0.2,
+              0.4,
+              0.2,
+              0.2,
+              0.3
+            ],
+            [
+              0.3,
+              0.2,
+              0.2,
+              0.4,
+              0.2,
+              0.2,
+              0.3
+            ]
+          ]
+        },
+        {
+          "name": "glow",
+          "directions": 4,
+          "delays": [
+            [
+              0.3,
+              0.2,
+              0.2,
+              0.4,
+              0.2,
+              0.2,
+              0.3
+            ],
+            [
+              0.3,
+              0.2,
+              0.2,
+              0.4,
+              0.2,
+              0.2,
+              0.3
+            ],
+            [
+              0.3,
+              0.2,
+              0.2,
+              0.4,
+              0.2,
+              0.2,
+              0.3
+            ],
+            [
+              0.3,
+              0.2,
+              0.2,
+              0.4,
+              0.2,
+              0.2,
+              0.3
+            ]
+          ]
+        },
+        {
+          "name": "dead_spacecobra"
+        }
+      ],
+      "hashes": {
+        "dead_spacecobra.png": "a749eac6e1c2449786cd8a2f765f4a2b776825c05406fd9ac9beded4dfd1c25d",
+        "glow.png": "6bfdcc8fc64ff9c138196af782eed3622e59c775c5a9a2e629095ab6ab04ab2e",
+        "meta.json": "4af74af5203f3a5e815ac16a4cfa51077606facf4f0cffa8e4c39d46eac6161d",
+        "spacecobra.png": "6ca37fbbfe47cd7b1b9733ffdf603b7210e05f504551f4a3b81a88310dd35b92"
+      },
+      "id": "spacecobra"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/spacespider.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b, redone by Nimfar11",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "spacespider",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "glow",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "spacespider_dead"
+        }
+      ],
+      "hashes": {
+        "glow.png": "597de3db41914621941f62f4f47efe87bba415a5df046d3b99d361254433438b",
+        "meta.json": "c0baa2f39981c511a6d154bc93e8054dbb01965291e6a5c78d55907e50bf4bcc",
+        "spacespider.png": "631c37dcccf36177a0010744bc15ab616e3f9f002570add60116fc3e73031a08",
+        "spacespider_dead.png": "6bed044f8435088cfed86b25f455132cad5cebc7561f3807a5466685ee823851"
+      },
+      "id": "spacespider"
+    },
+    {
+      "resource": "Resources/Textures/Mobs/Animals/spider.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/53d1f1477d22a11a99c6c6924977cd431075761b",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "hunter",
+          "directions": 4
+        },
+        {
+          "name": "hunter-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "midwife",
+          "directions": 4
+        },
+        {
+          "name": "midwife-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "viper",
+          "directions": 4
+        },
+        {
+          "name": "viper-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "tarantula",
+          "directions": 4
+        },
+        {
+          "name": "tarantula-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "nurse",
+          "directions": 4
+        },
+        {
+          "name": "nurse-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "guard",
+          "directions": 4
+        },
+        {
+          "name": "guard-moving",
+          "directions": 4,
+          "delays": [
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ],
+            [
+              0.2,
+              0.2,
+              0.2
+            ]
+          ]
+        },
+        {
+          "name": "hunter_dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "midwife_dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "viper_dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "tarantula_dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "nurse_dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "name": "guard_dead",
+          "delays": [
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "guard-moving.png": "24163261295e68e40cbe1a0fc6dcb600766aeda424d6cb49bae081ca26eab070",
+        "guard.png": "9b010049233fe7dad2ae7d854d89169611d02eccf947ae4744dbfee4a3d607ef",
+        "guard_dead.png": "a1c53539718d8deb0dcc5a82d28e47fdecf95d2fffea229a11fceb19d75cec83",
+        "hunter-moving.png": "79ac96674cd077cc5b23e61d810157a8541cdf74a7ebea5cc38ac57a6db69419",
+        "hunter.png": "e448628fc94ffbcd41296a96644753a10a3dcc528298e3ba8aae3f4e3261537c",
+        "hunter_dead.png": "fb250c1c2fbe9df322d61b8ffec673af135a9ba86716f0e7fc24c8aba08fcac2",
+        "meta.json": "7317cdf915e174ec69ca903a029f9b5efeedae4ce4ceeca7e66adfde114b8412",
+        "midwife-moving.png": "7a09cef743343ce06309e51a56c2234d9bbb00f2c58c8512578ae7fa0d74c939",
+        "midwife.png": "5834fa76696b82cf91de39e2e990bd99e264735a38dc4059ec2c7b30531ae919",
+        "midwife_dead.png": "3a294ac4d198bab38e4fbd6cf25a27c0d9265caff2094e66af729cae8fce387c",
+        "nurse-moving.png": "894d84f22428fcdaa710558b9e9735a0430744bbe219a36164924281cc07909b",
+        "nurse.png": "93b9f392c07464cdbf377812572f9c425b38bba4d91cc27dd0bb7a414a7ea4df",
+        "nurse_dead.png": "bec092afd152776cc11bc70fd11c3b57e65e55043e33f194f5d048bf9ec26e93",
+        "tarantula-moving.png": "1032e27b5d18daeec02396471f5ccc37f97cd0df0775941811611fc1f9469f7f",
+        "tarantula.png": "85254f7187981e6862f033ab6c3b68f10583e8205d8adf9a99f7bba01d9f6680",
+        "tarantula_dead.png": "fd55624541cf8dac3e52c0e00c7c052f2634e6f566c5923ec3e707333f915c12",
+        "viper-moving.png": "4212e20b4ca68b4bb55313162602acc1fe9805f99d758af86b8b8cbc3e2f5fc2",
+        "viper.png": "47da4a620db22ce478468036ab80c5026b650d5ab8c07a6670b1123c2ff537f6",
+        "viper_dead.png": "ec2ddf6f94ea61e5fc7bd620f1cd3f6b30c499d8371da3ffd44c6e07b6a666f5"
+      },
+      "id": "spider"
+    }
+  ],
+  "resource_count": 47,
+  "frame_count": 1181,
+  "state_count": 235
+}

@@ -15,3 +15,4 @@ public record ComplexInteractionAttachment(boolean initialized, boolean enabled)
             state -> state.initialized() ? DataResult.success(state)
                     : DataResult.error(() -> "complex interaction attachment must be initialized"));
 }
+

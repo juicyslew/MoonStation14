@@ -1,0 +1,8 @@
+{
+  "source_path": "Resources/Audio/Effects/Lightning/lightningshock.ogg",
+  "upstream_revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "source_file_sha256": "0df9a1990b35e52d6bb396124fd6549a78a22088883e05919a4d2b69e9ec31e7",
+  "license": "CC-BY-SA-3.0",
+  "copyright": "/tg/station",
+  "source": "https://github.com/tgstation/tgstation/pull/9701/"
+}

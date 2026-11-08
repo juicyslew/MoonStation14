@@ -38,3 +38,4 @@ public abstract class TrackedEntityObserverViewMixin {
         return ObserverTracking.viewPosition(player);
     }
 }
+

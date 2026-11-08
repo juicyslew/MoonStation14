@@ -17,3 +17,4 @@ public record AtmosphereReading(GasMixture mixture, Status status) {
         PROVISIONAL
     }
 }
+

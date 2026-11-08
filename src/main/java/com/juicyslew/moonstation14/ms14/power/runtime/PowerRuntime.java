@@ -16,14 +16,23 @@ import com.juicyslew.moonstation14.ms14.power.ui.ApcVisualState;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlock;
 import com.juicyslew.moonstation14.ms14.atmos.piping.VentilationGasRuntime;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosMonitorWorklist;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.AirAlarmData;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlock;
 import com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity;
+import com.juicyslew.moonstation14.ms14.doors.FirelockBlock;
+import com.juicyslew.moonstation14.ms14.doors.FirelockBlockEntity;
+import com.juicyslew.moonstation14.ms14.doors.FirelockController;
+import com.juicyslew.moonstation14.ms14.doors.FirelockHost;
+import com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity;
+import com.juicyslew.moonstation14.ms14.doors.prototype.FirelockData;
 import com.juicyslew.moonstation14.ms14.disposal.unit.DisposalUnitBlockEntity;
 import com.juicyslew.moonstation14.ms14.disposal.prototype.DisposalEntityData;
 import com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterBlockEntity;
+import com.juicyslew.moonstation14.ms14.botany.ReagentGrinderBlockEntity;
+import com.juicyslew.moonstation14.ms14.botany.SeedExtractorBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -47,13 +56,20 @@ public final class PowerRuntime {
     public static final double LAMP_WATTS = 100;
     private static final Map<ServerLevel, Set<BlockPos>> DEVICES = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> VENTILATION_DEVICES = new WeakHashMap<>();
+    private static final Map<ServerLevel, AtmosMonitorWorklist> ATMOS_MONITOR_WORK = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> AIR_ALARMS = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> AIRLOCKS = new WeakHashMap<>();
     private static final Map<ServerLevel,Map<BlockPos,AirlockMeterSample>> AIRLOCK_METERS=new WeakHashMap<>();
+    private static final Map<ServerLevel, Set<BlockPos>> FIRELOCKS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, FirelockMeterSample>> FIRELOCK_METERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> DISPOSAL_UNITS = new WeakHashMap<>();
     private static final Map<ServerLevel, Map<BlockPos, DisposalMeterSample>> DISPOSAL_METERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Set<BlockPos>> CHEM_MASTERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Map<BlockPos, ChemMasterMeterSample>> CHEM_MASTER_METERS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, MvRuntimeMeterSample>> MV_RUNTIME_METERS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, ApcRuntimeMeterSample>> APC_RUNTIME_METERS = new WeakHashMap<>();
+    private static final Map<ServerLevel, Set<BlockPos>> PROCESSING_MACHINES = new WeakHashMap<>();
+    private static final Map<ServerLevel, Map<BlockPos, ProcessingMeterSample>> PROCESSING_METERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Map<BlockPos, AlarmMeterSample>> ALARM_METERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Map<BlockPos, VentMeterSample>> VENT_METERS = new WeakHashMap<>();
     private static final Map<ServerLevel, Map<BlockPos, VentilationPaidInterval.ReceiverSignature>> PREVIOUS_VENT_SIGNATURES = new WeakHashMap<>();
@@ -75,17 +91,39 @@ public final class PowerRuntime {
                                     PowerDeviceBlockEntity apc, long breakerRevision) { }
     private record AirlockMeterSample(long sampleTick,long topologyGeneration,double deliveredWatts,
                                        AirlockBlockEntity airlock,com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData prototype,
-                                       PowerDeviceBlockEntity apc,long breakerRevision) { }
+                                        PowerDeviceBlockEntity apc,long breakerRevision) { }
+    static record FirelockTarget(BlockEntity owner, FirelockController controller, FirelockHost host, FirelockData prototype) {
+        java.util.UUID identity(){return controller.identity();}
+        boolean sameController(FirelockTarget other){return other!=null&&owner==other.owner&&controller==other.controller&&identity().equals(other.identity());}
+    }
+    private record FirelockMeterSample(long sampleTick,long topologyGeneration,double deliveredWatts,
+            FirelockTarget target,PowerDeviceBlockEntity apc,long breakerRevision) { }
     private record DisposalMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
                                        DisposalUnitBlockEntity unit, DisposalEntityData.Unit prototype,
                                         PowerDeviceBlockEntity apc, long breakerRevision) { }
     private record ChemMasterMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
                                          ChemMasterBlockEntity machine, java.util.UUID identity, double demandWatts,
+                                          PowerDeviceBlockEntity apc, long breakerRevision) { }
+    private record MvRuntimeMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
+                                          double demandWatts, PowerRuntimeNode node, BlockEntity identity,
+                                          boolean graphKnown) { }
+    private record ApcRuntimeMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
+                                          double demandWatts, PowerRuntimeNode node, BlockEntity identity,
+                                          java.util.UUID placementIdentity, boolean graphKnown) { }
+    private record RuntimePortState(PowerRuntimeNode node, Map<CableTier, LoadedPowerGraph.NodeState> states,
+                                    Map<CableTier, Integer> counts) {
+        private boolean hasExactlyOne(CableTier tier) { return counts.getOrDefault(tier, 0) == 1; }
+    }
+    private record ProcessingMeterSample(long sampleTick, long topologyGeneration, double deliveredWatts,
+                                         Object machine, java.util.UUID identity, double demandWatts,
                                          PowerDeviceBlockEntity apc, long breakerRevision) { }
     private record CompletedVentBudget(long solveTick, VentilationPaidInterval.WorkBudget budget,
                                        PowerDeviceBlockEntity apc, long breakerRevision, long topologyGeneration) { }
     public record VentMeterObservation(boolean known, double deliveredWatts) {
         public static final VentMeterObservation UNKNOWN = new VentMeterObservation(false, 0);
+    }
+    public record MvPowerObservation(boolean known, double deliveredWatts) {
+        public static final MvPowerObservation UNKNOWN = new MvPowerObservation(false, 0);
     }
     private PowerRuntime() { }
 
@@ -95,6 +133,9 @@ public final class PowerRuntime {
                 PowerGraphService.invalidateLampChoice(level, pos);
         Set<BlockPos> devices = DEVICES.computeIfAbsent(level, ignored -> new LinkedHashSet<>());
         devices.add(pos.immutable());
+        MV_RUNTIME_METERS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
+        APC_RUNTIME_METERS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
+        invalidateRuntimeNode(level, pos);
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
     }
 
@@ -104,6 +145,38 @@ public final class PowerRuntime {
         VENT_METERS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
         COMPLETED_VENT_BUDGETS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+
+    /** Derived loaded-endpoint sampling queue; explicit DeviceList membership remains owned by alarms. */
+    public static void monitorDeviceLoaded(ServerLevel level, VentilationDeviceBlockEntity device) {
+        if (level == null || device == null || device.getLevel() != level || device.isRemoved() || device.deviceId() == null) return;
+        ATMOS_MONITOR_WORK.computeIfAbsent(level, ignored -> new AtmosMonitorWorklist())
+                .register(device.getBlockPos(), device.deviceId());
+    }
+    public static void monitorDeviceUnloaded(ServerLevel level, BlockPos position, java.util.UUID identity) {
+        AtmosMonitorWorklist work = ATMOS_MONITOR_WORK.get(level);
+        if (work != null) work.unregister(position, identity);
+    }
+    /** Called by the existing AtmosphereService ATMOS_DEVICES stage with its bounded stage deadline. */
+    public static AtmosMonitorWorklist.DrainResult processAtmosMonitorStage(ServerLevel level, long cycleIdentity,
+            java.util.function.BooleanSupplier deadlineReached) {
+        AtmosMonitorWorklist work = ATMOS_MONITOR_WORK.get(level);
+        if (work == null) return new AtmosMonitorWorklist.DrainResult(0, 0);
+        return work.drain(cycleIdentity, 8, deadlineReached, registration -> {
+            LevelChunk chunk = loadedFullChunk(level, registration.position());
+            if (chunk == null) return null;
+            BlockEntity blockEntity = chunk.getBlockEntity(registration.position());
+            if (!(blockEntity instanceof VentilationDeviceBlockEntity vent)
+                    || !registration.identity().equals(vent.deviceId())
+                    || !(chunk.getBlockState(registration.position()).getBlock() instanceof VentilationDeviceBlock)) return null;
+            return new AtmosMonitorWorklist.Device() {
+                public java.util.UUID identity() { return vent.deviceId(); }
+                public boolean available() { return !vent.isRemoved() && vent.getLevel() == level
+                        && chunk.getBlockEntity(registration.position()) == vent; }
+                public boolean paidAndPowered() { return ventilationMeter(level, vent).known(); }
+                public void sample(long cycle) { vent.monitorAfterAtmosphereCycle(level, cycle); }
+            };
+        });
     }
 
     public static void airAlarmChanged(ServerLevel level, BlockPos pos) {
@@ -120,6 +193,30 @@ public final class PowerRuntime {
         Map<BlockPos, AlarmMeterSample> meters = ALARM_METERS.get(level);
         if (meters != null) meters.remove(pos);
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+
+    /** Refreshes bounded alarm/firelock relay authorization after device-network topology changes. */
+    public static void reconcileDeviceNetworkPowerFreshness(ServerLevel level) {
+        if (level == null || !level.getServer().isSameThread()) return;
+        Set<BlockPos> alarms = AIR_ALARMS.get(level);
+        if (alarms != null) for (BlockPos pos : List.copyOf(alarms)) {
+            LevelChunk chunk = loadedFullChunk(level, pos);
+            if (chunk == null || !(chunk.getBlockEntity(pos) instanceof AirAlarmBlockEntity alarm)) continue;
+            var data = alarm.prototype();
+            var meter = airAlarmMeter(level, alarm);
+            alarm.observeNetworkPowerFreshness(data != null && meter.known()
+                    && meter.deliveredWatts() == data.apcPowerReceiver().requestedWatts());
+        }
+        Set<BlockPos> firelocks = FIRELOCKS.get(level);
+        if (firelocks != null) for (BlockPos pos : List.copyOf(firelocks)) {
+            LevelChunk chunk = loadedFullChunk(level, pos);
+            if (chunk == null) continue;
+            FirelockTarget target = firelockTarget(chunk.getBlockEntity(pos));
+            if (target == null || target.prototype() == null) continue;
+            var meter = firelockPowerForHost(level, target.host());
+            target.controller().observeNetworkPowerFreshness(target.host(), meter.known()
+                    && meter.deliveredWatts() == target.prototype().apcPowerReceiver().requestedWatts());
+        }
     }
 
     public static void disposalUnitChanged(ServerLevel level, BlockPos pos) {
@@ -142,24 +239,114 @@ public final class PowerRuntime {
         Map<BlockPos, ChemMasterMeterSample> meters = CHEM_MASTER_METERS.get(level); if (meters != null) meters.remove(pos);
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
     }
+    public static void processingMachineChanged(ServerLevel level, BlockPos pos) {
+        PROCESSING_MACHINES.computeIfAbsent(level, ignored -> new LinkedHashSet<>()).add(pos.immutable());
+        PROCESSING_METERS.computeIfAbsent(level, ignored -> new HashMap<>()).remove(pos);
+        PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+    public static void processingMachineRemoved(ServerLevel level, BlockPos pos) {
+        Set<BlockPos> index = PROCESSING_MACHINES.get(level); if (index != null) index.remove(pos);
+        Map<BlockPos, ProcessingMeterSample> meters = PROCESSING_METERS.get(level); if (meters != null) meters.remove(pos);
+        PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+    /** Fresh allocated receiver observation; zero demand is known without requiring a topology/APC. */
+    public static VentMeterObservation processingMeter(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.getServer().isSameThread()
+                || !(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)) return VentMeterObservation.UNKNOWN;
+        BlockEntity be = chunk.getBlockEntity(pos);
+        if (be instanceof ReagentGrinderBlockEntity grinder) return processingMeter(level, grinder);
+        if (be instanceof SeedExtractorBlockEntity extractor) return processingMeter(level, extractor);
+        return VentMeterObservation.UNKNOWN;
+    }
+    public static VentMeterObservation processingMeter(ServerLevel level, ReagentGrinderBlockEntity machine) {
+        if (level == null || machine == null || machine.getLevel() != level || machine.isRemoved() || !machine.isLoadedValid() || machine.resolvedProfile() == null) return VentMeterObservation.UNKNOWN;
+        return processingMeterValidated(level, machine, machine.placementIdentity(), machine.requiredPowerWatts());
+    }
+    public static VentMeterObservation processingMeter(ServerLevel level, SeedExtractorBlockEntity machine) {
+        if (level == null || machine == null || machine.getLevel() != level || machine.isRemoved() || !machine.isLoadedValid() || !machine.isInitialized()) return VentMeterObservation.UNKNOWN;
+        var profile = machine.resolvedProfile();
+        if (profile == null || !profile.extractor()) return VentMeterObservation.UNKNOWN;
+        return processingMeterValidated(level, machine, machine.placementIdentity(), profile.powered() ? profile.powerWatts() : 0d);
+    }
+    private static VentMeterObservation processingMeterValidated(ServerLevel level, Object machine, java.util.UUID identity, double demand) {
+        if (level == null || machine == null || !level.getServer().isSameThread() || identity == null || !Double.isFinite(demand) || demand < 0) return VentMeterObservation.UNKNOWN;
+        BlockPos pos = machine instanceof ReagentGrinderBlockEntity g ? g.getBlockPos() : ((SeedExtractorBlockEntity) machine).getBlockPos();
+        if (demand == 0) return new VentMeterObservation(true, 0);
+        ProcessingMeterSample sample = PROCESSING_METERS.getOrDefault(level, Map.of()).get(pos);
+        if (sample == null || sample.machine() != machine || !identity.equals(sample.identity()) || demand != sample.demandWatts()
+                || !freshFullDemandApcAuthorization(level, sample.sampleTick(), sample.topologyGeneration(),
+                sample.deliveredWatts(), sample.demandWatts(), sample.apc(), sample.breakerRevision())) return VentMeterObservation.UNKNOWN;
+        return new VentMeterObservation(true, sample.deliveredWatts());
+    }
     /** Fresh full-demand observation. Unknown topology, stale identity, or partial power is not authorization. */
     public static VentMeterObservation chemMasterMeter(ServerLevel level, ChemMasterBlockEntity expected) {
+        return chemMasterMeterCheck(level, expected).observation();
+    }
+    public static String chemMasterMeterDiagnostic(ServerLevel level, ChemMasterBlockEntity expected) {
+        ChemMasterMeterCheck check = chemMasterMeterCheck(level, expected);
+        ChemMasterMeterSample sample = check.sample();
+        return check.reason() + (sample == null ? " sample=absent" : " sampleTick=" + sample.sampleTick()
+                + " sampleGeneration=" + sample.topologyGeneration() + " delivered=" + sample.deliveredWatts()
+                + " demand=" + sample.demandWatts() + " sampleMachineIdentity=" + (sample.machine() == expected)
+                + " samplePlacementIdentity=" + (expected != null && sample.identity().equals(expected.placementIdentity()))
+                + " sampleApc=" + (sample.apc() == null ? "none" : sample.apc().getBlockPos().toShortString())
+                + " sampleBreakerRevision=" + sample.breakerRevision()) + " " + PowerGraphService.diagnosticSnapshot(level);
+    }
+    private record ChemMasterMeterCheck(VentMeterObservation observation, String reason, ChemMasterMeterSample sample) { }
+    private static ChemMasterMeterCheck chemMasterMeterCheck(ServerLevel level, ChemMasterBlockEntity expected) {
         if (level == null || expected == null || expected.isRemoved() || !level.getServer().isSameThread()
-                || !expected.isLoadedValid() || !PowerGraphService.topologyReady(level)) return VentMeterObservation.UNKNOWN;
-        BlockPos pos = expected.getBlockPos();
-        ChemMasterMeterSample sample = CHEM_MASTER_METERS.getOrDefault(level, Map.of()).get(pos);
-        if (sample == null || sample.machine() != expected || !sample.identity().equals(expected.placementIdentity())
-                || sample.demandWatts() != expected.powerLoadWatts()
-                || sample.topologyGeneration() != PowerGraphService.topologyGeneration(level)
-                || serverTickSequence < sample.sampleTick() || serverTickSequence - sample.sampleTick() > TICKS_PER_SOLVE
-                || sample.deliveredWatts() != sample.demandWatts() || sample.apc() == null || sample.apc().isRemoved()
-                || !sample.apc().breakerClosed() || sample.apc().breakerRevision() != sample.breakerRevision()) return VentMeterObservation.UNKNOWN;
-        BlockPos apcPos = sample.apc().getBlockPos();
-        if (!(level.getChunkSource().getChunk(apcPos.getX() >> 4, apcPos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
-                || chunk.getBlockEntity(apcPos) != sample.apc()
-                || !(sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock block) || block.kind() != PowerDeviceKind.APC)
-            return VentMeterObservation.UNKNOWN;
-        return new VentMeterObservation(true, sample.deliveredWatts());
+                || !expected.isLoadedValid() || expected.powerLoadWatts() <= 0)
+            return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, "machine=invalid-or-no-demand", null);
+        ChemMasterMeterSample sample = CHEM_MASTER_METERS.getOrDefault(level, Map.of()).get(expected.getBlockPos());
+        if (sample == null) return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, "sample=absent", null);
+        if (sample.machine() != expected) return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, "sample=machine-identity-mismatch", sample);
+        if (!sample.identity().equals(expected.placementIdentity())) return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, "sample=placement-identity-mismatch", sample);
+        if (sample.demandWatts() != expected.powerLoadWatts()) return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, "demand=mismatch", sample);
+        String reason = fullDemandApcAuthorizationFailure(level, sample.sampleTick(), sample.topologyGeneration(),
+                sample.deliveredWatts(), sample.demandWatts(), sample.apc(), sample.breakerRevision());
+        if (reason != null) return new ChemMasterMeterCheck(VentMeterObservation.UNKNOWN, reason, sample);
+        return new ChemMasterMeterCheck(new VentMeterObservation(true, sample.deliveredWatts()), "accepted", sample);
+    }
+    public record ChemMasterPowerDiagnostic(long tickSequence, Long sampleTick, long sampleGeneration,
+                                             long currentGeneration, boolean topologyReady, boolean fullFresh) { }
+
+    /** Test-time typed point-in-time evidence for a ChemMaster power authorization failure. */
+    public static ChemMasterPowerDiagnostic chemMasterPowerDiagnostic(ServerLevel level, ChemMasterBlockEntity expected) {
+        long sequence = serverTickSequence;
+        long generation = level == null ? -1 : PowerGraphService.topologyGeneration(level);
+        ChemMasterMeterSample sample = level == null || expected == null ? null
+                : CHEM_MASTER_METERS.getOrDefault(level, Map.of()).get(expected.getBlockPos());
+        return new ChemMasterPowerDiagnostic(sequence, sample == null ? null : sample.sampleTick(),
+                sample == null ? -1 : sample.topologyGeneration(), generation,
+                level != null && PowerGraphService.topologyReady(level), level != null && expected != null
+                && hasFullFreshChemMasterPower(level, expected, expected.placementIdentity()));
+    }
+
+    /** Shared freshness, topology, full-delivery, and loaded APC authorization for processing meters. */
+    private static boolean freshFullDemandApcAuthorization(ServerLevel level, long sampleTick, long generation,
+                                                             double delivered, double demand,
+                                                             PowerDeviceBlockEntity apc, long breakerRevision) {
+        return fullDemandApcAuthorizationFailure(level, sampleTick, generation, delivered, demand, apc, breakerRevision) == null;
+    }
+    private static String fullDemandApcAuthorizationFailure(ServerLevel level, long sampleTick, long generation,
+                                                             double delivered, double demand,
+                                                             PowerDeviceBlockEntity apc, long breakerRevision) {
+        if (!PowerGraphService.topologyReady(level)) return "topology=not-ready";
+        if (demand <= 0 || delivered != demand) return "delivery=mismatch";
+        if (generation != PowerGraphService.topologyGeneration(level)) return "generation=mismatch";
+        if (serverTickSequence < sampleTick) return "sample=future";
+        if (serverTickSequence - sampleTick > TICKS_PER_SOLVE) return "sample=stale(age=" + (serverTickSequence - sampleTick) + ")";
+        if (apc == null) return "apc=missing";
+        if (apc.isRemoved()) return "apc=removed";
+        if (!apc.breakerClosed()) return "apc=breaker-open";
+        if (apc.breakerRevision() != breakerRevision) return "apc=breaker-revision-mismatch";
+        BlockPos apcPos = apc.getBlockPos();
+        if (!(level.getChunkSource().getChunk(apcPos.getX() >> 4, apcPos.getZ() >> 4,
+                ChunkStatus.FULL, false) instanceof LevelChunk chunk
+                && chunk.getBlockEntity(apcPos) == apc
+                && apc.getBlockState().getBlock() instanceof PowerDeviceBlock block
+                && block.kind() == PowerDeviceKind.APC)) return "apc=stale-or-invalid";
+        return null;
     }
     /** Position lookup for backend callers; caller must separately bind placementIdentity to its session. */
     public static VentMeterObservation chemMasterMeter(ServerLevel level, BlockPos pos) {
@@ -244,17 +431,52 @@ public final class PowerRuntime {
     public static VentMeterObservation airlockPower(ServerLevel level,AirlockBlockEntity expected) {
         return airlockMeterCheck(level, expected).observation();
     }
+    public static VentMeterObservation firelockPower(ServerLevel level,FirelockBlockEntity expected) {
+        return firelockPowerForHost(level, expected);
+    }
+    /** Fresh, shared-lane meter query for either standalone or airlock-attached firelock owners. */
+    public static VentMeterObservation firelockPowerForHost(ServerLevel level,FirelockHost expected) {
+        if(level==null||expected==null||!level.getServer().isSameThread()||expected.level()!=level||!expected.initialized()||!expected.live(level)||!PowerGraphService.topologyReady(level))return VentMeterObservation.UNKNOWN;
+        FirelockTarget target=firelockTarget(expected.owner()); if(target==null||target.host()!=expected||!target.controller().initialized())return VentMeterObservation.UNKNOWN;
+        BlockPos pos=expected.root();
+        if(!(level.getChunkSource().getChunk(pos.getX()>>4,pos.getZ()>>4,ChunkStatus.FULL,false) instanceof LevelChunk chunk)||chunk.getBlockEntity(pos)!=expected.owner())return VentMeterObservation.UNKNOWN;
+        FirelockMeterSample sample=FIRELOCK_METERS.getOrDefault(level,Map.of()).get(pos);FirelockData data=expected.prototype();
+        if(sample==null||!sample.target().sameController(target)||sample.target().host()!=target.host()||data==null)return VentMeterObservation.UNKNOWN;
+        boolean validProvider=false;long currentBreakerRevision=-1;boolean breakerClosed=false;
+        if(sample.apc()!=null){if(sample.apc().isRemoved())return VentMeterObservation.UNKNOWN;BlockPos apcPos=sample.apc().getBlockPos();validProvider=level.getChunkSource().getChunk(apcPos.getX()>>4,apcPos.getZ()>>4,ChunkStatus.FULL,false) instanceof LevelChunk apcChunk&&apcChunk.getBlockEntity(apcPos)==sample.apc()&&sample.apc().getBlockState().getBlock() instanceof PowerDeviceBlock block&&block.kind()==PowerDeviceKind.APC;if(!validProvider)return VentMeterObservation.UNKNOWN;currentBreakerRevision=sample.apc().breakerRevision();breakerClosed=sample.apc().breakerClosed();}
+        if(!FirelockPowerFreshness.accepts(target.controller().identity(),sample.target().controller().identity(),data,sample.target().prototype(),sample.topologyGeneration(),PowerGraphService.topologyGeneration(level),sample.sampleTick(),serverTickSequence,TICKS_PER_SOLVE,validProvider,breakerClosed,sample.breakerRevision(),currentBreakerRevision,sample.deliveredWatts()))return VentMeterObservation.UNKNOWN;
+        return new VentMeterObservation(true,sample.deliveredWatts());
+    }
+    public static void firelockChanged(ServerLevel level,BlockPos pos){PowerGraphService.invalidateLampChoice(level,pos);FIRELOCKS.computeIfAbsent(level,ignored->new LinkedHashSet<>()).add(pos.immutable());FIRELOCK_METERS.computeIfAbsent(level,ignored->new HashMap<>()).remove(pos);PowerGraphService.noteChanged(level,new ChunkPos(pos));}
+    public static void firelockRemoved(ServerLevel level,BlockPos pos){PowerGraphService.invalidateLampChoice(level,pos);Set<BlockPos> index=FIRELOCKS.get(level);if(index!=null)index.remove(pos);Map<BlockPos,FirelockMeterSample> samples=FIRELOCK_METERS.get(level);if(samples!=null)samples.remove(pos);PowerGraphService.noteChanged(level,new ChunkPos(pos));}
 
     /** Diagnostic for the exact airlock meter acceptance checks; read-only and non-loading. */
     public static String airlockPowerDiagnostic(ServerLevel level, AirlockBlockEntity expected) {
         AirlockMeterCheck check = airlockMeterCheck(level, expected);
         AirlockMeterSample sample = check.sample();
-        return check.reason() + (sample == null ? " sample=absent" : " sampleTick=" + sample.sampleTick()
+        BlockPos pos=expected==null?null:expected.getBlockPos();
+        var expectedPrototype=expected==null?null:expected.prototype();
+        Set<BlockPos> airlockIndex=AIRLOCKS.getOrDefault(level,Set.of());
+        Map<BlockPos,AirlockMeterSample> meterIndex=AIRLOCK_METERS.getOrDefault(level,Map.of());
+        LevelChunk loadedRoot=null;
+        if(pos!=null&&level.getChunkSource().getChunkNow(pos.getX()>>4,pos.getZ()>>4) instanceof LevelChunk chunk)
+            loadedRoot=chunk;
+        String rootObservation=pos==null?"root=missing":"rootIndexPresent="+airlockIndex.contains(pos)
+                +" indexedAirlocks="+airlockIndex.size()+" meterEntryPresent="+meterIndex.containsKey(pos)
+                +" meterEntries="+meterIndex.size()+" rootChunk="+(loadedRoot==null?"not-full":"full")
+                +" rootIdentityCurrent="+(loadedRoot!=null&&loadedRoot.getBlockEntity(pos)==expected)
+                +" rootBlock="+(loadedRoot==null?"unavailable":loadedRoot.getBlockState(pos).getBlock());
+        return check.reason() + " " + rootObservation
+                + (sample == null ? " sample=absent" : " sampleTick=" + sample.sampleTick()
                 + " sampleGeneration=" + sample.topologyGeneration() + " sampleWatts=" + sample.deliveredWatts()
                 + " sampleDoorIdentity=" + (sample.airlock() == expected)
                 + " samplePrototypeIdentity=" + (expected != null && sample.prototype() == expected.prototype())
                 + " sampleApc=" + (sample.apc() == null ? "none" : sample.apc().getBlockPos().toShortString())
-                + " sampleBreakerRevision=" + sample.breakerRevision());
+                + " sampleBreakerRevision=" + sample.breakerRevision())
+                + " currentGraph="+PowerGraphService.diagnosticSnapshot(level)
+                + " receiverGraph="+PowerGraphService.diagnosticSnapshot(level,pos,
+                        expectedPrototype==null?0:expectedPrototype.extensionCableReceiver().localReachBlocks(),CableTier.APC)
+                + " lastSolve="+lastSolveSummary(level);
     }
 
     private record AirlockMeterCheck(VentMeterObservation observation, String reason, AirlockMeterSample sample) { }
@@ -339,6 +561,8 @@ public final class PowerRuntime {
     public static void ventilationDeviceRemoved(ServerLevel level, BlockPos pos) {
         PowerGraphService.invalidateLampChoice(level, pos);
         VentilationDeviceBlockEntity oldVent = findVentIdentity(level, pos);
+        if (oldVent != null && oldVent.deviceId() != null)
+            monitorDeviceUnloaded(level, pos, oldVent.deviceId());
         VentilationGasRuntime.forgetDevice(level, oldVent);
         Set<BlockPos> indexed = VENTILATION_DEVICES.get(level);
         if (indexed != null) indexed.remove(pos);
@@ -516,21 +740,78 @@ public final class PowerRuntime {
         if (devices != null) devices.remove(pos);
         Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.get(level);
         if (samples != null) samples.remove(pos);
+        Map<BlockPos, MvRuntimeMeterSample> mvMeters = MV_RUNTIME_METERS.get(level);
+        if (mvMeters != null) {
+            MvRuntimeMeterSample oldMeter = mvMeters.remove(pos);
+            if (oldMeter != null) oldMeter.node().receiveMvPowerAllocation(0, false, serverTickSequence);
+        }
+        Map<BlockPos, ApcRuntimeMeterSample> apcMeters = APC_RUNTIME_METERS.get(level);
+        if (apcMeters != null) { ApcRuntimeMeterSample old = apcMeters.remove(pos); if (old != null) old.node().receiveApcPowerAllocation(0, false, serverTickSequence); }
+        invalidateRuntimeNode(level, pos);
         PowerGraphService.noteChanged(level, new ChunkPos(pos));
+    }
+
+    private static void invalidateRuntimeNode(ServerLevel level, BlockPos pos) {
+        LevelChunk chunk = loadedFullChunk(level, pos);
+        if (chunk != null && chunk.getBlockEntity(pos) instanceof PowerRuntimeNode node) {
+            node.receiveMvPowerAllocation(0, false, serverTickSequence);
+            node.receiveApcPowerAllocation(0, false, serverTickSequence);
+        }
+    }
+
+    /** Identity-bound fresh meter for opt-in runtime nodes; never causes a solve or chunk load. */
+    public static MvPowerObservation mvPowerMeter(ServerLevel level, BlockEntity expected) {
+        if (level == null || expected == null || expected.isRemoved() || !level.getServer().isSameThread()
+                || !(expected instanceof PowerRuntimeNode node) || !PowerGraphService.topologyReady(level))
+            return MvPowerObservation.UNKNOWN;
+        BlockPos pos = expected.getBlockPos();
+        MvRuntimeMeterSample sample = MV_RUNTIME_METERS.getOrDefault(level, Map.of()).get(pos);
+        if (sample == null || sample.identity() != expected || sample.node() != node
+                || !(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4,
+                        ChunkStatus.FULL, false) instanceof LevelChunk chunk)
+                || chunk.getBlockEntity(pos) != expected
+                || !sample.graphKnown() || sample.topologyGeneration() != PowerGraphService.topologyGeneration(level)
+                || serverTickSequence < sample.sampleTick() || serverTickSequence - sample.sampleTick() > TICKS_PER_SOLVE
+                || !Double.valueOf(sample.demandWatts()).equals(node.mvPowerDemandWatts()))
+            return MvPowerObservation.UNKNOWN;
+        return new MvPowerObservation(true, sample.deliveredWatts());
+    }
+
+    /** Fresh identity/demand-bound APC receiver meter; never solves or loads chunks. */
+    public static MvPowerObservation apcPowerMeter(ServerLevel level, BlockEntity expected) {
+        if (level == null || expected == null || expected.isRemoved() || !level.getServer().isSameThread()
+                || !(expected instanceof PowerRuntimeNode node) || !PowerGraphService.topologyReady(level)) return MvPowerObservation.UNKNOWN;
+        BlockPos pos = expected.getBlockPos();
+        ApcRuntimeMeterSample sample = APC_RUNTIME_METERS.getOrDefault(level, Map.of()).get(pos);
+        Double demand = node.apcPowerDemandWatts();
+        if (sample == null || demand == null || node.apcPowerIdentity() == null
+                || sample.identity() != expected || sample.node() != node
+                || !DEVICES.getOrDefault(level, Set.of()).contains(pos)
+                || !Objects.equals(sample.placementIdentity(), node.apcPowerIdentity())
+                || !Double.valueOf(sample.demandWatts()).equals(demand)
+                || !(level.getChunkSource().getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL, false) instanceof LevelChunk chunk)
+                || chunk.getBlockEntity(pos) != expected || !sample.graphKnown()
+                || sample.topologyGeneration() != PowerGraphService.topologyGeneration(level)
+                || serverTickSequence < sample.sampleTick() || serverTickSequence - sample.sampleTick() > TICKS_PER_SOLVE)
+            return MvPowerObservation.UNKNOWN;
+        return new MvPowerObservation(true, sample.deliveredWatts());
     }
 
     @net.neoforged.bus.api.SubscribeEvent
     public static void onChunkLoad(ChunkEvent.Load event) {
         if (!(event.getLevel() instanceof ServerLevel level) || !(event.getChunk() instanceof LevelChunk chunk)) return;
         for (BlockEntity be : chunk.getBlockEntities().values()) {
-            if (be instanceof PowerDeviceBlockEntity) deviceChanged(level, be.getBlockPos());
+            if (be instanceof PowerDeviceBlockEntity || be instanceof PowerRuntimeNode)
+                deviceChanged(level, be.getBlockPos());
             if (be instanceof VentilationDeviceBlockEntity) ventilationDeviceChanged(level, be.getBlockPos());
             if (be instanceof AirAlarmBlockEntity) airAlarmChanged(level, be.getBlockPos());
 
             if (be instanceof AirlockBlockEntity) airlockChanged(level,be.getBlockPos());
+            if (be instanceof FirelockBlockEntity) firelockChanged(level,be.getBlockPos());
 
             if (be instanceof DisposalUnitBlockEntity) disposalUnitChanged(level, be.getBlockPos());
             if (be instanceof ChemMasterBlockEntity) chemMasterChanged(level, be.getBlockPos());
+            if (be instanceof ReagentGrinderBlockEntity || be instanceof SeedExtractorBlockEntity) processingMachineChanged(level, be.getBlockPos());
 
         }
     }
@@ -539,8 +820,13 @@ public final class PowerRuntime {
     public static void onChunkUnload(ChunkEvent.Unload event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         if (event.getChunk() instanceof LevelChunk chunk) {
-            for (BlockEntity be : chunk.getBlockEntities().values())
+            for (BlockEntity be : chunk.getBlockEntities().values()) {
                 if (be instanceof VentilationDeviceBlockEntity vent) VentilationGasRuntime.forgetDevice(level, vent);
+                if (be instanceof PowerRuntimeNode node) {
+                    node.receiveMvPowerAllocation(0, false, serverTickSequence);
+                    node.receiveApcPowerAllocation(0, false, serverTickSequence);
+                }
+            }
         }
                 Set<BlockPos> devices = DEVICES.get(level);
         if (devices != null) devices.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
@@ -551,6 +837,7 @@ public final class PowerRuntime {
 
         Set<BlockPos> doors=AIRLOCKS.get(level);if(doors!=null)doors.removeIf(pos->new ChunkPos(pos).equals(event.getChunk().getPos()));
         Map<BlockPos,AirlockMeterSample> doorMeters=AIRLOCK_METERS.get(level);if(doorMeters!=null)doorMeters.keySet().removeIf(pos->new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Set<BlockPos> firelocks=FIRELOCKS.get(level);if(firelocks!=null)firelocks.removeIf(pos->new ChunkPos(pos).equals(event.getChunk().getPos()));Map<BlockPos,FirelockMeterSample> firelockMeters=FIRELOCK_METERS.get(level);if(firelockMeters!=null)firelockMeters.keySet().removeIf(pos->new ChunkPos(pos).equals(event.getChunk().getPos()));
 
         Set<BlockPos> disposal = DISPOSAL_UNITS.get(level);
         if (disposal != null) disposal.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
@@ -561,6 +848,10 @@ public final class PowerRuntime {
         if (disposalSamples != null) disposalSamples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
         Set<BlockPos> chemMasters = CHEM_MASTERS.get(level);
         if (chemMasters != null) chemMasters.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Set<BlockPos> processing = PROCESSING_MACHINES.get(level);
+        if (processing != null) processing.removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Map<BlockPos, ProcessingMeterSample> processingSamples = PROCESSING_METERS.get(level);
+        if (processingSamples != null) processingSamples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
         Map<BlockPos, ChemMasterMeterSample> chemSamples = CHEM_MASTER_METERS.get(level);
         if (chemSamples != null) chemSamples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
         Map<BlockPos, VentMeterSample> ventSamples = VENT_METERS.get(level);
@@ -576,6 +867,10 @@ public final class PowerRuntime {
         if (completed != null) completed.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
         Map<BlockPos, ApcOutputSample> samples = APC_OUTPUT_SAMPLES.get(level);
         if (samples != null) samples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Map<BlockPos, MvRuntimeMeterSample> mvSamples = MV_RUNTIME_METERS.get(level);
+        if (mvSamples != null) mvSamples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
+        Map<BlockPos, ApcRuntimeMeterSample> apcSamples = APC_RUNTIME_METERS.get(level);
+        if (apcSamples != null) apcSamples.keySet().removeIf(pos -> new ChunkPos(pos).equals(event.getChunk().getPos()));
     }
 
     // Solve and publish after the HIGH topology pass, before deferred device delivery.
@@ -605,12 +900,15 @@ public final class PowerRuntime {
             VentilationGasRuntime.forgetLevel(level);
             DEVICES.remove(level);
             VENTILATION_DEVICES.remove(level); VENT_METERS.remove(level);
+            ATMOS_MONITOR_WORK.remove(level);
             AIR_ALARMS.remove(level); ALARM_METERS.remove(level);
 
             AIRLOCKS.remove(level);AIRLOCK_METERS.remove(level);
+            FIRELOCKS.remove(level);FIRELOCK_METERS.remove(level);
 
             DISPOSAL_UNITS.remove(level); DISPOSAL_METERS.remove(level);
             CHEM_MASTERS.remove(level); CHEM_MASTER_METERS.remove(level);
+            PROCESSING_MACHINES.remove(level); PROCESSING_METERS.remove(level);
 
             PREVIOUS_VENT_SIGNATURES.remove(level); COMPLETED_VENT_BUDGETS.remove(level);
             VentilationPaidInterval paid = PAID_INTERVALS.remove(level); if (paid != null) paid.clear();
@@ -619,6 +917,8 @@ public final class PowerRuntime {
             RESOLVE_AFTER_TOPOLOGY.remove(level);
             LAST_DIAGNOSTIC.remove(level);
             APC_OUTPUT_SAMPLES.remove(level);
+            MV_RUNTIME_METERS.remove(level);
+            APC_RUNTIME_METERS.remove(level);
         }
     }
     @net.neoforged.bus.api.SubscribeEvent
@@ -626,36 +926,46 @@ public final class PowerRuntime {
         VentilationGasRuntime.clear();
         DEVICES.clear(); LAST_SOLVE.clear(); RESOLVE_AFTER_TRIP.clear(); RESOLVE_AFTER_TOPOLOGY.clear();
         VENTILATION_DEVICES.clear(); VENT_METERS.clear();
+        ATMOS_MONITOR_WORK.clear();
         AIR_ALARMS.clear(); ALARM_METERS.clear();
 
         AIRLOCKS.clear();AIRLOCK_METERS.clear();
+        FIRELOCKS.clear();FIRELOCK_METERS.clear();
 
         DISPOSAL_UNITS.clear(); DISPOSAL_METERS.clear();
         CHEM_MASTERS.clear(); CHEM_MASTER_METERS.clear();
+        PROCESSING_MACHINES.clear(); PROCESSING_METERS.clear();
 
         PREVIOUS_VENT_SIGNATURES.clear(); COMPLETED_VENT_BUDGETS.clear();
         PAID_INTERVALS.values().forEach(VentilationPaidInterval::clear); PAID_INTERVALS.clear();
         LAST_DIAGNOSTIC.clear(); APC_OUTPUT_SAMPLES.clear(); serverTickSequence = 0;
+        MV_RUNTIME_METERS.clear();
+        APC_RUNTIME_METERS.clear();
     }
 
 
     private static void solve(ServerLevel level, long elapsedTicks, long sampleTick) {
         Set<BlockPos> indexed = DEVICES.get(level);
         Set<BlockPos> indexedAirlockPositions=AIRLOCKS.get(level);
+        Set<BlockPos> indexedFirelockPositions=FIRELOCKS.get(level);
         if ((indexed == null || indexed.isEmpty()) && (indexedAirlockPositions == null || indexedAirlockPositions.isEmpty())
+                && (indexedFirelockPositions == null || indexedFirelockPositions.isEmpty())
                 && (DISPOSAL_UNITS.get(level) == null || DISPOSAL_UNITS.get(level).isEmpty())
-                && (CHEM_MASTERS.get(level) == null || CHEM_MASTERS.get(level).isEmpty())) return;
+                && (CHEM_MASTERS.get(level) == null || CHEM_MASTERS.get(level).isEmpty())
+                && (PROCESSING_MACHINES.get(level) == null || PROCESSING_MACHINES.get(level).isEmpty())) return;
         if(indexed==null)indexed=Collections.emptySet();
         // Snapshot is bounded by the insertion cap; stale or unloaded entries are removed without loading chunks.
         List<PowerDeviceBlockEntity> devices = new ArrayList<>();
+        List<Map.Entry<BlockEntity, PowerRuntimeNode>> runtimeNodes = new ArrayList<>();
         Iterator<BlockPos> iterator = indexed.iterator();
         while (iterator.hasNext()) {
             BlockPos pos = iterator.next();
             LevelChunk chunk = loadedFullChunk(level, pos);
             if (chunk == null) { iterator.remove(); continue; }
             BlockEntity be = chunk.getBlockEntity(pos);
-            if (!(be instanceof PowerDeviceBlockEntity device)) { iterator.remove(); continue; }
-            devices.add(device);
+            if (be instanceof PowerRuntimeNode node) runtimeNodes.add(Map.entry(be, node));
+            else if (be instanceof PowerDeviceBlockEntity device) devices.add(device);
+            else { iterator.remove(); continue; }
         }
         List<VentilationDeviceBlockEntity> vents = new ArrayList<>();
         Set<BlockPos> indexedVents = VENTILATION_DEVICES.get(level);
@@ -694,6 +1004,8 @@ public final class PowerRuntime {
             BlockEntity be=chunk.getBlockEntity(pos);if(!(be instanceof AirlockBlockEntity door)||!(door.getBlockState().getBlock() instanceof AirlockBlock)){it.remove();continue;}
             if(door.prototype()!=null)airlocks.add(door);
         }}
+        List<FirelockTarget> firelocks=new ArrayList<>();Set<BlockPos> indexedFirelocks=FIRELOCKS.get(level);
+        if(indexedFirelocks!=null){Iterator<BlockPos> it=indexedFirelocks.iterator();while(it.hasNext()){BlockPos pos=it.next();LevelChunk chunk=loadedFullChunk(level,pos);if(chunk==null){it.remove();continue;}BlockEntity be=chunk.getBlockEntity(pos);FirelockTarget target=firelockTarget(be);if(target==null||!target.host().live(level)){it.remove();continue;}if(target.prototype()!=null)firelocks.add(target);}}
 
         List<DisposalUnitBlockEntity> disposalUnits = new ArrayList<>();
         Set<BlockPos> indexedDisposal = DISPOSAL_UNITS.get(level);
@@ -719,6 +1031,41 @@ public final class PowerRuntime {
                 chemMasters.add(machine);
             }
         }
+        List<Object> processingMachines = new ArrayList<>();
+        Set<BlockPos> processingIndex = PROCESSING_MACHINES.get(level);
+        if (processingIndex != null) {
+            Iterator<BlockPos> it = processingIndex.iterator();
+            while (it.hasNext()) {
+                BlockPos pos = it.next(); LevelChunk chunk = loadedFullChunk(level, pos);
+                if (chunk == null) { it.remove(); continue; }
+                BlockEntity be = chunk.getBlockEntity(pos);
+                if (be instanceof ReagentGrinderBlockEntity g && g.isLoadedValid() && g.resolvedProfile() != null) processingMachines.add(g);
+                else if (be instanceof SeedExtractorBlockEntity e && e.isLoadedValid() && e.resolvedProfile() != null) processingMachines.add(e);
+                else if (!(be instanceof ReagentGrinderBlockEntity) && !(be instanceof SeedExtractorBlockEntity)) it.remove();
+            }
+        }
+
+        // Receiver queries below must not discover loaded-but-unindexed chunks halfway through
+        // allocation: that would make all subsequent graph reads UNKNOWN for this solve.
+        boolean receiverGraphReady = true;
+        for (PowerDeviceBlockEntity device : devices)
+            if (device.getBlockState().getBlock() instanceof PowerDeviceBlock block && block.kind().isLamp())
+                receiverGraphReady &= PowerGraphService.prepareLoadedFootprint(level, device.getBlockPos(), 3);
+        for (VentilationDeviceBlockEntity vent : vents)
+            receiverGraphReady &= PowerGraphService.prepareLoadedFootprint(level, vent.getBlockPos(),
+                    vent.prototype().extensionCableReceiver().localReachBlocks());
+        for (AirAlarmBlockEntity alarm : alarms)
+            receiverGraphReady &= PowerGraphService.prepareLoadedFootprint(level, alarm.getBlockPos(),
+                    alarm.prototype().extensionCableReceiver().localReachBlocks());
+        for (AirlockBlockEntity door : airlocks)
+            receiverGraphReady &= PowerGraphService.prepareLoadedFootprint(level, door.getBlockPos(),
+                    door.prototype().extensionCableReceiver().localReachBlocks());
+        for(FirelockTarget door:firelocks)receiverGraphReady &= PowerGraphService.prepareLoadedFootprint(level,door.host().root(),door.prototype().extensionCableReceiver().localReachBlocks());
+        for (DisposalUnitBlockEntity unit : disposalUnits)
+            receiverGraphReady &= PowerGraphService.prepareLoadedFootprint(level, unit.getBlockPos(), 3);
+        for (ChemMasterBlockEntity machine : chemMasters)
+            receiverGraphReady &= PowerGraphService.prepareLoadedFootprint(level, machine.getBlockPos(), machine.cableReach());
+        if (!receiverGraphReady) return;
 
         Map<PowerDeviceBlockEntity, Map<CableTier, Integer>> components = new IdentityHashMap<>();
         Map<PowerDeviceBlockEntity, Map<CableTier, Boolean>> known = new IdentityHashMap<>();
@@ -751,6 +1098,26 @@ public final class PowerRuntime {
             components.put(device, deviceComponents);
         }
 
+        Map<BlockEntity, RuntimePortState> runtimePortStates = new IdentityHashMap<>();
+        for (var entry : runtimeNodes) {
+            BlockEntity entity = entry.getKey();
+            PowerRuntimeNode node = entry.getValue();
+            Map<CableTier, LoadedPowerGraph.NodeState> portStates = new EnumMap<>(CableTier.class);
+            Map<CableTier, Integer> portCounts = new EnumMap<>(CableTier.class);
+            List<DevicePort> ports = node.powerRuntimePorts();
+            if (ports != null) for (DevicePort port : ports) {
+                if (port == null || !port.device().equals(entity.getBlockPos())) continue;
+                portCounts.merge(port.tier(), 1, Integer::sum);
+                CableFaceNode faceNode = new CableFaceNode(port.device().relative(port.face()),
+                        port.face().getOpposite(), port.tier());
+                LoadedPowerGraph.NodeState state = PowerTopology.deviceAdjacent(port, faceNode)
+                        ? PowerGraphService.state(level, faceNode)
+                        : new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1);
+                portStates.put(port.tier(), state);
+            }
+            runtimePortStates.put(entity, new RuntimePortState(node, portStates, portCounts));
+        }
+
         List<PowerDeviceBlockEntity> sources = byKind(devices, PowerDeviceKind.HV_SOURCE);
         List<PowerDeviceBlockEntity> substations = byKind(devices, PowerDeviceKind.HV_MV_SUBSTATION);
         List<PowerDeviceBlockEntity> apcs = byKind(devices, PowerDeviceKind.APC);
@@ -778,6 +1145,8 @@ public final class PowerRuntime {
                 if(eligible.size()==1&&eligible.get(0).breakerClosed())airlockProviders.put(door,eligible.get(0));
             }
         }
+        Map<FirelockTarget,LoadedPowerGraph.NodeState> firelockStates=new HashMap<>();Map<FirelockTarget,PowerDeviceBlockEntity> firelockProviders=new HashMap<>();
+        for(FirelockTarget door:firelocks){LoadedPowerGraph.NodeState state=firelockReceiverState(level,door);firelockStates.put(door,state);if(PowerGraphService.topologyReady(level)&&state.knowledge()==LoadedPowerGraph.Knowledge.KNOWN){List<PowerDeviceBlockEntity> eligible=apcs.stream().filter(candidate->isKnown(known,candidate,CableTier.APC)&&component(components,candidate,CableTier.APC)==state.componentId()).toList();if(eligible.size()==1&&eligible.get(0).breakerClosed())firelockProviders.put(door,eligible.get(0));}}
 
         Map<DisposalUnitBlockEntity, LoadedPowerGraph.NodeState> disposalStates = new IdentityHashMap<>();
         Map<DisposalUnitBlockEntity, PowerDeviceBlockEntity> disposalProviders = new IdentityHashMap<>();
@@ -789,6 +1158,19 @@ public final class PowerRuntime {
                         && component(components, candidate, CableTier.APC) == state.componentId()).toList();
                 if (eligible.size() == 1 && eligible.get(0).breakerClosed()) disposalProviders.put(unit, eligible.get(0));
 
+            }
+        }
+        Map<Object, LoadedPowerGraph.NodeState> processingStates = new IdentityHashMap<>();
+        Map<Object, PowerDeviceBlockEntity> processingProviders = new IdentityHashMap<>();
+        for (Object machine : processingMachines) {
+            if (processingDemand(machine) <= 0) continue;
+            CableFaceNode receiver = PowerGraphService.nearestApcExtensionNode(level, processingPos(machine));
+            LoadedPowerGraph.NodeState state = receiver == null ? new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN, -1) : PowerGraphService.state(level, receiver);
+            processingStates.put(machine, state);
+            if (PowerGraphService.topologyReady(level) && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN) {
+                List<PowerDeviceBlockEntity> eligible = apcs.stream().filter(candidate -> isKnown(known, candidate, CableTier.APC)
+                        && component(components, candidate, CableTier.APC) == state.componentId()).toList();
+                if (eligible.size() == 1 && eligible.get(0).breakerClosed()) processingProviders.put(machine, eligible.get(0));
             }
         }
         Map<ChemMasterBlockEntity, LoadedPowerGraph.NodeState> chemMasterStates = new IdentityHashMap<>();
@@ -803,9 +1185,53 @@ public final class PowerRuntime {
                 if (eligible.size() == 1 && eligible.get(0).breakerClosed()) chemMasterProviders.put(machine, eligible.get(0));
             }
         }
-        var input = new PowerLiveLoop.Input(
-                sources.stream().map(source -> new PowerLiveLoop.Source(id(source), component(components, source, CableTier.HV),
-                        isKnown(known, source, CableTier.HV), SOURCE_WATTS)).toList(),
+        List<PowerLiveLoop.Source> sourceOffers = new ArrayList<>(sources.stream().map(source -> new PowerLiveLoop.Source(id(source), component(components, source, CableTier.HV),
+                        isKnown(known, source, CableTier.HV), SOURCE_WATTS)).toList());
+        List<PowerLiveLoop.MvConsumer> mvConsumers = new ArrayList<>();
+        List<PowerLiveLoop.ApcConsumer> apcConsumers = new ArrayList<>();
+        Map<BlockEntity, Double> mvDemands = new IdentityHashMap<>();
+        Map<BlockEntity, Double> apcDemands = new IdentityHashMap<>();
+        Set<BlockEntity> conflictingNodes = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<BlockEntity> validHvSuppliers = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (var entry : runtimeNodes) {
+            BlockEntity entity = entry.getKey();
+            RuntimePortState portState = runtimePortStates.get(entity);
+            PowerRuntimeNode node = entry.getValue();
+            PowerRuntimeNode.SupplierOffer offer = node.powerSupplierOffer(elapsedTicks);
+            Double demand = node.mvPowerDemandWatts();
+            Double apcDemand = node.apcPowerDemandWatts();
+            boolean conflictingRoles = (offer != null ? 1 : 0) + (demand != null ? 1 : 0) + (apcDemand != null ? 1 : 0) > 1;
+            if (conflictingRoles) conflictingNodes.add(entity);
+            if (offer != null && !conflictingRoles && portState.hasExactlyOne(CableTier.HV)) {
+                LoadedPowerGraph.NodeState state = portState.states().get(CableTier.HV);
+                if (Double.isFinite(offer.currentWatts()) && offer.currentWatts() >= 0
+                        && Double.isFinite(offer.ratedMaximumWatts()) && offer.ratedMaximumWatts() >= 0)
+                    { sourceOffers.add(new PowerLiveLoop.Source(id(entity), state.componentId(),
+                            state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN,
+                            offer.currentWatts(), offer.ratedMaximumWatts()));
+                    validHvSuppliers.add(entity); }
+            }
+            if (demand != null) {
+                mvDemands.put(entity, demand);
+                boolean valid = !conflictingRoles && Double.isFinite(demand) && demand >= 0
+                        && portState.hasExactlyOne(CableTier.MV);
+                LoadedPowerGraph.NodeState state = portState.states().get(CableTier.MV);
+                boolean isKnown = valid && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN;
+                mvConsumers.add(new PowerLiveLoop.MvConsumer(id(entity), isKnown ? state.componentId() : -1,
+                        isKnown, valid ? demand : 0));
+            }
+            if (apcDemand != null) {
+                apcDemands.put(entity, apcDemand);
+                boolean valid = !conflictingRoles && Double.isFinite(apcDemand) && apcDemand >= 0 && portState.hasExactlyOne(CableTier.APC);
+                LoadedPowerGraph.NodeState state = portState.states().get(CableTier.APC);
+                boolean hasProvider = valid && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN
+                        && apcs.stream().anyMatch(apc -> isKnown(known, apc, CableTier.APC)
+                        && component(components, apc, CableTier.APC) == state.componentId() && apc.breakerClosed());
+                boolean isKnown = valid && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN && hasProvider;
+                apcConsumers.add(new PowerLiveLoop.ApcConsumer(id(entity), isKnown ? state.componentId() : -1, isKnown, valid ? apcDemand : 0));
+            }
+        }
+        var input = new PowerLiveLoop.Input(sourceOffers,
                 substations.stream().map(sub -> new PowerLiveLoop.Substation(id(sub),
                         component(components, sub, CableTier.HV), isKnown(known, sub, CableTier.HV),
                         component(components, sub, CableTier.MV), isKnown(known, sub, CableTier.MV))).toList(),
@@ -813,21 +1239,91 @@ public final class PowerRuntime {
                         isKnown(known, apc, CableTier.MV), component(components, apc, CableTier.APC),
                         isKnown(known, apc, CableTier.APC), apc.breakerClosed(), apc.energyJoules())).toList(),
                 lamps.stream().map(lamp -> new PowerLiveLoop.Lamp(id(lamp), component(components, lamp, CableTier.APC),
-                         isKnown(known, lamp, CableTier.APC),
-                         ((PowerDeviceBlock) lamp.getBlockState().getBlock()).kind())).toList(),
-                 vents.stream().map(vent -> {
-                     LoadedPowerGraph.NodeState state = ventilationReceiverState(level, vent);
-                     return new PowerLiveLoop.VentLoad(id(vent), state.componentId(),
-                             state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN,
-                             vent.prototype().apcPowerReceiver().requestedWatts());
-                 }).toList(), alarms.stream().map(alarm -> {
-                     LoadedPowerGraph.NodeState state = alarmStates.get(alarm);
-                     return new PowerLiveLoop.AlarmLoad(id(alarm), state.componentId(),
-                             alarmProviders.containsKey(alarm), alarm.prototype().apcPowerReceiver().requestedWatts());
-
-                    }).toList(), airlocks.stream().filter(door->!door.state().receiverPowerDisabled()).map(door->{LoadedPowerGraph.NodeState state=airlockStates.get(door);return new PowerLiveLoop.AirlockLoad(id(door),state.componentId(),airlockProviders.containsKey(door),door.prototype().apcPowerReceiver().requestedWatts());}).toList(), disposalUnits.stream().map(unit -> { var state=disposalStates.get(unit); return new PowerLiveLoop.DisposalLoad(id(unit),state.componentId(),disposalProviders.containsKey(unit),unit.prototype().powerWatts()); }).toList(), chemMasters.stream().map(machine -> { var state=chemMasterStates.get(machine); return new PowerLiveLoop.ChemMasterLoad(machine.placementIdentity().toString(), state.componentId(), chemMasterProviders.containsKey(machine), machine.powerLoadWatts()); }).toList(), elapsedTicks);
-
+                        isKnown(known, lamp, CableTier.APC), ((PowerDeviceBlock) lamp.getBlockState().getBlock()).kind())).toList(),
+                vents.stream().map(vent -> {
+                    LoadedPowerGraph.NodeState state = ventilationReceiverState(level, vent);
+                    return new PowerLiveLoop.VentLoad(id(vent), state.componentId(),
+                            state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN,
+                            vent.prototype().apcPowerReceiver().requestedWatts());
+                }).toList(),
+                alarms.stream().map(alarm -> {
+                    LoadedPowerGraph.NodeState state = alarmStates.get(alarm);
+                    return new PowerLiveLoop.AlarmLoad(id(alarm), state.componentId(),
+                            alarmProviders.containsKey(alarm), alarm.prototype().apcPowerReceiver().requestedWatts());
+                }).toList(),
+                airlocks.stream().filter(door -> !door.state().receiverPowerDisabled()).map(door -> {
+                    LoadedPowerGraph.NodeState state = airlockStates.get(door);
+                    return new PowerLiveLoop.AirlockLoad(id(door), state.componentId(), airlockProviders.containsKey(door),
+                            door.prototype().apcPowerReceiver().requestedWatts());
+                }).toList(),
+                disposalUnits.stream().map(unit -> {
+                    var state = disposalStates.get(unit);
+                    return new PowerLiveLoop.DisposalLoad(id(unit), state.componentId(), disposalProviders.containsKey(unit), unit.prototype().powerWatts());
+                }).toList(),
+                 chemMasters.stream().map(machine -> {
+                    var state = chemMasterStates.get(machine);
+                    return new PowerLiveLoop.ChemMasterLoad(machine.placementIdentity().toString(), state.componentId(),
+                            chemMasterProviders.containsKey(machine), machine.powerLoadWatts());
+                 }).toList(), mvConsumers, firelockApcConsumers(firelocks,firelockStates,firelockProviders,apcConsumers),
+                processingMachines.stream().filter(machine -> processingDemand(machine) > 0).map(machine -> {
+                    var state = processingStates.get(machine);
+                    return new PowerLiveLoop.ProcessingLoad(processingIdentity(machine).toString(),
+                            state == null ? -1 : state.componentId(), processingProviders.containsKey(machine), processingDemand(machine));
+                }).toList(), elapsedTicks);
+        long solveTopologyGeneration = PowerGraphService.topologyGeneration(level);
         PowerLiveLoop.Result result = PowerLiveLoop.solve(input);
+        for (var entry : runtimeNodes) {
+            BlockEntity entity = entry.getKey();
+            PowerRuntimeNode node = entry.getValue();
+            if (node.powerSupplierOffer(elapsedTicks) == null) continue;
+            RuntimePortState portState = runtimePortStates.get(entity);
+            LoadedPowerGraph.NodeState state = portState.states().get(CableTier.HV);
+            boolean graphKnown = validHvSuppliers.contains(entity) && !conflictingNodes.contains(entity)
+                    && PowerGraphService.topologyReady(level) && state != null
+                    && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN;
+            node.receivePowerSupplyAllocation(graphKnown ? result.hvSourceWatts().getOrDefault(id(entity), 0.0) : 0,
+                    graphKnown, elapsedTicks, sampleTick);
+        }
+        Map<BlockPos, MvRuntimeMeterSample> runtimeMeters = MV_RUNTIME_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
+        runtimeMeters.clear();
+        long runtimeTopologyGeneration = PowerGraphService.topologyGeneration(level);
+        for (var entry : runtimeNodes) {
+            BlockEntity entity = entry.getKey();
+            PowerRuntimeNode node = entry.getValue();
+            Double demand = mvDemands.get(entity);
+            if (demand == null) {
+                node.receiveMvPowerAllocation(0, false, sampleTick);
+                continue;
+            }
+            RuntimePortState portState = runtimePortStates.get(entity);
+            LoadedPowerGraph.NodeState state = portState.states().get(CableTier.MV);
+            boolean graphKnown = !conflictingNodes.contains(entity) && Double.isFinite(demand) && demand >= 0
+                    && portState.hasExactlyOne(CableTier.MV)
+                    && PowerGraphService.topologyReady(level) && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN;
+            double actual = graphKnown ? result.mvConsumerWatts().getOrDefault(id(entity), 0.0) : 0;
+            runtimeMeters.put(entity.getBlockPos().immutable(), new MvRuntimeMeterSample(sampleTick, runtimeTopologyGeneration,
+                    actual, demand, node, entity, graphKnown));
+            node.receiveMvPowerAllocation(actual, graphKnown, sampleTick);
+        }
+        Map<BlockPos, ApcRuntimeMeterSample> apcRuntimeMeters = APC_RUNTIME_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
+        apcRuntimeMeters.clear();
+        for (var entry : runtimeNodes) {
+            BlockEntity entity = entry.getKey(); PowerRuntimeNode node = entry.getValue();
+            Double demand = apcDemands.get(entity);
+            if (demand == null) { node.receiveApcPowerAllocation(0, false, sampleTick); continue; }
+            RuntimePortState portState = runtimePortStates.get(entity);
+            LoadedPowerGraph.NodeState state = portState.states().get(CableTier.APC);
+            boolean hasProvider = apcs.stream().anyMatch(apc -> isKnown(known, apc, CableTier.APC)
+                    && component(components, apc, CableTier.APC) == state.componentId() && apc.breakerClosed());
+            boolean graphKnown = !conflictingNodes.contains(entity) && Double.isFinite(demand) && demand >= 0
+                    && portState.hasExactlyOne(CableTier.APC) && PowerGraphService.topologyReady(level)
+                    && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN && hasProvider;
+            double actual = graphKnown ? result.apcConsumerWatts().getOrDefault(id(entity), 0.0) : 0;
+            java.util.UUID identity = node.apcPowerIdentity();
+            if (identity != null) apcRuntimeMeters.put(entity.getBlockPos().immutable(), new ApcRuntimeMeterSample(
+                    sampleTick, runtimeTopologyGeneration, actual, demand, node, entity, identity, graphKnown));
+            node.receiveApcPowerAllocation(actual, graphKnown, sampleTick);
+        }
         Map<BlockPos, AlarmMeterSample> alarmMeters = ALARM_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
         alarmMeters.clear();
         for (AirAlarmBlockEntity alarm : alarms) {
@@ -836,6 +1332,17 @@ public final class PowerRuntime {
                     new AlarmMeterSample(sampleTick, PowerGraphService.topologyGeneration(level),
                             result.alarmWatts().getOrDefault(id(alarm), 0.0), alarm,
                             alarm.prototype(), provider, provider.breakerRevision()));
+            var definition = alarm.prototype();
+            LoadedPowerGraph.NodeState state = alarmStates.get(alarm);
+            if (!PowerGraphService.topologyReady(level) || state == null
+                    || state.knowledge() != LoadedPowerGraph.Knowledge.KNOWN) {
+                alarm.observeNetworkPowerFreshness(false);
+            } else {
+                var meter = airAlarmMeter(level, alarm);
+                if (meter.known()) alarm.updateReceiverPower(definition != null
+                        && meter.deliveredWatts() == definition.apcPowerReceiver().requestedWatts());
+                else alarm.updateReceiverPower(false); // Authoritative known graph, but no valid paid provider.
+            }
         }
 
         Map<BlockPos,AirlockMeterSample> airlockMeters=AIRLOCK_METERS.computeIfAbsent(level,ignored->new HashMap<>());airlockMeters.clear();
@@ -843,6 +1350,8 @@ public final class PowerRuntime {
              if(provider!=null||PowerGraphService.topologyReady(level)&&airlockStates.get(door).knowledge()==LoadedPowerGraph.Knowledge.KNOWN)airlockMeters.put(door.getBlockPos().immutable(),new AirlockMeterSample(sampleTick,PowerGraphService.topologyGeneration(level),delivery,door,door.prototype(),provider,provider==null?-1:provider.breakerRevision()));
             if(!door.state().receiverPowerDisabled())door.setPowered(provider!=null&&delivery==door.prototype().apcPowerReceiver().requestedWatts());
         }
+        Map<BlockPos,FirelockMeterSample> firelockMeters=FIRELOCK_METERS.computeIfAbsent(level,ignored->new HashMap<>());firelockMeters.clear();
+        for(FirelockTarget door:firelocks){PowerDeviceBlockEntity provider=firelockProviders.get(door);double delivery=result.apcConsumerWatts().getOrDefault(firelockPowerId(door),0.0);LoadedPowerGraph.NodeState receiver=firelockStates.get(door);if(provider!=null||PowerGraphService.topologyReady(level)&&receiver.knowledge()==LoadedPowerGraph.Knowledge.KNOWN)firelockMeters.put(door.host().root().immutable(),new FirelockMeterSample(sampleTick,PowerGraphService.topologyGeneration(level),delivery,door,provider,provider==null?-1:provider.breakerRevision()));if(!PowerGraphService.topologyReady(level)||receiver==null||receiver.knowledge()!=LoadedPowerGraph.Knowledge.KNOWN)door.controller().observeNetworkPowerFreshness(door.host(),false);else{var observation=firelockPowerForHost(level,door.host());if(observation.known())door.controller().setPaidPower(door.host(),observation.deliveredWatts()==door.prototype().apcPowerReceiver().requestedWatts());else door.controller().setPaidPower(door.host(),false);}}
 
         Map<BlockPos, DisposalMeterSample> disposalMeters = DISPOSAL_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
         disposalMeters.clear();
@@ -863,6 +1372,22 @@ public final class PowerRuntime {
                         machine, machine.placementIdentity(), machine.powerLoadWatts(), provider,
                         provider == null ? -1 : provider.breakerRevision()));
         }
+        Map<BlockPos, ProcessingMeterSample> processingMeters = PROCESSING_METERS.computeIfAbsent(level, ignored -> new HashMap<>());
+        processingMeters.clear();
+        for (Object machine : processingMachines) {
+            double demand = processingDemand(machine);
+            if (demand <= 0) continue;
+            PowerDeviceBlockEntity provider = processingProviders.get(machine);
+            LoadedPowerGraph.NodeState state = processingStates.get(machine);
+            if (provider != null || PowerGraphService.topologyReady(level) && state != null && state.knowledge() == LoadedPowerGraph.Knowledge.KNOWN)
+                processingMeters.put(processingPos(machine).immutable(), new ProcessingMeterSample(sampleTick, PowerGraphService.topologyGeneration(level),
+                        result.processingWatts().getOrDefault(processingIdentity(machine).toString(), 0.0), machine, processingIdentity(machine), demand,
+                        provider, provider == null ? -1 : provider.breakerRevision()));
+        }
+        // Use the machine's authoritative extraction predicate, including its fail-closed
+        // unknown/uninitialized behavior; appearance is a projection, not a second solver.
+        for (Object machine : processingMachines)
+            if (machine instanceof SeedExtractorBlockEntity extractor) extractor.projectPowerVisual();
         for (DisposalUnitBlockEntity unit : disposalUnits) {
             var meter = disposalUnitMeter(level, unit);
             unit.updatePower(meter.known() && meter.deliveredWatts() == unit.prototype().powerWatts());
@@ -909,7 +1434,23 @@ public final class PowerRuntime {
                     apc, apc.breakerRevision(), visual, sampleTick, PowerGraphService.topologyGeneration(level)));
         }
         projectPowerDeviceAppearances(level, devices, sources, substations, components, known, result);
-        LAST_DIAGNOSTIC.put(level, "sources=" + input.sources().size() + ",substations=" + input.substations().size()
+        String supply = " supply{src=" + input.sources().stream().sorted(java.util.Comparator.comparing(PowerLiveLoop.Source::id))
+                .limit(16).map(source -> source.id() + ":HVc" + source.component() + "/" + source.known()
+                        + "/offer" + source.watts() + "/rated" + source.ratedMaximumWatts()).toList()
+                + "/omitted" + Math.max(0, input.sources().size() - 16)
+                + ",sub=" + input.substations().stream().sorted(java.util.Comparator.comparing(PowerLiveLoop.Substation::id))
+                .limit(16).map(sub -> sub.id() + ":HVc" + sub.hvComponent() + "/" + sub.hvKnown()
+                        + "/actualHVin" + result.substationInputWatts().getOrDefault(sub.id(), 0.0)
+                        + "/MVc" + sub.mvComponent() + "/" + sub.mvKnown()).toList()
+                + "/omitted" + Math.max(0, input.substations().size() - 16)
+                + ",apc=" + input.apcs().stream().sorted(java.util.Comparator.comparing(PowerLiveLoop.Apc::id)).limit(16)
+                .map(apc -> apc.id() + ":MVc" + apc.mvComponent() + "/" + apc.mvKnown()
+                        + "/actualInput" + result.apcInputWatts().getOrDefault(apc.id(), 0.0)
+                         + "/actualOutput" + result.apcOutputWatts().getOrDefault(apc.id(), 0.0)).toList()
+                + "/omitted" + Math.max(0, input.apcs().size() - 16) + "}";
+        String diagnostic = "solveTick=" + sampleTick + ",topologyGeneration=" + solveTopologyGeneration
+                + supply
+                + ",sources=" + input.sources().size() + ",substations=" + input.substations().size()
                 + ",apcs=" + input.apcs().size() + ",disposal=" + disposalUnits.stream().map(unit -> {
                     var state = disposalStates.get(unit);
                     var receiver = PowerGraphService.nearestApcExtensionNode(level, unit.getBlockPos());
@@ -925,7 +1466,11 @@ public final class PowerRuntime {
                                      + sample.topologyGeneration() + ":" + sample.deliveredWatts())
                              + "/gate" + disposalUnitMeterDiagnostic(level, unit)
                              + "/r" + unit.prototype().powerWatts();
-                }).limit(2).toList() + "," + PowerGraphService.diagnosticSnapshot(level));
+                   }).limit(2).toList() + "," + PowerGraphService.diagnosticSnapshot(level);
+        int maxDiagnosticLength = 4000;
+        String truncationMarker = "...TRUNCATED(originalLength=" + diagnostic.length() + ")";
+        LAST_DIAGNOSTIC.put(level, diagnostic.length() <= maxDiagnosticLength ? diagnostic
+                : diagnostic.substring(0, maxDiagnosticLength - truncationMarker.length()) + truncationMarker);
         for (PowerDeviceBlockEntity apc : apcs)
             apc.setEnergyJoules(result.batteryEnergyJoules().getOrDefault(id(apc), apc.energyJoules()));
         VentilationPaidInterval paid = PAID_INTERVALS.computeIfAbsent(level, ignored -> new VentilationPaidInterval());
@@ -942,9 +1487,12 @@ public final class PowerRuntime {
         for (PowerDeviceBlockEntity lamp : lamps)
             setLit(level, lamp.getBlockPos(), result.lampWatts().getOrDefault(id(lamp), 0.0)
                     >= ((PowerDeviceBlock) lamp.getBlockState().getBlock()).kind().lampDemandWatts());
-        // Gas work is authorized only after APC battery billing and single-use budgets exist.
-        for (VentilationDeviceBlockEntity vent : vents)
+        // Monitor power transitions reuse this paid receiver observation; atmosphere samples run
+        // later in the bounded ATMOS_DEVICES stage and never consume gas-work authorization.
+        for (VentilationDeviceBlockEntity vent : vents) {
+            vent.observeMonitorPower(level, ventilationMeter(level, vent).known());
             VentilationGasRuntime.onCompletedPaidSolve(level, vent);
+        }
     }
 
     /** Project native display states from the authoritative solve; DISPLAY never changes topology. */
@@ -1045,12 +1593,20 @@ public final class PowerRuntime {
         return devices.stream().filter(device -> device.getBlockState().getBlock() instanceof PowerDeviceBlock block && block.kind() == kind).toList();
     }
     private static String id(PowerDeviceBlockEntity device) { return device.getBlockPos().toShortString(); }
+    private static String id(BlockEntity device) { return device.getBlockPos().toShortString(); }
     private static String id(VentilationDeviceBlockEntity device) { return device.getBlockPos().toShortString(); }
     private static String id(AirAlarmBlockEntity device) { return device.getBlockPos().toShortString(); }
 
     private static String id(AirlockBlockEntity device) { return "airlock-"+device.getBlockPos().toShortString(); }
+    static String firelockPowerId(FirelockTarget device){return "firelock-"+device.identity();}
+    private static List<PowerLiveLoop.ApcConsumer> firelockApcConsumers(List<FirelockTarget> firelocks,
+            Map<FirelockTarget,LoadedPowerGraph.NodeState> states,Map<FirelockTarget,PowerDeviceBlockEntity> providers,
+            List<PowerLiveLoop.ApcConsumer> existing){List<PowerLiveLoop.ApcConsumer> result=new ArrayList<>(existing);for(FirelockTarget door:firelocks){var state=states.get(door);result.add(new PowerLiveLoop.ApcConsumer(firelockPowerId(door),state.componentId(),providers.containsKey(door),door.prototype().apcPowerReceiver().requestedWatts()));}return result;}
 
     private static String id(DisposalUnitBlockEntity device) { return device.getBlockPos().toShortString(); }
+    private static BlockPos processingPos(Object machine) { return machine instanceof ReagentGrinderBlockEntity g ? g.getBlockPos() : ((SeedExtractorBlockEntity) machine).getBlockPos(); }
+    private static java.util.UUID processingIdentity(Object machine) { return machine instanceof ReagentGrinderBlockEntity g ? g.placementIdentity() : ((SeedExtractorBlockEntity) machine).placementIdentity(); }
+    private static double processingDemand(Object machine) { return machine instanceof ReagentGrinderBlockEntity g ? g.requiredPowerWatts() : (((SeedExtractorBlockEntity) machine).resolvedProfile().powered() ? ((SeedExtractorBlockEntity) machine).resolvedProfile().powerWatts() : 0d); }
 
     private static LoadedPowerGraph.NodeState alarmReceiverState(ServerLevel level, AirAlarmBlockEntity alarm) {
         AirAlarmData prototype = alarm.prototype();
@@ -1075,6 +1631,28 @@ public final class PowerRuntime {
         CableFaceNode node=nearby.stream().filter(candidate->PowerGraphService.state(level,candidate).knowledge()==LoadedPowerGraph.Knowledge.KNOWN)
                 .min(Comparator.comparingDouble(candidate->candidate.host().distSqr(door.getBlockPos()))).orElse(null);
         return node==null?new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.KNOWN,-1):PowerGraphService.state(level,node);
+    }
+    private static FirelockTarget firelockTarget(BlockEntity owner){
+        FirelockController controller;FirelockHost host;
+        if(owner instanceof FirelockBlockEntity standalone){controller=standalone.firelockController();host=standalone.firelockHost();}
+        else if(owner instanceof AirlockBlockEntity airlock){controller=airlock.firelockController();host=airlock.firelockHost();}
+        else return null;
+        if(controller==null||host==null)return null;FirelockData prototype=host.prototype();
+        return prototype==null?null:new FirelockTarget(owner,controller,host,prototype);
+    }
+    private static LoadedPowerGraph.NodeState firelockReceiverState(ServerLevel level,FirelockTarget door){
+        var prototype=door.prototype();if(prototype==null)return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN,-1);
+        int radius=prototype.extensionCableReceiver().localReachBlocks();BlockPos center=door.host().root();
+        if(!PowerGraphService.topologyReady(level))return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN,-1);
+        var nearby=PowerGraphService.nodesNear(level,center,radius,CableTier.APC);
+        if(nearby==null)return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN,-1);
+        if(nearby.isEmpty()&&FirelockPowerFreshness.receiverKnowledge(true,false,false))
+            return new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.KNOWN,-1);
+        // Reuse the shared nearest-known receiver policy: unknown closer components do not
+        // displace a farther known receiver, but an all-unknown neighborhood stays unknown.
+        CableFaceNode node=PowerGraphService.nearestApcExtensionNode(level,center,radius);
+        boolean known=FirelockPowerFreshness.receiverKnowledge(PowerGraphService.topologyReady(level),!nearby.isEmpty(),node!=null);
+        return !known?new LoadedPowerGraph.NodeState(LoadedPowerGraph.Knowledge.UNKNOWN,-1):PowerGraphService.state(level,node);
     }
     /** Return an already-loaded full chunk only; periodic power work must never request a chunk ticket. */
     private static LevelChunk loadedFullChunk(ServerLevel level, BlockPos pos) {

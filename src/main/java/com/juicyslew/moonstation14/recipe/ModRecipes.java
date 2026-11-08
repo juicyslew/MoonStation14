@@ -34,3 +34,4 @@ public class ModRecipes {
         RECIPE_TYPES.register(eventBus);
     }
 }
+

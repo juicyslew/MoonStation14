@@ -1,0 +1,8 @@
+Source: Space Station 14, Resources/Textures/Interface/ItemStatus/Bullets/{normal,small,tiny,empty}.png
+Source checkout revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Files copied unchanged. The source directory contains no per-file license or author metadata; refer to the source repository's LICENSE and asset attribution records. These files are not relicensed by MoonStation's MIT license.
+SHA-256:
+normal.png  7615311a8f9bf12872631099a48a5b3a728231ef376e2eb628d76751acd758a4
+small.png   b71f8baa12d0a05d3c161c53fb2228cfa55f20c235a0f130590dd6f944fb2354
+tiny.png    81decf241b1ed42f499a30e971d65f94ec34c4cec7a33221815ed8a40c84c316
+empty.png   92d79fed512b78b619111dafe139ab4b2a732e7ddf3f1f9c4c97cb6ad7f106eb

@@ -73,3 +73,4 @@ public record PuddleData(ExamineMetadata metadata, SolutionContainer solutionCon
             throw new IllegalArgumentException("unknown or null puddle field: " + key);
     }
 }
+

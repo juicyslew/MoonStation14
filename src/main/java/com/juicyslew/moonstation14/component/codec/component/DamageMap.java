@@ -38,3 +38,4 @@ public record DamageMap(Map<String, Float> contents) {
                     ByteBufCodecs.FLOAT
             ).map(DamageMap::new, DamageMap::contents);
 }
+

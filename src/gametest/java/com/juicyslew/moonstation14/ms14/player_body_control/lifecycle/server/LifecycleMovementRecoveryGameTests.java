@@ -161,10 +161,10 @@ public final class LifecycleMovementRecoveryGameTests {
         AtomicInteger calls = new AtomicInteger();
         GroundedHarnessWorldStep production = new GroundedHarnessWorldStep();
         AutoCloseable scope = LifecycleCharacterSessionControl.withWorldStepForTesting(owner.actor(),
-                (mob, x, z, jump, sprint, yaw, reference) -> {
+                 (mob, x, z, jump, sneak, sprint, yaw, originSequence, observer, reference) -> {
                     calls.incrementAndGet();
                     Optional<com.juicyslew.moonstation14.ms14.movement.CharacterMovementState> moved =
-                            production.step(mob, x, z, jump, sprint, yaw, null, reference);
+                             production.step(mob, x, z, jump, sneak, sprint, yaw, originSequence, observer, reference);
                     if (moved.isEmpty()) throw new AssertionError("production native move failed before injected result");
                     if (throwAfterMove) throw new IllegalStateException("fixture post-move resolver failure");
                     return Optional.empty();

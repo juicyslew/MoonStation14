@@ -139,3 +139,4 @@ public final class PipeGasTransfer {
         if (!Double.isFinite(v) || v < 0.0) throw new IllegalArgumentException(name + " must be finite and nonnegative");
     }
 }
+

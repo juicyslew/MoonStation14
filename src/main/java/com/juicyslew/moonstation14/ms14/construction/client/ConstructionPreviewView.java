@@ -7,3 +7,4 @@ public final class ConstructionPreviewView {
         return levelPresent&&!hidden&&bodyPresent&&bodyInLevel&&committedEpoch>0;
     }
 }
+

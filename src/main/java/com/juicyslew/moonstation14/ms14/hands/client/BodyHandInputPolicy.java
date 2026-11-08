@@ -20,3 +20,4 @@ final class BodyHandInputPolicy {
         return controlDown ? BodyHandActionRequest.Action.THROW_ITEM : BodyHandActionRequest.Action.DROP;
     }
 }
+

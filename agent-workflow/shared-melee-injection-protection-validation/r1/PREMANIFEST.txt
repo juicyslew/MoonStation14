@@ -1,0 +1,5 @@
+run_started=2026-10-21T09:07:37.6946350-07:00
+command=./gradlew compileJava compileTestJava test --tests '*MeleeInjectionProtectionPolicyTest' --tests '*EquipmentPrototypeTest' --tests '*EquipmentArmorSystemTest' --tests '*MeleeWeaponProfileTest'
+log=full.log
+exit=exit-code.txt
+xml=selected-xml

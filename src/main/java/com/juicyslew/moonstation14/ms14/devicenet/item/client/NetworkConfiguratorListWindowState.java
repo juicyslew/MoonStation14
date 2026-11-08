@@ -34,3 +34,4 @@ public final class NetworkConfiguratorListWindowState {
     public boolean drag(double x,double y){return window.drag(x,y);}
     public void endDrag(){window.endDrag();}
 }
+

@@ -30,6 +30,7 @@ import org.lwjgl.glfw.GLFW;
 @EventBusSubscriber(modid = MoonStation14.MOD_ID, value = net.neoforged.api.distmarker.Dist.CLIENT)
 public final class ObserverClient {
     private static ObserverPayloads.Snapshot current;
+    private static ObserverMedicalScopePolicy.ReturnCredentialState canonicalGhostReturnState;
     private static long lastEpoch = -1;
     private static int previousDirections;
     private static final KeyMapping RETURN = new KeyMapping("key.moonstation14.observer_return", GLFW.GLFW_KEY_R, "key.categories.moonstation14");
@@ -57,6 +58,27 @@ public final class ObserverClient {
 
     public static void receive(ObserverPayloads.Snapshot snapshot) {
         Minecraft mc = Minecraft.getInstance();
+        boolean canonicalGhost = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalGhostControl();
+        if (canonicalGhost) {
+            Entity ownedGhost = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient
+                    .ownedGhostForPresentation();
+            if (canonicalGhostReturnState == null && ownedGhost != null)
+                canonicalGhostReturnState = new ObserverMedicalScopePolicy.ReturnCredentialState(
+                        null, Math.max(0, lastEpoch), ownedGhost.getUUID());
+            ObserverPayloads.Snapshot previousCredential = canonicalGhostReturnState == null
+                    ? null : canonicalGhostReturnState.credential();
+            canonicalGhostReturnState = ObserverMedicalScopePolicy.reconcileReturnCredential(canonicalGhost,
+                    canonicalGhostReturnState, snapshot, ownedGhost == null ? null : ownedGhost.getUUID());
+            ObserverPayloads.Snapshot canonicalGhostReturn = canonicalGhostReturnState == null
+                    ? null : canonicalGhostReturnState.credential();
+            if (previousCredential != null && canonicalGhostReturn == null) returnHintShown = false;
+            if (canonicalGhostReturn != null && !returnHintShown && Minecraft.getInstance().player != null) {
+                returnHintShown = true;
+                Minecraft.getInstance().player.displayClientMessage(
+                        Component.translatable("message.moonstation14.observer_return_available"), true);
+            }
+            return;
+        }
         if (current != null && snapshot.epoch() < current.epoch()) {
             MoonStation14.LOGGER.debug("[observer client] stale snapshot rejected mode={} epoch={} body={} currentMode={} currentEpoch={} currentBody={}",
                     snapshot.mode(), snapshot.epoch(), snapshot.body(), current.mode(), current.epoch(), current.body());
@@ -72,6 +94,7 @@ public final class ObserverClient {
         if (snapshot.mode() == ObserverPayloads.Mode.END) {
             com.juicyslew.moonstation14.ms14.mobs.client.MedicalMovementClientTrace.observationEnded();
             current = null;
+            canonicalGhostReturnState = null;
             resetGhostLook();
             resetGhostMovement();
             previousDirections = 0;
@@ -128,21 +151,30 @@ public final class ObserverClient {
         }
     }
 
-    public static ObserverPayloads.Snapshot current() { return current; }
+    private static ObserverPayloads.Snapshot effectiveSnapshot() {
+        boolean ghost = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalGhostControl();
+        boolean character = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalCharacterControl();
+        Mob ownedCharacter = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedCharacterForPresentation();
+        boolean matches = ownedCharacter != null && current != null && current.body().equals(ownedCharacter.getUUID());
+        return ObserverMedicalScopePolicy.expose(ghost, character, matches) ? current : null;
+    }
+
+    public static ObserverPayloads.Snapshot current() { return effectiveSnapshot(); }
     /** Hide only this client's native carrier while its observer camera represents a distinct body. */
     public static boolean hideLocalCarrierModel(Entity candidate) {
         Minecraft mc = Minecraft.getInstance();
-        ObserverPayloads.Snapshot snapshot = current;
+        ObserverPayloads.Snapshot snapshot = effectiveSnapshot();
         return snapshot != null && LocalCarrierRenderPolicy.hide(candidate != null && candidate == mc.player,
                 snapshot.mode(), candidate == null ? null : candidate.getUUID(), snapshot.body());
     }
     public static boolean isGhostSnapshot(Entity entity) {
-        return entity != null && current != null && current.mode() == ObserverPayloads.Mode.GHOST
-                && entity.getId() == current.ghostEntity() && entity.getUUID().equals(current.ghost());
+        ObserverPayloads.Snapshot snapshot = effectiveSnapshot();
+        return entity != null && snapshot != null && snapshot.mode() == ObserverPayloads.Mode.GHOST
+                && entity.getId() == snapshot.ghostEntity() && entity.getUUID().equals(snapshot.ghost());
     }
 
     @SubscribeEvent public static void blockGhostBodyInteraction(InputEvent.InteractionKeyMappingTriggered event) {
-        if (current != null) event.setCanceled(true);
+        if (effectiveSnapshot() != null) event.setCanceled(true);
     }
 
     @SubscribeEvent public static void tick(ClientTickEvent.Post event) { perClientTick(); }
@@ -153,6 +185,17 @@ public final class ObserverClient {
         Minecraft mc = Minecraft.getInstance();
         ObserverPayloads.Snapshot s = current;
         if (mc.player == null || mc.level == null) return;
+        if (com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalGhostControl()) {
+            // A stale medical snapshot must not retake the camera from canonical ghost control.
+            Entity ghost = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedGhostForPresentation();
+            if (medicalAnchor != null && mc.getCameraEntity() == medicalAnchor && ghost != null) mc.setCameraEntity(ghost);
+            medicalAnchor = null;
+            ObserverPayloads.Request returnRequest = ObserverMedicalScopePolicy.returnRequest(true,
+                    canonicalGhostReturnState, ghost == null ? null : ghost.getUUID());
+            if (returnRequest != null && RETURN.consumeClick())
+                PacketDistributor.sendToServer(returnRequest);
+            return;
+        }
         if (!querySent) {
             PacketDistributor.sendToServer(new ObserverPayloads.Request(ObserverPayloads.Request.Kind.QUERY, Math.max(0, lastEpoch)));
             querySent = true;
@@ -217,7 +260,10 @@ public final class ObserverClient {
         if (s.returnAvailable() && RETURN.consumeClick()) PacketDistributor.sendToServer(new ObserverPayloads.Request(ObserverPayloads.Request.Kind.RETURN, s.epoch()));
     }
 
-    public static boolean usesMedicalCamera() { return medicalAnchor != null && Minecraft.getInstance().getCameraEntity() == medicalAnchor; }
+    public static boolean usesMedicalCamera() {
+        return !com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalGhostControl()
+                && medicalAnchor != null && Minecraft.getInstance().getCameraEntity() == medicalAnchor;
+    }
     /** Exact UUID-bound look from the active observer ghost snapshot. */
     public static float[] lookForGhost(Entity entity) {
         ObserverPayloads.Snapshot s = current;
@@ -225,6 +271,21 @@ public final class ObserverClient {
                 || entity.getId() != s.ghostEntity() || !entity.getUUID().equals(s.ghost())) return null;
         initializeGhostLook(Minecraft.getInstance(), s, entity);
         return new float[] { ghostLookYaw, ghostLookPitch };
+    }
+
+    /** Seeds the active observer camera's private look state for an authoritative teleport result. */
+    public static void applyAuthoritativeGhostLook(Entity entity, float yaw, float pitch) {
+        if (com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalGhostControl()) return;
+        ObserverPayloads.Snapshot snapshot = current;
+        if (entity == null || snapshot == null || snapshot.mode() != ObserverPayloads.Mode.GHOST
+                || entity.getId() != snapshot.ghostEntity() || !entity.getUUID().equals(snapshot.ghost())
+                || !Float.isFinite(yaw) || !Float.isFinite(pitch)) return;
+        ghostLookYaw = yaw;
+        ghostLookPitch = Mth.clamp(pitch, -90f, 90f);
+        ghostLookEpoch = snapshot.epoch();
+        ghostLookId = entity.getUUID();
+        ghostLookInitialized = true;
+        projectCameraLook(entity);
     }
 
     /** Resolved movement policy cached against the exact observer corpse snapshot identity. */
@@ -243,9 +304,10 @@ public final class ObserverClient {
     }
     /** Resolves the body whose synchronized medical state is presented by the current camera. */
     public static LivingEntity observedBody() {
-        if (current != null && current.mode() == ObserverPayloads.Mode.GHOST) return null;
+        ObserverPayloads.Snapshot snapshot = effectiveSnapshot();
+        if (snapshot != null && snapshot.mode() == ObserverPayloads.Mode.GHOST) return null;
         Minecraft mc = Minecraft.getInstance();
-        if (current != null && current.mode() == ObserverPayloads.Mode.CORPSE) return resolveSnapshotBody(mc, current);
+        if (snapshot != null && snapshot.mode() == ObserverPayloads.Mode.CORPSE) return resolveSnapshotBody(mc, snapshot);
         if (usesMedicalCamera()) {
             Mob owned = com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.ownedCharacterForPresentation();
             return owned != null ? owned : mc.player != null && !mc.player.isSpectator() ? mc.player : null;
@@ -255,7 +317,8 @@ public final class ObserverClient {
     /** Exact body identity for status presentation, including the original corpse during GHOST mode. */
     public static LivingEntity statusBody() {
         Minecraft mc = Minecraft.getInstance();
-        return current == null ? null : resolveSnapshotBody(mc, current);
+        ObserverPayloads.Snapshot snapshot = effectiveSnapshot();
+        return snapshot == null ? null : resolveSnapshotBody(mc, snapshot);
     }
     public static boolean isObservedMedicalBody(Entity entity) { return entity != null && entity == observedBody(); }
 
@@ -281,6 +344,7 @@ public final class ObserverClient {
     }
     public static Entity medicalCamera() { return medicalAnchor; }
     public static void turnCamera(double yaw, double pitch) {
+        if (com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalGhostControl()) return;
         if (current != null && current.mode() == ObserverPayloads.Mode.GHOST) {
             Minecraft mc = Minecraft.getInstance();
             Entity ghost = mc.level == null ? null : mc.level.getEntity(current.ghostEntity());
@@ -293,6 +357,7 @@ public final class ObserverClient {
     }
 
     public static void projectCameraLookForRenderFrame() {
+        if (com.juicyslew.moonstation14.ms14.player_body_control.client.GhostControlClient.isLocalGhostControl()) return;
         Minecraft mc = Minecraft.getInstance();
         ObserverPayloads.Snapshot s = current;
         if (s == null || s.mode() != ObserverPayloads.Mode.GHOST || mc.level == null) return;
@@ -326,7 +391,7 @@ public final class ObserverClient {
                 | (mc.options.keyLeft.isDown() ? 4 : 0) | (mc.options.keyRight.isDown() ? 8 : 0);
     }
 
-    private static void reset() { Minecraft mc = Minecraft.getInstance(); if (medicalAnchor != null && mc.getCameraEntity() == medicalAnchor && mc.player != null) mc.setCameraEntity(mc.player); current = null; resetGhostLook(); resetGhostMovement(); previousDirections = 0; returnHintShown = false; querySent = false; medicalAnchor = null; }
+    private static void reset() { Minecraft mc = Minecraft.getInstance(); if (medicalAnchor != null && mc.getCameraEntity() == medicalAnchor && mc.player != null) mc.setCameraEntity(mc.player); current = null; canonicalGhostReturnState = null; resetGhostLook(); resetGhostMovement(); previousDirections = 0; returnHintShown = false; querySent = false; medicalAnchor = null; }
 
     @SubscribeEvent public static void logout(PlayerEvent.PlayerLoggedOutEvent event) { reset(); lastEpoch = -1; }
     @SubscribeEvent public static void levelLeaving(ClientPlayerNetworkEvent.LoggingOut event) { reset(); lastEpoch = -1; }

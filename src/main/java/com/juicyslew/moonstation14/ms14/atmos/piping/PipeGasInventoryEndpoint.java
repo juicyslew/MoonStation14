@@ -130,3 +130,4 @@ final class PipeGasInventoryEndpoint implements PipeGasTransaction.Endpoint {
         return true;
     }
 }
+

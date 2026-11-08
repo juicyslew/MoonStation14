@@ -21,3 +21,4 @@ public final class NavigationHit {
         return valid && !pending && revision >= 0 && !draft.equals(authority);
     }
 }
+

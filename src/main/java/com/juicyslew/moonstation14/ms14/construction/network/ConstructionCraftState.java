@@ -16,3 +16,4 @@ public record ConstructionCraftState(long epoch,long sequence,UUID body,String r
     public static void deliverClient(ConstructionCraftState state){var h=clientHandler;if(h!=null)h.accept(state);}
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

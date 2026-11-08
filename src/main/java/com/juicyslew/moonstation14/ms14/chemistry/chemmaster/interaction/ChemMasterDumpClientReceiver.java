@@ -9,3 +9,4 @@ public final class ChemMasterDumpClientReceiver {
     public static void install(Consumer<ChemMasterDumpResult> callback) { handler = callback == null ? ignored -> { } : callback; }
     public static void handle(ChemMasterDumpResult result) { if (result != null) handler.accept(result); }
 }
+

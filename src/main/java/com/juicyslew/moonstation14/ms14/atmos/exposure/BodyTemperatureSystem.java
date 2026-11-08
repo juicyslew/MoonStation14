@@ -5,6 +5,8 @@ import com.juicyslew.moonstation14.component.codec.json.CharacterData;
 import com.juicyslew.moonstation14.ms14.character.components.TemperatureComponent;
 import com.juicyslew.moonstation14.ms14.character.components.TemperatureDamageComponent;
 import com.juicyslew.moonstation14.ms14.character.components.ThermalRegulatorComponent;
+import com.juicyslew.moonstation14.ms14.equipment.EquipmentProtectionProjection;
+import com.juicyslew.moonstation14.ms14.equipment.ResolvedWornEquipment;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
 import com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereService;
@@ -68,6 +70,7 @@ public final class BodyTemperatureSystem {
             Outcome result = transact(detached, containedSample.get().mixture(), selected.get().toProfile(),
                     damage.map(TemperatureDamageComponent::toProfile).orElse(null),
                     regulator(entity).map(ThermalRegulatorComponent::toPolicy).orElse(null), null,
+                    EquipmentProtectionProjection.temperatureCoefficients(ResolvedWornEquipment.entries(entity)),
                     source::exchangeThermalEnergy,
                     amounts -> DamageSystem.applyHealthChange(entity, amounts, 1.0f, true)
                             == DamageSystem.Result.APPLIED);
@@ -91,6 +94,7 @@ public final class BodyTemperatureSystem {
         Outcome result = transact(detached, sample.get(), selected.get().toProfile(), damage.map(TemperatureDamageComponent::toProfile).orElse(null),
                 regulator(entity).map(ThermalRegulatorComponent::toPolicy).orElse(null),
                 provenVacuum ? selected.get().toVacuumPolicy() : null,
+                EquipmentProtectionProjection.temperatureCoefficients(ResolvedWornEquipment.entries(entity)),
                 energyCommitFor(reading.get().status(), joules -> AtmosphereService.INSTANCE.addEnergy(level, eye, joules)),
                  amounts -> DamageSystem.applyHealthChange(entity, amounts, 1.0f, true, DamageSystem.Cause.TEMPERATURE)
                         == DamageSystem.Result.APPLIED);
@@ -224,21 +228,39 @@ public final class BodyTemperatureSystem {
 
     /** Independent component membership: damage and regulation are both optional. */
     public static Outcome transact(BodyTemperatureAttachment detached,
+                                    com.juicyslew.moonstation14.ms14.atmos.core.GasMixture gas,
+                                    ThermalExposureMath.TemperatureProfile temperature,
+                                    ThermalExposureMath.DamageProfile damage, ThermalRegulatorMath.Policy regulation,
+                                    ThermalExposureMath.VacuumPolicy vacuum,
+                                    DoublePredicate energyCommit,
+                                    java.util.function.Predicate<Map<String, Float>> damageSink) {
+        return transact(detached, gas, temperature, damage, regulation, vacuum,
+                new EquipmentProtectionProjection.TemperatureCoefficients(1, 1), energyCommit, damageSink);
+    }
+
+    public static Outcome transact(BodyTemperatureAttachment detached,
                                    com.juicyslew.moonstation14.ms14.atmos.core.GasMixture gas,
                                    ThermalExposureMath.TemperatureProfile temperature,
                                    ThermalExposureMath.DamageProfile damage, ThermalRegulatorMath.Policy regulation,
                                    ThermalExposureMath.VacuumPolicy vacuum,
+                                   EquipmentProtectionProjection.TemperatureCoefficients coefficients,
                                    DoublePredicate energyCommit,
                                    java.util.function.Predicate<Map<String, Float>> damageSink) {
         if (detached == null || gas == null || temperature == null || energyCommit == null) return Outcome.SKIPPED;
         double next, energy;
         Map<String, Float> typed;
         try {
+            if (coefficients == null || !Double.isFinite(coefficients.heating()) || coefficients.heating() < 0
+                    || !Double.isFinite(coefficients.cooling()) || coefficients.cooling() < 0) return Outcome.SKIPPED;
             var exchange = ThermalExposureMath.exchange(detached.kelvin(), gas, temperature, 1.0);
-            energy = exchange.environmentEnergyDeltaJoules();
+            double delta = exchange.bodyTemperatureKelvin() - detached.kelvin();
+            double exchanged = detached.kelvin() + delta * (delta < 0 ? coefficients.cooling() : coefficients.heating());
+            energy = -(exchanged - detached.kelvin()) * temperature.bodyHeatCapacityJoulesPerKelvin();
             next = vacuum != null && gas.totalMoles() == 0 && gas.heatCapacity() == 0
-                    ? ThermalExposureMath.vacuumBodyKelvin(exchange.bodyTemperatureKelvin(), temperature, vacuum, 1.0)
-                    : exchange.bodyTemperatureKelvin();
+                    ? exchanged + (ThermalExposureMath.vacuumBodyKelvin(exchanged, temperature, vacuum, 1.0) - exchanged)
+                        * ((vacuum.spaceTemperatureKelvin() - exchanged) < 0 ? coefficients.cooling() : coefficients.heating())
+                    : exchanged;
+            if (vacuum != null && gas.totalMoles() == 0 && gas.heatCapacity() == 0) energy = 0;
             if (regulation != null) next = ThermalRegulatorMath.regulate(next,
                     temperature.bodyHeatCapacityJoulesPerKelvin(), regulation, 1.0, true, true);
             if (!Double.isFinite(next) || next < 2.7 || next > 20000) return Outcome.SKIPPED;
@@ -289,19 +311,38 @@ public final class BodyTemperatureSystem {
                                     ThermalExposureMath.VacuumPolicy vacuumPolicy,
                                     DoublePredicate energyCommit,
                                     java.util.function.Predicate<Map<String, Float>> damageSink) {
+        return transact(detached, gas, profile, regulation, vacuumPolicy,
+                new EquipmentProtectionProjection.TemperatureCoefficients(1, 1), energyCommit, damageSink);
+    }
+
+    public static Outcome transact(BodyTemperatureAttachment detached,
+                                    com.juicyslew.moonstation14.ms14.atmos.core.GasMixture gas,
+                                    ThermalExposureMath.ThermalProfile profile, ThermalRegulatorMath.Policy regulation,
+                                    ThermalExposureMath.VacuumPolicy vacuumPolicy,
+                                    EquipmentProtectionProjection.TemperatureCoefficients coefficients,
+                                    DoublePredicate energyCommit,
+                                    java.util.function.Predicate<Map<String, Float>> damageSink) {
         if (detached == null || gas == null || profile == null || energyCommit == null || damageSink == null) return Outcome.SKIPPED;
+        if (coefficients == null || !Double.isFinite(coefficients.heating()) || coefficients.heating() < 0
+                || !Double.isFinite(coefficients.cooling()) || coefficients.cooling() < 0) return Outcome.SKIPPED;
         BodyTemperatureComponent old = detached.toComponent();
         ThermalExposureMath.ExposureResult exposure;
         try {
             exposure = ThermalExposureMath.expose(old.kelvin(), gas, profile, 1.0);
-            double afterExchange = vacuumPolicy == null ? exposure.bodyTemperatureKelvin()
+            double exchangeDelta = exposure.bodyTemperatureKelvin() - old.kelvin();
+            double exchangeCoefficient = exchangeDelta < 0 ? coefficients.cooling() : coefficients.heating();
+            double exchanged = old.kelvin() + exchangeDelta * exchangeCoefficient;
+            double environmentEnergy = -(exchanged - old.kelvin()) * profile.bodyHeatCapacityJoulesPerKelvin();
+            double afterExchange = vacuumPolicy == null ? exchanged
                     : gas.totalMoles() == 0.0 && gas.heatCapacity() == 0.0
-                    ? ThermalExposureMath.vacuumBodyKelvin(exposure.bodyTemperatureKelvin(), profile, vacuumPolicy, 1.0)
-                    : exposure.bodyTemperatureKelvin();
+                    ? exchanged + (ThermalExposureMath.vacuumBodyKelvin(exchanged, profile, vacuumPolicy, 1.0) - exchanged)
+                        * ((vacuumPolicy.spaceTemperatureKelvin() - exchanged) < 0 ? coefficients.cooling() : coefficients.heating())
+                    : exchanged;
+            if (vacuumPolicy != null && gas.totalMoles() == 0.0 && gas.heatCapacity() == 0.0) environmentEnergy = 0.0;
             double next = regulation == null ? afterExchange
                     : ThermalRegulatorMath.regulate(afterExchange,
                             profile.bodyHeatCapacityJoulesPerKelvin(), regulation, 1.0, true, true);
-            exposure = new ThermalExposureMath.ExposureResult(next, exposure.environmentEnergyDeltaJoules(),
+            exposure = new ThermalExposureMath.ExposureResult(next, environmentEnergy,
                     ThermalExposureMath.damageAt(next, profile, 1.0));
             double delta = next - old.kelvin();
             double energy = exposure.environmentEnergyDeltaJoules();

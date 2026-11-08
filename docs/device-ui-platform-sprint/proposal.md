@@ -74,4 +74,4 @@ Stop for owner review if Stage 0 cannot establish the pinned-platform API contra
 
 ## Relationship to roadmap
 
-This proposal's former UI-first order is historical and has been superseded by the newer owner-priority update in [the roadmap](../next-systems-roadmap.md): lifecycle first, UI platform spike deferred to the next major technical investigation. Retain this proposal as a potential later investigation before ChemMaster or gameplay action menus; it does not authorize implementation or override the lifecycle proposal.
+This proposal's former UI-first order is historical and has been superseded by the newer owner-priority update in [the roadmap](../project-reference/next-systems-roadmap.md): lifecycle first, UI platform spike deferred to the next major technical investigation. Retain this proposal as a potential later investigation before ChemMaster or gameplay action menus; it does not authorize implementation or override the lifecycle proposal.

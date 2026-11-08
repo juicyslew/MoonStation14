@@ -21,3 +21,4 @@ public final class MobStateAttachment {
                     com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.valueOf(ByteBufCodecs.STRING_UTF8.decode(buf)),
                     ByteBufCodecs.VAR_LONG.decode(buf))));
 }
+

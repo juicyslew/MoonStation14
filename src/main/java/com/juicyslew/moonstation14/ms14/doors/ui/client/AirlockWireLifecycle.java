@@ -12,3 +12,4 @@ final class AirlockWireLifecycle {
     }
     boolean isActive(Object screen) { return active == screen; }
 }
+

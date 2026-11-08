@@ -7,3 +7,4 @@ final class GhostSpriteGeometry {
 
     private GhostSpriteGeometry() {}
 }
+

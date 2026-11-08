@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "exit_code": 0,
+  "selection": [
+    "test_workflow_feedback_service.FeedbackServiceTests.test_kindless_terminal_event_reaches_author_and_acknowledges",
+    "test_workflow_intake_control.HeldIntakeExistingRouteTests.test_status_and_valid_author_ack_remain_available_under_hold",
+    "test_workflow_result_ack.ResultAckRouteTests.test_valid_ack_and_exact_replay_are_accepted",
+    "test_workflow_result_ack.ResultAckRouteTests.test_wrong_binding_and_untrusted_author_field_are_rejected_without_state_change",
+    "test_workflow_dynamic_author [module]",
+    "test_workflow_intake_control.IntakeControlTests.test_live_submit_consumer_is_held_before_identity_and_store_effects"
+  ],
+  "source_before": {
+    "tooling/agent_workflow/workflow_coordinator.py": "399C4F052A81B7DF4FA4C304E195860BCAB008B72EC34105E58D7E1EF4788B63",
+    "tooling/agent_workflow/test_workflow_dynamic_author.py": "A5108D0349D3BD34118DC3E6B3979FF7483C6C17D3E44C514CCF4A0C8BFF6584"
+  },
+  "source_after": {
+    "tooling/agent_workflow/workflow_coordinator.py": "399C4F052A81B7DF4FA4C304E195860BCAB008B72EC34105E58D7E1EF4788B63",
+    "tooling/agent_workflow/test_workflow_dynamic_author.py": "A5108D0349D3BD34118DC3E6B3979FF7483C6C17D3E44C514CCF4A0C8BFF6584"
+  },
+  "source_stable": true,
+  "historical_note": "Prior attempt: 20 tests passed, 2 import errors due missing MAIN root in PYTHONPATH; not a passing validation.",
+  "upstream_full_run_note": "Earlier 958-test run had 4 failures; not represented by this focused run."
+}

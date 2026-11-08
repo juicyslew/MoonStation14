@@ -48,3 +48,4 @@ public final class ModRadioChannels {
         return level.isClientSide() ? PrototypeRuntime.clientRadioChannels() : PrototypeRuntime.serverRadioChannels();
     }
 }
+

@@ -64,3 +64,4 @@ public final class ComplexInteractionSystem {
                 && level.getServer().isSameThread() && level.getEntity(body.getUUID()) == body;
     }
 }
+

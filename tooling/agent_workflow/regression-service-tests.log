@@ -1,0 +1,20 @@
+native-dispatch-identities:{'launcher_pid': 28880, 'worker_identity': {'created_ms': 1792191349163, 'pid': 19524}}
+native-dispatch-identities:{'launcher_pid': 22884, 'worker_identity': {'created_ms': 1792191350301, 'pid': 24996}}
+native-dispatch-identities:{'launcher_pid': 20864, 'worker_identity': {'created_ms': 1792191351838, 'pid': 28788}}
+native-dispatch-identities:{'launcher_pid': 2248, 'worker_identity': {'created_ms': 1792191353007, 'pid': 2468}}
+native-dispatch-identities:{'launcher_pid': 7272, 'worker_identity': {'created_ms': 1792191354549, 'pid': 28476}}
+native-dispatch-identities:{'launcher_pid': 12244, 'worker_identity': {'created_ms': 1792191355679, 'pid': 13020}}
+native-dispatch-identities:{'launcher_pid': 344, 'worker_identity': {'created_ms': 1792191357206, 'pid': 19216}}
+native-dispatch-identities:{'launcher_pid': 3960, 'worker_identity': {'created_ms': 1792191359416, 'pid': 6792}}
+native-dispatch-identities:{'launcher_pid': 17696, 'worker_identity': {'created_ms': 1792191362562, 'pid': 30488}}
+native-dispatch-identities:{'launcher_pid': 11724, 'worker_identity': {'created_ms': 1792191364592, 'pid': 26576}}
+native-dispatch-identities:{'launcher_pid': 4468, 'worker_identity': {'created_ms': 1792191367658, 'pid': 21376}}
+.........C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14\tooling\agent_workflow\test_workflow_review_service.py:87: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient
+native-dispatch-identities:{'launcher_pid': 12408, 'worker_identity': {'created_ms': 1792191371324, 'pid': 17696}}
+native-dispatch-identities:{'launcher_pid': 23884, 'worker_identity': {'created_ms': 1792191373808, 'pid': 24896}}
+..
+----------------------------------------------------------------------
+Ran 11 tests in 27.827s
+
+OK

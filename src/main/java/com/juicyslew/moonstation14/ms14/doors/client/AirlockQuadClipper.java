@@ -13,26 +13,31 @@ public final class AirlockQuadClipper {
         }
     }
     private record Plane(int axis, float boundary, boolean keepGreater) { }
-    private static final List<Plane> DOOR_VOLUME = List.of(
-            new Plane(0,0,true), new Plane(0,1,false), new Plane(1,0,true), new Plane(1,2,false),
-            new Plane(2,0,true), new Plane(2,1,false));
-
     private AirlockQuadClipper() { }
 
     /** Returns the clipped polygon (0, 3+ vertices); UVs are linearly interpolated at every cut. */
     public static List<Vertex> clip(List<Vertex> quad) {
+        return clip(quad, 0, 1, 0, 2, 0, 1);
+    }
+
+    /** Clips to an explicit local render volume; coordinates and UVs stay in authored model space. */
+    public static List<Vertex> clip(List<Vertex> quad, float minX, float maxX, float minY, float maxY,
+                                    float minZ, float maxZ) {
         if (quad == null || quad.size() < 3) return List.of();
+        if (!(minX <= maxX && minY <= maxY && minZ <= maxZ)) throw new IllegalArgumentException("invalid clip volume");
         boolean fullyInside = true;
         for (Vertex vertex : quad) {
-            if (vertex.x() < 0 || vertex.x() > 1 || vertex.y() < 0 || vertex.y() > 2
-                    || vertex.z() < 0 || vertex.z() > 1) {
+            if (vertex.x() < minX || vertex.x() > maxX || vertex.y() < minY || vertex.y() > maxY
+                    || vertex.z() < minZ || vertex.z() > maxZ) {
                 fullyInside = false;
                 break;
             }
         }
         if (fullyInside) return isNonDegenerate(quad) ? quad : List.of();
         List<Vertex> polygon = List.copyOf(quad);
-        for (Plane plane : DOOR_VOLUME) {
+        List<Plane> volume = List.of(new Plane(0,minX,true), new Plane(0,maxX,false), new Plane(1,minY,true),
+                new Plane(1,maxY,false), new Plane(2,minZ,true), new Plane(2,maxZ,false));
+        for (Plane plane : volume) {
             if (polygon.isEmpty()) return List.of();
             ArrayList<Vertex> out = new ArrayList<>();
             Vertex previous = polygon.get(polygon.size()-1);

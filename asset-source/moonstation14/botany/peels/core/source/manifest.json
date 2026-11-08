@@ -1,0 +1,425 @@
+{
+  "request_id": "botany-peels-3d-loose-production-20261028",
+  "resources": [
+    {
+      "family": "banana",
+      "revision": "SS14 space-station-14 revision c9df5ef5d675b0d1d226828bddf6b78c28502d91 (pin required; independent audit not claimed)",
+      "source_directory": "C:\\Users\\William\\Documents\\SS14-dev\\space-station-14\\Resources\\Textures\\Objects\\Specific\\Hydroponics\\banana.rsi",
+      "copied_directory": "source/rsi/banana.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from tgstation at https://github.com/tgstation/tgstation/commit/6be7633abca9f1a51cab1020500cf0776ce78e5c, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub), On-head sprites by FlipBrooke,.",
+      "files": {
+        "baked-peel-equipped-HELMET-hamster.png": "7cbbe987f1f1464dc01ce4b7f3e709388ca2167f5cb35c3f7c01adce40eb9409",
+        "baked-peel-equipped-HELMET.png": "e75d757ddba799a84c10c75b934e9c40a8407d3d1f098f2da2f0d8b29785407f",
+        "baked-peel-inhand-left.png": "ea8c557821dc59dad2ee4c9b7b3cf77bdb61df52fc9387d5cdffdbb9765f7e9d",
+        "baked-peel-inhand-right.png": "a21fdb30390b27e0114a0b488845e74b8620690832a0c89b22f0b14fc1b4b33a",
+        "baked-peel.png": "906b82dd025064483f20aab404f2ff9df18c85d2dffa4b2dd9e2cde4f6d1fb5f",
+        "baked-peel2.png": "2dd9052c324b393b15ed8a9996d4b5f1468017ab2105377b1a9251009f90b48e",
+        "baked-peel3.png": "d8ebf671907c12fa0bea8b1dc439be25329c738576c919d364f7080055318d24",
+        "dead.png": "d767f96c435e46f0abb9f2c1eb2c7fa0285eee69643f8db33b30a14fc8ab1b4d",
+        "harvest.png": "59b72e979d4bc319356d6abe9baa918fda5e36fa868072c541b8904e9d49437b",
+        "meta.json": "3a401f1acb06c6ed560ecdaad5552429558a2e605444c41ef2a158ad5dba2fc4",
+        "peel-equipped-HELMET-hamster.png": "54afa08f03fb4e8987e787af8d2ac658baaa931fd2d3ace351008535d51b94a2",
+        "peel-equipped-HELMET.png": "793516dff74c0b0dc6cbf9600d4ab6090dd9bb4b134fa25a3e19167d3870b03b",
+        "peel-inhand-left.png": "496e56bf80946cc37a2a851375d8e1578763159d2161a8ddc37214d9036bdaa2",
+        "peel-inhand-right.png": "7affc87dc72e85b9ece5caf0445e984710baa59df32009ded55d96f7934e1f52",
+        "peel.png": "b59c5f96bc9d261eb1c682989c1c40f051f3e4042083110907054d56ebedc720",
+        "peel2.png": "b68b882c0fe5e5d01542871f82b09fe1fc3f21354938461788a7d22351eba0ef",
+        "peel3.png": "aa4b895218737feb59dcc1c9dfa59b0f733902f405e2a366b4ff96e8418334ac",
+        "primed.png": "102fc8b97ac3afaa1d8cfc7b7bd566c71a9a248c32aa84cf5aab34684ae9e2e5",
+        "produce-inhand-left.png": "c7c2d19bdbe23e2cf1b52fec1438454bea4c5b97791993c0b51579f67ae80194",
+        "produce-inhand-right.png": "43e17f00aff368ac7e8dbc07e6fd8e1ea8a233a3866410d649730a7161caa7d7",
+        "produce.png": "07f1535e926d7c560d065bae74d9b88780c2329b4f92bdc6bebbdae09f5dfaa6",
+        "seed.png": "c07d9271cf13c5a91c991387e4baec4f3d239888dcd36d893d2d69ed156a6784",
+        "stage-1.png": "f24cf3b3729f175a50a78ba4dd54698b3ffeea188c7e98e0deb09020b2e0ec8f",
+        "stage-2.png": "2b0e59f1fc4c3b1a857bfe5180da74384e26fa88336c9bb77a7008a281fd69bd",
+        "stage-3.png": "c1cb4af588ea0563c6b4fc75c82a4bc0f651e6a866a9fab18fa86cdc322914a8",
+        "stage-4.png": "9d4604c2e0ee5f4866362833ba2a7af135980b0c2566be26e673f072cd1d5745",
+        "stage-5.png": "19121cccbcaea8bfcb01a0ddff6717db670fce6265c992d418ee5d9965cd86b2",
+        "stage-6.png": "8570c12a784b67f0366b67df61b56d90260e2dd7fce2c1316307dc493b5cfb44"
+      },
+      "state_coverage": [
+        {
+          "state": "dead",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "harvest",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "produce",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "peel",
+          "directions": 1,
+          "delays": null,
+          "disposition": "selected static loose/held/inventory3D"
+        },
+        {
+          "state": "peel2",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "peel3",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "peel-inhand-left",
+          "directions": 4,
+          "delays": null,
+          "disposition": "four-direction pose reference;3D shared same volume"
+        },
+        {
+          "state": "peel-inhand-right",
+          "directions": 4,
+          "delays": null,
+          "disposition": "four-direction pose reference;3D shared same volume"
+        },
+        {
+          "state": "baked-peel",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "baked-peel2",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "baked-peel3",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "baked-peel-equipped-HELMET",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "baked-peel-equipped-HELMET-hamster",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "baked-peel-inhand-left",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "baked-peel-inhand-right",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "seed",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-1",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-2",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-3",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-4",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-5",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-6",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "peel-equipped-HELMET",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "peel-equipped-HELMET-hamster",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "produce-inhand-left",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "produce-inhand-right",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "primed",
+          "directions": 1,
+          "delays": [
+            [
+              4.9,
+              0.1
+            ]
+          ],
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        }
+      ]
+    },
+    {
+      "family": "mimana",
+      "revision": "SS14 space-station-14 revision c9df5ef5d675b0d1d226828bddf6b78c28502d91 (pin required; independent audit not claimed)",
+      "source_directory": "C:\\Users\\William\\Documents\\SS14-dev\\space-station-14\\Resources\\Textures\\Objects\\Specific\\Hydroponics\\mimana.rsi",
+      "copied_directory": "source/rsi/mimana.rsi",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from tgstation at https://github.com/tgstation/tgstation/commit/6be7633abca9f1a51cab1020500cf0776ce78e5c, inhands by mubururu_ (github). Mimana peel on-head sprite by FlipBrooke, based on the mimana item sprite.",
+      "files": {
+        "dead.png": "0bce8c3315f1bbdf8e42895dcf4fc8346afc66ab93b27638429bfc266f3ae0fa",
+        "harvest.png": "a5d2c782b7d89feec2a0782a34bd8de63b4c64f1caf9c94aa6d3dbb00e0327e5",
+        "meta.json": "329f9ba705493245ff18995153782cf5308e6157d69fe7609e67fc57b7712a4e",
+        "peel-equipped-HELMET-hamster.png": "41e718582c8a71394e9b99102a5ea60d718a7a8dd4f46397897b13619a56f23c",
+        "peel-equipped-HELMET.png": "db31d95ad38d542b62db37b0ce4d0a831ac6de6092178f6fe2bccf06038fcdc2",
+        "peel-inhand-left.png": "51de5b2665223070d05a800405d128127db183056814dfba6bdab9b792e722bc",
+        "peel-inhand-right.png": "c9dde130b13a3026ec6bf06bf6151c7042dec3736d041e3569a749f33d1fd044",
+        "peel.png": "a808d47fe2106f8510884e32703eceea7af6c3dbf38d6ac85aa4316140c0c76c",
+        "peel2.png": "ea2e8d5b786cea42a51e20a75dcdb8d7682c000843e69dc7462ca814e68c33c8",
+        "peel3.png": "bbd2a9ac9d93e4a7d24b12d19732e99581fd864f819ecce7071dfd83595eda0e",
+        "primed.png": "102fc8b97ac3afaa1d8cfc7b7bd566c71a9a248c32aa84cf5aab34684ae9e2e5",
+        "produce-inhand-left.png": "1f1e1d7f69b85e343f74321bb3e3808335368c1fb7b8dbcf00eec45ad269bc34",
+        "produce-inhand-right.png": "f04907e6ec51fd1da5acdeaded484b7a620e31c8b1ece035e1d76184bb46e8e2",
+        "produce.png": "c12e6259a978c3287337711c2d9d26bf6e211c82d6cb3bf9c9cda4879599ff6d",
+        "seed.png": "c64571ee0ad73acb62426b6958edce4e0484532231ed9c3efc033a58489e5da2",
+        "stage-1.png": "efb4f4537ae3b0de3572bdc0dcbc7aded6ebdaeb26d07a105012dadb796bb1f0",
+        "stage-2.png": "ac0e989fa2ad17ade4ef681f7907d2fb71bee69f3e54eb73a57a5c818cf67dda",
+        "stage-3.png": "21205ca7bc414e793279951a7b66b1245f8d2a073cfacf1ee442c83a8c1b19f0",
+        "stage-4.png": "21205ca7bc414e793279951a7b66b1245f8d2a073cfacf1ee442c83a8c1b19f0",
+        "stage-5.png": "54aeadfa1d74082a25e1797c83febb77cc2431c745ed04a606c3870ba58b5f1c",
+        "stage-6.png": "54aeadfa1d74082a25e1797c83febb77cc2431c745ed04a606c3870ba58b5f1c"
+      },
+      "state_coverage": [
+        {
+          "state": "dead",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "harvest",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "produce",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "peel",
+          "directions": 1,
+          "delays": null,
+          "disposition": "selected static loose/held/inventory3D"
+        },
+        {
+          "state": "peel2",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "peel3",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "peel-equipped-HELMET",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "peel-equipped-HELMET-hamster",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "peel-inhand-left",
+          "directions": 4,
+          "delays": null,
+          "disposition": "four-direction pose reference;3D shared same volume"
+        },
+        {
+          "state": "peel-inhand-right",
+          "directions": 4,
+          "delays": null,
+          "disposition": "four-direction pose reference;3D shared same volume"
+        },
+        {
+          "state": "seed",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-1",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-2",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-3",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-4",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-5",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "stage-6",
+          "directions": 1,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "primed",
+          "directions": 1,
+          "delays": [
+            [
+              4.9,
+              0.1
+            ]
+          ],
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "produce-inhand-left",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        },
+        {
+          "state": "produce-inhand-right",
+          "directions": 4,
+          "delays": null,
+          "disposition": "source-only sibling; existing worn/baked/growth/produce/alternative art untouched"
+        }
+      ]
+    }
+  ],
+  "prototype_chain": "TrashMimanaPeel -> TrashBananaPeel -> BaseItem",
+  "target": "Java1.21.1/NeoForge21.1.224",
+  "source_revision_verified": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "context_snapshot": [
+    {
+      "path": "docs/botany-catalog-sprint/PEELS-3D-PRODUCTION.md",
+      "sha256": "b083124b7df67c918ea553ab773367d11c989e1f6dd9905eb6f295ff799e7fff"
+    },
+    {
+      "path": "docs/botany-catalog-sprint/CATALOG.md",
+      "sha256": "a57a57c1000b4284c6a1b97629292e19bf864e6712edc30d793043960ad13efc"
+    },
+    {
+      "path": "src/main/resources/assets/moonstation14/models/item/trash_banana_peel.json",
+      "sha256": "707cab1975634b1ec2c83261fd0357c171de068542d0431bf087273f13055ca1"
+    },
+    {
+      "path": "src/main/resources/assets/moonstation14/models/item/trash_mimana_peel.json",
+      "sha256": "92947bf05616841051865555aa56d5ad34ef46cad67b68defeeb4bf73a6e9909"
+    },
+    {
+      "path": "src/main/resources/data/moonstation14/moonstation14/loose_object_profile/generic.json",
+      "sha256": "8a37a4120638a862cc782ea37eae5574586b74f1055a807d0cb18dbd9c7301c0"
+    },
+    {
+      "path": "src/main/resources/data/moonstation14/moonstation14/loose_object_profile/trash_banana_peel.json",
+      "sha256": "50bfa1bb64a0cca5c32312a4dbb8e14a5713ae030acaaeb5977f15d9df5e9bed"
+    },
+    {
+      "path": "src/main/resources/data/moonstation14/moonstation14/loose_object_profile/trash_mimana_peel.json",
+      "sha256": "36dda13b5bb2f83d95cd1d5054482c4b97ec426555a26d543e8660db724513cf"
+    },
+    {
+      "path": "src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/client/WorldItemPresentationRenderer.java",
+      "sha256": "c126ba1ce8052faa645cc848d81c02d82d032f81c7cb78417315931a391dfafe"
+    },
+    {
+      "path": "src/main/resources/data/moonstation14/moonstation14/equipment_item/trash_banana_peel.json",
+      "sha256": "d849a9f5876395e94d01eebabf4ffec09c646a59dd8ceb6ce5253b6a52cdceb6"
+    },
+    {
+      "path": "src/main/resources/data/moonstation14/moonstation14/equipment_item/trash_mimana_peel.json",
+      "sha256": "7c128ecf27a3a898969d72644af0eecc137637b032d0b07bb4f2b039d8cd4ffc"
+    },
+    {
+      "path": "src/main/resources/assets/moonstation14/textures/ss14/botany/Objects/Specific/Hydroponics/banana.rsi/peel.png",
+      "sha256": "b59c5f96bc9d261eb1c682989c1c40f051f3e4042083110907054d56ebedc720"
+    },
+    {
+      "path": "src/main/resources/assets/moonstation14/textures/ss14/botany/Objects/Specific/Hydroponics/mimana.rsi/peel.png",
+      "sha256": "a808d47fe2106f8510884e32703eceea7af6c3dbf38d6ac85aa4316140c0c76c"
+    }
+  ],
+  "wearable_policy": "separate equipment_item and fitted head meshes UNCHANGED, not copied into runtime exports",
+  "live_reference_repository": "READ ONLY; requester worktree direct access denied to parent, immutable queued context used"
+}

@@ -1,0 +1,15 @@
+native-dispatch-identities:{'launcher_pid': 24632, 'worker_identity': {'created_ms': 1792200436834, 'pid': 23796}}
+test_dependency_pause_rejects_new_claim_callback (test_workflow_review_quiescence_store.ReviewQuiescenceStoreTests.test_dependency_pause_rejects_new_claim_callback) ... ok
+native-dispatch-identities:{'launcher_pid': 13116, 'worker_identity': {'created_ms': 1792200439316, 'pid': 11112}}
+test_file_backed_proof_keeps_active_claim_held (test_workflow_review_quiescence_store.ReviewQuiescenceStoreTests.test_file_backed_proof_keeps_active_claim_held) ... ok
+native-dispatch-identities:{'launcher_pid': 8032, 'worker_identity': {'created_ms': 1792200442455, 'pid': 14200}}
+test_session_and_body_hash_mismatch_rejected (test_workflow_review_quiescence_store.ReviewQuiescenceStoreTests.test_session_and_body_hash_mismatch_rejected) ... ok
+native-dispatch-identities:{'launcher_pid': 25832, 'worker_identity': {'created_ms': 1792200445478, 'pid': 27264}}
+test_conflicting_same_task_claim_proof_is_denied (test_workflow_review_session_claims.ReviewSessionClaimTests.test_conflicting_same_task_claim_proof_is_denied) ... ok
+native-dispatch-identities:{'launcher_pid': 11168, 'worker_identity': {'created_ms': 1792200448385, 'pid': 17208}}
+test_session_claim_serializes_posts_until_owned_provenance_release (test_workflow_review_session_claims.ReviewSessionClaimTests.test_session_claim_serializes_posts_until_owned_provenance_release) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 15.062s
+
+OK

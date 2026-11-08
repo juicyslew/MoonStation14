@@ -45,3 +45,4 @@ public final class ApcSpriteAnimations {
         return new int[][] { milliseconds.clone(), milliseconds.clone(), milliseconds.clone(), milliseconds.clone() };
     }
 }
+

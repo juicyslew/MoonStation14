@@ -1,0 +1,44 @@
+Reusing configuration cache.
+> Task :generateModMetadata UP-TO-DATE
+> Task :writeNeoForgeTestClasspath UP-TO-DATE
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :jarJar NO-SOURCE
+> Task :processTestResources UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :downloadAssets UP-TO-DATE
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :prepareNeoForgeTestFiles UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :compileGametestJava UP-TO-DATE
+> Task :gametestClasses UP-TO-DATE
+> Task :compileTestJava UP-TO-DATE
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :testClasses UP-TO-DATE
+
+> Task :test
+
+GhostRoleMenuInitializationTest > windowUsesCompactTopRightGeometryAndSharedCloseChrome() FAILED
+    org.opentest4j.AssertionFailedError at GhostRoleMenuInitializationTest.java:25
+
+GhostRoleMenuPresentationTest > scaledCloseBoundsAreAtTheActualWindowTopRightCorner() FAILED
+    org.opentest4j.AssertionFailedError at GhostRoleMenuPresentationTest.java:62
+
+3016 tests completed, 2 failed
+
+> Task :test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':test'.
+> There were failing tests. See the report at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-02/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+BUILD FAILED in 32s
+14 actionable tasks: 1 executed, 13 up-to-date
+Configuration cache entry reused.

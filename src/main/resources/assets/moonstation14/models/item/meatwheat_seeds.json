@@ -1,0 +1,1 @@
+{ "parent":"minecraft:item/generated", "textures": { "layer0":"moonstation14:item/botany/meatwheat_packet_seed", "layer1":"moonstation14:item/botany/meatwheat_seed", "layer2":"moonstation14:item/botany/meatwheat_packet_paper" } }

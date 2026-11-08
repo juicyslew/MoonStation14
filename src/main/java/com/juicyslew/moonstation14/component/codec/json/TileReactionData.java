@@ -28,3 +28,4 @@ public record TileReactionData(
             TileReactionWhitelistData.CODEC.codec().optionalFieldOf("maxontilewhitelist").forGetter(TileReactionData::maxOnTileWhitelist)
     ).apply(instance, TileReactionData::new));
 }
+

@@ -2,11 +2,11 @@
 
 ## STATUS
 
-**Owner accepted M1 on 2026-11-06.** This supersedes older planning-only status and “M1 unaccepted” notes in supporting documents. No merge, commit, push, or M2 implementation has been performed or authorized by this handoff.
+**Owner accepted M1 on 2026-11-06.** This supersedes older planning-only status and “M1 unaccepted” notes in supporting documents. The subsequent owner-authorized merge of main into `agent/03` is in progress; M2 has not been assigned. The earlier bounded M0–M3 license-risk authorization remains in force, without legal clearance or distribution approval; see `Instructions.md` and `licensing-review.md`.
 
 Accepted readiness gate: `run_8467a1ef5e6c1e0bee84c8af`, generation 1, PASS, acknowledged, cleanup confirmed. Its code snapshot input digest is `c5218c5ab206b047741723bd50d4be2942353cc35c0c19687e71d0b23498c3df`. This documentation update follows acceptance; do not claim its changed documentation bytes were in that snapshot.
 
-Worktree is `MoonStation14-agent-03`, branch `agent/03`, base HEAD `a5e72a15`. Acceptance-time inventory reported 537 dirty status entries, including untracked files, and no existing unmerged entries. Work is still uncommitted; inventory individual paths before staging or integration.
+Worktree is `MoonStation14-agent-03`, branch `agent/03`. The owner committed accepted M1 as `2c38bdff` and initiated a merge of main `b606b6bddbdcce0ff32bb43fe726bdf45f890635`; merge base is `a5e72a15`. Historical acceptance evidence below does not validate the combined source.
 
 ## ARCHITECTURE
 
@@ -45,6 +45,8 @@ SS14 DROP forwards captured pointer `EntityCoordinates`; the floor ray, physical
 
 The owner accepts a residual cursor-placement offset. Do not silently reopen it during integration. Dedicated Critical/Dead-drift and connected two-client results were not separately established; owner acceptance does not manufacture those measurements. SS14 powered piloting/thrusters, M2 simulation-owner integration, later performance/capacity gates and actual dimension/FTL work remain separate. Public Sable distribution/license clearance remains unresolved; see `licensing-review.md`.
 
+No combined efficiency or 20–100-client evidence. Simulation-owner integration, plot indexing/splits and actual cross-dimension transfer remain unproven; same-pipeline teleport is not dimension transfer. Establish a merged-source full-suite baseline; do not label failures unrelated without evidence.
+
 ## VALIDATION
 
 Final gate passed 716 JVM tests across 100 selected classes, **123/1006 filtered native cases**, build/JAR and provenance checks. One named native case executes a **30-second**, restarted HUMAN/JUG freight profile (600 game ticks, 3,600 native callbacks), not a 30-case matrix. It passed takeover/restart, vertical COM reversal, grounded HUMAN, cargo integrity/floor and stop checks. Bay retrofit/light propagation also passed. A compiled-tag preflight is only discovery, never runtime execution.
@@ -53,4 +55,10 @@ A missing compiled bay-test class despite Gradle `UP-TO-DATE` was repaired by MA
 
 ## NEXT WORK
 
-Integrate only after merge target/authority is explicit. Preserve all required untracked sources/resources; do not blanket choose ours/theirs, stage everything indiscriminately, or treat old subsystem handoffs as current source truth. Highest-risk overlaps are body input/prediction, native-move bridges, cargo/query/hand networking, mixin registration, Gradle/test configuration and fixture controller logic. Run the required post-acceptance and post-merge regression through the serialized integration owner; no full-suite post-acceptance result is claimed here. M2 starts only when assigned.
+Finish the authorized merge without blanket side selection or treating historical handoffs as source truth. Highest-risk overlaps are body input/prediction, native-move bridges, cargo/query/hand networking, mixin registration and test catalogs. Run merged-source regression through the serialized integration owner. M2 starts only when assigned; M3 remains a technical go/no-go, not distribution approval.
+
+Future scope stays physical moon flight and landing/docking, then separately gated FTL/actual dimensions. Deep-space/CentComm, salvage incentives and evacuation closure remain deferred. Preserve damaged hull/ownership, berth sizing, terrain-based stealth (no distance cloak), and docking/proximity fallback when connectors are destroyed. FTL arrival hazards are distinct from ordinary collisions; beyond-overlap gib danger (approximately 3 m discussed, not accepted SS14 default), cover, escape time and readable 3D warnings require joint resolution. No competing backend or automatic copying fallback.
+
+## OWNER DECISION — 2026-10-10 (separate from assessment)
+
+The owner chooses to move forward using Sable for bounded integration/feasibility, including M0–M3 prototypes, accepting the unresolved Shield interpretation as a project risk for this work. No written permission has been received; this is not legal clearance, a finding that the use is permitted, or authorization for automatic redistribution. No one is to contact the author on the owner's behalf. Author contact is deferred and may be considered later if integration gets far; clarification is recommended when public release is considered. Technical M3 go/no-go, exact artifact/dependency/native/notice audit, and asset boundaries remain in force, with applicable distribution review completed before distribution. This decision neither closes the sprint nor changes its historical discrete-relocation alternative.

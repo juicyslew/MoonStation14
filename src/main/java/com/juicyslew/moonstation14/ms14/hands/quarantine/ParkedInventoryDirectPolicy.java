@@ -54,3 +54,4 @@ public final class ParkedInventoryDirectPolicy {
         return stack == ItemStack.EMPTY && stack.getCount() == 0;
     }
 }
+

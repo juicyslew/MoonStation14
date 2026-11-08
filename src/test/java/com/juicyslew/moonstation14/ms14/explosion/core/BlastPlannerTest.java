@@ -192,4 +192,33 @@ class BlastPlannerTest {
         assertEquals(Set.of(ORIGIN), tiny.intensities().keySet());
         assertTrue(tiny.successful());
     }
+
+    @Test
+    void subStepBudgetReturnsOnlyEpicenterBeforeApplyingCap() {
+        int[] samples = {0};
+        var plan = BlastPlanner.planWithTolerance(ORIGIN, new BlastPlanner.Proposal(0.1, 1, 0.001), p -> {
+            samples[0]++;
+            return BlastPlanner.Sample.open();
+        });
+        assertTrue(plan.successful());
+        assertEquals(Set.of(ORIGIN), plan.intensities().keySet());
+        assertEquals(0.1, plan.intensities().get(ORIGIN), 0);
+        assertEquals(0.1, plan.intensityUsed(), 0);
+        assertEquals(1, samples[0]);
+        assertEquals(0, plan.expansionIterations());
+    }
+
+    @Test
+    void singleTileThresholdIsStrictAndFloatingPointConsistent() {
+        for (double budget : new double[]{Math.nextDown(0.5), 0.5, Math.nextUp(0.5)}) {
+            var plan = BlastPlanner.plan(ORIGIN, new BlastPlanner.Proposal(budget, 1, 0.1), p -> BlastPlanner.Cell.OPEN);
+            assertTrue(plan.successful());
+            if (budget < 0.5) {
+                assertEquals(Set.of(ORIGIN), plan.intensities().keySet());
+                assertEquals(budget, plan.intensities().get(ORIGIN), 0);
+            } else {
+                assertTrue(plan.intensities().size() > 1);
+            }
+        }
+    }
 }

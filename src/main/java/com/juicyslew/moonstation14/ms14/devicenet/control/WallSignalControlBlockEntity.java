@@ -102,3 +102,4 @@ public final class WallSignalControlBlockEntity extends BlockEntity implements D
         super.loadAdditional(tag,registries); if(tag.hasUUID(ID_TAG))identity=new DeviceIdentity(tag.getUUID(ID_TAG)); on=tag.getBoolean(ON_TAG); syncOnState();
     }
 }
+

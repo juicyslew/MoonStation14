@@ -23,3 +23,4 @@ public abstract class ServerPlayerCommittedSpectatorTeleportMixin {
         if (CommittedSpectatorGuard.blockTeleport(player, packet)) callback.cancel();
     }
 }
+

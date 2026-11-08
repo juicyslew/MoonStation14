@@ -99,3 +99,4 @@ public final class ConstructionWorldData extends SavedData {
         tag.putInt("schema", 2); tag.put("records", list); return tag;
     }
 }
+

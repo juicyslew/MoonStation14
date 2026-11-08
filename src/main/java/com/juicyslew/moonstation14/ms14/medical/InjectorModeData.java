@@ -36,3 +36,4 @@ public record InjectorModeData(Kind kind, java.util.List<Float> transferAmounts,
     private static boolean positive(float f) { return Float.isFinite(f) && f > 0; }
     private static boolean nonnegative(float f) { return Float.isFinite(f) && f >= 0; }
 }
+

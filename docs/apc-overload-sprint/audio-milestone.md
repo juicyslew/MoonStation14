@@ -24,7 +24,7 @@ Source and destination SHA-256:
 "most assets CC-BY-SA" guidance nor the missing entry in
 `Resources/Audio/Machines/attributions.yml` establishes this file's license.
 It is not marked MIT. See the [adjacent notice](../../src/main/resources/assets/moonstation14/sounds/apc/machine_switch.ogg.license.txt)
-and [unresolved-audio register](../audio-unknown-provenance.md); seek rights
+and [unresolved-audio register](../audio/audio-unknown-provenance.md); seek rights
 evidence and remove/replace the asset if distribution terms cannot be resolved.
 
 Coordinator-reported independent verification passed:

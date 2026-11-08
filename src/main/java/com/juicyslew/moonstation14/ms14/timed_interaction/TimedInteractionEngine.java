@@ -82,3 +82,4 @@ public final class TimedInteractionEngine {
     private static TimedOperation terminal(TimedOperation o,TimedOperation.Phase p,long tick){return new TimedOperation(o.id(),o.kind(),o.sourceKey(),o.startTick(),o.durationTicks(),p,Math.max(o.startTick(),tick),o.breakOnDamage(),o.breakOnMove());}
     private static TimedOperationState next(TimedOperationState s,List<TimedOperation> ops,long id){return new TimedOperationState(ops,Math.addExact(s.revision(),1),id);}
 }
+

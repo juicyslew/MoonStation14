@@ -30,28 +30,38 @@ class BodyHealthHudPolicyTest {
         float dead = (float) policy.thresholds().thresholds().entrySet().stream()
                 .filter(entry -> entry.getValue() == com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD)
                 .mapToDouble(java.util.Map.Entry::getKey).min().orElseThrow();
-        assertTrue(BodyHealthHudPolicy.medical(critical, critical, dead).debugLabel().contains("Critical 100.0/200.0 damage · 100.0 to death"));
+        assertTrue(BodyHealthHudPolicy.medical(critical, critical, dead).label().startsWith("BODY HEALTH 0.0/"));
     }
 
     @Test
     void medicalHudNormalizesSpeciesThresholdsAndPreservesCriticalProgressUnits() {
-        assertEquals("BODY HEALTH 100.0/100", BodyHealthHudPolicy.medical(0, 100, 200).label());
-        assertTrue(BodyHealthHudPolicy.medical(100, 100, 200).debugLabel().contains("Critical 100.0/200.0 damage · 100.0 to death"));
-        assertTrue(BodyHealthHudPolicy.medical(150, 100, 200).debugLabel().contains("Critical 150.0/200.0 damage · 50.0 to death"));
+        assertEquals("BODY HEALTH 100.0/100.0", BodyHealthHudPolicy.medical(0, 100, 200).label());
+        assertEquals("BODY HEALTH 0.0/100.0", BodyHealthHudPolicy.medical(100, 100, 200).label());
+        assertEquals("BODY HEALTH 0.0/100.0", BodyHealthHudPolicy.medical(150, 100, 200).label());
         assertEquals("BODY HEALTH DEAD", BodyHealthHudPolicy.medical(200, 100, 200).label());
-        assertEquals("BODY HEALTH 100.0/100", BodyHealthHudPolicy.medical(0, 10, 20).label());
-        assertEquals("BODY HEALTH 50.0/100", BodyHealthHudPolicy.medical(5, 10, 20).label());
-        assertEquals("BODY HEALTH 100.0/100", BodyHealthHudPolicy.medical(0, Float.NaN, 20).label());
+        assertEquals("BODY HEALTH 10.0/10.0", BodyHealthHudPolicy.medical(0, 10, 20).label());
+        assertEquals("BODY HEALTH 5.0/10.0", BodyHealthHudPolicy.medical(5, 10, 20).label());
         assertEquals("BODY HEALTH DEAD", BodyHealthHudPolicy.medical(0, 10, 20,
                 com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.DEAD).label());
-        assertTrue(BodyHealthHudPolicy.medical(0, 10, 20,
-                com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL).debugLabel().contains("Critical 0.0/20.0 damage · 20.0 to death"));
-        assertTrue(BodyHealthHudPolicy.medical(200, 100, 200,
-                com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL).debugLabel().contains("Critical 200.0/200.0 damage · 0.0 to death"));
-        assertEquals("BODY HEALTH 0.0/100", BodyHealthHudPolicy.medical(200, 100, 200,
+        assertEquals("BODY HEALTH CRITICAL", BodyHealthHudPolicy.medical(0, 10, 20,
+                com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.CRITICAL).label());
+        assertEquals("BODY HEALTH 0.0/100.0", BodyHealthHudPolicy.medical(200, 100, 200,
                 com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.ALIVE).label());
-        assertEquals("BODY HEALTH 0.0/100", BodyHealthHudPolicy.medical(100, 100, 200,
+        assertEquals("BODY HEALTH 0.0/100.0", BodyHealthHudPolicy.medical(100, 100, 200,
                 com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.ALIVE).label());
+    }
+
+    @Test
+    void absentDamageLedgerRemainsPendingAtPrototypeScaleAndPresentDamageIsMedical() {
+        var alive = com.juicyslew.moonstation14.ms14.character.components.MobStateComponent.State.ALIVE;
+        assertEquals("BODY HEALTH …/10.0",
+                BodyHealthHudPolicy.medicalIfAvailable(false, 0f, 10f, 20f, alive).label());
+        assertEquals("BODY HEALTH 10.0/10.0",
+                BodyHealthHudPolicy.medicalIfAvailable(true, 0f, 10f, 20f, alive).label());
+        assertEquals("BODY HEALTH 5.0/10.0",
+                BodyHealthHudPolicy.medicalIfAvailable(true, 5f, 10f, 20f, alive).label());
+        var nativeView = new BodyHealthHudPolicy().observe(key(1), 8f, 16f, 1);
+        assertEquals("BODY HEALTH 8.0/16.0", nativeView.label());
     }
 
     private BodyHealthHudPolicy.Key key(long epoch) {

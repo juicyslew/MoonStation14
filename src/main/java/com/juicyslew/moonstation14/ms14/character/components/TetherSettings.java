@@ -25,3 +25,4 @@ public record TetherSettings(double stiffness, double progressiveStiffness, doub
     }
     private static boolean valid(double value) { return Double.isFinite(value) && value >= 0 && value <= 200; }
 }
+

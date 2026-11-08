@@ -5,10 +5,14 @@
   ],
   "metadata": { "name": "Human" },
   "components": [
+    {"type": "Species", "label": "Human"},
+    {"type": "Ensnareable"},
+    {"type": "GhostRole", "name": "Human", "description": "A human crew member", "rules": "Follow server rules."},
     {"type": "Examiner"},
     {"type": "Damageable", "damage_container": "Biological"},
     {"type": "HumanoidProfile", "species": "Human"},
     {"type": "MobState"},
+    {"type": "StatusEffects", "allowed_effects": ["pacified"]},
     {"type": "MobThresholds", "thresholds": {"0": "ALIVE", "100": "CRITICAL", "200": "DEAD"}},
     {"type": "Crawler"},
     {"type": "AngularRecovery"},
@@ -54,6 +58,9 @@
     },
     {
       "type": "Body"
+    },
+    {
+      "type": "Internals"
     },
     {
       "type": "InitialBody",
@@ -117,6 +124,7 @@
     {"type": "Stunnable"},
     {"type": "Reactive", "reactive_groups": ["flammable", "extinguish", "acidic"], "reactive_methods": ["touch"]},
     {"type": "MovementSpeedModifier", "mode": "grounded", "acceleration": 20.0, "walk_speed": 2.5, "sprint_speed": 4.5, "ground_friction_with_input": 20.0, "ground_friction_without_input": 20.0, "minimum_friction_speed": 0.005},
+    {"type": "Stamina"},
     {"type": "Hunger"},
     {"type": "Thirst"},
     {"type": "Stomach"},
@@ -125,7 +133,11 @@
     {"type": "ComplexInteraction"},
     {"type": "Metabolizer", "types": ["human"]},
     {"type": "Speech"},
+    {"type": "CombatMode", "can_disarm": true},
+     {"type": "MeleeWeapon", "weapon": {"damage": {"blunt": 5.0}, "attack_rate": 1.0, "range": 1.5, "angle_degrees": 120.0, "wide_origin_height_ratio": 0.6, "arc": "moonstation14:weapon_arc_fist", "wide_arc": "moonstation14:weapon_arc_slash", "alt_disarm": true, "audio": {"swing": {"event": "moonstation14:ss14/weapons/punch_miss"}, "hit": {"event": "moonstation14:ss14/weapons/punch"}, "no_damage": {"event": "moonstation14:ss14/effects/weak_hit"}}}},
+    {"type": "Vocal", "screamSound": "moonstation14:vocal_human_scream", "screamPitchVariation": 0.125, "wilhelmProbability": 0.0002},
     {"type": "Mouth"},
     {"type": "DoorBumpOpener"}
+    ,{"type":"lightningTarget","priority":2,"probability":1.0,"resistance":1.0,"structuralDamage":1.0,"explodes":false}
   ]
 }

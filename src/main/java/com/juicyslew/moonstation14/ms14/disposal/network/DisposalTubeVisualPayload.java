@@ -31,3 +31,4 @@ public record DisposalTubeVisualPayload(ResourceLocation dimension, int chunkX, 
         if(b.isReadable())throw new IllegalArgumentException("trailing disposal snapshot bytes");return new DisposalTubeVisualPayload(dimension,x,z,reset,records);
     }
 }
+

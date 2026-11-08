@@ -9,6 +9,8 @@ import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessLease;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep;
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.NpcMovementDriven;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -33,7 +35,7 @@ public final class HumanHarnessTravelOwnershipGameTests {
     private HumanHarnessTravelOwnershipGameTests() { }
 
     @GameTest(templateNamespace = "moonstation14", template = "power_receiver_tall_clear", timeoutTicks = 45)
-    @GameTestTags({"repair-walk-animation", "shuttle-owner-regression"})
+    @GameTestTags({"repair-walk-animation", "leased-walk-animation", "shuttle-owner-regression"})
     public static void leasedPigAndVillagerKeepVanillaWalkAnimation(GameTestHelper helper) {
         var tickets = FixtureChunkTickets.around(helper, helper.absolutePos(new BlockPos(1, 3, 1)),
                 helper.absolutePos(new BlockPos(8, 5, 6)), 1);
@@ -57,7 +59,13 @@ public final class HumanHarnessTravelOwnershipGameTests {
                 () -> tickets.entityTicking(ownedVillager.blockPosition()) && tickets.entityTicking(ownedPig.blockPosition())
                         && tickets.entityTicking(vanillaVillager.blockPosition()) && tickets.entityTicking(vanillaPig.blockPosition()), "all subjects entity ticking: villager="
                         + ownedVillager.position() + "/" + ownedVillager.onGround() + ", pig=" + ownedPig.position()
-                        + "/" + ownedPig.onGround() + ", floor=" + helper.getLevel().getBlockState(ownedPig.blockPosition().below()), () -> {
+                         + "/" + ownedPig.onGround() + ", floor=" + helper.getLevel().getBlockState(ownedPig.blockPosition().below()), () -> {
+            float villagerSpeedBeforeLease = ownedVillager.walkAnimation.speed(1f);
+            Vec3 villagerPositionBeforeLease = ownedVillager.position();
+            int villagerTickBeforeLease = ownedVillager.tickCount;
+            float pigSpeedBeforeLease = ownedPig.walkAnimation.speed(1f);
+            Vec3 pigPositionBeforeLease = ownedPig.position();
+            int pigTickBeforeLease = ownedPig.tickCount;
             GroundedHarnessLease villagerLease = GroundedHarnessLease.tryAcquire(ownedVillager).orElseThrow(
                     () -> new GameTestAssertException("enrolled marked Villager must acquire a real harness lease"));
             GroundedHarnessLease pigLease = GroundedHarnessLease.tryAcquire(ownedPig).orElseThrow(
@@ -76,10 +84,10 @@ public final class HumanHarnessTravelOwnershipGameTests {
                  require(ownedVillager.walkAnimation.speed(1f) < 1e-4f
                                  && ownedPig.walkAnimation.speed(1f) < 1e-4f,
                          "stationary leased bodies must have near-zero walk animation speed; "
-                                 + animationDiagnostic("villager", ownedVillager, baselineVillagerPosition.x(),
-                                 baselineVillagerPosition, baselineVillagerTicks,
+                                  + animationDiagnostic("villager", ownedVillager, baselineVillagerPosition,
+                                  baselineVillagerTicks,
                                  GroundedHarnessLease.isOwnedBodyEligible(ownedVillager)) + ", "
-                                 + animationDiagnostic("pig", ownedPig, baselinePigPosition.x(), baselinePigPosition,
+                                  + animationDiagnostic("pig", ownedPig, baselinePigPosition,
                                  baselinePigTicks, GroundedHarnessLease.isOwnedBodyEligible(ownedPig)));
                 require(vanillaVillager.walkAnimation.speed(1f) < 1e-4f
                                 && vanillaPig.walkAnimation.speed(1f) < 1e-4f,
@@ -160,14 +168,22 @@ public final class HumanHarnessTravelOwnershipGameTests {
                 / Math.log(WALK_ANIMATION_DECAY_FACTOR));
     }
 
-    private static String animationDiagnostic(String name, Mob body, double previousX, Vec3 previousPosition,
-                                              int tickBaseline, boolean leaseValid) {
-        return name + "{speed=" + body.walkAnimation.speed(1f) + ",nativeTickDelta="
-                + (body.tickCount - tickBaseline) + ",position=" + body.position() + ",previousBaseline="
-                + previousPosition + ",actualXYZ=" + body.getX() + "," + body.getY() + "," + body.getZ()
-                + ",stepXBaseline=" + previousX + ",deltaMovement=" + body.getDeltaMovement()
-                + ",movementOwned=" + ((MindControlledMob) body).moonstation14$isMovementOwned()
-                + ",noAI=" + body.isNoAi() + ",leaseValid=" + leaseValid + "}";
+    private static String animationDiagnostic(String name, Mob body,
+                                              Vec3 positionBeforeLease, int tickBeforeLease, boolean eligible) {
+        long serverTick = body.level().getServer().getTickCount();
+        return name + "{speed=" + body.walkAnimation.speed(1f)
+                + ",ticks=" + (body.tickCount - tickBeforeLease) + ",pos="
+                + compactPosition(positionBeforeLease) + ">" + compactPosition(body.position())
+                + ",delta=" + body.getDeltaMovement() + ",ground=" + body.onGround()
+                + ",owned=" + ((MindControlledMob) body).moonstation14$isMovementOwned()
+                + ",eligible=" + eligible
+                + ",physicalStepConsumed=" + ((MindControlledMob) body)
+                .moonstation14$physicalStepConsumed(body.level(), serverTick)
+                + ",noAI=" + body.isNoAi() + "}";
+    }
+
+    private static String compactPosition(Vec3 position) {
+        return String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f", position.x, position.y, position.z);
     }
 
     /** Keep the animation observation independent of the real, staggered pressure hazard. */
@@ -202,7 +218,7 @@ public final class HumanHarnessTravelOwnershipGameTests {
     }
 
     @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 30)
-    @GameTestTags("shuttle-owner-regression")
+    @GameTestTags({"shuttle-owner-regression", "native-travel-merge-regression", "movement"})
     public static void onlyMarkedVillagerLosesVanillaTravelOwnership(GameTestHelper helper) {
         for (int x = 1; x <= 7; x++) {
             for (int z = 1; z <= 7; z++) {
@@ -278,6 +294,10 @@ public final class HumanHarnessTravelOwnershipGameTests {
         MindControlledMob controlFlag = (MindControlledMob) vanilla;
         require(!controlFlag.moonstation14$isMovementOwned(),
                 "unmarked control Villager must remain unowned " + phase);
+        require(!(vanilla instanceof NpcMovementDriven driven && driven.moonstation14$isNpcMovementDriven()),
+                "ordinary Villager must not have NPC movement ownership " + phase);
+        require(!OwnedCorpsePhysics.eligible(vanilla),
+                "ordinary Villager must not qualify for corpse physics " + phase);
         // AI ticks need not retain the velocity assigned at spawn; prove vanilla travel directly.
         vanilla.setDeltaMovement(.25d, 0d, 0d);
         Vec3 before = vanilla.position();
@@ -291,6 +311,8 @@ public final class HumanHarnessTravelOwnershipGameTests {
                         + ", noAi=" + vanilla.isNoAi() + ", onGroundBefore=" + onGround
                         + ", clearAheadBefore=" + clearAhead + ", boxAfter=" + vanilla.getBoundingBox()
                         + ", marker=" + controlFlag.moonstation14$isMovementOwned());
+        require(vanilla.getDeltaMovement().lengthSqr() > 0,
+                "ordinary Villager native travel must retain nonzero velocity " + phase);
     }
 
     private static void require(boolean condition, String message) {

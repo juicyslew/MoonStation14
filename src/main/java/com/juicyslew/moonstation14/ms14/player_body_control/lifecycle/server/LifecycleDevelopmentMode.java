@@ -63,7 +63,29 @@ public final class LifecycleDevelopmentMode {
                 .then(Commands.literal("creative").executes(context -> enterCreative(
                         context.getSource().getPlayerOrException())))
                 .then(Commands.literal("return").executes(context -> returnToCharacter(
-                        context.getSource().getPlayerOrException()))));
+                        context.getSource().getPlayerOrException())))
+                .then(Commands.literal("possess").then(Commands.argument("target",
+                        net.minecraft.commands.arguments.EntityArgument.entity())
+                        .executes(context -> possess(context.getSource().getPlayerOrException(),
+                                net.minecraft.commands.arguments.EntityArgument.getEntity(context, "target"))))));
+    }
+
+    private static int possess(ServerPlayer player, net.minecraft.world.entity.Entity target) {
+        if (player == null || !player.hasPermissions(2) || !(target instanceof net.minecraft.world.entity.Mob mob)
+                || !(player.level() instanceof ServerLevel level) || mob.level() != level || mob.isRemoved()
+                || !mob.isAlive() || !LifecycleGhostSessionControl.canonicalGhost(player).isPresent()) {
+            if (player != null) player.sendSystemMessage(Component.literal(
+                    "Possess requires a committed ghost and one living, loaded creature in your level. "
+                            + "Use /suicide, then move to enter ghost control first."));
+            return 0;
+        }
+        if (!LifecycleGhostSessionControl.offerDevelopmentTarget(player, mob)) {
+            player.sendSystemMessage(Component.literal(
+                    "That creature is unsupported, claimed, or no longer available for development possession."));
+            return 0;
+        }
+        player.sendSystemMessage(Component.literal("Development possession offered; accepting control preserves this creature."));
+        return 1;
     }
 
     @SubscribeEvent
@@ -343,9 +365,7 @@ public final class LifecycleDevelopmentMode {
             return 0;
         }
         var result = LifecycleExistingBodyReconnect.returnDevelopmentDetached(player, server);
-        if (result == LifecycleExistingBodyReconnect.ReturnResult.CHUNK_LOADING)
-            player.sendSystemMessage(Component.literal("Saved body chunk loading; you remain in Creative with your inventory unchanged. Retry /ms14dev return shortly."));
-        else if (result == LifecycleExistingBodyReconnect.ReturnResult.BLOCKED
+        if (result == LifecycleExistingBodyReconnect.ReturnResult.BLOCKED
                 && player.connection != null && player.connection.isAcceptingMessages())
             player.sendSystemMessage(Component.literal("The exact saved character body could not be proven safe. You remain in Creative; inspect recovery or reconnect."));
         return 1;

@@ -37,3 +37,4 @@ public final class MedicalTreatmentEffects {
         return DamageSystem.existingOrVanillaBaseline(patient);
     }
 }
+

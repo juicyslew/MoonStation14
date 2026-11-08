@@ -57,3 +57,4 @@ public final class PipeSegmentAdmission {
 
     private static Result inert() { return new Result(Decision.INERT, Optional.empty()); }
 }
+

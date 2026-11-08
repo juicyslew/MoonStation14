@@ -1,8 +1,10 @@
 package com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import static org.junit.jupiter.api.Assertions.*;
 
+@ResourceLock("PointerOverlayRegistry")
 class ChemMasterLayoutTest {
     private static com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterWindowState state(java.util.UUID session,java.util.UUID machine,long frame,boolean open){
         return state(session,machine,frame,open,-1);
@@ -262,5 +264,137 @@ class ChemMasterLayoutTest {
         var live=workspace.get(machine);assertEquals(current,live.state().sessionId());
         workspace.accept(state(old,machine,9,true),640,360);assertSame(live,workspace.get(machine));
         workspace.clear();
+    }
+    @Test void outputLayoutKeepsTwentyPaletteTargetsAndEditorsInsideOutputPane(){
+        var pane=new ChemMasterOutputLayout.Rect(10,32,318,232);var g=ChemMasterOutputLayout.geometry(pane,9);
+        assertEquals(20,g.pills().size());
+        assertTrue(g.sourceSelection().width()<=90,"source switches stay compact instead of filling the pane");
+        assertTrue(g.sourceSelection().height()>=14,"source switches remain easy to click");
+        assertEquals(32,g.pillPalette().height(),"two icon rows use existing pane whitespace for button-sized art");
+        for(var r:java.util.List.of(g.label(),g.sourceCaption(),g.eject(),g.sourceSelection(),g.outputCaption(),g.pillPalette(),
+                g.pillCountLabel(),g.pillCount(),g.pillCountMinus(),g.pillCountPlus(),g.pillDoseLabel(),g.pillDose(),g.pillDoseMinus(),g.pillDosePlus(),g.createPills(),
+                g.bottleDoseLabel(),g.bottleDose(),g.bottleDoseMinus(),g.bottleDosePlus(),g.fillBottle(),g.outputInfo())){
+            assertTrue(r.x()>=pane.x()&&r.y()>=pane.y()&&r.x()+r.width()<=pane.x()+pane.width()&&r.y()+r.height()<=pane.y()+pane.height(),r.toString());
+        }
+        for(var cell:g.pills())assertTrue(g.pillPalette().contains(cell.x(),cell.y()));
+        assertFalse(overlaps(g.label(),g.pillCount()));assertFalse(overlaps(g.pillPalette(),g.pillCountLabel()));
+        assertFalse(overlaps(g.pillCountLabel(),g.pillCount()));assertFalse(overlaps(g.pillPalette(),g.pillCount()));
+        assertFalse(overlaps(g.pillCount(),g.pillCountMinus()));assertFalse(overlaps(g.pillCount(),g.pillCountPlus()));
+        assertFalse(overlaps(g.pillDoseLabel(),g.pillDose()));assertFalse(overlaps(g.bottleDoseLabel(),g.bottleDose()));
+        assertFalse(overlaps(g.pillDose(),g.pillDoseMinus()));assertFalse(overlaps(g.pillDose(),g.pillDosePlus()));
+        assertFalse(overlaps(g.bottleDose(),g.bottleDoseMinus()));assertFalse(overlaps(g.bottleDose(),g.bottleDosePlus()));
+        assertFalse(overlaps(g.sourceCaption(),g.eject()));
+        for(int row=0;row<2;row++){
+            int total=g.pills().subList(row*10,row*10+10).stream().mapToInt(ChemMasterOutputLayout.Rect::width).sum();
+            assertTrue(total<=g.pillPalette().width());
+            int height=g.pills().get(row*10).height();
+            for(int col=0;col<10;col++)assertEquals(height,g.pills().get(row*10+col).height());
+            for(int col=0;col<9;col++)assertEquals(g.pills().get(row*10).width(),g.pills().get(row*10+col).width());
+        }
+    }
+    @Test void narrowOutputPaletteGeometryRemainsNonnegative(){
+        var pane=new ChemMasterOutputLayout.Rect(0,0,12,24);var g=ChemMasterOutputLayout.geometry(pane,9);
+        assertEquals(20,g.pills().size());
+        for(var cell:g.pills()){assertTrue(cell.width()>=0);assertTrue(cell.height()>=0);}
+    }
+    private static boolean overlaps(ChemMasterOutputLayout.Rect a,ChemMasterOutputLayout.Rect b){
+        return a.x()<b.x()+b.width()&&b.x()<a.x()+a.width()&&a.y()<b.y()+b.height()&&b.y()<a.y()+a.height();
+    }
+
+    @Test void realWorkspaceOpenRefreshRequestDragResizeAndCloseKeepSessionAndRegistryConsistent(){
+        var pointerAvailable=new java.util.concurrent.atomic.AtomicBoolean(true);
+        var workspace=new ChemMasterWorkspace(text->text.length()*6,pointerAvailable::get);var sent=new java.util.ArrayList<com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterControlRequest>();
+        var lastClosed=new java.util.concurrent.atomic.AtomicInteger();workspace.lastWindowClosedHook(lastClosed::incrementAndGet);
+        workspace.sender(sent::add);
+        var machine=java.util.UUID.randomUUID();var session=java.util.UUID.randomUUID();
+        var opened=state(session,machine,1,true);
+        workspace.accept(opened,640,360);
+        var window=workspace.get(machine);assertNotNull(window);
+        var overlay=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.paintOrder().stream()
+                .filter(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterOverlay.class::isInstance).findFirst().orElseThrow();
+        assertTrue(overlay.visible());
+        for(int frame=2;frame<=4;frame++)workspace.accept(state(session,machine,frame,true),640,360);
+        assertSame(window,workspace.get(machine));assertSame(overlay,
+                com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.paintOrder().stream()
+                        .filter(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.client.ChemMasterOverlay.class::isInstance).findFirst().orElseThrow());
+        var geo=ChemMasterLayout.geometry(640,360,"Input".length()*6,"Output".length()*6);
+        double ejectX=window.x()+geo.eject().x()/2d+geo.eject().width()/4d;
+        double ejectY=window.y()+geo.eject().y()/2d+geo.eject().height()/4d;
+        pointerAvailable.set(false);
+        for(int frame=5;frame<=7;frame++)workspace.accept(state(session,machine,frame,true),640,360);
+        assertSame(window,workspace.get(machine));assertFalse(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(ejectX,ejectY,0));
+        pointerAvailable.set(true);
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(ejectX,ejectY,0));
+        assertEquals(1,sent.size());assertEquals(session,sent.getFirst().sessionId());assertTrue(window.pending());
+        assertEquals(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterControlRequest.Operation.EJECT,sent.getFirst().operation());
+        double titleX=window.x()+2,titleY=window.y()+2;
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(titleX,titleY,0));
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.drag(-1000,-1000));
+        assertEquals(0,window.x());assertEquals(0,window.y());
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.release(0));
+        ((ChemMasterOverlay)overlay).viewportSize(120,80);assertTrue(window.x()+Math.min(ChemMasterLayout.WIDTH/2,120)<=120);
+        var closeGeo=ChemMasterLayout.geometry(120,80,"Input".length()*6,"Output".length()*6);
+        double closeX=window.x()+closeGeo.close().x()/2d+closeGeo.close().width()/4d;
+        double closeY=window.y()+closeGeo.close().y()/2d+closeGeo.close().height()/4d;
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(closeX,closeY,0));
+        assertNull(workspace.get(machine));assertFalse(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.paintOrder().contains(overlay));
+        assertEquals(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterControlRequest.Operation.CLOSE,sent.getLast().operation());
+        assertEquals(1,lastClosed.get());
+        workspace.close(window);workspace.closeLocal(window);
+        assertEquals(1,lastClosed.get());assertEquals(2,sent.size());
+        workspace.accept(state(session,machine,8,true),120,80);assertNull(workspace.get(machine));
+        workspace.clear();
+    }
+
+    @Test void overlappingRealChemMasterOverlaysRouteOnlyToPaintedFrontSessionAndContextRetiresBoth(){
+        var workspace=new ChemMasterWorkspace(text->text.length()*6,()->true);
+        workspace.lastWindowClosedHook(()->{});
+        var machineA=java.util.UUID.randomUUID();var machineB=java.util.UUID.randomUUID();
+        workspace.accept(state(java.util.UUID.randomUUID(),machineA,1,true),640,360);
+        workspace.accept(state(java.util.UUID.randomUUID(),machineB,1,true),640,360);
+        var under=workspace.get(machineA);var front=workspace.get(machineB);
+        workspace.beginDrag(front,front.x()+2,front.y()+2);workspace.drag(under.x()+2,under.y()+2,640,360);workspace.endDrag();
+        var frontOverlay=com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.paintOrder().stream()
+                .filter(o->o instanceof ChemMasterOverlay).toList();
+        assertEquals(2,frontOverlay.size());
+        var geo=ChemMasterLayout.geometry(640,360,30,36);
+        var point=geo.eject();double px=front.x()+point.x()/2d+point.width()/4d,py=front.y()+point.y()/2d+point.height()/4d;
+        var requests=new java.util.ArrayList<com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ChemMasterControlRequest>();workspace.sender(requests::add);
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(px,py,0));
+        assertEquals(1,requests.size());assertEquals(front.state().sessionId(),requests.getFirst().sessionId());
+        var actor=front.state().bodyId();workspace.contextChanged(java.util.UUID.randomUUID(),1,front.state().dimension());
+        assertNull(workspace.get(machineA));assertNull(workspace.get(machineB));
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.paintOrder().stream()
+                .noneMatch(o->o instanceof ChemMasterOverlay));
+        workspace.clear();
+    }
+
+    @Test void registeredOverlayRoutesTabsBeforeTitleDragAndPreservesCloseAndLockedCursor(){
+        var pointerAvailable=new java.util.concurrent.atomic.AtomicBoolean(true);
+        var workspace=new ChemMasterWorkspace(text->text.length()*6,pointerAvailable::get);workspace.lastWindowClosedHook(()->{});
+        var session=java.util.UUID.randomUUID();var machine=java.util.UUID.randomUUID();workspace.accept(state(session,machine,1,true),640,360);
+        var window=workspace.get(machine);var overlay=(ChemMasterOverlay)com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.paintOrder().stream()
+                .filter(ChemMasterOverlay.class::isInstance).findFirst().orElseThrow();
+        var geometry=ChemMasterLayout.geometry(640,360,30,36);
+        double outputX=window.x()+(geometry.outputTab().x()+geometry.outputTab().width()/2d)/2d;
+        double outputY=window.y()+(geometry.outputTab().y()+geometry.outputTab().height()/2d)/2d;
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(outputX,outputY,0));
+        assertTrue(overlay.outputTabSelected());assertFalse(overlay.dragging());
+        double inputX=window.x()+(geometry.inputTab().x()+geometry.inputTab().width()/2d)/2d;
+        double inputY=window.y()+(geometry.inputTab().y()+geometry.inputTab().height()/2d)/2d;
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(inputX,inputY,0));
+        assertFalse(overlay.outputTabSelected());assertFalse(overlay.dragging());
+        pointerAvailable.set(false);
+        assertFalse(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(outputX,outputY,0));
+        assertFalse(overlay.outputTabSelected());assertFalse(overlay.dragging());
+        pointerAvailable.set(true);
+        double titleX=window.x()+10,titleY=window.y()+4;
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(titleX,titleY,0));
+        assertTrue(overlay.dragging());assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.release(0));
+        assertFalse(overlay.dragging());
+        double closeX=window.x()+geometry.close().x()/2d+geometry.close().width()/4d;
+        double closeY=window.y()+geometry.close().y()/2d+geometry.close().height()/4d;
+        assertTrue(com.juicyslew.moonstation14.ms14.ui.client.pointer.PointerOverlayRegistry.click(closeX,closeY,0));
+        assertNull(workspace.get(machine));workspace.clear();
     }
 }

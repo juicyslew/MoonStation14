@@ -313,3 +313,4 @@ public class VisualPipeBlockEntity extends BlockEntity {
         return layer == PRIMARY || layer == SECONDARY || layer == TERTIARY;
     }
 }
+

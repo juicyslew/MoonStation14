@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ReagentResourceSmokeTest {
+public class ReagentResourceSmokeTest {
     private static final String RESOURCE_ROOT = "data/moonstation14/moonstation14/reagent";
 
     @Test
@@ -363,7 +363,7 @@ class ReagentResourceSmokeTest {
         return catalog.get(id(reagent)).getAsJsonObject("metabolisms").getAsJsonObject(stage);
     }
 
-    static Map<ResourceLocation, JsonObject> loadResources() throws IOException {
+    public static Map<ResourceLocation, JsonObject> loadResources() throws IOException {
         URL root = ReagentResourceSmokeTest.class.getClassLoader().getResource(RESOURCE_ROOT);
         if (root == null) {
             throw new IOException("Classpath resource directory not found: " + RESOURCE_ROOT);

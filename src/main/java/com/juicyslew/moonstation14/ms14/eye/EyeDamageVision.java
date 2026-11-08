@@ -34,3 +34,4 @@ public final class EyeDamageVision {
     public record FogProjection(FogPlanes planes, boolean changed, boolean canceled) {
     }
 }
+

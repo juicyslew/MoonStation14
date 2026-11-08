@@ -1,0 +1,439 @@
+ M .gitignore
+ M .opencode/agents/fidelity-reviewer.md
+ M build.gradle
+ M docs/audio-unknown-provenance.md
+ M docs/botany-fixture.md
+ M docs/botany-sprint/CORE-COMPOSITION.md
+ M docs/botany-sprint/METABOLISM-COMPOSITION.md
+ M docs/botany-sprint/PROCESSING-COMPOSITION.md
+ M docs/feature-readiness-sprint/interaction.md
+ M docs/feature-readiness-sprint/prediction.md
+D  opencode.jsonc
+ M src/gametest/java/com/juicyslew/moonstation14/gametest/AtmosphereRoomGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/gametest/SlidingFrictionGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/botany/BotanyFixtureCommandGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/botany/ProduceFactoryGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/botany/ReagentGrinderSuppliedPowerGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/botany/SeedExtractorFoundationGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/BodyLooseJugSipGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/BodyTimedIngestionGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/FreshWorldOutputBatchGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/HeldTimedIngestionGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/BotanyHarvestAuthenticatedGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/BotanyPlantingAuthenticatedGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/GrinderRegisteredPlayerGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/SeedExtractorRegisteredPlayerGameTests.java
+ M src/gametest/java/com/juicyslew/moonstation14/ms14/ingestion/HandlessIngestionGameTests.java
+ M src/main/java/com/juicyslew/moonstation14/MoonStation14.java
+ M src/main/java/com/juicyslew/moonstation14/MoonStation14Client.java
+ M src/main/java/com/juicyslew/moonstation14/component/ModDataAttachments.java
+ M src/main/java/com/juicyslew/moonstation14/component/ModDataComponents.java
+ M src/main/java/com/juicyslew/moonstation14/component/codec/json/CharacterSchemaAudit.java
+ M src/main/java/com/juicyslew/moonstation14/component/codec/json/PlantMetabolismData.java
+ M src/main/java/com/juicyslew/moonstation14/component/codec/json/StatusEffectBehavior.java
+ M src/main/java/com/juicyslew/moonstation14/component/codec/json/StatusEffectData.java
+ M src/main/java/com/juicyslew/moonstation14/component/codec/json/StatusEffectSchemaAudit.java
+ M src/main/java/com/juicyslew/moonstation14/entities/LooseItemEntity.java
+ M src/main/java/com/juicyslew/moonstation14/eventhooks/DamageHooks.java
+ M src/main/java/com/juicyslew/moonstation14/eventhooks/TickHooks.java
+ M src/main/java/com/juicyslew/moonstation14/item/ModCreativeModeTabs.java
+ M src/main/java/com/juicyslew/moonstation14/item/ModItems.java
+ M src/main/java/com/juicyslew/moonstation14/item/custom/ProduceEdibleItem.java
+ M src/main/java/com/juicyslew/moonstation14/item/custom/PrototypeEdibleItem.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/atmos/world/AtmosphereService.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/BotanyFixtureScenarios.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/BotanyHandUseService.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/HydroponicsTrayBlockEntity.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/MachineProfile.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/ModSeedProfiles.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantInstance.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantMetabolismEvaluator.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantReagentMetabolism.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/ProduceFactory.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/ProduceProfile.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/ReagentGrinderBlock.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/ReagentGrinderBlockEntity.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/SeedExtractorBlock.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/SeedExtractorBlockEntity.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/SeedExtractorHandUseService.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/SeedProfile.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/SeedProfileMergeStrategy.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/SmallBotanyFixtureLayout.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/client/GrinderWindow.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/fixture/BotanyFixtureCommands.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/processing/GrinderProgram.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/processing/GrindingPlan.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/ui/GrinderControl.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/ui/GrinderSessionService.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/ui/GrinderSnapshot.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/botany/ui/GrinderWireCodec.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/character/CharacterControlSystem.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/character/components/CharacterComponent.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/character/components/CharacterComponentRegistry.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/chat/server/LocalSpeechServerHooks.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/containment/DisposalContainedActionPolicy.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/damage/DamageSystem.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/effect/GenericStatusEffectAdapter.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/effect/PopupMessageEffect.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/equipment/EquipmentItemData.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/equipment/EquipmentItemMergeStrategy.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/equipment/ModEquipmentItems.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/examine/BotanyExamineContributor.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/examine/BotanyExaminePresentation.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/examine/BuiltinExamineContributors.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/explosion/core/BlastPlanner.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/explosion/grenade/client/GrenadeSoundClient.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/explosion/grenade/network/ControlledSoundDispatch.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/explosion/grenade/network/GrenadeSoundPayload.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/explosion/grenade/server/GrenadeDetonationService.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/explosion/prototype/ExplosionData.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/explosion/server/ServerExplosionService.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/HandCapability.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/client/BodyHandClient.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/client/HeldUseRequestDispatch.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/live/BodyHandItemTransfer.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/live/BodyLiquidInteraction.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/live/BodyLooseThrow.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/live/FreshWorldOutputBatch.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/network/BodyBlockUseTargetProbe.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/network/BodyHandActionNetworking.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/network/BodyHandActionRequest.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/hands/network/BodyHandRequestService.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/ingestion/BodyTimedIngestionService.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/ingestion/IngestionProfile.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/ingestion/ModIngestionProfiles.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/ingestion/TimedIngestionAccess.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/LooseObjectProfile.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/ModLooseObjectProfiles.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/client/LooseItemRenderer.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/machine/itemslots/MachineItemSlot.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/mobs/MedicalIncapacitationEffects.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/power/runtime/PowerRuntime.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/prototype/PrototypeManager.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/prototype/PrototypeRuntime.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/slip/SlidingFrictionSystem.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/slip/SlipSystem.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/slip/SlipperySolution.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/status_effect/DefaultStatusEffectLifecycle.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/status_effect/StatusEffectPayload.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/status_effect/StatusEffectSystem.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/tools/ModToolProfiles.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/tools/ToolProfile.java
+ M src/main/java/com/juicyslew/moonstation14/ms14/tools/ToolQualities.java
+ M src/main/java/com/juicyslew/moonstation14/sounds/ModSounds.java
+ M src/main/resources/assets/moonstation14/blockstates/reagent_grinder.json
+ M src/main/resources/assets/moonstation14/blockstates/seed_extractor.json
+ M src/main/resources/assets/moonstation14/lang/en_us.json
+ M src/main/resources/assets/moonstation14/models/block/machines/seed_extractor/seedextractor_unlit.json
+ M src/main/resources/assets/moonstation14/sounds.json
+ M src/main/resources/data/moonstation14/moonstation14/botany_machine_profile/grinder.json
+ M src/main/resources/data/moonstation14/moonstation14/botany_machine_profile/seed_extractor.json
+ M src/main/resources/data/moonstation14/moonstation14/character/human.json
+ M src/main/resources/data/moonstation14/moonstation14/ingestion_profile/aloe.json
+ M src/main/resources/data/moonstation14/moonstation14/ingestion_profile/cheese_slice.json
+ M src/main/resources/data/moonstation14/moonstation14/ingestion_profile/food_base.json
+ M src/main/resources/data/moonstation14/moonstation14/ingestion_profile/poppy.json
+ M src/main/resources/data/moonstation14/moonstation14/ingestion_profile/potato.json
+ M src/main/resources/data/moonstation14/moonstation14/ingestion_profile/pumpkin_pie_slice.json
+ M src/main/resources/data/moonstation14/moonstation14/ingestion_profile/tomato.json
+ M src/main/resources/data/moonstation14/moonstation14/item_footprint/aloe.json
+ M src/main/resources/data/moonstation14/moonstation14/item_footprint/aloe_seeds.json
+ M src/main/resources/data/moonstation14/moonstation14/item_footprint/poppy.json
+ M src/main/resources/data/moonstation14/moonstation14/item_footprint/poppy_seeds.json
+ M src/main/resources/data/moonstation14/moonstation14/item_footprint/potato.json
+ M src/main/resources/data/moonstation14/moonstation14/item_footprint/potato_seeds.json
+ M src/main/resources/data/moonstation14/moonstation14/item_footprint/tomato.json
+ M src/main/resources/data/moonstation14/moonstation14/item_footprint/tomato_seeds.json
+ M src/main/resources/data/moonstation14/moonstation14/item_footprint/wheat_bushel.json
+ M src/main/resources/data/moonstation14/moonstation14/item_footprint/wheat_seeds.json
+ M src/main/resources/data/moonstation14/moonstation14/produce_profile/produce_base.json
+ M src/main/resources/data/moonstation14/moonstation14/produce_profile/wheat_bushel.json
+ M src/main/resources/data/moonstation14/moonstation14/seed_profile/aloe.json
+ M src/main/resources/data/moonstation14/moonstation14/seed_profile/defaults.json
+ M src/main/resources/data/moonstation14/moonstation14/seed_profile/poppy.json
+ M src/main/resources/data/moonstation14/moonstation14/seed_profile/potato.json
+ M src/main/resources/data/moonstation14/moonstation14/seed_profile/tomato.json
+ M src/main/resources/data/moonstation14/moonstation14/seed_profile/wheat.json
+ M src/main/resources/data/moonstation14/moonstation14/tool_profile/base_item.json
+ M src/main/resources/data/moonstation14/moonstation14/tool_profile/wirecutter.json
+ M src/test/java/com/juicyslew/moonstation14/gametest/GameTestStructureTemplateEncodingTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/atmos/world/AtmosphereOwnershipSearchTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/botany/BotanyMachineProfileTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/botany/HydroponicsTrayLifecycleTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/botany/HydroponicsWarningAppearanceTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/botany/ProduceFactoryTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/botany/ProduceProfileTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/botany/TrayRulesTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/botany/client/GrinderWindowInputTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/botany/processing/GrinderProgramTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/botany/processing/GrindingPlanTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/character/CharacterPrototypeTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/damage/DamageFeedbackProfileTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/doors/prototype/AirlockPrototypeTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/effect/PopupMessageEffectTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/effect/StatusDerivedEffectHandlerTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/equipment/EquipmentPrototypeTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/examine/BotanyExaminePresentationTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/explosion/core/BlastPlannerTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/explosion/grenade/network/GrenadeSoundPolicyTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/explosion/grenade/server/GrenadeDetonationServiceTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/explosion/prototype/ExplosionPrototypeTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/hands/client/HeldUseRequestDispatchTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/hands/network/BodyHandActionPolicyTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/ingestion/IngestionProfileTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/loose_objects/LooseObjectProfileTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/loose_objects/client/FlatLooseSpriteGeometryTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/machine/itemslots/MachineItemSlotTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/power/topology/PowerTopologyTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/prototype/PrototypeRuntimeTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/prototype/SeedProfileTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/prototype/ServerClassloadingTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/reagent/PlantReagentMetabolismTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/reagent/ReagentResourceSmokeTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/slip/SlipperySolutionTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/status_effect/StatusEffectCoreTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/status_effect/StatusEffectPrototypeTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/status_effect/StatusEffectStorageTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/stomach/NutrimentPipelineTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/storage/grid/ItemFootprintResourceTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/tools/ToolProfileTest.java
+ M src/test/java/com/juicyslew/moonstation14/ms14/ui/preview/CpuOrderedPaint.java
+?? agent-workflow/
+?? cocoa-conversion-candidate-failures/
+?? docs/botany-genetics-sprint/
+?? docs/item-processing-sprint/
+?? food-refill-source-validation/
+?? glasstle-candidate-validation/
+?? muted-status-validation/
+?? product-source-parity-failures/
+?? seed-item-catalog-validation/
+?? src/gametest/java/com/juicyslew/moonstation14/gametest/StaminaGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/gametest/support/ScopedPrototypeCatalogFixture.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/BotanyInspectCommandGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/BotanySamplingAdmissionGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/BotanyToleranceCommandGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/BotanyTrayGameTestEnvironment.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/BotanyYieldPotencyPresetGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/DestructionOutputGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/GrinderJuicingGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/ItemDamageSpillPolicyGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/LigneousHarvestGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/OrdinarySlipifyAcquisitionGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantAutoHarvestGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantCareGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantGasMetabolismGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantRestorationFeedbackGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantScreamGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantSeedReferenceGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantSpeciesMutationGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantStatMutationGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/botany/TomatoItemDamageGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/chat/
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/explosion/
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/EquipmentArmorGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/EquipmentStepTriggerProtectionGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/PoppyHeadwearGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/AuthenticatedBlockUseDriver.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/ingestion/TimedTrashOutputAuthenticatedGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/item_processing/
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/player_body_control/movement/RegisteredIntentMovementBaselineGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/reagent/FoodSolutionReactionPolicyGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/reagent/StackReagentPublicationGameTests.java
+?? src/gametest/java/com/juicyslew/moonstation14/ms14/slip/
+?? src/gametest/resources/data/moonstation14/structure/botany_extractor_power_clear.nbt
+?? src/main/java/com/juicyslew/moonstation14/item/custom/ItemFoodSolutionItem.java
+?? src/main/java/com/juicyslew/moonstation14/item/custom/ProduceItem.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/audio/PositionalSoundRouter.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/BotanyFixedPoint.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/BotanyInspectCommand.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/BotanySwabHandUseService.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/GeneticCarriers.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/GeneticValue.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/ModPlantMutations.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/ModSeedItemProfiles.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/ModWeightedRandomFillSolutions.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantChemicalMutation.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantGasMutation.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantHarvestMutation.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantMutationRecord.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantMutationSystem.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantMutationTable.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantPollenCross.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantSamplingPlan.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantScreamAudio.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantSeedReference.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/PlantStatMutation.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/ProduceSourceComposition.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/ProduceWorldAppearance.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/SeedItemProfile.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/SeedPacketHealthOverride.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/WeightedRandomFillSolution.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/client/GrinderJitterMotion.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/client/ReagentGrinderBlockEntityRenderer.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/botany/fixture/BotanyFixtureSigns.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/character/components/ProtectedFromStepTriggersComponent.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/character/components/StaminaPrototypeComponent.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/character/stamina/
+?? src/main/java/com/juicyslew/moonstation14/ms14/damage/ArmorModifiers.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/damage/DamageModifierData.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/damage/ItemDamageKernel.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/damage/ItemDamageState.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/equipment/EquipmentArmorSystem.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/equipment/EquipmentNoSlipPolicy.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/equipment/EquipmentStepTriggerProtectionPolicy.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/equipment/ProtectedFromStepTriggers.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/equipment/ResolvedWornEquipment.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/examine/BotanySeedPacketExamineContributor.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/explosion/core/PendingExplosionQueue.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/explosion/server/ExplosionFeedbackService.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/explosion/server/ExplosionSourceAdmission.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/explosion/server/QueuedExplosionSystem.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/hands/network/BodyTargetActionQuery.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/hands/network/BodyTargetActionService.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/hands/network/BodyTargetActionSnapshot.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/item_processing/
+?? src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/ItemStepDamageSystem.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/reagent/ItemFoodSolutionProfile.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/reagent/ItemFoodSolutions.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/reagent/ModItemFoodSolutionProfiles.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/slip/ItemSlipperyComposition.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/slip/ItemStepContactGeometry.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/slip/ItemStepContactSystem.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/slip/ItemStepTriggerData.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/slip/SlipResponseData.java
+?? src/main/java/com/juicyslew/moonstation14/ms14/slip/StepContactEpisodes.java
+?? src/main/resources/assets/moonstation14/attributions/
+?? src/main/resources/assets/moonstation14/models/item/cotton_material.json
+?? src/main/resources/assets/moonstation14/models/item/food_cocoa_beans.json
+?? src/main/resources/assets/moonstation14/models/item/food_meat_wheat.json
+?? src/main/resources/assets/moonstation14/models/item/kitchen_knife.json
+?? src/main/resources/assets/moonstation14/models/item/pyrotton_material.json
+?? src/main/resources/assets/moonstation14/sounds/botany/grinder/juicer.ogg
+?? src/main/resources/assets/moonstation14/sounds/botany/grinder/juicer.ogg.license.txt
+?? src/main/resources/assets/moonstation14/sounds/botany/produce/
+?? src/main/resources/assets/moonstation14/sounds/ss14/effects/
+?? src/main/resources/assets/moonstation14/sounds/ss14/items/chop.ogg
+?? src/main/resources/assets/moonstation14/sounds/ss14/items/chop.ogg.license.txt
+?? src/main/resources/assets/moonstation14/textures/gui/target_actions/
+?? src/main/resources/assets/moonstation14/textures/item/cotton_material.png
+?? src/main/resources/assets/moonstation14/textures/item/cotton_material.png.attribution.txt
+?? src/main/resources/assets/moonstation14/textures/item/food_cocoa_beans.png
+?? src/main/resources/assets/moonstation14/textures/item/food_cocoa_beans.png.attribution.txt
+?? src/main/resources/assets/moonstation14/textures/item/food_meat_wheat.png
+?? src/main/resources/assets/moonstation14/textures/item/food_meat_wheat.png.attribution.txt
+?? src/main/resources/assets/moonstation14/textures/item/kitchen_knife.png
+?? src/main/resources/assets/moonstation14/textures/item/kitchen_knife.png.attribution.txt
+?? src/main/resources/assets/moonstation14/textures/item/pyrotton_material.png
+?? src/main/resources/assets/moonstation14/textures/item/pyrotton_material.png.attribution.txt
+?? src/main/resources/data/moonstation14/moonstation14/equipment_item/poppy.json
+?? src/main/resources/data/moonstation14/moonstation14/extractable_profile/
+?? src/main/resources/data/moonstation14/moonstation14/ingestion_profile/cotton_material.json
+?? src/main/resources/data/moonstation14/moonstation14/ingestion_profile/food_cocoa_beans.json
+?? src/main/resources/data/moonstation14/moonstation14/ingestion_profile/food_meat_wheat.json
+?? src/main/resources/data/moonstation14/moonstation14/ingestion_profile/pyrotton_material.json
+?? src/main/resources/data/moonstation14/moonstation14/ingestion_profile/wheat_bushel.json
+?? src/main/resources/data/moonstation14/moonstation14/item_food_solution_profile/
+?? src/main/resources/data/moonstation14/moonstation14/item_footprint/food_cocoa_beans.json
+?? src/main/resources/data/moonstation14/moonstation14/item_footprint/food_meat_wheat.json
+?? src/main/resources/data/moonstation14/moonstation14/loose_object_profile/cotton_material.json
+?? src/main/resources/data/moonstation14/moonstation14/loose_object_profile/food_cocoa_beans.json
+?? src/main/resources/data/moonstation14/moonstation14/loose_object_profile/food_meat_wheat.json
+?? src/main/resources/data/moonstation14/moonstation14/loose_object_profile/pyrotton_material.json
+?? src/main/resources/data/moonstation14/moonstation14/loose_object_profile/tomato.json
+?? src/main/resources/data/moonstation14/moonstation14/plant_mutation_table/
+?? src/main/resources/data/moonstation14/moonstation14/produce_profile/food_cocoa_beans.json
+?? src/main/resources/data/moonstation14/moonstation14/seed_item_profile/
+?? src/main/resources/data/moonstation14/moonstation14/status_effect/muted.json
+?? src/main/resources/data/moonstation14/moonstation14/status_effect/slip_friction.json
+?? src/main/resources/data/moonstation14/moonstation14/status_effect/stamina_low.json
+?? src/main/resources/data/moonstation14/moonstation14/tool_profile/kitchen_knife.json
+?? src/main/resources/data/moonstation14/moonstation14/weighted_random_fill_solution/
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/BotanyEndurancePresetTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/BotanyInspectCommandTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/BotanyResourceTraitPresetTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/BotanySwabCompletionTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/BotanyTimingTraitPresetTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/GeneticCarriersTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/LigneousGeneticsTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/MachineVisualStateBindingTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantAutoHarvestLifecycleTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantCareMetabolismTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantChemicalMutationTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantGasMetabolismTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantMutationCycleTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantMutationRecordTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantMutationTableTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantPollenCrossTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantSamplingPlanTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantScreamMutationTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantSeedReferenceLifecycleTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantSeedReferenceTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantSpeciesMutationCycleTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantSpeciesMutationTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/SeedExtractorEligibilityTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/SeedItemProfileTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/SeedMutationReferenceValidationTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/SeedPacketHealthPlantingTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/WeightedRandomFillSolutionTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/client/GrinderJitterMotionTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/fixture/
+?? src/test/java/com/juicyslew/moonstation14/ms14/botany/ui/GrinderWireCodecTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/character/StaminaReducerTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/character/StaminaRuntimeTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/damage/ArmorModifiersTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/damage/DamageModifierDataTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/damage/ItemDamageKernelTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/equipment/EquipmentArmorSystemTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/equipment/EquipmentStepTriggerProtectionPolicyTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/examine/BotanySeedPacketExamineTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/explosion/core/PendingExplosionQueueTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/explosion/grenade/network/GrenadeSoundPayloadTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/explosion/grenade/network/SmallExplosionAudioResourceTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/hands/network/BodyTargetActionPolicyTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/item_processing/
+?? src/test/java/com/juicyslew/moonstation14/ms14/loose_objects/LooseObjectSlipperyStackTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/loose_objects/LooseSlipPrototypeManagerTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/AmbrosiaProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/AppleProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/BananaPeelCompositionCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/BananaProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/BloonionProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/BluePumpkinProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/BotanyCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/BotanyCatalogSourceParityTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/BotanyProductIdentityTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/BotanyProductSourceParityTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/CabbageProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/CarrotProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/CitrusPairProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/CitrusProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/CocoaConversionCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/DestructionExplosionCompositionTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/EggplantProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/EggyProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/ExtradimensionalOrangeProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/FruitPitProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/FruitSliceProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/GarlicPineappleProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/GlasstleProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/GrainLeafProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/GrapeBerryProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/LegumeProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/MaterialProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/MedicinalProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/MelonHeadwearCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/MelonProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/MushroomPepperProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/MutationTargetProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/OnionProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/PumpkinProductCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/SeedItemCatalogCandidateTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/prototype/SeedItemSourceParityTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/reagent/ItemFoodSolutionProfileTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/slip/GlassAudioResourceTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/slip/ItemSlipContactGeometryTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/slip/ItemStepTriggerDataTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/slip/SlipResponseProfileTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/status_effect/StatusEffectFrictionQueryTest.java
+?? src/test/java/com/juicyslew/moonstation14/ms14/ui/preview/TargetActionWindowPreviewTest.java
+?? src/test/resources/

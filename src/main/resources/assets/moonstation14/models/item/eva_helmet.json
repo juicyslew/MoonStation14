@@ -1,0 +1,6 @@
+﻿{
+    "textures":  {
+                     "layer0":  "moonstation14:item/eva_helmet"
+                 },
+    "parent":  "minecraft:item/generated"
+}

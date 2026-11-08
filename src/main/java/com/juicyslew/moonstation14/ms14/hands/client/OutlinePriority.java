@@ -24,3 +24,4 @@ final class OutlinePriority {
                 || itemPrecedesBlock(itemBounds, start, end, blockHit.getLocation());
     }
 }
+

@@ -12,3 +12,4 @@ public record DrainableSolutionPolicy(boolean enabled, String solutionName) {
     public static final DrainableSolutionPolicy DISABLED = new DrainableSolutionPolicy(false, "default");
     public DrainableSolutionPolicy { if (solutionName == null || solutionName.isBlank()) throw new IllegalArgumentException("invalid drain policy"); }
 }
+

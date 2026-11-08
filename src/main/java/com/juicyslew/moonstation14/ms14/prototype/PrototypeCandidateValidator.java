@@ -10,3 +10,4 @@ import java.util.Map;
 public interface PrototypeCandidateValidator {
     void validate(Map<ResourceLocation, Map<ResourceLocation, JsonObject>> encodedCatalogs);
 }
+

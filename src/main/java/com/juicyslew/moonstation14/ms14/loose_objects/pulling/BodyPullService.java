@@ -131,6 +131,10 @@ public final class BodyPullService {
         if (body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != next || !next.compatible(body)
                 || !next.reservation(hand).equals(java.util.Optional.of(targetId))) return Result.RECOVERY_REQUIRED;
         Entity target = level.getEntity(targetId);
+        if (target instanceof LooseItemEntity loose && loose.attachment().isPresent()) {
+            release(body, hand, targetId);
+            return Result.DENIED;
+        }
         if (!eligibleTarget(target) || !authorityValid.getAsBoolean()
                 || !CharacterControlSystem.canAct(body) || body.level() != level
                 || probeSelected(level, body, targetId) == null
@@ -143,6 +147,7 @@ public final class BodyPullService {
                 .map(PullerComponent::tether).orElseThrow();
         PULLS.put(body, new Pull(actor, authority, authorityValid, body, level, targetId, target, hand,
                 body.position().distanceTo(target.position()) + resolvedTether.slackAllowance(), resolvedTether, next.revision()));
+        if (target instanceof LooseItemEntity loose) loose.stopThrownCombat();
         rebuildAttachments();
         PostureSystem.refreshMovementAvailability(body, true);
         return Result.SUCCESS;
@@ -163,6 +168,10 @@ public final class BodyPullService {
     }
 
     public static boolean isPulling(LivingEntity body) { return PULLS.containsKey(body); }
+    /** Read-only check against authoritative active leases; no mirrored pull state. */
+    public static boolean isBeingPulled(Entity target) {
+        return target != null && PULLS.values().stream().anyMatch(pull -> pull.target == target);
+    }
     /** A conscious pulled body can resist its single active lease with an actual directional wish. */
     public static void onMovementInput(LivingEntity target, boolean directionalWish) {
         if (!directionalWish || target == null || !CharacterControlSystem.canAct(target)) return;
@@ -300,6 +309,7 @@ public final class BodyPullService {
     }
 
     static boolean eligibleTarget(Entity target) {
+        if (target == null || target.isPassenger() || target.isVehicle()) return false;
         if (target instanceof LooseItemEntity loose) return !loose.isRemoved() && loose.getTarget() == null;
         return target instanceof LivingEntity living && !living.isRemoved()
                 && ActiveCharacterPolicy.resolveActor(living)
@@ -312,28 +322,9 @@ public final class BodyPullService {
                 || target instanceof LooseItemEntity && horizontalDistance(body.position(), target.position()) > PICKUP_REACH
                 || !(target instanceof LooseItemEntity
                 && BodyItemTargetProbe.probeSelected(level, body, targetId, PICKUP_REACH) != null)
-                && !(target instanceof LivingEntity && visibleLivingTarget(level, body, target))) return null;
+                && !(target instanceof LivingEntity
+                && BodyItemTargetProbe.probeSelectedGeometry(level, body, target, PICKUP_REACH))) return null;
         return target;
-    }
-
-    private static boolean visibleLivingTarget(ServerLevel level, LivingEntity body, Entity target) {
-        Vec3 eye = body.getEyePosition();
-        var box = com.juicyslew.moonstation14.ms14.standing.BodyInteractionBounds.of((LivingEntity) target);
-        Vec3 end = eye.add(body.getLookAngle().scale(PICKUP_REACH));
-        Vec3 point = com.juicyslew.moonstation14.ms14.standing.BodyInteractionRay
-                .hit(box, eye, end, PICKUP_REACH, Double.POSITIVE_INFINITY).orElse(null);
-        if (point == null) return false;
-        int minX = Math.min(body.blockPosition().getX(), net.minecraft.core.BlockPos.containing(point).getX()) >> 4;
-        int maxX = Math.max(body.blockPosition().getX(), net.minecraft.core.BlockPos.containing(point).getX()) >> 4;
-        int minZ = Math.min(body.blockPosition().getZ(), net.minecraft.core.BlockPos.containing(point).getZ()) >> 4;
-        int maxZ = Math.max(body.blockPosition().getZ(), net.minecraft.core.BlockPos.containing(point).getZ()) >> 4;
-        for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++)
-            if (level.getChunkSource().getChunkNow(x, z) == null) return false;
-        var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, point,
-                net.minecraft.world.level.ClipContext.Block.COLLIDER,
-                net.minecraft.world.level.ClipContext.Fluid.NONE, body));
-        return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS
-                && eligibleTarget(target) && target.level() == level && !target.isRemoved();
     }
 
     private record Pull(ServerPlayer actor, HandActorAuthority.Snapshot authority, BooleanSupplier authorityValid, LivingEntity body,

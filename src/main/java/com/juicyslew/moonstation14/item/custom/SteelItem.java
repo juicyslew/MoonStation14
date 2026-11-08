@@ -30,3 +30,4 @@ public class SteelItem extends Item implements BodyMetalTool {
                 ? BodyBlockUseResult.Outcome.WORK_STARTED : BodyBlockUseResult.Outcome.DENIED;
     }
 }
+

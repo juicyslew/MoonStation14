@@ -1,7 +1,6 @@
 package com.juicyslew.moonstation14.ms14.hands.client;
 
 import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class DirectClimbInputPolicyTest {
@@ -16,5 +15,14 @@ class DirectClimbInputPolicyTest {
     @Test void separatelyReboundClimbKeyDoesNotInheritRollContextGate() {
         assertTrue(DirectClimbInputPolicy.mayClimb(false, true, false, false, false));
         assertTrue(DirectClimbInputPolicy.mayClimb(false, false, true, false, false));
+    }
+
+    @Test void menuOwnedChordDiscardsOldSavedClimbClickButOtherChordKeepsIt() {
+        int[] clicks = {1};
+        DirectClimbInputPolicy.discardMenuOwnedClick(true, () -> clicks[0] = 0);
+        assertEquals(0, clicks[0]);
+        clicks[0] = 1;
+        DirectClimbInputPolicy.discardMenuOwnedClick(false, () -> clicks[0] = 0);
+        assertEquals(1, clicks[0]);
     }
 }

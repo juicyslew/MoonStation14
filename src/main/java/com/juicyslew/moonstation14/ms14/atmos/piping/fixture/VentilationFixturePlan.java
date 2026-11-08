@@ -12,9 +12,35 @@ import java.util.*;
 /** Pure local-coordinate composition for the bounded two-room ventilation demonstration. */
 public final class VentilationFixturePlan {
     public static final int WIDTH = 20, DEPTH = 12, HEIGHT = 5;
-    public enum BlockRole { AIR, STEEL, GLASS }
+    public enum BlockRole { AIR, STEEL, GLASS, LIGHT }
     public enum Lane { MAIN }
     public enum Scenario { SCRUBBER_ENABLED_TEST_GAS, VENT_DISABLED }
+    /** Safe finite mixtures for automatic-firelock monitor exercises; never includes Plasma. */
+    public enum FirelockScenario { NORMAL, PRESSURE_WARNING, PRESSURE_DANGER, TEMPERATURE_WARNING, TEMPERATURE_DANGER, PRESSURE_DIFFERENTIAL, TEMPERATURE_DIFFERENTIAL, COMBINED_DIFFERENTIAL }
+    public record MonitorExpectation(double pressureKPa, double temperatureKelvin, String expected) { }
+    public record DifferentialTargets(double leftPressureKPa, double leftTemperatureKelvin, double rightPressureKPa, double rightTemperatureKelvin) { }
+    public static DifferentialTargets firelockDifferentialTargets(FirelockScenario scenario) {
+        return switch (Objects.requireNonNull(scenario)) {
+            case PRESSURE_DIFFERENTIAL -> new DifferentialTargets(101.3,293.15,450,293.15);
+            case TEMPERATURE_DIFFERENTIAL -> new DifferentialTargets(101.3,293.15,101.3,700);
+            case COMBINED_DIFFERENTIAL -> new DifferentialTargets(101.3,293.15,450,700);
+            default -> throw new IllegalArgumentException("Not a differential scenario: "+scenario);
+        };
+    }
+    /** Threshold bands are the pinned AirAlarm thresholds: inclusive comparisons, danger before warning. */
+    public static MonitorExpectation firelockExpectation(FirelockScenario scenario) {
+        return switch (Objects.requireNonNull(scenario)) {
+            case NORMAL -> new MonitorExpectation(101.3, 293.15, "NORMAL");
+            case PRESSURE_WARNING -> new MonitorExpectation(87, 293.15, "WARNING");
+            case PRESSURE_DANGER -> new MonitorExpectation(70, 293.15, "DANGER");
+            // Station thresholds are 314.52/393.15 K; deliberately avoid the previous near-boundary targets.
+            case TEMPERATURE_WARNING -> new MonitorExpectation(101.3, 330, "WARNING");
+            case TEMPERATURE_DANGER -> new MonitorExpectation(101.3, 420, "DANGER");
+            case PRESSURE_DIFFERENTIAL -> new MonitorExpectation(450, 293.15, "DIFFERENTIAL");
+            case TEMPERATURE_DIFFERENTIAL -> new MonitorExpectation(101.3, 700, "DIFFERENTIAL");
+            case COMBINED_DIFFERENTIAL -> new MonitorExpectation(450, 700, "DIFFERENTIAL");
+        };
+    }
     public record Cell(int x,int y,int z,BlockRole role) { public BlockPos pos(){return new BlockPos(x,y,z);} }
     public record PowerDevice(PowerDeviceKind kind, BlockPos position, Direction facing) {
         public PowerDevice { position=new BlockPos(position); }
@@ -25,14 +51,18 @@ public final class VentilationFixturePlan {
         public PipeNode { position=new BlockPos(position); }
         @Override public BlockPos position(){return new BlockPos(position);}
     }
-    private static final VentilationFixturePlan STANDARD=new VentilationFixturePlan();
+    private static final VentilationFixturePlan STANDARD=new VentilationFixturePlan(false);
+    private static final VentilationFixturePlan FIRELOCK=new VentilationFixturePlan(true);
     private final List<Cell> blocks;
     private final List<BlockPos> sourceCells, recipientCells;
     private final List<PipeNode> pipes;
     private final List<CableFaceNode> cables;
     private final List<PowerDevice> powerDevices;
     private final BlockPos scrubber, vent, alarm, hvSource, substation, apc;
-    private VentilationFixturePlan(){
+    private final boolean firelockVariant;
+    private final BlockPos firelock;
+    private VentilationFixturePlan(boolean firelockVariant){
+        this.firelockVariant=firelockVariant;
         Map<BlockPos,BlockRole> b=new LinkedHashMap<>();
         // Steel platform and two sealed rooms; glass replaces each room's complete south wall.
         for(int z=0;z<DEPTH;z++)for(int x=0;x<WIDTH;x++)put(b,x,0,z,BlockRole.STEEL);
@@ -40,6 +70,7 @@ public final class VentilationFixturePlan {
         for(int x=1;x<=3;x++)for(int y=1;y<=2;y++)put(b,x,y,6,BlockRole.GLASS);
         for(int x=9;x<=11;x++)for(int y=1;y<=2;y++)put(b,x,y,6,BlockRole.GLASS);
         scrubber=p(2,1,3); vent=p(10,1,3); alarm=p(6,1,6);
+        firelock=p(6,1,4);
         put(b,6,1,7,BlockRole.STEEL);
         for(int z=3;z<=5;z++)put(b,14,1,z,BlockRole.STEEL);
         for(int z=5;z<=7;z++)put(b,16,1,z,BlockRole.STEEL);
@@ -65,7 +96,21 @@ public final class VentilationFixturePlan {
         cables=List.copyOf(cs);
         sourceCells=roomCells(1,3); recipientCells=roomCells(9,3);
         List<Cell> cellPlan=new ArrayList<>(); b.forEach((pos,role)->cellPlan.add(new Cell(pos.getX(),pos.getY(),pos.getZ(),role)));
-        blocks=List.copyOf(cellPlan);
+        if(firelockVariant){
+               // Sealed two-high connector between the room shells. Its only openings are the room portals
+              // at x=4 and x=8; the firelock occupies the center of the otherwise finite corridor.
+              for(int x=4;x<=8;x++){
+                  put(b,x,3,4,BlockRole.STEEL);
+                  for(int y=1;y<=2;y++){ put(b,x, y,3,BlockRole.STEEL); put(b,x,y,5,BlockRole.STEEL); }
+              }
+               for(int y=1;y<=2;y++){ put(b,4,y,4,BlockRole.AIR); put(b,8,y,4,BlockRole.AIR); }
+               put(b,6,1,4,BlockRole.AIR); put(b,6,2,4,BlockRole.AIR);
+               // Deliberate Minecraft-fixture adaptation: constant roof lighting, independent of APC power.
+               // Apply after corridor construction so all three positions remain lights.
+               put(b,2,3,4,BlockRole.LIGHT); put(b,6,3,4,BlockRole.LIGHT); put(b,10,3,4,BlockRole.LIGHT);
+              cellPlan.clear(); b.forEach((pos,role)->cellPlan.add(new Cell(pos.getX(),pos.getY(),pos.getZ(),role)));
+          }
+          blocks=List.copyOf(cellPlan);
     }
     private static void room(Map<BlockPos,BlockRole>b,int x,int z){
         for(int dx=-1;dx<=3;dx++)for(int dz=-1;dz<=3;dz++){
@@ -78,9 +123,18 @@ public final class VentilationFixturePlan {
     private static BlockPos p(int x,int y,int z){return new BlockPos(x,y,z);}
     private static List<BlockPos> roomCells(int x,int z){List<BlockPos>r=new ArrayList<>();for(int y=1;y<=2;y++)for(int dx=0;dx<3;dx++)for(int dz=0;dz<3;dz++)r.add(p(x+dx,y,z+dz));return List.copyOf(r);}
     public static VentilationFixturePlan standard(){return STANDARD;}
+    public static VentilationFixturePlan firelockPlan(){return FIRELOCK;}
+    public boolean isFirelockVariant(){return firelockVariant;} public BlockPos firelock(){return new BlockPos(firelock);}
     public List<Cell> blocks(){return blocks;} public List<PipeNode> pipes(){return pipes;}
     public List<CableFaceNode> cables(){return cables;} public List<PowerDevice> powerDevices(){return powerDevices;}
     public List<BlockPos> sourceCells(){return sourceCells;} public List<BlockPos> recipientCells(){return recipientCells;}
+    /** All finite atmosphere cells in the firelock fixture's connected rooms and corridor. */
+    public List<BlockPos> firelockConnectedCells(){
+        if(!firelockVariant) return List.of();
+        List<BlockPos> cells=new ArrayList<>(sourceCells); cells.addAll(recipientCells);
+        for(int x=4;x<=8;x++) for(int y=1;y<=2;y++) cells.add(p(x,y,4));
+        return List.copyOf(cells);
+    }
     public BlockPos scrubber(){return new BlockPos(scrubber);} public BlockPos vent(){return new BlockPos(vent);} public BlockPos alarm(){return new BlockPos(alarm);}
     public BlockPos hvSource(){return new BlockPos(hvSource);} public BlockPos substation(){return new BlockPos(substation);} public BlockPos apc(){return new BlockPos(apc);}
     public GasType testGas(){return GasType.PLASMA;} public double testGasMolesPerCell(){return 2.0;}

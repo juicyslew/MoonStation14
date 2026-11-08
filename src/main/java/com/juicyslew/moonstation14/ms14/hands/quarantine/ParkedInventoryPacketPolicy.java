@@ -8,3 +8,4 @@ public final class ParkedInventoryPacketPolicy {
         return connectedRealPlayer && (ownedPark || markerPresent);
     }
 }
+

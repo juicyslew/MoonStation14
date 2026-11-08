@@ -15,3 +15,4 @@ public final class ModDeviceNetworks {
     public static final ResourceLocation ATMOS_DEVICES = id("atmos_devices");
     public static final int WIRELESS_NETWORK_ID = 2;
 }
+

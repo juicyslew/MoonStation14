@@ -250,3 +250,4 @@ public final class ConstructionBrowserWindow implements com.juicyslew.moonstatio
     @Override public boolean keyPressed(int key,int scan,int mods) { if(handleConfiguredClose(key,scan,mods))return true; if(!visible||!isSearchFocused())return false; if(key==GLFW.GLFW_KEY_ESCAPE){clearSearchFocus();return true;} return list.searchBox().keyPressed(key,scan,mods); }
     @Override public boolean charTyped(char c,int mods) { return isSearchFocused()&&list.searchBox().charTyped(c,mods); }
 }
+

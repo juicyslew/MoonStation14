@@ -38,15 +38,39 @@ class LocalSpeechPolicyTest {
         LocalSpeechPayload payload = new LocalSpeechPayload(17, "Ada Alder", 0xFFFFFF, raw, 1, 2, 3, dimension);
         assertEquals(raw, payload.text());
         assertEquals("Ada Alder", payload.actualName());
-        assertEquals(13, LocalSpeechPayload.class.getRecordComponents().length);
+        assertEquals(14, LocalSpeechPayload.class.getRecordComponents().length);
         assertEquals(dimension, payload.dimension());
-        assertThrows(IllegalArgumentException.class,
-                () -> new LocalSpeechPayload(17, "account-name", 0xFFFFFF, raw, 1, 2, 3, dimension));
+        assertDoesNotThrow(() -> new LocalSpeechPayload(17, "account-name", 0xFFFFFF, raw, 1, 2, 3, dimension));
         assertThrows(IllegalArgumentException.class,
                 () -> new LocalSpeechPayload(17, "Ada Alder", 0xFFFFFF, raw, 1, 2, 3, null));
         assertThrows(IllegalArgumentException.class,
                 () -> new LocalSpeechPayload(17, "Ada Alder", 0xFFFFFF, raw, 1, 2, 3,
                         ResourceLocation.fromNamespaceAndPath("test", "a".repeat(252))));
+    }
+
+    @Test void identityNamesShareLedgerContractAndRoundTripSpeechAndOwnerPackets() {
+        ResourceLocation dimension = ResourceLocation.parse("moonstation14:station");
+        for (String name : new String[] {"Kobold", "Buddy", "Nadia Hart", "Mouse (1)", "x".repeat(80)}) {
+            assertTrue(com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentityRegistry.validCharacterName(name));
+            var speech = new LocalSpeechPayload(17, SPEAKER_UUID, name, 0xffffff, "hello", 1, 2, 3,
+                    dimension, LocalSpeechPayload.Mode.SAY, LocalSpeechPayload.NO_BEARING,
+                    LocalSpeechPayload.NO_BEARING, LocalSpeechPayload.DistanceTier.NONE);
+            RegistryFriendlyByteBuf speechBuf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            RegistryFriendlyByteBuf identityBuf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            try {
+                LocalSpeechPayload.STREAM_CODEC.encode(speechBuf, speech);
+                assertEquals(speech, LocalSpeechPayload.STREAM_CODEC.decode(speechBuf));
+                var identity = new com.juicyslew.moonstation14.ms14.chat.network.LocalCharacterIdentityPayload(
+                        name, 0xffffff, dimension, SPEAKER_UUID, 1);
+                com.juicyslew.moonstation14.ms14.chat.network.LocalCharacterIdentityPayload.STREAM_CODEC.encode(identityBuf, identity);
+                assertEquals(identity, com.juicyslew.moonstation14.ms14.chat.network.LocalCharacterIdentityPayload.STREAM_CODEC.decode(identityBuf));
+            } finally { speechBuf.release(); identityBuf.release(); }
+        }
+        for (String name : new String[] {"x".repeat(81), "admin", "bad\nname", "bad§aname"}) {
+            assertFalse(com.juicyslew.moonstation14.ms14.chat.identity.ChatIdentityRegistry.validCharacterName(name));
+            assertThrows(IllegalArgumentException.class, () -> new LocalSpeechPayload(17, name, 0xffffff,
+                    "hello", 1, 2, 3, dimension));
+        }
     }
 
     @Test void clearAndMuffledSpeechCarrySpeakerIdentityButOnlyMuffledCarriesCoarseFallback() {
@@ -145,7 +169,7 @@ class LocalSpeechPolicyTest {
         }
     }
 
-    @Test void savedNumberedNpcNameRoundTripsWithoutRelaxingWireBounds() {
+    @Test void bodyNamesRoundTripWithoutRelaxingSharedNameBounds() {
         ResourceLocation dimension = ResourceLocation.parse("minecraft:overworld");
         LocalSpeechPayload sent = new LocalSpeechPayload(56, "Villager (56)", 0xFFFFFF,
                 "hello", 1, 2, 3, dimension);
@@ -156,14 +180,20 @@ class LocalSpeechPolicyTest {
         } finally {
             buffer.release();
         }
-        assertDoesNotThrow(() -> new LocalSpeechPayload(56, "Villager (1000000)", 0xFFFFFF,
-                "hello", 1, 2, 3, dimension));
-        for (String invalid : new String[] {"Villager (0)", "Villager (01)", "Villager (-1)",
-                "Villager (1000001)", "Villager (999999999999999999999999)", "Villager (1) extra",
-                "villager (1)", "Villager(1)"}) {
+        for (String name : new String[] {"Villager (1)", "Villager (1000000)", "Villager (0)",
+                "Kobold", "Buddy", "custom-name", "Nadia Hart", "x".repeat(80)}) {
+            var namedPacket = new LocalSpeechPayload(56, SPEAKER_UUID, name, 0xFFFFFF, "hello", 1, 2, 3,
+                    dimension, LocalSpeechPayload.Mode.SAY, LocalSpeechPayload.NO_BEARING,
+                    LocalSpeechPayload.NO_BEARING, LocalSpeechPayload.DistanceTier.NONE);
+            RegistryFriendlyByteBuf nameBuffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+            try {
+                LocalSpeechPayload.STREAM_CODEC.encode(nameBuffer, namedPacket);
+                assertEquals(namedPacket, LocalSpeechPayload.STREAM_CODEC.decode(nameBuffer));
+            } finally { nameBuffer.release(); }
+        }
+        for (String invalid : new String[] {"system", "Server", "bad\nname", "bad§aname", "x".repeat(81)})
             assertThrows(IllegalArgumentException.class, () -> new LocalSpeechPayload(56, invalid,
                     0xFFFFFF, "hello", 1, 2, 3, dimension), invalid);
-        }
         assertThrows(IllegalArgumentException.class, () -> new LocalSpeechPayload(56, "Villager (56)",
                 0x202020, "hello", 1, 2, 3, dimension));
     }

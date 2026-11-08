@@ -21,3 +21,4 @@ public final class CodecHelpers {
             ResourceLocation::toString
     );
 }
+

@@ -16,6 +16,43 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LifecycleGhostSessionControlTest {
+    @Test void roleOfferReadinessRequiresExactCommittedGhostTargetAndConnection() {
+        assertTrue(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 8, 8, 24, 24,
+                MobHarnessKind.CHARACTER, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(false, 8, 8, 24, 24,
+                MobHarnessKind.CHARACTER, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 7, 8, 24, 24,
+                MobHarnessKind.CHARACTER, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 8, 8, 25, 24,
+                MobHarnessKind.CHARACTER, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 8, 8, 24, 24,
+                MobHarnessKind.GHOST, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 8, 8, 24, 24,
+                MobHarnessKind.CHARACTER, false, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferReadyDecision(true, 8, 8, 24, 24,
+                MobHarnessKind.CHARACTER, true, false, true));
+    }
+
+    @Test void failedRolePreparationReleasesOnlyItsExactUnclaimedRegistration() {
+        assertTrue(LifecycleServerContext.roleReservationReleaseDecision(true, false));
+        assertFalse(LifecycleServerContext.roleReservationReleaseDecision(false, false));
+        assertFalse(LifecycleServerContext.roleReservationReleaseDecision(true, true));
+    }
+
+    @Test void normallyUnboundMappedRoleCanPassTheOfferPrecommitGate() {
+        assertTrue(LifecycleGhostSessionControl.roleOfferPrecommitDecision(true, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferPrecommitDecision(true, false, true, true),
+                "preexisting persistent ownership identity is not an offer target");
+        assertFalse(LifecycleGhostSessionControl.roleOfferPrecommitDecision(true, true, false, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferPrecommitDecision(false, true, true, true));
+        assertFalse(LifecycleGhostSessionControl.roleOfferPrecommitDecision(true, true, true, false));
+    }
+
+    @Test void postCommitCleanupSelectsOrdinarySessionCleanupOnlyForExactSession() {
+        assertTrue(LifecycleCharacterSessionControl.roleAdoptionCleanupUsesSession(true));
+        assertFalse(LifecycleCharacterSessionControl.roleAdoptionCleanupUsesSession(false));
+    }
+
     @Test void parkRequiresTheSameUniqueSavedDeathClaimIdentityAndGeneration() {
         UUID account = UUID.randomUUID(), mind = UUID.randomUUID(), corpse = UUID.randomUUID();
         var saved = new SavedLifecycleProfile(1, account, "person", mind, corpse,
@@ -63,17 +100,21 @@ class LifecycleGhostSessionControlTest {
         assertFalse(LifecycleGhostSessionControl.intentMatchesSession(first, 5));
         assertFalse(LifecycleGhostSessionControl.intentMatchesSession(first, 0));
         assertFalse(LifecycleGhostSessionControl.intentRateAllows(0));
-        assertTrue(LifecycleGhostSessionControl.intentRateAllows(8));
-        assertFalse(LifecycleGhostSessionControl.intentRateAllows(9));
+        assertTrue(LifecycleGhostSessionControl.intentRateAllows(64));
+        assertFalse(LifecycleGhostSessionControl.intentRateAllows(65));
 
         GhostIntentGate<GhostControlPayloads.Intent> gate = new GhostIntentGate<>();
-        assertTrue(gate.offer(first.sequence(), 10, first));
-        assertFalse(gate.offer(intent(4, 2).sequence(), 10, intent(4, 2)));
-        assertEquals(first, gate.take());
-        assertFalse(gate.offer(first.sequence(), 11, first));
+        assertTrue(gate.offer(first.sequence(), first));
+        GhostControlPayloads.Intent second = intent(4, 2);
+        assertTrue(gate.offer(second.sequence(), second));
+        assertEquals(java.util.List.of(first, second), gate.takeBatch(100));
+        assertEquals(java.util.List.of(), gate.takeBatch(100));
+        assertFalse(gate.offer(first.sequence(), first));
         GhostControlPayloads.Intent next = intent(4, 3);
-        assertTrue(gate.offer(next.sequence(), 11, next));
-        assertEquals(next, gate.take());
+        assertTrue(gate.offer(next.sequence(), next));
+        assertEquals(java.util.List.of(next), gate.takeBatch(101));
+        assertFalse(gate.offer(next.sequence(), next));
+        assertEquals(java.util.List.of(), gate.takeBatch(102));
     }
 
     @Test

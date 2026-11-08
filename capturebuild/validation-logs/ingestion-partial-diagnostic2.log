@@ -1,0 +1,671 @@
+Calculating task graph as configuration cache cannot be reused because the set of Gradle properties has changed: the value of 'ms14GameTestDir' was changed.
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :generateModMetadata UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :compileGametestJava
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :gametestClasses
+
+> Task :gameTestTagPreflight
+GameTest tag preflight: 24/750 fixtures selected; available tags=[interaction, live, interaction-reach, mouse-appearance, physiology, character, explosion, examine_jug, jug, ingestion, air-alarm, ventilation, storage, speech, give, loose-pull-admission, damage-feedback, nutrition, equipment-drag-world, equipment, examine_puddle, medical-treatment, command, chemistry, collision, airlock_pressure_stabilization, examine_scene, lifecycle, airlock_electrified_open, network, travel, removed-puller-cleanup, airlock_crush_cycle, disposal-regression, critical, chat, disposal, equipment-quick-equip, timed-interaction, grounded, diagnostics, standing, syringe, airlock_power_cycle, pulling, airlock_crush, power_loaded_index_reconcile, status, construction, airlock_wire_layout, disposals, prototype, examine_selection, loose-objects, invalid, hands, medical-creative-drop, medical-state, airlock_connected, shared-construction, health-analyzer, slip, stripping, placement, posture-fall-audio, stun_action_gate, containment, equipment-transfer, persistence, airlock_admission_probe, airlock_log_pulse, airlock_override, ghost-roles, observer, handless-ingestion, death, food, station, disposal_live_intake_stabilization, examine_policy, atmosphere, lifecycle-reconnect-lease, mouse-ghost-roles, damage, posture, power, crafting, movement, simulation-defaults, detached-pull-stabilization, audio, parked, airlock_seam, merge-main-regression, medical-corrections-regression, suite-stabilization, airlock, creative-menu, airlock_bump, regeneration, carrier, airlock_pry_domain, equipment-regression]
+
+> Task :downloadAssets UP-TO-DATE
+> Task :writeGameTestServerLegacyClasspath UP-TO-DATE
+> Task :prepareGameTestServerRun UP-TO-DATE
+
+> Task :runGameTestServer
+WARN StatusConsoleListener Advanced terminal features are not available in this environment
+[15:15:43] [main/INFO] [cp.mo.mo.Launcher/MODLAUNCHER]: ModLauncher running: args [--launchTarget, forgeserverdev, --gameDir, ., --fml.fmlVersion, 4.0.42, --fml.mcVersion, 1.21.1, --fml.neoForgeVersion, 21.1.224, --fml.neoFormVersion, 20240808.144430]
+[15:15:43] [main/INFO] [cp.mo.mo.Launcher/MODLAUNCHER]: JVM identified as Eclipse Adoptium OpenJDK 64-Bit Server VM 21.0.10+7-LTS
+[15:15:43] [main/INFO] [cp.mo.mo.Launcher/MODLAUNCHER]: ModLauncher 11.0.5+main.901c6ea8 starting: java version 21.0.10 by Eclipse Adoptium; OS Windows 10 arch amd64 version 10.0
+[15:15:44] [main/DEBUG] [cp.mo.mo.LaunchServiceHandler/MODLAUNCHER]: Found launch services [minecraft,forgeclient,forgedatauserdev,testharness,forgeserverdev,forgeserveruserdev,forgejunitdev,forgeclientdev,forgeclientuserdev,forgeserver,forgejunituserdev,forgedatadev]
+[15:15:44] [main/DEBUG] [cp.mo.mo.LaunchPluginHandler/MODLAUNCHER]: Found launch plugins: [mixin,slf4jfixer,runtime_enum_extender,accesstransformer,runtimedistcleaner]
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServicesHandler/MODLAUNCHER]: Discovering transformation services
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLPaths/CORE]: Path GAMEDIR is C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLPaths/CORE]: Path MODSDIR is C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\mods
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLPaths/CORE]: Path CONFIGDIR is C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\config
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLPaths/CORE]: Path FMLCONFIG is C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\config\fml.toml
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.ta.CommonLaunchHandler/CORE]: Got mod coordinates moonstation14%%C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\main;moonstation14%%C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\resources\main;moonstation14%%C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\gametest;moonstation14%%C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\resources\gametest from env
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.ta.CommonLaunchHandler/CORE]: Found supplied mod coordinates [{moonstation14=[C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\main, C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\resources\main, C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\gametest, C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\resources\gametest]}]
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServicesHandler/MODLAUNCHER]: Found additional transformation services from discovery services: 
+[15:15:44] [main/INFO] [ne.ne.fm.lo.ImmediateWindowHandler/]: ImmediateWindowProvider not loading because launch target is forgeserverdev
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServicesHandler/MODLAUNCHER]: Found transformer services : [mixin,fml]
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServicesHandler/MODLAUNCHER]: Transformation services loading
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Loading service mixin
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Loaded service mixin
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Loading service fml
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLLoader/CORE]: FML 4.0.42 loading
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLLoader/CORE]: FML found ModLauncher version : 11.0.5+main.901c6ea8
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLLoader/CORE]: FML found AccessTransformer version : 10.0.1+139da711
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLLoader/CORE]: FML found EventBus version : null
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLLoader/CORE]: Found Runtime Dist Cleaner
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Loaded service fml
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServicesHandler/MODLAUNCHER]: Configuring option handling for services
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/CORE]: Received command line version data  : VersionInfo[neoForgeVersion=21.1.224, fmlVersion=4.0.42, mcVersion=1.21.1, neoFormVersion=20240808.144430]
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServicesHandler/MODLAUNCHER]: Transformation services initializing
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Initializing transformation service mixin
+[15:15:44] [main/DEBUG] [mixin/]: MixinService [ModLauncher] was successfully booted in cpw.mods.cl.ModuleClassLoader@6acdbdf5
+[15:15:44] [main/INFO] [mixin/]: SpongePowered MIXIN Subsystem Version=0.8.7 Source=union:/C:/Users/William/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.15.2+mixin.0.8.7/2af2f021d8e02a0220dc27a7a72b4666d66d44ca/sponge-mixin-0.15.2+mixin.0.8.7.jar%2394!/ Service=ModLauncher Env=SERVER
+[15:15:44] [main/DEBUG] [mixin/]: Initialising Mixin Platform Manager
+[15:15:44] [main/DEBUG] [mixin/]: Adding mixin platform agents for container ModLauncher Root Container(ModLauncher:4f56a0a2)
+[15:15:44] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentMinecraftForge for ModLauncher Root Container(ModLauncher:4f56a0a2)
+[15:15:44] [main/DEBUG] [mixin/]: MixinPlatformAgentMinecraftForge rejected container ModLauncher Root Container(ModLauncher:4f56a0a2)
+[15:15:44] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentDefault for ModLauncher Root Container(ModLauncher:4f56a0a2)
+[15:15:44] [main/DEBUG] [mixin/]: MixinPlatformAgentDefault accepted container ModLauncher Root Container(ModLauncher:4f56a0a2)
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Initialized transformation service mixin
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Initializing transformation service fml
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/CORE]: Setting up basic FML game directories
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLPaths/CORE]: Path GAMEDIR is C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLPaths/CORE]: Path MODSDIR is C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\mods
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLPaths/CORE]: Path CONFIGDIR is C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\config
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLPaths/CORE]: Path FMLCONFIG is C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\config\fml.toml
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/CORE]: Loading configuration
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/CORE]: Preparing launch handler
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLLoader/CORE]: Using forgeserverdev as launch service
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Initialized transformation service fml
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServicesHandler/MODLAUNCHER]: Transformation services begin scanning
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Beginning scan trigger - transformation service mixin
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: End scan trigger - transformation service mixin
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Beginning scan trigger - transformation service fml
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/CORE]: Initiating mod scan
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.ta.CommonLaunchHandler/CORE]: Got mod coordinates moonstation14%%C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\main;moonstation14%%C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\resources\main;moonstation14%%C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\gametest;moonstation14%%C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\resources\gametest from env
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.ta.CommonLaunchHandler/CORE]: Found supplied mod coordinates [{moonstation14=[C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\main, C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\resources\main, C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\gametest, C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\resources\gametest]}]
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.ta.CommonDevLaunchHandler/]: Launching with NeoForge from C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\moddev\artifacts\neoforge-21.1.224.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: Found 4 implementations of IModFileCandidateLocator:
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	       0 - [built-in] net.neoforged.fml.loading.moddiscovery.locators.NeoForgeDevProvider from loader-4.0.42.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	       0 - net.neoforged.fml.loading.moddiscovery.locators.ModsFolderLocator from loader-4.0.42.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	       0 - net.neoforged.fml.loading.moddiscovery.locators.MavenDirectoryLocator from loader-4.0.42.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	   -1000 - [built-in] net.neoforged.fml.loading.moddiscovery.locators.UserdevLocator from loader-4.0.42.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: Found 2 implementations of IModFileReader:
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	       0 - net.neoforged.fml.loading.moddiscovery.readers.JarModsDotTomlModFileReader from loader-4.0.42.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	   -1000 - net.neoforged.fml.loading.moddiscovery.readers.NestedLibraryModReader from loader-4.0.42.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: Found 1 implementations of IDependencyLocator:
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	       0 - net.neoforged.fml.loading.moddiscovery.locators.JarInJarDependencyLocator from loader-4.0.42.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileInfo/LOADING]: Found valid mod file neoforge-21.1.224.jar with {minecraft} mods - versions {1.21.1}
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileParser/LOADING]: Considering mod file candidate C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\moddev\artifacts\neoforge-21.1.224.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileInfo/LOADING]: Found valid mod file neoforge-21.1.224.jar with {neoforge} mods - versions {21.1.224}
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModListHandler/CORE]: Found mod coordinates from lists: []
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileParser/LOADING]: Considering mod file candidate C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\main
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileInfo/LOADING]: Found valid mod file main with {moonstation14} mods - versions {0.0.1}
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileParser/LOADING]: Considering mod file candidate C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\moddev\artifacts\neoforge-21.1.224.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileInfo/LOADING]: Found valid mod file neoforge-21.1.224.jar with {neoforge} mods - versions {21.1.224}
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.neoforged.fancymodloader\earlydisplay\4.0.42\46555dbfff14e9e052f1f693aed14d542a74e111\earlydisplay-4.0.42.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.neoforged.fancymodloader\loader\4.0.42\76e15f98bf676fb44b36c5e776f52a55581ec43a\loader-4.0.42.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.neoforged.accesstransformers\at-modlauncher\10.0.1\5aba50202aceead086bc09fbc2751c9f05cb4890\at-modlauncher-10.0.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.neoforged\accesstransformers\10.0.1\fd83b5725f76eae9115e9355fa1c456a6a441400\accesstransformers-10.0.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.neoforged\bus\8.0.5\5b2d33285ab5d1554e9798ad98c40d6ea3868bd5\bus-8.0.5.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.neoforged\coremods\7.0.3\9147e6f638b4272b3bd5fc8f92ad37802512c6c\coremods-7.0.3.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\cpw.mods\modlauncher\11.0.5\b8f0d49294f733fdb6173931b263553e943dc950\modlauncher-11.0.5.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.neoforged\mergetool\2.0.0\52fe1949be64e3303aabaaa21e315f551db9c9f4\mergetool-2.0.0-api.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.electronwill.night-config\toml\3.8.3\90b2fd6efcb4a7d5b9810cf78f9d824994d717f2\toml-3.8.3.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.electronwill.night-config\core\3.8.3\b442a95f09e349927f5a945ecb594455870fcf4f\core-3.8.3.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.neoforged\JarJarSelector\0.4.1\fb3cc7a58af22ad2880adb98af6d518128c47dae\JarJarSelector-0.4.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.neoforged\JarJarMetadata\0.4.1\f8da03683dc81694556dc3e177c5e3bb77ae6fcb\JarJarMetadata-0.4.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.apache.maven\maven-artifact\3.8.5\4433f50c07debefaed0553bd0068f4f48d449313\maven-artifact-3.8.5.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.jodah\typetools\0.6.3\a01aaa6ddaea9ec07ec4f209487b7a46a526283a\typetools-0.6.3.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.minecrell\terminalconsoleappender\1.3.0\b562e9bb61235c9520e26282cdee71f8f802d1fc\terminalconsoleappender-1.3.0.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.fabricmc\sponge-mixin\0.15.2+mixin.0.8.7\2af2f021d8e02a0220dc27a7a72b4666d66d44ca\sponge-mixin-0.15.2+mixin.0.8.7.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.openjdk.nashorn\nashorn-core\15.4\f67f5ffaa5f5130cf6fb9b133da00c7df3b532a5\nashorn-core-15.4.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.apache.commons\commons-lang3\3.14.0\1ed471194b02f2c6cb734a0cd6f6f107c673afae\commons-lang3-3.14.0.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.sf.jopt-simple\jopt-simple\5.0.4\4fdac2fbe92dfad86aa6e9301736f6b4342a3f5c\jopt-simple-5.0.4.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\commons-io\commons-io\2.15.1\f11560da189ab563a5c8e351941415430e9304ea\commons-io-2.15.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.mojang\logging\1.2.7\24cb95ffb0e3433fd6e844c04e68009e504ca1c0\logging-1.2.7.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.apache.logging.log4j\log4j-slf4j2-impl\2.22.1\d7e6693c2606cb7e7335047d7bb96dec52db5665\log4j-slf4j2-impl-2.22.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.apache.logging.log4j\log4j-core\2.22.1\7183a25510a02ad00cc6a95d3b3d2a7d3c5a8dc4\log4j-core-2.22.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.apache.logging.log4j\log4j-api\2.22.1\bea6fede6328fabafd7e68363161a7ea6605abd1\log4j-api-2.22.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.google.guava\guava\32.1.2-jre\5e64ec7e056456bef3a4bc4c6fdaef71e8ab6318\guava-32.1.2-jre.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.google.code.gson\gson\2.10.1\b3add478d4382b78ea20b1671390a858002feb6c\gson-2.10.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.slf4j\slf4j-api\2.0.9\7cf2726fdcfbc8610f9a71fb3ed639871f315340\slf4j-api-2.0.9.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.antlr\antlr4-runtime\4.13.1\17125bae1d965624e265ef49552f6465a2bfa307\antlr4-runtime-4.13.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.minecraftforge\srgutils\0.4.15\ca408b131759478f164e010fae0d73997e125fb5\srgutils-0.4.15.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.codehaus.plexus\plexus-utils\3.3.0\cf43b5391de623b36fe066a21127baef82c64022\plexus-utils-3.3.0.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.jline\jline-reader\3.20.0\8f15415b022a25b473e8e16c28ae913186ffb9c4\jline-reader-3.20.0.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.machinezoo.noexception\noexception\1.7.1\b65330c98e38a1f915fa54a6e5eca496505e3f0a\noexception-1.7.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.github.oshi\oshi-core\6.4.10\b1d8ab82d11d92fd639b56d639f8f46f739dd5fa\oshi-core-6.4.10.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.google.guava\failureaccess\1.0.1\1dcf1de382a0bf95a3d8b0849546c88bac1292c9\failureaccess-1.0.1.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.mojang\authlib\6.0.54\de8bc95660e1b2fe8793fd427a7a10dcec5b3ea7\authlib-6.0.54.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.mojang\brigadier\1.3.10\d15b53a14cf20fdcaa98f731af5dda654452c010\brigadier-1.3.10.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.mojang\datafixerupper\8.0.16\67d4de6d7f95d89bcf5862995fb854ebaec02a34\datafixerupper-8.0.16.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\io.netty\netty-buffer\4.1.97.Final\f8f3d8644afa5e6e1a40a3a6aeb9d9aa970ecb4f\netty-buffer-4.1.97.Final.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\io.netty\netty-codec\4.1.97.Final\384ba4d75670befbedb45c4d3b497a93639c206d\netty-codec-4.1.97.Final.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\io.netty\netty-common\4.1.97.Final\7cceacaf11df8dc63f23d0fb58e9d4640fc88404\netty-common-4.1.97.Final.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\io.netty\netty-handler\4.1.97.Final\abb86c6906bf512bf2b797a41cd7d2e8d3cd7c36\netty-handler-4.1.97.Final.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\io.netty\netty-resolver\4.1.97.Final\cec8348108dc76c47cf87c669d514be52c922144\netty-resolver-4.1.97.Final.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\io.netty\netty-transport-classes-epoll\4.1.97.Final\795da37ded759e862457a82d9d92c4d39ce8ecee\netty-transport-classes-epoll-4.1.97.Final.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\io.netty\netty-transport-native-unix-common\4.1.97.Final\d469d84265ab70095b01b40886cabdd433b6e664\netty-transport-native-unix-common-4.1.97.Final.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\io.netty\netty-transport\4.1.97.Final\f37380d23c9bb079bc702910833b2fd532c9abd0\netty-transport-4.1.97.Final.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\it.unimi.dsi\fastutil\8.5.12\c24946d46824bd528054bface3231d2ecb7e95e8\fastutil-8.5.12.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.java.dev.jna\jna-platform\5.14.0\28934d48aed814f11e4c584da55c49fa7032b31b\jna-platform-5.14.0.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\net.java.dev.jna\jna\5.14.0\67bf3eaea4f0718cb376a181a629e5f88fa1c9dd\jna-5.14.0.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.joml\joml\1.10.5\22566d58af70ad3d72308bab63b8339906deb649\joml-1.10.5.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.lz4\lz4-java\1.8.0\4b986a99445e49ea5fbf5d149c4b63f6ed6c6780\lz4-java-1.8.0.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.jline\jline-terminal\3.20.0\d0ddcc708ddf527a3454c941b7b9225cc83a15ff\jline-terminal-3.20.0.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.google.guava\listenablefuture\9999.0-empty-to-avoid-conflict-with-guava\b421526c5f297295adef1c886e5246c39d4ac629\listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.google.code.findbugs\jsr305\3.0.2\25ea2e8b0c338a877313bd4672d3fe056ea78f0d\jsr305-3.0.2.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\org.checkerframework\checker-qual\3.33.0\de2b60b62da487644fc11f734e73c8b0b431238f\checker-qual-3.33.0.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.google.errorprone\error_prone_annotations\2.18.0\89b684257096f548fa39a7df9fdaa409d4d4df91\error_prone_annotations-2.18.0.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModDiscoverer/]: Skipping C:\Users\William\.gradle\caches\modules-2\files-2.1\com.google.j2objc\j2objc-annotations\2.8\c85270e307e7b822f1086b93689124b89768e273\j2objc-annotations-2.8.jar because it was already located earlier
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.UniqueModListBuilder/]: Found 2 mods for first modid neoforge, selecting most recent based on version data
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.UniqueModListBuilder/]: Selected file neoforge-21.1.224.jar for modid neoforge with version 21.1.224
+[15:15:44] [main/INFO] [ne.ne.fm.lo.mo.lo.JarInJarDependencyLocator/]: Found 2 dependencies adding them to mods collection
+[15:15:44] [main/INFO] [ne.ne.fm.lo.mo.ModDiscoverer/]: 
+     Mod List:
+		Name Version (Mod Id)
+
+		Minecraft 1.21.1 (minecraft)
+		Moon Station 14 0.0.1 (moonstation14)
+		NeoForge 21.1.224 (neoforge)
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileInfo/LOADING]: Found valid mod file neoforge-21.1.224.jar with {minecraft} mods - versions {1.21.1}
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFile/LOADING]: Loading mod file C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\moddev\artifacts\neoforge-21.1.224.jar with languages [LanguageSpec[languageName=minecraft, acceptedVersions=1]]
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileParser/LOADING]: Considering mod file candidate C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\moddev\artifacts\neoforge-21.1.224.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileInfo/LOADING]: Found valid mod file neoforge-21.1.224.jar with {neoforge} mods - versions {21.1.224}
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFile/LOADING]: Loading mod file C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\moddev\artifacts\neoforge-21.1.224.jar with languages [LanguageSpec[languageName=javafml, acceptedVersions=[3,]]]
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFile/LOADING]: Found mixin config MixinConfig[config=neoforge.mixins.json, requiredMods=[]]
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileParser/LOADING]: Considering mod file candidate C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\main
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFileInfo/LOADING]: Found valid mod file main with {moonstation14} mods - versions {0.0.1}
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFile/LOADING]: Loading mod file C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\classes\java\main with languages [LanguageSpec[languageName=javafml, acceptedVersions=[2,)]]
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFile/LOADING]: Found mixin config MixinConfig[config=moonstation14.mixins.json, requiredMods=[]]
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.mo.ModFile/LOADING]: Loading mod file  with languages []
+[15:15:44] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: End scan trigger - transformation service fml
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: Found 3 implementations of IModLanguageLoader:
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	net.neoforged.fml.javafmlmod.FMLJavaModLanguageProvider from loader-4.0.42.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	net.neoforged.fml.lowcodemod.LowCodeModLanguageProvider from loader-4.0.42.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	net.neoforged.fml.mclanguageprovider.MinecraftModLanguageProvider from loader-4.0.42.jar
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.LanguageProviderLoader/CORE]: Found language provider javafml, version 4.0.42
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.LanguageProviderLoader/CORE]: Found language provider lowcodefml, version 4.0.42
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.LanguageProviderLoader/CORE]: Found language provider minecraft, version 4.0.42
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.ModSorter/]: Configured system mods: [minecraft, neoforge]
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.ModSorter/]: Found system mod: minecraft
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.ModSorter/]: Found system mod: neoforge
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.ModSorter/LOADING]: Found 0 mod requirements (0 mandatory, 0 optional)
+[15:15:44] [main/DEBUG] [ne.ne.fm.lo.ModSorter/LOADING]: Found 0 mod requirements missing (0 mandatory, 0 optional)
+[15:15:45] [main/DEBUG] [mixin/]: Adding mixin platform agents for container net.neoforged.fml.loading.mixin.FMLMixinContainerHandle@6ff37443
+[15:15:45] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentMinecraftForge for net.neoforged.fml.loading.mixin.FMLMixinContainerHandle@6ff37443
+[15:15:45] [main/DEBUG] [mixin/]: MixinPlatformAgentMinecraftForge rejected container net.neoforged.fml.loading.mixin.FMLMixinContainerHandle@6ff37443
+[15:15:45] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentDefault for net.neoforged.fml.loading.mixin.FMLMixinContainerHandle@6ff37443
+[15:15:45] [main/DEBUG] [mixin/]: MixinPlatformAgentDefault accepted container net.neoforged.fml.loading.mixin.FMLMixinContainerHandle@6ff37443
+[15:15:45] [main/DEBUG] [mixin/]: Instancing new FMLMixinPlatformAgent for net.neoforged.fml.loading.mixin.FMLMixinContainerHandle@6ff37443
+[15:15:45] [main/DEBUG] [mixin/]: FMLMixinPlatformAgent accepted container net.neoforged.fml.loading.mixin.FMLMixinContainerHandle@6ff37443
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformationServicesHandler/MODLAUNCHER]: Transformation services loading transformers
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Initializing transformers for transformation service mixin
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Initialized transformers for transformation service mixin
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Initializing transformers for transformation service fml
+[15:15:45] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/LOADING]: Loading coremod transformers
+[15:15:45] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/CORE]: Not loading coremod script-engine since no mod requested it
+[15:15:45] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: Found 1 implementations of ICoreMod:
+[15:15:45] [main/DEBUG] [ne.ne.fm.ut.ServiceLoaderUtil/CORE]: 	net.neoforged.neoforge.coremods.NeoForgeCoreMod from neoforge-21.1.224.jar > net.neoforged.neoforge-coremods-21.1.224.jar
+[15:15:45] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/CORE]: Adding [Target[className=net.minecraft.world.level.biome.Biome, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e]] transformer from core-mod net.neoforged.neoforge.coremods.NeoForgeCoreMod@5aae8eb5 in neoforge-21.1.224.jar > net.neoforged.neoforge-coremods-21.1.224.jar
+[15:15:45] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/CORE]: Adding [Target[className=net.minecraft.world.level.levelgen.structure.Structure, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e]] transformer from core-mod net.neoforged.neoforge.coremods.NeoForgeCoreMod@5aae8eb5 in neoforge-21.1.224.jar > net.neoforged.neoforge-coremods-21.1.224.jar
+[15:15:45] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/CORE]: Adding [Target[className=net.minecraft.world.level.block.FlowerPotBlock, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e]] transformer from core-mod net.neoforged.neoforge.coremods.NeoForgeCoreMod@5aae8eb5 in neoforge-21.1.224.jar > net.neoforged.neoforge-coremods-21.1.224.jar
+[15:15:45] [main/DEBUG] [ne.ne.fm.lo.FMLServiceProvider/CORE]: Adding [Target[className=net/minecraft/world/level/levelgen/structure/structures/SwampHutPiece, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentPiece, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/animal/frog/Tadpole, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplate, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/level/levelgen/structure/structures/OceanRuinPieces$OceanRuinPiece, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/raid/Raid, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/level/levelgen/PatrolSpawner, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/server/commands/RaidCommand, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/server/commands/SummonCommand, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/EntityType, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/monster/Strider, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/npc/CatSpawner, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/animal/horse/SkeletonTrapGoal, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/monster/Evoker$EvokerSummonSpellGoal, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/ai/village/VillageSiege, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$WoodlandMansionPiece, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/level/NaturalSpawner, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/monster/Zombie, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/monster/ZombieVillager, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/monster/Spider, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/entity/npc/Villager, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e], Target[className=net/minecraft/world/level/levelgen/PhantomSpawner, elementName=, elementDescriptor=, targetType=cpw.mods.modlauncher.api.TargetType@6127a7e]] transformer from core-mod net.neoforged.neoforge.coremods.NeoForgeCoreMod@5aae8eb5 in neoforge-21.1.224.jar > net.neoforged.neoforge-coremods-21.1.224.jar
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.ReplaceFieldWithGetterAccess@d176a31 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/biome/Biome;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.ReplaceFieldWithGetterAccess@aa004a0 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/levelgen/structure/Structure;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.ReplaceFieldWithGetterAccess@4c98a6d5 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/block/FlowerPotBlock;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/levelgen/structure/structures/SwampHutPiece;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentPiece;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/animal/frog/Tadpole;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplate;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/levelgen/structure/structures/OceanRuinPieces$OceanRuinPiece;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/raid/Raid;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/levelgen/PatrolSpawner;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/server/commands/RaidCommand;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/server/commands/SummonCommand;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/EntityType;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/monster/Strider;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/npc/CatSpawner;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/animal/horse/SkeletonTrapGoal;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/monster/Evoker$EvokerSummonSpellGoal;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/ai/village/VillageSiege;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$WoodlandMansionPiece;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/NaturalSpawner;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/monster/Zombie;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/monster/ZombieVillager;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/monster/Spider;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/entity/npc/Villager;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformStore/MODLAUNCHER]: Adding transformer net.neoforged.neoforge.coremods.MethodRedirector@392a04e7 to Target : cpw.mods.modlauncher.api.TargetType@6127a7e {Lnet/minecraft/world/level/levelgen/PhantomSpawner;} {} {V}
+[15:15:45] [main/DEBUG] [cp.mo.mo.TransformationServiceDecorator/MODLAUNCHER]: Initialized transformers for transformation service fml
+[15:15:46] [main/DEBUG] [mixin/]: Processing prepare() for PlatformAgent[MixinPlatformAgentDefault:ModLauncher Root Container(ModLauncher:4f56a0a2)]
+[15:15:46] [main/DEBUG] [mixin/]: Processing prepare() for PlatformAgent[MixinPlatformAgentDefault:net.neoforged.fml.loading.mixin.FMLMixinContainerHandle@6ff37443]
+[15:15:46] [main/DEBUG] [mixin/]: Processing prepare() for PlatformAgent[FMLMixinPlatformAgent:null]
+[15:15:46] [main/DEBUG] [mixin/]: Compatibility level JAVA_21 specified by moonstation14.mixins.json is higher than the maximum level supported by this version of mixin (JAVA_13).
+[15:15:46] [main/INFO] [mixin/]: Compatibility level set to JAVA_21
+[15:15:46] [main/DEBUG] [mixin/]: Mixin config moonstation14.mixins.json does not specify "minVersion" or "requiredFeatures" property
+[15:15:46] [main/DEBUG] [mixin/]: Processing launch tasks for PlatformAgent[MixinPlatformAgentDefault:ModLauncher Root Container(ModLauncher:4f56a0a2)]
+[15:15:46] [main/DEBUG] [mixin/]: Adding mixin platform agents for container SecureJarResource(mixin_synthetic)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentMinecraftForge for SecureJarResource(mixin_synthetic)
+[15:15:46] [main/DEBUG] [mixin/]: MixinPlatformAgentMinecraftForge rejected container SecureJarResource(mixin_synthetic)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentDefault for SecureJarResource(mixin_synthetic)
+[15:15:46] [main/DEBUG] [mixin/]: MixinPlatformAgentDefault accepted container SecureJarResource(mixin_synthetic)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new FMLMixinPlatformAgent for SecureJarResource(mixin_synthetic)
+[15:15:46] [main/DEBUG] [mixin/]: FMLMixinPlatformAgent rejected container SecureJarResource(mixin_synthetic)
+[15:15:46] [main/DEBUG] [mixin/]: Processing prepare() for PlatformAgent[MixinPlatformAgentDefault:SecureJarResource(mixin_synthetic)]
+[15:15:46] [main/DEBUG] [mixin/]: Adding mixin platform agents for container SecureJarResource(minecraft)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentMinecraftForge for SecureJarResource(minecraft)
+[15:15:46] [main/DEBUG] [mixin/]: MixinPlatformAgentMinecraftForge rejected container SecureJarResource(minecraft)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentDefault for SecureJarResource(minecraft)
+[15:15:46] [main/DEBUG] [mixin/]: MixinPlatformAgentDefault accepted container SecureJarResource(minecraft)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new FMLMixinPlatformAgent for SecureJarResource(minecraft)
+[15:15:46] [main/DEBUG] [mixin/]: FMLMixinPlatformAgent rejected container SecureJarResource(minecraft)
+[15:15:46] [main/DEBUG] [mixin/]: Processing prepare() for PlatformAgent[MixinPlatformAgentDefault:SecureJarResource(minecraft)]
+[15:15:46] [main/DEBUG] [mixin/]: Adding mixin platform agents for container SecureJarResource(moonstation14)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentMinecraftForge for SecureJarResource(moonstation14)
+[15:15:46] [main/DEBUG] [mixin/]: MixinPlatformAgentMinecraftForge rejected container SecureJarResource(moonstation14)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentDefault for SecureJarResource(moonstation14)
+[15:15:46] [main/DEBUG] [mixin/]: MixinPlatformAgentDefault accepted container SecureJarResource(moonstation14)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new FMLMixinPlatformAgent for SecureJarResource(moonstation14)
+[15:15:46] [main/DEBUG] [mixin/]: FMLMixinPlatformAgent rejected container SecureJarResource(moonstation14)
+[15:15:46] [main/DEBUG] [mixin/]: Processing prepare() for PlatformAgent[MixinPlatformAgentDefault:SecureJarResource(moonstation14)]
+[15:15:46] [main/DEBUG] [mixin/]: Adding mixin platform agents for container SecureJarResource(mixinextras.neoforge)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentMinecraftForge for SecureJarResource(mixinextras.neoforge)
+[15:15:46] [main/DEBUG] [mixin/]: MixinPlatformAgentMinecraftForge rejected container SecureJarResource(mixinextras.neoforge)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new MixinPlatformAgentDefault for SecureJarResource(mixinextras.neoforge)
+[15:15:46] [main/DEBUG] [mixin/]: MixinPlatformAgentDefault accepted container SecureJarResource(mixinextras.neoforge)
+[15:15:46] [main/DEBUG] [mixin/]: Instancing new FMLMixinPlatformAgent for SecureJarResource(mixinextras.neoforge)
+[15:15:46] [main/DEBUG] [mixin/]: FMLMixinPlatformAgent rejected container SecureJarResource(mixinextras.neoforge)
+[15:15:46] [main/DEBUG] [mixin/]: Processing prepare() for PlatformAgent[MixinPlatformAgentDefault:SecureJarResource(mixinextras.neoforge)]
+[15:15:46] [main/DEBUG] [mixin/]: Registering mixin config: mixinextras.init.mixins.json source=SecureJarResource(mixinextras.neoforge)
+[15:15:46] [main/DEBUG] [mixin/]: inject() running with 6 agents
+[15:15:46] [main/DEBUG] [mixin/]: Processing inject() for PlatformAgent[MixinPlatformAgentDefault:ModLauncher Root Container(ModLauncher:4f56a0a2)]
+[15:15:46] [main/DEBUG] [mixin/]: Processing inject() for PlatformAgent[MixinPlatformAgentDefault:net.neoforged.fml.loading.mixin.FMLMixinContainerHandle@6ff37443]
+[15:15:46] [main/DEBUG] [mixin/]: Processing inject() for PlatformAgent[FMLMixinPlatformAgent:null]
+[15:15:46] [main/DEBUG] [mixin/]: Processing inject() for PlatformAgent[MixinPlatformAgentDefault:SecureJarResource(mixin_synthetic)]
+[15:15:46] [main/DEBUG] [mixin/]: Processing inject() for PlatformAgent[MixinPlatformAgentDefault:SecureJarResource(minecraft)]
+[15:15:46] [main/DEBUG] [mixin/]: Processing inject() for PlatformAgent[MixinPlatformAgentDefault:SecureJarResource(moonstation14)]
+[15:15:46] [main/DEBUG] [mixin/]: Processing inject() for PlatformAgent[MixinPlatformAgentDefault:SecureJarResource(mixinextras.neoforge)]
+[15:15:46] [main/INFO] [cp.mo.mo.LaunchServiceHandler/MODLAUNCHER]: Launching target 'forgeserverdev' with arguments [--gameDir, .]
+[15:15:46] [main/DEBUG] [mixin/]: Preparing mixins for MixinEnvironment[DEFAULT]
+[15:15:46] [main/DEBUG] [mixin/]: Selecting config neoforge.mixins.json
+[15:15:46] [main/DEBUG] [mixin/]: Selecting config moonstation14.mixins.json
+[15:15:46] [main/DEBUG] [mixin/]: Selecting config mixinextras.init.mixins.json
+[15:15:46] [main/DEBUG] [MixinExtras|Service/]: com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.3) is taking over from null
+[15:15:46] [main/DEBUG] [mixin/]: Registering new injector for @Inject with org.spongepowered.asm.mixin.injection.struct.CallbackInjectionInfo
+[15:15:46] [main/DEBUG] [mixin/]: Registering new injector for @ModifyArg with org.spongepowered.asm.mixin.injection.struct.ModifyArgInjectionInfo
+[15:15:46] [main/DEBUG] [mixin/]: Registering new injector for @ModifyArgs with org.spongepowered.asm.mixin.injection.struct.ModifyArgsInjectionInfo
+[15:15:46] [main/DEBUG] [mixin/]: Registering new injector for @Redirect with org.spongepowered.asm.mixin.injection.struct.RedirectInjectionInfo
+[15:15:46] [main/DEBUG] [mixin/]: Registering new injector for @ModifyVariable with org.spongepowered.asm.mixin.injection.struct.ModifyVariableInjectionInfo
+[15:15:46] [main/DEBUG] [mixin/]: Registering new injector for @ModifyConstant with org.spongepowered.asm.mixin.injection.struct.ModifyConstantInjectionInfo
+[15:15:46] [main/DEBUG] [mixin/]: Preparing neoforge.mixins.json (2)
+[15:15:46] [main/DEBUG] [mixin/]: Preparing moonstation14.mixins.json (59)
+[15:15:47] [main/DEBUG] [mixin/]: Preparing mixinextras.init.mixins.json (0)
+[15:15:47] [main/DEBUG] [mixin/]: Prepared 41 mixins in 0.605 sec (14.8ms avg) (0ms load, 0ms transform, 0ms plugin)
+[15:15:47] [main/DEBUG] [io.ne.ut.in.lo.InternalLoggerFactory/]: Using SLF4J as the default logging framework
+[15:15:47] [main/DEBUG] [io.ne.ut.ResourceLeakDetector/]: -Dio.netty.leakDetection.level: simple
+[15:15:47] [main/DEBUG] [io.ne.ut.ResourceLeakDetector/]: -Dio.netty.leakDetection.targetRecords: 4
+[15:15:47] [main/DEBUG] [os.ut.FileUtil/]: No oshi.properties file found from ClassLoader cpw.mods.modlauncher.TransformingClassLoader@3a627c80
+[15:15:48] [main/DEBUG] [os.ut.FileUtil/]: No oshi.architecture.properties file found from ClassLoader cpw.mods.modlauncher.TransformingClassLoader@3a627c80
+[15:15:48] [main/WARN] [os.dr.wi.pe.PerfmonDisabled/]: Invalid registry value type detected for PerfOS counters. Should be REG_DWORD. Ignoring: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\PerfOS\Performance\Disable Performance Counters.
+[15:15:48] [main/INFO] [MixinExtras|Service/]: Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.3).
+[15:15:48] [main/DEBUG] [mixin/]: Registering new injector for @SugarWrapper with com.llamalad7.mixinextras.sugar.impl.SugarWrapperInjectionInfo
+[15:15:48] [main/DEBUG] [mixin/]: Registering new injector for @FactoryRedirectWrapper with com.llamalad7.mixinextras.wrapper.factory.FactoryRedirectWrapperInjectionInfo
+[15:15:48] [main/DEBUG] [mixin/]: Registering new injector for @ExpressionInjectorWrapper with com.llamalad7.mixinextras.expression.impl.wrapper.ExpressionInjectorWrapperInjectionInfo
+[15:15:48] [main/DEBUG] [mixin/]: Mixing MappedRegistryAccessor from neoforge.mixins.json into net.minecraft.core.MappedRegistry
+[15:15:48] [main/DEBUG] [mixin/]: neoforge.mixins.json:MappedRegistryAccessor from mod neoforge: Class version 65 required is higher than the class version supported by the current version of Mixin (JAVA_16 supports class version 60)
+[15:15:48] [main/DEBUG] [mixin/]: Mixing EntityAirlockBumpMixin from moonstation14.mixins.json into net.minecraft.world.entity.Entity
+[15:15:48] [main/DEBUG] [mixin/]: moonstation14.mixins.json:EntityAirlockBumpMixin from mod moonstation14->@Inject::moonstation14$checkAirlockBump(Lnet/minecraft/world/entity/MoverType;Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V doesn't use it's CallbackInfo
+[15:15:48] [main/DEBUG] [mixin/]: moonstation14.mixins.json:EntityAirlockBumpMixin from mod moonstation14->@Inject::moonstation14$checkAirlockBump(Lnet/minecraft/world/entity/MoverType;Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V has 0 override(s) in child classes
+[15:15:48] [main/DEBUG] [mixin/]: moonstation14.mixins.json:EntityAirlockBumpMixin from mod moonstation14->@Inject::moonstation14$checkAirlockBump(Lnet/minecraft/world/entity/MoverType;Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V won't be passed a CallbackInfo as a result
+[15:15:48] [main/DEBUG] [mixin/]: Mixing PlayerPeacefulNutritionMixin from moonstation14.mixins.json into net.minecraft.world.entity.player.Player
+[15:15:48] [main/DEBUG] [mixin/]: Mixing PlayerPronePoseMixin from moonstation14.mixins.json into net.minecraft.world.entity.player.Player
+[15:15:48] [main/DEBUG] [mixin/]: moonstation14.mixins.json:PlayerPronePoseMixin from mod moonstation14->@Inject::moonstation14$keepPronePose(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityReagentMixin from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityStatusEffectMixin from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityStunImmobileMixin from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntitySlidingFrictionMixin from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityImmobileInvoker from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityMindHarnessTravelMixin from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityDeathStateAccessor from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityMedicalCorpseMixin from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityPostureMovementMixin from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityDamageKnockbackMixin from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityDamageFeedbackMixin from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: Mixing LivingEntityProneDimensionsMixin from moonstation14.mixins.json into net.minecraft.world.entity.LivingEntity
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityStunImmobileMixin from mod moonstation14->@Inject::moonstation14$stunBlocksMovement(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntitySlidingFrictionMixin from mod moonstation14->@Inject::moonstation14$captureSlidingTravelFrame(Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V doesn't use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntitySlidingFrictionMixin from mod moonstation14->@Inject::moonstation14$captureSlidingTravelFrame(Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntitySlidingFrictionMixin from mod moonstation14->@Inject::moonstation14$captureSlidingTravelFrame(Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V won't be passed a CallbackInfo as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMindHarnessTravelMixin from mod moonstation14->@Inject::moonstation14$applyNativeTetherImpulse(Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V doesn't use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMindHarnessTravelMixin from mod moonstation14->@Inject::moonstation14$applyNativeTetherImpulse(Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMindHarnessTravelMixin from mod moonstation14->@Inject::moonstation14$applyNativeTetherImpulse(Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V won't be passed a CallbackInfo as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMindHarnessTravelMixin from mod moonstation14->@Inject::moonstation14$skipVanillaTravelForHarnessOwnedMob(Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$restoreMedicalCorpsePosture(Lnet/minecraft/world/damagesource/DamageSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V doesn't use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$restoreMedicalCorpsePosture(Lnet/minecraft/world/damagesource/DamageSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$restoreMedicalCorpsePosture(Lnet/minecraft/world/damagesource/DamageSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V won't be passed a CallbackInfo as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$restoreMedicalCorpsePosture(Lnet/minecraft/world/damagesource/DamageSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V doesn't use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$restoreMedicalCorpsePosture(Lnet/minecraft/world/damagesource/DamageSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$restoreMedicalCorpsePosture(Lnet/minecraft/world/damagesource/DamageSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V won't be passed a CallbackInfo as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$stepOwnedIncapacitatedBody(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V doesn't use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$stepOwnedIncapacitatedBody(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$stepOwnedIncapacitatedBody(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V won't be passed a CallbackInfo as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$preserveMedicalCorpseDeathLoot(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityMedicalCorpseMixin from mod moonstation14->@Inject::moonstation14$retainMedicalCorpse(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityPostureMovementMixin from mod moonstation14->@Inject::moonstation14$scaleCrawlSpeed(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityPostureMovementMixin from mod moonstation14->@Inject::moonstation14$blockJumpWhileDownOrIncapacitated(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$sourceAwareHurtSound(Lnet/minecraft/world/damagesource/DamageSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$beginFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V doesn't use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$beginFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$beginFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V won't be passed a CallbackInfoReturnable as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V doesn't use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V won't be passed a CallbackInfoReturnable as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V doesn't use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V won't be passed a CallbackInfoReturnable as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V doesn't use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V won't be passed a CallbackInfoReturnable as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V doesn't use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V won't be passed a CallbackInfoReturnable as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V doesn't use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V won't be passed a CallbackInfoReturnable as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V doesn't use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V won't be passed a CallbackInfoReturnable as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V doesn't use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V has 0 override(s) in child classes
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityDamageFeedbackMixin from mod moonstation14->@Inject::moonstation14$finishFeedback(Lnet/minecraft/world/damagesource/DamageSource;FLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V won't be passed a CallbackInfoReturnable as a result
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LivingEntityProneDimensionsMixin from mod moonstation14->@Inject::moonstation14$proneDimensions(Lnet/minecraft/world/entity/Pose;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:49] [main/DEBUG] [mixin/]: Mixing ServerPlayerStunPickupMixin from moonstation14.mixins.json into net.minecraft.world.entity.item.ItemEntity
+[15:15:49] [main/DEBUG] [mixin/]: moonstation14.mixins.json:ServerPlayerStunPickupMixin from mod moonstation14->@Inject::moonstation14$denyPickup(Lnet/minecraft/world/entity/player/Player;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:50] [main/DEBUG] [mixin/]: Mixing MobMindHarnessOwnerMixin from moonstation14.mixins.json into net.minecraft.world.entity.Mob
+[15:15:50] [main/DEBUG] [mixin/]: Mixing MobDisposalContainmentAiMixin from moonstation14.mixins.json into net.minecraft.world.entity.Mob
+[15:15:50] [main/DEBUG] [mixin/]: Mixing MobMedicalAiMixin from moonstation14.mixins.json into net.minecraft.world.entity.Mob
+[15:15:50] [main/DEBUG] [mixin/]: moonstation14.mixins.json:MobMindHarnessOwnerMixin from mod moonstation14->@Inject::moonstation14$defineMovementOwner(Lnet/minecraft/network/syncher/SynchedEntityData$Builder;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V doesn't use it's CallbackInfo
+[15:15:50] [main/DEBUG] [mixin/]: moonstation14.mixins.json:MobMindHarnessOwnerMixin from mod moonstation14->@Inject::moonstation14$defineMovementOwner(Lnet/minecraft/network/syncher/SynchedEntityData$Builder;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V has 0 override(s) in child classes
+[15:15:50] [main/DEBUG] [mixin/]: moonstation14.mixins.json:MobMindHarnessOwnerMixin from mod moonstation14->@Inject::moonstation14$defineMovementOwner(Lnet/minecraft/network/syncher/SynchedEntityData$Builder;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V won't be passed a CallbackInfo as a result
+[15:15:50] [main/DEBUG] [mixin/]: moonstation14.mixins.json:MobDisposalContainmentAiMixin from mod moonstation14->@Inject::moonstation14$skipAiWhileDisposalContained(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:50] [main/DEBUG] [mixin/]: moonstation14.mixins.json:MobMedicalAiMixin from mod moonstation14->@Inject::moonstation14$stopIncapacitatedAi(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:50] [main/DEBUG] [mixin/]: Mixing BlockEntityTypeAccessor from neoforge.mixins.json into net.minecraft.world.level.block.entity.BlockEntityType
+[15:15:50] [main/DEBUG] [mixin/]: neoforge.mixins.json:BlockEntityTypeAccessor from mod neoforge: Class version 65 required is higher than the class version supported by the current version of Mixin (JAVA_16 supports class version 60)
+[15:15:51] [main/DEBUG] [mixin/]: Mixing ServerPlayerCreativeHandoffMixin from moonstation14.mixins.json into net.minecraft.server.level.ServerPlayer
+[15:15:51] [main/DEBUG] [mixin/]: Mixing ServerPlayerParkedDirectDropMixin from moonstation14.mixins.json into net.minecraft.server.level.ServerPlayer
+[15:15:51] [main/DEBUG] [mixin/]: Renaming synthetic method lambda$moonstation14$markCreativeModDrop$0(Lnet/minecraft/resources/ResourceKey;)Ljava/lang/Boolean; to mdb32a95$moonstation14$lambda$moonstation14$markCreativeModDrop$0$0 in moonstation14.mixins.json:ServerPlayerParkedDirectDropMixin from mod moonstation14
+[15:15:51] [main/DEBUG] [mixin/]: Mixing ServerPlayerMindGhostCameraMixin from moonstation14.mixins.json into net.minecraft.server.level.ServerPlayer
+[15:15:51] [main/DEBUG] [mixin/]: Mixing ServerPlayerCommittedSpectatorCameraMixin from moonstation14.mixins.json into net.minecraft.server.level.ServerPlayer
+[15:15:51] [main/DEBUG] [mixin/]: moonstation14.mixins.json:ServerPlayerCreativeHandoffMixin from mod moonstation14->@Inject::ms14$creativeHandoff(Lnet/minecraft/world/level/GameType;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:51] [main/DEBUG] [mixin/]: moonstation14.mixins.json:ServerPlayerCreativeHandoffMixin from mod moonstation14->@Inject::ms14$creativeHandoff(Lnet/minecraft/world/level/GameType;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:51] [main/DEBUG] [mixin/]: moonstation14.mixins.json:ServerPlayerCreativeHandoffMixin from mod moonstation14->@Inject::ms14$creativeHandoff(Lnet/minecraft/world/level/GameType;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:51] [main/DEBUG] [mixin/]: moonstation14.mixins.json:ServerPlayerParkedDirectDropMixin from mod moonstation14->@Inject::moonstation14$denyDirectDrop(Lnet/minecraft/world/item/ItemStack;ZZLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:51] [main/DEBUG] [mixin/]: moonstation14.mixins.json:ServerPlayerCommittedSpectatorCameraMixin from mod moonstation14->@Inject::moonstation14$keepCommittedCamera(Lnet/minecraft/world/entity/Entity;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent0/]: -Dio.netty.noUnsafe: false
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent0/]: Java version: 21
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent0/]: sun.misc.Unsafe.theUnsafe: available
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent0/]: sun.misc.Unsafe.copyMemory: available
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent0/]: sun.misc.Unsafe.storeFence: available
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent0/]: java.nio.Buffer.address: available
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent0/]: direct buffer constructor: unavailable: Reflective setAccessible(true) disabled
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent0/]: java.nio.Bits.unaligned: available, true
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent0/]: jdk.internal.misc.Unsafe.allocateUninitializedArray(int): unavailable: class io.netty.util.internal.PlatformDependent0$7 (in module io.netty.common) cannot access class jdk.internal.misc.Unsafe (in module java.base) because module java.base does not export jdk.internal.misc to module io.netty.common
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent0/]: java.nio.DirectByteBuffer.<init>(long, {int,long}): unavailable
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent/]: sun.misc.Unsafe: available
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent/]: maxDirectMemory: 6425673728 bytes (maybe)
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent/]: -Dio.netty.tmpdir: C:\Users\William\AppData\Local\Temp (java.io.tmpdir)
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent/]: -Dio.netty.bitMode: 64 (sun.arch.data.model)
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent/]: Platform: Windows
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent/]: -Dio.netty.maxDirectMemory: -1 bytes
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent/]: -Dio.netty.uninitializedArrayAllocationThreshold: -1
+[15:15:52] [main/DEBUG] [io.ne.ut.in.CleanerJava9/]: java.nio.ByteBuffer.cleaner(): available
+[15:15:52] [main/DEBUG] [io.ne.ut.in.PlatformDependent/]: -Dio.netty.noPreferDirect: false
+[15:15:52] [main/DEBUG] [mixin/]: Mixing LevelChunkSealedWallHostMixin from moonstation14.mixins.json into net.minecraft.world.level.chunk.LevelChunk
+[15:15:52] [main/DEBUG] [mixin/]: Renaming synthetic method lambda$moonstation14$invalidateSealedWallHost$0(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;Lcom/juicyslew/moonstation14/ms14/disposal/world/DisposalTubeWorldData;)V to mdb32a95$moonstation14$lambda$moonstation14$invalidateSealedWallHost$0$0 in moonstation14.mixins.json:LevelChunkSealedWallHostMixin from mod moonstation14
+[15:15:52] [main/DEBUG] [mixin/]: Mixing LevelChunkConstructionHostMixin from moonstation14.mixins.json into net.minecraft.world.level.chunk.LevelChunk
+[15:15:52] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LevelChunkSealedWallHostMixin from mod moonstation14->@Inject::moonstation14$invalidateSealedWallHost(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;ZLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V doesn't use it's CallbackInfoReturnable
+[15:15:52] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LevelChunkSealedWallHostMixin from mod moonstation14->@Inject::moonstation14$invalidateSealedWallHost(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;ZLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V has 0 override(s) in child classes
+[15:15:52] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LevelChunkSealedWallHostMixin from mod moonstation14->@Inject::moonstation14$invalidateSealedWallHost(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;ZLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V won't be passed a CallbackInfoReturnable as a result
+[15:15:52] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LevelChunkConstructionHostMixin from mod moonstation14->@Inject::moonstation14$invalidateConstructionHost(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;ZLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V doesn't use it's CallbackInfoReturnable
+[15:15:52] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LevelChunkConstructionHostMixin from mod moonstation14->@Inject::moonstation14$invalidateConstructionHost(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;ZLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V has 0 override(s) in child classes
+[15:15:52] [main/DEBUG] [mixin/]: moonstation14.mixins.json:LevelChunkConstructionHostMixin from mod moonstation14->@Inject::moonstation14$invalidateConstructionHost(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;ZLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V won't be passed a CallbackInfoReturnable as a result
+[15:15:54] [main/DEBUG] [mixin/]: Mixing VillagerStunBrainMixin from moonstation14.mixins.json into net.minecraft.world.entity.npc.Villager
+[15:15:54] [main/DEBUG] [mixin/]: moonstation14.mixins.json:VillagerStunBrainMixin from mod moonstation14->@Inject::moonstation14$pauseBrainWhileStunned(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: Mixing InventoryParkedDirectGuardMixin from moonstation14.mixins.json into net.minecraft.world.entity.player.Inventory
+[15:15:55] [main/DEBUG] [mixin/]: Mixing NativePlayerDeathInventoryGuardMixin from moonstation14.mixins.json into net.minecraft.world.entity.player.Inventory
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyAdd(Lnet/minecraft/world/item/ItemStack;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyAddAt(ILnet/minecraft/world/item/ItemStack;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyRemove(IILorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyRemoveNoUpdate(ILorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyRemoveReference(Lnet/minecraft/world/item/ItemStack;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denySet(ILnet/minecraft/world/item/ItemStack;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyNoArg(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyNoArg(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyPlaceBack(Lnet/minecraft/world/item/ItemStack;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyPlaceBackWithSync(Lnet/minecraft/world/item/ItemStack;ZLorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyReplace(Lnet/minecraft/world/entity/player/Inventory;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyClearMatching(Ljava/util/function/Predicate;ILnet/minecraft/world/Container;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denySelectedRemoval(ZLorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V does use it's CallbackInfoReturnable
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyPickedItem(Lnet/minecraft/world/item/ItemStack;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyPickSlot(ILorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyHotbarScroll(DLorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:InventoryParkedDirectGuardMixin from mod moonstation14->@Inject::moonstation14$denyLoad(Lnet/minecraft/nbt/ListTag;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:55] [main/DEBUG] [mixin/]: moonstation14.mixins.json:NativePlayerDeathInventoryGuardMixin from mod moonstation14->@Inject::moonstation14$keepMedicalCorpseInventory(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:15:57] [main/DEBUG] [mixin/]: Mixing GiveCommandCreativeFakeDropMixin from moonstation14.mixins.json into net.minecraft.server.commands.GiveCommand
+[15:15:57] [main/DEBUG] [mixin/]: Renaming synthetic method lambda$isMoonstationItem$0(Lnet/minecraft/resources/ResourceKey;)Ljava/lang/Boolean; to mdb32a95$moonstation14$lambda$isMoonstationItem$0$0 in moonstation14.mixins.json:GiveCommandCreativeFakeDropMixin from mod moonstation14
+[15:15:57] [main/WARN] [minecraft/Commands]: Ambiguity between arguments [teleport, location] and [teleport, destination] with inputs: [0.1 -0.5 .9, 0 0 0]
+[15:15:57] [main/WARN] [minecraft/Commands]: Ambiguity between arguments [teleport, location] and [teleport, targets] with inputs: [0.1 -0.5 .9, 0 0 0]
+[15:15:57] [main/WARN] [minecraft/Commands]: Ambiguity between arguments [teleport, destination] and [teleport, targets] with inputs: [Player, 0123, @e, dd12be42-52a9-4a91-a8a1-11c01849e498]
+[15:15:57] [main/WARN] [minecraft/Commands]: Ambiguity between arguments [teleport, targets] and [teleport, destination] with inputs: [Player, 0123, dd12be42-52a9-4a91-a8a1-11c01849e498]
+[15:15:57] [main/WARN] [minecraft/Commands]: Ambiguity between arguments [teleport, targets, location] and [teleport, targets, destination] with inputs: [0.1 -0.5 .9, 0 0 0]
+[15:15:57] [main/DEBUG] [ne.ne.fm.ModWorkManager/LOADING]: Using 12 threads for parallel mod-loading
+[15:15:57] [main/DEBUG] [ne.ne.fm.ja.FMLModContainer/LOADING]: Creating FMLModContainer instance for [net.neoforged.neoforge.common.NeoForgeMod]
+[15:15:57] [main/DEBUG] [ne.ne.fm.ja.FMLModContainer/LOADING]: Creating FMLModContainer instance for [com.juicyslew.moonstation14.MoonStation14]
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.ne.in.ve.ne.NeoForgeVersion/CORE]: Found NeoForge version 21.1.224
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.ne.in.ve.ne.NeoForgeVersion/CORE]: Found FML version 4.0.42
+[15:15:57] [modloading-worker-0/INFO] [ne.ne.ne.co.NeoForgeMod/NEOFORGE-MOD]: NeoForge mod loading, version 21.1.224, for MC 1.21.1
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Config file neoforge-client.toml for neoforge tracking
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Config file neoforge-server.toml for neoforge tracking
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Config file neoforge-common.toml for neoforge tracking
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Attempting to inject @EventBusSubscriber classes into the eventbus for neoforge
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class net.neoforged.neoforge.network.filters.GenericPacketSplitter for @SubscribeEvent-annotated methods
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.AbstractByteBuf/]: -Dio.netty.buffer.checkAccessible: true
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.AbstractByteBuf/]: -Dio.netty.buffer.checkBounds: true
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.ut.ResourceLeakDetectorFactory/]: Loaded default ResourceLeakDetector: io.netty.util.ResourceLeakDetector@b89e724
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.ut.in.InternalThreadLocalMap/]: -Dio.netty.threadLocalMap.stringBuilder.initialSize: 1024
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.ut.in.InternalThreadLocalMap/]: -Dio.netty.threadLocalMap.stringBuilder.maxSize: 4096
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.numHeapArenas: 24
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.numDirectArenas: 24
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.pageSize: 8192
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.maxOrder: 9
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.chunkSize: 4194304
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.smallCacheSize: 256
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.normalCacheSize: 64
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.maxCachedBufferCapacity: 32768
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.cacheTrimInterval: 8192
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.cacheTrimIntervalMillis: 0
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.useCacheForAllThreads: false
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.PooledByteBufAllocator/]: -Dio.netty.allocator.maxCachedByteBuffersPerChunk: 1023
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.ByteBufUtil/]: -Dio.netty.allocator.type: pooled
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.ByteBufUtil/]: -Dio.netty.threadLocalDirectBufferSize: 0
+[15:15:57] [modloading-worker-0/DEBUG] [io.ne.bu.ByteBufUtil/]: -Dio.netty.maxThreadLocalCharBufferSize: 16384
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lnet/neoforged/neoforge/network/filters/GenericPacketSplitter; to the mod event bus of mod neoforge
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class net.neoforged.neoforge.network.NetworkInitialization for @SubscribeEvent-annotated methods
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lnet/neoforged/neoforge/network/NetworkInitialization; to the mod event bus of mod neoforge
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class net.neoforged.neoforge.network.ConfigurationInitialization for @SubscribeEvent-annotated methods
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lnet/neoforged/neoforge/network/ConfigurationInitialization; to the mod event bus of mod neoforge
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class net.neoforged.neoforge.common.MonsterRoomHooks for @SubscribeEvent-annotated methods
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lnet/neoforged/neoforge/common/MonsterRoomHooks; to the game event bus
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class net.neoforged.neoforge.common.DeferredSpawnEggItem$CommonHandler for @SubscribeEvent-annotated methods
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lnet/neoforged/neoforge/common/DeferredSpawnEggItem$CommonHandler; to the mod event bus of mod neoforge
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class net.neoforged.neoforge.attachment.AttachmentSync for @SubscribeEvent-annotated methods
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lnet/neoforged/neoforge/attachment/AttachmentSync; to the game event bus
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class net.neoforged.neoforge.attachment.AttachmentInternals for @SubscribeEvent-annotated methods
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lnet/neoforged/neoforge/attachment/AttachmentInternals; to the game event bus
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Config file moonstation14-common.toml for moonstation14 tracking
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Attempting to inject @EventBusSubscriber classes into the eventbus for moonstation14
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.gametest.support.GameTestTagRegistrar for @SubscribeEvent-annotated methods
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/gametest/support/GameTestTagRegistrar; to the mod event bus of mod moonstation14
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereTransportDiagnosticCommand for @SubscribeEvent-annotated methods
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/atmos/world/AtmosphereTransportDiagnosticCommand; to the game event bus
+[15:15:57] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.atmos.exposure.AtmosphereDamageDiagnosticCommand for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/atmos/exposure/AtmosphereDamageDiagnosticCommand; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.ghost_roles.server.GhostRoleCatalog for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/ghost_roles/server/GhostRoleCatalog; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.medical.HealthAnalyzerServer for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/medical/HealthAnalyzerServer; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.medical_observer.ObserverChunkTickets for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/medical_observer/ObserverChunkTickets; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.medical_observer.ObserverSystem for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/medical_observer/ObserverSystem; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.mobs.LinkedCharacterReviveCommand for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/mobs/LinkedCharacterReviveCommand; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.mobs.MedicalIncapacitationEffects for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/mobs/MedicalIncapacitationEffects; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.mobs.MobStateSystem$NativeDeathEvents for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/mobs/MobStateSystem$NativeDeathEvents; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.mobs.SuicideCommand for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/mobs/SuicideCommand; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.character.PlayerCharacterHarnessRegistration for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/lifecycle/character/PlayerCharacterHarnessRegistration; to the mod event bus of mod moonstation14
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleAppearanceCommands for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/LifecycleAppearanceCommands; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleCharacterDeathHandler for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/LifecycleCharacterDeathHandler; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleCharacterSessionControl for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/LifecycleCharacterSessionControl; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleDevelopmentMode for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/LifecycleDevelopmentMode; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleExistingBodyReconnect for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/LifecycleExistingBodyReconnect; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleFirstJoinHandler for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/LifecycleFirstJoinHandler; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleGhostSessionControl for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/LifecycleGhostSessionControl; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.lifecycle.server.LifecycleStartupRuntime for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/lifecycle/server/LifecycleStartupRuntime; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.action.BodyActionDiagnosticCommand for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/action/BodyActionDiagnosticCommand; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.ghost.GhostMobHarnessRegistration for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/ghost/GhostMobHarnessRegistration; to the mod event bus of mod moonstation14
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.network.GhostControlNetworking for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/network/GhostControlNetworking; to the mod event bus of mod moonstation14
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.player_body_control.server.GhostMobHarnessControl for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/player_body_control/server/GhostMobHarnessControl; to the game event bus
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/LOADING]: Scanning class com.juicyslew.moonstation14.ms14.standing.PostureSystem for @SubscribeEvent-annotated methods
+[15:15:58] [modloading-worker-0/DEBUG] [ne.ne.fm.ja.AutomaticEventSubscriber/]: Subscribing @EventBusSubscriber class Lcom/juicyslew/moonstation14/ms14/standing/PostureSystem; to the game event bus
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Loading configs type COMMON
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.ne.co.NeoForgeConfig/FORGEMOD]: Loaded NeoForge config file neoforge-common.toml
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Loaded TOML config file C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\config\neoforge-common.toml
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Watching TOML config file C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\config\neoforge-common.toml for changes
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.ne.co.ModConfigSpec/CORE]: List on key atmosphereVacuumDimensions is deemed to need correction, as it is null, not a list, or the wrong size.
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.ne.co.ModConfigSpec/CORE]: List on key atmosphereSpaceDimensions is deemed to need correction, as it is null, not a list, or the wrong size.
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.ne.co.ModConfigSpec/CORE]: List on key items is deemed to need correction, as it is null, not a list, or the wrong size.
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Loaded TOML config file C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\config\moonstation14-common.toml
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Watching TOML config file C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\config\moonstation14-common.toml for changes
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.fm.DeferredWorkQueue/LOADING]: Dispatching synchronous work for work queue Common setup: 1 jobs
+[15:15:58] [modloading-sync-worker/DEBUG] [ne.ne.fm.DeferredWorkQueue/LOADING]: Synchronous work queue completed in 1.326 ms
+[15:15:59] [main/ERROR] [minecraft/Settings]: Failed to load properties from file: server.properties
+java.nio.file.NoSuchFileException: server.properties
+	at java.base/sun.nio.fs.WindowsException.translateToIOException(WindowsException.java:85) ~[?:?] {}
+	at java.base/sun.nio.fs.WindowsException.rethrowAsIOException(WindowsException.java:103) ~[?:?] {}
+	at java.base/sun.nio.fs.WindowsException.rethrowAsIOException(WindowsException.java:108) ~[?:?] {}
+	at java.base/sun.nio.fs.WindowsFileSystemProvider.newByteChannel(WindowsFileSystemProvider.java:234) ~[?:?] {}
+	at java.base/java.nio.file.Files.newByteChannel(Files.java:380) ~[?:?] {}
+	at java.base/java.nio.file.Files.newByteChannel(Files.java:432) ~[?:?] {}
+	at java.base/java.nio.file.spi.FileSystemProvider.newInputStream(FileSystemProvider.java:420) ~[?:?] {}
+	at java.base/java.nio.file.Files.newInputStream(Files.java:160) ~[?:?] {}
+	at TRANSFORMER/minecraft@1.21.1/net.minecraft.server.dedicated.Settings.loadFromFile(Settings.java:38) ~[neoforge-21.1.224.jar%23125!/:?] {re:classloading}
+	at TRANSFORMER/minecraft@1.21.1/net.minecraft.server.dedicated.DedicatedServerProperties.fromFile(DedicatedServerProperties.java:132) ~[neoforge-21.1.224.jar%23125!/:?] {re:classloading}
+	at TRANSFORMER/minecraft@1.21.1/net.minecraft.server.dedicated.DedicatedServerSettings.<init>(DedicatedServerSettings.java:12) ~[neoforge-21.1.224.jar%23125!/:?] {re:classloading}
+	at TRANSFORMER/minecraft@1.21.1/net.minecraft.server.Main.main(Main.java:125) ~[neoforge-21.1.224.jar%23125!/:?] {re:classloading}
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[?:?] {}
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[?:?] {}
+	at MC-BOOTSTRAP/fml_loader@4.0.42/net.neoforged.fml.loading.targets.CommonLaunchHandler.runTarget(CommonLaunchHandler.java:136) ~[loader-4.0.42.jar%23102!/:4.0] {}
+	at MC-BOOTSTRAP/fml_loader@4.0.42/net.neoforged.fml.loading.targets.CommonLaunchHandler.serverService(CommonLaunchHandler.java:128) ~[loader-4.0.42.jar%23102!/:4.0] {}
+	at MC-BOOTSTRAP/fml_loader@4.0.42/net.neoforged.fml.loading.targets.NeoForgeServerDevLaunchHandler.runService(NeoForgeServerDevLaunchHandler.java:23) ~[loader-4.0.42.jar%23102!/:4.0] {}
+	at MC-BOOTSTRAP/fml_loader@4.0.42/net.neoforged.fml.loading.targets.CommonLaunchHandler.lambda$launchService$4(CommonLaunchHandler.java:118) ~[loader-4.0.42.jar%23102!/:4.0] {}
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.LaunchServiceHandlerDecorator.launch(LaunchServiceHandlerDecorator.java:30) [modlauncher-11.0.5.jar%2382!/:?] {}
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.LaunchServiceHandler.launch(LaunchServiceHandler.java:53) [modlauncher-11.0.5.jar%2382!/:?] {}
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.LaunchServiceHandler.launch(LaunchServiceHandler.java:71) [modlauncher-11.0.5.jar%2382!/:?] {}
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.Launcher.run(Launcher.java:103) [modlauncher-11.0.5.jar%2382!/:?] {}
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.Launcher.main(Launcher.java:74) [modlauncher-11.0.5.jar%2382!/:?] {}
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.BootstrapLaunchConsumer.accept(BootstrapLaunchConsumer.java:26) [modlauncher-11.0.5.jar%2382!/:?] {}
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.BootstrapLaunchConsumer.accept(BootstrapLaunchConsumer.java:23) [modlauncher-11.0.5.jar%2382!/:?] {}
+	at cpw.mods.bootstraplauncher@2.0.2/cpw.mods.bootstraplauncher.BootstrapLauncher.run(BootstrapLauncher.java:210) [bootstraplauncher-2.0.2.jar:?] {}
+	at cpw.mods.bootstraplauncher@2.0.2/cpw.mods.bootstraplauncher.BootstrapLauncher.main(BootstrapLauncher.java:69) [bootstraplauncher-2.0.2.jar:?] {}
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[?:?] {}
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[?:?] {}
+	at net.neoforged.devlaunch.Main.main(Main.java:57) [DevLaunch-1.0.2.jar:?] {}
+[15:15:59] [main/INFO] [mojang/YggdrasilAuthenticationService]: Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, name=PROD]
+[15:15:59] [main/WARN] [minecraft/VanillaPackResourcesBuilder]: Assets URL 'union:/C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-02/build/moddev/artifacts/neoforge-21.1.224.jar%23125!/assets/.mcassetsroot' uses unexpected schema
+[15:15:59] [main/WARN] [minecraft/VanillaPackResourcesBuilder]: Assets URL 'union:/C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-02/build/moddev/artifacts/neoforge-21.1.224.jar%23125!/data/.mcassetsroot' uses unexpected schema
+[15:15:59] [main/INFO] [ne.ne.ne.ga.GameTestHooks/]: Enabled Gametest Namespaces: [moonstation14_camera_tour, moonstation14]
+[15:16:00] [main/INFO] [co.ju.mo.ga.su.GameTestTagRegistrar/]: GameTests FILTERED: requested tags=[ingestion], available tags=[posture-fall-audio, stun_action_gate, containment, equipment-transfer, persistence, airlock_admission_probe, airlock_log_pulse, airlock_override, ghost-roles, observer, handless-ingestion, death, food, station, disposal_live_intake_stabilization, examine_policy, atmosphere, lifecycle-reconnect-lease, mouse-ghost-roles, damage, posture, power, crafting, movement, simulation-defaults, detached-pull-stabilization, audio, parked, airlock_seam, merge-main-regression, medical-corrections-regression, suite-stabilization, airlock, creative-menu, airlock_bump, regeneration, carrier, airlock_pry_domain, equipment-regression, interaction, live, interaction-reach, mouse-appearance, physiology, character, explosion, examine_jug, jug, ingestion, air-alarm, ventilation, storage, speech, give, loose-pull-admission, damage-feedback, nutrition, equipment-drag-world, equipment, examine_puddle, medical-treatment, command, chemistry, collision, airlock_pressure_stabilization, examine_scene, lifecycle, airlock_electrified_open, network, travel, removed-puller-cleanup, airlock_crush_cycle, disposal-regression, critical, chat, disposal, equipment-quick-equip, timed-interaction, grounded, diagnostics, standing, syringe, airlock_power_cycle, pulling, airlock_crush, power_loaded_index_reconcile, status, construction, airlock_wire_layout, disposals, prototype, examine_selection, loose-objects, invalid, hands, medical-creative-drop, medical-state, airlock_connected, shared-construction, health-analyzer, slip, stripping, placement], selected/discovered=24/750, untagged=0
+[15:16:02] [main/INFO] [minecraft/RecipeManager]: Loaded 1390 recipes
+[15:16:02] [main/INFO] [minecraft/AdvancementTree]: Loaded 1400 advancements
+[15:16:04] [Server thread/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Loading configs type SERVER
+[15:16:04] [Server thread/DEBUG] [ne.ne.ne.co.NeoForgeConfig/FORGEMOD]: Loaded NeoForge config file neoforge-server.toml
+[15:16:04] [Server thread/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Loaded TOML config file C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\config\neoforge-server.toml
+[15:16:04] [Server thread/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Watching TOML config file C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\build\gametest-ingestion-partial-diagnostic2\config\neoforge-server.toml for changes
+[15:16:04] [Server thread/DEBUG] [mixin/]: Mixing ChunkMapObserverAccess from moonstation14.mixins.json into net.minecraft.server.level.ChunkMap
+[15:16:04] [Server thread/DEBUG] [mixin/]: Mixing ChunkMapObserverCenterMixin from moonstation14.mixins.json into net.minecraft.server.level.ChunkMap
+[15:16:05] [Server thread/INFO] [minecraft/MinecraftServer]: Preparing start region for dimension minecraft:overworld
+[15:16:05] [worldgen/INFO] [minecraft/LoggerChunkProgressListener]: Preparing spawn area: 2%
+[15:16:05] [Server thread/INFO] [minecraft/LoggerChunkProgressListener]: Time elapsed: 293 ms
+[15:16:05] [Server thread/INFO] [minecraft/GameTestServer]: Started game test server
+[15:16:05] [Server thread/DEBUG] [ne.ne.ne.se.LanguageHook/]: Loaded 4 language files for en_us
+[15:16:05] [Server thread/INFO] [ne.ne.ne.se.pe.PermissionAPI/]: Successfully initialized permission handler neoforge:default_handler
+[15:16:05] [Server thread/INFO] [co.ju.mo.MoonStation14/]: [lifecycle startup] state=UNINITIALIZED profiles=0 (no primary or backup profile store exists)
+[15:16:05] [Server thread/INFO] [minecraft/GameTestServer]: 24 tests are now running at position 13149003, -59, -12197072!
+[15:16:07] [Server thread/INFO] [minecraft/GameTestRunner]: Running test batch 'defaultBatch:0' (24 tests)...
+[15:16:07] [Server thread/WARN] [minecraft/MinecraftServer]: Can't keep up! Is the server overloaded? Running 2296ms or 45 ticks behind
+[15:16:08] [Server thread/INFO] [minecraft/GameTestServer]: [                        ]
+[15:16:08] [Server thread/DEBUG] [mixin/]: Mixing TrackedEntityObserverViewMixin from moonstation14.mixins.json into net.minecraft.server.level.ChunkMap$TrackedEntity
+[15:16:08] [Server thread/DEBUG] [mixin/]: moonstation14.mixins.json:TrackedEntityObserverViewMixin from mod moonstation14->@Inject::moonstation14$medicalGhostVisibility(Lnet/minecraft/server/level/ServerPlayer;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V does use it's CallbackInfo
+[15:16:09] [Server thread/INFO] [minecraft/GameTestServer]: [_____+__+______++_______]
+[15:16:09] [Server thread/INFO] [minecraft/GameTestServer]: [+__+++__++___+_+++_+__++]
+[15:16:09] [Server thread/INFO] [minecraft/GameTestServer]: [+_++++__++___+_+++_++_++]
+[15:16:09] [Server thread/ERROR] [minecraft/LogTestReporter]: finalpartialcapacitydosestopstimedpuddleoperation failed at 13149128, -60, -12197028! timed operation completed; state=[TimedOperation[id=1, kind=ingestion, sourceKey=puddle:minecraft:overworld:13149131,-59,-12197026, startTick=91, durationTicks=60, phase=ACTIVE, terminalTick=-1, breakOnDamage=true, breakOnMove=false]] source=400 stomach=4850 gameTime=94 thirst=15.82
+[15:16:09] [Server thread/INFO] [minecraft/GameTestServer]: [++++++__++_+++_++++++X++]
+[15:16:09] [Server thread/INFO] [minecraft/GameTestServer]: [++++++__++_+++_++++++X++]
+[15:16:09] [Server thread/INFO] [minecraft/GameTestServer]: [++++++__++_+++_++++++X++]
+[15:16:10] [Server thread/INFO] [minecraft/GameTestServer]: [++++++_+++++++_++++++X++]
+[15:16:10] [Server thread/INFO] [minecraft/GameTestServer]: [++++++_+++++++_++++++X++]
+[15:16:10] [Server thread/INFO] [minecraft/GameTestServer]: [++++++_+++++++_++++++X++]
+[15:16:10] [Server thread/INFO] [minecraft/GameTestServer]: [++++++_+++++++_++++++X++]
+[15:16:10] [Server thread/INFO] [minecraft/GameTestServer]: [++++++_+++++++_++++++X++]
+[15:16:10] [Server thread/INFO] [minecraft/GameTestServer]: [+++++++++++++++++++++X++]
+[15:16:10] [Server thread/INFO] [minecraft/GameTestServer]: ========= 24 GAME TESTS COMPLETE IN 4.548 s ======================
+[15:16:10] [Server thread/INFO] [minecraft/GameTestServer]: 1 required tests failed :(
+[15:16:10] [Server thread/INFO] [minecraft/GameTestServer]:    - finalpartialcapacitydosestopstimedpuddleoperation
+[15:16:10] [Server thread/INFO] [minecraft/GameTestServer]: ====================================================
+[15:16:10] [Server thread/INFO] [minecraft/MinecraftServer]: Stopping server
+[15:16:10] [Server thread/INFO] [minecraft/MinecraftServer]: Saving players
+[15:16:10] [Server thread/INFO] [minecraft/MinecraftServer]: Saving worlds
+[15:16:11] [Server thread/INFO] [minecraft/MinecraftServer]: Saving chunks for level 'ServerLevel[Test Level]'/minecraft:overworld
+[15:16:11] [Server thread/INFO] [minecraft/MinecraftServer]: Saving chunks for level 'ServerLevel[Test Level]'/minecraft:the_nether
+[15:16:11] [Server thread/INFO] [minecraft/MinecraftServer]: Saving chunks for level 'ServerLevel[Test Level]'/minecraft:the_end
+[15:16:11] [Server thread/DEBUG] [ne.ne.ne.co.CommonHooks/WP]: Gathered mod list to write to world save Test Level
+[15:16:11] [Server thread/INFO] [minecraft/MinecraftServer]: ThreadedAnvilChunkStorage (world): All chunks are saved
+[15:16:11] [Server thread/INFO] [minecraft/MinecraftServer]: ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
+[15:16:11] [Server thread/INFO] [minecraft/MinecraftServer]: ThreadedAnvilChunkStorage (DIM1): All chunks are saved
+[15:16:11] [Server thread/INFO] [minecraft/MinecraftServer]: ThreadedAnvilChunkStorage: All dimensions are saved
+[15:16:11] [Server thread/DEBUG] [ne.ne.fm.co.ConfigTracker/CONFIG]: Unloading configs type SERVER
+[15:16:11] [Server thread/INFO] [minecraft/GameTestServer]: Game test server shutting down
+
+> Task :runGameTestServer FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-02/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':runGameTestServer'.
+> Process 'command 'C:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot\bin\java.exe'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to generate a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.2.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 33s
+12 actionable tasks: 3 executed, 9 up-to-date
+Configuration cache entry stored.

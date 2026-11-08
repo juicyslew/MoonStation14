@@ -1,0 +1,17 @@
+{
+  "base": "R4 complete authoritative state/motion/optical contracts retained",
+  "partial_overrides": {
+    "cow": "Correct ONLY dorsal coat sampling; remove pale blank rectangle, same geometry and other faces.",
+    "grenadepenguin": "Source-like large rounded segmented grenade backpack, actual neck collar/strap and lever, attached to rear body.",
+    "moproach": "About20percent smaller in every axis, same source coat/two plus eyes/six mopfeet/gait cadence.",
+    "mothroach": "About20percent smaller in every axis, same source coat/two plus eyes/sleep/locomotion cadence.",
+    "penguin_shamebrero": "34 source-style hanging cords/white tassels around all four brim edges, existing hat/penguin unchanged."
+  },
+  "source_material_registry": "R5 summary for five modified textures plus exact other60entries",
+  "collision": "unchanged gameplay not implemented",
+  "space": "ALL R4 space appearances,opticalPNG,state/clock/art EXACT; not rebuilt",
+  "roach": "Render geometry+position channel scaling already applied, DO NOT scale again at runtime. Same source durations; native collision/speeds separate",
+  "hat": "Static34decorations head-parented follow inherited poses; NO invented sway loop",
+  "grenade": "Same body parent follows inherited locomotion/down pose;neck-supported dorsal olive pack not a new gameplay component",
+  "late_join": "Reset bones; evaluate source hold or authoritative elapsedtime; do not double pose"
+}

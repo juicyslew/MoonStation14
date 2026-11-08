@@ -144,3 +144,4 @@ public record ReagentData(
         return value.map(List::copyOf);
     }
 }
+

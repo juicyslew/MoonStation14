@@ -173,7 +173,7 @@ public final class LifecycleSingleWorldStepObserver {
         if (maximumAttempts < 1) throw new IllegalArgumentException("maximumAttempts must be positive");
         var production = new GroundedHarnessWorldStep();
         return LifecycleCharacterSessionControl.withWorldStepForTesting(owner,
-                (body, x, z, jump, sprint, yaw, reference) -> {
+                 (body, x, z, jump, sneak, sprint, yaw, originSequence, observer, reference) -> {
                     long serverTick=owner.level().getServer().getTickCount();
                     long gameTick=body.level().getGameTime();
                     Vec3 before=body.position(), beforeVelocity=body.getDeltaMovement();
@@ -183,8 +183,9 @@ public final class LifecycleSingleWorldStepObserver {
                     Optional<com.juicyslew.moonstation14.ms14.movement.CharacterMovementState> result=null;
                     String failure=null;
                     try {
-                        result=production.step(body,x,z,jump,sprint,yaw,moved->{
-                            moves.add(moved);
+                         result=production.step(body,x,z,jump,sneak,sprint,yaw,originSequence,moved->{
+                             moves.add(moved);
+                             if(observer!=null) observer.accept(moved);
                             if(!freezeNativeEvidence) return;
                             long callbackTick=owner.level().getServer().getTickCount();
                             long callbackGameTick=body.level().getGameTime();

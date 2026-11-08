@@ -1,0 +1,5 @@
+{
+  "id": "moonstation14:pineapple_slice",
+  "parent": "moonstation14:produce_slice_base",
+  "refillable": true
+}

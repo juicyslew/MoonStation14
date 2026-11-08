@@ -142,3 +142,4 @@ public final class StarterStationPowerPlan {
         throw new IllegalStateException("lamp floor is unreachable over station floor: " + target);
     }
 }
+

@@ -1,0 +1,7 @@
+{
+  "abstract": true,
+  "parent": "moonstation14:supported_animal",
+  "components": [
+    {"type": "Speech"}
+  ]
+}

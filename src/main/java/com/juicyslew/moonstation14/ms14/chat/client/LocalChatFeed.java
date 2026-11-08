@@ -45,3 +45,4 @@ public final class LocalChatFeed {
         if (entries.size() > MAX_ENTRIES) entries.removeFirst();
     }
 }
+

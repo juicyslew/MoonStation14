@@ -110,3 +110,4 @@ public final class SlipperySolution {
                           double launchVelocityMultiplier, double totalUnits, double slipperyUnits) {
     }
 }
+

@@ -1,0 +1,664 @@
+[
+  {
+    "id": "CarvedPumpkin",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Decoration/jackolantern.yml",
+    "record": {
+      "type": "entity",
+      "parent": "BaseItem",
+      "id": "CarvedPumpkin",
+      "name": "carved pumpkin",
+      "description": "A traditional spooky decoration.",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/pumpkin.rsi",
+          "state": "carved"
+        },
+        {
+          "type": "Item",
+          "size": "Normal"
+        },
+        {
+          "type": "Construction",
+          "graph": "PumpkinAddLight",
+          "node": "start"
+        }
+      ]
+    }
+  },
+  {
+    "id": "Clothing",
+    "sourcePath": "Resources/Prototypes/Entities/Clothing/base_clothing.yml",
+    "record": {
+      "type": "entity",
+      "abstract": true,
+      "parent": "BaseItem",
+      "id": "Clothing",
+      "components": [
+        {
+          "type": "Item",
+          "size": "Normal"
+        },
+        {
+          "type": "Sprite"
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "WhitelistChameleon"
+          ]
+        },
+        {
+          "type": "StaticPrice",
+          "price": 10
+        },
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "fiber"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "ClothingHeadBase",
+    "sourcePath": "Resources/Prototypes/Entities/Clothing/Head/base_clothinghead.yml",
+    "record": {
+      "type": "entity",
+      "abstract": true,
+      "parent": "Clothing",
+      "id": "ClothingHeadBase",
+      "components": [
+        {
+          "type": "Clothing",
+          "slots": [
+            "HEAD"
+          ]
+        },
+        {
+          "type": "Sprite",
+          "state": "icon"
+        },
+        {
+          "type": "Item",
+          "size": "Small",
+          "storedRotation": -90
+        },
+        {
+          "type": "Edible",
+          "requiresSpecialDigestion": true
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 10,
+              "reagents": [
+                {
+                  "ReagentId": "Fiber",
+                  "Quantity": 10
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "ClothMade",
+            "WhitelistChameleon"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "ClothingHeadHatHolyWatermelon",
+    "sourcePath": "Resources/Prototypes/Entities/Clothing/Head/hats.yml",
+    "record": {
+      "type": "entity",
+      "parent": "ClothingHeadBase",
+      "id": "ClothingHeadHatHolyWatermelon",
+      "name": "watermelon halo",
+      "description": "Holy moly.",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Clothing/Head/Hats/holyhatmelon.rsi"
+        },
+        {
+          "type": "Clothing",
+          "sprite": "Clothing/Head/Hats/holyhatmelon.rsi"
+        },
+        {
+          "type": "Armor",
+          "modifiers": {
+            "coefficients": {
+              "Caustic": 0.95
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "ClothingHeadHatWatermelon",
+    "sourcePath": "Resources/Prototypes/Entities/Clothing/Head/hats.yml",
+    "record": {
+      "type": "entity",
+      "parent": "ClothingHeadBase",
+      "id": "ClothingHeadHatWatermelon",
+      "name": "watermelon helmet",
+      "description": "A carelessly cut half of a watermelon, gutted from the inside, to be worn as a helmet. It can soften the blow to the head.",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Clothing/Head/Hats/melon.rsi"
+        },
+        {
+          "type": "Clothing",
+          "sprite": "Clothing/Head/Hats/melon.rsi"
+        },
+        {
+          "type": "Armor",
+          "modifiers": {
+            "coefficients": {
+              "Blunt": 0.95
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodHolymelon",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "holymelon",
+      "parent": [
+        "FoodProduceBase",
+        "ItemHeftyBase"
+      ],
+      "id": "FoodHolymelon",
+      "description": "The water within this melon has been blessed by some deity that's particularly fond of watermelon.",
+      "components": [
+        {
+          "type": "Item",
+          "size": "Small",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "holy",
+            "watermelon"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 25,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 10
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 5
+                },
+                {
+                  "ReagentId": "Holywater",
+                  "Quantity": 10
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/holymelon.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "watermelon"
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "Wine",
+                "Quantity": 20
+              }
+            ]
+          }
+        },
+        {
+          "type": "Damageable",
+          "damageContainer": "Biological"
+        },
+        {
+          "type": "DamageOnHighSpeedImpact",
+          "minimumSpeed": 0.1,
+          "damage": {
+            "types": {
+              "Blunt": 1
+            }
+          }
+        },
+        {
+          "type": "Destructible",
+          "thresholds": [
+            {
+              "trigger": {
+                "__yaml_tag__": "!type:DamageTrigger",
+                "value": {
+                  "damage": 1
+                }
+              },
+              "behaviors": [
+                {
+                  "__yaml_tag__": "!type:PlaySoundBehavior",
+                  "value": {
+                    "sound": {
+                      "collection": "desecration"
+                    }
+                  }
+                },
+                {
+                  "__yaml_tag__": "!type:SpillBehavior",
+                  "value": {
+                    "solution": "food"
+                  }
+                },
+                {
+                  "__yaml_tag__": "!type:DoActsBehavior",
+                  "value": {
+                    "acts": [
+                      "Destruction"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "SliceableFood",
+          "count": 5,
+          "slice": "FoodHolymelonSlice"
+        },
+        {
+          "type": "Butcherable",
+          "butcheringType": "Knife",
+          "spawned": [
+            {
+              "id": "ClothingHeadHatHolyWatermelon"
+            }
+          ]
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodHolymelonSlice",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "holymelon slice",
+      "parent": "ProduceSliceBase",
+      "id": "FoodHolymelonSlice",
+      "description": "Juicy golden and red slice.",
+      "components": [
+        {
+          "type": "Item",
+          "size": "Tiny"
+        },
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "holy",
+            "watermelon"
+          ]
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/holymelon.rsi"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 5,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 2
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 1
+                },
+                {
+                  "ReagentId": "Holywater",
+                  "Quantity": 2
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "Wine",
+                "Quantity": 4
+              }
+            ]
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit",
+            "Slice"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Burger": "HolymelonSliceBurger",
+            "Taco": "HolymelonSlice",
+            "Skewer": "HolymelonSliceSkewer"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodPumpkin",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "pumpkin",
+      "parent": "FoodProduceBase",
+      "id": "FoodPumpkin",
+      "description": "A large, orange... berry. Seriously.",
+      "components": [
+        {
+          "type": "Item",
+          "size": "Small",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "pumpkin"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 25,
+              "reagents": [
+                {
+                  "ReagentId": "PumpkinFlesh",
+                  "Quantity": 20
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 5
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/pumpkin.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "pumpkin"
+        },
+        {
+          "type": "Damageable",
+          "damageContainer": "Biological"
+        },
+        {
+          "type": "Destructible",
+          "thresholds": [
+            {
+              "trigger": {
+                "__yaml_tag__": "!type:DamageTrigger",
+                "value": {
+                  "damage": 16
+                }
+              },
+              "behaviors": [
+                {
+                  "__yaml_tag__": "!type:PlaySoundBehavior",
+                  "value": {
+                    "sound": {
+                      "collection": "desecration"
+                    }
+                  }
+                },
+                {
+                  "__yaml_tag__": "!type:SpillBehavior",
+                  "value": {
+                    "solution": "food"
+                  }
+                },
+                {
+                  "__yaml_tag__": "!type:DoActsBehavior",
+                  "value": {
+                    "acts": [
+                      "Destruction"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Butcherable",
+          "butcheringType": "Knife",
+          "spawned": [
+            {
+              "id": "CarvedPumpkin"
+            },
+            {
+              "id": "PumpkinSeeds"
+            }
+          ]
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit",
+            "Vegetable"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodWatermelon",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "watermelon",
+      "parent": [
+        "FoodProduceBase",
+        "ItemHeftyBase"
+      ],
+      "id": "FoodWatermelon",
+      "description": "Round green object that you can slice and eat.",
+      "components": [
+        {
+          "type": "Item",
+          "size": "Small",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "watermelon"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 25,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 10
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 5
+                },
+                {
+                  "ReagentId": "Water",
+                  "Quantity": 10
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/watermelon.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "watermelon"
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "JuiceWatermelon",
+                "Quantity": 20
+              }
+            ]
+          }
+        },
+        {
+          "type": "Damageable",
+          "damageContainer": "Biological"
+        },
+        {
+          "type": "DamageOnHighSpeedImpact",
+          "minimumSpeed": 0.1,
+          "damage": {
+            "types": {
+              "Blunt": 1
+            }
+          }
+        },
+        {
+          "type": "Destructible",
+          "thresholds": [
+            {
+              "trigger": {
+                "__yaml_tag__": "!type:DamageTrigger",
+                "value": {
+                  "damage": 1
+                }
+              },
+              "behaviors": [
+                {
+                  "__yaml_tag__": "!type:PlaySoundBehavior",
+                  "value": {
+                    "sound": {
+                      "collection": "desecration"
+                    }
+                  }
+                },
+                {
+                  "__yaml_tag__": "!type:SpillBehavior",
+                  "value": {
+                    "solution": "food"
+                  }
+                },
+                {
+                  "__yaml_tag__": "!type:DoActsBehavior",
+                  "value": {
+                    "acts": [
+                      "Destruction"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "SliceableFood",
+          "count": 5,
+          "slice": "FoodWatermelonSlice"
+        },
+        {
+          "type": "Butcherable",
+          "butcheringType": "Knife",
+          "spawned": [
+            {
+              "id": "ClothingHeadHatWatermelon"
+            }
+          ]
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "ItemHeftyBase",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/ingredients.yml",
+    "record": {
+      "type": "entity",
+      "abstract": true,
+      "id": "ItemHeftyBase",
+      "components": [
+        {
+          "type": "DamageOnLand",
+          "damage": {
+            "types": {
+              "Blunt": 1
+            }
+          }
+        },
+        {
+          "type": "DamageOtherOnHit",
+          "damage": {
+            "types": {
+              "Blunt": 1
+            }
+          }
+        }
+      ]
+    }
+  }
+]

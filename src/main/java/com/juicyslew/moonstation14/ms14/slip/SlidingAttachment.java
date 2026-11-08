@@ -22,3 +22,4 @@ public final class SlidingAttachment implements IMS14Attachment<SlidingAttachmen
     @Override public Codec<SlidingAttachment> getCodec() { return CODEC; }
     @Override public StreamCodec<RegistryFriendlyByteBuf, SlidingAttachment> getStreamCodec() { return STREAM_CODEC; }
 }
+

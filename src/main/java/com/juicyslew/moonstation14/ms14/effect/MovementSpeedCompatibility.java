@@ -49,3 +49,4 @@ public final class MovementSpeedCompatibility {
     private record Shape(int walkBits, int sprintBits) {
     }
 }
+

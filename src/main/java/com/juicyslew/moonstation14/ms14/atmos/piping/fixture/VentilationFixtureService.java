@@ -29,32 +29,47 @@ public final class VentilationFixtureService {
     private VentilationFixtureService() { }
 
     public static String build(ServerLevel level, BlockPos origin) {
+        return build(level, origin, false);
+    }
+    public static String buildFirelock(ServerLevel level, BlockPos origin) { return build(level, origin, true); }
+    private static String build(ServerLevel level, BlockPos origin, boolean firelockVariant) {
+        VentilationFixturePlan plan = firelockVariant ? VentilationFixturePlan.firelockPlan() : PLAN;
         var saved = VentilationFixtureSavedData.existing(level).orElse(null);
         if (saved != null && (saved.entry(origin).isPresent() || saved.count() >= VentilationFixtureSavedData.MAX_FIXTURES))
             return "Fixture already has a saved ownership marker; refusing overwrite.";
-        if (!preflight(level, origin)) return "Build refused: footprint must be loaded, clear of entities/fluids/block entities and within world bounds.";
+        if (!preflight(level, origin, plan)) return "Build refused: footprint must be loaded, clear of entities/fluids/block entities and within world bounds.";
         if (PrototypeRuntime.serverVentilationDevices().get(ModVentilationDevices.SCRUBBER) == null
                 || PrototypeRuntime.serverVentilationDevices().get(ModVentilationDevices.VENT) == null
                 || ModAirAlarms.catalog(level).get(ModAirAlarms.AIR_ALARM) == null)
             return "Build refused: required resolved ventilation/alarm prototypes are unavailable.";
         // All write targets have been checked before the first mutation.
-        for (VentilationFixturePlan.Cell cell : PLAN.blocks()) {
+        for (VentilationFixturePlan.Cell cell : plan.blocks()) {
             BlockPos pos = origin.offset(cell.pos());
             switch (cell.role()) {
                 case AIR -> level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
                 case STEEL -> level.setBlock(pos, ModBlocks.STEEL_WALL_BLOCK.get().defaultBlockState(), 3);
                 case GLASS -> level.setBlock(pos, Blocks.GLASS.defaultBlockState(), 3);
+                case LIGHT -> level.setBlock(pos, Blocks.SEA_LANTERN.defaultBlockState(), 3);
             }
         }
-        BlockPos scrub = origin.offset(PLAN.scrubber()), vent = origin.offset(PLAN.vent()), alarm = origin.offset(PLAN.alarm());
-        level.setBlock(scrub, ModBlocks.GAS_SCRUBBER.get().defaultBlockState().setValue(VentilationDeviceBlock.FACING, PLAN.scrubberFacing()), 3);
-        level.setBlock(vent, ModBlocks.GAS_VENT.get().defaultBlockState().setValue(VentilationDeviceBlock.FACING, PLAN.ventFacing()), 3);
-        level.setBlock(alarm, ModBlocks.AIR_ALARM.get().defaultBlockState().setValue(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock.FACING, PLAN.alarmFacing()), 3);
+        UUID firelockId = null;
+        if(firelockVariant){
+            BlockPos door=origin.offset(plan.firelock());
+            var lower=com.juicyslew.moonstation14.block.ModBlocks.FIRELOCK.get().defaultBlockState().setValue(com.juicyslew.moonstation14.ms14.doors.FirelockBlock.FACING, firelockVariant ? Direction.EAST : Direction.NORTH);
+            level.setBlock(door,lower,3);
+            level.setBlock(door.above(),lower.setValue(com.juicyslew.moonstation14.ms14.doors.FirelockBlock.HALF,net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER),3);
+            if(!(level.getBlockEntity(door) instanceof com.juicyslew.moonstation14.ms14.doors.FirelockBlockEntity firelock)) return "Partial placement: firelock setup failed; manual recovery required.";
+            firelockId=firelock.identity();
+        }
+        BlockPos scrub = origin.offset(plan.scrubber()), vent = origin.offset(plan.vent()), alarm = origin.offset(plan.alarm());
+        level.setBlock(scrub, ModBlocks.GAS_SCRUBBER.get().defaultBlockState().setValue(VentilationDeviceBlock.FACING, plan.scrubberFacing()), 3);
+        level.setBlock(vent, ModBlocks.GAS_VENT.get().defaultBlockState().setValue(VentilationDeviceBlock.FACING, plan.ventFacing()), 3);
+        level.setBlock(alarm, ModBlocks.AIR_ALARM.get().defaultBlockState().setValue(com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlock.FACING, plan.alarmFacing()), 3);
         if (!(level.getBlockEntity(scrub) instanceof VentilationDeviceBlockEntity scrubber)
                 || !(level.getBlockEntity(vent) instanceof VentilationDeviceBlockEntity ventilator)
                 || !configureFixtureDevice(scrubber, false) || !configureFixtureDevice(ventilator, false))
             return "Partial placement: ventilation configuration failed; manual recovery required.";
-        for (VentilationFixturePlan.PipeNode node : PLAN.pipes()) {
+        for (VentilationFixturePlan.PipeNode node : plan.pipes()) {
             BlockPos pos = origin.offset(node.position());
             if (node.concealed()) {
                 if (!FixturePipeAdmission.concealed(level, pos, Direction.NORTH, PipeTopology.Layer.PRIMARY))
@@ -64,8 +79,8 @@ public final class VentilationFixtureService {
                     return "Partial placement: exposed pipe ownership failed; manual recovery required.";
             }
         }
-        for (var node : PLAN.pipes()) if (!node.concealed()) VisualPipeBlockEntity.refreshLoadedAdjacent(level, origin.offset(node.position()));
-        for (var device : PLAN.powerDevices()) {
+        for (var node : plan.pipes()) if (!node.concealed()) VisualPipeBlockEntity.refreshLoadedAdjacent(level, origin.offset(node.position()));
+        for (var device : plan.powerDevices()) {
             var block = switch (device.kind()) {
                 case HV_SOURCE -> ModBlocks.HV_SOURCE.get();
                 case HV_MV_SUBSTATION -> ModBlocks.HV_MV_SUBSTATION.get();
@@ -79,18 +94,24 @@ public final class VentilationFixtureService {
             level.setBlock(pos, block.defaultBlockState().setValue(PowerDeviceBlock.FACING, device.facing()), 3);
             if (level.getBlockState(pos).getBlock() != block) return "Partial placement: power device failed; manual recovery required.";
         }
-        for (var cable : PLAN.cables()) if (!CableStorage.place(level, origin.offset(cable.host()), cable.face(), cable.tier()))
+        for (var cable : plan.cables()) if (!CableStorage.place(level, origin.offset(cable.host()), cable.face(), cable.tier()))
             return "Partial placement: cable installation failed; manual recovery required.";
         UUID sid = ((VentilationDeviceBlockEntity) level.getBlockEntity(scrub)).deviceId();
         UUID vid = ((VentilationDeviceBlockEntity) level.getBlockEntity(vent)).deviceId();
+        UUID apcId = plan.powerDevices().stream().filter(d -> d.kind() == PowerDeviceKind.APC)
+                .map(d -> level.getBlockEntity(origin.offset(d.position())))
+                .filter(com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity.class::isInstance)
+                .map(com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity.class::cast)
+                .map(com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity::apcPowerIdentity).findFirst().orElse(null);
         UUID aid = UUID.randomUUID(); // Fixture token; alarms have links, not an independent device identity.
         if (sid == null || vid == null || !(level.getBlockEntity(alarm) instanceof com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity alarmEntity)
                 || !alarmEntity.addDeviceLink((VentilationDeviceBlockEntity) level.getBlockEntity(scrub))
                 || !alarmEntity.addDeviceLink((VentilationDeviceBlockEntity) level.getBlockEntity(vent))
-                || !VentilationFixtureSavedData.forMutation(level).recordBuilt(origin, sid, vid, aid))
+                 || !VentilationFixtureSavedData.forMutation(level).recordBuilt(origin, sid, vid, aid, firelockVariant, firelockId,
+                  ((com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity)level.getBlockEntity(alarm)).controllerId(), apcId))
             return "Structure placed but fixture ownership admission failed; manual recovery required.";
-        for (BlockPos p : PLAN.sourceCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
-        for (BlockPos p : PLAN.recipientCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
+        for (BlockPos p : plan.sourceCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
+        for (BlockPos p : plan.recipientCells()) AtmosphereService.INSTANCE.sample(level, origin.offset(p));
         return "Built finite ventilation fixture at absolute origin " + origin.getX()+" "+origin.getY()+" "+origin.getZ() + "; wait for normal atmosphere ownership, then run initialize.";
     }
 
@@ -98,7 +119,8 @@ public final class VentilationFixtureService {
         var data = VentilationFixtureSavedData.existing(level).orElse(null);
         var entry = data == null ? Optional.<VentilationFixtureSavedData.Entry>empty() : data.entry(origin);
         if (entry.isEmpty()) return "No saved fixture at that origin.";
-        var e = entry.get(); if (e.initialized()) return "Fixture was already initialized; refusing reseed.";
+        var e = entry.get(); if(e.firelockVariant()) return "Refused: use firelock_fixture initialize for this owned variant.";
+        if (e.initialized()) return "Fixture was already initialized; refusing reseed.";
         if (!footprintLoaded(level, origin)) return "Initialization refused: fixture footprint chunks must all be loaded.";
         BlockPos source = origin.offset(PLAN.scrubber()), receiver = origin.offset(PLAN.vent());
         if (!(level.getBlockEntity(source) instanceof VentilationDeviceBlockEntity s) || !e.scrubberUUID().equals(s.deviceId())
@@ -127,7 +149,157 @@ public final class VentilationFixtureService {
         return VentilationFixtureTelemetry.status(level, origin);
     }
 
-    private static boolean preflight(ServerLevel level, BlockPos origin) {
+    /** Firelock-specific lifecycle entry point; never admits the legacy Plasma demonstration. */
+    public static String initializeFirelock(ServerLevel level, BlockPos origin) {
+        var data = VentilationFixtureSavedData.existing(level).orElse(null);
+        var entry = data == null ? Optional.<VentilationFixtureSavedData.Entry>empty() : data.entry(origin);
+        if (entry.isEmpty() || !entry.get().firelockVariant()) return "Refused: no exact saved firelock_fixture ownership marker.";
+        var e = entry.get();
+        if (e.initialized()) return "Firelock fixture was already initialized; refusing reseed.";
+        if (fixtureAdmission(level, origin, e)==null) return "Refused: exact fixture ownership admission failed.";
+        if (!footprintLoaded(level, origin)) return "Initialization refused: fixture footprint chunks must all be loaded.";
+        var plan = VentilationFixturePlan.firelockPlan();
+        BlockPos scrubPos=origin.offset(plan.scrubber()), ventPos=origin.offset(plan.vent()), alarmPos=origin.offset(plan.alarm());
+        if (!(level.getBlockEntity(scrubPos) instanceof VentilationDeviceBlockEntity scrubber) || !e.scrubberUUID().equals(scrubber.deviceId())
+                || !(level.getBlockEntity(ventPos) instanceof VentilationDeviceBlockEntity vent) || !e.ventUUID().equals(vent.deviceId()))
+            return "Refused: ventilation device identities do not match saved fixture ownership.";
+        if (!(level.getBlockEntity(alarmPos) instanceof com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity alarm)
+                || alarm.prototype() == null || !e.alarmUUID().equals(alarm.controllerId())) return "Refused: loaded air alarm identity does not match saved fixture ownership.";
+        BlockPos doorPos = origin.offset(plan.firelock());
+        if (!(level.getBlockEntity(doorPos) instanceof com.juicyslew.moonstation14.ms14.doors.FirelockBlockEntity door)
+                || !e.firelockUUID().equals(door.identity())) return "Refused: firelock identity does not match fixture ownership.";
+        if (!alarm.deviceLinksValid() || alarm.deviceLinks().size()!=2
+                || alarm.deviceLinks().stream().noneMatch(link -> link.deviceId().equals(e.scrubberUUID()))
+                || alarm.deviceLinks().stream().noneMatch(link -> link.deviceId().equals(e.ventUUID())))
+            return "Refused: air alarm links do not match saved ventilation device identities.";
+        if (!validatePipeNetwork(level,origin)) return "Refused: fixture pipe network does not match its planned nodes.";
+
+        var cells=plan.firelockConnectedCells().stream().map(origin::offset).toList();
+        var alarmOwner=com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime.forLevel(level).transport().lookupAt(alarmPos);
+        var ventOwner=com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime.forLevel(level).transport().lookupAt(ventPos);
+        var doorOwner=com.juicyslew.moonstation14.ms14.devicenet.DeviceNetworkRuntime.forLevel(level).transport().lookupAt(doorPos);
+        if(alarmOwner.size()!=1||ventOwner.size()!=1||doorOwner.size()!=1
+                || !alarmOwner.getFirst().identity().value().equals(e.alarmUUID())
+                || !ventOwner.getFirst().identity().value().equals(e.ventUUID())
+                || !doorOwner.getFirst().identity().value().equals(e.firelockUUID()))
+            return "Initialization deferred: loaded device network endpoints are not ready; retry shortly; no gas written.";
+        var settings=vent.config().settings();
+        if (!VentilationFixtureSavedData.forMutation(level).markInitialized(origin,e.scrubberUUID(),e.ventUUID(),e.fixtureUUID()))
+            return "Initialization guard changed; no fixture mutations were made.";
+        StringBuilder atmosphereRejection = new StringBuilder();
+        if (!AtmosphereService.INSTANCE.initializeEnclosedFiniteMixtureForTrustedSetup(level,cells,GasMixture.breathableAir(),
+                reason -> atmosphereRejection.append(reason)))
+            return "Initialization guard admitted setup, but trusted finite-room ownership/gas setup rejected ("+atmosphereRejection+ "); manual rebuild required.";
+        if (!new com.juicyslew.moonstation14.ms14.devicenet.DeviceListService().apply(alarmOwner.getFirst(),
+                com.juicyslew.moonstation14.ms14.devicenet.DeviceListService.Mutation.set(java.util.List.of(e.ventUUID().toString(),e.firelockUUID().toString()))))
+            return "Partial initialization: once-only guard admitted setup, but alarm DeviceList mutation failed; manual inspection/rebuild required.";
+        if(!vent.config().compareAndSet(settings.revision(),new VentilationDeviceConfig.Settings(settings.revision(),false,
+                settings.externalPressureBoundKPa(),settings.targetPressureChangeKPaPerSecond(),settings.targetPressureKPa(),
+                settings.volumeRateM3PerSecond(),settings.scrubberMode(),settings.filteredGases(),settings.selectedLayer())))
+            return "Partial initialization: once-only guard admitted setup, but ventilation settings changed; manual inspection/rebuild required.";
+        if(!configureFixtureDevice(scrubber,false)) return "Gas initialized but scrubber configuration failed; manual recovery required.";
+        return "Initialized connected firelock fixture room with breathable finite gas at absolute origin "+origin.getX()+" "+origin.getY()+" "+origin.getZ()+"; trusted setup is not proof of paid runtime power.";
+    }
+
+    public static String resetFirelock(ServerLevel level, BlockPos origin) {
+        return mutateFirelockGas(level, origin, "normal", true);
+    }
+
+    public static String firelockScenario(ServerLevel level, BlockPos origin, String scenario) {
+        return mutateFirelockGas(level, origin, scenario, false);
+    }
+
+    public static String setFirelockPower(ServerLevel level, BlockPos origin, boolean on) {
+        var e=VentilationFixtureSavedData.existing(level).flatMap(data->data.entry(origin)).orElse(null);
+        var plan=VentilationFixturePlan.firelockPlan(); BlockPos pos=origin.offset(plan.apc());
+        var apc=fixtureAdmission(level, origin, e);
+        if(e==null||!e.initialized()||apc==null)
+            return "Refused: exact initialized firelock fixture/APC ownership validation failed.";
+        if(apc.breakerClosed()==on) return "Fixture APC already "+(on?"on":"off")+".";
+        return apc.toggleBreakerAuthorized(true,0.0)?"Fixture APC turned "+(on?"on":"off")+"; normal allocation and paid-load telemetry remain authoritative.":"APC breaker transition rejected.";
+    }
+
+    private static String mutateFirelockGas(ServerLevel level, BlockPos origin, String scenario, boolean reset) {
+        if (!java.util.Arrays.stream(VentilationFixturePlan.FirelockScenario.values()).map(x -> x.name().toLowerCase(java.util.Locale.ROOT)).toList().contains(scenario))
+            return "Unknown scenario; choose " + String.join(", ", java.util.Arrays.stream(VentilationFixturePlan.FirelockScenario.values()).map(x -> x.name().toLowerCase(java.util.Locale.ROOT)).toList()) + ".";
+        var e = VentilationFixtureSavedData.existing(level).flatMap(data -> data.entry(origin)).orElse(null);
+        var plan = VentilationFixturePlan.firelockPlan();
+        if (e == null || !e.firelockVariant() || !e.initialized()) return "Refused: initialized exact firelock_fixture ownership marker required.";
+        if (!footprintLoaded(level, origin)) return "Refused: fixture footprint chunks must be loaded.";
+        BlockPos scrubPos=origin.offset(plan.scrubber()), ventPos=origin.offset(plan.vent()), alarmPos=origin.offset(plan.alarm()), doorPos=origin.offset(plan.firelock());
+        if (!(level.getBlockEntity(scrubPos) instanceof VentilationDeviceBlockEntity scrubber) || !e.scrubberUUID().equals(scrubber.deviceId())
+                || !(level.getBlockEntity(ventPos) instanceof VentilationDeviceBlockEntity vent) || !e.ventUUID().equals(vent.deviceId())
+                || !(level.getBlockEntity(alarmPos) instanceof com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity alarm) || !e.alarmUUID().equals(alarm.controllerId())
+                || !(level.getBlockEntity(doorPos) instanceof com.juicyslew.moonstation14.ms14.doors.FirelockBlockEntity door) || !e.firelockUUID().equals(door.identity())
+                || !alarm.deviceLinksValid() || alarm.deviceLinks().size()!=2 || !validatePipeNetwork(level,origin))
+            return "Refused: exact owned devices, alarm links, door, and planned pipe network must validate.";
+        var apcPos=origin.offset(plan.apc());
+        if (fixtureAdmission(level, origin, e)==null)
+            return "Refused: exact fixture APC is unavailable.";
+
+        var all=plan.firelockConnectedCells().stream().map(origin::offset).toList();
+        boolean differential=scenario.endsWith("_differential");
+        var doorState=door.state();
+        if(doorState==null) return "Refused: firelock phase state is unavailable; no gas written.";
+        boolean closed=doorState.phase()==com.juicyslew.moonstation14.ms14.doors.AirlockState.DoorPhase.CLOSED
+                && !level.getBlockState(doorPos).getValue(com.juicyslew.moonstation14.ms14.doors.FirelockBlock.OPEN);
+        if(differential&&(!closed
+                || level.getBlockState(doorPos).getBlock()!=com.juicyslew.moonstation14.block.ModBlocks.FIRELOCK.get()
+                || level.getBlockState(doorPos.above()).getBlock()!=com.juicyslew.moonstation14.block.ModBlocks.FIRELOCK.get()))
+            return "Differential scenarios require a fully CLOSED firelock; run scenario pressure_danger, wait until CLOSED, then apply the differential scenario.";
+        var firelockPrototype=door.prototype();
+        if(differential&&firelockPrototype==null) return "Refused: resolved firelock prototype thresholds are unavailable; no gas written.";
+        var writes=new java.util.LinkedHashMap<BlockPos,GasMixture>();
+        var firelockScenario=VentilationFixturePlan.FirelockScenario.valueOf(scenario.toUpperCase(java.util.Locale.ROOT));
+        var expectation=VentilationFixturePlan.firelockExpectation(firelockScenario);
+        var differentialTargets=differential?VentilationFixturePlan.firelockDifferentialTargets(firelockScenario):null;
+        var leftMixture=(GasMixture)null;
+        var rightMixture=(GasMixture)null;
+        for (BlockPos cell:all) {
+            if (closed && (cell.getX()==doorPos.getX() && cell.getZ()==doorPos.getZ())) continue;
+            if (AtmosphereService.INSTANCE.sample(level,cell).isEmpty()) return "Refused: finite fixture gas cells are not admitted; no gas written.";
+            var endpoint=AtmosphereService.INSTANCE.finiteRoomEndpointForTrustedSimulation(level,cell);
+            if(endpoint.isEmpty()) return "Refused: finite fixture ownership/enclosure validation failed; no gas written.";
+            GasMixture current=endpoint.get().snapshot(); if(current==null) return "Refused: fixture gas snapshot unavailable; no gas written.";
+            boolean right=cell.getX()>doorPos.getX();
+            double pressure=differential?(right?differentialTargets.rightPressureKPa():differentialTargets.leftPressureKPa()):expectation.pressureKPa();
+            double temperature=differential?(right?differentialTargets.rightTemperatureKelvin():differentialTargets.leftTemperatureKelvin()):expectation.temperatureKelvin();
+            double moles=pressure*1000.0*current.volumeCubicMeters()/(8.3144626*temperature);
+            GasMixture generated = new GasMixture(Map.of(GasType.OXYGEN,moles*.21,GasType.NITROGEN,moles*.79),temperature,current.volumeCubicMeters());
+            var resolvedVent = vent.prototype();
+            if (resolvedVent == null || resolvedVent.atmosMonitor() == null)
+                return "Refused: resolved fixture vent atmosphere monitor is unavailable; no gas written.";
+            var actualSeverity = com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosMonitorClassification.classify(
+                    PrototypeRuntime.serverAtmosAlarmThresholds(), resolvedVent.atmosMonitor(), generated);
+            if(differential) { if(right) rightMixture=generated; else leftMixture=generated; }
+            else {
+                var expectedSeverity = switch (scenario) {
+                    case "normal" -> com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.NORMAL;
+                    case "pressure_warning", "temperature_warning" -> com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.WARNING;
+                    case "pressure_danger", "temperature_danger" -> com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmSeverity.DANGER;
+                    default -> throw new IllegalStateException("validated uniform firelock scenario changed");
+                };
+                if (actualSeverity != expectedSeverity)
+                    return "Refused: generated gas classifies as " + actualSeverity.name().toLowerCase(java.util.Locale.ROOT)
+                            + ", not requested " + expectedSeverity.name().toLowerCase(java.util.Locale.ROOT) + "; no gas written.";
+            }
+            writes.put(cell,generated);
+        }
+        if(differential) {
+            if(leftMixture==null||rightMixture==null) return "Refused: differential pair is incomplete; no gas written.";
+            boolean pressureAlarm=Math.abs(differentialTargets.rightPressureKPa()-differentialTargets.leftPressureKPa())>firelockPrototype.pressureDifferenceKpa();
+            boolean temperatureAlarm=Math.abs(differentialTargets.rightTemperatureKelvin()-differentialTargets.leftTemperatureKelvin())>firelockPrototype.temperatureDifferenceK();
+            boolean wantPressure=differentialTargets.leftPressureKPa()!=differentialTargets.rightPressureKPa();
+            boolean wantTemperature=differentialTargets.leftTemperatureKelvin()!=differentialTargets.rightTemperatureKelvin();
+            if(pressureAlarm!=wantPressure||temperatureAlarm!=wantTemperature)
+                return "Refused: requested differential does not cross resolved firelock thresholds; no gas written.";
+        }
+        for(var write:writes.entrySet()) if(!AtmosphereService.INSTANCE.initializeFiniteMixtureForTrustedSetup(level,write.getKey(),write.getValue()))
+            return "Partial trusted operator gas reset failed at "+write.getKey().toShortString()+"; inspect fixture before retry.";
+        return (reset?"Reset":"Applied "+scenario)+" using trusted operator finite-gas setup; cells="+writes.size()+"; APC state unchanged. Normal alarm loop determines severity/door response.";
+    }
+
+    private static boolean preflight(ServerLevel level, BlockPos origin, VentilationFixturePlan plan) {
         var saved = VentilationFixtureSavedData.existing(level).orElse(null);
         if (saved != null && saved.count() >= VentilationFixtureSavedData.MAX_FIXTURES) return false;
         var gasSnapshot = PipeGasInventorySavedData.existing(level)
@@ -148,7 +320,7 @@ public final class VentilationFixtureService {
             var state = level.getBlockState(p);
             if (!state.isAir() || !state.getFluidState().isEmpty() || level.getBlockEntity(p) != null) return false;
         }
-        for (var node : PLAN.pipes()) {
+        for (var node : plan.pipes()) {
             BlockPos p = origin.offset(node.position());
             var chunk = level.getChunkSource().getChunk(p.getX() >> 4, p.getZ() >> 4, ChunkStatus.FULL, false);
             if (chunk == null || level.getBlockEntity(p) != null) return false;
@@ -176,6 +348,39 @@ public final class VentilationFixtureService {
         var expected=PLAN.pipes().stream().map(node -> new PipeTopology.NodeKey(origin.offset(node.position()), PipeTopology.Layer.PRIMARY))
                 .collect(java.util.stream.Collectors.toSet());
         return snapshot.get().nodes().stream().map(LoadedPipeComponent.Node::key).collect(java.util.stream.Collectors.toSet()).equals(expected);
+    }
+
+    /** Shared exact-membership gate for trusted firelock mutations; returns only the admitted APC. */
+    private static com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity fixtureAdmission(
+            ServerLevel level, BlockPos origin, VentilationFixtureSavedData.Entry e) {
+        if (e == null || !e.firelockVariant() || !footprintLoaded(level, origin)) return null;
+        var plan = VentilationFixturePlan.firelockPlan();
+        if (!(level.getBlockEntity(origin.offset(plan.scrubber())) instanceof VentilationDeviceBlockEntity scrubber)
+                || !e.scrubberUUID().equals(scrubber.deviceId())
+                || !(level.getBlockEntity(origin.offset(plan.vent())) instanceof VentilationDeviceBlockEntity vent)
+                || !e.ventUUID().equals(vent.deviceId())
+                || !(level.getBlockEntity(origin.offset(plan.alarm())) instanceof com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity alarm)
+                || !e.alarmUUID().equals(alarm.controllerId()) || !hasExpectedFixtureLinks(alarm, e)
+                || !(level.getBlockEntity(origin.offset(plan.firelock())) instanceof com.juicyslew.moonstation14.ms14.doors.FirelockBlockEntity door)
+                || !e.firelockUUID().equals(door.identity()) || !validatePipeNetwork(level, origin)) return null;
+        BlockPos apcPos=origin.offset(plan.apc());
+        if (!(level.getBlockEntity(apcPos) instanceof com.juicyslew.moonstation14.block.block_entity.PowerDeviceBlockEntity apc)
+                || !java.util.Objects.equals(e.apcUUID(), apc.apcPowerIdentity())
+                || !(level.getBlockState(apcPos).getBlock() instanceof PowerDeviceBlock block) || block.kind()!=PowerDeviceKind.APC) return null;
+        return apc;
+    }
+
+    /** Link membership transitions exactly once with the saved initialization guard. */
+    private static boolean hasExpectedFixtureLinks(
+            com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmBlockEntity alarm,
+            VentilationFixtureSavedData.Entry entry) {
+        if (!alarm.deviceLinksValid() || alarm.deviceLinks().size() != 2) return false;
+        var expected = entry.initialized()
+                ? java.util.Set.of(entry.ventUUID(), entry.firelockUUID())
+                : java.util.Set.of(entry.scrubberUUID(), entry.ventUUID());
+        var actual = alarm.deviceLinks().stream().map(link -> link.deviceId())
+                .collect(java.util.stream.Collectors.toSet());
+        return actual.size() == 2 && actual.equals(expected);
     }
 
     private static boolean configureFixtureDevice(VentilationDeviceBlockEntity be, boolean enabled) {

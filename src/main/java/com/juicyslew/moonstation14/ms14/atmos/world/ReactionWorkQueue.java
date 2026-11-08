@@ -311,3 +311,4 @@ final class ReactionWorkQueue {
     int backlogSize() { return buckets.values().stream().mapToInt(b -> b.backlog.size()).sum(); }
     boolean hasPendingLoads() { return !loading.isEmpty(); }
 }
+

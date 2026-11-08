@@ -34,3 +34,4 @@ public class AtmosphereTestDeviceBlockEntity extends BlockEntity {
         AtmosphereDeviceRules.tick(true, gameTime, target, block.device(), block.pureGas(), receiver);
     }
 }
+

@@ -39,7 +39,7 @@ class LooseCargoRenderObservationWiringTest {
         assertTrue(config.getAsJsonObject("injectors").get("defaultRequire").getAsInt() == 1);
     }
 
-    @Test void actualLooseRendererOffsetAndEveryModelDrawBranchRecordExistingValuesWithoutChangingThem() throws Exception {
+    @Test void actualLooseRendererOffsetAndSharedPhysicalDrawSitesRecordWithoutChangingInputs() throws Exception {
         String renderer = read("src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/client/LooseItemRenderer.java");
         int offset = renderer.indexOf("@Override public net.minecraft.world.phys.Vec3 getRenderOffset");
         int offsetEnd = renderer.indexOf("/** Applies the production", offset);
@@ -58,13 +58,33 @@ class LooseCargoRenderObservationWiringTest {
         int renderStart = renderer.indexOf("public void render(LooseItemEntity entity");
         int renderEnd = renderer.indexOf("private static org.joml.Quaternionf applyEntityOrientation", renderStart);
         String render = renderer.substring(renderStart, renderEnd);
-        assertEquals(4, occurrences(render, "LooseCargoCaptureClient.observeModelDraw("));
-        assertEquals(3, occurrences(render, "getItemRenderer().renderStatic("));
-        assertEquals(1, occurrences(render, "getModelRenderer().renderModel("));
+        assertEquals(1, occurrences(render, "LooseCargoCaptureClient.observeModelDraw("),
+                "entity driver supplies one observer closure to the shared owner");
+        assertEquals(1, occurrences(render, "Runnable capture = () -> LooseCargoCaptureClient.observeModelDraw("));
+        assertFalse(render.contains("getItemRenderer().renderStatic("));
+        assertFalse(render.contains("getModelRenderer().renderModel("));
+        assertTrue(render.contains("pose.translate(-.5, 0, -.5)"),"caller retains the jug pivot exactly once");
+        String compactRender = render.replaceAll("\\s+", "");
+        assertTrue(compactRender.contains("observeModelDraw(entity,profile.renderKind(),partialTick,light,pose,appliedRotation)"),
+                "capture observer retains the complete draw argument list");
+        assertEquals(1, occurrences(render, "Sheets.cutoutBlockSheet()"), "shared material is selected once");
+        assertTrue(compactRender.contains("renderCameraFacing(stack,profile,pose,buffers,light,entity.level(),entity.getId(),1f,tint,capture,material)"));
+        assertTrue(compactRender.contains("render(stack,profile,pose,buffers,light,entity.level(),entity.getId(),1f,tint,capture,material)"));
         assertEquals(2, occurrences(render, "observeModelSkipped(entity,"));
-        assertTrue(render.contains("profile.renderKind(), partialTick, light, pose, appliedRotation"));
         assertTrue(render.contains("profile-unavailable"));
         assertTrue(render.contains("empty-stack"));
+
+        String owner=read("src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/client/WorldItemPresentationRenderer.java");
+        assertEquals(1,occurrences(owner,"getModelRenderer().renderModel("));
+        assertEquals(3,occurrences(owner,"getItemRenderer().renderStatic("));
+        assertEquals(4,occurrences(owner,"beforeDraw.run();"),"callback remains at each physical draw site");
+        assertTrue(owner.indexOf("beforeDraw.run();")<owner.indexOf("renderModel("));
+        String compactOwner = owner.replaceAll("\\s+", "");
+        assertTrue(compactOwner.contains("beforeDraw.run();minecraft.getBlockRenderer().getModelRenderer().renderModel("));
+        assertTrue(compactOwner.contains("applyFlatPose(pose,profile,appearanceScale);beforeDraw.run();Minecraft.getInstance().getItemRenderer().renderStatic("));
+        assertTrue(compactOwner.contains("pose.translate(0,profile.modelFloorOffset(),0);pose.scale("));
+        assertTrue(compactOwner.contains("pose.translate(profile.visual().spriteOffsetX(),profile.modelFloorOffset(),profile.visual().spriteOffsetY());pose.scale("));
+        assertEquals(3,occurrences(compactOwner,"beforeDraw.run();Minecraft.getInstance().getItemRenderer().renderStatic("));
     }
 
     @Test void captureHooksFastFilterExactEntityAndCopyRenderMatrixOnlyForTheArmedObserver() throws Exception {

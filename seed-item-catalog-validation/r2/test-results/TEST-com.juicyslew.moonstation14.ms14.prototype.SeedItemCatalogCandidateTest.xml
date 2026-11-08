@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.prototype.SeedItemCatalogCandidateTest" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-10-16T12:15:27.119Z" hostname="DESKTOP-4F0ER3K" time="0.204">
+  <properties/>
+  <testcase name="extendedPacketItemProfilesComposeAgainstSeedCatalogWithoutPublishing()" classname="com.juicyslew.moonstation14.ms14.prototype.SeedItemCatalogCandidateTest" time="0.204">
+    <failure message="com.juicyslew.moonstation14.ms14.prototype.PrototypeLoadException: Could not load prototype type 'moonstation14:seed_item_profile' prototype 'moonstation14:tea_plant_seeds' from data/moonstation14/moonstation14/seed_item_profile/tea_plant_seeds.json: Not a valid resource location: moonstation14:teaPlant Non [a-z0-9/._-] character in path of location: moonstation14:teaPlant" type="com.juicyslew.moonstation14.ms14.prototype.PrototypeLoadException">com.juicyslew.moonstation14.ms14.prototype.PrototypeLoadException: Could not load prototype type 'moonstation14:seed_item_profile' prototype 'moonstation14:tea_plant_seeds' from data/moonstation14/moonstation14/seed_item_profile/tea_plant_seeds.json: Not a valid resource location: moonstation14:teaPlant Non [a-z0-9/._-] character in path of location: moonstation14:teaPlant
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.PrototypeManager.decode(PrototypeManager.java:392)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.PrototypeManager.load(PrototypeManager.java:251)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.PrototypeManager.stage(PrototypeManager.java:155)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.SeedItemCatalogCandidateTest.extendedPacketItemProfilesComposeAgainstSeedCatalogWithoutPublishing(SeedItemCatalogCandidateTest.java:57)
+	at java.base@21.0.10/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

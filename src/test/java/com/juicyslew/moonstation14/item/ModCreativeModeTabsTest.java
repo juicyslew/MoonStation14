@@ -12,8 +12,51 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class ModCreativeModeTabsTest {
+    @Test
+    void botanyItemsAreSearchableByLocalizedNameAndPresentInTheirExistingTabs() throws Exception {
+        var itemEntries = ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES;
+        var blockEntries = ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES;
+        for (var item : List.of(ModItems.WHEAT_SEEDS, ModItems.TOMATO_SEEDS, ModItems.POTATO_SEEDS,
+                ModItems.POPPY_SEEDS, ModItems.ALOE_SEEDS, ModItems.WHEAT_BUSHEL, ModItems.TOMATO,
+                ModItems.POTATO, ModItems.POPPY, ModItems.ALOE, ModItems.BOTANY_HOE, ModItems.BOTANY_SPADE)) {
+            assertTrue(itemEntries.contains(item), "botany item missing from Moonstation Items tab: " + item);
+            assertLocalizedName(item.get().getDescriptionId());
+        }
+        for (var block : List.of(ModBlocks.HYDROPONICS_TRAY, ModBlocks.EMPTY_HYDROPONICS_TRAY,
+                ModBlocks.SEED_EXTRACTOR, ModBlocks.REAGENT_GRINDER)) {
+            assertTrue(blockEntries.contains(block), "botany block missing from Moonstation Blocks tab: " + block);
+            assertLocalizedName(block.get().asItem().getDescriptionId());
+        }
+    }
+
+    @Test
+    void firelockIsAvailableInExistingConstructionTabWithLocalizedNameAndModel() throws Exception {
+        assertTrue(ModCreativeModeTabs.MOONSTATION_BLOCK_ENTRIES.contains(ModBlocks.FIRELOCK));
+        String displayKey = ModBlocks.FIRELOCK.get().asItem().getDescriptionId();
+        assertEquals("block.moonstation14.firelock", displayKey);
+        assertLocalizedName(displayKey);
+        try (var stream = ModCreativeModeTabsTest.class.getResourceAsStream("/assets/moonstation14/lang/en_us.json")) {
+            assertNotNull(stream);
+            assertTrue(new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                    .contains("\"" + displayKey + "\": \"Firelock\""));
+        }
+        try (var stream = ModCreativeModeTabsTest.class.getResourceAsStream(
+                "/assets/moonstation14/models/item/firelock.json")) {
+            assertNotNull(stream, "firelock item model resource is available");
+        }
+    }
+
+    private static void assertLocalizedName(String key) throws Exception {
+        try (var stream = ModCreativeModeTabsTest.class.getResourceAsStream("/assets/moonstation14/lang/en_us.json")) {
+            assertNotNull(stream, "English language file is available");
+            var json = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            assertTrue(json.contains("\"" + key + "\""), "missing translation for display key " + key);
+        }
+    }
+
     @Test
     void everyRegisteredItemAndBlockItemIsListedExactlyOnceInItsDedicatedTab() throws IllegalAccessException {
         List<Object> entries = new ArrayList<>();
@@ -32,7 +75,13 @@ class ModCreativeModeTabsTest {
         }
         // The body inventory scanner is handheld equipment, not an ordinary Creative item.
         registeredItems.removeIf(item -> item == ModItems.T_RAY_SCANNER);
+        // Entity-only presentation proxy is not an inventory/creative item.
+        registeredItems.removeIf(item -> item == ModItems.GAS_CANISTER_PROXY);
+        assertFalse(ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES.contains(ModItems.GAS_CANISTER_PROXY));
         assertFalse(ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES.contains(ModItems.T_RAY_SCANNER));
+        // Portable body keys are server-issued custody locators and are invalid without their exact body reference.
+        registeredItems.removeIf(item -> item == ModItems.PORTABLE_BODY_KEY);
+        assertFalse(ModCreativeModeTabs.MOONSTATION_ITEM_ENTRIES.contains(ModItems.PORTABLE_BODY_KEY));
         assertFalse(ModItems.T_RAY_SCANNER.get() instanceof net.minecraft.world.item.BlockItem);
         // Functional ventilation items are distinct from their blocks and belong in Items.
          for (var device : List.of(ModItems.GAS_VENT, ModItems.GAS_SCRUBBER, ModItems.AIR_ALARM)) {

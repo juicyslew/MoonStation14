@@ -7,3 +7,4 @@ public final class ConstructionGuidanceAdmission {
         return !paused&&(!screenOpen||storagePopup)&&!searchFocused;
     }
 }
+

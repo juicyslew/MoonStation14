@@ -81,12 +81,10 @@ public final class LocalSpeechClient {
             Minecraft minecraft = Minecraft.getInstance();
             ClientLevel level = minecraft.level;
             // Ready is sent only with a bound world. Never stage an identity across worlds/logins.
-            if (level == null || minecraft.player == null || !identity.inDimension(level.dimension().location())) return;
-            if (level != world) {
-                clear();
-                world = level;
-            }
-            localName = identity.name();
+            Entity ownedBody = GhostControlClient.ownedCharacterForHud();
+            if (level == null || minecraft.player == null || ownedBody == null) return;
+            receiveIdentity(identity, level.dimension().location(), ownedBody.getUUID(),
+                    GhostControlClient.ownedCharacterEpoch());
             return;
         }
         if (!(packet instanceof LocalSpeechPayload payload)) return;
@@ -97,6 +95,10 @@ public final class LocalSpeechClient {
             clear();
             world = level;
         }
+        if (!payload.soundCue().isEmpty() && payload.mode() != LocalSpeechPayload.Mode.W_MUFFLED)
+            level.playLocalSound(payload.x(), payload.y(), payload.z(),
+                    com.juicyslew.moonstation14.sounds.ModSounds.speechSound(payload.soundCue(), payload.text()).get(),
+                    net.minecraft.sounds.SoundSource.NEUTRAL, 1.0f, 1.0f, false);
         long now = System.currentTimeMillis();
         boolean muffled = payload.mode() == LocalSpeechPayload.Mode.W_MUFFLED;
         Entity speaker = muffled ? null : level.getEntity(payload.speakerEntityId());
@@ -230,6 +232,21 @@ public final class LocalSpeechClient {
         return localName;
     }
 
+    public static void clearLiveIdentity() { localName = null; }
+
+    static boolean identityMatches(LocalCharacterIdentityPayload identity, Object dimension,
+                                   UUID bodyUuid, long epoch) {
+        return identity != null && dimension instanceof net.minecraft.resources.ResourceLocation location
+                && identity.inDimension(location) && bodyUuid != null && identity.bodyUuid().equals(bodyUuid)
+                && epoch > 0 && identity.epoch() == epoch;
+    }
+
+    /** Actual identity-cache receive path, with owned context supplied by the existing owner. */
+    static void receiveIdentity(LocalCharacterIdentityPayload identity, Object dimension, UUID bodyUuid, long epoch) {
+        if (!identityMatches(identity, dimension, bodyUuid, epoch)) return;
+        localName = identity.name();
+    }
+
     public static void render(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
         Minecraft minecraft = Minecraft.getInstance();
@@ -259,7 +276,7 @@ public final class LocalSpeechClient {
                     if (entity == null && owned != null && owned.level() == level && !owned.isRemoved()
                             && owned.getId() == id) entity = owned;
                     return entity == null ? null : new Speaker(entity.getUUID(), entity.getPosition(partialTick),
-                            entity.position(), entity.getEyePosition(partialTick), entity.getBbHeight());
+                            entity.position(), entity.getEyePosition(partialTick), speechHeight(entity));
                  }, (id, uuid) -> minecraft.getCameraEntity() != null && sameSpeaker(id, uuid,
                          minecraft.getCameraEntity().getId(), minecraft.getCameraEntity().getUUID()),
                 (from, to) -> loadedSightline(level, from, to),
@@ -567,6 +584,20 @@ public final class LocalSpeechClient {
         if (drawn) flush.run();
         if (submitted != null) diagnose(submitted, now, true);
         else if (skipped != null) diagnose(skipped, now, false);
+    }
+
+    private static double speechHeight(Entity entity) {
+        if (entity instanceof com.juicyslew.moonstation14.entities.AnimalMob animal) {
+            var id = com.juicyslew.moonstation14.ms14.character.ModCharacters.characterForHost(animal.level(),
+                    net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(animal.getType())).orElse(null);
+            if (id != null) {
+                var component = com.juicyslew.moonstation14.ms14.character.ModCharacters.require(
+                        com.juicyslew.moonstation14.ms14.character.ModCharacters.catalog(animal.level()), id)
+                        .component(com.juicyslew.moonstation14.ms14.character.components.AnimalAppearanceComponent.class).orElse(null);
+                if (component != null) return com.juicyslew.moonstation14.ms14.animals.AnimalPresentationAnchors.speechHeight(component, entity.getBbHeight());
+            }
+        }
+        return entity.getBbHeight();
     }
 
     private static void diagnose(LocalSpeechTranscript.Placement placement, long now, boolean submitted) {

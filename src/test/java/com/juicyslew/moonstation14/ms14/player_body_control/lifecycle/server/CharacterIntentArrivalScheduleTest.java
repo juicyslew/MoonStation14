@@ -32,8 +32,11 @@ class CharacterIntentArrivalScheduleTest {
         CharacterMovementState state = grounded();
         for (int i = 1; i <= 14; i++) offer(gate, i, 40, forward(i));
         assertEquals(14, input.acceptQueued(gate).sequence());
+        // Dequeue is admission only; acknowledgement follows physical application below.
+        assertEquals(0, gate.acknowledgedAppliedSequence());
         state = step(motor, state, input);
-        input.afterStep();
+        gate.markApplied(14);
+        assertEquals(14, gate.acknowledgedAppliedSequence());
         assertEquals(0, gate.queuedSize(), "entire accepted burst is reduced in this callback");
         offer(gate, 15, 41, intent(15, -1000, 0, GhostControlPayloads.BUTTON_SPRINT | GhostControlPayloads.BUTTON_SNEAK));
         assertEquals(15, input.acceptQueued(gate).sequence());
@@ -55,9 +58,11 @@ class CharacterIntentArrivalScheduleTest {
         offer(gate, 3, 50, intent(3, 0, 0, GhostControlPayloads.BUTTON_JUMP));
         offer(gate, 4, 50, intent(4, 0, 0, 0));
         assertEquals(4, input.acceptQueued(gate).sequence());
-        assertTrue(input.jumpForStep(), "ordered quick-tap edge survives release");
-        input.afterStep();
-        assertFalse(input.jumpForStep(), "multiple presses in one physical tick do not queue a future jump");
+        var sampled = input.consumeForTick(50);
+        assertTrue(input.jumpForStep(sampled), "ordered quick-tap edge survives release");
+        assertTrue(input.jumpForStep(sampled), "sampled tick remains stable until its single application");
+        input.consumeForTick(51);
+        assertFalse(input.jumpForStep(input.consumeForTick(52)), "multiple presses in one physical tick do not queue a future jump");
     }
 
     @Test
@@ -72,22 +77,45 @@ class CharacterIntentArrivalScheduleTest {
 
         GhostControlPayloads.Intent applied = gate.takeQueued();
         input.accept(applied);
+        state = step(motor, state, input, 70);
         ack = applied.sequence();
-        state = step(motor, state, input);
+        gate.markApplied(ack);
         double afterForwardStep = state.position().z();
         assertEquals(1, ack);
 
         applied = gate.takeQueued();
         assertEquals(2, applied.sequence());
         input.accept(applied);
+        double beforeSpeed = state.velocity().z();
+        CharacterMovementPolicy policy = resolvedHumanPolicy();
+        double h = WORLD.secondsPerTick() / 3d;
+        double f = Math.max(0d, Math.min(1d, 1d - policy.groundFrictionNoInputPerSecond() * h));
+        assertTrue(beforeSpeed > policy.minimumFrictionSpeed(), "release starts above the friction threshold");
+        assertTrue(beforeSpeed * f * f > policy.minimumFrictionSpeed(),
+                "speed remains above the friction threshold through the third substep");
+        state = step(motor, state, input, 71);
         ack = applied.sequence();
-        state = step(motor, state, input);
+        gate.markApplied(ack);
         assertEquals(2, ack);
-        assertEquals(afterForwardStep, state.position().z(), 0d,
-                "release takes effect when its queued state is actually stepped");
+        double releaseVelocity = state.velocity().z();
+        double expectedRelease = beforeSpeed * f * f * f;
+        double expectedAdditionalDistance = beforeSpeed * h * (f + f * f + f * f * f);
+        assertEquals(expectedRelease, releaseVelocity, 1e-12,
+                "neutral input applies configured friction over three equal horizontal substeps");
+        assertEquals(expectedAdditionalDistance, state.position().z() - afterForwardStep, 1e-12,
+                "release displacement is the sum of the three post-friction substep velocities");
+        assertTrue(releaseVelocity >= 0d, "release must not reverse the prior forward motion");
         assertNull(gate.takeQueued());
-        state = step(motor, state, input);
-        assertEquals(afterForwardStep, state.position().z(), 0d, "released held state does not drift on quiet ticks");
+        for (int tick = 72; tick < 140 && state.velocity().z() != 0d; tick++) {
+            state = step(motor, state, input, tick);
+        }
+        assertEquals(0d, state.velocity().z(), 0d, "neutral friction eventually settles released motion");
+        assertTrue(state.position().z() >= afterForwardStep,
+                "settlement preserves the accumulated forward displacement");
+        double settledPosition = state.position().z();
+        state = step(motor, state, input, 140);
+        assertEquals(settledPosition, state.position().z(), 0d,
+                "settled neutral motion holds a stable quiet position");
     }
 
     @Test
@@ -112,23 +140,23 @@ class CharacterIntentArrivalScheduleTest {
         GhostControlPayloads.Intent press = gate.takeQueued();
         assertEquals(1, press.sequence());
         input.accept(press);
-        assertTrue(input.jumpForStep());
-        state = countedMotor.tick(state, 0, 0, input.jumpForStep(), false, 0, environment, false);
-        input.afterStep();
+        var pressSample = input.consumeForTick(90);
+        assertTrue(input.jumpForStep(pressSample));
+        state = countedMotor.tick(state, 0, 0, input.jumpForStep(pressSample), false, 0, environment, false);
         assertTrue(state.position().y() > 0d);
 
         GhostControlPayloads.Intent release = gate.takeQueued();
         assertEquals(2, release.sequence());
         input.accept(release);
-        assertFalse(input.jumpForStep());
-        state = countedMotor.tick(state, 0, 0, input.jumpForStep(), false, 0, environment, false);
-        input.afterStep();
+        var releaseSample = input.consumeForTick(91);
+        assertFalse(input.jumpForStep(releaseSample));
+        state = countedMotor.tick(state, 0, 0, input.jumpForStep(releaseSample), false, 0, environment, false);
         for (int i = 0; i < 2; i++) {
-            state = countedMotor.tick(state, 0, 0, input.jumpForStep(), false, 0, environment, false);
-            input.afterStep();
+            var quietSample = input.consumeForTick(92 + i);
+            state = countedMotor.tick(state, 0, 0, input.jumpForStep(quietSample), false, 0, environment, false);
         }
         assertEquals(4, physicalSteps[0], "two queued states and two quiet held-state ticks each step once");
-        assertFalse(input.jumpForStep(), "release is the held state; the edge is not replayed");
+        assertFalse(input.jumpForStep(input.consumeForTick(94)), "release is the held state; the edge is not replayed");
     }
 
     @Test
@@ -140,15 +168,17 @@ class CharacterIntentArrivalScheduleTest {
         assertFalse(gate.offerQueued(3, intent(3, 0, 0, 0), 2));
         assertTrue(gate.offerQueued(5, forward(5), 2));
         assertFalse(gate.offerQueued(6, forward(6), 2));
-        assertTrue(gate.exhausted());
+        assertFalse(gate.exhausted(), "capacity pressure is not sequence-number exhaustion");
         assertEquals(2, gate.queuedSize());
         assertEquals(4, gate.takeQueued().sequence());
         assertEquals(5, gate.discardQueuedThroughSequence());
         assertFalse(gate.offerQueued(5, forward(5), 2), "barrier discard retains monotonic session sequence");
+        assertFalse(gate.offerQueued(Long.MAX_VALUE, forward(Long.MAX_VALUE), 2));
+        assertTrue(gate.exhausted(), "only the terminal sequence exhausts the gate");
         input.accept(forward(4));
         input.clear();
         assertFalse(input.hasInput());
-        assertFalse(input.jumpForStep());
+        assertFalse(input.jumpForStep(input.consumeForTick(0)));
 
         gate.reset(); // caller uses only for a terminal session/new epoch
         assertTrue(gate.offerQueued(1, forward(1), 2));
@@ -162,11 +192,16 @@ class CharacterIntentArrivalScheduleTest {
 
     private static CharacterMovementState step(GroundedHarnessMotor motor, CharacterMovementState state,
                                                  CharacterMovementInputState input) {
+        return step(motor, state, input, 0);
+    }
+
+    private static CharacterMovementState step(GroundedHarnessMotor motor, CharacterMovementState state,
+                                                CharacterMovementInputState input, long applicationTick) {
         GhostControlPayloads.Intent held = input.held();
         if (held == null) return motor.tick(state, 0, 0, false, false, 0, WORLD, false);
-        CharacterMovementState stepped = motor.tick(state, held.wishX(), held.wishZ(), input.jumpForStep(),
+        var sampled = input.consumeForTick(applicationTick);
+        CharacterMovementState stepped = motor.tick(state, held.wishX(), held.wishZ(), input.jumpForStep(sampled),
                 (held.buttons() & GhostControlPayloads.BUTTON_SPRINT) != 0, held.yaw(), WORLD, false);
-        input.afterStep();
         return stepped;
     }
 

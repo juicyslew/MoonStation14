@@ -1,0 +1,24 @@
+{
+  "title": "Non-hostile animals authentic client join diagnosis",
+  "kind": "diagnostic",
+  "acceptance_criteria": [
+    "Does an isolated real client receive the shipped catalog and send CHARACTER Ready for the same epoch/body the server commits?",
+    "Does the connection remain established during the bounded post-commit hold without catalog failure or a readiness disconnect?",
+    "Are all diagnostic-owned processes verified stopped without modifying the owner's run directory, world, profiles or configuration?"
+  ],
+  "fixture": "docs/nonhostile-animals-sprint/MANUAL.md",
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["pwsh", "-NoProfile", "-File", "tooling/validation/connected_join.ps1"],
+      "rationale": "Lead-owned authentic server/client join, not a synthetic Ready or startup-only smoke. Preparation and native execution have separate bounded deadlines; the wrapper verifies matching Ready/commit and owned-process cleanup before emitting its pass marker. Inspect the preserved client/server proof log; command counts do not imply gameplay or visual coverage.",
+      "covers": [
+        "Does an isolated real client receive the shipped catalog and send CHARACTER Ready for the same epoch/body the server commits?",
+        "Does the connection remain established during the bounded post-commit hold without catalog failure or a readiness disconnect?",
+        "Are all diagnostic-owned processes verified stopped without modifying the owner's run directory, world, profiles or configuration?"
+      ],
+      "log": "build/reports/nonhostile-animals/connected-join-diagnostic-r24.log"
+    }
+  ]
+}

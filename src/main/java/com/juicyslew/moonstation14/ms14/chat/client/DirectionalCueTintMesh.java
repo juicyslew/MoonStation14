@@ -130,3 +130,4 @@ final class DirectionalCueTintMesh {
                 .setColor(style.red, style.green, style.blue, (int) Math.round(255 * Math.max(0, Math.min(.84, alpha))));
     }
 }
+

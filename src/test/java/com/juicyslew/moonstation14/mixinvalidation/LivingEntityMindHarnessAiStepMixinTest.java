@@ -33,6 +33,7 @@ class LivingEntityMindHarnessAiStepMixinTest {
                 .findFirst().orElseThrow();
         assertTrue(invokes(ownership).contains("eligible"));
         assertTrue(invokes(ownership).stream().anyMatch(call -> call.contains("MovementOwned")));
+        assertTrue(invokes(ownership).stream().anyMatch(call -> call.contains("NpcMovementDriven")));
         assertTrue(invokes(ownership).stream().anyMatch(call -> call.contains("CustomPhysicalOwner")));
     }
 

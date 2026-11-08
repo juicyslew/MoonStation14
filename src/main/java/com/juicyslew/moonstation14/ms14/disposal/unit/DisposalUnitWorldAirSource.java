@@ -28,3 +28,4 @@ public final class DisposalUnitWorldAirSource implements ExposureAirSource {
         return AtmosphereService.INSTANCE.addEnergy(level, cell, joules);
     }
 }
+

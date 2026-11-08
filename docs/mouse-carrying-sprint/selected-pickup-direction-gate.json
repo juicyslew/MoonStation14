@@ -1,0 +1,51 @@
+{
+  "title": "Selected pickup and incapacitated character direction (partial owner regression correction)",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/gametest/CharacterDirectionGameTests.java",
+  "acceptance_criteria": [
+    "Selected pickup validates current exact eligible target, reach and block LOS without requiring a current look-ray hit; automatic candidate discovery remains ray-limited.",
+    "Selected jug pickup after lateral target motion succeeds through the production transfer route; wall denial preserves the hand and original entity.",
+    "Critical/dead character voluntary facing is denied by shared medical direction permission; healthy external movement does not deny facing and recovery restores it.",
+    "Canonical player mouse production accepted intent cannot turn its critical physical body; healthy recovery restores voluntary turn.",
+    "Fresh native regressions, medical direction JVM tests and affected interaction/prediction readiness pass before packaging. Hand-transfer escape and camera/observer presentation fixes are explicitly not included."
+  ],
+  "manual_steps": [
+    "Make an AI and a playable mouse critical; check repeated voluntary facing stops, then heal and check facing returns.",
+    "Throw a jug and a mouse past another player; click their visible bodies to catch them. Targets currently beyond reach or behind a wall should still be denied.",
+    "While a healthy mouse is held or flying, check look input still works. Camera jitter, drop glide and remote jump landing appearance remain unresolved; report them separately.",
+    "Same-holder physical hand transfer should preserve escape in SS14, but the local fix is not included. Do not treat this candidate as resolving that report."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--tests", "*MedicalPredictionPolicyTest", "--rerun-tasks", "--console=plain"],
+      "rationale": "Fresh focused direction permission cases, including healthy external movement and critical/dead recovery.",
+      "covers": ["Critical/dead character voluntary facing is denied by shared medical direction permission; healthy external movement does not deny facing and recovery restores it."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-selected-pickup-direction-r35", "--rerun-tasks", "--console=plain"],
+      "log": "build/gate-selected-pickup-direction-r35.log",
+      "rationale": "One fresh full native run checks shared admission/control changes and canonical mouse intent plus selected pickup regressions; no connected-client or GPU claims.",
+      "covers": [
+        "Selected pickup validates current exact eligible target, reach and block LOS without requiring a current look-ray hit; automatic candidate discovery remains ray-limited.",
+        "Selected jug pickup after lateral target motion succeeds through the production transfer route; wall denial preserves the hand and original entity.",
+        "Canonical player mouse production accepted intent cannot turn its critical physical body; healthy recovery restores voluntary turn."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=interaction,prediction", "--console=plain"],
+      "selectors": ["interaction", "prediction"],
+      "rationale": "Affected admission/prediction contracts; no layout, authenticated sockets or visual proof.",
+      "covers": ["Fresh native regressions, medical direction JVM tests and affected interaction/prediction readiness pass before packaging. Hand-transfer escape and camera/observer presentation fixes are explicitly not included."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Package after checks pass, without deployment or owner acceptance.",
+      "covers": ["Fresh native regressions, medical direction JVM tests and affected interaction/prediction readiness pass before packaging. Hand-transfer escape and camera/observer presentation fixes are explicitly not included."]
+    }
+  ]
+}

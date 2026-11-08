@@ -40,6 +40,21 @@ class ChatIdentityRegistryTest {
         assertTrue(registry.colorForPresentedName("Unknown Stranger").isEmpty());
     }
 
+    @Test void bodyIdentitiesUseTheirOwnKeyAndShareClaimsWithNpcs() {
+        ChatIdentityRegistry registry = new ChatIdentityRegistry();
+        var humanKey = key(10);
+        var human = registry.allocateCharacter(humanKey);
+        var npc = registry.allocateNpc(UUID.randomUUID(), "Kobold");
+        var bodyKey = new ChatIdentityRegistry.CharacterKey(new UUID(0, 20), "body_123");
+        var body = registry.allocateBodyCharacter(bodyKey, "Kobold (1)");
+        assertEquals("Kobold (1) (1)", body.name());
+        assertEquals(body, registry.allocateBodyCharacter(bodyKey, "Renamed"));
+        assertTrue(registry.character(new ChatIdentityRegistry.CharacterKey(bodyKey.accountId(), "profile")).isEmpty());
+        assertEquals(human, registry.allocateCharacter(humanKey));
+        assertNotEquals(npc.name(), body.name());
+        assertEquals(body.rgb(), registry.colorForPresentedName(body.name()).orElseThrow());
+    }
+
     @Test void persistentNpcUuidAndTypeNotTransientInteger() {
         ChatIdentityRegistry registry = new ChatIdentityRegistry();
         UUID first = UUID.randomUUID();

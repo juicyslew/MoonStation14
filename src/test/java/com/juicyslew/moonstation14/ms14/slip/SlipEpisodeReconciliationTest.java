@@ -1,42 +1,71 @@
 package com.juicyslew.moonstation14.ms14.slip;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
-import java.util.List;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class SlipEpisodeReconciliationTest {
     @Test
-    void unknownPreservesLatchKnownEmptyExitRearmsAndFrameIsPartOfIdentity() {
-        UUID frameA = UUID.randomUUID(), frameB = UUID.randomUUID();
+    void sharedOwnerUsesFrameAwareIdentityAndActorLifecycleClearsEpisodes() {
+        ServerLevel level = mock(ServerLevel.class);
+        when(level.getGameTime()).thenReturn(42L);
+        UUID actor = UUID.randomUUID();
+        UUID frame = UUID.randomUUID();
         BlockPos source = new BlockPos(1, 2, 3);
-        var keyA = new SlipSystem.SourceKey(frameA, source);
-        var keyB = new SlipSystem.SourceKey(frameB, source);
-        var episodes = new HashSet<SlipSystem.SourceKey>();
 
-        episodes.add(keyA); // CONTACT
-        assertEquals(1, SlipSystem.reconcileEpisodeKeys(episodes,
-                new SharedPuddleContactQuery.Result(SharedPuddleContactQuery.State.UNAVAILABLE, frameA, List.of())));
-        assertEquals(1, SlipSystem.reconcileEpisodeKeys(episodes,
-                new SharedPuddleContactQuery.Result(SharedPuddleContactQuery.State.UNSUPPORTED, frameA, List.of())));
-        episodes.add(keyA); // CONTACT again: existing latch rejects duplicate
-        assertEquals(1, episodes.size());
+        assertTrue(StepContactEpisodes.latchPuddle(level, actor, null, source));
+        assertTrue(StepContactEpisodes.latchPuddle(level, actor, frame, source));
+        assertFalse(StepContactEpisodes.latchPuddle(level, actor, null, source));
+        assertTrue(StepContactEpisodes.containsPuddle(level, actor, null, source));
+        assertTrue(StepContactEpisodes.containsPuddle(level, actor, frame, source));
 
-        SlipSystem.reconcileEpisodeKeys(episodes,
-                new SharedPuddleContactQuery.Result(SharedPuddleContactQuery.State.AVAILABLE, frameA, List.of()));
-        assertTrue(episodes.isEmpty()); // known empty is an exit
-        episodes.add(keyA); // subsequent CONTACT can arm again
-        assertEquals(1, episodes.size());
+        StepContactEpisodes.clearActor(level, actor);
 
-        episodes.add(keyB);
-        assertEquals(2, episodes.size()); // same position in distinct frames is distinct
-        SlipSystem.reconcileEpisodeKeys(episodes,
-                new SharedPuddleContactQuery.Result(SharedPuddleContactQuery.State.AVAILABLE, frameA, List.of()));
-        assertTrue(episodes.isEmpty());
+        assertFalse(StepContactEpisodes.containsPuddle(level, actor, null, source));
+        assertFalse(StepContactEpisodes.containsPuddle(level, actor, frame, source));
+    }
+
+    @Test
+    void observedContactsProveRemovalAndOwnershipButUnknownDoesNotProveExit() {
+        ServerLevel level = mock(ServerLevel.class);
+        when(level.getGameTime()).thenReturn(42L);
+        Entity actorEntity = mock(Entity.class);
+        UUID actor = UUID.randomUUID();
+        when(actorEntity.getUUID()).thenReturn(actor);
+        BlockPos source = new BlockPos(1, 2, 3);
+        UUID frame = UUID.randomUUID();
+        UUID otherFrame = UUID.randomUUID();
+        AABB bounds = new AABB(0, 0, 0, 1, 2, 1);
+
+        assertTrue(StepContactEpisodes.latchPuddle(level, actor, frame, source));
+        StepContactEpisodes.reconcile(level, actorEntity, bounds,
+                SharedPuddleContactQuery.unavailable(otherFrame));
+        assertTrue(StepContactEpisodes.containsPuddle(level, actor, frame, source));
+
+        var sameFrameContact = new SharedPuddleContactQuery.Contact(mock(com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity.class), source, frame, bounds, bounds, 1d);
+        StepContactEpisodes.reconcile(level, actorEntity, bounds,
+                new SharedPuddleContactQuery.Result(SharedPuddleContactQuery.State.AVAILABLE, frame, java.util.List.of(sameFrameContact)));
+        assertTrue(StepContactEpisodes.containsPuddle(level, actor, frame, source));
+
+        var worldContact = new SharedPuddleContactQuery.Contact(mock(com.juicyslew.moonstation14.block.block_entity.PuddleBlockEntity.class), source, null, bounds, bounds, 1d);
+        StepContactEpisodes.reconcile(level, actorEntity, bounds,
+                new SharedPuddleContactQuery.Result(SharedPuddleContactQuery.State.AVAILABLE, null, java.util.List.of(worldContact)));
+        assertFalse(StepContactEpisodes.containsPuddle(level, actor, frame, source));
+        assertTrue(StepContactEpisodes.latchPuddle(level, actor, frame, source));
+        StepContactEpisodes.reconcile(level, actorEntity, bounds,
+                new SharedPuddleContactQuery.Result(SharedPuddleContactQuery.State.AVAILABLE, otherFrame, java.util.List.of()));
+        assertFalse(StepContactEpisodes.containsPuddle(level, actor, frame, source));
+        assertTrue(StepContactEpisodes.latchPuddle(level, actor, null, source));
+        StepContactEpisodes.reconcile(level, actorEntity, bounds,
+                new SharedPuddleContactQuery.Result(SharedPuddleContactQuery.State.AVAILABLE, null, java.util.List.of()));
+        assertFalse(StepContactEpisodes.containsPuddle(level, actor, null, source));
     }
 }

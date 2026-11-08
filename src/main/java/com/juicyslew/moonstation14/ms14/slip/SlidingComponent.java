@@ -21,3 +21,4 @@ public record SlidingComponent(boolean sliding)
     @Override public Codec<SlidingComponent> getCodec() { return CODEC; }
     @Override public StreamCodec<RegistryFriendlyByteBuf, SlidingComponent> getStreamCodec() { return STREAM_CODEC; }
 }
+

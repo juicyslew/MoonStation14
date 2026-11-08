@@ -20,3 +20,4 @@ public final class DisposalUnitEntryPolicy {
         return menuAuthority&&reachable&&!otherOwner&&(!contained||exactOwner);
     }
 }
+

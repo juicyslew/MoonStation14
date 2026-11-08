@@ -1,0 +1,477 @@
+{
+  "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "rsi": [
+    {
+      "resource": "Resources/Textures/Objects/Specific/Hydroponics/wheat.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce sprites created by Chaoticaa (GitHub)",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead"
+        },
+        {
+          "name": "harvest"
+        },
+        {
+          "name": "produce"
+        },
+        {
+          "name": "seed"
+        },
+        {
+          "name": "stage-1"
+        },
+        {
+          "name": "stage-2"
+        },
+        {
+          "name": "stage-3"
+        },
+        {
+          "name": "stage-4"
+        },
+        {
+          "name": "stage-5"
+        },
+        {
+          "name": "stage-6"
+        },
+        {
+          "name": "produce-inhand-left",
+          "directions": 4
+        },
+        {
+          "name": "produce-inhand-right",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "dead.png": "a2d7e50d5f4b54d23a3acb71e8953b78d080120d02282364bb4f948641d54b07",
+        "harvest.png": "efbbabeef68a44de44e6f7739f1099ad3e44e5c3376ae887ab81c2a8d5ed8d66",
+        "meta.json": "bdbb388f9f92b665313172b7253e5ee082f6a0e453a910e22b1cfa41b861adf7",
+        "produce-inhand-left.png": "1ab113c04173f3db79964a69e97f3dc746f13eee831cdc3a1ced365308c082b8",
+        "produce-inhand-right.png": "aea685e10d1806659b9df94feea585058f6398c8cc96283e2af576fef9d7cb64",
+        "produce.png": "6b00e416a5e0554a56f40950a0718a129c755c530dab5572537e14f820fbf185",
+        "seed.png": "056a1806e28a2a6830bfe82e19c58781160b176522a31514b49ff2ab38b071dc",
+        "stage-1.png": "3b14834cdd0da53ca1b888fbb7a336e933ed945f1692e3a19af08fe8c4fbc924",
+        "stage-2.png": "c568e188a91c4f80a04146f7ec14eefcb20c2a0c920b7322e4735727a8dffa55",
+        "stage-3.png": "4e5b39444f2c1a114dc663fcac1f08c3993e224fe920068fc2d4385f2ab6d2c4",
+        "stage-4.png": "0e43368d62f7813a72327317ff45ee51b390abf9add643254cea01f1e000f283",
+        "stage-5.png": "1cdc7cdd3ad308b1bc9817d4633d6d90db5aa6bd7d8f94fd48e9a4c65a6efdc9",
+        "stage-6.png": "95f2ef328e66f49fb0a5cfb463ad880c1372c83854cc6aae445d8920c7431fad"
+      }
+    },
+    {
+      "resource": "Resources/Textures/Objects/Specific/Hydroponics/tomato.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13 at 1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce sprites created by Chaoticaa (GitHub)",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead"
+        },
+        {
+          "name": "harvest"
+        },
+        {
+          "name": "produce"
+        },
+        {
+          "name": "seed"
+        },
+        {
+          "name": "stage-1"
+        },
+        {
+          "name": "stage-2"
+        },
+        {
+          "name": "stage-3"
+        },
+        {
+          "name": "stage-4"
+        },
+        {
+          "name": "stage-5"
+        },
+        {
+          "name": "stage-6"
+        },
+        {
+          "name": "produce-inhand-left",
+          "directions": 4
+        },
+        {
+          "name": "produce-inhand-right",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "dead.png": "5546d9880a727c3609510254fb7e13a944120ac1d996814b47f424e8c8a9d7b8",
+        "harvest.png": "700eb5b944904a96c4b66533cff2656ed33a4a14512fcfd8b162b18c9179efb0",
+        "meta.json": "ef013a6c8afd9125ace2e8b7ce98ee11d3933d97e3ece176a9354868c6df07e5",
+        "produce-inhand-left.png": "89d3f80a9a068204f9867197c96d318fa2fd97c58fbef5b485a30e790c3a0ff9",
+        "produce-inhand-right.png": "ace4971fd16ccb80a8da6e2cb731b84761c78b847e67d16d30f99647350f96c2",
+        "produce.png": "4351d9903189f98f1f8edecdc436095e031d2a9663f7a7bfa3998e4bc3267a03",
+        "seed.png": "028a5e1c74e038200441eab932ab08a27ed502cd0d703aa5e92fd20d5e7d7476",
+        "stage-1.png": "1861a92b035de404a57740a7643b46ec1576664b7e0f9be91b1bf6443652cf50",
+        "stage-2.png": "d1e6468dcb16ce20538b6edfb3441d479215a1b533006a361e890f523292527e",
+        "stage-3.png": "b8d3aa36291d49a88360e739c17459ec3d608abfe0acc84e0b24e7a7093929dd",
+        "stage-4.png": "be913d64333012ea3a7ef41e0ebf39c901efca6b981959a555b071d88a421d30",
+        "stage-5.png": "db55d10a4568f5c9287335e0c86ce99ca8a8742477118b0103664020cd9d5ccb",
+        "stage-6.png": "da0737b0cb6bf4aeddcac3725621422ff9af8026920474bcad4e43a3146e7806"
+      }
+    },
+    {
+      "resource": "Resources/Textures/Objects/Specific/Hydroponics/potato.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/vgstation-coders/vgstation13/commit/1dbcf389b0ec6b2c51b002df5fef8dd1519f8068, inhands by mubururu_ (github), Growth stages, dead, harvest, and produce created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub)",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead"
+        },
+        {
+          "name": "harvest"
+        },
+        {
+          "name": "produce"
+        },
+        {
+          "name": "seed"
+        },
+        {
+          "name": "stage-1"
+        },
+        {
+          "name": "stage-2"
+        },
+        {
+          "name": "stage-3"
+        },
+        {
+          "name": "stage-4"
+        },
+        {
+          "name": "produce-inhand-left",
+          "directions": 4
+        },
+        {
+          "name": "produce-inhand-right",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "dead.png": "de2bc17c2c0bc827abfa9dc6e47368e98bf4204ab1d54e9d2b9647577f3c4d5c",
+        "harvest.png": "4585197ef235011e2424a7116ba84bfd7cd5fe77c15dea46e1364cb9675e4fcf",
+        "meta.json": "a2c8c2d4e16fe4c43fc028337d4fdb784428643c477caea8edca638be55c829c",
+        "produce-inhand-left.png": "a79a99f61d5c6433b7e24952d8d395d9613a4630ff76b17537403a4912bb1815",
+        "produce-inhand-right.png": "46d269ac8e53655454a47b16320fe09e4df6057f1467af79893436f5664913d1",
+        "produce.png": "e00d8cf96dc1442eb49eabf61dcc2153b3c6803850df7466958ce4e5ad052e55",
+        "seed.png": "886e68ff658226e71e57bc206df9ee9972c6255de6318a00f0b12ae836e856e5",
+        "stage-1.png": "6f767c52c3f28edbc31dbde4cf6c08cd6e7140249648491a573d322120930024",
+        "stage-2.png": "432422fdb7d3a11df2d811e99a83a6b249b5bcc3753a00676bc9e9b25050f650",
+        "stage-3.png": "34edf9256c345b596468aca9adff5e231821b66c528cefb3dd63ac36b80be4a6",
+        "stage-4.png": "4c4ee1fb3e89e029148a8ec780ac384646d25dd83994df34f3f918fdafc4ad9d"
+      }
+    },
+    {
+      "resource": "Resources/Textures/Objects/Specific/Hydroponics/poppy.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/40d89d11ea4a5cb81d61dc1018b46f4e7d32c62a, equipped-HELMET taken from tgstation at commit https://github.com/tgstation/tgstation/commit/4f6190e2895e09116663ef282d3ce1d8b35c032e, Poppy produce and harvest sprites modified by Chaoticaa (GitHub)",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead"
+        },
+        {
+          "name": "harvest"
+        },
+        {
+          "name": "produce"
+        },
+        {
+          "name": "seed"
+        },
+        {
+          "name": "stage-1"
+        },
+        {
+          "name": "stage-2"
+        },
+        {
+          "name": "stage-3"
+        },
+        {
+          "name": "equipped-HELMET",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "dead.png": "6c3b30de8d091bd03c1c6af8240f325786ea9bfdf37ef734b8af28b73608a193",
+        "equipped-HELMET.png": "d19eede54064d73e9d127fdf7b5505b1a051611230ef63fbdc777d364b9c7d97",
+        "harvest.png": "effc8c2a82402120cf59df5f745a16f25700825c7b18d4fb4f7bc1009244ea06",
+        "meta.json": "47bebaae6397789a03f2075f785334ea7760ab04a5fc2f9981aa187216a42cb8",
+        "produce.png": "972de302a1ac37e29bbaa2c4aedcff64f5a242ce5e68f8b3889f12c768978fd5",
+        "seed.png": "33459282610608f7e5b093262fed241f3072163418a9c0b0bfc7fb96e50ee41c",
+        "stage-1.png": "b8453d55ed92fcd3ed333b1aebc41f065e8187c80efb4fcc9f59e2d0f6268901",
+        "stage-2.png": "0db083468a4652482ba8e63f354dd3a0ba2154e1b40599c1f21119408de78b08",
+        "stage-3.png": "ac5edebc995dec90cf298a1865da255718711b91aed6d41ff9f6f1d3a64cfbe6"
+      }
+    },
+    {
+      "resource": "Resources/Textures/Objects/Specific/Hydroponics/aloe.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from https://github.com/tgstation/tgstation/commit/40d89d11ea4a5cb81d61dc1018b46f4e7d32c62a, inhands by mubururu_ (github), Growth stages, harvest, dead, and produce sprites created by Chaoticaa (GitHub), inhands modified by Prole0 (GitHub)",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "dead"
+        },
+        {
+          "name": "harvest"
+        },
+        {
+          "name": "produce"
+        },
+        {
+          "name": "seed"
+        },
+        {
+          "name": "stage-1"
+        },
+        {
+          "name": "stage-2"
+        },
+        {
+          "name": "stage-3"
+        },
+        {
+          "name": "stage-4"
+        },
+        {
+          "name": "stage-5"
+        },
+        {
+          "name": "cream"
+        },
+        {
+          "name": "produce-inhand-left",
+          "directions": 4
+        },
+        {
+          "name": "produce-inhand-right",
+          "directions": 4
+        }
+      ],
+      "hashes": {
+        "cream.png": "225bf4ac21fbe01fd7445e6e70cd7e8d44602f507d9dad23952bef915e40721c",
+        "dead.png": "c022f0b91e8b60a5840f9d28c77d5d8a7ad631d5f7524817c00b47ac03f2e342",
+        "harvest.png": "87f73544a9c3cc90b0441e28a2ae264fc44ffbb8886846bb590bc8fa247d1f38",
+        "meta.json": "1b4f0a6b91f57a61bb04afd288eae45d0fba60bd22b64e83344f5d6e94c0518a",
+        "produce-inhand-left.png": "23775bd3c9473910b3f6a7f8af231acbf00bf76771b033cd1792ec3c77ece267",
+        "produce-inhand-right.png": "db5ac3d3ac0aa9fb17fd552f936e19c565bef4f4a9c19d2cb5d6f78202e922db",
+        "produce.png": "4dd69dca6cb6dc88978e1019a27227bdf63d02b25404c508d945fc8df30c2549",
+        "seed.png": "f6915bebb2af79cd0656ae1864de64ce966cae58d8656a42ebd7b4f9089bfeaf",
+        "stage-1.png": "ba58c91ba50871a5b2aeee4c03b8a25e93e5ffad82cca531d357eef9188d77e6",
+        "stage-2.png": "eed9dc531cd4d0dd55ab4d49467c75aca3390dfc0de55ee9f29333c1f9380194",
+        "stage-3.png": "fa9ca7365590eaff46df20b289554d2a207eb056940a5f79e12c27e4dc9cca4c",
+        "stage-4.png": "9f974f618d92f6b2af12082cb3e0dfdf2873f6745ee44c045dff03fe2ca1828b",
+        "stage-5.png": "0394b724a9eacfd743936bf397b9ecf4beba875feabf66413d0571640cac48f2"
+      }
+    },
+    {
+      "resource": "Resources/Textures/Structures/Hydroponics/containers.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/c6e3401f2e7e1e55c57060cdf956a98ef1fefc24",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "claypot"
+        },
+        {
+          "name": "claypot-item"
+        },
+        {
+          "name": "claypot-large"
+        },
+        {
+          "name": "hydrocover"
+        },
+        {
+          "name": "hydrotray"
+        },
+        {
+          "name": "hydrotray2"
+        },
+        {
+          "name": "hydrotray3"
+        }
+      ],
+      "hashes": {
+        "claypot-item.png": "f109cba669f17051ca59f730adaddf8e545b39b570b5e77a44834062eecb760e",
+        "claypot-large.png": "b866051670bde5e5406170e18603511eb6fc757d279a4aae5144a589edc18b2f",
+        "claypot.png": "1238a0bcd716647a75a49eb11259b26a89b18a22cd1a4d82674c8736de2cfd1e",
+        "hydrocover.png": "1acb98c460b56273b5c0eadb8a3e0e1cc63059ab698710be68f0a14cda6e92bf",
+        "hydrotray.png": "7d7f09813aa26c078cfbff6e67a607eab9aa09cdd3329ec62fce92bf6a1fd028",
+        "hydrotray2.png": "3c519b1b25fd2dd677f0225daa3bba88cdc65f3319183f908c70689dd2214b03",
+        "hydrotray3.png": "ba90cd631a0df7b93dff124ecb20e5c4782f34d83f7b279ba4e5bfd404599d00",
+        "meta.json": "9c288852b34ba75dbfaddf93f3d15bb6f617d701c4eeb56924d668269dd7684b"
+      }
+    },
+    {
+      "resource": "Resources/Textures/Structures/Hydroponics/overlays.rsi",
+      "revision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+      "license": "CC-BY-SA-3.0",
+      "copyright": "Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/c6e3401f2e7e1e55c57060cdf956a98ef1fefc24",
+      "rsi_specification": "v1; direction-major frames, row-major sheet, South/North/East/West order",
+      "size": {
+        "x": 32,
+        "y": 32
+      },
+      "states": [
+        {
+          "name": "alert3",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "harvest3",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "lowhealth3",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "lownutri"
+        },
+        {
+          "name": "lownutri3",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        },
+        {
+          "name": "lowwater3",
+          "delays": [
+            [
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1,
+              0.1
+            ]
+          ]
+        }
+      ],
+      "hashes": {
+        "alert3.png": "38089f8cfc2287653d7a8c1db75e587644badb3367d70a517ea17205090dc1b7",
+        "harvest3.png": "fbcedff328bc52d6875ac97db6e57c005908c623dd6f9bf2cd922b532e5d5902",
+        "lowhealth3.png": "1eeb41262362eb2e96cf1d1dfa63c90a7ee39ee66fea356793a10f1ff0f2916b",
+        "lownutri.png": "5869aee6b1e99983c90ef729d47f202d3b5fef9870fce61b5672f0a5b476dff5",
+        "lownutri3.png": "1adb45ecb192677e6898eca9f8a9c61b89951a013d369011bca567dbe8dc1808",
+        "lowwater3.png": "daeced242e978287410db0d5ef6eace2298e2c2d5fedd37423510eee42075a40",
+        "meta.json": "b86afec0686694b16f816c31d55f7ad77925b862816b104fdea326e2e2a51ebf"
+      }
+    }
+  ],
+  "code_and_prototypes": [
+    {
+      "path": "Resources/Prototypes/Hydroponics/seeds.yml",
+      "sha256": "d5a2d9997c6cd735960331b60ec239c61dd3a8f0b97eb0737657645ffc7e3da7"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Structures/hydro_tray.yml",
+      "sha256": "53953290e8f0ee0651345ac817f09e4ec96e690e65946a9804567b35e8c8d7e0"
+    },
+    {
+      "path": "Resources/Prototypes/Entities/Structures/soil.yml",
+      "sha256": "6346b67a54ac5e45b8bfc1f4e54a88753b0a404ae775fb2ea65d4c2a3e675f6a"
+    },
+    {
+      "path": "Content.Server/Botany/SeedPrototype.cs",
+      "sha256": "cf68bd81ab8b65c7819bd6cd2b2af416244cd894436ad5a910474dd101efb98d"
+    },
+    {
+      "path": "Content.Server/Botany/Systems/PlantHolderSystem.cs",
+      "sha256": "33dceca052bb56dd64b1fa30bd4d4a94deaaf8827af0dc9f82c8240544ac5d20"
+    },
+    {
+      "path": "Content.Client/Botany/PlantHolderVisualizerSystem.cs",
+      "sha256": "9a18d5670337b7da645ea7cb97afc2599b06608e8c3ea8cfc12ed424735758ed"
+    }
+  ],
+  "source_status": "source data, not instructions; full RSI preserved; visual review recorded separately",
+  "unresolved": "hidden 3D depth is inferred; sprint renderer integration not executable here"
+}

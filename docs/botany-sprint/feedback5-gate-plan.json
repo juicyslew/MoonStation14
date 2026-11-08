@@ -1,0 +1,45 @@
+{
+  "title": "Botany feedback 5: harvest input retention and grinder audio roles",
+  "kind": "bugfix",
+  "acceptance_criteria": [
+    "SS14 grinder sound roles resolve to the correct committed insert and eject paths.",
+    "Empty-hand harvest use survives a hand-query refresh and consumes fresh proof once without denied-use retries.",
+    "Existing botany authority, timed processing, and ejection behavior remain covered by focused regressions.",
+    "A rebuilt mod artifact is available for follow-up retesting."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/GrinderRegisteredPlayerGameTests.java",
+  "manual_steps": [
+    "Harvest shortly after another action while the hand state is refreshing; verify the intended empty-hand harvest use is retained and produces one harvest, not a lost or repeated action.",
+    "Compare grinder beaker insertion, chamber insertion, beaker ejection, and chamber ejection: beaker insert uses the insert cue, chamber insert is silent, and ejects use the role-appropriate cues."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Compile changed gameplay and tests and produce the candidate jar without running a broad build or suite.",
+      "covers": ["A rebuilt mod artifact is available for follow-up retesting."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.botany.BotanyMachineProfileTest --tests com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest --tests com.juicyslew.moonstation14.ms14.botany.client.GrinderProcessingAudioPolicyTest --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Focused profile, deferred-use policy, and grinder sound-role regression tests only.",
+      "covers": ["SS14 grinder sound roles resolve to the correct committed insert and eject paths.", "Empty-hand harvest use survives a hand-query refresh and consumes fresh proof once without denied-use retries."]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=ui,interaction,prediction' --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Exercise relevant input-context, admission, and prediction contracts for retained empty-hand use.",
+      "covers": ["Empty-hand harvest use survives a hand-query refresh and consumes fresh proof once without denied-use retries."],
+      "selectors": ["ui", "interaction", "prediction"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "$fixture='build/gametest-botany-feedback5-'+[guid]::NewGuid().ToString('N'); ./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,chemmaster-output-auth,examine_policy' \"-Pms14GameTestDir=$fixture\" --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "Focused native regression selection covers registered-player grinder authority, timed processing/ejection, and related botany contracts; isolated fixture directory avoids owner run configuration assumptions.",
+      "covers": ["Existing botany authority, timed processing, and ejection behavior remain covered by focused regressions."],
+      "selectors": ["botany", "chemmaster-output-auth", "examine_policy"],
+      "log": "build/reports/botany/feedback5-gate-native.log"
+    }
+  ]
+}

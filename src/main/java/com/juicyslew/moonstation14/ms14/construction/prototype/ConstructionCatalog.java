@@ -42,3 +42,4 @@ public final class ConstructionCatalog {
     /** Stack count applied when the selected recipe's target node is completed. */
     public int outputStackCount(ResourceLocation id){var recipe=Objects.requireNonNull(recipes.get(id),"unknown recipe");var graph=Objects.requireNonNull(graphs.get(parse(recipe.graph())),"missing graph");return graph.nodes().get(recipe.targetNode()).outputStackCount();}
 }
+

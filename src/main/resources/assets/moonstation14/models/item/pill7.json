@@ -1,0 +1,6 @@
+{
+  "textures": {
+    "layer0": "moonstation14:item/pill/pill7"
+  },
+  "parent": "minecraft:item/generated"
+}

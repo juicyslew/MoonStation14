@@ -298,11 +298,68 @@ public final class AtmosphereRoomGameTests {
         else com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.safeDelay(helper, 1, verifyDuePass);
     }
 
+    @GameTestTags({"atmosphere", "botany-gas-mutation"})
+    @GameTest(templateNamespace = "moonstation14", template = "atmos_large_empty", batch = "botany_gas_mutation", timeoutTicks = 100)
+    public static void namedGasConsumptionIsExactAndFailClosed(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        buildSealedHotspotCell(helper, 2, 2);
+        BlockPos cell = helper.absolutePos(new BlockPos(2, 1, 2));
+        AtmosphereService service = AtmosphereService.withVacuumDimensions(Set.of(level.dimension()));
+        classifyUntilSample(service, level, cell, 12);
+        require(isFiniteClaimed(level, cell), "consumption fixture must have finite ownership");
+        require(service.addGas(level, cell, GasType.OXYGEN, 5.0, ROOM_TEMPERATURE_KELVIN), "seed oxygen");
+        require(service.addGas(level, cell, GasType.NITROGEN, 3.0, ROOM_TEMPERATURE_KELVIN), "seed unrelated gas");
+        GasMixture initial = service.sample(level, cell).orElseThrow();
+
+        require(!service.tryConsumeGas(level, cell, GasType.OXYGEN, 5.25), "insufficient named gas must fail");
+        GasMixture afterInsufficient = service.sample(level, cell).orElseThrow();
+        require(afterInsufficient.gasMoles().equals(initial.gasMoles())
+                        && afterInsufficient.temperatureKelvin() == initial.temperatureKelvin(),
+                "insufficient request must not partially drain, alter other gases, or change temperature");
+
+        require(service.tryConsumeGas(level, cell, GasType.OXYGEN, 0.0), "zero request succeeds for known finite cell");
+        require(service.sample(level, cell).orElseThrow().gasMoles().equals(initial.gasMoles()),
+                "zero request must not write or alter composition");
+        require(!service.tryConsumeGas(level, cell, GasType.OXYGEN, -1.0)
+                        && !service.tryConsumeGas(level, cell, GasType.OXYGEN, Double.NaN)
+                        && !service.tryConsumeGas(level, cell, GasType.OXYGEN, Double.POSITIVE_INFINITY)
+                        && !service.tryConsumeGas(level, cell, null, 1.0),
+                "negative, nonfinite and missing gas requests fail closed");
+
+        require(service.tryConsumeGas(level, cell, GasType.OXYGEN, 5.0), "exact equality request drains all oxygen");
+        GasMixture after = service.sample(level, cell).orElseThrow();
+        require(after.moles(GasType.OXYGEN) == 0.0
+                        && after.moles(GasType.NITROGEN) == initial.moles(GasType.NITROGEN),
+                "exact named removal must preserve unrelated species");
+        require(Math.abs(after.temperatureKelvin() - initial.temperatureKelvin()) < 0.01,
+                "removing gas at its current temperature conserves remaining temperature");
+        require(service.addGas(level, cell, GasType.OXYGEN, 2.0, ROOM_TEMPERATURE_KELVIN), "restore oxygen for legacy regression");
+        GasMixture beforeLegacyRemoval = service.sample(level, cell).orElseThrow();
+        require(Math.abs(service.removeGasUpTo(level, cell, 1.0) - 1.0) < 0.01,
+                "legacy API remains proportional and available");
+        GasMixture afterLegacyRemoval = service.sample(level, cell).orElseThrow();
+        require(afterLegacyRemoval.moles(GasType.OXYGEN) < beforeLegacyRemoval.moles(GasType.OXYGEN)
+                        && afterLegacyRemoval.moles(GasType.NITROGEN) < beforeLegacyRemoval.moles(GasType.NITROGEN),
+                "legacy removal must retain its proportional-across-species behavior");
+
+        BlockPos exterior = helper.absolutePos(new BlockPos(8, 100, 8));
+        int skyY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, exterior.getX(), exterior.getZ()) + 1;
+        if (skyY < level.getMaxBuildHeight()) {
+            exterior = new BlockPos(exterior.getX(), skyY, exterior.getZ());
+            level.getChunk(exterior);
+            require(!service.tryConsumeGas(level, exterior, GasType.OXYGEN, 0.0),
+                    "exterior ambient reading must never be treated as a writable source");
+        }
+        require(!service.tryConsumeGas(level, cell.above(), GasType.OXYGEN, 1.0),
+                "solid cell must fail closed");
+        helper.succeed();
+    }
+
     private static void requireIsolatedReactionFixture() {
         // Tests operate on fixture cells; global atmospherics is always active.
     }
 
-    private static void buildSealedHotspotCell(GameTestHelper helper, int centerX, int centerZ) {
+    public static void buildSealedHotspotCell(GameTestHelper helper, int centerX, int centerZ) {
         for (int x = centerX - 1; x <= centerX + 1; x++) {
             for (int z = centerZ - 1; z <= centerZ + 1; z++) {
                 helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
@@ -606,7 +663,7 @@ public final class AtmosphereRoomGameTests {
         return true;
     }
 
-    private static boolean isFiniteClaimed(ServerLevel level, BlockPos pos) {
+    public static boolean isFiniteClaimed(ServerLevel level, BlockPos pos) {
         LevelChunk chunk = (LevelChunk) level.getChunk(pos);
         var data = chunk.getExistingDataOrNull(ModDataAttachments.ATMOSPHERE_CHUNK.get());
         return data != null && data.isFiniteClaimed(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
@@ -1240,20 +1297,25 @@ public final class AtmosphereRoomGameTests {
     }
 
     private static void buildSealedRoom(GameTestHelper helper, int offsetX) {
+        buildSealedRoom(helper, offsetX, 2, 4, 1, 2);
+    }
+
+    /** Builds a sealed rectangular room with the specified inclusive interior bounds. */
+    public static void buildSealedRoom(GameTestHelper helper, int offsetX, int minXZ, int maxXZ, int minY, int maxY) {
         // Interior is x/z 2..4 and y 1..2. Complete stone boundaries keep every
         // interior cell below the heightmap roof and block all six escape paths.
-        for (int x = 1; x <= 5; x++) {
-            for (int z = 1; z <= 5; z++) {
+        for (int x = minXZ - 1; x <= maxXZ + 1; x++) {
+            for (int z = minXZ - 1; z <= maxXZ + 1; z++) {
                 helper.setBlock(new BlockPos(x + offsetX, 0, z), Blocks.STONE);
-                helper.setBlock(new BlockPos(x + offsetX, 3, z), Blocks.STONE);
+                helper.setBlock(new BlockPos(x + offsetX, maxY + 1, z), Blocks.STONE);
             }
         }
-        for (int y = 1; y <= 2; y++) {
-            for (int i = 1; i <= 5; i++) {
-                helper.setBlock(new BlockPos(1 + offsetX, y, i), Blocks.STONE);
-                helper.setBlock(new BlockPos(5 + offsetX, y, i), Blocks.STONE);
-                helper.setBlock(new BlockPos(i + offsetX, y, 1), Blocks.STONE);
-                helper.setBlock(new BlockPos(i + offsetX, y, 5), Blocks.STONE);
+        for (int y = minY; y <= maxY; y++) {
+            for (int i = minXZ - 1; i <= maxXZ + 1; i++) {
+                helper.setBlock(new BlockPos(minXZ - 1 + offsetX, y, i), Blocks.STONE);
+                helper.setBlock(new BlockPos(maxXZ + 1 + offsetX, y, i), Blocks.STONE);
+                helper.setBlock(new BlockPos(i + offsetX, y, minXZ - 1), Blocks.STONE);
+                helper.setBlock(new BlockPos(i + offsetX, y, maxXZ + 1), Blocks.STONE);
             }
         }
     }
@@ -1301,7 +1363,7 @@ public final class AtmosphereRoomGameTests {
                 "direct-sky side gap must be a passable gas cell at " + gap);
     }
 
-    private static GasMixture classifyUntilSample(AtmosphereService service, ServerLevel level,
+    public static GasMixture classifyUntilSample(AtmosphereService service, ServerLevel level,
                                                    BlockPos pos, int maxPasses) {
         service.activateCellAndNeighbors(level, pos);
         int callbackLimit = Math.max(60, maxPasses * 5);

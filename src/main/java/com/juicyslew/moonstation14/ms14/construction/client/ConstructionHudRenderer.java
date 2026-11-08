@@ -222,3 +222,4 @@ public final class ConstructionHudRenderer {
         return 8+(int)Math.ceil(font.lineHeight*TEXT_SCALE)+2+2*((int)Math.ceil(font.lineHeight*TEXT_SCALE)+1)+4;
     }
 }
+

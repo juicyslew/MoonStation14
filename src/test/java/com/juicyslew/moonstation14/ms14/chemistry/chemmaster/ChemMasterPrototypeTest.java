@@ -44,9 +44,18 @@ class ChemMasterPrototypeTest {
         assertEquals(1000, base.powerLoadWatts()); assertEquals(3, base.cableReach());
         assertEquals(2f, base.uiRange());
         assertTrue(base.inputSlot().fitsInDispenser());
+        assertEquals(0, base.pillDosageLimit(), "generic/default machines do not inherit ChemMaster's required component value");
+        assertTrue(base.outputSlot().acceptedProfiles().isEmpty(), "output policy defaults disabled");
         assertEquals(250, machine.powerLoadWatts()); assertEquals(3, machine.cableReach());
         assertEquals(2f, machine.uiRange());
         assertTrue(machine.inputSlot().fitsInDispenser());
+        assertEquals(20, machine.pillDosageLimit());
+        var bottleProfile = ResourceLocation.fromNamespaceAndPath("moonstation14", "bottle");
+        var canisterProfile = ResourceLocation.fromNamespaceAndPath("moonstation14", "pill_canister");
+        assertTrue(machine.outputSlot().accepts(bottleProfile));
+        assertTrue(machine.outputSlot().accepts(canisterProfile));
+        assertFalse(machine.outputSlot().accepts(ResourceLocation.fromNamespaceAndPath("moonstation14", "pill")));
+        assertTrue(derived.outputSlot().accepts(bottleProfile), "child inherits resolved output allowlist");
         assertTrue(machine.dumpableSolution().enabled()); assertEquals("buffer", machine.dumpableSolution().solutionName());
         assertTrue(machine.dumpableSolution().unlimited());
         assertEquals(ResourceLocation.fromNamespaceAndPath("moonstation14", "chemistry/chemmaster/click"), machine.clickSound());

@@ -11,11 +11,30 @@ import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.Set;
 import com.juicyslew.moonstation14.ms14.devicenet.DeviceComponents;
+import com.juicyslew.moonstation14.ms14.atmos.monitor.AtmosAlarmableData;
+import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.AirAlarmMode;
 
 /** Resolved definition, not a live alarm or a functioning device network. */
 public record AirAlarmData(WallMount wallMount, ApcPowerReceiver apcPowerReceiver,
                            ExtensionCableReceiver extensionCableReceiver, DeviceList deviceList,
-                           DeviceComponents deviceComponents) {
+                            DeviceComponents deviceComponents, AtmosAlarmableData atmosAlarmable, Controller controller) {
+    public record Preset(boolean ventEnabled, double externalTargetKPa, boolean pressureLockoutOverride,
+                         boolean scrubberEnabled, String scrubberMode, double scrubberRateM3PerSecond,
+                         Set<String> filterGases, boolean wideNet) {
+        static final Codec<Preset> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.BOOL.fieldOf("ventEnabled").forGetter(Preset::ventEnabled), Codec.DOUBLE.fieldOf("externalTargetKPa").forGetter(Preset::externalTargetKPa),
+                Codec.BOOL.fieldOf("pressureLockoutOverride").forGetter(Preset::pressureLockoutOverride), Codec.BOOL.fieldOf("scrubberEnabled").forGetter(Preset::scrubberEnabled),
+                Codec.STRING.fieldOf("scrubberMode").forGetter(Preset::scrubberMode), Codec.DOUBLE.fieldOf("scrubberRateM3PerSecond").forGetter(Preset::scrubberRateM3PerSecond),
+                Codec.STRING.listOf().xmap(java.util.Set::copyOf, java.util.List::copyOf).fieldOf("filterGases").forGetter(Preset::filterGases),
+                Codec.BOOL.fieldOf("wideNet").forGetter(Preset::wideNet)).apply(i, Preset::new));
+    }
+    public record Controller(boolean automaticMode, AirAlarmMode initialMode, java.util.Map<AirAlarmMode, Preset> presets) {
+        static final Codec<Controller> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.BOOL.fieldOf("automaticMode").forGetter(Controller::automaticMode),
+                Codec.STRING.xmap(AirAlarmMode::valueOf, AirAlarmMode::name).fieldOf("initialMode").forGetter(Controller::initialMode),
+                Codec.unboundedMap(Codec.STRING.xmap(AirAlarmMode::valueOf, AirAlarmMode::name), Preset.CODEC).fieldOf("presets").forGetter(Controller::presets)
+        ).apply(i, Controller::new));
+    }
     public record WallMount(boolean anchored, boolean nonColliding, boolean allowVerticalMounts) {
         static final Codec<WallMount> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.BOOL.fieldOf("anchored").forGetter(WallMount::anchored),
@@ -48,8 +67,15 @@ public record AirAlarmData(WallMount wallMount, ApcPowerReceiver apcPowerReceive
             ApcPowerReceiver.CODEC.fieldOf("apcPowerReceiver").forGetter(AirAlarmData::apcPowerReceiver),
             ExtensionCableReceiver.CODEC.fieldOf("extensionCableReceiver").forGetter(AirAlarmData::extensionCableReceiver),
             DeviceList.CODEC.fieldOf("deviceList").forGetter(AirAlarmData::deviceList),
-            DeviceComponents.CODEC.optionalFieldOf("deviceComponents", DeviceComponents.empty()).forGetter(AirAlarmData::deviceComponents)
-    ).apply(i, AirAlarmData::new));
+            DeviceComponents.CODEC.optionalFieldOf("deviceComponents", DeviceComponents.empty()).forGetter(AirAlarmData::deviceComponents),
+            AtmosAlarmableData.CODEC.optionalFieldOf("atmosAlarmable").forGetter(d -> java.util.Optional.ofNullable(d.atmosAlarmable())),
+            Controller.CODEC.fieldOf("controller").forGetter(AirAlarmData::controller)
+    ).apply(i, (wall, power, extension, list, components, alarmable, controller) -> new AirAlarmData(wall, power, extension, list, components, alarmable.orElse(null), controller)));
+
+    public AirAlarmData(WallMount wallMount, ApcPowerReceiver apcPowerReceiver, ExtensionCableReceiver extensionCableReceiver,
+                        DeviceList deviceList, DeviceComponents deviceComponents) {
+        this(wallMount, apcPowerReceiver, extensionCableReceiver, deviceList, deviceComponents, null, null);
+    }
 
     public static final Codec<AirAlarmData> CODEC = Codec.of(STRUCTURAL, new Decoder<>() {
         @Override public <T> DataResult<Pair<AirAlarmData, T>> decode(DynamicOps<T> ops, T input) {
@@ -71,6 +97,8 @@ public record AirAlarmData(WallMount wallMount, ApcPowerReceiver apcPowerReceive
     });
 
     public void validate() {
+        if (atmosAlarmable == null || atmosAlarmable.sourceTags().isEmpty() || atmosAlarmable.syncWith().isEmpty())
+            throw new IllegalArgumentException("air alarm requires resolved alarm tags and syncWith filter");
         if (wallMount == null || !wallMount.anchored() || !wallMount.nonColliding())
             throw new IllegalArgumentException("air alarm requires anchored non-colliding wallmount geometry");
         if (apcPowerReceiver == null || apcPowerReceiver.requestedWatts() != 100.0)
@@ -79,12 +107,19 @@ public record AirAlarmData(WallMount wallMount, ApcPowerReceiver apcPowerReceive
             throw new IllegalArgumentException("air alarm requires local extension reach of 3 blocks");
         if (deviceList == null || deviceList.maxDevices() != 32)
             throw new IllegalArgumentException("air alarm local device list is bounded at 32");
+        if (controller == null || !controller.presets().keySet().equals(java.util.EnumSet.allOf(AirAlarmMode.class)))
+            throw new IllegalArgumentException("controller requires all five source modes");
+        controller.presets().values().forEach(p -> {
+            if (p.externalTargetKPa() < 0 || p.scrubberRateM3PerSecond() < 0 || !Double.isFinite(p.externalTargetKPa()) || !Double.isFinite(p.scrubberRateM3PerSecond())
+                    || !java.util.Set.of("FILTER", "SIPHON").contains(p.scrubberMode())) throw new IllegalArgumentException("invalid preset settings");
+            p.filterGases().forEach(com.juicyslew.moonstation14.ms14.atmos.core.GasType::fromId);
+        });
     }
 
     private static void audit(JsonElement json) {
         if (!json.isJsonObject()) throw new IllegalArgumentException("expected object");
         JsonObject object = json.getAsJsonObject();
-        fields(object, Set.of("wallMount", "apcPowerReceiver", "extensionCableReceiver", "deviceList", "deviceComponents"));
+        fields(object, Set.of("wallMount", "apcPowerReceiver", "extensionCableReceiver", "deviceList", "deviceComponents", "atmosAlarmable", "controller"));
         nested(object, "wallMount", Set.of("anchored", "nonColliding", "allowVerticalMounts"));
         nested(object, "apcPowerReceiver", Set.of("requestedWatts"));
         nested(object, "extensionCableReceiver", Set.of("localReachBlocks"));

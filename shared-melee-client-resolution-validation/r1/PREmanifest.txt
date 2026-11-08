@@ -1,0 +1,2 @@
+﻿timestamp=2026-10-21T14:55:03.4136065Z
+command=.\gradlew.bat compileJava compileTestJava compileGametestJava test --tests '*ClientMeleeWeaponResolverTest' --tests '*MeleeWeaponResolverTest' --tests '*BodyHandClientPolicyTest' --tests '*MeleeWeaponProfileTest'

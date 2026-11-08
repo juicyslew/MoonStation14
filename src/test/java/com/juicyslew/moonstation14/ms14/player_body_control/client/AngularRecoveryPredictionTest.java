@@ -277,28 +277,39 @@ class AngularRecoveryPredictionTest {
         boolean wired = false;
         var wiringRows = new java.util.ArrayList<String>();
         for (var method : node.methods) {
-            int evidence = -1, selector = -1, advance = -1, move = -1, advanceCount = 0;
-            boolean exactSequenceEvidence = false;
+            int evidence = -1, selector = -1, advance = -1, move = -1, recordEvidence = -1, advanceCount = 0;
+            boolean applicationScopedEvidence = false;
             var instructions = method.instructions.toArray();
             for (int i = 0; i < instructions.length; i++) if (instructions[i] instanceof MethodInsnNode call) {
-                if (call.name.equals("angularEvidence") && call.owner.equals("com/juicyslew/moonstation14/ms14/player_body_control/prediction/GhostPredictionHistory")) {
-                    evidence = i;
-                    for (int before = i - 1; before >= 0; before--) if (instructions[before] instanceof MethodInsnNode priorCall) {
-                        exactSequenceEvidence = priorCall.name.equals("sequence")
-                                && priorCall.owner.equals("com/juicyslew/moonstation14/ms14/player_body_control/network/GhostControlPayloads$Intent");
-                        break;
-                    }
-                }
+                 if (call.name.equals("angularEvidence") && call.owner.equals("com/juicyslew/moonstation14/ms14/player_body_control/prediction/GhostPredictionHistory")) {
+                     evidence = i;
+                     applicationScopedEvidence = call.desc.equals("(JJ)Ljava/util/Optional;");
+                 }
                 if (call.name.equals("omegaForReplayDeparture") && call.owner.equals("com/juicyslew/moonstation14/ms14/player_body_control/client/AngularRecoveryPrediction")) selector = i;
-                if (call.name.equals("afterMove") && call.owner.equals("com/juicyslew/moonstation14/ms14/player_body_control/client/AngularRecoveryPrediction")) { advance = i; advanceCount++; }
-                if (call.name.equals("move") && call.owner.equals("com/juicyslew/moonstation14/ms14/shuttle/sable/SableOwnedBodyMotion")) move = i;
-            }
-            if (method.name.contains("lambda$predictCharacterInTemporalScope")) wiringRows.add(method.name + ":" + exactSequenceEvidence + "," + evidence + "," + selector + "," + move + "," + advance + "," + advanceCount);
-            if (move >= 0 && exactSequenceEvidence && evidence >= 0 && selector > evidence
-                    && advance > selector && advanceCount == 1) wired = true;
-        }
-        assertTrue(wired, "actual GhostControlClient callback must read exact-sequence evidence, select replay omega, then advance model; methods="
-                + wiringRows);
+                 if (call.name.equals("afterMove") && call.owner.equals("com/juicyslew/moonstation14/ms14/player_body_control/client/AngularRecoveryPrediction")) { advance = i; advanceCount++; }
+                 if (call.name.equals("move") && call.owner.equals("com/juicyslew/moonstation14/ms14/shuttle/sable/SableOwnedBodyMotion")) move = i;
+                 if (call.name.equals("recordAngularEvidence") && call.owner.equals("com/juicyslew/moonstation14/ms14/player_body_control/prediction/GhostPredictionHistory")) recordEvidence = i;
+             }
+              if (method.name.contains("lambda$predictCharacterInTemporalScope")) {
+                  wiringRows.add(method.name + ":" + applicationScopedEvidence + "," + evidence + "," + selector + "," + move + "," + advance + "," + advanceCount);
+                  if (applicationScopedEvidence && evidence >= 0 && selector > evidence
+                          && move > selector && advance > move && advanceCount == 1) wired = true;
+              }
+         }
+         assertTrue(wired, "actual GhostControlClient native callback must read application-associated evidence, select replay omega, then advance model once; methods="
+                 + wiringRows);
+         // The scheduled adapter selects the pending intent by its diagnostic sequence and
+         // carries both sequence and logical tick into the callback; application association
+         // is intentionally resolved by the history, not by rereading Intent.sequence().
+          var projectRoot = java.nio.file.Path.of(System.getProperty("moonstation14.projectDir", "."));
+          var source = java.nio.file.Files.readString(projectRoot.resolve(
+                  "src/main/java/com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java"));
+         int adapter = source.indexOf("predictionHistory.pendingIntent(diagnosticSequence)");
+         int adapterCall = source.indexOf("predictCharacter(mob, controls, logicalSimulationTick, diagnosticSequence", adapter);
+         int application = source.indexOf("predictionHistory.recordApplication(diagnosticSequence, logicalSimulationTick)");
+         int record = source.indexOf("predictionHistory.recordAngularEvidence(diagnosticSequence, logicalSimulationTick, angularEvidence[0])");
+         assertTrue(adapter >= 0 && adapterCall > adapter, "scheduled adapter preserves diagnostic sequence and logical tick");
+         assertTrue(application >= 0 && record > application, "successful outer prediction records application association before fresh evidence");
     }
 
     private static GhostControlPayloads.Snapshot angularSnapshot(long tick, long ack, boolean grounded) {

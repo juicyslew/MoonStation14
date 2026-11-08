@@ -28,6 +28,7 @@ import com.juicyslew.moonstation14.ms14.storage.grid.ModItemFootprints;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.util.IdentityHashMap;
@@ -49,30 +50,34 @@ public final class BodyHandRequestService {
 
     /** Read-only admission only: deliberately does not invoke block use, item use, or protection callbacks. */
     public static boolean probeBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
-        return admitBlockUse(actor, request) != null;
+        return inspectBlockUse(actor, request).admission() != null;
     }
 
     /** Package-private authenticated read-only admission snapshot for narrowly scoped dispatchers. */
     public static BlockUseAdmission admitBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
-        if (request == null) return null;
+        return inspectBlockUse(actor, request).admission();
+    }
+
+    public static BlockUseInspection inspectBlockUse(ServerPlayer actor, BodyBlockUseRequest request) {
+        if (request == null) return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         var resolved = HandActorAuthority.resolve(actor);
-        if (resolved.isEmpty()) { logBlockUseRejected(actor, request, "actor-authority", "resolve=absent"); return null; }
+        if (resolved.isEmpty()) { logBlockUseRejected(actor, request, "actor-authority", "resolve=absent"); return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF); }
         var authority = resolved.orElseThrow();
         if (!BodyHandStateService.hasIssued(actor, authority)) {
-            logBlockUseRejected(actor, request, "issued-hands", "issued=false"); return null;
+            { logBlockUseRejected(actor, request, "issued-hands", "issued=false"); return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF); }
         }
         if (!CharacterControlSystem.canAct(authority.body())) {
-            logBlockUseRejected(actor, request, "character-control", "canAct=false"); return null;
+            { logBlockUseRejected(actor, request, "character-control", "canAct=false"); return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF); }
         }
         var gate = BLOCK_USE_GATES.computeIfAbsent(actor, ignored -> new SequenceGate());
         BodyHandActionResult.Reason gateFailure = gate.admit(authority.epoch(), request.epoch(), request.sequence(),
                 actor.level().getGameTime());
         if (gateFailure != null) {
-            logBlockUseRejected(actor, request, "request-gate", "gate=" + gateFailure); return null;
+            { logBlockUseRejected(actor, request, "request-gate", "gate=" + gateFailure); return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF); }
         }
         LiveHands hands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
         if (hands == null) {
-            logBlockUseRejected(actor, request, "hands-absent", "hands=null"); return null;
+            { logBlockUseRejected(actor, request, "hands-absent", "hands=null"); return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF); }
         }
         boolean activeHandMatches = request.handId().equals(hands.activeHand());
         boolean bodyContainsHand = hands.handIds().contains(request.handId());
@@ -84,7 +89,7 @@ public final class BodyHandRequestService {
                     "active=" + activeHandMatches + ",bodyHas=" + bodyContainsHand + ",authorityHas="
                             + authorityContainsHand + ",compatible=" + handsCompatible + ",revision="
                             + hands.revision() + "/" + request.expectedRevision());
-            return null;
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         }
         var token = hands.token(request.handId());
         var stack = hands.stackCopy(request.handId());
@@ -94,33 +99,43 @@ public final class BodyHandRequestService {
                     "expectedToken=" + (request.expectedToken() != null) + ", tokenPresent=" + token.isPresent()
                             + ", stackPresent=" + stack.isPresent() + ", tokenMatch="
                             + (request.expectedToken() != null && token.filter(request.expectedToken()::equals).isPresent()));
-            return null;
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         }
         if (!(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)) {
             logBlockUseRejected(actor, request, "server-level", "bodyLevel="
-                    + authority.body().level().dimension().location()); return null;
+                    + authority.body().level().dimension().location()); return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         }
         if (!HandActorAuthority.revalidate(actor, authority)) {
-            logBlockUseRejected(actor, request, "actor-revalidate-before-probe", "revalidate=false"); return null;
+            logBlockUseRejected(actor, request, "actor-revalidate-before-probe", "revalidate=false"); return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         }
         // No reliable controlled-body crouch authority is currently defined. The hint is intentionally ignored.
         var hit = BodyBlockUseTargetProbe.probe(level, authority.body(), request.target(), request.face());
         if (hit == null) {
             logBlockUseRejected(actor, request, "target-probe", "target=" + request.target()
                     + ",face=" + request.face() + ",eye=" + authority.body().getEyePosition()
-                    + ",look=" + authority.body().getLookAngle()); return null;
+                    + ",look=" + authority.body().getLookAngle());
+            return new BlockUseInspection(null, BlockUseFailure.TARGET_NOT_ADMITTED);
         }
         if (!HandActorAuthority.revalidate(actor, authority)) {
-            logBlockUseRejected(actor, request, "actor-revalidate-after-probe", "revalidate=false"); return null;
+            logBlockUseRejected(actor, request, "actor-revalidate-after-probe", "revalidate=false"); return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         }
         boolean sameHands = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands;
-        if (!sameHands) { logBlockUseRejected(actor, request, "hands-replaced-after-probe", "sameHands=false"); return null; }
+        if (!sameHands) { logBlockUseRejected(actor, request, "hands-replaced-after-probe", "sameHands=false"); return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF); }
         boolean sameRevision = hands.revision() == request.expectedRevision();
         if (!sameRevision) {
             logBlockUseRejected(actor, request, "revision-after-probe",
-                    "revision=" + hands.revision() + "/" + request.expectedRevision()); return null;
+                    "revision=" + hands.revision() + "/" + request.expectedRevision()); return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
         }
-        return new BlockUseAdmission(authority, hands, hit);
+        boolean stillValid = HandActorAuthority.revalidate(actor, authority)
+                && authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands
+                && hands.compatible(authority.body()) && hands.revision() == request.expectedRevision()
+                && blockUseHandStateMatches(request.expectedToken(), hands.token(request.handId()).isPresent(),
+                        hands.stackCopy(request.handId()).isPresent(), hands.token(request.handId()).orElse(null));
+        if (!stillValid) {
+            logBlockUseRejected(actor, request, "still-valid", "authority-or-hand-state-changed");
+            return new BlockUseInspection(null, BlockUseFailure.INVALID_PROOF);
+        }
+        return new BlockUseInspection(new BlockUseAdmission(authority, hands, hit), BlockUseFailure.NONE);
     }
 
     private static void logBlockUseRejected(ServerPlayer actor, BodyBlockUseRequest request,
@@ -130,7 +145,11 @@ public final class BodyHandRequestService {
                     actor == null ? null : actor.getUUID(), request.epoch(), request.sequence(), request.handId(), reason, detail);
     }
 
-    static boolean blockUseHandStateMatches(String expectedToken, boolean tokenPresent, boolean stackPresent,
+    public enum BlockUseFailure { NONE, INVALID_PROOF, TARGET_NOT_ADMITTED }
+
+    public record BlockUseInspection(BlockUseAdmission admission, BlockUseFailure failure) { }
+
+    public static boolean blockUseHandStateMatches(String expectedToken, boolean tokenPresent, boolean stackPresent,
                                             String actualToken) {
         return expectedToken == null ? !tokenPresent && !stackPresent
                 : tokenPresent && stackPresent && expectedToken.equals(actualToken);
@@ -177,12 +196,14 @@ public final class BodyHandRequestService {
                 return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
             if (!selectionAllowed(authority.body(), hands, next.orElseThrow(), request.expectedRevision()))
                 return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            LiveHands selectedCandidate = com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown
+                    .stageSelectedInsertion(authority.body(), hands, next.orElseThrow());
             BodyHandActionResult.Reason reason;
             try {
-                if (!com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.commit(actor, authority, next.orElseThrow()))
+                if (!com.juicyslew.moonstation14.ms14.hands.live.LiveHandsCommitGateway.commit(actor, authority, selectedCandidate))
                     throw new IllegalStateException("hand commit rejected");
-                reason = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == next.orElseThrow()
-                        && next.orElseThrow().compatible(authority.body())
+                reason = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == selectedCandidate
+                        && selectedCandidate.compatible(authority.body())
                         ? BodyHandActionResult.Reason.OK : BodyHandActionResult.Reason.RECOVERY_REQUIRED;
             } catch (RuntimeException failure) {
                 reason = authority.body().getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) == hands
@@ -247,7 +268,7 @@ public final class BodyHandRequestService {
             boolean storing = request.action() == BodyHandActionRequest.Action.HELD_GRID_STORE;
             boolean moving = request.action() == BodyHandActionRequest.Action.HELD_GRID_MOVE;
             if (hostToken == null || !hostToken.equals(request.expectedToken()) || host == null
-                    || !(host.is(ModItems.BAG) || host.is(ModItems.BELT)) || contents == null
+                    || !GridContents.isHost(host) || contents == null
                     || storing && (!request.expectedChildOrSourceToken().equals(otherToken))
                     || !storing && !request.expectedChildOrSourceToken().equals(moving
                         ? contents.entries().stream().filter(e -> e.token().equals(request.expectedChildOrSourceToken())
@@ -459,6 +480,10 @@ public final class BodyHandRequestService {
             default -> null;
         };
         if (request.action() == BodyHandActionRequest.Action.QUICK_EQUIP) {
+            var quickItem = hands.stackCopy(request.handId()).orElse(null);
+            int quickDelay = EquipmentTimedInteraction.delay(quickItem, true);
+            if (quickDelay > 0) return result(request, EquipmentTimedInteraction.startQuick(actor, authority, hands,
+                    request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence(), quickDelay), authority);
             var outcome = reason(BodyEquipmentTransfer.quickEquip(actor, request.handId(), request.expectedToken(), request.expectedRevision()));
             BodyHandActionResult response = result(request, outcome, authority);
             if (outcome == BodyHandActionResult.Reason.OK) BodyHandStateService.requireFreshQuery(actor);
@@ -567,6 +592,15 @@ public final class BodyHandRequestService {
                     || hands.revision() != request.expectedRevision()
                     || !equipment.equals(BodyHandStateService.equipment(hands, authority.body(), handSlots)))
                 return result(request, BodyHandActionResult.Reason.NO_AUTHORITY, null);
+            if (request.action() == BodyHandActionRequest.Action.EQUIP_SLOT
+                    || request.action() == BodyHandActionRequest.Action.UNEQUIP_SLOT) {
+                boolean puttingOn = equipping;
+                var delayStack = puttingOn ? hands.stackCopy(request.handId()).orElse(null)
+                        : liveSlot == null ? null : liveSlot.stack().orElse(null);
+                int delay = EquipmentTimedInteraction.delay(delayStack, puttingOn);
+                if (delay > 0) return result(request, EquipmentTimedInteraction.start(actor, authority, hands,
+                        request.handId(), equipmentSlot, request.expectedToken(), request.expectedRevision(), request.sequence(), puttingOn, delay), authority);
+            }
             BodyHandActionResult.Reason outcome;
             if (equipping) outcome = reason(BodyEquipmentTransfer.equip(actor, request.handId(), equipmentSlot,
                     request.expectedToken(), request.expectedRevision()));
@@ -631,8 +665,26 @@ public final class BodyHandRequestService {
             var ownedToken = hands.token(request.handId()).orElse(null);
             if (request.expectedToken() != null && !request.expectedToken().equals(ownedToken))
                 return result(request, BodyHandActionResult.Reason.STALE_HAND, authority);
+            var alternateTarget = request.pickupTarget() == null
+                    || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
+                    ? null : level.getEntity(request.pickupTarget());
+            if (alternateTarget instanceof com.juicyslew.moonstation14.entities.LooseItemEntity attached
+                    && attached.attachment().isPresent()) {
+                var started = com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.begin(
+                        actor, attached, request.sequence());
+                return result(request, started == com.juicyslew.moonstation14.ms14.timed_interaction.TimedInteractionEngine.StartResult.STARTED
+                        ? BodyHandActionResult.Reason.OK : BodyHandActionResult.Reason.DENIED, authority);
+            }
             if (ownedToken != null) {
                 var held = hands.stackCopy(request.handId()).orElse(null);
+                var targetEntity = request.pickupTarget() == null || !(authority.body().level() instanceof net.minecraft.server.level.ServerLevel level)
+                        ? null : level.getEntity(request.pickupTarget());
+                if (targetEntity instanceof net.minecraft.world.entity.LivingEntity animal
+                        && com.juicyslew.moonstation14.ms14.animals.UdderSystem.capability(animal).isPresent()) {
+                    boolean started = com.juicyslew.moonstation14.ms14.animals.UdderSystem.startMilking(actor,
+                            authority.body(), animal, request.handId(), ownedToken, request.expectedRevision(), request.sequence());
+                    return result(request, started ? BodyHandActionResult.Reason.OK : BodyHandActionResult.Reason.DENIED, authority);
+                }
                 var heldId = held == null ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
                 try {
                     var medical = heldId == null ? null : com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.require(
@@ -644,7 +696,7 @@ public final class BodyHandRequestService {
                 var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), ownedToken,
                         request.expectedRevision(), true);
                 BodyHandActionResult response = result(request, liquidReason(outcome), authority);
-                if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+                if (outcome != BodyLiquidInteraction.Result.DENIED && outcome != BodyLiquidInteraction.Result.CANNOT_INGEST) BodyHandStateService.requireFreshQuery(actor);
                 return response;
             }
             if (hands.reservation(request.handId()).isPresent())
@@ -671,6 +723,18 @@ public final class BodyHandRequestService {
         java.util.concurrent.atomic.AtomicReference<java.util.UUID> spawned = new java.util.concurrent.atomic.AtomicReference<>();
         if (request.action() == BodyHandActionRequest.Action.THROW_ITEM) {
             var outcome = BodyLooseThrow.throwHeld(actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.throwTarget(), spawned::set);
+            if (outcome == BodyLooseThrow.Result.DENIED) {
+                LivingEntity body = authority.body();
+                LiveHands current = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+                ItemStack held = current == null ? ItemStack.EMPTY : current.stackCopy(request.handId()).orElse(ItemStack.EMPTY);
+                String itemId = held.isEmpty() ? "empty" : BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
+                String prototype = body instanceof net.minecraft.world.entity.Mob mob
+                        ? mob.getType().toString() : body.getType().toString();
+                com.juicyslew.moonstation14.MoonStation14.LOGGER.warn(
+                        "Body THROW_ITEM denied gate={} bodyType={} item={} bodyPos={} eye={} look={} profile=unavailable",
+                        BodyLooseThrow.lastPortableThrowGateForDiagnostics(), prototype, itemId,
+                        body.position(), body.getEyePosition(), body.getLookAngle());
+            }
             BodyHandActionResult.Reason throwReason = looseThrowReason(outcome);
             if (throwReason == BodyHandActionResult.Reason.OK && spawned.get() != null)
                 BodyWorldGridService.authorizeTransferredOpen(actor, authority, spawned.get());
@@ -694,6 +758,14 @@ public final class BodyHandRequestService {
                     .isSignaller(looseTarget.getItem()))
                 return result(request, com.juicyslew.moonstation14.ms14.devicenet.item.RemoteSignallerServer.activateLoose(
                         actor, authority, hands, request, looseTarget), authority);
+            if (looseTarget != null) {
+                var slicing = com.juicyslew.moonstation14.ms14.item_processing.LooseFoodSlicingService.use(
+                        actor, authority, hands, request, looseTarget, held);
+                if (slicing != null) return result(request, slicing, authority);
+                var cutting = com.juicyslew.moonstation14.ms14.item_processing.LooseLogCuttingService.use(
+                        actor, authority, hands, request, looseTarget, held);
+                if (cutting != null) return result(request, cutting, authority);
+            }
             var heldId = held == null ? null : BuiltInRegistries.ITEM.getKey(held.getItem());
             try {
                 // Ordinary liquid containers are intentionally not in the medical catalog.
@@ -708,12 +780,21 @@ public final class BodyHandRequestService {
                             var outcome = BodyLiquidInteraction.fill(actor, request.pickupTarget(), request.handId(), request.expectedToken(),
                                     request.expectedRevision(), false);
                             BodyHandActionResult response = result(request, liquidReason(outcome), authority);
-                            if (outcome != BodyLiquidInteraction.Result.DENIED) BodyHandStateService.requireFreshQuery(actor);
+                            if (outcome != BodyLiquidInteraction.Result.DENIED && outcome != BodyLiquidInteraction.Result.CANNOT_INGEST) BodyHandStateService.requireFreshQuery(actor);
                             return response;
                         });
                 if (dispatched != null) return dispatched;
             } catch (RuntimeException ignored) { return result(request, BodyHandActionResult.Reason.DENIED, authority); }
             return result(request, BodyHandActionResult.Reason.DENIED, authority);
+        }
+        if (request.action() == BodyHandActionRequest.Action.BUTCHER) {
+            var held = hands.stackCopy(request.handId()).orElse(null);
+            var looseTarget = nominatedLoose(authority, request);
+            if (looseTarget == null)
+                return result(request, BodyHandActionResult.Reason.DENIED, authority);
+            var outcome = com.juicyslew.moonstation14.ms14.item_processing.LooseButcheringService.use(
+                    actor, authority, hands, request, looseTarget, held);
+            return result(request, outcome == null ? BodyHandActionResult.Reason.DENIED : outcome, authority);
         }
         if (request.action() == BodyHandActionRequest.Action.USE_IN_HAND) {
             var stack = hands.stackCopy(request.handId()).orElse(null);
@@ -739,6 +820,9 @@ public final class BodyHandRequestService {
                     return result(request, heldMutationReason(com.juicyslew.moonstation14.ms14.medical.syringe.SyringeModeService.activate(
                             actor, request.handId(), request.expectedToken(), request.expectedRevision(), request.sequence())), authority);
             } catch (RuntimeException ignored) { }
+            var conversion = com.juicyslew.moonstation14.ms14.item_processing.HeldItemConversionService.tryUse(
+                    actor, authority, hands, request, stack);
+            if (conversion != null) return result(request, conversion, authority);
             if (!(stack.getItem() instanceof IReagentTrait))
                 return result(request, BodyHeldItemActions.activate(actor, request), authority);
             boolean policyDrink = false;
@@ -929,7 +1013,7 @@ public final class BodyHandRequestService {
     }
 
     private static BodyHandActionResult.Reason liquidReason(BodyLiquidInteraction.Result outcome) {
-        return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
+        return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED, CANNOT_INGEST -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
     }
     private static BodyHandActionResult.Reason looseThrowReason(BodyLooseThrow.Result outcome) {
         return switch (outcome) { case SUCCESS -> BodyHandActionResult.Reason.OK; case DENIED -> BodyHandActionResult.Reason.DENIED; case RECOVERY_REQUIRED -> BodyHandActionResult.Reason.RECOVERY_REQUIRED; };
@@ -993,7 +1077,7 @@ public final class BodyHandRequestService {
             }
         }
         return new BodyHandActionResult(request.epoch(), request.sequence(),
-                reason == BodyHandActionResult.Reason.OK, reason, false, 0, null, null, null, 0, null);
+                reason == BodyHandActionResult.Reason.OK, reason, false, 0, null, null, null, 0, transition);
     }
 
     /** Pure dispatch policy; never serves as proof of a real authenticated player. */

@@ -4,3 +4,4 @@ package com.juicyslew.moonstation14.ms14.atmos.world;
 public interface AtmosphereBlockPolicy {
     boolean atmospherePassable();
 }
+

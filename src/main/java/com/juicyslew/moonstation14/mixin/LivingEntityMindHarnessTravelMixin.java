@@ -1,24 +1,20 @@
 package com.juicyslew.moonstation14.mixin;
 
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.NpcMovementDriven;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
-import com.juicyslew.moonstation14.ms14.mobs.MobStateSystem;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Suppresses native travel for harness-owned mobs and eligible incapacitated medical bodies.
- * Keep owned aiStep normalization writes guarded too; see movement invariants in
- * docs/shuttle-relocation-sprint/CHARACTER-INPUT-CADENCE.md.
- */
+/** Suppresses native travel for mobs whose movement is resolved by the shared world step. */
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMindHarnessTravelMixin {
-    // travel cancellation does not stop aiStep's two native velocity normalization writes.
+    // Cancelling travel does not prevent aiStep's own velocity normalization writes.
     @Redirect(method = "aiStep", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/entity/LivingEntity;setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V",
             ordinal = 0), require = 1)
@@ -39,9 +35,13 @@ public abstract class LivingEntityMindHarnessTravelMixin {
     private void moonstation14$applyNativeTetherImpulse(Vec3 input, CallbackInfo callback) {
         Object entity = this;
         if (entity instanceof LivingEntity living && !living.level().isClientSide
+                && !living.isPassenger() && !living.isDeadOrDying() && !living.isSpectator() && !living.noPhysics
                 && (!(entity instanceof Mob mob) || !moonstation14$hasCustomPhysicsOwner(mob))) {
-            Vec3 delta = com.juicyslew.moonstation14.ms14.loose_objects.pulling.TetherMotion
-                    .deltaVelocityPerSecond(living).scale(.05);
+            Vec3 perSecond = com.juicyslew.moonstation14.ms14.loose_objects.pulling.TetherMotion
+                    .deltaVelocityPerSecond(living);
+            perSecond = perSecond.add(com.juicyslew.moonstation14.ms14.singularity.SingularityGravityPulse
+                    .deltaVelocity(living.level(), living.position(), living.level().getGameTime()));
+            Vec3 delta = perSecond.scale(.05);
             if (delta.lengthSqr() > 0) living.setDeltaMovement(living.getDeltaMovement().add(delta));
         }
     }
@@ -49,19 +49,20 @@ public abstract class LivingEntityMindHarnessTravelMixin {
     @Inject(method = "travel", at = @At("HEAD"), cancellable = true, require = 1)
     private void moonstation14$skipVanillaTravelForHarnessOwnedMob(Vec3 input, CallbackInfo callback) {
         Object entity = this;
-        if (entity instanceof Mob mob && moonstation14$hasCustomPhysicsOwner(mob)) {
-            LivingEntity body = (LivingEntity) entity;
-            // Owned living bodies suppress vanilla travel. Retained medical corpses still need
-            // authoritative collision-resolved motion, without restoring AI or owner input.
-            // Tracked remote clients cannot infer authoritative accepted displacement here; the owning
-            // server and local predictor update walk animation at their explicit movement step instead.
+        if (entity instanceof LivingEntity living && com.juicyslew.moonstation14.ms14.animals.flight.FlightSystem.isFlying(living)
+                && (!(entity instanceof Mob mob) || moonstation14$hasCustomPhysicsOwner(mob)
+                || com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep
+                        .isNaturalFlightBodyEligible(mob))) {
             callback.cancel();
+            return;
         }
+        if (entity instanceof Mob mob && moonstation14$hasCustomPhysicsOwner(mob)) callback.cancel();
     }
 
     private static boolean moonstation14$hasCustomPhysicsOwner(Mob mob) {
         return com.juicyslew.moonstation14.ms14.player_body_control.character.OwnedCorpsePhysics.eligible(mob)
                 || mob instanceof MindControlledMob controlled && controlled.moonstation14$isMovementOwned()
+                || mob instanceof NpcMovementDriven driven && driven.moonstation14$isNpcMovementDriven()
                 || com.juicyslew.moonstation14.ms14.player_body_control.character.GroundedHarnessWorldStep
                         .isCustomPhysicalOwner(mob);
     }

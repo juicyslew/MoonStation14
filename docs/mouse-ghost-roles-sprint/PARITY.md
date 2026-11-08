@@ -1,0 +1,16 @@
+# Mouse composition parity (work 1)
+
+Reference checkout `C:/Users/William/Documents/SS14-dev/space-station-14` is pinned at `c9df5ef5d675b0d1d226828bddf6b78c28502d91`.
+
+Upstream `Resources/Prototypes/Entities/Mobs/NPCs/animals.yml` defines MobMouse with parents `SimpleMobBase` (`NPCs/simplemob.yml`) and `BaseMobAnimal` (`Body/Animals/animal.yml`). Local resolution uses `moonstation14:supported_simple_mob` → `moonstation14:supported_animal` → `moonstation14:mouse`, a single-parent supported mapping. It supplies shared mob composition and supported animal body/temperature/metabolism defaults; the leaf supplies mouse thresholds, blood quantity, movement, hunger/thirst, respirator/barotrauma, and role. Local `InitialBody` references existing `moonstation14:organ_lungs_pig`. Existing thermal, pressure and respiration systems consume the resolved policies; absence of an upstream-named atmosphere marker does not imply missing exposure behavior. Unsupported organ mappings are separate gaps; no human profile/hands/NoSlip are implied. See PHYSIOLOGY.md for adaptations and pending live validation.
+
+The Mouse RSI is copied intact from `Resources/Textures/Mobs/Animals/mouse.rsi`; its upstream `meta.json` records CC-BY-SA-3.0, tgstation origin and Vermidia modification. The sound `Audio/Animals/mouse_squeak.ogg` is copied intact; its upstream provenance is not established, recorded as unknown pending verification.
+
+Owner subsequently requested 3D models instead of world sprites. Mouse world rendering now uses a neutral cuboid placeholder matching its 0.4 × 0.3 × 0.4-block bounds; see `RENDERING.md`. RSI assets remain intact and attributed but are no longer selected for world visuals. This supersedes the initial sprint's world-sprite presentation target.
+
+Adaptations/gaps: no AI/HTN or NPC faction, no item/clothing/headwear/carry behavior, no inventory escape, crit actions, faxing, butchering/food integrations, or inferred vent/cable/slip behavior. Local support is limited to typed components with live consumers; mouse is not assigned human hands or humanoid profile. Character enrollment/identity and movement use existing `ModCharacters`, `CharacterIdentitySystem`, and movement policy paths.
+
+Speech parity: the local `Speech` component opts into the seven mouse full-replacement phrases and `mouse_squeak` speech sound. SS14 also has a Mouse emote sound with variation `0.125`; local speech has no emote event consumer, so mouse squeak emote playback and its variation are explicitly deferred. This is not full SS14 speech/emote parity.
+# Mouse locomotion presentation addendum
+
+Native mouse walk animation timing is 0.6 seconds and the accepted Minecraft R2 scurry clip is 0.2 seconds. The user explicitly requested faster visual stepping while leaving walk/sprint movement speeds alone. Mouse rendering now uses the existing 0.2-second scurry clip whenever horizontal entity position changes, and immediately returns to idle on a stationary tick. This is a presentation-only departure from native walk timing; it does not alter movement physics, control protocol, geometry, or authored animation definitions. Critical/dead `down_hold` state continues to override locomotion.

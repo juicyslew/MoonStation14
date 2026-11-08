@@ -60,3 +60,4 @@ public final class ChemMasterBlock extends BaseEntityBlock {
         return drops;
     }
 }
+

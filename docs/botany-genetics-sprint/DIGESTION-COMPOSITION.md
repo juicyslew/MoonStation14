@@ -1,0 +1,17 @@
+# Wheat special digestion mapping
+
+Verified source chain: `WheatBushel → ProduceBaseRuminant → ProduceBase → BaseItem`. `ProduceBaseRuminant` adds only `Edible(requiresSpecialDigestion=true)` and `Tag(Ruminant)`; `WheatBushel` contributes `Flour` 10u with omitted volume (resolved to 10u). Source `EdibleComponent.cs`: food solution default, `DestroyOnEmpty=true`, transfer 5u, special digestion false, delay 1s (20 ticks), force-feed delay 3s (60 ticks), `RequireDead=true`, nullable sound, Edible prototype `Food`. The leaf overrides special digestion true. `FOUNDATION-COMPOSITION.md` carries the parent-verified source line references (ProduceBaseRuminant 18–28; WheatBushel 48–69).
+
+Local `wheat_bushel` resolves from `food_base`, with source-compatible `force_feed_delay_ticks=60`, a 1000-cent flour source solution, and `requires_special_digestion=true`. Its schema's generic 20-tick food delay/500-cent dose are local data defaults, not claims that the upstream FoodBase inheritance was reproduced. Local food kind selects the existing food completion sound when sound is omitted. Source composition remains owned by `ProduceSourceComposition`; the existing produce output's generated chemistry is unchanged. The local runtime has no stomach whitelist capability, so flagged food is default-denied and does **not** claim SS14 matching-whitelist or ruminant behavior. No species/tag field is introduced.
+
+| Entry route | Owner / enforcement |
+|---|---|
+| Held/world timed ingestion | `BodyTimedIngestionService.startHeld/startWorld` (owned variants share path) → `TimedIngestionAccess.admitHeld/admitWorld`; re-resolved at `valid` |
+| Timed dose commit | `TimedIngestionAccess.complete` → `BodyLiquidInteraction.sipTimedOwned` → shared `sipTransaction` |
+| Whole-source item | `TimedIngestionAccess.complete` → `consumeTimedEdibleOwned` → same `sipTransaction` |
+| Other item/use callers | Repository search finds no `BodyLiquidInteraction` consumer in `PrototypeEdibleItem` or `ProduceEdibleItem`; those types materialize source only. All direct timed consumption APIs converge on `sipTransaction`. |
+| Final authority boundary | `sipTransaction` resolves the actual held/world `sourceStack`, checks the current server ingestion profile before reagent bridge lookup, snapshots, transfer planning, or ownership commit. The check is independent of the caller's `food` boolean; absent profiles remain allowed for ordinary unprofiled liquid containers. |
+
+Authored (not executed) native coverage: `BodyTimedIngestionGameTests.humanCannotStartTimedWheatIngestion` checks normal world admission denial/no active operation; its direct `sipTimedOwned` call uses actual reachable wheat and `food=false`, asserts source/stomach unchanged, then verifies ordinary tomato succeeds through the same guarded transaction. `HeldTimedIngestionGameTests.wheatWholeSourceTransactionRejectsCurrentSpecialDigestionProfile` uses a registered body and wheat from `ProduceFactory.createHarvest`, inserted through `LiveHandsFixtureTransfer`, then calls `consumeTimedEdibleOwned` and checks the source/token/stomach are unchanged. These are transaction/domain fixture checks, not authenticated player interaction proofs.
+
+The special-digestion rule is food-only data; drink/container sipping remains unaffected. Grinding/injection continue to use their existing reagent/source capabilities. Force-feed has no local implementation/entry path and is not claimed as tested or supported.

@@ -57,3 +57,4 @@ public final class BodyActionDiagnosticCommand {
         return 1;
     }
 }
+

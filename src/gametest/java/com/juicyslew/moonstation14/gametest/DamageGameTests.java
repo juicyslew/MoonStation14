@@ -26,6 +26,8 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.monster.Zombie;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -80,10 +82,31 @@ public final class DamageGameTests {
         Zombie stand = spawnZombie(helper, new BlockPos(1, 2, 1));
         stand.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40f);
         stand.setHealth(40f);
-        require(DamageSystem.applyHealthChange(stand, Map.of(DamageKeys.BLUNT, 50f), 1f, true)
-                        == DamageSystem.Result.APPLIED,
+        DamageSystem.DamageApplication application = DamageSystem.applyHealthChangeWithAdmission(stand,
+                Map.of(DamageKeys.BLUNT, 50f), 1f, true, DamageSystem.Cause.CHEMICAL);
+        require(application.status() == DamageSystem.Result.APPLIED && application.positiveDamageAdmitted(),
                 "typed damage must apply to the configured max health");
         require(stand.getHealth() == 30f, "fifty typed damage must remove ten health from max forty");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    public static void canceledNativeHurtLeavesTypedLedgerUnchanged(GameTestHelper helper) {
+        Zombie victim = spawnZombie(helper, new BlockPos(1, 2, 1));
+        java.util.function.Consumer<LivingIncomingDamageEvent> listener = event -> {
+            if (event.getEntity() == victim) event.setCanceled(true);
+        };
+        NeoForge.EVENT_BUS.addListener(listener);
+        try {
+            DamageSystem.DamageApplication application = DamageSystem.applyHealthChangeWithAdmission(victim,
+                    Map.of(DamageKeys.RADIATION, 10f), 1f, false, DamageSystem.Cause.CHEMICAL);
+            require(application.status() == DamageSystem.Result.APPLIED, "transaction request accepted");
+            require(!application.positiveDamageAdmitted(), "canceled native hurt is not admitted");
+            var stored = victim.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+            require(stored == null || stored.getMap().isEmpty(), "canceled native hurt does not commit typed ledger");
+        } finally {
+            NeoForge.EVENT_BUS.unregister(listener);
+        }
         helper.succeed();
     }
 

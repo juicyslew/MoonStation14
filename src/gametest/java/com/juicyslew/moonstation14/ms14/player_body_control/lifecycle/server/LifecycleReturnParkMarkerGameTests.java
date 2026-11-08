@@ -19,7 +19,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Value fixtures: callbacks do not manufacture connected-player authority. */
-@GameTestTags({"lifecycle", "character"})
+@GameTestTags({"lifecycle", "character", "character-identity-return"})
 @PrefixGameTestTemplate(false)
 public final class LifecycleReturnParkMarkerGameTests {
     private LifecycleReturnParkMarkerGameTests() { }

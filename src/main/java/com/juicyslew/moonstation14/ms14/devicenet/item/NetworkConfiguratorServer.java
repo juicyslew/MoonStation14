@@ -206,3 +206,4 @@ public final class NetworkConfiguratorServer {
                 .map(p->new NetworkConfiguratorSnapshot.Port(p.id(),p.name(),p.description())).toList();
     }
 }
+

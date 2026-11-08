@@ -24,7 +24,7 @@ class AirlockOpeningPredictionTest {
         return new AirlockBlockEntity.ClientView(id,rev,phase,0,0,0,passable,powered,bolts,true,false,false);
     }
     private static AirlockData data(boolean bump,double first,double second) {
-        return new AirlockData(new AirlockData.Door(first,second,.4,.2,.45,15,2,bump),
+        return new AirlockData(new AirlockData.Door(first,second,.4,.2,.45,15,2,bump,1.5),
                 new AirlockData.Airlock(true,true,5,9,3,false),new AirlockData.DoorBolt(true),
                 new AirlockData.ApcPowerReceiver(20),new AirlockData.ExtensionCableReceiver(3),
                 new AirlockData.WiresPanel(com.juicyslew.moonstation14.ms14.tools.ToolProfile.Quality.SCREWING,1,

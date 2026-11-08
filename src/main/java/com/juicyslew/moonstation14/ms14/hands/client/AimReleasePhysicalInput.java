@@ -10,3 +10,4 @@ final class AimReleasePhysicalInput {
     boolean legacyFallback() { return legacyFallback; }
     void clear() { active = false; button = -1; legacyFallback = false; }
 }
+

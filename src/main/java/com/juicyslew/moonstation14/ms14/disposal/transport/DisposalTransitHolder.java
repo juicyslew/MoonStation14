@@ -445,3 +445,4 @@ public final class DisposalTransitHolder extends Entity {
         boolean tryReturnToUnit(DisposalTransitHolder holder, net.minecraft.core.BlockPos lastLoaded);
     }
 }
+

@@ -14,3 +14,4 @@ public final class TilePrySelection {
         return finish == StationFloorBlock.TileFinish.STEEL ? Result.STEEL_TILE : Result.WHITE_TILE;
     }
 }
+

@@ -1,0 +1,50 @@
+{
+  "title": "Botany genetics M3B: gas mutation and live exchange",
+  "kind": "feature",
+  "acceptance_criteria": [
+    "Resolved empty consume/exude gas maps inherit and persist through profile copying; all existing profile-copy callers retain both maps.",
+    "Typed gas mutations preserve the source 27-entry order, are nonpersistent, draw a float amount before selecting uniformly among all nine GasType values, do not quantize, and clamp to 0.01–0.5.",
+    "Actual PlantMutationSystem dispatch applies gas mutation to the current profile without replacing unrelated genetics.",
+    "Actual ordinary 15-second metabolism exchanges named gases: full required amount or none, equality succeeds, insufficient gas is unmet with zero partial consumption, unrelated gases and temperature are conserved, and strict finite-owned-cell write policy is honored without changing proportional AtmosphereService APIs.",
+    "Gas exchange follows soil metabolism/mutation and current genes: consume before missing-gas count/health and post-consumption pressure/temperature, then exude using source midpoint-to-even rounding and minimum one mole per entry; zero consumption imposes no write requirement while zero exudation still requests at least one mole.",
+    "World-write failure is observable in the typed report, never reported as success, and does not invent an exudation health penalty; genetics and world writes are not claimed atomic.",
+    "Native registered fixture uses an actual sealed two-cell chamber and tray exchange, aggregate moles to avoid diffusion false assertions, and authenticated arranged gas-mutation packet transmission with normal registered harvest/extract/replant paths; preserved M3A baseline, care, power and chemistry regressions remain covered.",
+    "When the gas report surface is stable, the scoped fixture visibly labels operator gas status (pending, exchanged, unmet, or failed) without claiming ordinary analyzer UI.",
+    "Validation distinguishes focused evidence from unverified full-suite, full capability/catalog, visual/connected-client, and owner acceptance; unclaimed or unloaded NEW cell cases remain explicit untested boundaries.",
+    "Current main, JVM and registered native fixture sources compile and the runtime jar artifact is produced."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantGasMetabolismGameTests.java",
+  "manual_steps": [
+    "Run `/ms14 botany_fixture`; wait about 15 seconds and inspect the scoped fixture's gas status/tray label when available. Observe an ordinary eligible plant cycle and its actual named-gas exchange; do not spawn items or treat the fixture as an analyzer or full-sprint demonstration."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Freshly compile current sources and produce the runtime jar for the candidate.",
+      "covers": ["Current main, JVM and registered native fixture sources compile and the runtime jar artifact is produced."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.atmos.core.GasMixtureTest --tests com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantChemicalMutationTest --tests com.juicyslew.moonstation14.ms14.botany.PlantGasMetabolismTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest --tests com.juicyslew.moonstation14.ms14.botany.SeedExtractorEligibilityTest --tests com.juicyslew.moonstation14.ms14.botany.TrayRulesTest --tests com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest --tests com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest --tests com.juicyslew.moonstation14.ms14.prototype.SeedProfileTest --tests com.juicyslew.moonstation14.ms14.reagent.PlantReagentMetabolismTest --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Exact focused 13-class selection recorded by the current author run; class names and counts are verified against the extant test sources and XML results. Gas mutation coverage is in SeedProfileTest and PlantMutationCycleTest; chemistry-copy regression remains in PlantChemicalMutationTest.",
+      "covers": ["Resolved empty consume/exude gas maps inherit and persist through profile copying; all existing profile-copy callers retain both maps.", "Typed gas mutations preserve the source 27-entry order, are nonpersistent, draw a float amount before selecting uniformly among all nine GasType values, do not quantize, and clamp to 0.01–0.5.", "Actual PlantMutationSystem dispatch applies gas mutation to the current profile without replacing unrelated genetics.", "Actual ordinary 15-second metabolism exchanges named gases: full required amount or none, equality succeeds, insufficient gas is unmet with zero partial consumption, unrelated gases and temperature are conserved, and strict finite-owned-cell write policy is honored without changing proportional AtmosphereService APIs.", "Gas exchange follows soil metabolism/mutation and current genes: consume before missing-gas count/health and post-consumption pressure/temperature, then exude using source midpoint-to-even rounding and minimum one mole per entry; zero consumption imposes no write requirement while zero exudation still requests at least one mole.", "World-write failure is observable in the typed report, never reported as success, and does not invent an exudation health penalty; genetics and world writes are not claimed atomic.", "Validation distinguishes focused evidence from unverified full-suite, full capability/catalog, visual/connected-client, and owner acceptance; unclaimed or unloaded NEW cell cases remain explicit untested boundaries."]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=interaction,prediction' --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Generic interaction and prediction regression selectors only; they do not establish native gas behavior.",
+      "covers": ["Validation distinguishes focused evidence from unverified full-suite, full capability/catalog, visual/connected-client, and owner acceptance; unclaimed or unloaded NEW cell cases remain explicit untested boundaries."],
+      "selectors": ["interaction", "prediction"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,botany-genetics,botany-chemical-mutation,botany-stat-mutation,botany-gas-mutation' '-Pms14GameTestDir=build/gametest-botany-gas-mutation-r3' --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "Next focused native attempt in fresh r3 output after r2 needs_changes. Preserve r1/r2 failed artifacts, prior r1–r5 stat artifacts, and owner configuration. Do not select all atmosphere tests by default; full suite belongs to the final broad gate.",
+      "covers": ["Native registered fixture uses an actual sealed two-cell chamber and tray exchange, aggregate moles to avoid diffusion false assertions, and authenticated arranged gas-mutation packet transmission with normal registered harvest/extract/replant paths; preserved M3A baseline, care, power and chemistry regressions remain covered.", "When the gas report surface is stable, the scoped fixture visibly labels operator gas status (pending, exchanged, unmet, or failed) without claiming ordinary analyzer UI.", "Validation distinguishes focused evidence from unverified full-suite, full capability/catalog, visual/connected-client, and owner acceptance; unclaimed or unloaded NEW cell cases remain explicit untested boundaries."],
+      "selectors": ["botany", "botany-genetics", "botany-chemical-mutation", "botany-stat-mutation", "botany-gas-mutation"],
+      "log": "build/reports/botany-genetics/gas-mutation-gate-native.log"
+    }
+  ]
+}

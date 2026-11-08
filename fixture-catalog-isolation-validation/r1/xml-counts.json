@@ -1,0 +1,20 @@
+[
+    {
+        "file":  "TEST-com.juicyslew.moonstation14.ms14.equipment.EquipmentStepTriggerProtectionPolicyTest.xml",
+        "tests":  "2",
+        "failures":  "0",
+        "errors":  "0"
+    },
+    {
+        "file":  "TEST-com.juicyslew.moonstation14.ms14.loose_objects.LooseObjectProfileTest.xml",
+        "tests":  "10",
+        "failures":  "0",
+        "errors":  "0"
+    },
+    {
+        "file":  "TEST-com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfileTest.xml",
+        "tests":  "9",
+        "failures":  "0",
+        "errors":  "0"
+    }
+]

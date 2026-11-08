@@ -25,3 +25,4 @@ public final class StarterStationPlacementState {
         return state == State.PENDING || state == State.SELECTED;
     }
 }
+

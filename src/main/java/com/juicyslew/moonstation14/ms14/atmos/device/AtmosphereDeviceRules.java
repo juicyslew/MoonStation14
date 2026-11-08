@@ -157,3 +157,4 @@ public final class AtmosphereDeviceRules {
         default boolean addHeaterEnergy(BlockPos pos, double requestedJoules) { return addEnergy(pos, requestedJoules); }
     }
 }
+

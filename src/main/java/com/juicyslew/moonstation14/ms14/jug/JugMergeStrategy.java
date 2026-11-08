@@ -19,3 +19,4 @@ public final class JugMergeStrategy implements PrototypeMergeStrategy {
         return merged;
     }
 }
+

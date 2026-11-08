@@ -31,8 +31,15 @@ public final class PronePoseGeometry {
                                  double entityScale, float yaw, boolean faceUp) {
         // Match setupRotations, the common root correction, and vanilla's native
         // humanoid model stack in their actual multiplication order.
-        Matrix4f matrix = new Matrix4f()
-                .translate((float)entityRoot.x, (float)entityRoot.y, (float)entityRoot.z)
+        Matrix4f matrix = relativeRootMatrix(modelScale, entityScale, yaw, faceUp);
+        Vector3f point = matrix.transformPosition(new Vector3f((float)nativeModelPoint.x,
+                (float)nativeModelPoint.y, (float)nativeModelPoint.z));
+        return entityRoot.add(point.x, point.y, point.z);
+    }
+
+    /** Native model-point to entity-root-relative world frame used by rendering and attachments. */
+    public static Matrix4f relativeRootMatrix(double modelScale, double entityScale, float yaw, boolean faceUp) {
+        return new Matrix4f()
                 .scale((float)entityScale)
                 .rotateY((float)Math.toRadians(180.0 - yaw))
                 .translate(0, 2.0F / 16.0F * (float)modelScale, 0)
@@ -41,9 +48,6 @@ public final class PronePoseGeometry {
                 .translate(0, PronePoseMath.nativeRootCenterOffset((float)modelScale), 0)
                 .scale(-1, -1, 1).scale((float)modelScale)
                 .translate(0, -1.501F, 0);
-        Vector3f point = matrix.transformPosition(new Vector3f((float)nativeModelPoint.x,
-                (float)nativeModelPoint.y, (float)nativeModelPoint.z));
-        return new Vec3(point.x, point.y, point.z);
     }
 
     public static Vec3 transformCorner(Vec3 entityRoot, double width, double height,

@@ -1,0 +1,10 @@
+{
+  "id": "moonstation14:food_cocoa_beans",
+  "capacity_cents": 1400,
+  "contents_cents": {
+    "moonstation14:nutriment": 200,
+    "moonstation14:vitamin": 100,
+    "moonstation14:cocoapowder": 200
+  },
+  "refillable": true
+}

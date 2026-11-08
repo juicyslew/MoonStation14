@@ -89,3 +89,4 @@ public record BeakerData(SolutionContainer solutionContainer, boolean fitsInDisp
     }
 
 }
+

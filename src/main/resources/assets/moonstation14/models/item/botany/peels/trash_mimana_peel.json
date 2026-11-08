@@ -1,0 +1,136 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/item/botany/peels/trash_mimana_peel.obj",
+  "textures": {
+    "atlas": "moonstation14:item/botany/peels/trash_mimana_peel",
+    "particle": "moonstation14:item/botany/peels/trash_mimana_peel"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "emissive_ambient": false,
+  "ambientocclusion": false,
+  "render_type": "minecraft:solid",
+  "gui_light": "front",
+  "display": {
+    "gui": {
+      "rotation": [
+        -30,
+        225,
+        0
+      ],
+      "translation": [
+        -1.0962170117027188,
+        8.85377794885137,
+        -6.101806753656465
+      ],
+      "scale": [
+        1.7,
+        1.7,
+        1.7
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -35,
+        0
+      ],
+      "translation": [
+        -0.32702414905007565,
+        5.359249999999999,
+        0.6142271438631587
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        -35,
+        0
+      ],
+      "translation": [
+        -0.4653358682455531,
+        5.359249999999999,
+        0.5173802354597409
+      ],
+      "scale": [
+        0.85,
+        0.85,
+        0.85
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        -25,
+        0,
+        0
+      ],
+      "translation": [
+        0.07945761511611718,
+        4.846155644380274,
+        -1.5425064681812453
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        -25,
+        0,
+        0
+      ],
+      "translation": [
+        -0.07945761511611718,
+        4.846155644380274,
+        -1.5425064681812453
+      ],
+      "scale": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        -0.09932201889514637,
+        6.305,
+        -0.8126103136072599
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        4,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    }
+  }
+}

@@ -48,3 +48,4 @@ public final class HealthAnalyzerSources {
         return data != null && data.scannerId().equals(id);
     }
 }
+

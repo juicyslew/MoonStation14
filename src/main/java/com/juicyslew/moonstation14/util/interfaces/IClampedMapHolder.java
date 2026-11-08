@@ -145,3 +145,4 @@ public interface IClampedMapHolder<T> {
         data.entrySet().removeIf(entry -> entry.getValue() == 0);
     }
 }
+

@@ -1,0 +1,1 @@
+{"id":"moonstation14:butterfly_tiny","parent":"moonstation14:mouse_tiny","mass":0.06,"geometry":"item","render_kind":"flat_sprite","physical_width":0.3,"physical_height":0.22,"visual":{"sprite_scale_x":0.3,"sprite_scale_y":0.22,"sprite_offset_x":0.0,"sprite_offset_y":0.0,"model_scale":0.3,"model_floor_offset":0.0}}

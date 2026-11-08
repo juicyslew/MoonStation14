@@ -24,3 +24,4 @@ public final class HungerAttachment implements IMS14Attachment<HungerAttachment,
     }
     @Override public int hashCode() { return state.hashCode(); }
 }
+

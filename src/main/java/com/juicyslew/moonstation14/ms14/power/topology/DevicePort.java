@@ -19,3 +19,4 @@ public record DevicePort(BlockPos device, Direction face, CableTier tier) {
         return device;
     }
 }
+

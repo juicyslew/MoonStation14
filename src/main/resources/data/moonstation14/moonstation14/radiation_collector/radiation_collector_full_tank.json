@@ -1,0 +1,5 @@
+{
+  "id": "moonstation14:radiation_collector_full_tank",
+  "parent": "moonstation14:radiation_collector",
+  "starting_tank": "moonstation14:plasma_tank_filled"
+}

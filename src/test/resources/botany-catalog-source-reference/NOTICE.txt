@@ -1,0 +1,38 @@
+The test fixture in this directory is derived from the Space Station 14 seed
+prototype catalog. It contains converted seed prototype data only; it does not
+include imported artwork or audio.
+
+Source repository: https://github.com/space-wizards/space-station-14
+Source revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Source data: Resources/Prototypes/Hydroponics/seeds.yml
+Related seed prototype/default definitions: Content.Server/Botany/SeedPrototype.cs
+License source: repository-root LICENSE.TXT
+
+The source checkout's README.md (lines 61-65) identifies code as MIT licensed
+and notes that assets and metadata may have their own licenses. No more
+specific license notice was present in Resources/Prototypes/Hydroponics; the
+MIT notice below is the applicable code/data repository license for this
+converted prototype fixture. This does not assert a license for assets not
+included here.
+
+MIT License
+
+Copyright (c) 2017-2026 Space Wizards Federation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

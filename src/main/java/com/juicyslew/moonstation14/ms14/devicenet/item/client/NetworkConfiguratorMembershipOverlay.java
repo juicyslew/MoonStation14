@@ -54,3 +54,4 @@ public final class NetworkConfiguratorMembershipOverlay {
         out.addVertex(pose.last(),(float)x,(float)y,(float)z).setColor(0.2f,1f,.45f,.9f).setNormal(pose.last(),nx,ny,nz);
     }
 }
+

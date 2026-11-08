@@ -1,0 +1,4 @@
+created=2026-10-21T07:35:14.0345201-07:00
+command=./gradlew compileJava compileTestJava compileGametestJava test --tests com.juicyslew.moonstation14.ms14.combat.MeleeCooldownTest --tests com.juicyslew.moonstation14.ms14.combat.MeleeWeaponResolverTest --tests com.juicyslew.moonstation14.ms14.hands.live.LiveHandsTest --tests com.juicyslew.moonstation14.ms14.hands.network.BodyHandActionPolicyTest
+xml=four exact fresh build/test-results/test/TEST reports
+scope=compileJava compileTestJava compileGametestJava and four focused JUnit classes; no GameTest server/native/full build/check/readiness/server-client

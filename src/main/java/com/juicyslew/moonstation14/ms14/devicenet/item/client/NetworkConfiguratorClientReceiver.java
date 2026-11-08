@@ -65,3 +65,4 @@ public final class NetworkConfiguratorClientReceiver {
         return new HandProof(proof.revision(),hand.id(),hand.token());
     }
 }
+

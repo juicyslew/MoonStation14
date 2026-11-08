@@ -11,3 +11,4 @@ public record TileReactionWhitelistData(List<String> tags) {
             Codec.list(Codec.STRING).fieldOf("tags").forGetter(TileReactionWhitelistData::tags)
     ).apply(instance, TileReactionWhitelistData::new));
 }
+

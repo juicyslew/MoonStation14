@@ -23,3 +23,4 @@ public final class ChemMasterAudio {
         ControlledSoundDispatch.emit(level, sound, pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5, volume);
     }
 }
+

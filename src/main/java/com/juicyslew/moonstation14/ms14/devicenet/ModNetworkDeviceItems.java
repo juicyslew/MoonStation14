@@ -31,3 +31,4 @@ public final class ModNetworkDeviceItems {
         return resolve(stack, false).filter(data -> data.signallerPort().isPresent()).isPresent();
     }
 }
+

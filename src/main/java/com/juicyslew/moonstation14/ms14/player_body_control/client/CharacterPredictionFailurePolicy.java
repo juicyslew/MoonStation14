@@ -30,3 +30,4 @@ final class CharacterPredictionFailurePolicy {
 
     private static final class NonfinitePostMoveDisplacement extends IllegalArgumentException { }
 }
+

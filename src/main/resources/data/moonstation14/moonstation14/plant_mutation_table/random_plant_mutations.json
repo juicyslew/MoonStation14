@@ -1,0 +1,284 @@
+{
+  "mutations": [
+    {
+      "name": "Sentient",
+      "base_odds": 0.0072,
+      "effect_kind": "CAPABILITY",
+      "capability": "make_sentient",
+      "applies_to_produce": false,
+      "persists": false
+    },
+    {
+      "name": "Slippery",
+      "base_odds": 0.036,
+      "effect_kind": "SLIPIFY",
+      "slippery": {},
+      "applies_to_plant": false
+    },
+    {
+      "name": "ChangeSpecies",
+      "base_odds": 0.036,
+      "effect_kind": "SPECIES",
+      "applies_to_produce": false,
+      "persists": false
+    },
+    {
+      "name": "Unviable",
+      "base_odds": 0.109,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "VIABLE",
+        "minimum": 0,
+        "maximum": 0,
+        "steps": 1
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeWaterConsumption",
+      "base_odds": 0.018,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "WATER_CONSUMPTION",
+        "minimum": 0.3,
+        "maximum": 0.9,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeNutrientConsumption",
+      "base_odds": 0.018,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "NUTRIENT_CONSUMPTION",
+        "minimum": 0.05,
+        "maximum": 1.2,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeIdealHeat",
+      "base_odds": 0.018,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "IDEAL_HEAT",
+        "minimum": 263,
+        "maximum": 323,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeHeatTolerance",
+      "base_odds": 0.018,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "HEAT_TOLERANCE",
+        "minimum": 2,
+        "maximum": 25,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeToxinsTolerance",
+      "base_odds": 0.018,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "TOXIN_TOLERANCE",
+        "minimum": 1,
+        "maximum": 10,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeLowPressureTolerance",
+      "base_odds": 0.018,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "LOW_PRESSURE",
+        "minimum": 60,
+        "maximum": 100,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeHighPressureTolerance",
+      "base_odds": 0.018,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "HIGH_PRESSURE",
+        "minimum": 100,
+        "maximum": 140,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangePestTolerance",
+      "base_odds": 0.018,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "PEST_TOLERANCE",
+        "minimum": 0,
+        "maximum": 15,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeWeedTolerance",
+      "base_odds": 0.018,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "WEED_TOLERANCE",
+        "minimum": 0,
+        "maximum": 15,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeEndurance",
+      "base_odds": 0.036,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "ENDURANCE",
+        "minimum": 50,
+        "maximum": 150,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeYield",
+      "base_odds": 0.036,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "YIELD",
+        "minimum": 3,
+        "maximum": 10,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeLifespan",
+      "base_odds": 0.036,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "LIFESPAN",
+        "minimum": 10,
+        "maximum": 80,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeMaturation",
+      "base_odds": 0.036,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "MATURATION",
+        "minimum": 3,
+        "maximum": 8,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeProduction",
+      "base_odds": 0.036,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "PRODUCTION",
+        "minimum": 1,
+        "maximum": 10,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangePotency",
+      "base_odds": 0.036,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "POTENCY",
+        "minimum": 30,
+        "maximum": 100,
+        "steps": 5
+      },
+      "persists": false
+    },
+    {
+      "name": "ChangeSeedless",
+      "base_odds": 0.036,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "SEEDLESS",
+        "minimum": 0,
+        "maximum": 0,
+        "steps": 1
+      },
+      "persists": false
+    },
+    {
+      "name": "Lignification",
+      "base_odds": 0.036,
+      "effect_kind": "STAT",
+      "stat": {
+        "target": "LIGNEOUS",
+        "minimum": 0,
+        "maximum": 0,
+        "steps": 1
+      },
+      "persists": false
+    },
+    {
+      "name": "Kudzufication",
+      "base_odds": 0.036,
+      "effect_kind": "CAPABILITY",
+      "capability": "turn_into_kudzu",
+      "persists": false
+    },
+    {
+      "name": "ChangeScreaming",
+      "base_odds": 0.036,
+      "effect_kind": "STAT",
+      "stat": { "target": "CAN_SCREAM", "minimum": 0, "maximum": 0, "steps": 1 },
+      "persists": false
+    },
+    {
+      "name": "ChangeChemicals",
+      "base_odds": 0.072,
+      "effect_kind": "CHEMICALS",
+      "chemical_table": "moonstation14:randompickbotanyreagent",
+      "persists": false
+    },
+    {
+      "name": "ChangeExudeGasses",
+      "base_odds": 0.0145,
+      "effect_kind": "GAS",
+      "gas": { "target": "EXUDE", "minimum": 0.01, "maximum": 0.5 },
+      "persists": false
+    },
+    {
+      "name": "ChangeConsumeGasses",
+      "base_odds": 0.0036,
+      "effect_kind": "GAS",
+      "gas": { "target": "CONSUME", "minimum": 0.01, "maximum": 0.5 },
+      "persists": false
+    },
+    {
+      "name": "ChangeHarvest",
+      "base_odds": 0.036,
+      "effect_kind": "HARVEST",
+      "harvest": {},
+      "persists": false
+    }
+  ]
+}

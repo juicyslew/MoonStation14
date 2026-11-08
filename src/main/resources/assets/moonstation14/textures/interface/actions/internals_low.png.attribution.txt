@@ -1,0 +1,1 @@
+Imported from pinned SS14 c9df5ef5d675b0d1d226828bddf6b78c28502d91, Resources/Textures/Interface/Alerts/internals.rsi/internal0.png. RSI metadata: CC-BY-SA-3.0; based on https://github.com/tgstation/tgstation/blob/c7e930edde846fa51812ff8aed66fa97821ac0000/icons/hud/screen_gen.dmi.

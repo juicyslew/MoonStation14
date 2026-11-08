@@ -12,9 +12,11 @@ public interface DeviceEndpoint {
  default boolean ownsAddressOutsideWorldSavedData() { return false; }
  /** Whether a clicked block position names this endpoint (including owned multiblock aliases). */
  default boolean acceptsBlockTarget(BlockPos target) { return position().equals(target); }
-  default boolean powered() { return true; }
   /** Read-only diagnostic sampled only after a required-power delivery gate rejects a packet. */
   default String diagnosticPowerState() { return "unavailable"; }
+ /** Higher-priority explicit subtarget wins when multiple composed endpoints share a block position. */
+ default int targetPriority(BlockPos target) { return 0; }
+ default boolean powered() { return true; }
  /** Human-readable prototype/item name for configurator rows; addresses are shown separately. */
  default String displayName() { return "Device"; }
  default DeviceList deviceList() { return null; }

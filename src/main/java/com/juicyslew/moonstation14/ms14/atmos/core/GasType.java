@@ -43,3 +43,4 @@ public enum GasType {
         throw new IllegalArgumentException("Unknown gas id: " + id);
     }
 }
+

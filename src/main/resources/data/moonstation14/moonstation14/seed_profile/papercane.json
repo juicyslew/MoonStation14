@@ -1,0 +1,1 @@
+{"parent":"defaults","packet":"moonstation14:papercane_seeds","product":"moonstation14:papercane","visual_key":"papercane","source_name":"seeds-papercane-name","lifecycle":{"growth_stages":3,"lifespan":60,"maturation":6,"production":6,"yield":3,"potency":10,"harvest":"REPEAT"},"biology":{"ideal_heat":298},"chemicals":{}}

@@ -13,6 +13,8 @@ class AirlockFramePlannerTest {
         assertEquals("closed_unlit", plan(AirlockState.DoorPhase.CLOSED, true, false, true, false, false).headerOverlay());
         assertEquals("opening_unlit", plan(AirlockState.DoorPhase.OPENING, true, false, true, false, false).headerOverlay());
         assertNull(plan(AirlockState.DoorPhase.CLOSED, false, false, false, false, false).headerOverlay());
+        assertFalse(plan(AirlockState.DoorPhase.CLOSED, false, false, false, false, false).headerLamps());
+        assertTrue(plan(AirlockState.DoorPhase.CLOSED, true, false, true, false, false).headerLamps());
         assertEquals("bolted_unlit", plan(AirlockState.DoorPhase.CLOSED, true, true, true, false, false).headerOverlay());
         assertEquals("closed_unlit", plan(AirlockState.DoorPhase.CLOSED, true, true, false, false, false).headerOverlay());
         assertEquals("deny_unlit", plan(AirlockState.DoorPhase.DENYING, true, false, true, false, false).readerOverlay());

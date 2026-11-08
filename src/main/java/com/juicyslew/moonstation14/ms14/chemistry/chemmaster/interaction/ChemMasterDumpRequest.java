@@ -50,3 +50,4 @@ public record ChemMasterDumpRequest(UUID gestureId, Phase phase, long bodyEpoch,
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

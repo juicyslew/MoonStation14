@@ -1,0 +1,8 @@
+Shell source geometry: assets/moonstation14/models/block/power_collection/generation_singularity_collector/static.json
+Shell (copied verbatim from accepted element objects): collector_base, lower_controls.
+Panel geometry source: assets/moonstation14/models/block/power_collection/generation_singularity_collector/default.json (raw, unposed)
+Panel (copied verbatim): collector_lid, collector_glass, panel_rear_hinge. Raw default glass remains flat with bounds [1.7,10,4.5]..[14.3,10.16,11.5], then all panel pieces receive the one host pivot clip.
+Pressure overlay: semantic LED atlas tile x=[43,45), y=[46,53), from lower_controls north-face UV [43/8,46/8,45/8,53/8]. The tile maps to source panel-face rectangle x=[9.26,10.268], y=[1,4.5]; adapter is offset .01 source unit toward -Z to avoid z fighting. UV and source pixels are exact, no repaint.
+Tank tile x=[28,42), y=[45,53), selected within lower_controls north-face UV [28/8,45/8,42/8,53/8]; pressure tile and tank tile disjoint.
+Panel material textures use the same accepted UV coordinates: default and ca_off are pixel-identical over all panel faces; ca_on is also identical except the accepted glass up-face patch [92,23,117,37], used only for active panel art. This verifies active/off atlas equivalence for raw default geometry.
+Native coordinate geometry from accepted resources already includes Java +8 X/Z conversion once.

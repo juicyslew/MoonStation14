@@ -13,3 +13,4 @@ public record StatusEffectReduction(
         Objects.requireNonNull(next, "next");
     }
 }
+

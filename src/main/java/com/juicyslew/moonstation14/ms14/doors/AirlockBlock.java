@@ -51,27 +51,28 @@ public final class AirlockBlock extends Block implements EntityBlock {
         if(s.getValue(HALF)==DoubleBlockHalf.LOWER&&d==Direction.UP&&n.is(this)) return s.setValue(OPEN,n.getValue(OPEN));
         return super.updateShape(s,d,n,l,p,np);
      }
-      @Override public VoxelShape getCollisionShape(BlockState s,BlockGetter l,BlockPos p,CollisionContext c) {
-          if(!(l instanceof Level level)||!level.isClientSide){if(s.getValue(OPEN))return Shapes.empty();}
+       @Override public VoxelShape getCollisionShape(BlockState s,BlockGetter l,BlockPos p,CollisionContext c) {
           BlockPos root=controllerPos(s.getValue(HALF)==DoubleBlockHalf.UPPER,p);
           BlockEntity rootEntity=l.getBlockEntity(root);
-          if(rootEntity instanceof AirlockBlockEntity door&&door.getLevel()!=null&&door.getLevel().isClientSide){
+          if(!(l instanceof Level level)||!level.isClientSide){
+              if(rootEntity instanceof AirlockBlockEntity door){
+                  if(door.isCrushExempt(c))return Shapes.empty();
+                  if(s.getValue(OPEN)&&door.firelockPassable())return Shapes.empty();
+              } else if(s.getValue(OPEN))return Shapes.empty();
+              return Shapes.block();
+          }
+          if(rootEntity instanceof AirlockBlockEntity door && door.getLevel()!=null&&door.getLevel().isClientSide){
               AirlockBlockEntity.ClientView known=door.hasClientSnapshot()?door.clientView():null;
               return selectClientCollisionShape(s.getValue(OPEN),known,door.isCrushExempt(c));
           }
-          if(s.getValue(OPEN))return Shapes.empty();
-          if(rootEntity instanceof AirlockBlockEntity door && door.isCrushExempt(c))return Shapes.empty();
-          return Shapes.block();
-     }
-     static BlockPos controllerPos(boolean upperHalf,BlockPos pos) {
-         return upperHalf?pos.below():pos;
-     }
+          return s.getValue(OPEN)?Shapes.empty():Shapes.block();
+      }
+      static BlockPos controllerPos(boolean upperHalf,BlockPos pos) { return upperHalf?pos.below():pos; }
       static VoxelShape selectClientCollisionShape(boolean replicatedOpen,AirlockBlockEntity.ClientView knownView) {
           return selectClientCollisionShape(replicatedOpen,knownView,false);
       }
-      static VoxelShape selectClientCollisionShape(boolean replicatedOpen,AirlockBlockEntity.ClientView knownView,
-                                                   boolean crushExempt) {
-          boolean passable=crushExempt|| (knownView==null?replicatedOpen:knownView.passable());
+      static VoxelShape selectClientCollisionShape(boolean replicatedOpen,AirlockBlockEntity.ClientView knownView,boolean crushExempt) {
+          boolean passable=crushExempt||(knownView==null?replicatedOpen:knownView.passable());
           return passable?Shapes.empty():Shapes.block();
       }
     @Nullable @Override public BlockEntity newBlockEntity(BlockPos p,BlockState s) { return s.getValue(HALF)==DoubleBlockHalf.LOWER?ModBlockEntities.AIRLOCK.get().create(p,s):null; }

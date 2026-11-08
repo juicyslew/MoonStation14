@@ -22,4 +22,29 @@ class ExternalFlightPredictionPolicyTest {
         policy.clear();
         assertFalse(policy.advanceFrame());
     }
+
+    @Test void longAuthoritativeLeaseCountsDownWithoutTruncation() {
+        var policy = new ExternalFlightPredictionPolicy();
+        policy.reset(15);
+        for (int i = 0; i < 14; i++) assertTrue(policy.advanceFrame());
+        assertFalse(policy.advanceFrame());
+    }
+
+    @Test void modeRefreshAndLegacyResetKeepPhysicsContractWithReplayTiming() {
+        var policy = new ExternalFlightPredictionPolicy();
+        var ballistic = com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalFlightPhysics.BALLISTIC_THROW;
+        policy.reset(3, ballistic);
+        assertEquals(ballistic, policy.mode());
+        assertTrue(policy.advanceFrame());
+        policy.reset(2);
+        assertEquals(com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalFlightPhysics.SCRIPTED_IMPULSE,
+                policy.mode());
+        assertTrue(policy.advanceFrame());
+        assertFalse(policy.advanceFrame());
+        policy.reset(4, ballistic);
+        policy.clear();
+        assertEquals(com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalFlightPhysics.SCRIPTED_IMPULSE,
+                policy.mode());
+        assertFalse(policy.advanceFrame());
+    }
 }

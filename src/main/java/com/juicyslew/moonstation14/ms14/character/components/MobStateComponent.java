@@ -21,3 +21,4 @@ public record MobStateComponent(Set<State> allowedStates) implements CharacterCo
     public MobStateComponent { allowedStates = Set.copyOf(allowedStates); if (allowedStates.isEmpty()) throw new IllegalArgumentException("allowedStates must not be empty"); }
     @Override public String type() { return TYPE; }
 }
+

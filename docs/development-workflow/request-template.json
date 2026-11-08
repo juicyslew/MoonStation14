@@ -1,0 +1,11 @@
+{
+  "id": "replace-with-stable-unique-request-id",
+  "title": "Replace with a concise task title",
+  "scope": "art-only | code-only | explicitly authorized integration",
+  "target_runtime": "Name and version, or not applicable",
+  "source_pin": "Exact source revision/path, or explicitly unverified",
+  "asset_ids": ["exact-source-identity"],
+  "dependencies": [],
+  "brief": "Purpose and bounded deliverable:\nDescribe the intended user-facing result, exact identity/family and what is in/out of scope. State the required editable sources, complete transfer/runtime dependencies, previews, provenance/license, validation and handoff evidence.\n\nOriginal source pin and evidence:\nGive exact source asset/reference paths, family/variant, revision or SS14/source repository commit where applicable, and the native states/frames/timings relevant to the request. Say unverified if a pin/source cannot be established; do not fabricate ancestry or approval.\n\nIdentity invariants to preserve:\nList silhouette, proportions, distinctive anatomy (including eye count/shape), palette/material, markings/motifs and practical gameplay-scale read. Explain what must remain distinct from neighboring family members.\n\nEarly design gate (before batch production):\nProvide a small original-first source/candidate contact sheet or prototype in comparable directions, camera, scale and practical distance. State the questions and assumptions requiring owner/reviewer disposition before the full batch.\n\nStates and movement evidence:\nName required idle/walk/turn/signature-action and other in-scope states. Separate source-authentic frames/timings from labeled 3D ports/inferences and optical texture loops from mechanical clips/gameplay. Do not invent abilities, physics, AI, collision or source facts.\n\nDepartures, assumptions, exclusions:\nRecord hidden-depth/projection/scale/camera approximations, unsupported source evidence, exclusions, integration boundary, attribution/license constraints and package preservation requirements.\n\nAcceptance boundary:\nSpecify what delivery, independent visual review, automated validation, owner acceptance and runtime/client checks each mean; do not treat one as another.",
+  "context": []
+}

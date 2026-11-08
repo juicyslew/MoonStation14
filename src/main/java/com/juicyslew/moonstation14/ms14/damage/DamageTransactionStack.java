@@ -44,3 +44,4 @@ final class DamageTransactionStack<S, T> {
     private record Entry<S, T>(S source, T value) {
     }
 }
+

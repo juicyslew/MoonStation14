@@ -25,3 +25,4 @@ public record BloodComponent(double bleedRate, boolean initialized) implements I
     @Override public Codec<BloodComponent> getCodec() { return CODEC; }
     @Override public StreamCodec<RegistryFriendlyByteBuf, BloodComponent> getStreamCodec() { return STREAM_CODEC; }
 }
+

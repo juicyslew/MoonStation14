@@ -30,3 +30,4 @@ public final class BodyAppearanceClientCache {
     }
     public void clear() { values.clear(); dimension=null; }
 }
+

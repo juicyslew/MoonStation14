@@ -114,3 +114,4 @@ public final class AtmosphereVisualPendingSnapshots {
     private record Key(ResourceLocation dimension, long chunk) { }
     private static final class ResyncCandidate { long resetRevision; }
 }
+

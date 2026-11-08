@@ -16,3 +16,4 @@ public abstract class ServerPlayerCommittedSpectatorCameraMixin {
         if (CommittedSpectatorGuard.blockCamera((ServerPlayer) (Object) this, target)) callback.cancel();
     }
 }
+

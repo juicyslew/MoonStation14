@@ -1,0 +1,113 @@
+[11Oct2026 17:51:16.058] [main/INFO] [cpw.mods.modlauncher.Launcher/MODLAUNCHER]: ModLauncher running: args [--launchTarget, forgeserverdev, --gameDir, ., --fml.fmlVersion, 4.0.42, --fml.mcVersion, 1.21.1, --fml.neoForgeVersion, 21.1.224, --fml.neoFormVersion, 20240808.144430]
+[11Oct2026 17:51:16.063] [main/INFO] [cpw.mods.modlauncher.Launcher/MODLAUNCHER]: JVM identified as Eclipse Adoptium OpenJDK 64-Bit Server VM 21.0.10+7-LTS
+[11Oct2026 17:51:16.065] [main/INFO] [cpw.mods.modlauncher.Launcher/MODLAUNCHER]: ModLauncher 11.0.5+main.901c6ea8 starting: java version 21.0.10 by Eclipse Adoptium; OS Windows 10 arch amd64 version 10.0
+[11Oct2026 17:51:16.217] [main/INFO] [net.neoforged.fml.loading.ImmediateWindowHandler/]: ImmediateWindowProvider not loading because launch target is forgeserverdev
+[11Oct2026 17:51:16.285] [main/INFO] [mixin/]: SpongePowered MIXIN Subsystem Version=0.8.7 Source=union:/C:/Users/William/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.15.2+mixin.0.8.7/2af2f021d8e02a0220dc27a7a72b4666d66d44ca/sponge-mixin-0.15.2+mixin.0.8.7.jar%2394!/ Service=ModLauncher Env=SERVER
+[11Oct2026 17:51:16.831] [main/INFO] [net.neoforged.fml.loading.moddiscovery.locators.JarInJarDependencyLocator/]: Found 2 dependencies adding them to mods collection
+[11Oct2026 17:51:16.833] [main/INFO] [net.neoforged.fml.loading.moddiscovery.ModDiscoverer/]: 
+     Mod List:
+		Name Version (Mod Id)
+
+		Minecraft 1.21.1 (minecraft)
+		Moon Station 14 0.0.1 (moonstation14)
+		NeoForge 21.1.224 (neoforge)
+[11Oct2026 17:51:18.421] [main/INFO] [mixin/]: Compatibility level set to JAVA_21
+[11Oct2026 17:51:18.430] [main/INFO] [cpw.mods.modlauncher.LaunchServiceHandler/MODLAUNCHER]: Launching target 'forgeserverdev' with arguments [--gameDir, .]
+[11Oct2026 17:51:19.849] [main/WARN] [oshi.driver.windows.perfmon.PerfmonDisabled/]: Invalid registry value type detected for PerfOS counters. Should be REG_DWORD. Ignoring: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\PerfOS\Performance\Disable Performance Counters.
+[11Oct2026 17:51:20.656] [main/INFO] [MixinExtras|Service/]: Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.3).
+[11Oct2026 17:51:27.504] [main/WARN] [net.minecraft.commands.Commands/]: Ambiguity between arguments [teleport, location] and [teleport, destination] with inputs: [0.1 -0.5 .9, 0 0 0]
+[11Oct2026 17:51:27.505] [main/WARN] [net.minecraft.commands.Commands/]: Ambiguity between arguments [teleport, location] and [teleport, targets] with inputs: [0.1 -0.5 .9, 0 0 0]
+[11Oct2026 17:51:27.508] [main/WARN] [net.minecraft.commands.Commands/]: Ambiguity between arguments [teleport, destination] and [teleport, targets] with inputs: [Player, 0123, @e, dd12be42-52a9-4a91-a8a1-11c01849e498]
+[11Oct2026 17:51:27.510] [main/WARN] [net.minecraft.commands.Commands/]: Ambiguity between arguments [teleport, targets] and [teleport, destination] with inputs: [Player, 0123, dd12be42-52a9-4a91-a8a1-11c01849e498]
+[11Oct2026 17:51:27.511] [main/WARN] [net.minecraft.commands.Commands/]: Ambiguity between arguments [teleport, targets, location] and [teleport, targets, destination] with inputs: [0.1 -0.5 .9, 0 0 0]
+[11Oct2026 17:51:27.594] [modloading-worker-0/INFO] [net.neoforged.neoforge.common.NeoForgeMod/NEOFORGE-MOD]: NeoForge mod loading, version 21.1.224, for MC 1.21.1
+[11Oct2026 17:51:28.781] [main/ERROR] [net.minecraft.server.dedicated.Settings/]: Failed to load properties from file: server.properties
+java.nio.file.NoSuchFileException: server.properties
+	at java.base/sun.nio.fs.WindowsException.translateToIOException(WindowsException.java:85) ~[?:?]
+	at java.base/sun.nio.fs.WindowsException.rethrowAsIOException(WindowsException.java:103) ~[?:?]
+	at java.base/sun.nio.fs.WindowsException.rethrowAsIOException(WindowsException.java:108) ~[?:?]
+	at java.base/sun.nio.fs.WindowsFileSystemProvider.newByteChannel(WindowsFileSystemProvider.java:234) ~[?:?]
+	at java.base/java.nio.file.Files.newByteChannel(Files.java:380) ~[?:?]
+	at java.base/java.nio.file.Files.newByteChannel(Files.java:432) ~[?:?]
+	at java.base/java.nio.file.spi.FileSystemProvider.newInputStream(FileSystemProvider.java:420) ~[?:?]
+	at java.base/java.nio.file.Files.newInputStream(Files.java:160) ~[?:?]
+	at TRANSFORMER/minecraft@1.21.1/net.minecraft.server.dedicated.Settings.loadFromFile(Settings.java:38) ~[neoforge-21.1.224.jar%23125!/:?]
+	at TRANSFORMER/minecraft@1.21.1/net.minecraft.server.dedicated.DedicatedServerProperties.fromFile(DedicatedServerProperties.java:132) ~[neoforge-21.1.224.jar%23125!/:?]
+	at TRANSFORMER/minecraft@1.21.1/net.minecraft.server.dedicated.DedicatedServerSettings.<init>(DedicatedServerSettings.java:12) ~[neoforge-21.1.224.jar%23125!/:?]
+	at TRANSFORMER/minecraft@1.21.1/net.minecraft.server.Main.main(Main.java:125) ~[neoforge-21.1.224.jar%23125!/:?]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[?:?]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[?:?]
+	at MC-BOOTSTRAP/fml_loader@4.0.42/net.neoforged.fml.loading.targets.CommonLaunchHandler.runTarget(CommonLaunchHandler.java:136) ~[loader-4.0.42.jar%23102!/:4.0]
+	at MC-BOOTSTRAP/fml_loader@4.0.42/net.neoforged.fml.loading.targets.CommonLaunchHandler.serverService(CommonLaunchHandler.java:128) ~[loader-4.0.42.jar%23102!/:4.0]
+	at MC-BOOTSTRAP/fml_loader@4.0.42/net.neoforged.fml.loading.targets.NeoForgeServerDevLaunchHandler.runService(NeoForgeServerDevLaunchHandler.java:23) ~[loader-4.0.42.jar%23102!/:4.0]
+	at MC-BOOTSTRAP/fml_loader@4.0.42/net.neoforged.fml.loading.targets.CommonLaunchHandler.lambda$launchService$4(CommonLaunchHandler.java:118) ~[loader-4.0.42.jar%23102!/:4.0]
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.LaunchServiceHandlerDecorator.launch(LaunchServiceHandlerDecorator.java:30) [modlauncher-11.0.5.jar%2382!/:?]
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.LaunchServiceHandler.launch(LaunchServiceHandler.java:53) [modlauncher-11.0.5.jar%2382!/:?]
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.LaunchServiceHandler.launch(LaunchServiceHandler.java:71) [modlauncher-11.0.5.jar%2382!/:?]
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.Launcher.run(Launcher.java:103) [modlauncher-11.0.5.jar%2382!/:?]
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.Launcher.main(Launcher.java:74) [modlauncher-11.0.5.jar%2382!/:?]
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.BootstrapLaunchConsumer.accept(BootstrapLaunchConsumer.java:26) [modlauncher-11.0.5.jar%2382!/:?]
+	at MC-BOOTSTRAP/cpw.mods.modlauncher@11.0.5/cpw.mods.modlauncher.BootstrapLaunchConsumer.accept(BootstrapLaunchConsumer.java:23) [modlauncher-11.0.5.jar%2382!/:?]
+	at cpw.mods.bootstraplauncher@2.0.2/cpw.mods.bootstraplauncher.BootstrapLauncher.run(BootstrapLauncher.java:210) [bootstraplauncher-2.0.2.jar:?]
+	at cpw.mods.bootstraplauncher@2.0.2/cpw.mods.bootstraplauncher.BootstrapLauncher.main(BootstrapLauncher.java:69) [bootstraplauncher-2.0.2.jar:?]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[?:?]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[?:?]
+	at net.neoforged.devlaunch.Main.main(Main.java:57) [DevLaunch-1.0.2.jar:?]
+[11Oct2026 17:51:28.805] [main/INFO] [com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService/]: Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, name=PROD]
+[11Oct2026 17:51:28.846] [main/WARN] [net.minecraft.server.packs.VanillaPackResourcesBuilder/]: Assets URL 'union:/C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-02/build/moddev/artifacts/neoforge-21.1.224.jar%23125!/assets/.mcassetsroot' uses unexpected schema
+[11Oct2026 17:51:28.846] [main/WARN] [net.minecraft.server.packs.VanillaPackResourcesBuilder/]: Assets URL 'union:/C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-02/build/moddev/artifacts/neoforge-21.1.224.jar%23125!/data/.mcassetsroot' uses unexpected schema
+[11Oct2026 17:51:28.852] [main/INFO] [net.neoforged.neoforge.gametest.GameTestHooks/]: Enabled Gametest Namespaces: [moonstation14, moonstation14_camera_tour]
+[11Oct2026 17:51:29.317] [main/INFO] [com.juicyslew.moonstation14.gametest.support.GameTestTagRegistrar/]: GameTests FILTERED: requested tags=[timed-interaction], available tags=[loose-objects, examine_selection, prototype, disposals, airlock_wire_layout, construction, status, power_loaded_index_reconcile, airlock_crush, pulling, airlock_power_cycle, syringe, standing, diagnostics, grounded, timed-interaction, equipment-quick-equip, disposal, chat, critical, disposal-regression, airlock_crush_cycle, removed-puller-cleanup, travel, network, airlock_electrified_open, lifecycle, examine_scene, airlock_pressure_stabilization, collision, chemistry, command, medical-treatment, examine_puddle, equipment, equipment-drag-world, nutrition, damage-feedback, loose-pull-admission, give, speech, storage, ventilation, air-alarm, ingestion, jug, examine_jug, explosion, character, physiology, mouse-appearance, interaction-reach, live, interaction, equipment-regression, airlock_pry_domain, carrier, regeneration, airlock_bump, creative-menu, airlock, suite-stabilization, medical-corrections-regression, merge-main-regression, airlock_seam, parked, audio, detached-pull-stabilization, simulation-defaults, movement, crafting, power, posture, damage, mouse-ghost-roles, lifecycle-reconnect-lease, atmosphere, examine_policy, disposal_live_intake_stabilization, station, food, death, handless-ingestion, observer, ghost-roles, airlock_override, airlock_log_pulse, airlock_admission_probe, persistence, equipment-transfer, containment, stun_action_gate, posture-fall-audio, placement, stripping, slip, health-analyzer, shared-construction, airlock_connected, medical-state, medical-creative-drop, hands, invalid], selected/discovered=60/752, untagged=0
+[11Oct2026 17:51:31.035] [main/INFO] [net.minecraft.world.item.crafting.RecipeManager/]: Loaded 1390 recipes
+[11Oct2026 17:51:31.210] [main/INFO] [net.minecraft.advancements.AdvancementTree/]: Loaded 1400 advancements
+[11Oct2026 17:51:33.187] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Preparing start region for dimension minecraft:overworld
+[11Oct2026 17:51:33.216] [worldgen/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Preparing spawn area: 2%
+[11Oct2026 17:51:33.458] [Server thread/INFO] [net.minecraft.server.level.progress.LoggerChunkProgressListener/]: Time elapsed: 271 ms
+[11Oct2026 17:51:33.477] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: Started game test server
+[11Oct2026 17:51:33.505] [Server thread/INFO] [net.neoforged.neoforge.server.permission.PermissionAPI/]: Successfully initialized permission handler neoforge:default_handler
+[11Oct2026 17:51:33.518] [Server thread/INFO] [com.juicyslew.moonstation14.MoonStation14/]: [lifecycle startup] state=UNINITIALIZED profiles=0 (no primary or backup profile store exists)
+[11Oct2026 17:51:33.615] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: 60 tests are now running at position -1606800, -59, 5977529!
+[11Oct2026 17:51:36.796] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestRunner/]: Running test batch 'defaultBatch:0' (50 tests)...
+[11Oct2026 17:51:36.804] [Server thread/WARN] [net.minecraft.server.MinecraftServer/]: Can't keep up! Is the server overloaded? Running 3235ms or 64 ticks behind
+[11Oct2026 17:51:37.063] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [                                                            ]
+[11Oct2026 17:51:37.608] [Server thread/INFO] [com.juicyslew.moonstation14.MoonStation14/]: [medical state] body=f37f3e7f-7516-4e04-8d61-a093fcafbe4d type=minecraft:villager ALIVE->DEAD typed=200.0 nativeHealth=0.0/40.0
+[11Oct2026 17:51:37.616] [Server thread/INFO] [net.minecraft.world.entity.npc.Villager/]: Villager Villager['Villager'/50, l='ServerLevel[Test Level]', x=-1606793.50, y=-59.00, z=5977645.50] died, message: 'death.attack.moonstation14.reagent'
+[11Oct2026 17:51:38.387] [Server thread/INFO] [com.juicyslew.moonstation14.MoonStation14/]: [medical state] body=84010b27-2dfe-4b95-96aa-90274c316b01 type=minecraft:villager ALIVE->DEAD typed=205.0 nativeHealth=0.0/40.0
+[11Oct2026 17:51:38.388] [Server thread/INFO] [net.minecraft.world.entity.npc.Villager/]: Villager Villager['Villager'/80, l='ServerLevel[Test Level]', x=-1606655.50, y=-59.00, z=5977705.50] died, message: 'death.attack.moonstation14.reagent'
+[11Oct2026 17:51:38.447] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [_+_++_+++_+______++___++++____+___++++__+_++__+             ]
+[11Oct2026 17:51:38.745] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++_++_+++++++_+++++___+++++_+++___+++++_+_+++_+_++          ]
+[11Oct2026 17:51:38.885] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++_++_+++++++++++++___+++++_++++__+++++_+_+++++_++          ]
+[11Oct2026 17:51:39.047] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++_++_+++++++++++++___++++++++++__+++++++_+++++_++          ]
+[11Oct2026 17:51:39.142] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [+++++_++++++++++++++__++++++++++_++++++++_++++++++          ]
+[11Oct2026 17:51:39.223] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [+++++_++++++++++++++__++++++++++_++++++++_++++++++          ]
+[11Oct2026 17:51:39.301] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++_+++++++++++_++++++++_++++++++          ]
+[11Oct2026 17:51:39.355] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++_++++++++++++++++++++_++++++++          ]
+[11Oct2026 17:51:39.408] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++_++++++++++++++++++++_++++++++          ]
+[11Oct2026 17:51:39.458] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++_++++++++++++++++++++_++++++++          ]
+[11Oct2026 17:51:39.490] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++_++++++++++++++++++++_++++++++          ]
+[11Oct2026 17:51:39.937] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestRunner/]: Running test batch 'defaultBatch:1' (10 tests)...
+[11Oct2026 17:51:40.518] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++++++++++++++++++++++++++++++++          ]
+[11Oct2026 17:51:40.554] [Server thread/INFO] [com.juicyslew.moonstation14.MoonStation14/]: [medical state] body=451bb240-d687-43af-b251-3e16ca547dbb type=minecraft:villager ALIVE->CRITICAL typed=100.0 nativeHealth=20.0/40.0
+[11Oct2026 17:51:40.598] [Server thread/INFO] [com.juicyslew.moonstation14.MoonStation14/]: [medical state] body=33c723c9-c432-4707-8c62-cd07c6a1bad0 type=minecraft:villager ALIVE->CRITICAL typed=100.0 nativeHealth=20.0/40.0
+[11Oct2026 17:51:40.599] [Server thread/INFO] [com.juicyslew.moonstation14.MoonStation14/]: [medical state] body=33c723c9-c432-4707-8c62-cd07c6a1bad0 type=minecraft:villager CRITICAL->ALIVE typed=1.0 nativeHealth=39.8/40.0
+[11Oct2026 17:51:40.692] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++++++++++++++++++++++++++++++++__+_+__+_+]
+[11Oct2026 17:51:40.763] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++++++++++++++++++++++++++++++++_+++++_+++]
+[11Oct2026 17:51:40.820] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++++++++++++++++++++++++++++++++_+++++_+++]
+[11Oct2026 17:51:40.915] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++++++++++++++++++++++++++++++++_+++++++++]
+[11Oct2026 17:51:40.950] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++++++++++++++++++++++++++++++++_+++++++++]
+[11Oct2026 17:51:40.986] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++++++++++++++++++++++++++++++++_+++++++++]
+[11Oct2026 17:51:41.006] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: [++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++]
+[11Oct2026 17:51:41.006] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: ========= 60 GAME TESTS COMPLETE IN 7.391 s ======================
+[11Oct2026 17:51:41.007] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: All 60 required tests passed :)
+[11Oct2026 17:51:41.007] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: ====================================================
+[11Oct2026 17:51:41.017] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Stopping server
+[11Oct2026 17:51:41.018] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving players
+[11Oct2026 17:51:41.018] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving worlds
+[11Oct2026 17:51:42.652] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[Test Level]'/minecraft:overworld
+[11Oct2026 17:51:42.809] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[Test Level]'/minecraft:the_end
+[11Oct2026 17:51:42.815] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: Saving chunks for level 'ServerLevel[Test Level]'/minecraft:the_nether
+[11Oct2026 17:51:42.838] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage (world): All chunks are saved
+[11Oct2026 17:51:42.839] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage (DIM1): All chunks are saved
+[11Oct2026 17:51:42.839] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
+[11Oct2026 17:51:42.839] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: ThreadedAnvilChunkStorage: All dimensions are saved
+[11Oct2026 17:51:42.867] [Server thread/INFO] [net.minecraft.gametest.framework.GameTestServer/]: Game test server shutting down

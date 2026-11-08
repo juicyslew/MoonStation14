@@ -31,3 +31,4 @@ public final class MachineMeterMath {
         return ((from & 255) * (range - amount) + (to & 255) * amount) / range;
     }
 }
+

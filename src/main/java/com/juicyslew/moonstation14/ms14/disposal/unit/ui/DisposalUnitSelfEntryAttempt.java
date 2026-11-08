@@ -58,3 +58,4 @@ final class DisposalUnitSelfEntryAttempt {
         return terminal = inserted && bound ? new Outcome(Result.ENTERED, Reason.NONE) : new Outcome(Result.FAILED, Reason.INSERT_FAILED);
     }
 }
+

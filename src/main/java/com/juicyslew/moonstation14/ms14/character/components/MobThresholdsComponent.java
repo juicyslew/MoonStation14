@@ -43,3 +43,4 @@ public record MobThresholdsComponent(Map<Double, MobStateComponent.State> thresh
     }
     @Override public String type() { return TYPE; }
 }
+

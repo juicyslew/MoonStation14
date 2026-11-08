@@ -192,3 +192,4 @@ public final class ReactiveTouchSystem {
     private record DispatchKey(BlockPos source, java.util.UUID target, long tick) { }
     private record TestRandomKey(ServerLevel level, BlockPos source, java.util.UUID target) { }
 }
+

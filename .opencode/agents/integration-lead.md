@@ -22,6 +22,10 @@ permission:
     "*workflow.py*gate-scope-review*": allow
     "*workflow.py*manual-tests*": allow
     "*workflow.py*manual-notify*": allow
+  ms14_workflow_status: allow
+  ms14_workflow_validate: allow
+  ms14_workflow_review: allow
+  ms14_workflow_finish: allow
   webfetch: allow
   websearch: allow
   lsp: allow

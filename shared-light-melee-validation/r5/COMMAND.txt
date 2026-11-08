@@ -1,0 +1,8 @@
+Timestamp: 2026-10-21T07:44:08.4192790-07:00
+Command: .\gradlew.bat compileJava compileTestJava compileGametestJava test --tests '*MeleeAttackPolicyTest' --tests '*CombatMeleeTargetProbeTest' --tests '*MeleeCooldownTest' --tests '*DamageModifierDataTest' --tests '*ItemDamageKernelTest' --tests '*MeleeTargetAttackedEventTest'
+Exit code: 1
+
+Retry timestamp: 2026-10-21T07:44:24.4273724-07:00
+Command: .\gradlew.bat compileJava compileTestJava compileGametestJava test --tests '*MeleeAttackPolicyTest' --tests '*CombatMeleeTargetProbeTest' --tests '*MeleeCooldownTest' --tests '*DamageModifierDataTest' --tests '*ItemDamageKernelTest' --tests '*MeleeTargetAttackedEventTest'
+Exit code: 0
+Final validation result: exit code 0; successful

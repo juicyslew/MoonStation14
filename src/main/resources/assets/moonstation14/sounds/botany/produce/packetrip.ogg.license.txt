@@ -1,0 +1,7 @@
+Source: pinned SS14 checkout `Resources/Audio/Effects/packetrip.ogg`
+Revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Source URL: https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Effects/packetrip.ogg
+SHA-256: 9c3be8c9e7b0ae36db086130c05f76ed6a9f04c9fce55afc4327390aa406d2c0
+Attribution/license: UNKNOWN. No matching entry was found in the pinned checkout's `Resources/Audio/Effects/attributions.yml`; author and license are not established. No license is inferred.
+Modifications: None; copied verbatim.
+Follow-up: Establish file-specific source, author, and rights or replace/remove this asset and its registration if rights cannot be established.

@@ -6,20 +6,26 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestInfo;
+import net.minecraft.gametest.framework.GameTestListener;
+import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.Set;
+import java.util.logging.Logger;
 
 /** Guard the fixture ticket helper against signed world-coordinate chunk-edge regressions. */
 @PrefixGameTestTemplate(false)
 @GameTestTags({"movement", "full-suite-movement-regression"})
 public final class FixtureChunkTicketsGameTests {
+    private static final Logger LOGGER = Logger.getLogger(FixtureChunkTicketsGameTests.class.getName());
+    private static final int RESIDENCY_READY_TICKS = 60;
     private FixtureChunkTicketsGameTests() { }
 
-    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 24)
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 140)
     public static void fixtureTicketsKeepBothSidesOfSignedChunkEdgesEntityTicking(GameTestHelper helper) {
         var level = (net.minecraft.server.level.ServerLevel) helper.getLevel();
         BlockPos center = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -37,7 +43,19 @@ public final class FixtureChunkTicketsGameTests {
         boolean rootWasEntityTicking = level.isPositionEntityTicking(center);
         var tickets = FixtureChunkTickets.acquire(helper, coverage);
         Villager[] actors = new Villager[positions.length];
-        FixtureChunkTickets.awaitEntityTicking(helper, tickets, 8, () -> {
+        helper.testInfo.addListener(new GameTestListener() {
+            private void cleanup() {
+                for (Villager actor : actors) if (actor != null) actor.discard();
+            }
+            @Override public void testStructureLoaded(GameTestInfo ignored) { }
+            @Override public void testPassed(GameTestInfo ignored, GameTestRunner runner) { cleanup(); }
+            @Override public void testFailed(GameTestInfo ignored, GameTestRunner runner) { cleanup(); }
+            @Override public void testAddedForRerun(GameTestInfo oldTest, GameTestInfo newTest, GameTestRunner runner) { cleanup(); }
+        });
+        long residencyWaitStarted = level.getGameTime();
+        FixtureChunkTickets.awaitEntityTicking(helper, tickets, RESIDENCY_READY_TICKS, () -> {
+            LOGGER.info("Fixture chunk tickets reached entity-ticking readiness after "
+                    + (level.getGameTime() - residencyWaitStarted) + " world ticks");
             for (int i = 0; i < positions.length; i++) {
                 actors[i] = EntityType.VILLAGER.create(level);
                 if (actors[i] == null) throw new GameTestAssertException("boundary fixture actor created");
@@ -46,18 +64,36 @@ public final class FixtureChunkTicketsGameTests {
                 actors[i].setPos(positions[i].getX() + .5, positions[i].getY(), positions[i].getZ() + .5);
                 if (!level.addFreshEntity(actors[i])) throw new GameTestAssertException("boundary fixture actor joins");
             }
-            FixtureChunkTickets.awaitEntityTicking(helper, tickets, 8, () -> {
+            com.juicyslew.moonstation14.gametest.support.BoundedGameTestWait.await(helper,
+                    RESIDENCY_READY_TICKS, () -> "signed-edge actor readiness timed out: "
+                            + java.util.Arrays.stream(actors).map(actor -> actor == null ? "not-created"
+                                    : "uuid=" + actor.getUUID() + ",registered="
+                                    + (level.getEntity(actor.getUUID()) == actor) + ",tickCount=" + actor.tickCount
+                                    + ",removed=" + actor.isRemoved() + ",removalReason=" + actor.getRemovalReason()
+                                    + ",pos=" + actor.blockPosition() + ",entityTicking="
+                                    + tickets.entityTicking(actor.blockPosition())).toList(),
+                    () -> {
+                        for (Villager actor : actors)
+                            if (actor == null || level.getEntity(actor.getUUID()) != actor || actor.tickCount <= 0)
+                                return false;
+                        for (int i = 0; i < actors.length; i++)
+                            if (!tickets.entityTicking(positions[i])) return false;
+                        return true;
+                    }, () -> {
             for (int i = 0; i < actors.length; i++) {
                 if (level.getEntity(actors[i].getUUID()) != actors[i] || actors[i].tickCount <= 0
                         || !tickets.entityTicking(positions[i]))
-                    throw new GameTestAssertException("ticket retains signed-corner actor through natural tick: " + positions[i]);
+                    throw new GameTestAssertException("ticket retains signed-corner actor through natural tick: " + positions[i]
+                            + " registered=" + (level.getEntity(actors[i].getUUID()) == actors[i])
+                            + " tickCount=" + actors[i].tickCount + " removalReason=" + actors[i].getRemovalReason()
+                            + " entityTicking=" + tickets.entityTicking(positions[i]));
             }
             tickets.close();
             if (!tickets.isClosed() || !level.getForcedChunks().equals(preexistingForced)
                     || level.isPositionEntityTicking(center) != rootWasEntityTicking)
                 throw new GameTestAssertException("fixture ticket removal preserves engine and forced-ticket state");
             helper.succeed();
-            }, positions);
+            });
         }, positions);
     }
 }

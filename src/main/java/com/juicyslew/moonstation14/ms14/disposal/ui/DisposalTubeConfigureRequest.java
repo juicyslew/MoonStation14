@@ -20,3 +20,4 @@ public record DisposalTubeConfigureRequest(int containerId, UUID session, long r
     }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

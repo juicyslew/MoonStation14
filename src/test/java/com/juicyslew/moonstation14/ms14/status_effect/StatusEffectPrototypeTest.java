@@ -34,14 +34,14 @@ class StatusEffectPrototypeTest {
             "statuseffectpainnumbness", "statuseffectstunned", "statuseffectdrunk", "statuseffectowo",
             "statuseffecthemorrhage", "statuseffectanticoagulant", "statuseffectforcedsleeping",
             "statuseffectradiationprotection", "statuseffectstimulantsstamina", "reagentspeedstatuseffect",
-            "vomiting_slowdown", "knockdown");
+             "vomiting_slowdown", "knockdown", "stamina_low", "slip_friction", "muted", "pacified");
 
     @Test
     void productionCatalogHasExactlyTheMilestoneFourStatuses() throws IOException {
         Map<ResourceLocation, JsonObject> raw = loadResources();
         assertEquals(Set.copyOf(IDS), raw.keySet().stream().map(ResourceLocation::getPath).collect(
                 java.util.stream.Collectors.toSet()), "on-disk status IDs must match the canonical set");
-        assertEquals(19, raw.size());
+        assertEquals(IDS.size(), raw.size());
         assertEquals(IDS.stream().map(StatusEffectPrototypeTest::id).toList(), raw.keySet().stream().toList());
 
         PrototypeManager manager = new PrototypeManager();
@@ -74,6 +74,12 @@ class StatusEffectPrototypeTest {
         assertEquals(List.of(com.juicyslew.moonstation14.component.codec.json.StatusEffectEligibility.LIVING_ENTITY),
                 knockdown.eligibility());
         assertTrue(!knockdown.isBeneficial());
+        var pacified = manager.snapshot(ModStatusEffects.STATUS_EFFECT_TYPE).get(id("pacified"));
+        assertEquals(List.of(com.juicyslew.moonstation14.component.codec.json.StatusEffectEligibility.LIVING_ENTITY,
+                com.juicyslew.moonstation14.component.codec.json.StatusEffectEligibility.PROTOTYPE_ADMITTED), pacified.eligibility());
+        StatusEffectData friction = manager.snapshot(ModStatusEffects.STATUS_EFFECT_TYPE).get(id("slip_friction"));
+        assertEquals(List.of(StatusEffectBehavior.FRICTION), friction.behaviors());
+        assertEquals(0.5f, friction.friction().orElseThrow());
     }
 
     @Test
@@ -125,6 +131,28 @@ class StatusEffectPrototypeTest {
         JsonObject negative = valid.deepCopy();
         negative.addProperty("movement_speed_multiplier", -0.1);
         assertTrue(StatusEffectData.CODEC.parse(JsonOps.INSTANCE, negative).error().isPresent());
+    }
+
+    @Test
+    void frictionDefinitionRequiresAndAcceptsOnlyFrictionInstancePayload() {
+        JsonObject frictionJson = JsonParser.parseString("""
+                {"translation_key":"status.friction","color":"0x123456",
+                 "behaviors":["friction"],"eligibility":["living_entity"],"friction":0.5}
+                """).getAsJsonObject();
+        StatusEffectData friction = StatusEffectData.CODEC.parse(JsonOps.INSTANCE, frictionJson).getOrThrow();
+        assertEquals(.5f, friction.friction().orElseThrow());
+        assertTrue(friction.acceptsInstancePayload(StatusEffectPayload.none()));
+        assertTrue(friction.acceptsInstancePayload(new StatusEffectPayload.FrictionModifier(.5f)));
+        assertFalse(friction.acceptsInstancePayload(new StatusEffectPayload.Jitter(2f, 2f)));
+        assertFalse(friction.acceptsInstancePayload(new StatusEffectPayload.MovementSpeedModifier(.7f)));
+
+        JsonObject malformed = frictionJson.deepCopy();
+        malformed.remove("friction");
+        assertTrue(StatusEffectData.CODEC.parse(JsonOps.INSTANCE, malformed).error().isPresent());
+        assertFalse(StatusEffectData.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("""
+                {"translation_key":"status.marker","color":"0x123456",
+                 "behaviors":["marker"],"eligibility":["living_entity"],"friction":0.5}
+                """)).result().isPresent());
     }
 
     private static Map<ResourceLocation, JsonObject> loadResources() throws IOException {

@@ -16,3 +16,4 @@ public record ConstructionPlanRequest(UUID body, long epoch, long sequence, Acti
     }, b->new ConstructionPlanRequest(b.readUUID(),b.readVarLong(),b.readVarLong(),b.readEnum(Action.class),b.readUtf(256)));
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

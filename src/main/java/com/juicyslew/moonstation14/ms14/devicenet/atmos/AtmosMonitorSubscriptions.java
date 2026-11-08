@@ -12,8 +12,10 @@ public final class AtmosMonitorSubscriptions {
         if (payload == null || address == null || address.isBlank()) return false;
         if (payload instanceof AtmosDevicePayload.Register) addresses.add(address);
         else if (payload instanceof AtmosDevicePayload.Deregister) addresses.remove(address);
-        return payload instanceof AtmosDevicePayload.Sync;
+        return payload instanceof AtmosDevicePayload.Register || payload instanceof AtmosDevicePayload.Sync;
     }
 
     public boolean isRegistered(String address) { return addresses.contains(address); }
+    public Set<String> addresses() { return Set.copyOf(addresses); }
+    public void clear() { addresses.clear(); }
 }

@@ -5,3 +5,4 @@ package com.juicyslew.moonstation14.ms14.examine;
 public interface ExamineContributor {
     void contribute(ExamineContext context, ExamineCollector collector);
 }
+

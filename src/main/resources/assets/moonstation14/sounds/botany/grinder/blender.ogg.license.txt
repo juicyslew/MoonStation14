@@ -1,0 +1,10 @@
+Source: Space Station 14, Resources/Audio/Machines/blender.ogg
+Pinned revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Source: https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Machines/blender.ogg
+SHA-256: 521E12A215F45C40FFF3C50718D1380A6AE404713C769100725CFC2EB7CDBC0F
+
+The pinned Machines/attributions.yml has no file-specific blender.ogg entry.
+Author, original source, and file-specific license are unresolved. This notice
+does not claim that root MIT, repository-level CC, or any other blanket license
+covers this file. Resolve rights before redistribution; replace/remove if terms
+cannot be established.

@@ -12,12 +12,12 @@ public final class CharacterMovementRebasePolicy {
 
     /** A stopped predictor resumes only from a newly accepted, known finite authority sample settling its failure. */
     public static Decision decide(long sessionRevision, long incomingRevision, boolean predictionStopped,
-                                 long failedSequence, long acknowledgedSequence,
+                                 long failedSequence, long settledThroughSequence,
                                  boolean acceptedFreshSnapshot, boolean knownFiniteAuthority) {
         Decision revision = decide(sessionRevision, incomingRevision, predictionStopped);
         if (revision == Decision.REJECT || !acceptedFreshSnapshot || !knownFiniteAuthority) return Decision.REJECT;
         if (revision == Decision.REBASE) return Decision.REBASE;
-        if (predictionStopped && failedSequence > 0 && acknowledgedSequence >= failedSequence)
+        if (predictionStopped && failedSequence > 0 && settledThroughSequence >= failedSequence)
             return Decision.RESUME_BARRIER;
         return revision;
     }

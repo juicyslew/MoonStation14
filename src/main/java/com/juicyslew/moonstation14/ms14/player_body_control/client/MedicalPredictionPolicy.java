@@ -10,6 +10,12 @@ public final class MedicalPredictionPolicy {
     public record Decision(boolean suspended, boolean authorityBarrierRequired,
                            boolean recordHistory, boolean ownsTracker, boolean replaySnapshot) { }
 
+    /** Physical-facing permission is medical-state-only, independent of movement/prediction suspension. */
+    public static boolean canChangeDirection(MobHarnessKind kind, MobStateComponent.State state) {
+        return kind != MobHarnessKind.CHARACTER
+                || state != MobStateComponent.State.CRITICAL && state != MobStateComponent.State.DEAD;
+    }
+
     public static Decision decide(MobHarnessKind kind, MobStateComponent.State state,
                                   boolean wasSuspended, boolean historyBarrierApplied) {
         return decide(kind, state, wasSuspended, historyBarrierApplied, false);
@@ -27,3 +33,4 @@ public final class MedicalPredictionPolicy {
         return new Decision(suspended, barrier, permitted, permitted, permitted);
     }
 }
+

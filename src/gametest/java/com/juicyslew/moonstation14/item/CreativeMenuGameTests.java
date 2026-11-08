@@ -5,6 +5,8 @@ import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.ms14.medical.ModMedicalItems;
 import com.juicyslew.moonstation14.ms14.medical.ModInjectorModes;
 import com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntime;
+import com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks;
+import com.juicyslew.moonstation14.ms14.atmos.tank.GasTankContents;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.flag.FeatureFlags;
@@ -20,6 +22,7 @@ public final class CreativeMenuGameTests {
     public static void itemTabBuildHonorsCreativeOutputContract(GameTestHelper helper) {
         ModMedicalItems.bootstrapClientBundled();
         ModInjectorModes.bootstrapClientBundled();
+        ModGasTanks.bootstrapClientBundled();
         var tab = ModCreativeModeTabs.MOONSTATION_ITEMS_TAB.get();
         tab.buildContents(new CreativeModeTab.ItemDisplayParameters(
                 FeatureFlags.DEFAULT_FLAGS, true, helper.getLevel().registryAccess()));
@@ -36,6 +39,16 @@ public final class CreativeMenuGameTests {
         var syringeData = syringe.get(ModDataComponents.SYRINGE.get());
         require(syringeData != null && syringeData.mode().toString().equals("moonstation14:syringe_draw_mode")
                 && syringeData.transferAmountUnits() == 5f, "display syringe retains resolved mode and dose");
+        for (String id : java.util.List.of("plasma_tank", "plasma_tank_filled")) {
+            var prototypeId = ModGasTanks.id(id);
+            var tank = entries.stream().filter(stack -> stack.is(ModItems.PLASMA_TANK.get()))
+                    .filter(stack -> { GasTankContents c = stack.get(ModDataComponents.GAS_TANK_CONTENTS.get()); return c != null && c.prototypeId().equals(prototypeId); })
+                    .findFirst().orElseThrow(() -> new net.minecraft.gametest.framework.GameTestAssertException("missing gas tank profile " + prototypeId));
+            require(tank.get(ModDataComponents.GAS_TANK_CONTENTS.get()).prototypeId().equals(prototypeId), "creative tank profile identity: " + prototypeId);
+        }
+        require(entries.stream().filter(stack -> stack.is(ModItems.PLASMA_TANK.get()))
+                .filter(stack -> stack.has(ModDataComponents.GAS_TANK_CONTENTS.get())).count() == 2,
+                "creative tab excludes tanks without defined profiles and shows exactly the resolved pair");
 
         var gameplay = ModMedicalItems.createStack(PrototypeRuntime.clientMedicalItems(),
                 PrototypeRuntime.clientInjectorModes(), net.minecraft.resources.ResourceLocation.parse("moonstation14:ointment"));

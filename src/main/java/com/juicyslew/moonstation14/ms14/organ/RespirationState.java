@@ -40,3 +40,4 @@ public record RespirationState(double saturation, boolean initialized, LungCompo
         return new RespirationState(legacy.saturation(), legacy.initialized(), legacy.phase());
     }
 }
+

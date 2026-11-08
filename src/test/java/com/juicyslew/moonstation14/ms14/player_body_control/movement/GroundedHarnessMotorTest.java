@@ -71,10 +71,18 @@ class GroundedHarnessMotorTest {
 
     @Test
     void takeoffUsesPreStepGroundStateAndZeroGravityAndFlightAreUnchanged() {
+        CharacterMovementPolicy policy = CharacterMovementPolicy.HUMAN;
+        double substep = DT / 3d;
+        double friction = Math.max(0d, Math.min(1d,
+                1d - policy.groundFrictionWithInputPerSecond() * substep));
+        double acceleration = policy.accelerationPerSecondSquared() * substep * policy.walkSpeedPerSecond();
+        double terminalSpeed = acceleration * (1d + friction + friction * friction);
+        assertTrue(terminalSpeed < policy.walkSpeedPerSecond(), "fixture must remain below the speed cap");
+        double takeoffDistance = substep * acceleration * (3d + 2d * friction + friction * friction);
         CharacterMovementState takeoff = motor.tick(state(MovementVector.ZERO, true),
                 0, 1000, true, false, 0d, env(32d, 8.4d, OPEN), false);
-        assertEquals(.125d, takeoff.position().z(), 1e-12);
-        assertEquals(2.5d, takeoff.velocity().z(), 1e-12, "no air retention on takeoff tick");
+        assertEquals(takeoffDistance, takeoff.position().z(), 1e-12);
+        assertEquals(terminalSpeed, takeoff.velocity().z(), 1e-12, "no air retention on takeoff tick");
         assertEquals(.42d, takeoff.position().y(), 1e-12);
         assertEquals((8.4d - 32d * DT) * .98d, takeoff.velocity().y(), 1e-12);
         CharacterMovementState zeroG = motor.tick(state(new MovementVector(2d, 0d, 0d), false),
@@ -256,10 +264,10 @@ class GroundedHarnessMotorTest {
     }
 
     @Test
-    void neutralGroundFrictionStopsHumanMomentumInOneTick() {
+    void neutralGroundFrictionStopsHumanMomentumAtTwentyHertz() {
         CharacterMovementState result = tick(state(new MovementVector(2.5d, 0d, 0d), true),
                 0, 0, false, false, 0d, env(0d, 0d, GROUNDED), false);
-        assertEquals(MovementVector.ZERO, result.velocity());
+        assertEquals(.740740740740741d, result.velocity().x(), 1e-12);
     }
 
     @Test
@@ -268,7 +276,7 @@ class GroundedHarnessMotorTest {
                 MovementVector.ZERO, 0d, 0d, GROUNDED, .05d, 1d);
         CharacterMovementState onLube = tick(state(MovementVector.ZERO, true), 0, 1000,
                 false, false, 0d, lube, false);
-        assertEquals(.125d, onLube.velocity().z(), 1e-12);
+        assertEquals(.12292824074074071d, onLube.velocity().z(), 1e-12);
 
         CharacterMovementEnvironment knockdown = new CharacterMovementEnvironment(DT, 0d, 0d, .98d,
                 MovementVector.ZERO, 0d, 0d, GROUNDED, 1d,

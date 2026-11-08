@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" tests="47" skipped="0" failures="0" errors="0" timestamp="2026-10-21T15:02:41.402Z" hostname="DESKTOP-4F0ER3K" time="0.333">
+  <properties/>
+  <testcase name="configuredKeyMatcherHonorsRemappedKeyAndModifier()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.095"/>
+  <testcase name="explicitThrowSurvivesPrimeResultAndWaitsForCorrelatedNewerSnapshot()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.002"/>
+  <testcase name="sharedConstructionDeferralAdmitsGirderAndPipeThenRequiresRemainingMaterial()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="blockUseSequenceKeepsPresentationAndDoesNotReplaceActionResultCorrelation()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.003"/>
+  <testcase name="productionPrimaryRouteNominationRequiresPendingQueryEmptyHandAndWorldAdmission()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.001"/>
+  <testcase name="timedOutActionRetriesQueryWithoutTransientStatus()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.001"/>
+  <testcase name="chatSafeHudLayoutAndCameraGate()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.001"/>
+  <testcase name="constructionUseMayQueueAcrossEitherBlockUseBarrierForResolvedPipeRecipes()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="screenSuspensionKeepsReplayHighWaterAndDisablesKeysUntilRebound()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="lastConfirmedHandsRemainNominationOnlyAcrossRefreshAndClearOnContextReset()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="emptyHandNominationSurvivesRefreshBarrierUntilMatchingQueryReply()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="heldPillCanisterUsesTheExistingStorageGridObservation()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.004"/>
+  <testcase name="actionReplayAndRefreshBarrier()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="reservedActiveHandCannotTakeEquipmentButOtherHandCan()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.203"/>
+  <testcase name="ordinaryMutationStillDimsPresentation()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="nominatedGridStoreUsesExactHandProofRatherThanActiveHand()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="standaloneThrowDoesNotQueueAnUncorrelatedGrenade()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="hudHidesOldHandThroughActionAndRefreshWithoutSyncingText()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="deferredPlacementRequiresFreshSameIntentAndSource()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="syringeGesturesRouteModeDoseAndBodyUseSeparately()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.002"/>
+  <testcase name="selectionPresentationExceptionClearsOnFailureTimeoutAndReset()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="acceptedTimedWorkInvalidatesReservedMaterialProofUntilFreshSnapshot()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.001"/>
+  <testcase name="explicitThrowCanBeCancelledByUiPresence()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="pendingPrimeRejectsStaleSnapshotAndChangedHandOrToken()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="throwIntentExpiresOrCancelsOnRejectedPrimeAndIdentityChange()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="noCharacterReconciliationPreservesOnlyExactCommittedGhostPointerOwner()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.002"/>
+  <testcase name="medicalPocketCountUsesDeclaredCapNotOnlyNativeItemCap()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="pushRejectsWrongAuthorityEpochAndOlderRevision()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="handChangedBlockUseRequiresFreshProofBeforeAction()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="missingLocalCandidateIsTemporaryAndDistinctFromServerRejection()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="failedCorrelatedQueryCancelsExplicitThrowIntent()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="equipmentButtonsRequireDeclaredSlotActiveHandAndFreshProof()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="mappedGesturesSelectDistinctRoutes()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.001"/>
+  <testcase name="noInitialSnapshotNoActionAndStrictQueryCorrelation()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="clientPullNominationUsesReadOnlyProjectionNotServerAuthorityResolver()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.001"/>
+  <testcase name="rejectionRemainsReadableWithoutStaleHandAndExpires()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="lostBlockUseAckAndQueryTimeoutFailClosedAndRetryOnce()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="heldStorageActivationUsesResolvedGridCompositionForEverySupportedHost()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.001"/>
+  <testcase name="pullReservationIsNonItemMetadataAndOnlyBlocksItsOwnHandActions()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.003"/>
+  <testcase name="deferredEmptyHandNominationRequiresExactFreshContextAndConsumesOnce()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.001"/>
+  <testcase name="genericInHandUseCanQueueThrowUntilFreshProofAndDenialCancelsIt()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="externalTimedCommitRetainsHudButRejectsOldQueryAndRefreshesImmediately()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.001"/>
+  <testcase name="nativeInventorySuppressionRequiresCommittedControlledBodyAndNativeScreen()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="externalTimedCommitPreservesActionCorrelationUntilItsResult()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="resetAndEpochOrBodySwitchDiscardsPendingState()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.001"/>
+  <testcase name="successfulSelectionKeepsPresentationOnlyUntilFreshSnapshot()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <testcase name="pushedSnapshotsAdvanceWithoutStealingQueryOrActionCorrelations()" classname="com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

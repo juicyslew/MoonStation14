@@ -1,0 +1,56 @@
+Reusing configuration cache.
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :generateModMetadata UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :jarJar NO-SOURCE
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :compileGametestJava UP-TO-DATE
+> Task :generateCameraTourTemplateResources UP-TO-DATE
+> Task :processGametestResources UP-TO-DATE
+> Task :gametestClasses UP-TO-DATE
+
+> Task :compileTestJava
+
+> Task :downloadAssets UP-TO-DATE
+> Task :writeNeoForgeTestClasspath UP-TO-DATE
+> Task :prepareNeoForgeTestFiles UP-TO-DATE
+Note: C:\Users\William\Documents\Minecraft Mod Dev Files\MoonStation14-agent-02\src\test\java\com\juicyslew\moonstation14\ms14\hunger\HungerSystemTest.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+> Task :processTestResources UP-TO-DATE
+> Task :testClasses
+
+> Task :test
+
+GhostRoleMenuPresentationTest > flattenedRowsKeepScrolledRenderingAndHitTestingAlignedAcrossExpandedGroups() FAILED
+    org.opentest4j.AssertionFailedError at GhostRoleMenuPresentationTest.java:49
+
+GhostRoleMenuPresentationTest > windowWidthPolicyIsCompactAndViewportBounded() FAILED
+    org.opentest4j.AssertionFailedError at GhostRoleMenuPresentationTest.java:41
+
+PointerModePolicyTest > openingSharedWorkspaceCreatesAutomaticIntentButPreservesManualIntent() FAILED
+    org.opentest4j.AssertionFailedError at PointerModePolicyTest.java:83
+
+NutritionMovementFactorTest > multipliesIndependentStatusAndPreservesOtherMovementFactors() FAILED
+    org.opentest4j.AssertionFailedError at NutritionMovementFactorTest.java:14
+
+3010 tests completed, 4 failed
+
+> Task :test FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-02/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':test'.
+> There were failing tests. See the report at: file:///C:/Users/William/Documents/Minecraft%20Mod%20Dev%20Files/MoonStation14-agent-02/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to generate a Build Scan (powered by Develocity).
+
+BUILD FAILED in 35s
+14 actionable tasks: 2 executed, 12 up-to-date
+Configuration cache entry reused.

@@ -1,0 +1,66 @@
+{
+  "path_base": "package root",
+  "files": [
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/item/botany/peels/trash_banana_peel.json",
+      "destination": "src/main/resources/assets/moonstation14/models/item/botany/peels/trash_banana_peel.json",
+      "sha256": "68e18b9d09ef13960a5dccae1e246fbae71da762a13e5c68ef419262ba79ba1f"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/item/botany/peels/trash_banana_peel.mtl",
+      "destination": "src/main/resources/assets/moonstation14/models/item/botany/peels/trash_banana_peel.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/item/botany/peels/trash_banana_peel.obj",
+      "destination": "src/main/resources/assets/moonstation14/models/item/botany/peels/trash_banana_peel.obj",
+      "sha256": "da53cfe52bdf1e7244feb7178b97e75d4ef8f52ad92cf8ccdaabeb1319fae4d4"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/item/botany/peels/trash_mimana_peel.json",
+      "destination": "src/main/resources/assets/moonstation14/models/item/botany/peels/trash_mimana_peel.json",
+      "sha256": "644bef6678023c91ea0731f41e4c6a32ce53455587ed84ec54d2dd4b08e9ccd4"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/item/botany/peels/trash_mimana_peel.mtl",
+      "destination": "src/main/resources/assets/moonstation14/models/item/botany/peels/trash_mimana_peel.mtl",
+      "sha256": "7e77c7213c58f7c3430a980e827840ef7f9f855ac9eb39cfb71f69ea546f5c58"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/item/botany/peels/trash_mimana_peel.obj",
+      "destination": "src/main/resources/assets/moonstation14/models/item/botany/peels/trash_mimana_peel.obj",
+      "sha256": "563728ff6438e53f6ba80517a51a29d243711d99356ade1154358dc36f6c734f"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/item/trash_banana_peel.json",
+      "destination": "src/main/resources/assets/moonstation14/models/item/trash_banana_peel.json",
+      "sha256": "1d481a5bb5a62ccf2831c6e20183602c3380690c5e837129d2a78ea32d0e6529"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/models/item/trash_mimana_peel.json",
+      "destination": "src/main/resources/assets/moonstation14/models/item/trash_mimana_peel.json",
+      "sha256": "d8c7261e474dd186c9d579f137b04decd170da8326ecea445ce5639818f11029"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/textures/item/botany/peels/trash_banana_peel.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/item/botany/peels/trash_banana_peel.png",
+      "sha256": "7f169b60c7cd45d240046e89a5e41654cec5a00459146cebfcfdd21cb2b898b9"
+    },
+    {
+      "file": "export/resourcepack/assets/moonstation14/textures/item/botany/peels/trash_mimana_peel.png",
+      "destination": "src/main/resources/assets/moonstation14/textures/item/botany/peels/trash_mimana_peel.png",
+      "sha256": "3d75ec422a12c048d683412347a428c236040090f6e79632f7fcd5abaf491e0d"
+    },
+    {
+      "file": "export/resourcepack/data/moonstation14/moonstation14/loose_object_profile/trash_banana_peel.json",
+      "destination": "src/main/resources/data/moonstation14/moonstation14/loose_object_profile/trash_banana_peel.json",
+      "sha256": "6a9920004a255193941b8d330456ec10426596c6e4699873154dc83cb6d2814e"
+    },
+    {
+      "file": "export/resourcepack/data/moonstation14/moonstation14/loose_object_profile/trash_mimana_peel.json",
+      "destination": "src/main/resources/data/moonstation14/moonstation14/loose_object_profile/trash_mimana_peel.json",
+      "sha256": "aac998621c44b6706a7447b64428f8ac76eb2f89514a616770e61fe77372f223"
+    }
+  ],
+  "scope": "complete pair, ordinary model dependency closure plus native visual-only loose profile candidates"
+}

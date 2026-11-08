@@ -22,3 +22,4 @@ public final class DamageFeedbackPresentationPolicy {
         return (hurtTime > 0 && (!feedbackActive || profile.cameraShake())) || (deathTime > 0 && !feedbackActive);
     }
 }
+

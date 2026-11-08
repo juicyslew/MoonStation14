@@ -16,3 +16,4 @@ public final class ModPuddles {
         return level.isClientSide() ? PrototypeRuntime.clientPuddles() : PrototypeRuntime.serverPuddles();
     }
 }
+

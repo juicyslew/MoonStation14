@@ -1,0 +1,80 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceRepository": "https://github.com/space-wizards/space-station-14",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml": {
+      "sha256": "a28ed494a096cf63f7887f45e4967e89600b60022fd2b49af22e131f9bafb385"
+    },
+    "Resources/Prototypes/Entities/Objects/Materials/shards.yml": {
+      "sha256": "6fb8886d9843bad82ba5e762c60e5f088f5ef94fcdd1c086422a8c5a3e70d2e8"
+    }
+  },
+  "requestedLeafIds": [
+    "FoodGlasstle",
+    "ShardGlass"
+  ],
+  "capturedConcreteProductCount": 1,
+  "capturedAdditionalAncestorCount": 1,
+  "capturedRawRecordCount": 3,
+  "capturedEntityIds": [
+    "FoodGlasstle",
+    "ShardBase",
+    "ShardGlass"
+  ],
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "parentClosureVerifiedAgainstExistingRawRowsAndGlasstleRows": true,
+  "existingRawEntityIdCount": 84,
+  "overlapWithExistingRawEntityIds": [],
+  "fullUnionParentClosureRecordCount": 87,
+  "parentResolution": {
+    "FoodGlasstle": "FoodProduceBase",
+    "ShardBase": "BaseItem",
+    "ShardGlass": "ShardBase"
+  },
+  "sourceDamageDefaults": {
+    "sourceFiles": {
+      "Resources/Prototypes/Damage/containers.yml": {
+        "sha256": "b7f353c83abbe8aaecd434eb7925b4fc009fd07c37512840ceb2b815a820dca1"
+      },
+      "Resources/Prototypes/Damage/modifier_sets.yml": {
+        "sha256": "8f578e7e47cd4d72c6ffb3bc4f4ea15e956857c3413c52bbb76cde61be889d55"
+      }
+    },
+    "recordsCapturedSeparately": true,
+    "entityRowsContainDamagePrototypes": false,
+    "unsupportedDamageFieldsRetainedInSourceRecords": true,
+    "containers": [
+      {
+        "type": "damageContainer",
+        "id": "Inorganic",
+        "supportedGroups": [
+          "Brute"
+        ],
+        "supportedTypes": [
+          "Heat",
+          "Shock"
+        ]
+      }
+    ],
+    "modifierSets": [
+      {
+        "type": "damageModifierSet",
+        "id": "Glass",
+        "coefficients": {
+          "Blunt": 1.2,
+          "Slash": 0.5,
+          "Piercing": 1.0,
+          "Heat": 0.8,
+          "Shock": 0
+        },
+        "flatReductions": {
+          "Slash": 5,
+          "Piercing": 5,
+          "Heat": 5,
+          "Structural": 5
+        }
+      }
+    ]
+  }
+}

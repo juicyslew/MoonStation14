@@ -1,0 +1,4 @@
+compileJava/compileTestJava/compileGametestJava + focused tests: BUILD SUCCESSFUL
+TEST-com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceBlockEntityTest.xml: tests=8 failures=0 errors=0 skipped=0
+TEST-com.juicyslew.moonstation14.ms14.atmos.piping.VentilationDeviceConfigTest.xml: tests=6 failures=0 errors=0 skipped=0
+TEST-com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest.xml: tests=3 failures=0 errors=0 skipped=0

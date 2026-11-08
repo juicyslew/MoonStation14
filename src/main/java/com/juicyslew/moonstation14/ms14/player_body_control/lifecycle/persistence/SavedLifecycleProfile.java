@@ -52,3 +52,4 @@ public record SavedLifecycleProfile(int schemaVersion, UUID accountId, String pr
         }
     }
 }
+

@@ -1,0 +1,57 @@
+{
+  "title": "Load power fixture candidate frontier and rerun all character regressions",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/gametest/power/runtime/ApcOverloadGameTests.java",
+  "acceptance_criteria": [
+    "The debug overload fixture loads its complete candidate-neighbor chunk halo before expecting authoritative HV connectivity; runtime UNKNOWN handling, bounded deadlines, initial single-load power, two-load trip/darkness and manual reclose assertions remain intact.",
+    "Every required full native test passes, including the r46 overload failure and all prior moving-target pickup/pull, corpse damage/cap, appearance and exact-deadline readiness regressions.",
+    "Fresh full JVM, affected readiness, controlled isolated client startup and packaging pass; connected physical input, GPU quality and owner acceptance remain separate."
+  ],
+  "manual_steps": [
+    "Throw a mouse horizontally and immediately Ctrl-left-click to pull; compare pickup and critical/dead mice. Walls and out-of-reach targets must still deny.",
+    "Compare analyzer damage before and after a dead Mouse/Human/Pig falls; check existing fire/blast exposure. The original body must remain Dead.",
+    "Check analyzer state/species/portraits, smooth held camera, escape across hand transfers, real-drop interruption and cursor cleanup."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "rationale": "Fresh complete JVM evidence for the submitted snapshot, including power topology and character/damage contracts.",
+      "covers": ["Fresh full JVM, affected readiness, controlled isolated client startup and packaging pass; connected physical input, GPU quality and owner acceptance remain separate."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-mouse-character-r47", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r47/native.log",
+      "rationale": "Mandatory full native rerun with fresh lifecycle isolation; preserve prior failure worlds and logs. Require fresh counts and all-required-passed marker, not a focused subset or channel-error dismissal.",
+      "covers": [
+        "The debug overload fixture loads its complete candidate-neighbor chunk halo before expecting authoritative HV connectivity; runtime UNKNOWN handling, bounded deadlines, initial single-load power, two-load trip/darkness and manual reclose assertions remain intact.",
+        "Every required full native test passes, including the r46 overload failure and all prior moving-target pickup/pull, corpse damage/cap, appearance and exact-deadline readiness regressions."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui,interaction,prediction", "--console=plain"],
+      "selectors": ["ui", "interaction", "prediction"],
+      "rationale": "Retain all affected presentation/admission/prediction checks, previously blocked by native failure.",
+      "covers": ["Fresh full JVM, affected readiness, controlled isolated client startup and packaging pass; connected physical input, GPU quality and owner acceptance remain separate."]
+    },
+    {
+      "kind": "launch-smoke",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runClient", "-Pms14ClientRunDir=build/client-mouse-character-r47", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r47/client.log",
+      "ready_patterns": ["Created: .*minecraft:textures/atlas/blocks\\.png"],
+      "error_patterns": ["InvalidInjectionException", "MixinApplyError", "InjectionError", "FATAL"],
+      "timeout": 120,
+      "rationale": "Fresh startup and mixin application with controlled owned-process stop; not connected/GPU acceptance.",
+      "covers": ["Fresh full JVM, affected readiness, controlled isolated client startup and packaging pass; connected physical input, GPU quality and owner acceptance remain separate."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Bind fresh package after all checks pass; no deployment or owner acceptance.",
+      "covers": ["Fresh full JVM, affected readiness, controlled isolated client startup and packaging pass; connected physical input, GPU quality and owner acceptance remain separate."]
+    }
+  ]
+}

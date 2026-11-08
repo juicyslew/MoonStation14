@@ -53,7 +53,7 @@ public final class LifecyclePairedWorldStepObserver {
             AtomicReference<PairSnapshot> snapshot, CaptureWindow window) {
         var step = GroundedHarnessWorldStep.observingNativeGeometry();
         return LifecycleCharacterSessionControl.withWorldStepForTesting(owner,
-                (body, wishX, wishZ, jump, sprint, yaw, reference) -> {
+                 (body, wishX, wishZ, jump, sneak, sprint, yaw, originSequence, observer, reference) -> {
                     long now = owner.level().getServer().getTickCount();
                     if (tick.getAndSet(now) == now)
                         throw new net.minecraft.gametest.framework.GameTestAssertException(
@@ -64,8 +64,11 @@ public final class LifecyclePairedWorldStepObserver {
                     boolean ownerGroundedBefore=body.onGround(), pairedGroundedBefore=paired.onGround();
                     ownerMove.set(null); pairedMove.set(null); snapshot.set(null);
                     Optional<com.juicyslew.moonstation14.ms14.movement.CharacterMovementState> moved =
-                            step.step(body, wishX, wishZ, jump, sprint, yaw, ownerMove::set, reference);
-                    step.step(paired, wishX, wishZ, jump, sprint, yaw, pairedMove::set, reference);
+                             step.step(body, wishX, wishZ, jump, sneak, sprint, yaw, originSequence, nativeMove -> {
+                                  ownerMove.set(nativeMove);
+                                  if (observer != null) observer.accept(nativeMove);
+                             }, reference);
+                     step.step(paired, wishX, wishZ, jump, sneak, sprint, yaw, originSequence, pairedMove::set, reference);
                     var captured=new PairSnapshot(now, ownerBefore, ownerVelocityBefore,
                             pairedBefore, pairedVelocityBefore, body.position(), body.getDeltaMovement(),
                             paired.position(), paired.getDeltaMovement(), ownerBoundsBefore,body.getBoundingBox(),

@@ -21,3 +21,4 @@ public record ConstructionGuidanceRequest(long epoch, long sequence, BlockPos ta
     }
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

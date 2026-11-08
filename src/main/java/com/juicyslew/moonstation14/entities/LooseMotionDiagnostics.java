@@ -330,3 +330,4 @@ public final class LooseMotionDiagnostics {
         }
     }
 }
+

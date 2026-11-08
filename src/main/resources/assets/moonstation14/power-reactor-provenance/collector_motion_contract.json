@@ -1,0 +1,138 @@
+{
+  "asset_id": "generation_singularity_collector",
+  "clips": [
+    {
+      "name": "activate",
+      "loop": "once",
+      "duration_seconds": 0.8,
+      "keys": [
+        [
+          0,
+          0
+        ],
+        [
+          0.1,
+          22.5
+        ],
+        [
+          0.2,
+          45
+        ],
+        [
+          0.3,
+          67.5
+        ],
+        [
+          0.4,
+          90
+        ],
+        [
+          0.8,
+          90
+        ]
+      ],
+      "pivot": [
+        0,
+        10,
+        3.5
+      ],
+      "group": "collector_panel",
+      "provenance": "RadiationCollectorSystem.cs Length=.8s; native ca_active/ca_deactive five100ms sprite beats then settle; rigid X rotation is a PORT spatial interpretation."
+    },
+    {
+      "name": "deactivate",
+      "loop": "once",
+      "duration_seconds": 0.8,
+      "keys": [
+        [
+          0,
+          90
+        ],
+        [
+          0.1,
+          67.5
+        ],
+        [
+          0.2,
+          45
+        ],
+        [
+          0.3,
+          22.5
+        ],
+        [
+          0.4,
+          0
+        ],
+        [
+          0.8,
+          0
+        ]
+      ],
+      "pivot": [
+        0,
+        10,
+        3.5
+      ],
+      "group": "collector_panel",
+      "provenance": "RadiationCollectorSystem.cs Length=.8s; native ca_active/ca_deactive five100ms sprite beats then settle; rigid X rotation is a PORT spatial interpretation."
+    }
+  ],
+  "previews": [
+    {
+      "name": "activate",
+      "gif": "previews/generation_singularity_collector/activate.gif",
+      "duration_seconds": 1,
+      "inspection_dwell_seconds": 0.2,
+      "native_motion_seconds": 0.8,
+      "pose_models": [
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_00",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_01",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_02",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_03",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_04",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_05",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_06",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_07",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_08",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_09",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_10",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_11",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_12",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_13",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_14",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_15",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_activate_16"
+      ]
+    },
+    {
+      "name": "deactivate",
+      "gif": "previews/generation_singularity_collector/deactivate.gif",
+      "duration_seconds": 1,
+      "inspection_dwell_seconds": 0.2,
+      "native_motion_seconds": 0.8,
+      "pose_models": [
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_00",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_01",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_02",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_03",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_04",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_05",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_06",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_07",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_08",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_09",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_10",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_11",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_12",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_13",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_14",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_15",
+        "moonstation14:block/power_collection/generation_singularity_collector/motion_deactivate_16"
+      ]
+    }
+  ],
+  "interruption": "Native source ignores new animation while a transition runs, then reads latest appearance state on completion. Host must reconcile latest authoritative target and settled pose on late join.",
+  "material_independence": "Maintenance, tank and power selection must remain independent. Whole q models are alternatives to shell+panel, never drawn together.",
+  "runtime": "OBJ sampled candidates and BB clips supplied; no renderer/controller/network code installed."
+}

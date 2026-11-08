@@ -15,3 +15,4 @@ public record HotspotState(double volumeLiters, double temperatureKelvin,
             throw new IllegalArgumentException("hotspot state exceeds native float range");
     }
 }
+

@@ -1,0 +1,20 @@
+{
+    "run":  "food-refill-source-validation/r3",
+    "phase":  "POST",
+    "started":  "2026-10-21T05:30:47.5775148-07:00",
+    "requestedTasks":  [
+                           "compileJava",
+                           "compileTestJava",
+                           "compileGametestJava",
+                           "test --rerun"
+                       ],
+    "selectedTests":  [
+                          "*BotanyProductSourceParityTest",
+                          "*ItemFoodSolutionProfileTest",
+                          "*ProduceFactoryTest",
+                          "*EggyProductCatalogCandidateTest",
+                          "*BloonionProductCatalogCandidateTest"
+                      ],
+    "finished":  "2026-10-21T05:31:12.2299532-07:00",
+    "exitCode":  0
+}

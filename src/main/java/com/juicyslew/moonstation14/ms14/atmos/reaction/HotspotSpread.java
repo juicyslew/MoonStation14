@@ -74,3 +74,4 @@ public final class HotspotSpread {
         return new Result(offers);
     }
 }
+

@@ -1,0 +1,63 @@
+{
+  "title": "Shared character analyzer, retained hand-transfer escape and cursor drag reconciliation",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/PortableBodyEscapeMotionGameTests.java",
+  "acceptance_criteria": [
+    "Same-holder physical hand transfer preserves the original portable escape operation and start tick through original-body release; denied transfer retains custody and real drop/re-pickup cancels the original operation.",
+    "Transfer refresh reuses owner-local active custody, verified commit success and a fresh strict release snapshot without a parallel registry or weakened release checks.",
+    "Mouse analyzer state consumes resolved medical state, species consumes inherited typed Species composition with humanoid fallback, and detached native portraits preserve synced appearance and cache invalidation without mutating the patient.",
+    "Screen-owned cursor drags reconcile exact captured sources against settled authority before paint and admission; escaped/removed/replaced sources clear rather than rendering a missing proxy, and valid drags remain.",
+    "Fresh focused JVM, full native, affected UI/interaction/prediction readiness, isolated client bootstrap and packaging pass; connected GPU portraits/cursor and physical input remain owner tests."
+  ],
+  "manual_steps": [
+    "Pick up an AI mouse and repeatedly move it between hands while it escapes: the same five-second attempt should complete. A real drop and re-pickup must not retain the old attempt.",
+    "Drag a mouse icon under the cursor until it escapes: the stale drag should disappear without purple/black texture or a phantom drop. Check unchanged normal item drags too.",
+    "Scan healthy, critical and dead mice: verify real state, Mouse species and visible matching-variant portrait. Compare a human and pig, and confirm held-camera motion remains smooth."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--tests", "*CharacterPrototypeTest", "--tests", "*HandEquipmentGestureTest", "--tests", "*StoragePopupWorkspaceTest", "--tests", "*PrimaryWorldGestureTest", "--tests", "*ContainedCameraPolicyTest", "--rerun-tasks", "--console=plain"],
+      "rationale": "Fresh species inheritance/registration, screen drag source validation, workspace reconciliation, retained route and camera policy checks; these do not prove GPU rendering.",
+      "covers": [
+        "Mouse analyzer state consumes resolved medical state, species consumes inherited typed Species composition with humanoid fallback, and detached native portraits preserve synced appearance and cache invalidation without mutating the patient.",
+        "Screen-owned cursor drags reconcile exact captured sources against settled authority before paint and admission; escaped/removed/replaced sources clear rather than rendering a missing proxy, and valid drags remain."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-mouse-character-r41", "--rerun-tasks", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r41/native.log",
+      "rationale": "Fresh full native suite for shared custody/schema changes, physical transfer and drop-repickup, typed analyzer states/species and detached portraits, including retained jump escape and disposal.",
+      "covers": [
+        "Same-holder physical hand transfer preserves the original portable escape operation and start tick through original-body release; denied transfer retains custody and real drop/re-pickup cancels the original operation.",
+        "Transfer refresh reuses owner-local active custody, verified commit success and a fresh strict release snapshot without a parallel registry or weakened release checks.",
+        "Mouse analyzer state consumes resolved medical state, species consumes inherited typed Species composition with humanoid fallback, and detached native portraits preserve synced appearance and cache invalidation without mutating the patient."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui,interaction,prediction", "--console=plain"],
+      "selectors": ["ui", "interaction", "prediction"],
+      "rationale": "Affected pointer, admission and timed prediction contracts; authenticated input and native visual acceptance remain separate.",
+      "covers": ["Fresh focused JVM, full native, affected UI/interaction/prediction readiness, isolated client bootstrap and packaging pass; connected GPU portraits/cursor and physical input remain owner tests."]
+    },
+    {
+      "kind": "launch-smoke",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runClient", "-Pms14ClientRunDir=build/client-mouse-character-r41", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-character-r41/client.log",
+      "ready_patterns": ["Created: .*minecraft:textures/atlas/blocks\\.png"],
+      "error_patterns": ["InvalidInjectionException", "MixinApplyError", "InjectionError", "FATAL"],
+      "timeout": 120,
+      "rationale": "Isolated serialized client bootstrap with controlled owned-tree stop; not connected analyzer/cursor GPU proof.",
+      "covers": ["Fresh focused JVM, full native, affected UI/interaction/prediction readiness, isolated client bootstrap and packaging pass; connected GPU portraits/cursor and physical input remain owner tests."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Package and bind artifact only after preceding checks; no deployment or owner acceptance.",
+      "covers": ["Fresh focused JVM, full native, affected UI/interaction/prediction readiness, isolated client bootstrap and packaging pass; connected GPU portraits/cursor and physical input remain owner tests."]
+    }
+  ]
+}

@@ -34,6 +34,7 @@ public final class ChemMasterFixtureService {
     private static final BlockPos MACHINE=new BlockPos(3,1,8), APC=new BlockPos(3,1,6), SOURCE=new BlockPos(3,1,2), SUB=new BlockPos(3,1,4);
     private static final BlockPos[] SUPPLIES={new BlockPos(0,1,7),new BlockPos(0,1,8),new BlockPos(0,1,9),new BlockPos(7,1,7),new BlockPos(7,1,8),new BlockPos(7,1,9),new BlockPos(7,1,6)};
     private static final BlockPos[] JUG_SUPPLIES={new BlockPos(1,1,8),new BlockPos(5,1,9),new BlockPos(1,1,2),new BlockPos(2,1,2),new BlockPos(6,1,2),new BlockPos(7,1,2),new BlockPos(1,1,3),new BlockPos(2,1,3),new BlockPos(6,1,3),new BlockPos(7,1,3)};
+    private static final BlockPos[] OUTPUT_SUPPLIES={new BlockPos(0,1,6),new BlockPos(7,1,5)};
     private static final String[] JUG_REAGENTS={"water","sugar","sodium","chlorine","oxygen","iron","ethanol","ammonia","carbon","silicon"};
     private static final String[] MIXTURE_REAGENTS={"ale","milk","coffee","cola","beer","absinthe"};
     private ChemMasterFixtureService() { }
@@ -72,7 +73,9 @@ public final class ChemMasterFixtureService {
             jugs[i].set(ModDataComponents.REAGENT.get(),new ReagentComponent(Map.of(key,200f)));
         }
         for(int i=0;i<jugs.length;i++)if(!level.addFreshEntity(LooseItemEntity.create(level,origin.offset(JUG_SUPPLIES[i]).getCenter(),jugs[i])))return "PARTIAL: platform and beakers placed; jug supply drop failed at "+origin.offset(JUG_SUPPLIES[i])+".";
-        return "Built open-air ChemMaster platform; origin="+origin+", bounds 8x10x4; machine="+origin.offset(MACHINE)+" facing SOUTH, resolved demand="+machine.powerLoadWatts()+" W; 17 ordinary loose supplies (7 beakers, 10 resolved 200u drink jugs). Use status after normal power-solve ticks.";
+        ItemStack[] outputPackages={new ItemStack(ModItems.BOTTLE.get()),new ItemStack(ModItems.PILL_CANISTER.get())};
+        for(int i=0;i<outputPackages.length;i++)if(!level.addFreshEntity(LooseItemEntity.create(level,origin.offset(OUTPUT_SUPPLIES[i]).getCenter(),outputPackages[i])))return "PARTIAL: power and reagent supplies placed; output-package drop failed at "+origin.offset(OUTPUT_SUPPLIES[i])+".";
+        return "Built open-air ChemMaster platform; origin="+origin+", bounds 8x10x4; machine="+origin.offset(MACHINE)+" facing SOUTH, resolved demand="+machine.powerLoadWatts()+" W; 19 ordinary loose supplies (7 beakers, 10 resolved 200u drink jugs, one packaging bottle and one empty pill canister). Use status after normal power-solve ticks.";
     }
     public static String status(ServerLevel level,BlockPos origin) {
         BlockPos pos=origin.offset(MACHINE);
@@ -82,7 +85,8 @@ public final class ChemMasterFixtureService {
         var meter=com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.chemMasterMeter(level,machine);
         boolean powered=com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.hasFullFreshChemMasterPower(level,machine,machine.placementIdentity());
         int loose=level.getEntitiesOfClass(LooseItemEntity.class,new net.minecraft.world.phys.AABB(origin.getX(),origin.getY(),origin.getZ(),origin.getX()+WIDTH,origin.getY()+AIR_HEIGHT+1,origin.getZ()+DEPTH)).size();
-        return "origin="+origin+", machine="+pos+", demand="+machine.powerLoadWatts()+" W, meter="+meter+", fullFreshCurrentPlacement="+powered+", placementIdentity="+machine.placementIdentity()+", looseItemEntities currently in platform envelope="+loose+" (17 fixture supplies staged). Wait normal power ticks then repeat status; no forced grant.";
+        var input=machine.inputSlot()==null?null:machine.inputSlot().snapshot();var output=machine.outputSlot()==null?null:machine.outputSlot().snapshot();
+        return "origin="+origin+", machine="+pos+", demand="+machine.powerLoadWatts()+" W, meter="+meter+", fullFreshCurrentPlacement="+powered+", placementIdentity="+machine.placementIdentity()+", input="+(input==null?"unavailable":input.stack().getHoverName())+", output="+(output==null||output.stack().isEmpty()?"empty":output.stack().getHoverName())+", looseItemEntities currently in platform envelope="+loose+" (19 fixture supplies staged). Wait normal power ticks then repeat status; no forced grant.";
     }
     private static String preflight(ServerLevel l,BlockPos o) {
         for(int x=0;x<WIDTH;x++)for(int z=0;z<DEPTH;z++)for(int y=0;y<=AIR_HEIGHT;y++){
@@ -105,3 +109,4 @@ public final class ChemMasterFixtureService {
     }
     private static void place(ServerLevel l,BlockPos p,PowerDeviceKind kind,Direction facing){if(kind==PowerDeviceKind.APC){if(!PowerDeviceFixturePlacement.placeApc(l,p,facing))throw new IllegalStateException("ChemMaster fixture APC support/placement failed at "+p);return;}var b=switch(kind){case HV_SOURCE->ModBlocks.HV_SOURCE.get();case HV_MV_SUBSTATION->ModBlocks.HV_MV_SUBSTATION.get();default->throw new IllegalArgumentException();};l.setBlock(p,b.defaultBlockState().setValue(PowerDeviceBlock.FACING,facing),3);}
 }
+

@@ -27,3 +27,4 @@ public final class CelestialSceneExamination {
                 .scale(com.juicyslew.moonstation14.ms14.examine.ExamineWorldSelector.MAX_VISIBLE_RANGE));
     }
 }
+

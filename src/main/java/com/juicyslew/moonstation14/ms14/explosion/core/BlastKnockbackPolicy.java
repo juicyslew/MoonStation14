@@ -49,3 +49,4 @@ public final class BlastKnockbackPolicy {
         return new Result(true, new Velocity(nx * speed, ny * speed, nz * speed));
     }
 }
+

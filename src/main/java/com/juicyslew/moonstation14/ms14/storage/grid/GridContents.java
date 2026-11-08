@@ -86,7 +86,7 @@ public final class GridContents {
             if (token == null || token.isBlank() || token.length() > ItemToken.MAX_LENGTH || stack == null || stack.isEmpty()
                     || stack.getCount() < 1 || stack.getCount() > stack.getMaxStackSize()
                     || "moonstation14:pouch".equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())
-                    || stack.is(ModItems.BAG) || stack.is(ModItems.BELT)
+                    || stack.is(ModItems.BAG) || stack.is(ModItems.BELT) || stack.is(ModItems.PILL_CANISTER)
                     || foreign(stack) || stack.has(ModDataComponents.POUCH_CONTENTS.get()) || stack.has(ModDataComponents.GRID_CONTENTS.get()))
                 throw new IllegalArgumentException("invalid grid child");
             stack = stack.copy(); Objects.requireNonNull(rotation);
@@ -100,10 +100,10 @@ public final class GridContents {
 
     /** A read adapter only: legacy contents are represented virtually and the source is untouched. */
     public static Optional<GridContents> read(ItemStack host) {
-        if (host == null || host.isEmpty() || host.getCount() != 1 || (!host.is(ModItems.BAG) && !host.is(ModItems.BELT)) || foreign(host)) return Optional.empty();
+        if (host == null || host.isEmpty() || host.getCount() != 1 || !isHost(host) || foreign(host)) return Optional.empty();
         boolean grid = host.has(ModDataComponents.GRID_CONTENTS.get()), legacy = host.has(ModDataComponents.POUCH_CONTENTS.get());
         if (grid && legacy) return Optional.empty();
-        int w = host.is(ModItems.BAG) ? 7 : 8, h = host.is(ModItems.BAG) ? 4 : 2;
+        int w = width(host), h = height(host);
         GridContents value = grid ? host.get(ModDataComponents.GRID_CONTENTS.get()) : empty();
         if (value == null) return Optional.empty();
         if (!grid && legacy) {
@@ -116,16 +116,40 @@ public final class GridContents {
                 catch (IllegalArgumentException ex) { return Optional.empty(); }
             }
         }
+        String whitelist = whitelist(host);
+        if (!whitelist.isEmpty() && value.entries().stream().anyMatch(e -> !BuiltInRegistries.ITEM.getKey(e.stack().getItem()).toString().equals(whitelist))) return Optional.empty();
         if (!valid(value, w, h)) return Optional.empty();
         return Optional.of(value);
     }
     /** Explicit copy-on-write migration; callers should invoke only as part of an authorized write. */
     public static Optional<ItemStack> applyCopyWithGrid(ItemStack host, GridContents value) {
         if (read(host).isEmpty() || host.has(ModDataComponents.GRID_CONTENTS.get()) && host.has(ModDataComponents.POUCH_CONTENTS.get())) return Optional.empty();
-        int w = host.is(ModItems.BAG) ? 7 : 8, h = host.is(ModItems.BAG) ? 4 : 2;
+        int w = width(host), h = height(host);
+        String whitelist = whitelist(host);
+        if (!whitelist.isEmpty() && value.entries().stream().anyMatch(e -> !BuiltInRegistries.ITEM.getKey(e.stack().getItem()).toString().equals(whitelist))) return Optional.empty();
         if (!valid(value, w, h)) return Optional.empty();
         ItemStack result = host.copy(); result.set(ModDataComponents.GRID_CONTENTS.get(), value); result.remove(ModDataComponents.POUCH_CONTENTS.get());
         return Optional.of(result);
+    }
+    public static boolean isHost(ItemStack host) { return host != null && !host.isEmpty() && (host.is(ModItems.BAG) || host.is(ModItems.BELT)
+            || storage(host).isPresent()); }
+    public static int width(ItemStack host) {
+        if (host != null && host.is(ModItems.BAG)) return 7;
+        if (host != null && host.is(ModItems.BELT)) return 8;
+        return storage(host).flatMap(com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData.Storage::width).orElse(0);
+    }
+    public static int height(ItemStack host) {
+        if (host != null && host.is(ModItems.BAG)) return 4;
+        if (host != null && host.is(ModItems.BELT)) return 2;
+        return storage(host).flatMap(com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData.Storage::height).orElse(0);
+    }
+    private static String whitelist(ItemStack host) {
+        return storage(host).flatMap(com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData.Storage::whitelistItem).orElse("");
+    }
+    private static Optional<com.juicyslew.moonstation14.ms14.chemistry.output.ChemContainerData.Storage> storage(ItemStack host) {
+        var data = com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.resolveServer(
+                com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.prototype(host));
+        return data == null ? Optional.empty() : data.storage();
     }
     private static boolean valid(GridContents contents, int w, int h) {
         return validEntries(contents.entries, w, h);
@@ -164,3 +188,4 @@ public final class GridContents {
     // A constant hash preserves the equals/hashCode contract for detached stack copies.
     @Override public int hashCode() { return 0; }
 }
+

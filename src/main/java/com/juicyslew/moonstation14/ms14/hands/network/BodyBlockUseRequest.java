@@ -32,3 +32,4 @@ public record BodyBlockUseRequest(long epoch, long sequence, long expectedRevisi
     }
     @Override public Type<? extends CustomPacketPayload> type(){ return TYPE; }
 }
+

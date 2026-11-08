@@ -62,3 +62,4 @@ public final class NetworkConfiguratorLinkWindow {
     static int portRowTop(int visibleRow){return 58+visibleRow*19;}
     public void scrollPorts(double delta){if(snapshot==null)return;int count=Math.max(snapshot.sources().size(),snapshot.sinks().size());portScroll=Math.max(0,Math.min(Math.max(0,count-8),portScroll+(delta<0?1:-1)));}
 }
+

@@ -43,13 +43,15 @@ class ChemMasterProcessingPolicyTest {
         assertTrue(ChemMasterProcessingPolicy.shouldReactOnReturn(1));
     }
 
-    @Test void bodyUseOpenRouteRequiresEmptyHandAndIsNotBlockedByHeldItems() {
+    @Test void ordinaryUsePreservesInsertionIntentButExplicitActivationOpensWithHeldItems() {
         assertTrue(ChemMasterSessionService.opensWorkspace(
                 com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.USE, true, false));
         assertTrue(ChemMasterSessionService.opensWorkspace(
                 com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.ACTIVATE_WORLD, true, false));
         assertFalse(ChemMasterSessionService.opensWorkspace(
                 com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.USE, false, false));
+        assertTrue(ChemMasterSessionService.opensWorkspace(
+                com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.ACTIVATE_WORLD, false, false));
         assertFalse(ChemMasterSessionService.opensWorkspace(
                 com.juicyslew.moonstation14.ms14.hands.network.BodyBlockUseRequest.Intent.USE, true, true));
     }

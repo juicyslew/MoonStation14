@@ -1,0 +1,69 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml": {
+      "sha256": "a28ed494a096cf63f7887f45e4967e89600b60022fd2b49af22e131f9bafb385"
+    },
+    "Resources/Prototypes/Entities/Objects/Specific/Hydroponics/leaves.yml": {
+      "sha256": "9202e86fe0f169e77e2c855ba743722cdb76790fa3a81bfbd0a348b44b77e594"
+    }
+  },
+  "requestedLeafIds": [
+    "FoodOnion",
+    "FoodOnionRed",
+    "FoodOnionSlice",
+    "FoodOnionRedSlice",
+    "FoodMushroom",
+    "FoodFlyAmanita",
+    "FoodChiliPepper",
+    "FoodChillyPepper",
+    "RiceBushel",
+    "FoodSoybeans",
+    "FoodKoibean",
+    "FoodPeaPod",
+    "FoodLaughinPeaPod",
+    "FoodWorldPeas",
+    "OatBushel",
+    "Sugarcane",
+    "LeavesTea",
+    "LeavesTobacco",
+    "LeavesCannabis",
+    "LeavesCannabisRainbow",
+    "MeatwheatBushel",
+    "FoodLily"
+  ],
+  "capturedConcreteProductCount": 22,
+  "capturedAdditionalAncestorCount": 3,
+  "capturedRawRecordCount": 25,
+  "capturedEntityIds": [
+    "FoodChiliPepper",
+    "FoodChillyPepper",
+    "FoodFlyAmanita",
+    "FoodKoibean",
+    "FoodLaughinPeaPod",
+    "FoodLily",
+    "FoodMushroom",
+    "FoodOnion",
+    "FoodOnionRed",
+    "FoodOnionRedSlice",
+    "FoodOnionSlice",
+    "FoodPeaPod",
+    "FoodPoppy",
+    "FoodSoybeans",
+    "FoodWorldPeas",
+    "LeavesCannabis",
+    "LeavesCannabisRainbow",
+    "LeavesTea",
+    "LeavesTobacco",
+    "MeatwheatBushel",
+    "OatBushel",
+    "ProduceBase",
+    "ProduceBaseRuminant",
+    "RiceBushel",
+    "Sugarcane"
+  ],
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "taggedRecordChecks": {},
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "parentClosureVerifiedAgainstExisting24AndAdditions": true
+}

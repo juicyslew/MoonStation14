@@ -46,7 +46,7 @@ public final class AirlockBumpSystem {
                 || Math.abs(requested.z) > 4) return java.util.List.of();
         AABB verticallyResolved = resolveLoadedVertical(level, actor, preMoveBounds, requested.y);
         if (verticallyResolved == null) return java.util.List.of();
-        WorldPlane worldPlane = earliestWorldBlockingPlane(level, verticallyResolved,
+        WorldPlane worldPlane = earliestWorldBlockingPlane(level, actor, verticallyResolved,
                 new Vec3(requested.x, 0, requested.z));
         if (worldPlane.unknown() || worldPlane.doors().isEmpty()) {
             // A nearer ordinary obstruction (or unknown loaded boundary) prevents frame activation.
@@ -129,7 +129,7 @@ public final class AirlockBumpSystem {
         if (horizontal.lengthSqr() < 1.0E-12) return java.util.List.of();
         AABB verticallyResolved = resolveLoadedVertical(level, actor, bounds, requested.y);
         if (verticallyResolved == null) return java.util.List.of();
-        WorldPlane plane = earliestWorldBlockingPlane(level, verticallyResolved, horizontal);
+        WorldPlane plane = earliestWorldBlockingPlane(level, actor, verticallyResolved, horizontal);
         return plane.unknown() ? java.util.List.of() : java.util.List.copyOf(plane.doors().values());
     }
 
@@ -157,7 +157,7 @@ public final class AirlockBumpSystem {
     }
 
     /** Shared ordinary-world first-plane sweep. Closed airlocks occlude even without a usable controller. */
-    private static WorldPlane earliestWorldBlockingPlane(net.minecraft.world.level.Level level, AABB start, Vec3 horizontal) {
+    private static WorldPlane earliestWorldBlockingPlane(net.minecraft.world.level.Level level, Entity actor, AABB start, Vec3 horizontal) {
         AABB swept = start.expandTowards(horizontal).inflate(1.0E-5);
         BlockPos min = BlockPos.containing(swept.minX, swept.minY, swept.minZ);
         BlockPos max = BlockPos.containing(swept.maxX, swept.maxY, swept.maxZ);
@@ -178,6 +178,8 @@ public final class AirlockBumpSystem {
                 double t = timeOfImpact(start, horizontal, shape);
                 if (t >= 0) {
                     var door = knownWorldDoor(level, root);
+                    if (door instanceof AirlockBlockEntity candidate && level instanceof ServerLevel
+                            && actor != null && !AirlockPassagePolicy.pairCollides(actor, candidate)) continue;
                     AirlockBlockEntity.ClientView clientView = level.isClientSide
                             && door instanceof AirlockBlockEntity d ? d.authoritativeClientView() : null;
                     java.util.UUID identity = door instanceof AirlockBlockEntity d
@@ -373,7 +375,7 @@ public final class AirlockBumpSystem {
         Vec3 delta = new Vec3(endpoint.x() - (preMoveBounds.minX + preMoveBounds.maxX) * .5, 0,
                 endpoint.z() - (preMoveBounds.minZ + preMoveBounds.maxZ) * .5);
         if (delta.lengthSqr() < 1.0E-12) return true;
-        WorldPlane plane = earliestWorldBlockingPlane(level, start, delta);
+        WorldPlane plane = earliestWorldBlockingPlane(level, actor, start, delta);
         return worldEndpointOrderingAllows(plane.firstT(), plane.unknown());
     }
 

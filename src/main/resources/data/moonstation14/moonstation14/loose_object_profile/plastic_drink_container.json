@@ -1,0 +1,14 @@
+{
+  "id": "moonstation14:plastic_drink_container",
+  "parent": "moonstation14:generic",
+  "item_damage": {
+    "allowed_groups": ["brute"],
+    "allowed_types": ["heat", "shock"],
+    "destruction_threshold": 5.0,
+    "overkill_destruction_threshold": 200.0,
+    "destruction_sound": "moonstation14:ss14/effects/metal_crunch",
+    "destruction_sound_volume_db": 0.0,
+    "spill_current_reagents": true,
+    "destruction_outputs": []
+  }
+}

@@ -10,4 +10,8 @@ final class GhostSpriteDirection {
         int quarterTurn = (int) Math.floor((relativeYaw + 45.0F) / 90.0F) & 3;
         return RSI_DIRECTION_BY_QUARTER_TURN[quarterTurn];
     }
+
+    static int fromView(float entityYaw, float cameraYaw) {
+        return fromRelativeYaw(net.minecraft.util.Mth.wrapDegrees(entityYaw - cameraYaw + 180.0F));
+    }
 }

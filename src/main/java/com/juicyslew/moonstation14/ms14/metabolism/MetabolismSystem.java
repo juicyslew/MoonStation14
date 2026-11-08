@@ -315,3 +315,4 @@ public final class MetabolismSystem {
         return process(compartment, catalog, MetabolizerProfile.SHARED_LIVING, capacity, random, effectCallback);
     }
 }
+

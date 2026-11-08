@@ -120,3 +120,4 @@ public final class CarrierHandInventoryGate {
         return stack == ItemStack.EMPTY && stack.getCount() == 0;
     }
 }
+

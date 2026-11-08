@@ -28,3 +28,4 @@ public record HandsPrototypeComponent(List<String> hands, boolean canBeStripped)
 
     @Override public String type() { return TYPE; }
 }
+

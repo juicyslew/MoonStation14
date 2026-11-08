@@ -7,14 +7,18 @@ import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.ms14.explosion.core.BlastPlanner;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ModExplosions;
 import com.juicyslew.moonstation14.ms14.explosion.server.ServerExplosionService;
+import com.juicyslew.moonstation14.ms14.damage.DamageSystem;
 import com.juicyslew.moonstation14.ms14.power.cable.CableStorage;
 import com.juicyslew.moonstation14.ms14.power.cable.CableTier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -28,6 +32,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 public final class ExplosionGameTests {
     private static final Logger LOGGER = LoggerFactory.getLogger(ExplosionGameTests.class);
     private static final BlastPlanner.Proposal PROPOSAL = new BlastPlanner.Proposal(120, 3, 10);
+    private static final TagKey<net.minecraft.world.level.block.Block> BLAST_DAMAGE_IMMUNE = TagKey.create(
+            Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(MoonStation14.MOD_ID, "blast_damage_immune"));
 
     private ExplosionGameTests() { }
 
@@ -76,6 +82,51 @@ public final class ExplosionGameTests {
             var damage = zombie.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
             require(damage != null && damage.getMap().values().stream().mapToDouble(Float::doubleValue).sum() > 0,
                     "blast applies typed damage attachment");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"corpse-damage"})
+    public static void retainedDeadBodyReceivesBlastAndKnockbackButNoPhysicsBodyDoesNot(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        BlastPlanner.Proposal nonlethalProposal = new BlastPlanner.Proposal(10, 3, 10);
+        BlockPos source = pos(helper, 5, 2, 5);
+        Pig corpse = helper.spawn(EntityType.PIG, new BlockPos(6, 2, 5));
+        Pig pinned = helper.spawn(EntityType.PIG, new BlockPos(5, 2, 6));
+        corpse.setNoAi(true); pinned.setNoAi(true);
+        corpse.setNoGravity(true); pinned.setNoGravity(true);
+        require(DamageSystem.applyHealthChange(corpse, java.util.Map.of("heat", 200f), 1f, true)
+                        == DamageSystem.Result.APPLIED
+                        && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(corpse)
+                        && !corpse.isAlive() && corpse.getHealth() == 0,
+                "blast fixture is a retained medical-dead zero-health pig");
+        require(DamageSystem.applyHealthChange(pinned, java.util.Map.of("heat", 200f), 1f, true)
+                        == DamageSystem.Result.APPLIED
+                        && com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(pinned),
+                "pinned control is retained medical-dead body");
+        pinned.noPhysics = true;
+        corpse.setPos(source.getX() + 0.75, source.getY(), source.getZ() + 0.5);
+        pinned.setPos(source.getX() + 0.5, source.getY(), source.getZ() + 0.75);
+        helper.runAfterDelay(2, () -> {
+            require(!corpse.isAlive() && !corpse.isRemoved() && !pinned.isAlive(),
+                    "both corpse entities remain retained before blast");
+            // Ignore vanilla hurt resistance from the lethal fixture setup hit.
+            corpse.invulnerableTime = 0;
+            pinned.invulnerableTime = 0;
+            float corpseBluntBefore = typedBlunt(corpse);
+            float pinnedBluntBefore = typedBlunt(pinned);
+            var beforePinned = pinned.getDeltaMovement();
+            var result = ServerExplosionService.execute(level, source, ModExplosions.DEFAULT_ID, nonlethalProposal);
+            require(result.status() == ServerExplosionService.Status.APPLIED && result.damaged() == 2,
+                    "blast selects both retained corpses exactly once: " + result);
+            require(typedBlunt(corpse) > corpseBluntBefore && typedBlunt(pinned) > pinnedBluntBefore,
+                    "blast commits typed blunt damage to each corpse ledger");
+            require(corpse.getDeltaMovement().x > 0, "eligible corpse receives outward blast impulse");
+            require(pinned.getDeltaMovement().equals(beforePinned), "noPhysics corpse remains excluded from knockback");
+            require(com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isDead(corpse)
+                            && corpse.getHealth() == 0 && !corpse.isRemoved(),
+                    "repeat physical hit retains corpse identity and zero native health");
             helper.succeed();
         });
     }
@@ -187,8 +238,61 @@ public final class ExplosionGameTests {
         helper.succeed();
     }
 
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20)
+    @GameTestTags({"explosion", "tesla"})
+    public static void blastPreservesTaggedFieldGeneratorWithoutBlockingWave(GameTestHelper helper) {
+        ServerLevel level = (ServerLevel) helper.getLevel();
+        // This is an eligibility/propagation fixture for the shared blast executor, not Tesla
+        // proposal tuning: use the existing generous shared-service proposal to reach beyond
+        // multiple immune cells and positively prove that the wave was not stopped.
+        BlastPlanner.Proposal proposal = PROPOSAL;
+        BlockPos source = pos(helper, 2, 2, 2);
+        BlockPos generator = source.east();
+        BlockPos teslaGenerator = source.north();
+        BlockPos singularityGenerator = source.above();
+        level.setBlock(generator, ModBlocks.FIELD_GENERATOR.get().defaultBlockState(), 3);
+        level.setBlock(teslaGenerator, ModBlocks.TESLA_GENERATOR.get().defaultBlockState(), 3);
+        level.setBlock(singularityGenerator, ModBlocks.SINGULARITY_GENERATOR.get().defaultBlockState(), 3);
+        BlockPos adjacentWall = source.west();
+        BlockPos beyondGenerators = source.east(2);
+        level.setBlock(adjacentWall, Blocks.STONE.defaultBlockState(), 3);
+        level.setBlock(beyondGenerators, Blocks.STONE.defaultBlockState(), 3);
+        var fieldEntity = level.getBlockEntity(generator);
+        var teslaEntity = level.getBlockEntity(teslaGenerator);
+        var singularityEntity = level.getBlockEntity(singularityGenerator);
+        require(level.getBlockState(generator).is(BLAST_DAMAGE_IMMUNE),
+                "field generator is recognized by loaded blast immunity tag");
+        require(level.getBlockState(teslaGenerator).is(BLAST_DAMAGE_IMMUNE),
+                "Tesla generator is recognized by loaded blast immunity tag");
+        require(level.getBlockState(singularityGenerator).is(BLAST_DAMAGE_IMMUNE),
+                "singularity generator is recognized by loaded blast immunity tag");
+        require(fieldEntity != null, "field generator block entity exists before blast");
+        require(teslaEntity != null && singularityEntity != null, "startup generator block entities exist before blast");
+
+        var result = ServerExplosionService.execute(level, source, ModExplosions.DEFAULT_ID, proposal);
+        require(result.status() == ServerExplosionService.Status.APPLIED, "tagged-block blast applied: " + result);
+        require(level.getBlockState(generator).is(ModBlocks.FIELD_GENERATOR.get()), "field generator block remains intact");
+        require(level.getBlockEntity(generator) == fieldEntity, "field generator block entity remains intact");
+        require(level.getBlockState(teslaGenerator).is(ModBlocks.TESLA_GENERATOR.get())
+                        && level.getBlockEntity(teslaGenerator) == teslaEntity,
+                "Tesla generator state and block entity remain intact");
+        require(level.getBlockState(singularityGenerator).is(ModBlocks.SINGULARITY_GENERATOR.get())
+                        && level.getBlockEntity(singularityGenerator) == singularityEntity,
+                "singularity generator state and block entity remain intact");
+        require(level.getBlockState(adjacentWall).isAir(), "ordinary stone wall beside generators is breached; result="
+                + result + " positions=" + generator + "," + teslaGenerator + "," + singularityGenerator + "," + adjacentWall);
+        require(level.getBlockState(beyondGenerators).isAir(), "blast propagates beyond immune field generator and breaches stone; result="
+                + result + " position=" + beyondGenerators);
+        helper.succeed();
+    }
+
     private static BlockPos pos(GameTestHelper helper, int x, int y, int z) {
         return helper.absolutePos(new BlockPos(x, y, z));
+    }
+
+    private static float typedBlunt(Pig pig) {
+        var damage = pig.getExistingDataOrNull(ModDataAttachments.DAMAGE.get());
+        return damage == null ? 0f : damage.getMap().getOrDefault("blunt", 0f);
     }
 
     private static void require(boolean condition, String message) {

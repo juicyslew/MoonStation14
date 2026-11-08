@@ -42,3 +42,4 @@ public record ChemMasterDumpResult(UUID gestureId, ChemMasterDumpRequest.Phase p
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

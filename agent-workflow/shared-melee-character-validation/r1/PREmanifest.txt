@@ -1,0 +1,1 @@
+run_started=2026-10-21T06:31:53.7349597-07:00 command=./gradlew.bat compileJava compileTestJava compileGametestJava test --tests exact CharacterPrototypeTest,CharacterComponentMergeStrategyTest,MeleeWeaponDataTest,MeleeWeaponProfileTest report_scope=ONLY four fresh exact XML suites

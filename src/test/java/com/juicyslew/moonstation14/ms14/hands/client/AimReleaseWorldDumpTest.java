@@ -23,9 +23,19 @@ class AimReleaseWorldDumpTest {
     }
 
     @Test void originalRoutingAndPointerPressAreNotCaptured() {
-        assertEquals(AimReleaseWorldDump.Press.ROUTE_ORIGINAL, gesture.press(true, false, false, source, body, 4));
-        assertEquals(AimReleaseWorldDump.Press.IGNORE, gesture.press(true, true, true, source, body, 4));
+        var ineligible = gesture.press(true, false, false, source, body, 4);
+        assertEquals(AimReleaseWorldDump.Press.ROUTE_ORIGINAL, ineligible);
+        assertFalse(AimReleaseWorldDump.consumesWorldPress(ineligible));
+        var pointerOwned = gesture.press(true, true, true, source, body, 4);
+        assertEquals(AimReleaseWorldDump.Press.IGNORE, pointerOwned);
+        assertFalse(AimReleaseWorldDump.consumesWorldPress(pointerOwned));
         assertFalse(gesture.active());
+    }
+
+    @Test void capturedWorldPressIsConsumedBeforeExamineFallback() {
+        var captured = gesture.press(true, false, true, source, body, 4);
+        assertEquals(AimReleaseWorldDump.Press.CAPTURE, captured);
+        assertTrue(AimReleaseWorldDump.consumesWorldPress(captured));
     }
 
     @Test void configuredBindingSupportsDefaultAndReboundMouseButNeverStealsAltE() {

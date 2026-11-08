@@ -12,3 +12,4 @@ public record FootstepSoundData(String collection, Optional<FootstepSoundParamsD
             FootstepSoundParamsData.CODEC.codec().optionalFieldOf("params").forGetter(FootstepSoundData::params)
     ).apply(instance, FootstepSoundData::new));
 }
+

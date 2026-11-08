@@ -157,3 +157,4 @@ public final class LifecycleProfileCodec {
     }
     private static Map<String, String> stringMap(JsonObject o) { java.util.TreeMap<String, String> result = new java.util.TreeMap<>(); for (var e : o.entrySet()) { if (!e.getValue().isJsonPrimitive() || !e.getValue().getAsJsonPrimitive().isString()) throw new IllegalArgumentException("appearance values must be text"); result.put(e.getKey(), e.getValue().getAsString()); } return result; }
 }
+

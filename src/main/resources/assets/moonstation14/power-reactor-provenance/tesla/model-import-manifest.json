@@ -1,0 +1,179 @@
+{
+  "source_package": "../Asset Building Workspace/assets/Structures/Power/candidates/terminal_support_r6/export",
+  "source_manifest": "export/manifest.json",
+  "accepted_output_hashes": "power-reactor-provenance/accepted_output_hashes.json",
+  "families": [
+    {
+      "asset_id": "generation_tesla_coil",
+      "prototype_ids": [
+        "TeslaCoil"
+      ],
+      "native_sprite_resource": "Structures/Power/Generation/Tesla/coil.rsi",
+      "art_revision": "USER_ACCEPTED_AS_IS_current_Power_R6",
+      "accepted_master_path": "authoring/generation_tesla_coil/generation_tesla_coil.bbmodel",
+      "accepted_master_sha256": "a78f0d0d897fef96071a59f42a699bf7001a31174468c72f3c10cc1bdc7e2f5f",
+      "registry_path": "export/asset_registry.json",
+      "texture_path": "textures/generation_tesla_coil/default.png",
+      "coordinate_contract": "Minecraft -Z front, +Y up, 16 model units/block; X/Z +8 centering applied once",
+      "attribution": {
+        "license": "CC-BY-SA-3.0",
+        "copyright": "Taken from tgstation; Tesla coil: https://github.com/tgstation/tgstation/blob/master/icons/obj/machines/engine/tesla_coil.dmi; Tesla generator: https://github.com/tgstation/tgstation/blob/master/icons/obj/machines/engine/tesla_generator.dmi",
+        "authoritative_local_source": "power-reactor-provenance/ATTRIBUTION.md; matching SS14 Tesla RSI metadata in pinned source"
+      },
+      "imported_resources": [
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/models/block/power_collection/generation_tesla_coil/coil.json",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_tesla_coil/coil.json",
+          "accepted_sha256": "7473d3b2171e5597804d97034ba98cf2c0e466da008db06b4ef7814b46349020",
+          "runtime_sha256": "7473d3b2171e5597804d97034ba98cf2c0e466da008db06b4ef7814b46349020",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/models/block/power_collection/generation_tesla_coil/coilhit.json",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_tesla_coil/coilhit.json",
+          "accepted_sha256": "fe0a6a7057739e23a01f14ce698b54be33f8221b0fd03dad85e95123e218b76b",
+          "runtime_sha256": "fe0a6a7057739e23a01f14ce698b54be33f8221b0fd03dad85e95123e218b76b",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/models/block/power_collection/generation_tesla_coil/default.json",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_tesla_coil/default.json",
+          "accepted_sha256": "e32a41419a9fb9645593dda1d7b8d0b020d8e019e7b1a67ab04733e1bb77d996",
+          "runtime_sha256": "e32a41419a9fb9645593dda1d7b8d0b020d8e019e7b1a67ab04733e1bb77d996",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/textures/block/power_collection/generation_tesla_coil/coil.png",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_tesla_coil/coil.png",
+          "accepted_sha256": "e407adcf7a023a56852d0b5c1360d95fb4ae1bdee240f4977fdc51ffaca5b416",
+          "runtime_sha256": "e407adcf7a023a56852d0b5c1360d95fb4ae1bdee240f4977fdc51ffaca5b416",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/textures/block/power_collection/generation_tesla_coil/coilhit.png",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_tesla_coil/coilhit.png",
+          "accepted_sha256": "e407adcf7a023a56852d0b5c1360d95fb4ae1bdee240f4977fdc51ffaca5b416",
+          "runtime_sha256": "e407adcf7a023a56852d0b5c1360d95fb4ae1bdee240f4977fdc51ffaca5b416",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/textures/block/power_collection/generation_tesla_coil/default.png",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_tesla_coil/default.png",
+          "accepted_sha256": "e407adcf7a023a56852d0b5c1360d95fb4ae1bdee240f4977fdc51ffaca5b416",
+          "runtime_sha256": "e407adcf7a023a56852d0b5c1360d95fb4ae1bdee240f4977fdc51ffaca5b416",
+          "byte_identical_to_accepted_export": true
+        }
+      ]
+    },
+    {
+      "asset_id": "generation_tesla_coil__teslagroundingrod",
+      "prototype_ids": [
+        "TeslaGroundingRod"
+      ],
+      "native_sprite_resource": "Structures/Power/Generation/Tesla/coil.rsi",
+      "art_revision": "USER_ACCEPTED_AS_IS_current_Power_R6",
+      "accepted_master_path": "authoring/generation_tesla_coil__teslagroundingrod/generation_tesla_coil__teslagroundingrod.bbmodel",
+      "accepted_master_sha256": "7bdb8479ed650e942fdc4555773520a4147a1cac12a45280f4526ab26b3fdd9d",
+      "registry_path": "export/asset_registry.json",
+      "texture_path": "textures/generation_tesla_coil__teslagroundingrod/default.png",
+      "coordinate_contract": "Minecraft -Z front, +Y up, 16 model units/block; X/Z +8 centering applied once",
+      "attribution": {
+        "license": "CC-BY-SA-3.0",
+        "copyright": "Taken from tgstation; Tesla coil: https://github.com/tgstation/tgstation/blob/master/icons/obj/machines/engine/tesla_coil.dmi; Tesla generator: https://github.com/tgstation/tgstation/blob/master/icons/obj/machines/engine/tesla_generator.dmi",
+        "authoritative_local_source": "power-reactor-provenance/ATTRIBUTION.md; matching SS14 Tesla RSI metadata in pinned source"
+      },
+      "imported_resources": [
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/models/block/power_collection/generation_tesla_coil__teslagroundingrod/default.json",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_tesla_coil__teslagroundingrod/default.json",
+          "accepted_sha256": "f8b84d36d8c6bc04b16d1c5056608ca9cb06750385a919d93c27424fd69e8b63",
+          "runtime_sha256": "f8b84d36d8c6bc04b16d1c5056608ca9cb06750385a919d93c27424fd69e8b63",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/models/block/power_collection/generation_tesla_coil__teslagroundingrod/grounding_rod.json",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_tesla_coil__teslagroundingrod/grounding_rod.json",
+          "accepted_sha256": "fee349d3efa645acf522bc75f861024cc6afab7b2ae66c9743b35db99db8ba7a",
+          "runtime_sha256": "fee349d3efa645acf522bc75f861024cc6afab7b2ae66c9743b35db99db8ba7a",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/models/block/power_collection/generation_tesla_coil__teslagroundingrod/grounding_rodhit.json",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_tesla_coil__teslagroundingrod/grounding_rodhit.json",
+          "accepted_sha256": "74b9fa9f06453114c5524d3aaef08448d6c5ce72030f9fbc629c054383260bd1",
+          "runtime_sha256": "74b9fa9f06453114c5524d3aaef08448d6c5ce72030f9fbc629c054383260bd1",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/textures/block/power_collection/generation_tesla_coil__teslagroundingrod/default.png",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_tesla_coil__teslagroundingrod/default.png",
+          "accepted_sha256": "61d88aca402644e87284c2d4c158b9b683297b6a059edfccfdcf39e823fc45b7",
+          "runtime_sha256": "61d88aca402644e87284c2d4c158b9b683297b6a059edfccfdcf39e823fc45b7",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/textures/block/power_collection/generation_tesla_coil__teslagroundingrod/grounding_rod.png",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_tesla_coil__teslagroundingrod/grounding_rod.png",
+          "accepted_sha256": "61d88aca402644e87284c2d4c158b9b683297b6a059edfccfdcf39e823fc45b7",
+          "runtime_sha256": "61d88aca402644e87284c2d4c158b9b683297b6a059edfccfdcf39e823fc45b7",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/textures/block/power_collection/generation_tesla_coil__teslagroundingrod/grounding_rodhit.png",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_tesla_coil__teslagroundingrod/grounding_rodhit.png",
+          "accepted_sha256": "638b66aedce2dcd529f28d9350a4209a3b4e702ff74c0b9d1a8720730ef6d833",
+          "runtime_sha256": "638b66aedce2dcd529f28d9350a4209a3b4e702ff74c0b9d1a8720730ef6d833",
+          "byte_identical_to_accepted_export": true
+        }
+      ]
+    },
+    {
+      "asset_id": "generation_tesla_generator",
+      "prototype_ids": [
+        "TeslaGenerator"
+      ],
+      "native_sprite_resource": "Structures/Power/Generation/Tesla/generator.rsi",
+      "art_revision": "USER_ACCEPTED_AS_IS_current_Power_R6",
+      "accepted_master_path": "authoring/generation_tesla_generator/generation_tesla_generator.bbmodel",
+      "accepted_master_sha256": "79538ad31ca04bbcf10e23e59d6debc4be0f6b6c76e52866742db96c4bfeb50c",
+      "registry_path": "export/asset_registry.json",
+      "texture_path": "textures/generation_tesla_generator/default.png",
+      "coordinate_contract": "Minecraft -Z front, +Y up, 16 model units/block; X/Z +8 centering applied once",
+      "attribution": {
+        "license": "CC-BY-SA-3.0",
+        "copyright": "Taken from tgstation; Tesla coil: https://github.com/tgstation/tgstation/blob/master/icons/obj/machines/engine/tesla_coil.dmi; Tesla generator: https://github.com/tgstation/tgstation/blob/master/icons/obj/machines/engine/tesla_generator.dmi",
+        "authoritative_local_source": "power-reactor-provenance/ATTRIBUTION.md; matching SS14 Tesla RSI metadata in pinned source"
+      },
+      "imported_resources": [
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/models/block/power_collection/generation_tesla_generator/default.json",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_tesla_generator/default.json",
+          "accepted_sha256": "f9f5bc5c75bb18f938a59fcb4d508469a3480efd885f17741d10beb52f325f27",
+          "runtime_sha256": "f9f5bc5c75bb18f938a59fcb4d508469a3480efd885f17741d10beb52f325f27",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/models/block/power_collection/generation_tesla_generator/icon.json",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/models/block/power_collection/generation_tesla_generator/icon.json",
+          "accepted_sha256": "dd87b6da27343c148e53c5955fad33d9c84ca3c4a28cd4cdb6b34346c38430ec",
+          "runtime_sha256": "dd87b6da27343c148e53c5955fad33d9c84ca3c4a28cd4cdb6b34346c38430ec",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/textures/block/power_collection/generation_tesla_generator/default.png",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_tesla_generator/default.png",
+          "accepted_sha256": "d79e032104d6fdc99d3276d100920f17fee48aca4c574e9e5da3372656981463",
+          "runtime_sha256": "d79e032104d6fdc99d3276d100920f17fee48aca4c574e9e5da3372656981463",
+          "byte_identical_to_accepted_export": true
+        },
+        {
+          "runtime_resource": "src/main/resources/assets/moonstation14/textures/block/power_collection/generation_tesla_generator/icon.png",
+          "accepted_export_path": "export/resourcepack/assets/moonstation14/textures/block/power_collection/generation_tesla_generator/icon.png",
+          "accepted_sha256": "d79e032104d6fdc99d3276d100920f17fee48aca4c574e9e5da3372656981463",
+          "runtime_sha256": "d79e032104d6fdc99d3276d100920f17fee48aca4c574e9e5da3372656981463",
+          "byte_identical_to_accepted_export": true
+        }
+      ]
+    }
+  ]
+}

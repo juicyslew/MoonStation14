@@ -19,3 +19,4 @@ public record DisposalConstructionRequest(UUID bodyUUID, long epoch, long sequen
     }
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

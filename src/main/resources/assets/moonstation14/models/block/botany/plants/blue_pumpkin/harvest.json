@@ -1,0 +1,13 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/block/botany/plants/blue_pumpkin/harvest.obj",
+  "textures": {
+    "atlas": "moonstation14:block/botany/plants/blue_pumpkin/harvest",
+    "particle": "moonstation14:block/botany/plants/blue_pumpkin/harvest"
+  },
+  "flip_v": false,
+  "automatic_culling": false,
+  "shade_quads": true,
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

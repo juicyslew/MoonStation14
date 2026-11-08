@@ -28,7 +28,7 @@
 - `VentilationDeviceConfig`, `VentilationDeviceBlockEntity`, `FiniteVentilationTransfer`, `LoadedPipeGasOwner`, `PipeGasInventorySavedData`: configuration and finite gas ownership/flow.
 - `ms14/power/runtime/{PowerRuntime,PowerLiveLoop,VentilationPaidInterval}` and `power/graph/PowerGraphService`: allocation, payment and receiver selection.
 - `BodyBlockOutlineRenderer` and `BodyPlacementCollision`: body-camera selection feedback and pre-mutation collision checks, including newly introduced neighboring pipe arms.
-- `ms14/atmos/piping/fixture/`: plan, operator commands, initialization guard and telemetry. Sprite attribution: repository-root `powered-ventilation-sprint/asset-attribution.md`.
+- `ms14/atmos/piping/fixture/`: plan, operator commands, initialization guard and telemetry. The historical sprite-attribution reference to `powered-ventilation-sprint/asset-attribution.md` is currently missing; attribution is unverified.
 
 All Java paths above are below `src/main/java/com/juicyslew/moonstation14/`; data paths are below `src/main/resources/`.
 

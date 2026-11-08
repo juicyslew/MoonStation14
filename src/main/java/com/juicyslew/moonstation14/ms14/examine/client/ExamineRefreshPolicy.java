@@ -24,3 +24,4 @@ public final class ExamineRefreshPolicy {
     public boolean inFlight() { return inFlight; }
     public void reset() { inFlight = false; queued = false; }
 }
+

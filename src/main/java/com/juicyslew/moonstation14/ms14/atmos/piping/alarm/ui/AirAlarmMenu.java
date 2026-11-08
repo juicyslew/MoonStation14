@@ -79,3 +79,4 @@ public final class AirAlarmMenu extends AbstractContainerMenu {
         AirAlarmMenuService.closed(this);
     }
 }
+

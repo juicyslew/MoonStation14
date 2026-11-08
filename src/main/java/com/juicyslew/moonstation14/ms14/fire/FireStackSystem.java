@@ -224,3 +224,4 @@ public final class FireStackSystem {
                 needsDrying(next) || (next.stacks() > 0f && next.ignited()));
     }
 }
+

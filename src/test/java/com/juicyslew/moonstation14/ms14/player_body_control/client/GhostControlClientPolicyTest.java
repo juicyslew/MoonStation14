@@ -12,8 +12,46 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 class GhostControlClientPolicyTest {
+    @Test
+    void canonicalMouseRoutingAndOwnedLookUseLiveCarrierSource() throws IOException {
+        String mixin = source("src/main/java/com/juicyslew/moonstation14/mixin/client/MouseHandlerMindGhostLookMixin.java");
+        String redirect = method(mixin, "private void moonstation14$turnObserverCamera");
+        assertTrue(redirect.indexOf("isLocalGhostControl()") < redirect.indexOf("player.turn(yaw, pitch)"),
+                "canonical branch must route mouse input to carrier before legacy observer classification");
+        assertTrue(redirect.indexOf("player.turn(yaw, pitch)") < redirect.indexOf("ObserverClient.current()"));
+
+        String control = source("src/main/java/com/juicyslew/moonstation14/ms14/player_body_control/client/GhostControlClient.java");
+        String intents = method(control, "public static void clientTick");
+        String projection = method(control, "public static void projectOwnedGhostLookForRenderFrame");
+        for (String path : new String[] { intents, projection }) {
+            assertFalse(path.contains("ObserverClient.lookForGhost"), "owned paths must not consume stale raw observer look");
+            assertTrue(path.contains("player.getYRot()"));
+            assertTrue(path.contains("player.getXRot()"));
+        }
+        // Source-contract wiring check only; it does not exercise live mouse routing or prove runtime behavior.
+    }
+
+    private static String source(String relative) throws IOException {
+        Path root = Path.of("").toAbsolutePath();
+        Path path = Path.of(relative);
+        while (root != null && !Files.isRegularFile(root.resolve(path))) root = root.getParent();
+        if (root == null) throw new IOException("Project source not found: " + relative);
+        return Files.readString(root.resolve(path));
+    }
+
+    private static String method(String source, String signature) {
+        int start = source.indexOf(signature);
+        if (start < 0) throw new AssertionError("Missing source method: " + signature);
+        int end = source.indexOf("\n    }", start);
+        if (end < 0) throw new AssertionError("Unterminated source method: " + signature);
+        return source.substring(start, end);
+    }
+
     @Test
     void characterDefaultsToFastWithoutModifierOrMinecraftSprint() {
         assertEquals(GhostControlPayloads.BUTTON_SPRINT,
@@ -93,6 +131,35 @@ class GhostControlClientPolicyTest {
         assertFalse(GhostControlClient.ClientReadyPolicy.canSend(4, 4, false, true, true));
         assertFalse(GhostControlClient.ClientReadyPolicy.canSend(4, 4, true, true, false));
         assertFalse(GhostControlClient.ClientReadyPolicy.canSend(4, 4, true, false, true));
+    }
+
+    @Test
+    void readyDiagnosticClassifiesMissingUnsupportedAndUnreadyCharacterSeparately() {
+        assertEquals("ENTITY_NOT_TRACKED", GhostControlClient.ClientReadyPolicy.entityReason(
+                false, MobHarnessKind.CHARACTER, false, false));
+        assertEquals("UNSUPPORTED_KIND", GhostControlClient.ClientReadyPolicy.entityReason(
+                true, MobHarnessKind.CHARACTER, false, false));
+        assertEquals("CHARACTER_POLICY_UNAVAILABLE", GhostControlClient.ClientReadyPolicy.entityReason(
+                true, MobHarnessKind.CHARACTER, true, false));
+        assertEquals("UNSUPPORTED_KIND", GhostControlClient.ClientReadyPolicy.entityReason(true,
+                MobHarnessKind.CHARACTER, GhostControlClient.ClientReadyPolicy.expectedCharacterEntityType(
+                        com.juicyslew.moonstation14.ms14.player_body_control.ghost.GhostMobHarnessEntity.class), false));
+        assertFalse(GhostControlClient.ClientReadyPolicy.expectedCharacterEntityType(null));
+        assertEquals("NOT_SPECTATOR", GhostControlClient.ClientReadyPolicy.reason(true, false, true, 4, 4));
+        assertEquals("CONTEXT_MISMATCH", GhostControlClient.ClientReadyPolicy.reason(true, true, false, 4, 4));
+    }
+
+    @Test
+    void readyDiagnosticObservationDeduplicatesIdenticalStateAndResetsForNewEpoch() {
+        var first = new GhostControlClient.ClientReadyPolicy.Observation(4, MobHarnessKind.CHARACTER,
+                7, "mob", true, false, true, true, 4, 4, 4, false, "CHARACTER_POLICY_UNAVAILABLE");
+        var same = new GhostControlClient.ClientReadyPolicy.Observation(4, MobHarnessKind.CHARACTER,
+                7, "mob", true, false, true, true, 4, 4, 4, false, "CHARACTER_POLICY_UNAVAILABLE");
+        var nextEpoch = new GhostControlClient.ClientReadyPolicy.Observation(5, MobHarnessKind.CHARACTER,
+                7, "mob", true, false, true, true, 5, 5, 5, false, "CHARACTER_POLICY_UNAVAILABLE");
+        assertFalse(same.changedFrom(first));
+        assertTrue(nextEpoch.changedFrom(first));
+        assertTrue(first.changedFrom(null));
     }
 
     @Test

@@ -50,3 +50,4 @@ public record SignalControlData(WallMount wallMount, DeviceComponents deviceComp
         for(Output output:offOutputs)if(!sources.contains(output.port()))throw new IllegalArgumentException("off output is not a resolved source port: "+output.port());
     }
 }
+

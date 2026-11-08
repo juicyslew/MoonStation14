@@ -1,0 +1,1 @@
+Imported byte-for-byte from pinned SS14 c9df5ef5d675b0d1d226828bddf6b78c28502d91, Resources/Audio/Effects/internals.ogg. Upstream attributions.yml: “internals.ogg” by CEV-Eris, edited by metalgearsloth to amplify volume; CC-BY-SA-3.0; https://github.com/discordia-space/CEV-Eris/blob/f02a6e2c29b41c28b1cf4d8f897cb8f090f43552/sound/effects/internals.ogg.

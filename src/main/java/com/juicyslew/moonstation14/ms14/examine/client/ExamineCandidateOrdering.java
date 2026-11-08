@@ -18,6 +18,8 @@ public final class ExamineCandidateOrdering {
                     case BLOCK -> c.target().blockPos().toShortString();
                     case ENTITY -> c.target().entityUuid().toString();
                     case SCENE -> c.target().sceneId().toString();
+                    case ITEM -> c.target().ownedItem().toString();
+                    case STORED_ITEM -> c.target().storedItem().toString();
                 }));
         return List.copyOf(sorted.subList(0, Math.min(maximum, sorted.size())));
     }

@@ -28,3 +28,4 @@ public final class BodyInteractionAccess {
         return result.state() == LoadedFrameRayQuery.State.MISS;
     }
 }
+

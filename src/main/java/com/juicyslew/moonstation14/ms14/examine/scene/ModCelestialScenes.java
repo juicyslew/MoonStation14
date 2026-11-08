@@ -17,3 +17,4 @@ public final class ModCelestialScenes {
         return level.isClientSide() ? PrototypeRuntime.clientCelestialScenes() : PrototypeRuntime.serverCelestialScenes();
     }
 }
+

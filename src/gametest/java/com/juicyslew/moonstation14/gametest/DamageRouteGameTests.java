@@ -155,7 +155,9 @@ public final class DamageRouteGameTests {
         require(MS14Provider.get(villager, MS14Bridges.BLOODSTREAM).getMap().get(POLYTRINIC_ACID) == null,
                 "ingestion must not bypass stomach into bloodstream");
         float initialHealth = villager.getHealth();
-        require(!villager.hasData(ModDataAttachments.DAMAGE.get()), "no immediate typed damage before metabolism");
+        require(villager.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) != null
+                        && villager.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap().isEmpty(),
+                "known-zero health ledger must remain empty before metabolism");
 
         EntityActivitySystem.update(villager, EntityActivity.REAGENT_METABOLISM, true);
         Set<EntityActivity> metabolism = Set.of(EntityActivity.REAGENT_METABOLISM);
@@ -164,7 +166,9 @@ public final class DamageRouteGameTests {
                 "first metabolism pass transfers 25 stomach cents");
         require(Math.abs(MS14Provider.get(villager, MS14Bridges.BLOODSTREAM).getMap().get(POLYTRINIC_ACID) - .12f) < .000001f,
                 "25 stomach cents transfer as 12 body cents");
-        require(villager.getHealth() == initialHealth && !villager.hasData(ModDataAttachments.DAMAGE.get()),
+        require(villager.getHealth() == initialHealth
+                        && villager.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) != null
+                        && villager.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()).getMap().isEmpty(),
                 "stomach transfer occurs after body metabolism, so damage waits for another pass");
 
         TickHooks.runDueActivities(villager, level, metabolism);

@@ -10,25 +10,23 @@ import net.minecraft.server.level.TicketType;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.AABB;
 
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
 
 /** GameTest-owned entity-ticking tickets for fixtures extending beyond the root chunk. */
 public final class FixtureChunkTickets {
-    private static final boolean FORCE_TICKS = true;
-    // ChunkMap's entity-ticking promotion warms a FULL-status neighborhood with radius two.
-    private static final int FULL_NEIGHBOR_RADIUS = 2;
     private static final TicketType<UUID> TYPE = TicketType.create("moonstation14_gametest_fixture",
             Comparator.<UUID>naturalOrder());
 
     private FixtureChunkTickets() { }
 
-    /** Add exact, uniquely-owned level-31 region tickets and request force ticking. */
+    /** Add exact, uniquely-owned level-31 region tickets to each chunk in the fixture footprint. */
     public static Lease acquire(GameTestHelper helper, AABB bounds) {
         ServerLevel level = helper.getLevel();
         int minX = net.minecraft.util.Mth.floor(bounds.minX) >> 4;
@@ -41,17 +39,12 @@ public final class FixtureChunkTickets {
             for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++) {
                 ChunkPos chunk = new ChunkPos(x, z);
                 chunks.add(chunk);
-                level.getChunkSource().addRegionTicket(TYPE, chunk, 2, key, FORCE_TICKS);
+                level.getChunkSource().addRegionTicket(TYPE, chunk, 2, key);
+                level.getChunk(chunk.x, chunk.z);
             }
-            // Complete the FULL-neighbor promotion before fixture readiness polling begins.
-            // Only the requested footprint owns tickets; halo chunks are synchronously loaded
-            // through the normal server chunk pipeline, without adding fixture ticket ownership.
-            for (int x = minX - FULL_NEIGHBOR_RADIUS; x <= maxX + FULL_NEIGHBOR_RADIUS; x++)
-                for (int z = minZ - FULL_NEIGHBOR_RADIUS; z <= maxZ + FULL_NEIGHBOR_RADIUS; z++)
-                    level.getChunk(x, z);
         } catch (RuntimeException | Error failure) {
             for (ChunkPos chunk : chunks)
-                level.getChunkSource().removeRegionTicket(TYPE, chunk, 2, key, FORCE_TICKS);
+                level.getChunkSource().removeRegionTicket(TYPE, chunk, 2, key);
             throw failure;
         }
         Lease lease = new Lease(level, chunks, key);
@@ -82,7 +75,7 @@ public final class FixtureChunkTickets {
     public static void awaitEntityTicking(GameTestHelper helper, Lease lease, int maxWaitTicks,
                                           java.util.function.BooleanSupplier additionalReady, String condition,
                                           Runnable ready, BlockPos... positions) {
-        awaitEntityTicking(helper,lease,maxWaitTicks,additionalReady,()->condition,ready,positions);
+        awaitEntityTicking(helper, lease, maxWaitTicks, additionalReady, () -> condition, ready, positions);
     }
 
     /** Variant whose bounded timeout detail is evaluated only when the wait actually fails. */
@@ -91,11 +84,12 @@ public final class FixtureChunkTickets {
                                           java.util.function.Supplier<String> condition,
                                           Runnable ready, BlockPos... positions) {
         if (maxWaitTicks < 1 || positions.length == 0) throw new IllegalArgumentException("invalid ticket readiness wait");
+        long startGameTime = helper.getLevel().getGameTime();
         BoundedGameTestWait.await(helper, maxWaitTicks,
                 () -> {
-                    String details = "fixture ticket did not become entity-ticking within " + maxWaitTicks + " ticks: "
-                        + java.util.Arrays.stream(positions).map(lease::diagnostic).toList()
-                        + "; additionalReady[" + condition.get() + "]=" + additionalReady.getAsBoolean();
+                    String details = timeoutDiagnostic(helper, lease, positions, maxWaitTicks, startGameTime,
+                            additionalReady, condition.get()) + "; positions="
+                            + java.util.Arrays.stream(positions).map(lease::diagnostic).toList();
                     com.juicyslew.moonstation14.MoonStation14.LOGGER.error("[fixture-chunk-ticket-timeout] {}", details);
                     BlockPos firstUnticked = java.util.Arrays.stream(positions)
                             .filter(position -> !lease.entityTicking(position)).findFirst().orElse(null);
@@ -114,11 +108,42 @@ public final class FixtureChunkTickets {
         return summary.length() <= 600 ? summary : summary.substring(0, 597) + "...";
     }
 
+    private static String timeoutDiagnostic(GameTestHelper helper, Lease lease, BlockPos[] positions,
+                                            int maxWaitTicks, long startGameTime,
+                                            java.util.function.BooleanSupplier additionalReady, String condition) {
+        Map<ChunkPos, BlockPos> unique = new LinkedHashMap<>();
+        for (BlockPos position : positions) unique.putIfAbsent(new ChunkPos(position), position);
+        Map<ChunkPos, BlockPos> pending = new LinkedHashMap<>();
+        for (Map.Entry<ChunkPos, BlockPos> entry : unique.entrySet())
+            if (!lease.entityTicking(entry.getValue())) pending.put(entry.getKey(), entry.getValue());
+        boolean extra = additionalReady.getAsBoolean();
+        StringBuilder message = new StringBuilder("fixture entity-ticking timeout pendingChunks=")
+                .append(pending.size()).append('/').append(unique.size())
+                .append(" elapsedWorldTicks=").append(helper.getLevel().getGameTime() - startGameTime)
+                .append(" maxWaitTicks=").append(maxWaitTicks)
+                .append(" additionalReady[").append(condition).append("]=").append(extra).append(" pending=");
+        if (pending.isEmpty()) message.append("none");
+        else {
+            int shown = 0;
+            for (Map.Entry<ChunkPos, BlockPos> entry : pending.entrySet()) {
+                if (shown++ == 6) break;
+                BlockPos pos = entry.getValue();
+                message.append("{chunk=").append(entry.getKey()).append(" pos=").append(pos)
+                        .append(" covers=").append(lease.covers(entry.getKey()))
+                        .append(" closed=").append(lease.isClosed())
+                        .append(" loaded=").append(helper.getLevel().hasChunkAt(pos))
+                        .append(" entityTicking=false}");
+            }
+            if (pending.size() > 6) message.append(" +").append(pending.size() - 6).append(" more");
+        }
+        return message.toString();
+    }
+
     public static final class Lease implements AutoCloseable {
+        private static final int TICKET_LEVEL = 31;
         private final ServerLevel level;
         private final Set<ChunkPos> chunks;
         private final UUID key;
-        private static final int TICKET_LEVEL = 31;
         private boolean closed;
 
         private Lease(ServerLevel level, Set<ChunkPos> chunks, UUID key) {
@@ -128,14 +153,17 @@ public final class FixtureChunkTickets {
         }
 
         public boolean entityTicking(BlockPos position) { return level.isPositionEntityTicking(position); }
-        /** Whether this fixture lease explicitly covers the chunk hosting a position. */
         public boolean covers(BlockPos position) { return chunks.contains(new ChunkPos(position)); }
+        public boolean covers(ChunkPos chunk) { return chunks.contains(chunk); }
+        public Set<ChunkPos> chunkPositions() { return chunks; }
+
         public String diagnostic(BlockPos position) {
             ChunkPos chunk = new ChunkPos(position);
             var loadedChunk = level.getChunkSource().getChunkNow(chunk.x, chunk.z);
             return position + " chunk=" + chunk + " requested=" + chunks.contains(chunk)
                     + " ticket=" + TYPE + "/" + key + " level=" + TICKET_LEVEL + " closed=" + closed
-                    + " loaded=" + (loadedChunk != null) + " requestedFullStatus=" + (loadedChunk == null ? "unavailable" : loadedChunk.getFullStatus())
+                    + " loaded=" + (loadedChunk != null) + " requestedFullStatus="
+                    + (loadedChunk == null ? "unavailable" : loadedChunk.getFullStatus())
                     + " overallEntityTicking=" + entityTicking(position) + " ticketState=" + ticketState(chunk, position);
         }
 
@@ -150,8 +178,7 @@ public final class FixtureChunkTickets {
                     Object ticketType = invoke(ticket, "getType");
                     Object ticketKey = readTicketKey(ticket);
                     if (TYPE.equals(ticketType) && key.equals(ticketKey) && matching.size() < 4)
-                        matching.add("type=" + ticketType + ",key=" + ticketKey + ",level=" + invoke(ticket, "getTicketLevel")
-                                + ",forceTicks=" + invoke(ticket, "isForceTicks"));
+                        matching.add("type=" + ticketType + ",key=" + ticketKey + ",level=" + invoke(ticket, "getTicketLevel"));
                 }
                 return "rawDistanceInEntityRange=" + invoke(distanceManager, "inEntityTickingRange", long.class, chunk.toLong())
                         + ", rawCanPositionTick=" + invoke(field(level, "entityManager"), "canPositionTick", BlockPos.class, position)
@@ -165,6 +192,7 @@ public final class FixtureChunkTickets {
             try { return invoke(ticket, "getKey"); }
             catch (ReflectiveOperationException ignored) { return field(ticket, "key"); }
         }
+
         private static Object field(Object target, String name) throws ReflectiveOperationException {
             Class<?> type = target.getClass();
             while (type != null) {
@@ -173,19 +201,22 @@ public final class FixtureChunkTickets {
             }
             throw new NoSuchFieldException(name);
         }
+
         private static Object invoke(Object target, String name, Class<?> parameter, Object argument) throws ReflectiveOperationException {
             return target.getClass().getMethod(name, parameter).invoke(target, argument);
         }
+
         private static Object invoke(Object target, String name) throws ReflectiveOperationException {
             return target.getClass().getMethod(name).invoke(target);
         }
+
         public boolean isClosed() { return closed; }
 
         @Override public void close() {
             if (closed) return;
             closed = true;
             for (ChunkPos chunk : chunks)
-                level.getChunkSource().removeRegionTicket(TYPE, chunk, 2, key, FORCE_TICKS);
+                level.getChunkSource().removeRegionTicket(TYPE, chunk, 2, key);
         }
     }
 }

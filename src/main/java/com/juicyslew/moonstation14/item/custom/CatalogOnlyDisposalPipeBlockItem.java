@@ -29,3 +29,4 @@ public final class CatalogOnlyDisposalPipeBlockItem extends BlockItem {
         tooltip.add(Component.translatable("item.moonstation14.disposal_tube.catalog_only"));
     }
 }
+

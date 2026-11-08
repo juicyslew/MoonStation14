@@ -64,3 +64,4 @@ public abstract class LivingEntityPostureMovementMixin {
         if (MobStateSystem.isIncapacitated(body) || PostureSystem.isDown(body)) callback.cancel();
     }
 }
+

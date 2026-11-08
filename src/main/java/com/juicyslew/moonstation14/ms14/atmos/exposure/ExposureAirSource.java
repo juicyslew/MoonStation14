@@ -26,3 +26,4 @@ public interface ExposureAirSource {
     /** Commits signed environmental heat (positive adds heat to the finite air source). */
     default boolean exchangeThermalEnergy(double joules) { return false; }
 }
+

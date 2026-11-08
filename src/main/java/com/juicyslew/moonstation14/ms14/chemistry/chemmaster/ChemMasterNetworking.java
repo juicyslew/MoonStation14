@@ -30,3 +30,4 @@ public final class ChemMasterNetworking {
         PacketDistributor.sendToPlayer(player, new ChemMasterWindowUpdate(state));
     }
 }
+

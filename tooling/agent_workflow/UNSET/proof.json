@@ -1,0 +1,1555 @@
+{
+  "children": [
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 7560,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 8.100003469735384e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 9192,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 5.699985194951296e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 45864,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.0999653972685337e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 36800,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.6999699659645557e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 32444,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.300017513334751e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 54748,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 4.400033503770828e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 52024,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.400025889277458e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 37856,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.500019036233425e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 25816,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.400018274784088e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 40988,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.0999577827751637e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 58828,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 4.799978341907263e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 34776,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.400018274784088e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 10168,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 31320,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 35136,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.6999547369778156e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 56980,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.0999577827751637e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 38456,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.200016751885414e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 48628,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.7999554984271526e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 52556,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.9000144675374031e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 18864,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.5999615900218487e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 50728,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.4999608285725117e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 18088,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.500019036233425e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 36560,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 32892,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 5.099980626255274e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 1080,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.6999699659645557e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 20652,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.300017513334751e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 45520,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.200016751885414e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 42120,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.9000144675374031e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 55676,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 46964,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 35680,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.300017513334751e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 45096,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 41904,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.6999623514711857e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 28788,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.00001522898674e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 48600,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.2999593056738377e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 57548,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 48692,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.400018274784088e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 19976,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.3999600671231747e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 37056,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.1999585442245007e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 28364,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 35316,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.300017513334751e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 23856,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.1999585442245007e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 42128,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 60368,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 5.400041118264198e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 40376,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.6999623514711857e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 32600,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.9999570213258266e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 47368,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.500019036233425e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 30436,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.600019797682762e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 13016,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 6.699992809444666e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 48032,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.200016751885414e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 61256,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.800013706088066e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 29364,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.200016751885414e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 32228,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 19176,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.89997148886323e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 29204,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.00001522898674e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 61132,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.00001522898674e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 32172,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.500011421740055e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 53548,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.500011421740055e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 45044,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.800013706088066e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 35976,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.800013706088066e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 59572,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 5.500041879713535e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 52516,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 26928,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 13116,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.4999532140791416e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 59180,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 35912,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.400010660290718e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 17904,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.9000144675374031e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 42280,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 35424,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 51884,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.6999699659645557e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 26436,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 34136,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 51816,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.5999539755284786e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 32528,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 42400,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.800013706088066e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 53408,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.100023604929447e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 53204,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 58056,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.8000289350748062e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 21468,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.1999661587178707e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 56788,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.4999608285725117e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 21520,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.500019036233425e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 60772,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.800013706088066e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 33900,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.5999692045152187e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 47684,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.1999585442245007e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 19308,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 33692,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 41192,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.7999631129205227e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 54600,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.200016751885414e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 34056,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 43888,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.200016751885414e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 60456,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 15608,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 19124,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.7999554984271526e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 32688,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 15172,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.500011421740055e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 7692,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.400010660290718e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 49348,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.500011421740055e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 47616,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.00001522898674e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 57360,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 3.3999676816165447e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 19728,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 51352,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.00001522898674e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 52112,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 2704,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.400010660290718e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 51796,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.7999554984271526e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 5920,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 43088,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 50872,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.9999570213258266e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 41008,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 19088,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.500011421740055e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 32040,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.500011421740055e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 54176,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.500011421740055e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 48184,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 31276,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 54888,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 34156,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 52132,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.500011421740055e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 33600,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.5999539755284786e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 43188,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.800013706088066e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 43548,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 39076,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.500011421740055e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 50504,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 4.499976057559252e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 61328,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.800013706088066e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 21488,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.00001522898674e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 60320,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.9999646358191967e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 32716,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.100015990436077e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 42888,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.700012944638729e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 57804,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.5999539755284786e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 54228,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.600012183189392e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 40908,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 2.300017513334751e-06
+    },
+    {
+      "creation_identity": null,
+      "creation_identity_note": "not exposed by Popen fixture receipt",
+      "pid": 59440,
+      "returncode": 0,
+      "wait_error": null,
+      "wait_result": 0,
+      "wait_seconds": 1.6999547369778156e-06
+    }
+  ],
+  "descendant_proof": "not established; fixture scope metadata not proven",
+  "direct_child_wait_count": 130,
+  "discovered_raw": 53,
+  "distinct_fixture_identities": 44,
+  "duplicate_exclusion_count": 9,
+  "duplicate_exclusions": [
+    {
+      "id": "test_workflow_review_retry.ReviewRetryTests.test_acknowledged_wake_after_stopping_is_durable_control_receipt",
+      "reason": "class imported from another selected module"
+    },
+    {
+      "id": "test_workflow_review_retry.ReviewRetryTests.test_consumed_original_with_owned_synthetic_control_uses_resume_once",
+      "reason": "class imported from another selected module"
+    },
+    {
+      "id": "test_workflow_review_retry.ReviewRetryTests.test_empty_history_lost_reply_reconciles_saved_control_without_repost",
+      "reason": "class imported from another selected module"
+    },
+    {
+      "id": "test_workflow_review_retry.ReviewRetryTests.test_empty_history_uses_owned_control_and_receipt_retains_control_for_cleanup",
+      "reason": "class imported from another selected module"
+    },
+    {
+      "id": "test_workflow_review_retry.ReviewRetryTests.test_foreign_inbox_rejects_without_patch",
+      "reason": "class imported from another selected module"
+    },
+    {
+      "id": "test_workflow_review_retry.ReviewRetryTests.test_foreign_or_predispatch_synthetic_control_does_not_wake",
+      "reason": "class imported from another selected module"
+    },
+    {
+      "id": "test_workflow_review_retry.ReviewRetryTests.test_lost_patch_reply_is_durable_unknown_and_never_repeated",
+      "reason": "class imported from another selected module"
+    },
+    {
+      "id": "test_workflow_review_retry.ReviewRetryTests.test_pre_effect_failure_blocks_other_command_wake",
+      "reason": "class imported from another selected module"
+    },
+    {
+      "id": "test_workflow_review_retry.ReviewRetryTests.test_queue_patch_once_resume_and_command_replay_without_api",
+      "reason": "class imported from another selected module"
+    }
+  ],
+  "error_ids": [],
+  "errored_parent_count": 0,
+  "errored_parent_ids": [],
+  "errors": 0,
+  "excluded_case_count": 34,
+  "excluded_modules": [
+    "test_workflow_coordinator_installed_smoke.py",
+    "test_workflow_cutover_transition.py"
+  ],
+  "execution_error": null,
+  "expected_failure_parent_ids": [],
+  "explicit_exclusions": [
+    "test_workflow_review_transport.ReviewTransportTests.test_active_or_preexisting_inbox_keeps_admitted_review_reserved",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancel_after_reservation_before_intent_keeps_resource_without_post",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancel_before_reservation_performs_no_external_effect",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancel_during_ambiguous_create_keeps_reserved_resource",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancellation_after_baseline_save_prevents_prompt_post",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancellation_after_verified_create_get_prevents_prompt",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancellation_hook_after_intent_save_prevents_create_post",
+    "test_workflow_review_transport.ReviewTransportTests.test_create_timeout_committed_session_reconciles_then_retries_prompt",
+    "test_workflow_review_transport.ReviewTransportTests.test_created_session_identity_and_each_owned_metadata_mismatch_rejected",
+    "test_workflow_review_transport.ReviewTransportTests.test_created_session_without_verified_record_recovers_after_restart",
+    "test_workflow_review_transport.ReviewTransportTests.test_creation_body_matches_pinned_openapi_schema_and_dedicated_profile_agent",
+    "test_workflow_review_transport.ReviewTransportTests.test_default_live_request_is_not_used_by_injected_transport",
+    "test_workflow_review_transport.ReviewTransportTests.test_dispatched_without_bound_session_resource_cannot_create",
+    "test_workflow_review_transport.ReviewTransportTests.test_forged_ack_is_unknown_and_never_reposted",
+    "test_workflow_review_transport.ReviewTransportTests.test_idle_dispatch_persists_verified_session_baseline",
+    "test_workflow_review_transport.ReviewTransportTests.test_malformed_nested_inbox_shape_is_unknown_and_does_not_claim",
+    "test_workflow_review_transport.ReviewTransportTests.test_no_effect_timeout_keeps_intent_and_never_recreates",
+    "test_workflow_review_transport.ReviewTransportTests.test_present_malformed_active_entry_is_unknown",
+    "test_workflow_review_transport.ReviewTransportTests.test_registered_intent_tampering_fail_closes",
+    "test_workflow_review_transport.ReviewTransportTests.test_registered_prompt_evidence_presence_includes_invalid_backing_artifact",
+    "test_workflow_review_transport.ReviewTransportTests.test_unowned_preexisting_session_is_not_adopted",
+    "test_workflow_review_transport.ReviewTransportTests.test_wrong_agent_or_worktree_never_posts",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_active_interrupt_requeue_is_deleted_twice_and_replay_uses_proof",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_active_map_present_null_session_is_not_proof_of_inactivity",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_completed_cleanup_drains_without_changing_result_or_confirmation",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_completed_resumed_receipt_retains_control_ownership",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_consumed_foreign_user_in_history_prevents_session_interrupt",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_creation_intent_with_missing_session_stays_unknown_and_unconfirmed",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_foreign_or_prebaseline_control_prevents_interrupt_and_deletion",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_mismatched_saved_control_payload_holds_without_interrupt",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_queued_prompt_cancel_drains_and_confirms",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_real_store_control_prompt_receipt_is_accepted_for_cleanup",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_real_store_finds_persisted_cancellation_command",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_session_identity_change_prevents_deletion_and_interrupt"
+  ],
+  "explicit_selectors": [
+    "test_workflow_review_transport.ReviewTransportTests.test_coordinator_retries_known_busy_review_after_claim_lease_expires",
+    "test_workflow_review_transport.ReviewTransportTests.test_registered_invalid_prompt_evidence_blocks_absence_and_replay",
+    "test_workflow_review_transport.ReviewTransportTests.test_real_assignment_ack_registers_receipt_without_claim_and_replay_is_applied",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_registered_but_unreadable_prompt_artifacts_block_zeroeffect_cleanup",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_refusal_and_mismatched_reviewer_role_hold_unknown_without_confirmation",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_released_before_confirm_replay_confirms_without_api",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_reserved_without_creation_intent_is_released_and_replayable",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_saved_review_continuation_control_and_synthetic_are_drained",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_valid_original_and_control_history_records_allow_drain",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_planner_role_bindings_are_instance_isolated"
+  ],
+  "failed_parent_count": 0,
+  "failed_parent_ids": [],
+  "failure_ids": [],
+  "failures": 0,
+  "guard": {
+    "allowed_fixture_calls": 4,
+    "blocked_live_targets": 3,
+    "checks": 7,
+    "fake_gradle_fixture": "only exact inert gradlew.bat under system temporary directory",
+    "limits": "does not cover subprocess APIs explicitly mocked/replaced inside a test or spawned descendants",
+    "runtime_popen_guard_tracks_children": true
+  },
+  "historical_error_entry_to_parent": {
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_real_store_control_prompt_receipt_is_accepted_for_cleanup": "test_workflow_review_cancellation.ReviewCancellationTests.test_real_store_control_prompt_receipt_is_accepted_for_cleanup",
+    "test_workflow_review_dependency.ReviewDependencyTests.test_compaction_error_pauses_from_exact_queued_original_in_inbox": "test_workflow_review_dependency.ReviewDependencyTests.test_compaction_error_pauses_from_exact_queued_original_in_inbox",
+    "test_workflow_review_dependency.ReviewDependencyTests.test_current_auth_error_pauses_once_and_persists_without_further_history": "test_workflow_review_dependency.ReviewDependencyTests.test_current_auth_error_pauses_once_and_persists_without_further_history",
+    "test_workflow_review_dependency.ReviewDependencyTests.test_foreign_user_on_older_page_blocks_pause": "test_workflow_review_dependency.ReviewDependencyTests.test_foreign_user_on_older_page_blocks_pause",
+    "test_workflow_review_dependency.ReviewDependencyTests.test_malformed_paging_is_unknown_without_pause": "test_workflow_review_dependency.ReviewDependencyTests.test_malformed_paging_is_unknown_without_pause",
+    "test_workflow_review_dependency.ReviewDependencyTests.test_older_page_original_proves_prompt_and_current_error_pauses": "test_workflow_review_dependency.ReviewDependencyTests.test_older_page_original_proves_prompt_and_current_error_pauses",
+    "test_workflow_review_dependency.ReviewDependencyTests.test_pre_dispatch_error_and_wrong_resource_binding_are_ignored": "test_workflow_review_dependency.ReviewDependencyTests.test_pre_dispatch_error_and_wrong_resource_binding_are_ignored",
+    "test_workflow_review_inputs.ReviewInputLocatorTests.test_response_cap_truncates_optional_check_refs_but_keeps_input_locators": "test_workflow_review_inputs.ReviewInputLocatorTests.test_response_cap_truncates_optional_check_refs_but_keeps_input_locators",
+    "test_workflow_review_inputs.ReviewInputLocatorTests.test_status_rejects_other_reviewer_and_tampered_frozen_bundle": "test_workflow_review_inputs.ReviewInputLocatorTests.test_status_rejects_other_reviewer_and_tampered_frozen_bundle",
+    "test_workflow_review_inputs.ReviewInputLocatorTests.test_status_returns_only_exact_verified_submission_input_locators": "test_workflow_review_inputs.ReviewInputLocatorTests.test_status_returns_only_exact_verified_submission_input_locators",
+    "test_workflow_review_retry.ReviewRetryTests.test_acknowledged_wake_after_stopping_is_durable_control_receipt": "test_workflow_review_retry.ReviewRetryTests.test_acknowledged_wake_after_stopping_is_durable_control_receipt",
+    "test_workflow_review_retry.ReviewRetryTests.test_consumed_original_with_owned_synthetic_control_uses_resume_once": "test_workflow_review_retry.ReviewRetryTests.test_consumed_original_with_owned_synthetic_control_uses_resume_once",
+    "test_workflow_review_retry.ReviewRetryTests.test_empty_history_lost_reply_reconciles_saved_control_without_repost": "test_workflow_review_retry.ReviewRetryTests.test_empty_history_lost_reply_reconciles_saved_control_without_repost",
+    "test_workflow_review_retry.ReviewRetryTests.test_empty_history_uses_owned_control_and_receipt_retains_control_for_cleanup": "test_workflow_review_retry.ReviewRetryTests.test_empty_history_uses_owned_control_and_receipt_retains_control_for_cleanup",
+    "test_workflow_review_retry.ReviewRetryTests.test_foreign_inbox_rejects_without_patch": "test_workflow_review_retry.ReviewRetryTests.test_foreign_inbox_rejects_without_patch",
+    "test_workflow_review_retry.ReviewRetryTests.test_foreign_or_predispatch_synthetic_control_does_not_wake (foreign=False, old=True)": "test_workflow_review_retry.ReviewRetryTests.test_foreign_or_predispatch_synthetic_control_does_not_wake",
+    "test_workflow_review_retry.ReviewRetryTests.test_foreign_or_predispatch_synthetic_control_does_not_wake (foreign=True, old=False)": "test_workflow_review_retry.ReviewRetryTests.test_foreign_or_predispatch_synthetic_control_does_not_wake",
+    "test_workflow_review_retry.ReviewRetryTests.test_lost_patch_reply_is_durable_unknown_and_never_repeated": "test_workflow_review_retry.ReviewRetryTests.test_lost_patch_reply_is_durable_unknown_and_never_repeated",
+    "test_workflow_review_retry.ReviewRetryTests.test_pre_effect_failure_blocks_other_command_wake": "test_workflow_review_retry.ReviewRetryTests.test_pre_effect_failure_blocks_other_command_wake",
+    "test_workflow_review_retry.ReviewRetryTests.test_queue_patch_once_resume_and_command_replay_without_api": "test_workflow_review_retry.ReviewRetryTests.test_queue_patch_once_resume_and_command_replay_without_api",
+    "test_workflow_review_retry_http.ReviewRetryHttpTests.test_stopping_receipt_replays_before_stale_sequence_fence": "test_workflow_review_retry_http.ReviewRetryHttpTests.test_stopping_receipt_replays_before_stale_sequence_fence"
+  },
+  "historical_unique_parent_count": 20,
+  "not_run_parent_count": 0,
+  "not_run_parent_ids": [],
+  "not_selected_case_ids": [
+    "test_workflow_review_transport.ReviewTransportTests.test_active_or_preexisting_inbox_keeps_admitted_review_reserved",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancel_after_reservation_before_intent_keeps_resource_without_post",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancel_before_reservation_performs_no_external_effect",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancel_during_ambiguous_create_keeps_reserved_resource",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancellation_after_baseline_save_prevents_prompt_post",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancellation_after_verified_create_get_prevents_prompt",
+    "test_workflow_review_transport.ReviewTransportTests.test_cancellation_hook_after_intent_save_prevents_create_post",
+    "test_workflow_review_transport.ReviewTransportTests.test_create_timeout_committed_session_reconciles_then_retries_prompt",
+    "test_workflow_review_transport.ReviewTransportTests.test_created_session_identity_and_each_owned_metadata_mismatch_rejected",
+    "test_workflow_review_transport.ReviewTransportTests.test_created_session_without_verified_record_recovers_after_restart",
+    "test_workflow_review_transport.ReviewTransportTests.test_creation_body_matches_pinned_openapi_schema_and_dedicated_profile_agent",
+    "test_workflow_review_transport.ReviewTransportTests.test_default_live_request_is_not_used_by_injected_transport",
+    "test_workflow_review_transport.ReviewTransportTests.test_dispatched_without_bound_session_resource_cannot_create",
+    "test_workflow_review_transport.ReviewTransportTests.test_forged_ack_is_unknown_and_never_reposted",
+    "test_workflow_review_transport.ReviewTransportTests.test_idle_dispatch_persists_verified_session_baseline",
+    "test_workflow_review_transport.ReviewTransportTests.test_malformed_nested_inbox_shape_is_unknown_and_does_not_claim",
+    "test_workflow_review_transport.ReviewTransportTests.test_no_effect_timeout_keeps_intent_and_never_recreates",
+    "test_workflow_review_transport.ReviewTransportTests.test_present_malformed_active_entry_is_unknown",
+    "test_workflow_review_transport.ReviewTransportTests.test_registered_intent_tampering_fail_closes",
+    "test_workflow_review_transport.ReviewTransportTests.test_registered_prompt_evidence_presence_includes_invalid_backing_artifact",
+    "test_workflow_review_transport.ReviewTransportTests.test_unowned_preexisting_session_is_not_adopted",
+    "test_workflow_review_transport.ReviewTransportTests.test_wrong_agent_or_worktree_never_posts",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_active_interrupt_requeue_is_deleted_twice_and_replay_uses_proof",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_active_map_present_null_session_is_not_proof_of_inactivity",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_completed_cleanup_drains_without_changing_result_or_confirmation",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_completed_resumed_receipt_retains_control_ownership",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_consumed_foreign_user_in_history_prevents_session_interrupt",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_creation_intent_with_missing_session_stays_unknown_and_unconfirmed",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_foreign_or_prebaseline_control_prevents_interrupt_and_deletion",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_mismatched_saved_control_payload_holds_without_interrupt",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_queued_prompt_cancel_drains_and_confirms",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_real_store_control_prompt_receipt_is_accepted_for_cleanup",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_real_store_finds_persisted_cancellation_command",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_session_identity_change_prevents_deletion_and_interrupt"
+  ],
+  "observed_success_ids": [
+    "test_workflow_review_transport.ReviewTransportTests.test_coordinator_retries_known_busy_review_after_claim_lease_expires",
+    "test_workflow_review_transport.ReviewTransportTests.test_real_assignment_ack_registers_receipt_without_claim_and_replay_is_applied",
+    "test_workflow_review_transport.ReviewTransportTests.test_registered_invalid_prompt_evidence_blocks_absence_and_replay",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_planner_role_bindings_are_instance_isolated",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_refusal_and_mismatched_reviewer_role_hold_unknown_without_confirmation",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_registered_but_unreadable_prompt_artifacts_block_zeroeffect_cleanup",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_released_before_confirm_replay_confirms_without_api",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_reserved_without_creation_intent_is_released_and_replayable",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_saved_review_continuation_control_and_synthetic_are_drained",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_valid_original_and_control_history_records_allow_drain"
+  ],
+  "outcome_accounting_valid": true,
+  "passed": 10,
+  "phase_progress": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\MoonStation14\\tooling\\agent_workflow\\UNSET\\phase-progress.jsonl",
+  "python": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\MoonStation14-shared\\.venv-workflow-mcp\\Scripts\\python.exe",
+  "raw_discovered": 53,
+  "selected": 10,
+  "selected_class_count": 2,
+  "selected_classes": [
+    "test_workflow_review_cancellation.ReviewCancellationTests",
+    "test_workflow_review_transport.ReviewTransportTests"
+  ],
+  "selected_ids": [
+    "test_workflow_review_transport.ReviewTransportTests.test_coordinator_retries_known_busy_review_after_claim_lease_expires",
+    "test_workflow_review_transport.ReviewTransportTests.test_real_assignment_ack_registers_receipt_without_claim_and_replay_is_applied",
+    "test_workflow_review_transport.ReviewTransportTests.test_registered_invalid_prompt_evidence_blocks_absence_and_replay",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_planner_role_bindings_are_instance_isolated",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_refusal_and_mismatched_reviewer_role_hold_unknown_without_confirmation",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_registered_but_unreadable_prompt_artifacts_block_zeroeffect_cleanup",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_released_before_confirm_replay_confirms_without_api",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_reserved_without_creation_intent_is_released_and_replayable",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_saved_review_continuation_control_and_synthetic_are_drained",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_valid_original_and_control_history_records_allow_drain"
+  ],
+  "selected_modules": [
+    "test_workflow_review_transport.py",
+    "test_workflow_review_cancellation.py"
+  ],
+  "selected_parent_count": 10,
+  "skips": 0,
+  "source_hashes_after": {
+    "build\\agent-workflow\\workflow-redesign-plan\\wr08\\run_wr08_suite.py": "94f7cab92834d52342e8976c82f04bb0f07d8083f4ba124bf549d617ce94bdbd",
+    "build\\agent-workflow\\workflow-redesign-plan\\wr11\\run_wr11_suite.py": "dc2b81068c8fa825c46de219bc0cbe914a472d7ef367fb2ff5305a01c5ecb909",
+    "build\\agent-workflow\\workflow-redesign-plan\\wr12\\attempts\\lifecycle-six-recovery-preparation-6d2e6f1e-ad6f-4e0c-abe6-2504ca5df355\\static-six-recovery-driver.py": "342808d8e50b54b087669dcd67547afac02286bee787a79020aef4bf9ab52b49",
+    "tooling\\agent_workflow\\admission.py": "1657ba7a535f615ac977390e0d42e7cab558f11d829380bdcaa1afc46263be5b",
+    "tooling\\agent_workflow\\agent_status.py": "3ed1637d0ca65e8960faabaa160f65a7d03be17f0c2cc9447499604e59a80a28",
+    "tooling\\agent_workflow\\gate_dispatch.py": "3607790af44dbb813f18081e907aba9a2af70bd6504585af0e7a33a1cb1469d2",
+    "tooling\\agent_workflow\\gate_execution.py": "2df67999350de2417a30c93a7df78441488117528aedc66b4294277d7f704a84",
+    "tooling\\agent_workflow\\gate_liveness.py": "daa3ef16ddbbee6b1291e18ebb7d9001f48002af58be3e10b1b60479cb4fc4f2",
+    "tooling\\agent_workflow\\gate_progress.py": "63ad40e023a4daa4e12b2527b8b39a9a3c920bd66ce0ee13849843d7dec22819",
+    "tooling\\agent_workflow\\owner_attention.py": "61163b03ebbafd7b6be609091963247478229a88c08b7cbbeac1eba0cbe63ec1",
+    "tooling\\agent_workflow\\owner_feedback.py": "a269717d11f04d01829878dfbe02d026f492e5092b0110a2156bba13f16f0f20",
+    "tooling\\agent_workflow\\preflight_test_support.py": "0ff943e923b134905840fb8086a307697744c96d025947f7295b99f18cb1ab25",
+    "tooling\\agent_workflow\\test_gate_execution_e2e.py": "14cdaa212ba21213dc729a74914a012b43a1145cba86825469b9edb20d9344c4",
+    "tooling\\agent_workflow\\test_workflow.py": "7c40df4fb7beff612d635e0bc80163bb682525a8e04d597d918246d1766789b3",
+    "tooling\\agent_workflow\\test_workflow_native_execution.py": "dbf358ad08c46d6f66f37c2a81002be4ecb1471a66fc2cd1703e0f6a56b03786",
+    "tooling\\agent_workflow\\test_workflow_review.py": "d69b6da3871f41a1b5c369b5b33b9abdb6f124bc62d413967be3610d6ae6e11d",
+    "tooling\\agent_workflow\\test_workflow_review_cancellation.py": "2c373778d2a88dd72e7a33042d9d380eacc2e4814647da390bb428b86914678a",
+    "tooling\\agent_workflow\\test_workflow_review_dependency.py": "50e5cddbdd4be3d42c78d2258f03d6f058c19634633cb775652fb06d1a3880e4",
+    "tooling\\agent_workflow\\test_workflow_review_retry.py": "1a3616cc9efb6fd9de911e9d3bb4b62944dce06b3b55809a6e3ac5af0211afd0",
+    "tooling\\agent_workflow\\test_workflow_review_transport.py": "c8f351d88df5f3dfb81cffbe27a768364406f800e3b8d6ff334d3ae6c7823a89",
+    "tooling\\agent_workflow\\transport_health.py": "0759b7a37e59252f466c1f93466308b35edb70d6d37f67bc774b5e7e2f9712e4",
+    "tooling\\agent_workflow\\validation_evidence.py": "4c496dcbdb0d0b54ac34eac2a12485dc9e8490a2dfb8dfdbca3cef9df4280904",
+    "tooling\\agent_workflow\\workflow_board.py": "4bb2ab6c02c81b93a30be5579ae031f22893bb66c7f8a06d9abc32f107b49a02",
+    "tooling\\agent_workflow\\workflow_check_packs.py": "f1a6e705848d9c1333148167aac8543ad74bc157b162999f2c9190ad58656bf9",
+    "tooling\\agent_workflow\\workflow_coordinator.py": "f7d43386a712c62c73b591ec07224ebfec6efb2b18bbd989b9c549151032da82",
+    "tooling\\agent_workflow\\workflow_coordinator_bindings.py": "51b67370d1e00c3470a87b152b4b8b0f6a4a44cbcac5d54da3bacfd116d7d654",
+    "tooling\\agent_workflow\\workflow_coordinator_package.py": "8985b99f6d0ff5cd317c371b4222cf07b1d2457f3e4bee083c25738d705a1b1d",
+    "tooling\\agent_workflow\\workflow_cutover_history.py": "1d888e1ea58af2cc563f6bb478c4a3abb401ef0717c25e0528377573bfa2a407",
+    "tooling\\agent_workflow\\workflow_dependency.py": "676dc74416369f1df3e7402d4e29e4430126346009034b3624874375404668aa",
+    "tooling\\agent_workflow\\workflow_error_recovery.py": "cd23d96ed8290b62c73a59c2a948e961968c0e6972ba467b6bf2485a2e4a3ccc",
+    "tooling\\agent_workflow\\workflow_mcp.py": "7c70b9b110b3c4866c683e382fd87fc3b0087b58f929b9b89e9de389b31acb75",
+    "tooling\\agent_workflow\\workflow_native_cancellation.py": "ebacc1e2f068cea12cd2fbc8d92ed42dbe258bd1fdf0784b29b5c3894b08c47c",
+    "tooling\\agent_workflow\\workflow_native_execution.py": "0af40c289946605217ab0f1988ebe113cef49f7955015a837e7cdbf0ab17c917",
+    "tooling\\agent_workflow\\workflow_native_fixtures.py": "07d0cf3261a4e3085f5a44cfcfe9ef462ea13598f4197c523f1e50a601b54828",
+    "tooling\\agent_workflow\\workflow_native_recovery.py": "d34c7f4078ca7d541b1da7e35bbfcc214381934d3a853d2bb64740f813f9bbbf",
+    "tooling\\agent_workflow\\workflow_native_retry.py": "06f975484defb686d911318fecb21225705d62da9e6b9ecaedf0af032d9e8106",
+    "tooling\\agent_workflow\\workflow_native_worker.py": "a7fd848ccddbe5e13450840e58b5284f010d82e59f4d2c61d66adfe23b084df4",
+    "tooling\\agent_workflow\\workflow_observer.py": "3b85a48c0709da06383270d0aa1906a45b3b8de25f9dfa6bf0e371006d56918f",
+    "tooling\\agent_workflow\\workflow_owner.py": "695c0cbdad26252e06c6c3becaf2bc222ab9332a304980094d1702ccabfdb27a",
+    "tooling\\agent_workflow\\workflow_preflight.py": "67a18c50c7e252209e096249b35a89be577c60fadc7346c462a803d1893c6896",
+    "tooling\\agent_workflow\\workflow_process_scope.py": "54fb7b273e48f62bb90cb090e4100f3c15bc07ad4ffa1739555c002b13a98b1a",
+    "tooling\\agent_workflow\\workflow_regression.py": "7f015b4fc996b94442948c620c468508349bb3c182bca150bee7f1172f66d065",
+    "tooling\\agent_workflow\\workflow_result_delivery.py": "8bffbdea690573637ab35c656c1038edc4b4286a6112653cbb7c93e7f3050afa",
+    "tooling\\agent_workflow\\workflow_review.py": "9311bdcd1d7d559d548ef9a9e7738d2e8a7acf5b188088e0719d50919f29fb8f",
+    "tooling\\agent_workflow\\workflow_review_cancellation.py": "7e7de391e3e78c023494e98d8203b1a40ccd5f1022ce4eeaa0bf7bdf0a49807c",
+    "tooling\\agent_workflow\\workflow_review_control.py": "0c1caa50132cff79188bbd6a9f912f48d34034bc7aa5206b4cda13ff369d2b39",
+    "tooling\\agent_workflow\\workflow_review_dependency.py": "d8cc0540ed8e107b9f012bb10ddb8a3ffeaed896bacb0a69c74c30e971103990",
+    "tooling\\agent_workflow\\workflow_review_effects.py": "c48f4c73da9df7133d78b3b7af8092bef46bcfaed11da0d7b572a572ab7cc568",
+    "tooling\\agent_workflow\\workflow_review_history.py": "0074f134e1da073696dcb79b6e4d9ab3223a88398b9da8efb252b8e58fc572fc",
+    "tooling\\agent_workflow\\workflow_review_pipeline.py": "f726e2e4b3020e2b3afbcc23291a1318ccdb3a61960728e235f5dff2f983971a",
+    "tooling\\agent_workflow\\workflow_review_quiescence.py": "15c0a45ca4eba3ca2a552342d8418879ff9b3fbe278e81b207b284b80ca5c7f8",
+    "tooling\\agent_workflow\\workflow_review_results.py": "bcbfffa9bbd772feef518e4e76dbf6b32392bfa6460016287d316dc4def94821",
+    "tooling\\agent_workflow\\workflow_review_retry.py": "7146837ec9fb29f68fcac598e40cd3bf0335ae432c0ab675e2b87eff0fb20248",
+    "tooling\\agent_workflow\\workflow_review_transport.py": "ab5d8ffc73b92521533a857e47353cec0e830abe9d235d0c31515e8a94771c3a",
+    "tooling\\agent_workflow\\workflow_run_control.py": "78413d6005c1e9e90ce4ffe8fe59508aeb086c93323dc58ae84e110fdebdb0dc",
+    "tooling\\agent_workflow\\workflow_runtime.py": "bd3833b9780df661f85ddf57a10969e31c82328ce483d10399e90d39351f654a",
+    "tooling\\agent_workflow\\workflow_scope.py": "e632ed69f0a26d7c68fe63af7e85f98f7b3227e65ef88cffa64a527d8101825d",
+    "tooling\\agent_workflow\\workflow_store.py": "e88d77456708d6b5d9951eddbf5eed58bf301d413c6b4c8bb557583dba368cb9",
+    "tooling\\agent_workflow\\workflow_store_test_support.py": "91c7b5f1875f7545e9f4707208aaaea7be114a533e28236f0d224877407433b3",
+    "tooling\\agent_workflow\\workflow_submission.py": "4fb8457e75e16e8c5d73861c4d148b41b32ed81b5eedbd382cc96deb33ed548c",
+    "tooling\\agent_workflow\\workflow_task_artifacts.py": "64d39be331e4c59384b1b520c0c7fe070d939d0ab670637d2ad4184f0606f194",
+    "tooling\\agent_workflow\\workflow_toolchain.py": "dccdac3668fafc44a01138e65bf003781acb167a4be35ddb6547c0ae21192e1d",
+    "tooling\\agent_workflow\\workflow_transport_health.py": "ba40db7fc443bf8c149f1e44ad9c1a41a3dc5b2068fbc963f7aea1507d9c9d2a"
+  },
+  "source_hashes_before": {
+    "build\\agent-workflow\\workflow-redesign-plan\\wr08\\run_wr08_suite.py": "94f7cab92834d52342e8976c82f04bb0f07d8083f4ba124bf549d617ce94bdbd",
+    "build\\agent-workflow\\workflow-redesign-plan\\wr11\\run_wr11_suite.py": "dc2b81068c8fa825c46de219bc0cbe914a472d7ef367fb2ff5305a01c5ecb909",
+    "build\\agent-workflow\\workflow-redesign-plan\\wr12\\attempts\\lifecycle-six-recovery-preparation-6d2e6f1e-ad6f-4e0c-abe6-2504ca5df355\\static-six-recovery-driver.py": "342808d8e50b54b087669dcd67547afac02286bee787a79020aef4bf9ab52b49",
+    "tooling\\agent_workflow\\admission.py": "1657ba7a535f615ac977390e0d42e7cab558f11d829380bdcaa1afc46263be5b",
+    "tooling\\agent_workflow\\agent_status.py": "3ed1637d0ca65e8960faabaa160f65a7d03be17f0c2cc9447499604e59a80a28",
+    "tooling\\agent_workflow\\gate_dispatch.py": "3607790af44dbb813f18081e907aba9a2af70bd6504585af0e7a33a1cb1469d2",
+    "tooling\\agent_workflow\\gate_execution.py": "2df67999350de2417a30c93a7df78441488117528aedc66b4294277d7f704a84",
+    "tooling\\agent_workflow\\gate_liveness.py": "daa3ef16ddbbee6b1291e18ebb7d9001f48002af58be3e10b1b60479cb4fc4f2",
+    "tooling\\agent_workflow\\gate_progress.py": "63ad40e023a4daa4e12b2527b8b39a9a3c920bd66ce0ee13849843d7dec22819",
+    "tooling\\agent_workflow\\owner_attention.py": "61163b03ebbafd7b6be609091963247478229a88c08b7cbbeac1eba0cbe63ec1",
+    "tooling\\agent_workflow\\owner_feedback.py": "a269717d11f04d01829878dfbe02d026f492e5092b0110a2156bba13f16f0f20",
+    "tooling\\agent_workflow\\preflight_test_support.py": "0ff943e923b134905840fb8086a307697744c96d025947f7295b99f18cb1ab25",
+    "tooling\\agent_workflow\\test_gate_execution_e2e.py": "14cdaa212ba21213dc729a74914a012b43a1145cba86825469b9edb20d9344c4",
+    "tooling\\agent_workflow\\test_workflow.py": "7c40df4fb7beff612d635e0bc80163bb682525a8e04d597d918246d1766789b3",
+    "tooling\\agent_workflow\\test_workflow_native_execution.py": "dbf358ad08c46d6f66f37c2a81002be4ecb1471a66fc2cd1703e0f6a56b03786",
+    "tooling\\agent_workflow\\test_workflow_review.py": "d69b6da3871f41a1b5c369b5b33b9abdb6f124bc62d413967be3610d6ae6e11d",
+    "tooling\\agent_workflow\\test_workflow_review_cancellation.py": "2c373778d2a88dd72e7a33042d9d380eacc2e4814647da390bb428b86914678a",
+    "tooling\\agent_workflow\\test_workflow_review_dependency.py": "50e5cddbdd4be3d42c78d2258f03d6f058c19634633cb775652fb06d1a3880e4",
+    "tooling\\agent_workflow\\test_workflow_review_retry.py": "1a3616cc9efb6fd9de911e9d3bb4b62944dce06b3b55809a6e3ac5af0211afd0",
+    "tooling\\agent_workflow\\test_workflow_review_transport.py": "c8f351d88df5f3dfb81cffbe27a768364406f800e3b8d6ff334d3ae6c7823a89",
+    "tooling\\agent_workflow\\transport_health.py": "0759b7a37e59252f466c1f93466308b35edb70d6d37f67bc774b5e7e2f9712e4",
+    "tooling\\agent_workflow\\validation_evidence.py": "4c496dcbdb0d0b54ac34eac2a12485dc9e8490a2dfb8dfdbca3cef9df4280904",
+    "tooling\\agent_workflow\\workflow_board.py": "4bb2ab6c02c81b93a30be5579ae031f22893bb66c7f8a06d9abc32f107b49a02",
+    "tooling\\agent_workflow\\workflow_check_packs.py": "f1a6e705848d9c1333148167aac8543ad74bc157b162999f2c9190ad58656bf9",
+    "tooling\\agent_workflow\\workflow_coordinator.py": "f7d43386a712c62c73b591ec07224ebfec6efb2b18bbd989b9c549151032da82",
+    "tooling\\agent_workflow\\workflow_coordinator_bindings.py": "51b67370d1e00c3470a87b152b4b8b0f6a4a44cbcac5d54da3bacfd116d7d654",
+    "tooling\\agent_workflow\\workflow_coordinator_package.py": "8985b99f6d0ff5cd317c371b4222cf07b1d2457f3e4bee083c25738d705a1b1d",
+    "tooling\\agent_workflow\\workflow_cutover_history.py": "1d888e1ea58af2cc563f6bb478c4a3abb401ef0717c25e0528377573bfa2a407",
+    "tooling\\agent_workflow\\workflow_dependency.py": "676dc74416369f1df3e7402d4e29e4430126346009034b3624874375404668aa",
+    "tooling\\agent_workflow\\workflow_error_recovery.py": "cd23d96ed8290b62c73a59c2a948e961968c0e6972ba467b6bf2485a2e4a3ccc",
+    "tooling\\agent_workflow\\workflow_mcp.py": "7c70b9b110b3c4866c683e382fd87fc3b0087b58f929b9b89e9de389b31acb75",
+    "tooling\\agent_workflow\\workflow_native_cancellation.py": "ebacc1e2f068cea12cd2fbc8d92ed42dbe258bd1fdf0784b29b5c3894b08c47c",
+    "tooling\\agent_workflow\\workflow_native_execution.py": "0af40c289946605217ab0f1988ebe113cef49f7955015a837e7cdbf0ab17c917",
+    "tooling\\agent_workflow\\workflow_native_fixtures.py": "07d0cf3261a4e3085f5a44cfcfe9ef462ea13598f4197c523f1e50a601b54828",
+    "tooling\\agent_workflow\\workflow_native_recovery.py": "d34c7f4078ca7d541b1da7e35bbfcc214381934d3a853d2bb64740f813f9bbbf",
+    "tooling\\agent_workflow\\workflow_native_retry.py": "06f975484defb686d911318fecb21225705d62da9e6b9ecaedf0af032d9e8106",
+    "tooling\\agent_workflow\\workflow_native_worker.py": "a7fd848ccddbe5e13450840e58b5284f010d82e59f4d2c61d66adfe23b084df4",
+    "tooling\\agent_workflow\\workflow_observer.py": "3b85a48c0709da06383270d0aa1906a45b3b8de25f9dfa6bf0e371006d56918f",
+    "tooling\\agent_workflow\\workflow_owner.py": "695c0cbdad26252e06c6c3becaf2bc222ab9332a304980094d1702ccabfdb27a",
+    "tooling\\agent_workflow\\workflow_preflight.py": "67a18c50c7e252209e096249b35a89be577c60fadc7346c462a803d1893c6896",
+    "tooling\\agent_workflow\\workflow_process_scope.py": "54fb7b273e48f62bb90cb090e4100f3c15bc07ad4ffa1739555c002b13a98b1a",
+    "tooling\\agent_workflow\\workflow_regression.py": "7f015b4fc996b94442948c620c468508349bb3c182bca150bee7f1172f66d065",
+    "tooling\\agent_workflow\\workflow_result_delivery.py": "8bffbdea690573637ab35c656c1038edc4b4286a6112653cbb7c93e7f3050afa",
+    "tooling\\agent_workflow\\workflow_review.py": "9311bdcd1d7d559d548ef9a9e7738d2e8a7acf5b188088e0719d50919f29fb8f",
+    "tooling\\agent_workflow\\workflow_review_cancellation.py": "7e7de391e3e78c023494e98d8203b1a40ccd5f1022ce4eeaa0bf7bdf0a49807c",
+    "tooling\\agent_workflow\\workflow_review_control.py": "0c1caa50132cff79188bbd6a9f912f48d34034bc7aa5206b4cda13ff369d2b39",
+    "tooling\\agent_workflow\\workflow_review_dependency.py": "d8cc0540ed8e107b9f012bb10ddb8a3ffeaed896bacb0a69c74c30e971103990",
+    "tooling\\agent_workflow\\workflow_review_effects.py": "c48f4c73da9df7133d78b3b7af8092bef46bcfaed11da0d7b572a572ab7cc568",
+    "tooling\\agent_workflow\\workflow_review_history.py": "0074f134e1da073696dcb79b6e4d9ab3223a88398b9da8efb252b8e58fc572fc",
+    "tooling\\agent_workflow\\workflow_review_pipeline.py": "f726e2e4b3020e2b3afbcc23291a1318ccdb3a61960728e235f5dff2f983971a",
+    "tooling\\agent_workflow\\workflow_review_quiescence.py": "15c0a45ca4eba3ca2a552342d8418879ff9b3fbe278e81b207b284b80ca5c7f8",
+    "tooling\\agent_workflow\\workflow_review_results.py": "bcbfffa9bbd772feef518e4e76dbf6b32392bfa6460016287d316dc4def94821",
+    "tooling\\agent_workflow\\workflow_review_retry.py": "7146837ec9fb29f68fcac598e40cd3bf0335ae432c0ab675e2b87eff0fb20248",
+    "tooling\\agent_workflow\\workflow_review_transport.py": "ab5d8ffc73b92521533a857e47353cec0e830abe9d235d0c31515e8a94771c3a",
+    "tooling\\agent_workflow\\workflow_run_control.py": "78413d6005c1e9e90ce4ffe8fe59508aeb086c93323dc58ae84e110fdebdb0dc",
+    "tooling\\agent_workflow\\workflow_runtime.py": "bd3833b9780df661f85ddf57a10969e31c82328ce483d10399e90d39351f654a",
+    "tooling\\agent_workflow\\workflow_scope.py": "e632ed69f0a26d7c68fe63af7e85f98f7b3227e65ef88cffa64a527d8101825d",
+    "tooling\\agent_workflow\\workflow_store.py": "e88d77456708d6b5d9951eddbf5eed58bf301d413c6b4c8bb557583dba368cb9",
+    "tooling\\agent_workflow\\workflow_store_test_support.py": "91c7b5f1875f7545e9f4707208aaaea7be114a533e28236f0d224877407433b3",
+    "tooling\\agent_workflow\\workflow_submission.py": "4fb8457e75e16e8c5d73861c4d148b41b32ed81b5eedbd382cc96deb33ed548c",
+    "tooling\\agent_workflow\\workflow_task_artifacts.py": "64d39be331e4c59384b1b520c0c7fe070d939d0ab670637d2ad4184f0606f194",
+    "tooling\\agent_workflow\\workflow_toolchain.py": "dccdac3668fafc44a01138e65bf003781acb167a4be35ddb6547c0ae21192e1d",
+    "tooling\\agent_workflow\\workflow_transport_health.py": "ba40db7fc443bf8c149f1e44ad9c1a41a3dc5b2068fbc963f7aea1507d9c9d2a"
+  },
+  "source_integrity": {
+    "changed": [],
+    "empty": [],
+    "extra": [],
+    "missing": [],
+    "ok": true
+  },
+  "standard_result_counts": {
+    "distinct_error_case_ids": [],
+    "distinct_failed_case_ids": [],
+    "error_events": 0,
+    "failure_events": 0,
+    "passed": 10,
+    "unsuccessful_case_ids": []
+  },
+  "status": "PASS",
+  "subtest_error_event_count": 0,
+  "subtest_error_event_ids": [],
+  "subtest_failure_event_count": 0,
+  "subtest_failure_event_ids": [],
+  "successful_parent_count": 10,
+  "successful_parent_ids": [
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_planner_role_bindings_are_instance_isolated",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_refusal_and_mismatched_reviewer_role_hold_unknown_without_confirmation",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_registered_but_unreadable_prompt_artifacts_block_zeroeffect_cleanup",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_released_before_confirm_replay_confirms_without_api",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_reserved_without_creation_intent_is_released_and_replayable",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_saved_review_continuation_control_and_synthetic_are_drained",
+    "test_workflow_review_cancellation.ReviewCancellationTests.test_valid_original_and_control_history_records_allow_drain",
+    "test_workflow_review_transport.ReviewTransportTests.test_coordinator_retries_known_busy_review_after_claim_lease_expires",
+    "test_workflow_review_transport.ReviewTransportTests.test_real_assignment_ack_registers_receipt_without_claim_and_replay_is_applied",
+    "test_workflow_review_transport.ReviewTransportTests.test_registered_invalid_prompt_evidence_blocks_absence_and_replay"
+  ],
+  "unexpected_success_parent_ids": []
+}

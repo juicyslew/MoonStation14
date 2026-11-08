@@ -71,3 +71,4 @@ public record BloodstreamPolicy(Map<String, Double> referenceSolution,
         }
     }
 }
+

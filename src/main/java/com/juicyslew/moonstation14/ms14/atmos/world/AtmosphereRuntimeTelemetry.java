@@ -62,3 +62,4 @@ public final class AtmosphereRuntimeTelemetry {
                     double groupCaptureMs, double groupAverageMs, double groupPublicationMs, double callbacksPerWallSecond,
                     double admissionsPerWallSecond, double callbacksPerGameSecond, double admissionsPerGameSecond) { }
 }
+

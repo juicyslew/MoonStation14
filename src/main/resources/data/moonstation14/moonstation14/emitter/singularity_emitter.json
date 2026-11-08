@@ -1,0 +1,16 @@
+{
+  "id": "moonstation14:singularity_emitter",
+  "on_watts": 600.0,
+  "off_watts": 1.0,
+  "burst_size": 4,
+  "burst_delay_ticks": 40,
+  "first_delay_min_ticks": 80,
+  "first_delay_max_ticks": 200,
+  "bolt_speed": 40.0,
+  "bolt_lifetime_ticks": 60,
+  "bolt_heat_damage": 14.0,
+  "bolt_half_extent": 0.2,
+  "fire_sound": "moonstation14:emitter/fire",
+  "bolt_impact_lifetime_ticks": 5,
+  "bolt_fly_by": { "sound": "moonstation14:projectile/fly_by", "probability": 0.1, "range": 1.5 }
+}

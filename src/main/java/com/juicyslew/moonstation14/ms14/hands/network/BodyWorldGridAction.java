@@ -54,3 +54,4 @@ public record BodyWorldGridAction(Mode mode, long epoch, long sequence, UUID tar
     private static boolean rotation(int r) { return r == 0 || r == 90 || r == 180 || r == 270; }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

@@ -1,0 +1,61 @@
+{
+  "status": "ASSETS_ONLY_NOT_INSTALLED",
+  "target": "Java1.21.1 / NeoForge21.1.224 directly read from current mod gradle.properties",
+  "registry": "asset_registry.json",
+  "source_components": "../catalog.json",
+  "state_reports": "../states/",
+  "chooser_rules": [
+    "Use ONE complete dependency revision. Default and whole-state models are alternatives; never draw two whole models.",
+    "Occupancy, charge light, maintenance, power, damage, topology and optical hit flags are independent. Generic state snapshots do not implement their Cartesian product. Host needs layer/material composition.",
+    "RTG glow and grounding-rod hit use the independent components, not their static whole-model fallback. Coil arcs/cracks can coexist independently.",
+    "Collector q poses already contain the panel transform. Do not apply another transform. For a smooth BER draw shell once and transformed panel once instead of a whole q snapshot.",
+    "Collector ca_active/ca_deactive material loops are reference snapshots; authoritative .8s non-looping clips/settled poses are in collector_motion_contract.json.",
+    "Do not infer source-unreferenced states as live mechanics. Wall-generator warning on the powered identity has a static surface fallback; the separate frame warning export displays native animated amber art.",
+    "Solar tracking and PA facing/assembly are host poses/topology, not invented bone clips. Source floor/panel axes are explicit in asset_registry.json."
+  ],
+  "charger_fields": {
+    "CellVisual.Occupied": {
+      "false": "empty",
+      "true": "full"
+    },
+    "CellVisual.Light": {
+      "Off": "light-off",
+      "Empty": "light-empty",
+      "Charging": "light-charging",
+      "Charged": "light-charged"
+    },
+    "maintenance": "Independent enum.WiresVisuals.MaintenancePanelState where present; colored cell-tray wiring remains visible in empty art."
+  },
+  "source_shader_rules": "unshaded overlays are source intent. CPU unshaded/Java shade:false is NOT an installed fullbright, light source or shader.",
+  "late_join": "Read authoritative settled states and current motion phase. Source collector ignores new transitions while playing, then reconciles latest target on completion.",
+  "placement_collision": "Host-owned. Several objects reach two-block height. No selection boxes, placement registration, upper-half ownership or neighboring-block occlusion behavior installed.",
+  "known_unresolved_source_states": [
+    {
+      "asset_id": "generation_tesla_coil",
+      "resource": "Structures/Power/Generation/Tesla/coil.rsi",
+      "state": "coil_open",
+      "reason": "Prototype requests state absent from this RSI metadata; no invented source evidence."
+    },
+    {
+      "asset_id": "generation_tesla_coil__teslagroundingrod",
+      "resource": "Structures/Power/Generation/Tesla/coil.rsi",
+      "state": "grounding_rod_open",
+      "reason": "Prototype requests state absent from this RSI metadata; no invented source evidence."
+    }
+  ],
+  "unsupported_effect_scope": [
+    "Mobile singularity six stages, Tesla energy balls/miniball, emitted projectiles and generic eight-direction wire art remain source-only nonstructure references.",
+    "Missing coil_open/grounding_rod_open source states have no invented artwork.",
+    "Over-body hit sparkles, spherical shaders, actual electrical discharge/radiation/fullbright and all gameplay are not implemented."
+  ],
+  "R6": {
+    "scope": [
+      "generation_singularity_emitter",
+      "generation_tesla_generator"
+    ],
+    "emitter": "Unchanged R5green point/bodyoctagon/optical source fields; neck3.15->2.7->2.3radii face. Native-red outboard side returns plus saved rear leads. Four45degree steel grounded front/rear legs; no pedestal. Exposed side leads permanent mechanical wiring, not power lamps; no invented timed clip.",
+    "tesla": "Upper collars diameter5.6/undersides4.8/top5.2units ONLY; same25height/lower chamber/shaft/feet, no new animation",
+    "unchanged": "54EXACT R5 appearances and prior AME/collector/components/contracts",
+    "remaining": "Host registration/state/layer composition/facing/collision/fullbright/network/gameplay remain unimplemented. Missing native coil_open/grounding_rod_open still unresolved."
+  }
+}

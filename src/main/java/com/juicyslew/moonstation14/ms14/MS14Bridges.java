@@ -83,3 +83,4 @@ public class MS14Bridges {
     public static final SystemLink<HandAttachment, HandComponent> HANDS =
             new SystemLink<>(ModDataAttachments.HANDS, ModDataComponents.HANDS, HandAttachment::new);
 }
+

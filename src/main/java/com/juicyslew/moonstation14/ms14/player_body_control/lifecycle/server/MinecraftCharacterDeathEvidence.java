@@ -93,3 +93,4 @@ public final class MinecraftCharacterDeathEvidence {
                               boolean registeredCustomEntity, boolean validBinding,
                               boolean humanPrototype, boolean dead) { }
 }
+

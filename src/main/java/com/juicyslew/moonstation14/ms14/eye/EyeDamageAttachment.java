@@ -62,3 +62,4 @@ public final class EyeDamageAttachment implements IMS14Attachment<EyeDamageAttac
         return state.hashCode();
     }
 }
+

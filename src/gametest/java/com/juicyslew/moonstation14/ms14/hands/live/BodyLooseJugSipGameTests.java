@@ -4,6 +4,7 @@ import com.juicyslew.moonstation14.gametest.support.GameTestTags;
 import com.juicyslew.moonstation14.MoonStation14;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.component.ModDataComponents;
+import com.juicyslew.moonstation14.gametest.support.ScopedPrototypeCatalogFixture;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.MS14Bridges;
 import com.juicyslew.moonstation14.ms14.MS14Provider;
@@ -240,6 +241,93 @@ public final class BodyLooseJugSipGameTests {
                         == BodyLiquidInteraction.Result.DENIED,
                 "full target is rejected");
         requireUnchanged(body, target, snapshot, heldSnapshot, worldSnapshot, hand, "full target denial");
+        helper.succeed();
+    }
+
+    @GameTestTags({"hands-liquid", "generated-produce-capacity"})
+    @GameTest(templateNamespace = "moonstation14", template = "empty", timeoutTicks = 20,
+            batch = "food-refill-owned-transaction-tomato")
+    public static void ownedJugFillInitializesOnlyFreshTomatoOnStagedCopy(GameTestHelper helper) {
+        var type = com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE;
+        var tomatoId = ResourceLocation.fromNamespaceAndPath("moonstation14", "tomato");
+        var profile = com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.serverLookup(tomatoId);
+        require(profile != null, "resolved tomato food profile exists");
+        ScopedPrototypeCatalogFixture.replace(helper, type, candidate -> {
+            candidate.put(tomatoId, new com.juicyslew.moonstation14.ms14.reagent.ItemFoodSolutionProfile(
+                    profile.capacityCents(), profile.contentsCents(), profile.canReact(), profile.solutionName(), true));
+            return candidate;
+        });
+        var level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(2, 1, 2));
+        Villager body = EntityType.VILLAGER.create(level);
+        require(body != null, "body created"); body.setNoAi(true); body.setPos(origin.getX() + .5, origin.getY(), origin.getZ() + .5);
+        body.setYRot(-90); body.setYHeadRot(-90);
+        require(level.addFreshEntity(body) && CharacterIdentitySystem.enroll(body, level,
+                com.juicyslew.moonstation14.ms14.character.ModCharacters.HUMAN_ID), "body enrolled");
+        require(LiveHands.initialize(body).isPresent() && BodySystem.reconcile(body), "hands initialized");
+        LiveHands empty = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        String hand = empty.activeHand(), token = "tomato-refill-" + UUID.randomUUID();
+        var inserted = empty.putWhole(empty.revision(), hand, new com.juicyslew.moonstation14.ms14.hands.ItemToken(token), filledJug(10));
+        require(inserted.succeeded(), "source jug inserted"); body.setData(ModDataAttachments.LIVE_HANDS.get(), inserted.state());
+        LooseItemEntity target = LooseItemEntity.create(level, new Vec3(origin.getX() + 2.5, origin.getY() + 1.2, origin.getZ() + .5),
+                new ItemStack(ModItems.TOMATO.get()));
+        target.setNoPickUpDelay(); require(level.addFreshEntity(target), "fresh tomato spawned");
+        var hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemStack heldBefore = hands.stackCopy(hand).orElseThrow();
+        ItemStack tomatoBefore = target.getItem().copy();
+        require(BodyLiquidInteraction.fillOwned(body, target.getUUID(), hand, token, hands.revision(), false, () -> true)
+                        == BodyLiquidInteraction.Result.DENIED, "fresh full tomato rejects owned fill");
+        requireUnchanged(body, target, hands, heldBefore, tomatoBefore, hand, "fresh full tomato rejection");
+        require(target.getItem().get(ModDataComponents.REAGENT.get()) == null,
+                "rejected fresh target does not publish prototype chemistry");
+
+        var nutriment = ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY, ResourceLocation.fromNamespaceAndPath("moonstation14", "nutriment"));
+        int capacity = profile.capacityCents();
+        int existing = capacity / 2;
+        target.getItem().set(ModDataComponents.REAGENT.get(), ReagentComponent.fromCents(Map.of(nutriment, (long) existing)));
+        ItemStack partialBefore = target.getItem().copy();
+        require(BodyLiquidInteraction.fillOwned(body, target.getUUID(), hand, token, hands.revision(), false, () -> true)
+                        == BodyLiquidInteraction.Result.SUCCESS, "partially consumed tomato accepts fill through owned route");
+        var partialAfter = target.getItem().get(ModDataComponents.REAGENT.get());
+        long totalAfter = partialAfter == null ? 0 : partialAfter.centContents().values().stream().mapToLong(Long::longValue).sum();
+        require(partialAfter != null && totalAfter <= capacity && totalAfter > existing,
+                "partial tomato receives only available capacity");
+        require(partialAfter.centContents().getOrDefault(nutriment, 0L) >= existing,
+                "partial tomato retains its existing chemistry");
+
+        target.setItem(new ItemStack(ModItems.TOMATO.get()));
+        target.getItem().set(ModDataComponents.REAGENT.get(), new ReagentComponent());
+        hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(BodyLiquidInteraction.fillOwned(body, target.getUUID(), hand, token, hands.revision(), false, () -> true)
+                        == BodyLiquidInteraction.Result.SUCCESS, "explicit-empty tomato accepts owned fill");
+        var explicitContents = target.getItem().get(ModDataComponents.REAGENT.get()).centContents();
+        require(!explicitContents.containsKey(nutriment)
+                        && !explicitContents.containsKey(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
+                        ResourceLocation.fromNamespaceAndPath("moonstation14", "vitamin"))),
+                "explicit-empty tomato receives source chemistry only, never prototype nutriment or vitamin");
+
+        var seedId = ResourceLocation.fromNamespaceAndPath("moonstation14", "tomato");
+        var seed = com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.serverCatalog().get(seedId);
+        require(seed != null, "resolved tomato seed profile exists");
+        // The partial and explicit-empty cases above consume the original 10u jug.
+        // Restore a bounded source so this case tests generated-target admission,
+        // rather than accidentally asserting that an exhausted source can refill.
+        hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        ItemStack replenishedJug = filledJug(10);
+        hands = hands.replaceOwnedComponents(hands.revision(), hand,
+                new com.juicyslew.moonstation14.ms14.hands.ItemToken(token), replenishedJug).orElseThrow();
+        body.setData(ModDataAttachments.LIVE_HANDS.get(), hands);
+        ItemStack generated = com.juicyslew.moonstation14.ms14.botany.ProduceFactory.createHarvest(seedId, seed, 1f);
+        generated.remove(ModDataComponents.REAGENT.get());
+        target.setItem(generated);
+        hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        require(BodyLiquidInteraction.fillOwned(body, target.getUUID(), hand, token, hands.revision(), false, () -> true)
+                        == BodyLiquidInteraction.Result.SUCCESS, "generated tomato without reagent accepts owned fill");
+        var generatedContents = target.getItem().get(ModDataComponents.REAGENT.get()).centContents();
+        require(!generatedContents.containsKey(nutriment)
+                        && !generatedContents.containsKey(ResourceKey.create(ModReagents.REAGENT_REGISTRY_KEY,
+                        ResourceLocation.fromNamespaceAndPath("moonstation14", "vitamin"))),
+                "generated tomato receives source chemistry only, never prototype nutriment or vitamin");
         helper.succeed();
     }
 

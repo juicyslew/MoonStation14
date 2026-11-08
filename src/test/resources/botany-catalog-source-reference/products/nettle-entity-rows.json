@@ -1,0 +1,204 @@
+[
+  {
+    "id": "Nettle",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "nettle",
+      "description": "Stingy little prick.",
+      "id": "Nettle",
+      "parent": "ProduceBaseRuminant",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/nettle.rsi"
+        },
+        {
+          "type": "Item",
+          "size": "Small",
+          "sprite": "Objects/Specific/Hydroponics/nettle.rsi",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "MeleeWeapon",
+          "damage": {
+            "types": {
+              "Heat": 10
+            }
+          }
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "Histamine",
+                  "Quantity": 3
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Produce",
+          "seedId": "nettle"
+        },
+        {
+          "type": "MeleeChemicalInjector",
+          "transferAmount": 3,
+          "solution": "food",
+          "pierceArmor": false
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food"
+        }
+      ]
+    }
+  },
+  {
+    "id": "DeathNettle",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "death nettle",
+      "description": "This nettle's out for blood.",
+      "id": "DeathNettle",
+      "parent": [
+        "ProduceBase",
+        "BaseMajorContraband"
+      ],
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/death_nettle.rsi"
+        },
+        {
+          "type": "Item",
+          "size": "Small",
+          "sprite": "Objects/Specific/Hydroponics/death_nettle.rsi",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "MeleeWeapon",
+          "damage": {
+            "types": {
+              "Heat": 8,
+              "Caustic": 8
+            }
+          }
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "SulfuricAcid",
+                  "Quantity": 15
+                },
+                {
+                  "ReagentId": "FluorosulfuricAcid",
+                  "Quantity": 15
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Produce",
+          "seedId": "deathNettle"
+        },
+        {
+          "type": "MeleeChemicalInjector",
+          "transferAmount": 5,
+          "solution": "food",
+          "pierceArmor": true
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food"
+        },
+        {
+          "type": "DamageOnInteract",
+          "damage": {
+            "types": {
+              "Heat": 4,
+              "Caustic": 4
+            }
+          },
+          "throw": true,
+          "throwSpeed": 3,
+          "interactTimer": 2,
+          "ignoreResistances": false,
+          "popupText": "powered-light-component-burn-hand",
+          "interactSound": "/Audio/Effects/lightburn.ogg",
+          "stunChance": 0.1,
+          "stunSeconds": 1.5
+        },
+        {
+          "type": "Damageable",
+          "damageContainer": "Inorganic"
+        },
+        {
+          "type": "Destructible",
+          "thresholds": [
+            {
+              "trigger": {
+                "__yaml_tag__": "!type:DamageTrigger",
+                "value": {
+                  "damage": 25
+                }
+              },
+              "behaviors": [
+                {
+                  "__yaml_tag__": "!type:PlaySoundBehavior",
+                  "value": {
+                    "sound": {
+                      "path": "/Audio/Voice/Diona/diona_salute.ogg",
+                      "params": {
+                        "volume": -5
+                      }
+                    }
+                  }
+                },
+                {
+                  "__yaml_tag__": "!type:DoActsBehavior",
+                  "value": {
+                    "acts": [
+                      "Destruction"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "DamageOnHit",
+          "damage": {
+            "types": {
+              "Blunt": 5
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "BaseMajorContraband",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/base_contraband.yml",
+    "record": {
+      "type": "entity",
+      "id": "BaseMajorContraband",
+      "abstract": true,
+      "components": [
+        {
+          "type": "Contraband",
+          "severity": "Major"
+        }
+      ]
+    }
+  }
+]

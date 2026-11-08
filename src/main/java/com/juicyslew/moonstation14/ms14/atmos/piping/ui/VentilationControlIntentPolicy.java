@@ -40,6 +40,7 @@ public final class VentilationControlIntentPolicy {
                 && filters.equals(current.filteredGases())) return Optional.empty();
         return Optional.of(new VentilationDeviceConfig.Settings(current.revision(), enabled,
                 current.externalPressureBoundKPa(), current.targetPressureChangeKPaPerSecond(),
-                current.targetPressureKPa(), current.volumeRateM3PerSecond(), mode, filters, current.selectedLayer()));
+                current.targetPressureKPa(), current.volumeRateM3PerSecond(), mode, filters, current.selectedLayer(),
+                current.pressureLockoutOverride(), current.wideNet()));
     }
 }

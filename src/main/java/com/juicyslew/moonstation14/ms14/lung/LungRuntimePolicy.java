@@ -21,3 +21,4 @@ record LungRuntimePolicy(RespiratorPolicy respirator, OrganData.Lung lung) {
     Map<String, Map<String, Double>> toxicGasDamagePerMole() { return lung.toxicGasDamagePerMole(); }
     double toxicGasDamageCapPerInhale() { return lung.toxicGasDamageCapPerInhale(); }
 }
+

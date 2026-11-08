@@ -4,6 +4,18 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class HandBarLayoutTest {
+    @Test void oneHandLayoutShowsOnlyRealCenteredHandAndNoSecondHitTarget() {
+        var layout = HandBarLayout.calculate(320, 240, 1);
+        assertNotNull(layout);
+        assertEquals(151, layout.leftHand().x());
+        assertEquals(0, layout.rightHand().width());
+        assertEquals(HandBarLayout.Layout.Tile.FIRST, layout.tileAt(layout.leftHand().x(), layout.leftHand().y()));
+        assertNotEquals(HandBarLayout.Layout.Tile.SECOND, layout.tileAt(layout.rightHand().x(), layout.rightHand().y()));
+        var labels = HandInfoLayout.calculate(320, 240, layout);
+        assertNotNull(labels);
+        assertNull(labels.right());
+    }
+
     @Test void placesBarBottomCenterAndExposesTilesForHitTesting() {
         var layout = HandBarLayout.calculate(320, 240);
         assertNotNull(layout);

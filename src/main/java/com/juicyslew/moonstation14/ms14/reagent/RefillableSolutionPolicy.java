@@ -18,3 +18,4 @@ public record RefillableSolutionPolicy(boolean enabled, String solutionName, Opt
             throw new IllegalArgumentException("invalid refill policy");
     }
 }
+

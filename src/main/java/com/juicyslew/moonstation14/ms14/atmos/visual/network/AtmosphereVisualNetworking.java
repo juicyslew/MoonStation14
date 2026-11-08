@@ -33,3 +33,4 @@ public final class AtmosphereVisualNetworking {
         if (handler != null) handler.accept(payload);
     }
 }
+

@@ -27,3 +27,4 @@ public final class DeviceAddressPolicy {
         return address.filter(value -> !value.isBlank()).map(composition::withAddress).orElse(composition);
     }
 }
+

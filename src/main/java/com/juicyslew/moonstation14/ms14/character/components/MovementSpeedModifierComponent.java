@@ -41,3 +41,4 @@ public record MovementSpeedModifierComponent(String mode, double acceleration, d
         CharacterSchemaAudit.auditMovement(json, "$.components[MovementSpeedModifier]", true);
     }
 }
+

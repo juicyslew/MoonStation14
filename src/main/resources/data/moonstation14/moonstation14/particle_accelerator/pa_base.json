@@ -1,0 +1,26 @@
+{
+  "id": "moonstation14:pa_base",
+  "type": "moonstation14:particle_accelerator",
+  "abstract": true,
+  "control_power_ap": 250,
+  "default_strength": "STANDBY",
+  "maximum_strength": "LEVEL_2",
+  "strengths": [
+    {"strength":"STANDBY", "power_box_mv":500, "singularity_food":0, "generator_charge":0},
+    {"strength":"LEVEL_0", "power_box_mv":2000, "singularity_food":10, "generator_charge":1},
+    {"strength":"LEVEL_1", "power_box_mv":3500, "singularity_food":20, "generator_charge":2},
+    {"strength":"LEVEL_2", "power_box_mv":5000, "singularity_food":30, "generator_charge":4},
+    {"strength":"LEVEL_3", "power_box_mv":6500, "singularity_food":60, "generator_charge":8}
+  ],
+  "wave_seconds": 6,
+  "particle_speed": 20.0,
+  "particle_profile": "moonstation14:particle_accelerator_particle",
+  "parts": {
+    "end": {"role":"end", "offset_x":1,"offset_y":-1,"relative_rotation":"-90","completed_prototype":"moonstation14:pa_end_cap"},
+    "fuel": {"role":"fuel", "offset_x":0,"offset_y":-1,"relative_rotation":"-90","completed_prototype":"moonstation14:pa_fuel_chamber"},
+    "power": {"role":"power", "offset_x":-1,"offset_y":-1,"relative_rotation":"-90","completed_prototype":"moonstation14:pa_power_box"},
+    "port": {"role":"port", "offset_x":-2,"offset_y":-2,"relative_rotation":"-90","completed_prototype":"moonstation14:pa_emitter_port"},
+    "fore": {"role":"fore", "offset_x":-2,"offset_y":-1,"relative_rotation":"-90","completed_prototype":"moonstation14:pa_emitter_fore"},
+    "starboard": {"role":"starboard", "offset_x":-2,"offset_y":0,"relative_rotation":"-90","completed_prototype":"moonstation14:pa_emitter_starboard"}
+  }
+}

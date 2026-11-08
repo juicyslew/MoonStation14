@@ -22,6 +22,7 @@ public final class JugExamineGameTests {
     private JugExamineGameTests() { }
 
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
+    @GameTestTags("item_examine")
     public static void droppedJugExaminesResolvedMetadataAndReadOnlyContents(GameTestHelper helper) {
         var level = helper.getLevel();
         JugItem jug = (JugItem) ModItems.JUG.get();
@@ -50,6 +51,22 @@ public final class JugExamineGameTests {
                 droppedJug, null, null, null, true), details);
         var rows = details.sortedEntries();
         require(rows.size() == 3, "exact volume, physical description and recognizable names only: " + rows.size());
+        var heldTarget = ExamineTarget.ownedItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "left", 1, "fixture-held-token");
+        var heldRows = new ExamineCollector(true);
+        BuiltinExamineContributors.jugSolution(new ExamineContext(null, level, heldTarget, null,
+                null, null, null, true, stack, true), heldRows);
+        require(heldRows.sortedEntries().stream().map(e -> e.text().getString()).toList()
+                        .equals(rows.stream().map(e -> e.text().getString()).toList()),
+                "held jug and floor entity use same detached current stack projection");
+        var storedTarget = ExamineTarget.storedItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD,
+                "back", 2, "fixture-bag-token", "fixture-child-token");
+        var storedRows = new ExamineCollector(true);
+        BuiltinExamineContributors.jugSolution(new ExamineContext(null, level, storedTarget, null,
+                null, null, null, true, stack, true), storedRows);
+        require(storedRows.sortedEntries().stream().map(e -> e.text().getString()).toList()
+                        .equals(rows.stream().map(e -> e.text().getString()).toList()),
+                "stored jug shares same stack-owned reagent projection");
         var volume = rows.stream().filter(e -> e.text().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
                 && t.getKey().equals("examine.solution.volume.exact")).findFirst().orElseThrow();
         var args = ((net.minecraft.network.chat.contents.TranslatableContents) volume.text().getContents()).getArgs();

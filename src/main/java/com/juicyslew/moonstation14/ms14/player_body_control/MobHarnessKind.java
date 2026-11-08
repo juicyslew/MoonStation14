@@ -4,3 +4,4 @@ public enum MobHarnessKind {
     GHOST,
     CHARACTER
 }
+

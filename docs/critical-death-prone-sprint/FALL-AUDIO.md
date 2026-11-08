@@ -12,7 +12,7 @@ generic local sound prototype.
 
 Per-file attribution/license could not be verified: no matching entries were
 found in `Resources/Audio/Effects/attributions.yml`. See
-[`../audio-unknown-provenance.md`](../audio-unknown-provenance.md); do not infer
+[`../audio-unknown-provenance.md`](../audio/audio-unknown-provenance.md); do not infer
 author or license for these files.
 
 ## Runtime validation attempt (2026-10-07)

@@ -1,0 +1,13 @@
+# Generic produce runtime composition
+
+Produce generation admits registered `IReagentTrait` products with a resolved `ProduceProfile`; it does not require a fresh source solution. Food sources retain priority from `IngestionProfile`; produce composition is the fallback for nonfood products. A null fresh source is distinct from a configured zero-capacity source. On harvest, null initial source contributes zero initial capacity because upstream `BotanySystem.GenerateProduct` calls `EnsureSolution(food, 0)`, which creates the generated instance's named solution if absent. `ProduceItem` is a generic `IReagentTrait` adapter and does not implement edible admission. The five existing foods continue to use `ProduceEdibleItem` and their ingestion profiles.
+
+Harvest construction preserves upstream `EnsureSolution(..., 0)` → clear contents → add generated chemistry capacity behavior: resolved initial capacity is retained when configured (otherwise zero), generated chemistry replaces prototype contents, and generated amounts are added to capacity. The carried genetics, instance metadata, and reagent component remain separate. Produce output still fails closed for absent resolved produce profiles and unregistered/AIR items; it does not invent initial source content or alter fresh-item source resolution.
+
+This API does not register additional species or claim all-catalog support. Generated item registration and resolved profile composition are prerequisites for each future catalog leaf.
+
+`ProduceSourceComposition.capacity` checks generated instance capacity before evaluating its prototype-source supplier, including generated zero. Both produce item adapters use that shared path; capacity lookup does not initialize chemistry or refill a depleted item. Extraction is a separate `ExtractableProfile` composition, not a Produce flag. Thus registered non-produce materials can configure static JUICE without an invented seed or Edible/Produce component.
+
+The current grinder recognizes stack semantics from registered item stack capacity: real Cotton/Pyrotton materials stack, existing produce does not. Future registrations must preserve source Stack/non-Stack composition rather than accepting Minecraft's default stack size; otherwise empty-source and partial-consumption behavior would change.
+
+The supported source name `food` maps to the existing single reagent component/default item channel. This does not add general named-solution storage: e.g. killer tomato's separate bloodstream cannot be made equivalent by renaming that channel or accepting its metadata without a live multi-solution consumer.

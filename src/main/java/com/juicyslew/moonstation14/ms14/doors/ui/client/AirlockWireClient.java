@@ -51,3 +51,4 @@ public final class AirlockWireClient {
         if (old != null) old.closeFromServer();
     }
 }
+

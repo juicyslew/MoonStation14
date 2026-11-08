@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:food_bungo_pit",
+  "capacity_cents": 700,
+  "contents_cents": {
+    "moonstation14:nutriment": 200,
+    "moonstation14:bungotoxin": 500
+  },
+  "refillable": true
+}

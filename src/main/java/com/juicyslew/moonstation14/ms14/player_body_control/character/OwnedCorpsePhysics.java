@@ -70,7 +70,8 @@ public final class OwnedCorpsePhysics {
                 MovementVector.ZERO, 32d, body.maxUpStep(), resolver, 1d, 0d, tetherImpulse(body));
         try {
             CharacterMovementState result = new GroundedHarnessMotor(policy).tick(state, 0, 0,
-                    false, false, 0f, environment, false, externalFlight);
+                    false, false, 0f, environment, false, externalFlight, null, 0d, false,
+                    com.juicyslew.moonstation14.ms14.player_body_control.movement.ExternalBodyFlight.physics(body));
             var target = nativeMove[0] == null ? null
                     : com.juicyslew.moonstation14.ms14.shuttle.sable.NativeNormalContactFinalizer.targetForStep(
                             nativeMove[0].normalTarget(), nativeMoveCount[0], nativeMove[0].beforePoint(), nativeMove[0].afterPoint());
@@ -98,6 +99,14 @@ public final class OwnedCorpsePhysics {
         if (body.level() instanceof ServerLevel level
                 && com.juicyslew.moonstation14.ms14.containment.BodyContainmentService.forLevel(level)
                 .ownerOf(body).isPresent()) return false;
+        return hasCorpseCharacterProfile(body);
+    }
+
+    /** Resolved movement composition and incapacitated mob state, before portable custody restores physics flags. */
+    public static boolean hasCorpseCharacterProfile(net.minecraft.world.entity.LivingEntity entity) {
+        if (!(entity instanceof Mob body)
+                || com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.policy(body) == null
+                || !com.juicyslew.moonstation14.ms14.mobs.MobStateSystem.isIncapacitated(body)) return false;
         var data = CharacterIdentitySystem.resolveForActor(body).orElse(null);
         if (data == null) return false;
         try {

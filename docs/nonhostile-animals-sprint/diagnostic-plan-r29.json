@@ -1,0 +1,22 @@
+{
+  "title": "Bootstrap supply-chain diagnosis in the original shared native context",
+  "kind": "diagnostic",
+  "acceptance_criteria": [
+    "When bootstrap MV delivery fails in the original unfiltered shared-level context, what source offer and source/substation HV/MV components entered the actual solve, and what HV input reached that substation?",
+    "Does the fixture's powered APC control reflect external MV input or stored battery supply while its PA and emitters receive zero?"
+  ],
+  "fixture": "docs/nonhostile-animals-sprint/VALIDATION.md",
+  "manual_steps": [],
+  "checks": [
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat runGameTestServer '-Pms14GameTestDir=build/gametest-tags-fixture/bootstrap-supply-r29' --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "Reproduce the bootstrap failure's original shared-level batching and competing power topology, not certify the sprint. Focused bootstrap diagnostics R18 and R22 passed without reproducing the full-run failure; R17/R21/R28 full runs failed it. Filtering changes that context. Run only this native check, with new solve-backed supply-chain diagnostics; no broad JVM/readiness/client reruns or owner approval. A passing run does not explain the intermittent failure.",
+      "covers": [
+        "When bootstrap MV delivery fails in the original unfiltered shared-level context, what source offer and source/substation HV/MV components entered the actual solve, and what HV input reached that substation?",
+        "Does the fixture's powered APC control reflect external MV input or stored battery supply while its PA and emitters receive zero?"
+      ],
+      "log": "build/reports/nonhostile-animals/diagnostic-native-r29.log"
+    }
+  ]
+}

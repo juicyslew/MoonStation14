@@ -10,3 +10,4 @@ public final class DisposalsEjection {
     public static double speedBlocksPerTick() { return blocksPerSecondToBlocksPerTick(SPEED_BLOCKS_PER_SECOND); }
     public static double blocksPerSecondToBlocksPerTick(double speed) { return speed / 20.0; }
 }
+

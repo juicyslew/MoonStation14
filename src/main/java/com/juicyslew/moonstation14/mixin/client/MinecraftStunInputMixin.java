@@ -37,3 +37,4 @@ public abstract class MinecraftStunInputMixin {
                 && CharacterControlSystem.isClientActionBlocked(minecraft.player);
     }
 }
+

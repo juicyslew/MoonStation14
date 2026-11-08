@@ -65,3 +65,4 @@ public record JugData(ExamineMetadata metadata, SolutionContainer solutionContai
         this(metadata, solutionContainer, examinableSolution, drainableSolution, RefillableSolutionPolicy.DISABLED, SolutionTransferPolicy.DISABLED, DrinkSolutionPolicy.DISABLED);
     }
 }
+

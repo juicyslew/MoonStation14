@@ -25,3 +25,4 @@ public abstract class ContainedOwnerPickMixin {
                 .orElseGet(() -> BlockHitResult.miss(Vec3.ZERO, Direction.UP, net.minecraft.core.BlockPos.ZERO));
     }
 }
+

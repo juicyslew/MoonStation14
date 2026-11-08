@@ -72,3 +72,4 @@ public record ExamineResponse(long requestId, ExamineTarget target, UUID actorUu
         return net.minecraft.network.chat.Component.Serializer.fromJson(buf.readUtf(MAX_COMPONENT_JSON), buf.registryAccess());
     }
 }
+

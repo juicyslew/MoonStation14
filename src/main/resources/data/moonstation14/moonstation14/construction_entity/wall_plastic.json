@@ -1,1 +1,1 @@
-{"block":"moonstation14:plastic_wall","defaultAnchored":true,"anchorable":false,"airtight":true}
+{"block":"moonstation14:plastic_wall","defaultAnchored":true,"anchorable":false,"airtight":true,"radiationBlockerResistance":2,"structuralContact":{"coefficients":{"shock":1.2,"heat":1.2},"flat_reductions":{"blunt":10,"slash":10,"piercing":10,"heat":10}}}

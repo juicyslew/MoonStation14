@@ -117,6 +117,50 @@ public final class ExamineClient {
         return true;
     }
 
+    /** Opens the existing examine presentation for an item bound to the current private inventory snapshot. */
+    public static boolean examineOwnedItem(com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location location,
+                                           String slot, long revision, String token) {
+        if (location == null || slot == null || token == null || revision < 0) return false;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null || mc.options.hideGui) return false;
+        Authority actor = authority();
+        var body = com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.currentControlledBody();
+        var snapshot = com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.examineSnapshot();
+        if (actor == null || body == null || actor.body() != body || snapshot == null
+                || !snapshot.bodyId().equals(actor.actor()) || snapshot.epoch() != actor.epoch()
+                || snapshot.revision() != revision || !ownedBinding(snapshot, location, slot, token)) return false;
+        ExamineTarget target = ExamineTarget.ownedItem(location, slot, revision, token);
+        popupDismissed = false; intent = false; selected = null;
+        POPUP.open(target, actor.epoch());
+        popupScrollOffset = 0; popupVisibleLines = 0; popupScrollContent = List.of(); popupWrappedLines = List.of();
+        popupScrollTarget = null; popupScrollWidth = -1; popupScrollAvailable = -1;
+        request(target, true);
+        return requestedTarget != null && requestedTarget.equals(target);
+    }
+
+    private static boolean ownedBinding(com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateSnapshot s,
+            com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location location, String slot, String token) {
+        if (location == com.juicyslew.moonstation14.ms14.hands.live.LiveOwnedItemAccess.Location.HELD)
+            return s.hands().stream().anyMatch(h -> h.id().equals(slot) && token.equals(h.token()));
+        return s.equipment().stream().anyMatch(e -> e.id().equals(slot) && token.equals(e.token()));
+    }
+
+    /** Opens the existing popup for a child identified by a currently rendered storage cell. */
+    public static boolean examineItemTarget(ExamineTarget target) {
+        Minecraft mc = Minecraft.getInstance();
+        Authority actor = authority();
+        if (target == null || (target.kind() != ExamineTarget.Kind.ITEM && target.kind() != ExamineTarget.Kind.STORED_ITEM)
+                || mc.player == null || mc.level == null || mc.options.hideGui
+                || !(mc.screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen)
+                || actor == null || !candidateInRange(actor, target) || captureIdentity(target) == null) return false;
+        popupDismissed = false; intent = false; selected = null;
+        POPUP.open(target, actor.epoch());
+        popupScrollOffset = 0; popupVisibleLines = 0; popupScrollContent = List.of(); popupWrappedLines = List.of();
+        popupScrollTarget = null; popupScrollWidth = -1; popupScrollAvailable = -1;
+        request(target, true);
+        return requestedTarget != null && requestedTarget.equals(target);
+    }
+
     public static boolean cycle(int delta) {
         if (delta == 0 || !worldIntentAllowed()) return false;
         refreshSelection(false);
@@ -195,6 +239,8 @@ public final class ExamineClient {
         };
     }
     private static boolean candidateInRange(Authority actor, ExamineTarget target) {
+        if (target.kind() == ExamineTarget.Kind.ITEM) return ownedTargetCurrent(actor, target);
+        if (target.kind() == ExamineTarget.Kind.STORED_ITEM) return captureIdentity(target) != null;
         if (target.kind() == ExamineTarget.Kind.SCENE) {
             var level = actor.body().level();
             var profile = com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.catalog(level).get(target.sceneId());
@@ -204,6 +250,13 @@ public final class ExamineClient {
         Vec3 point = responsePoint(target);
         double distance = actor.body().getEyePosition().distanceTo(point);
         return ExamineClientPolicy.eligible(examiner(actor), state(actor.body()), false, 0, distance);
+    }
+
+    private static boolean ownedTargetCurrent(Authority actor, ExamineTarget target) {
+        var snapshot = com.juicyslew.moonstation14.ms14.hands.client.BodyHandClient.examineSnapshot();
+        var item = target.ownedItem();
+        return snapshot != null && actor != null && snapshot.bodyId().equals(actor.actor()) && snapshot.epoch() == actor.epoch()
+                && ownedBinding(snapshot, item.location(), item.slotId(), item.token());
     }
 
     public static void refreshSelection(boolean updatePointer) {
@@ -280,6 +333,14 @@ public final class ExamineClient {
                 || !sameLocalIdentity(response != null ? acceptedIdentity : pendingIdentity, captureIdentity(requestedTarget))
                 || !candidateInRange(actor, requestedTarget))) {
             clearResponseState();
+        }
+        if (requestedTarget != null && requestedTarget.kind() == ExamineTarget.Kind.STORED_ITEM) {
+            var refreshed = mc.screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen popup
+                    ? popup.resolveStoredItemTarget(requestedTarget) : null;
+            if (refreshed == null) { popupDismissed = true; clearResponseState(); }
+            else if (!refreshed.equals(requestedTarget)) {
+                requestedTarget = refreshed; POPUP.open(refreshed, actor.epoch()); response = null; request(refreshed);
+            }
         }
     }
 
@@ -454,7 +515,7 @@ public final class ExamineClient {
         if (!response.description().getString().isBlank()) lines.add(response.description());
         if (intent && visible.size() > 1 && selected != null) {
             int index = visible.indexOf(selected) + 1;
-            lines.add(Component.literal(index + "/" + visible.size() + " · Shift+Scroll"));
+            lines.add(Component.literal(index + "/" + visible.size() + " -+ Shift+Scroll"));
         }
         Authority actor = authority();
         boolean showDetails = response != null && response.detailsAllowed() && localDetailsAllowed(actor);
@@ -493,9 +554,9 @@ public final class ExamineClient {
         g.fill(px + 4, y + 5, px + 7, y + 9, pinColor); // neck
         g.fill(px + 5, y + 9, px + 6, y + 12, pinColor); // point
         g.fill(px + 2, y + 5, px + 9, y + 6, pinColor); // crossbar
-        g.drawString(mc.font, Component.literal("×"), x + width - 11, y + 3, 0xfff2e6c5, false);
+        g.drawString(mc.font, Component.literal("+ï¿½"), x + width - 11, y + 3, 0xfff2e6c5, false);
         if (wrapped.size() > popupVisibleLines) {
-            String cue = (popupScrollOffset + 1) + "/" + wrapped.size() + " ↕";
+            String cue = (popupScrollOffset + 1) + "/" + wrapped.size() + " Gï¿½ï¿½";
             cue = mc.font.plainSubstrByWidth(cue, ExamineClientPolicy.popupCueMaxWidth(width));
             g.drawString(mc.font, cue, x + 4, y + 4, 0xffb9cbd0, false);
         }
@@ -594,6 +655,8 @@ public final class ExamineClient {
     private static Vec3 responsePoint(ExamineTarget target) {
         var mc = Minecraft.getInstance();
         Authority actor = authority();
+        if (target.kind() == ExamineTarget.Kind.ITEM || target.kind() == ExamineTarget.Kind.STORED_ITEM)
+            return actor == null ? new Vec3(Double.MAX_VALUE, 0, 0) : actor.body().getEyePosition();
         var bounds = targetBounds(target);
         if (actor == null || bounds == null) return new Vec3(Double.MAX_VALUE, 0, 0);
         if (target.kind() == ExamineTarget.Kind.ENTITY && mc.level != null) {
@@ -622,6 +685,16 @@ public final class ExamineClient {
             var entity = mc.level == null ? null : mc.level.getEntity(target.entityId());
             return entity != null && !entity.isRemoved() && entity.level() == mc.level && entity.getUUID().equals(target.entityUuid())
                     ? new ExamineControllerIdentity.Binding(target, null, null, null) : null;
+        }
+        if (target.kind() == ExamineTarget.Kind.ITEM) return ownedTargetCurrent(authority(), target)
+                ? new ExamineControllerIdentity.Binding(target, null, null,
+                target.ownedItem().location()+"/"+target.ownedItem().slotId()+"/"+target.ownedItem().token()) : null;
+        if (target.kind() == ExamineTarget.Kind.STORED_ITEM) {
+            var binding = target.storedItem();
+            var popup = mc.screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen screen ? screen : null;
+            if (popup == null || !popup.containsStoredItem(target)) return null;
+            return new ExamineControllerIdentity.Binding(target, null, null,
+                    binding.hostId()+"/"+binding.hostToken()+"/"+binding.childToken()+"/"+binding.sessionNonce());
         }
         var pos = target.blockPos();
         if (target.frameId() != null) {
@@ -672,6 +745,12 @@ public final class ExamineClient {
     }
 
     public static boolean hasPopup() { return POPUP.target() != null && !popupDismissed; }
+    /** A correlated authoritative world mutation may invalidate the currently latched block's cached details. */
+    public static void worldMutationConfirmed(net.minecraft.core.BlockPos position) {
+        if (position == null || requestedTarget == null || popupDismissed
+                || requestedTarget.kind() != ExamineTarget.Kind.BLOCK || !requestedTarget.blockPos().equals(position)) return;
+        request(requestedTarget, false);
+    }
     public static boolean mouseClick(double x, double y, int button) {
         Minecraft mc = Minecraft.getInstance();
         boolean storageHost = mc.screen instanceof com.juicyslew.moonstation14.ms14.hands.client.StoragePopupScreen;

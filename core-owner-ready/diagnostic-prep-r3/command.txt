@@ -1,0 +1,1 @@
+./gradlew compileJava compileTestJava compileGameTestJava test --tests com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest --rerun-tasks

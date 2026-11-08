@@ -31,3 +31,4 @@ final class StorageSpriteGeometry {
                 dx + maxX * scale, dy + maxY * scale);
     }
 }
+

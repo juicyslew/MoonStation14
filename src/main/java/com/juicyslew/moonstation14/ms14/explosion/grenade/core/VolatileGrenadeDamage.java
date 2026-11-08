@@ -38,3 +38,4 @@ public record VolatileGrenadeDamage(double totalDamage, boolean armed, boolean t
                 newlyArmed ? Trigger.ARM : Trigger.NONE, true);
     }
 }
+

@@ -431,3 +431,4 @@ public final class PrototypeCatalogSyncPayload implements CustomPacketPayload {
         }
     }
 }
+

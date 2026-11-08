@@ -94,3 +94,4 @@ public final class LoadedBodyResolver {
         public Resolution { Objects.requireNonNull(outcome, "outcome"); }
     }
 }
+

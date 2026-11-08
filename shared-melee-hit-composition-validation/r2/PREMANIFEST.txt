@@ -1,0 +1,15 @@
+started=2026-10-21T08:34:08.9908946-07:00
+command=focused Gradle tests exact five combat FQCN selectors
+expected=5 fresh XML reports in build/test-results/test
+run_start=2026-10-21T08:34:30.1235345-07:00
+run_end=2026-10-21T08:34:33.2035353-07:00
+exit=1
+log=shared-melee-hit-composition-validation/r2/gradle.log
+run_start=2026-10-21T08:34:41.7721178-07:00
+run_end=2026-10-21T08:34:56.5271056-07:00
+exit=1
+log=shared-melee-hit-composition-validation/r2/gradle.log
+run_start=2026-10-21T08:35:22.2280982-07:00
+run_end=2026-10-21T08:35:39.7732662-07:00
+exit=0
+log=shared-melee-hit-composition-validation/r2/gradle.log

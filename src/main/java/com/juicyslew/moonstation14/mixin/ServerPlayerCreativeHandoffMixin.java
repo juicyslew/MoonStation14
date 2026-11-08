@@ -18,3 +18,4 @@ public abstract class ServerPlayerCreativeHandoffMixin {
                     requested, returnValue.getReturnValue());
     }
 }
+

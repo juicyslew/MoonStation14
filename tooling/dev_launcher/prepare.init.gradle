@@ -1,0 +1,59 @@
+import groovy.json.JsonOutput
+
+// Use ModDev's own launch-script tasks, which resolve the run's runtime inputs.
+gradle.projectsEvaluated {
+    def p = gradle.rootProject
+    if (!p.plugins.hasPlugin('net.neoforged.moddev')) {
+        throw new GradleException('NeoForge ModDev plugin is not applied to the root project.')
+    }
+    def runs = p.extensions.getByName('neoForge').runs
+    def client2 = runs.findByName('client2')
+    if (client2 == null) throw new GradleException('ModDev run configuration client2 is missing.')
+    client2.gameDirectory = p.file('run/client2')
+
+    def roles = ['server', 'client']
+    if (p.findProperty('ms14LauncherClients') == '2') roles << 'client2'
+    def launchTasks = roles.collect { role ->
+        p.tasks.named('create' + role.capitalize() + 'LaunchScript').get()
+    }
+    // Resolve only standalone primitive metadata now. Task actions must not retain
+    // the Project or ModDev model: Gradle's configuration cache serializes them.
+    def launchData = roles.collect { role ->
+        def task = p.tasks.named('create' + role.capitalize() + 'LaunchScript').get()
+        [role: role, script: task.launchScript.get().asFile.canonicalPath,
+         workingDirectory: task.workingDirectory.get().toString()]
+    }
+    def manifestPath = p.layout.buildDirectory.file('dev-launcher/launches.json').get().asFile.canonicalPath
+    def serverPropertiesPath = p.file('run/server.properties').canonicalPath
+    def runTasks = roles.collect { role -> p.tasks.named('run' + role.capitalize()).get() }
+    p.tasks.register('ms14PrepareLaunch') {
+        group = 'ms14 development'
+        description = 'Prepares selected ModDev launch scripts and exports their resolved locations.'
+        dependsOn(launchTasks)
+        // Include run-task prerequisites without executing the run tasks themselves.
+        runTasks.each { runTask -> dependsOn(runTask.taskDependencies.getDependencies(runTask)) }
+        doLast {
+            def manifest = launchData.collect { data ->
+                def script = new File(data.script)
+                if (!script.isFile()) throw new GradleException("ModDev did not create launch script for ${data.role}: ${script}")
+                def workingDirectory = new File(data.workingDirectory)
+                if (!workingDirectory.isDirectory() && !workingDirectory.mkdirs()) {
+                    throw new GradleException("Could not create ModDev run directory for ${data.role}: ${workingDirectory}")
+                }
+                [role: data.role, script: script.canonicalPath,
+                 workingDirectory: workingDirectory.canonicalPath]
+            }
+            def properties = new Properties()
+            def serverProperties = new File(serverPropertiesPath)
+            if (serverProperties.isFile()) serverProperties.withInputStream { properties.load(it) }
+            def output = new File(manifestPath)
+            output.parentFile.mkdirs()
+            def export = [launches: manifest,
+                          server: [port: properties.getProperty('server-port', '25565'),
+                                   address: properties.getProperty('server-ip', ''),
+                                   levelName: properties.getProperty('level-name', 'world')]]
+            output.setText(JsonOutput.prettyPrint(JsonOutput.toJson(export)), 'UTF-8')
+            println("MS14_LAUNCH_MANIFEST=${output.canonicalPath}")
+        }
+    }
+}

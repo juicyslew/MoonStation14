@@ -31,9 +31,12 @@ class AirlockPrototypeTest {
         assertNull(catalog.get(ResourceLocation.fromNamespaceAndPath("moonstation14", "base_airlock")));
         var resolved = catalog.get(ModAirlocks.STANDARD);
         assertEquals(20, resolved.apcPowerReceiver().requestedWatts());
+        assertEquals(new AirlockData.Collision(158,205),resolved.collision(),"fixture collision profile inherits from base_airlock");
         assertEquals(3, resolved.extensionCableReceiver().localReachBlocks());
         assertEquals(5, resolved.airlock().autoCloseSeconds());
         assertEquals(15, resolved.door().crushDamageBlunt());
+        assertEquals(1.5,resolved.door().pryTimeSeconds(),"Door pry time inherits upstream default without changing ordinary door timing");
+        assertEquals(0.1,resolved.pryUnpowered().pryModifier());
         assertFalse(resolved.electrified().enabled());
         assertTrue(resolved.electrified().usesApcPower());
         assertTrue(resolved.electrified().requirePower());
@@ -119,6 +122,16 @@ class AirlockPrototypeTest {
         var manager=new PrototypeManager();manager.register(ModAirlocks.TYPE);manager.reload(ModAirlocks.TYPE,raw);
         assertFalse(manager.snapshot(ModAirlocks.TYPE).get(ModAirlocks.STANDARD).door().bumpOpen());
     }
+    @Test void unpoweredPryModifierAndDoorTimeResolveInheritanceAndOverrides() throws Exception {
+        var base=resource("base_airlock");base.getAsJsonObject("door").addProperty("pryTimeSeconds",2.0);
+        base.getAsJsonObject("pryUnpowered").addProperty("pryModifier",0.2);
+        var raw=new LinkedHashMap<ResourceLocation,JsonObject>();raw.put(ResourceLocation.fromNamespaceAndPath("moonstation14","base_airlock"),base);raw.put(ModAirlocks.STANDARD,resource("standard_airlock"));
+        var manager=new PrototypeManager();manager.register(ModAirlocks.TYPE);manager.reload(ModAirlocks.TYPE,raw);
+        var resolved=manager.snapshot(ModAirlocks.TYPE).get(ModAirlocks.STANDARD);
+        assertEquals(2.0,resolved.door().pryTimeSeconds());assertEquals(0.2,resolved.pryUnpowered().pryModifier());
+        assertEquals(200,com.juicyslew.moonstation14.ms14.doors.AirlockPryService.durationTicks(resolved,true,1.0));
+        assertEquals(40,com.juicyslew.moonstation14.ms14.doors.AirlockPryService.durationTicks(resolved,false,1.0));
+    }
     @Test void invalidPowerDemandRejected() throws Exception {
         var base = resource("base_airlock");
         base.getAsJsonObject("apcPowerReceiver").addProperty("requestedWatts", 0);
@@ -160,7 +173,7 @@ class AirlockPrototypeTest {
         assertTrue(com.juicyslew.moonstation14.ms14.doors.AirlockBlockEntity.resolvesPanelVisible(true,AirlockState.DoorPhase.OPEN,resolved));
         assertEquals(15,com.juicyslew.moonstation14.ms14.doors.AirlockToolInteraction.panelDurationTicks(resolved.wiresPanel().toggleDelaySeconds()));
         var toolProfiles=new LinkedHashMap<ResourceLocation,JsonObject>();
-        for(String name:new String[]{"base_item","base_crowbar","crowbar","wirecutter","screwdriver","multitool"}){
+        for(String name:new String[]{"base_item","base_crowbar","crowbar","wirecutter","screwdriver","multitool","kitchen_knife"}){
             try(var in=new InputStreamReader(AirlockPrototypeTest.class.getResourceAsStream("/data/moonstation14/moonstation14/tool_profile/"+name+".json"),StandardCharsets.UTF_8)){
                 toolProfiles.put(ResourceLocation.fromNamespaceAndPath("moonstation14",name),JsonParser.parseReader(in).getAsJsonObject());
             }

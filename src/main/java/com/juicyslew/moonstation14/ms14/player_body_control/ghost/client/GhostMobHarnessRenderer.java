@@ -49,8 +49,7 @@ public final class GhostMobHarnessRenderer extends EntityRenderer<GhostMobHarnes
         var matrix = poseStack.last().pose();
         // RSI animated is four directional 32px cells, one frame per direction.
         // The 2x2 sheet has no delays, so each authored direction is static.
-        float relativeYaw = Mth.wrapDegrees(entityYaw - minecraft.gameRenderer.getMainCamera().getYRot());
-        int direction = GhostSpriteDirection.fromRelativeYaw(relativeYaw);
+        int direction = GhostSpriteDirection.fromView(entityYaw, minecraft.gameRenderer.getMainCamera().getYRot());
         float u = (direction & 1) * 0.5F, v = (direction >> 1) * 0.5F;
         int light = 0xF000F0;
         float half = GhostSpriteGeometry.HALF_SIZE;

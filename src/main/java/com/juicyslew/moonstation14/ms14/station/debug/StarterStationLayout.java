@@ -100,3 +100,4 @@ public final class StarterStationLayout {
         return room || corridor || isDoorway(x, z);
     }
 }
+

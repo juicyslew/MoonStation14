@@ -1,0 +1,46 @@
+{
+  "title": "Botany feedback 6: primary harvest input and registered grinder slot cues",
+  "kind": "bugfix",
+  "acceptance_criteria": [
+    "Primary empty-hand block use reaches retention during hand-query refresh, with or without a retained snapshot; item targets, occupied hands, UI suppression, and outstanding actions remain excluded.",
+    "A retained use consumes fresh matching proof once without automatic retry of server denials.",
+    "Resolved grinder beaker cues use registered sound-event IDs; the registered recipient receives committed slot cue packets and busy or stale ejections remain silent.",
+    "Nonempty chamber ejection uses the existing switch cue once per successful batch; empty chamber ejection remains silent.",
+    "Existing authenticated grinder processing and botany authority regressions pass, and a rebuilt mod jar is available."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/GrinderRegisteredPlayerGameTests.java",
+  "manual_steps": [
+    "Restart with the candidate jar; empty-handed, click a ready tray shortly after another interaction and verify one click harvests without retries.",
+    "Insert and eject a beaker: both should have slot sounds. Produce insertion remains silent. Insert produce without grinding, then Eject All: expect one switch cue. Eject All on an empty chamber remains silent."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Compile changed client routing and native packet assertions and force jar production for the exact submitted snapshot rather than relying on an up-to-date artifact.",
+      "covers": ["Existing authenticated grinder processing and botany authority regressions pass, and a rebuilt mod jar is available."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.botany.BotanyMachineProfileTest --tests com.juicyslew.moonstation14.ms14.hands.client.BodyHandClientPolicyTest --tests com.juicyslew.moonstation14.ms14.botany.client.GrinderProcessingAudioPolicyTest --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Focused shared nomination admission, fresh-proof retention, profile event resolution and processing audio policy regressions.",
+      "covers": ["Primary empty-hand block use reaches retention during hand-query refresh, with or without a retained snapshot; item targets, occupied hands, UI suppression, and outstanding actions remain excluded.", "A retained use consumes fresh matching proof once without automatic retry of server denials.", "Resolved grinder beaker cues use registered sound-event IDs; the registered recipient receives committed slot cue packets and busy or stale ejections remain silent."]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=ui,interaction,prediction' --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Affected pointer/world input admission and client prediction owners; no preview or visual claim.",
+      "covers": ["Primary empty-hand block use reaches retention during hand-query refresh, with or without a retained snapshot; item targets, occupied hands, UI suppression, and outstanding actions remain excluded.", "A retained use consumes fresh matching proof once without automatic retry of server denials."],
+      "selectors": ["ui", "interaction", "prediction"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "$fixture='build/gametest-botany-feedback6-'+[guid]::NewGuid().ToString('N'); ./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,chemmaster-output-auth,examine_policy' \"-Pms14GameTestDir=$fixture\" --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "Registered-recipient native slot packet delivery and authenticated grinder/botany regression coverage. A fresh isolated world is required: reusing an ACTIVE lifecycle world enters RECOVERY_REQUIRED and denies character enrollment; retain the failed fixed-directory artifacts.",
+      "covers": ["Resolved grinder beaker cues use registered sound-event IDs; the registered recipient receives committed slot cue packets and busy or stale ejections remain silent.", "Nonempty chamber ejection uses the existing switch cue once per successful batch; empty chamber ejection remains silent.", "Existing authenticated grinder processing and botany authority regressions pass, and a rebuilt mod jar is available."],
+      "selectors": ["botany", "chemmaster-output-auth", "examine_policy"],
+      "log": "build/reports/botany/feedback6-gate-native.log"
+    }
+  ]
+}

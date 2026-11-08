@@ -2,7 +2,7 @@
 
 ## Scope and rule
 
-M2 reuses one existing SS14 APC sprite as a static 2D screen image. This APC image import includes no SS14 UI/code, logos, fonts, sound, models, or newly drawn/copy-traced sprites. Omit entity-preview animation; the static image is sufficient. Audio reuse, if added separately, follows the [media reuse and attribution policy](../media-use-and-attribution.md) and [unresolved-audio running list](../audio-unknown-provenance.md).
+M2 reuses one existing SS14 APC sprite as a static 2D screen image. This APC image import includes no SS14 UI/code, logos, fonts, sound, models, or newly drawn/copy-traced sprites. Omit entity-preview animation; the static image is sufficient. Audio reuse, if added separately, follows the [media reuse and attribution policy](../project-reference/media-use-and-attribution.md) and [unresolved-audio running list](../audio/audio-unknown-provenance.md).
 
 SS14 is a design reference, not an instruction to copy its XAML, C# implementation, localization, layout code, or artwork. Never copy upstream code. Asset reuse is a separate decision from code reference and requires the exact source-file provenance, license, attribution text, and any modifications to be recorded before adding the asset.
 

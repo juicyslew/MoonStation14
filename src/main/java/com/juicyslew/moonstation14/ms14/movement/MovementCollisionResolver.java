@@ -90,3 +90,4 @@ public interface MovementCollisionResolver {
                                HorizontalContactEvidence evidence) { this(actualDisplacement, onGround, evidence, null); }
     }
 }
+

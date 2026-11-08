@@ -30,3 +30,4 @@ public record NetworkDeviceItemData(DeviceComponents deviceComponents, Optional<
     }
     public record ConfiguratorPolicy(boolean linkDefault, boolean settingsFrequency) { }
 }
+

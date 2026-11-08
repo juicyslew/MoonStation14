@@ -58,3 +58,4 @@ public final class StripCapability {
                 .filter(HandsPrototypeComponent::canBeStripped).filter(hands -> !hands.hands().isEmpty()).isPresent();
     }
 }
+

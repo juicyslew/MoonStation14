@@ -20,3 +20,4 @@ public abstract class LivingEntityDisposalContainmentRenderMixin {
                 && ContainedBodyVisual.shouldHide(visual.moonstation14$isContainedBodyVisual())) callback.cancel();
     }
 }
+

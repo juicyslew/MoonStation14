@@ -21,3 +21,4 @@ public record ConstructionGuidanceState(long epoch,long sequence,UUID body,Block
     public static void deliverClient(ConstructionGuidanceState state){var h=clientHandler;if(h!=null)h.accept(state);}
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+

@@ -96,4 +96,14 @@ class SpriteAnimationTest {
         assertEquals(32, eight.v(7, 0));
         assertThrows(IllegalArgumentException.class, () -> eight.u(8, 0));
     }
+
+    @Test void permitsUnusedSheetCellsButRejectsFramesBeyondCapacity() {
+        SpriteSheet pulse = new SpriteSheet("emp_pulse", 96, 96, 32, 32,
+                new int[][] {{100,100,100,100,100,100,100,100}});
+        assertEquals(8,pulse.frameCount(0));
+        assertEquals(32,pulse.u(0,7));
+        assertEquals(64,pulse.v(0,7));
+        assertThrows(IllegalArgumentException.class, () -> new SpriteSheet("overflow",96,96,32,32,
+                new int[][] {{100,100,100,100,100,100,100,100,100,100}}));
+    }
 }

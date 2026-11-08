@@ -5,6 +5,7 @@ import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import com.juicyslew.moonstation14.ms14.doors.FirelockBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.LevelReader;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,19 @@ class AtmosphereTopologyTest {
     void oakDoorOpenAndClosedStatesHaveExplicitPolicy() {
         assertTrue(isPassable(openState(Blocks.OAK_DOOR.defaultBlockState(), DoorBlock.OPEN), (state, level, pos) -> failCollisionCheck()));
         assertFalse(isPassable(Blocks.OAK_DOOR.defaultBlockState(), (state, level, pos) -> failCollisionCheck()));
+    }
+
+    @Test
+    void firelockTwoCellProjectionUsesTheSameOpenSealPolicy() {
+        FirelockBlock firelock = com.juicyslew.moonstation14.block.ModBlocks.FIRELOCK.get();
+        BlockState closed = firelock.defaultBlockState();
+        BlockState upperClosed = closed.setValue(FirelockBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER);
+        BlockState open = closed.setValue(FirelockBlock.OPEN, true);
+        BlockState upperOpen = upperClosed.setValue(FirelockBlock.OPEN, true);
+        assertFalse(AtmosphereTopology.isPassable(closed));
+        assertFalse(AtmosphereTopology.isPassable(upperClosed));
+        assertTrue(AtmosphereTopology.isPassable(open));
+        assertTrue(AtmosphereTopology.isPassable(upperOpen));
     }
 
     @Test

@@ -85,3 +85,4 @@ public final class BodyActionAuthority {
                 && body.isAddedToLevel() && !body.isPassenger() && level.getEntity(body.getUUID()) == body;
     }
 }
+

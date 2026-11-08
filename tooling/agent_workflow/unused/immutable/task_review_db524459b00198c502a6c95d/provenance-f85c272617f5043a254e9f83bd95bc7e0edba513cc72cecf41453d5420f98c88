@@ -1,0 +1,1 @@
+{"body_sha256":"a8e127313e6c75befd1f0e00b1af812df5c6147c7bfa488e38fbcf07c29ebbb3","created":1792197265733,"message":"unauthorized","message_id":"compact-auth","mode":"QUEUED_ORIGINAL","original_message_id":"msg_6f5165684662ab613ae3dc38c05239dca83b834b","ownership_basis":"exclusive_session_exact_queued_prompt_no_foreign_postdispatch_user","status":401,"type":"provider.auth"}

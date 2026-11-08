@@ -14,78 +14,62 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import java.util.UUID;
 
-/** Crowbar pry admission and completion reuse the shared timed-interaction runtime. */
+/** Authenticated hand/tool pry admission and completion reuse the shared timed-interaction runtime. */
 public final class AirlockPryService {
     private static final String KIND="airlock-pry";
     private AirlockPryService() { }
+
+    public static int durationTicks(com.juicyslew.moonstation14.ms14.doors.prototype.AirlockData data,boolean emptyHand,double speed){
+        if(data==null||!Double.isFinite(speed)||speed<=0)return 0;
+        return DoorPrySupport.durationTicks(data.door().pryTimeSeconds(),1.0,emptyHand?data.pryUnpowered().pryModifier():speed);
+    }
+
     /** Returns true when this is an airlock target, including a denied attempt. */
     public static boolean start(ServerPlayer actor,BodyBlockUseRequest request,BodyHandRequestService.BlockUseAdmission admission,ItemStack held) {
-        if(request==null||admission==null||!(admission.authority().body().level() instanceof ServerLevel level))return false;
+        if(actor==null||request==null||admission==null||!(admission.authority().body().level() instanceof ServerLevel level))return false;
         BlockPos target=admission.hit().pos(); if(!level.hasChunkAt(target)||!level.getWorldBorder().isWithinBounds(target))return false;
         var blockState=level.getBlockState(target); if(!(blockState.getBlock() instanceof AirlockBlock))return false;
         if(blockState.getValue(AirlockBlock.HALF)==DoubleBlockHalf.UPPER)target=target.below();
-        if(!(level.getBlockEntity(target) instanceof AirlockBlockEntity airlock))return false;
-        if(!ToolQualities.has(held,ToolProfile.Quality.PRYING))return false;
+        if(!(level.getBlockEntity(target) instanceof AirlockBlockEntity airlock))return true;
+        LiveHands hands=admission.hands(); ItemStack admitted=hands.stackCopy(request.handId()).orElse(null);
+        boolean empty=held==null||held.isEmpty();
+        if(empty ? admitted!=null&&!admitted.isEmpty() : !ToolQualities.has(held,ToolProfile.Quality.PRYING))return true;
         if(admission.authority().body() instanceof net.minecraft.world.entity.LivingEntity body)
             airlock.electrifiedContact(body,AirlockElectrificationSystem.Contact.USING);
         var initialSupply=com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPower(level,airlock);
         if(!initialSupply.known())return true;
         if(!airlock.state().receiverPowerDisabled())airlock.setPowered(initialSupply.deliveredWatts()==airlock.prototype().apcPowerReceiver().requestedWatts());
-        AirlockState snapshot=airlock.state(); double speed=ToolQualities.prySpeed(held);
-        if(!Double.isFinite(speed)||speed<=0||!snapshot.allowsPry(false))return true;
-        HandActorAuthority.Snapshot authority=admission.authority(); LiveHands hands=admission.hands();
+        AirlockState snapshot=airlock.state(); double speed=empty?1.0:ToolQualities.prySpeed(held);
+        if(!Double.isFinite(speed)||speed<=0||!snapshot.allowsPry(false)||!DoorPrySupport.stablePhase(snapshot.phase()))return true;
+        HandActorAuthority.Snapshot authority=admission.authority();
         UUID identity=airlock.identity(); long operationRevision=snapshot.revision(); BlockPos exact=target.immutable();
         UUID frameId=admission.hit().frameId();
         String hand=request.handId(), token=request.expectedToken(); long handsRevision=request.expectedRevision();
-        double prySeconds=5.0/speed; int duration=(int)Math.max(1,Math.ceil(prySeconds*20));
-        BooleanSupplierWithLive check=()->valid(actor,authority,hands,hand,token,handsRevision,held,level,exact,identity,operationRevision,frameId);
+        int duration=durationTicks(airlock.prototype(),empty,speed);if(duration==0)return true;
+        ItemStack captured=empty?null:held.copy();
+        java.util.function.BooleanSupplier check=()->valid(actor,authority,hands,hand,token,handsRevision,captured,level,exact,identity,operationRevision,frameId);
         TimedInteractionSystem.start(authority.body(),actor,request.sequence(),KIND,identity.toString(),duration,true,true,
-                check::get,()->{
-                    if(!check.get()||!(level.getBlockEntity(exact) instanceof AirlockBlockEntity current))return TimedInteractionSystem.Completion.STOP;
+                check,()->{
+                    if(!check.getAsBoolean()||!(level.getBlockEntity(exact) instanceof AirlockBlockEntity current))return TimedInteractionSystem.Completion.STOP;
                     return current.pry()?TimedInteractionSystem.Completion.STOP:TimedInteractionSystem.Completion.DENIED;
                 });
         return true;
     }
+
     private static boolean valid(ServerPlayer actor,HandActorAuthority.Snapshot authority,LiveHands hands,String hand,String token,long handRevision,ItemStack held,ServerLevel level,BlockPos pos,UUID identity,long revision,UUID frameId) {
-        String failure = null;
-        if(!HandActorAuthority.revalidate(actor,authority))failure="authority-revalidation";
-        else if(authority.body().level()!=level)failure="body-level";
-        else if(authority.body().getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get())!=hands)failure="hands-identity";
-        else if(!hands.compatible(authority.body()))failure="hands-incompatible";
-        else if(hands.revision()!=handRevision)failure="hands-revision";
-        else if(!hands.token(hand).filter(token::equals).isPresent())failure="hand-token";
-        else if(!hands.stackCopy(hand).filter(stack->ItemStack.isSameItemSameComponents(stack,held)).isPresent())failure="held-stack";
-        else if(!ToolQualities.has(held,ToolProfile.Quality.PRYING))failure="tool-quality";
-        else if(!level.hasChunkAt(pos))failure="target-unloaded";
-        if(failure!=null)return logInvalid(actor,level,pos,identity,failure,null);
-        if(!(level.getBlockEntity(pos) instanceof AirlockBlockEntity airlock))return logInvalid(actor,level,pos,identity,"root-missing",null);
-        if(!airlock.identity().equals(identity))return logInvalid(actor,level,pos,identity,"root-identity",null);
-        if(airlock.state().revision()!=revision)return logInvalid(actor,level,pos,identity,"door-revision",null);
-        if(!airlock.state().allowsPry(false))return logInvalid(actor,level,pos,identity,"pry-state",null);
+        LiveHands currentHands=authority.body().getExistingDataOrNull(com.juicyslew.moonstation14.component.ModDataAttachments.LIVE_HANDS.get());
+        if(!HandActorAuthority.revalidate(actor,authority)||authority.body().level()!=level||currentHands==null
+                ||currentHands!=hands&&!currentHands.continuesAcrossPassiveTankDebit(authority.body(),hands)
+                ||!hands.compatible(authority.body())||!level.hasChunkAt(pos))return false;
+        boolean handValid=held==null?DoorPrySupport.matchesEmptyHandSnapshot(hands,hand,token,handRevision)
+                :DoorPrySupport.matchesHeldHandSnapshot(hands,hand,token,held,handRevision)&&ToolQualities.has(held,ToolProfile.Quality.PRYING);
+        if(!handValid)return false;
+        if(!(level.getBlockEntity(pos) instanceof AirlockBlockEntity airlock)||!airlock.identity().equals(identity)
+                ||airlock.state().revision()!=revision||!airlock.state().allowsPry(false)||!DoorPrySupport.stablePhase(airlock.state().phase()))return false;
         var supply=com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPower(level,airlock);
-        if(!supply.known()) {
-            String diagnostic = null;
-            if (com.juicyslew.moonstation14.MoonStation14.LOGGER.isDebugEnabled())
-                diagnostic = com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.airlockPowerDiagnostic(level, airlock);
-            return logInvalid(actor,level,pos,identity,"power-unknown",supply,diagnostic);
-        }
-        if(supply.deliveredWatts()==airlock.prototype().apcPowerReceiver().requestedWatts())return logInvalid(actor,level,pos,identity,"fully-powered",supply);
+        if(!supply.known()||supply.deliveredWatts()==airlock.prototype().apcPowerReceiver().requestedWatts())return false;
         var point=com.juicyslew.moonstation14.ms14.hands.live.LoadedFrameRayQuery.currentTargetPoint(level,pos);
-        if(point==null)return logInvalid(actor,level,pos,identity,"target-projection",supply);
-        if(!java.util.Objects.equals(point.frameId(),frameId))return logInvalid(actor,level,pos,identity,"target-frame",supply);
-        if(!AirlockToolLineOfSight.canReachRoot(authority.body(),level,pos,airlock,identity))return logInvalid(actor,level,pos,identity,"line-of-sight",supply);
-        return true;
+        if(point==null||!java.util.Objects.equals(point.frameId(),frameId))return false;
+        return AirlockToolLineOfSight.canReachRoot(authority.body(),level,pos,airlock,identity);
     }
-    private static boolean logInvalid(ServerPlayer actor,ServerLevel level,BlockPos pos,UUID identity,String reason,
-            com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.VentMeterObservation sample) {
-        return logInvalid(actor,level,pos,identity,reason,sample,null);
-    }
-    private static boolean logInvalid(ServerPlayer actor,ServerLevel level,BlockPos pos,UUID identity,String reason,
-            com.juicyslew.moonstation14.ms14.power.runtime.PowerRuntime.VentMeterObservation sample, String diagnostic) {
-        com.juicyslew.moonstation14.MoonStation14.LOGGER.debug(
-                "[airlock-pry-validity] actor={} root={} pos={} reason={} now={} powerSample={} powerDiagnostic={}",
-                actor==null?null:actor.getUUID(),identity,pos,reason,level.getServer().overworld().getGameTime(),sample,diagnostic);
-        return false;
-    }
-    @FunctionalInterface private interface BooleanSupplierWithLive { boolean get(); }
 }

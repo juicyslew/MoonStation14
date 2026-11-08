@@ -3,6 +3,7 @@ package com.juicyslew.moonstation14.ms14.hands.live;
 import com.juicyslew.moonstation14.component.ModDataAttachments;
 import com.juicyslew.moonstation14.item.ModItems;
 import com.juicyslew.moonstation14.ms14.character.CharacterControlSystem;
+import com.juicyslew.moonstation14.ms14.combat.MeleeSelectionCooldown;
 import com.juicyslew.moonstation14.ms14.hands.HandActorAuthority;
 import com.juicyslew.moonstation14.ms14.hands.network.BodyHandStateService;
 import com.juicyslew.moonstation14.ms14.storage.grid.GridContents;
@@ -23,6 +24,28 @@ public final class BodyEquippedStorageTransfer {
     private BodyEquippedStorageTransfer() { }
 
     public enum Result { SUCCESS, DENIED, RECOVERY_REQUIRED }
+
+    /** Read-only exact child resolution shared with examination; returns a defensive stack copy. */
+    public static Optional<ItemStack> readGridItem(LivingEntity body, LiveHands.GridHost host,
+                                                    String childToken, long revision) {
+        if (body == null || host == null || childToken == null || childToken.isBlank()
+                || !(body.level() instanceof ServerLevel level) || level.getServer() == null
+                || !level.getServer().isSameThread() || !live(body, level)) return Optional.empty();
+        LiveHands hands = body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get());
+        if (hands == null || hands.revision() != revision || !hands.compatible(body)) return Optional.empty();
+        if (!host.worn() && !hands.handIds().contains(host.id())) return Optional.empty();
+        var owner = LiveOwnedItemAccess.read(body, new LiveOwnedItemAccess.Binding(
+                host.worn() ? LiveOwnedItemAccess.Location.EQUIPMENT : LiveOwnedItemAccess.Location.HELD,
+                host.id(), revision, host.token())).orElse(null);
+        if (owner == null || owner.hands() != hands) return Optional.empty();
+        ItemStack copy = owner.stack();
+        var entry = GridContents.read(copy).stream().flatMap(contents -> contents.entries().stream())
+                .filter(candidate -> candidate.token().equals(childToken)).findFirst().orElse(null);
+        if (entry == null
+                || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != hands
+                || hands.revision() != revision || !hands.compatible(body)) return Optional.empty();
+        return Optional.of(entry.stack());
+    }
 
     /** Removes an equipped item and places it in a body-owned held or worn grid host. */
     public static Result equipmentToGrid(ServerPlayer actor, String sourceSlot, String sourceToken,
@@ -378,6 +401,7 @@ public final class BodyEquippedStorageTransfer {
         Optional<LiveHands> next = storing
                 ? before.insertEquippedGrid(revision, declared, slot, containerToken, hand, token, anchor, rotation)
                 : before.extractEquippedGrid(revision, declared, slot, containerToken, hand, token, anchor);
+        if (!storing && next.isPresent()) next = Optional.of(MeleeSelectionCooldown.stageSelectedInsertion(body, before, next.orElseThrow()));
         if (next.isEmpty() || !authorityValid.getAsBoolean() || !live(body, level) || !CharacterControlSystem.canAct(body)
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before || !before.compatible(body)
                 || !LiveHands.equipmentSnapshot(body).map(snapshot -> snapshot.slots().stream()
@@ -411,6 +435,7 @@ public final class BodyEquippedStorageTransfer {
         Optional<LiveHands> next = storing
                 ? before.insertEquippedStorage(revision, declared, slot, containerToken, hand, token)
                 : before.extractEquippedStorage(revision, declared, slot, containerToken, hand, token);
+        if (!storing && next.isPresent()) next = Optional.of(MeleeSelectionCooldown.stageSelectedInsertion(body, before, next.orElseThrow()));
         if (next.isEmpty() || !authorityValid.getAsBoolean() || !live(body, level)
                 || !CharacterControlSystem.canAct(body)
                 || body.getExistingDataOrNull(ModDataAttachments.LIVE_HANDS.get()) != before

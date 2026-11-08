@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.prototype.GlasstleProductCatalogCandidateTest" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-10-21T12:42:35.804Z" hostname="DESKTOP-4F0ER3K" time="0.024">
+  <properties/>
+  <testcase name="glasstleAndShardResolveInheritedDefaultsWithoutPublishing()" classname="com.juicyslew.moonstation14.ms14.prototype.GlasstleProductCatalogCandidateTest" time="0.024">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;moonstation14:ss14/effects/glass_break&gt; but was: &lt;ss14:effects/glass_break&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;moonstation14:ss14/effects/glass_break&gt; but was: &lt;ss14:effects/glass_break&gt;
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at app//org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at app//org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:182)
+	at app//org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:177)
+	at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
+	at TRANSFORMER/moonstation14@0.0.1/com.juicyslew.moonstation14.ms14.prototype.GlasstleProductCatalogCandidateTest.glasstleAndShardResolveInheritedDefaultsWithoutPublishing(GlasstleProductCatalogCandidateTest.java:45)
+	at java.base@21.0.10/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base@21.0.10/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -26,7 +26,13 @@ class ConnectedWallDiagnosticCommandTest {
         for(var method:client.methods)for(var instruction=method.instructions.getFirst();instruction!=null;instruction=instruction.getNext())
             if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call)calls.add(call.name);
         assertTrue(calls.contains("input")); assertTrue(calls.contains("sent")); assertTrue(calls.contains("snapshot"));
-        assertTrue(calls.contains("render")); assertTrue(calls.contains("predict"));
+        assertTrue(calls.contains("render"));
+        assertTrue(calls.contains("rebuildPrediction"));
+        assertTrue(calls.contains("predictTick"));
+        assertTrue(calls.contains("predictCharacter"));
+        assertTrue(client.methods.stream().noneMatch(m -> m.name.equals("predict")
+                && java.util.Arrays.stream(m.instructions.toArray()).anyMatch(i ->
+                i instanceof org.objectweb.asm.tree.MethodInsnNode call && call.name.equals("predictTick"))));
         assertTrue(calls.contains("heartbeat"));
         assertTrue(client.methods.stream().anyMatch(m -> java.util.Arrays.stream(m.instructions.toArray()).anyMatch(i ->
                 i instanceof org.objectweb.asm.tree.FieldInsnNode field && "HISTORY_LOST".equals(field.name))));

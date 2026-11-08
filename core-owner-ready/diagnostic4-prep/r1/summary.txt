@@ -1,0 +1,3 @@
+TEST-com.juicyslew.moonstation14.ms14.botany.BotanyTimingTraitPresetTest.xml: tests=4, failures=0, errors=0, skipped=0
+TEST-com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest.xml: tests=6, failures=0, errors=0, skipped=0
+TEST-com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest.xml: tests=6, failures=0, errors=0, skipped=0

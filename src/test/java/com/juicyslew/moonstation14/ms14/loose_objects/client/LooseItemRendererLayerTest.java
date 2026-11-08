@@ -7,36 +7,38 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Verifies the jug's live model-render call uses the block-atlas entity cutout layer. */
+/** Verifies loose entities route rendering through the shared presentation owner. */
 class LooseItemRendererLayerTest {
-    @Test void jugUsesEntityMappedBlockCutoutLayerAndPreservesItsExistingDrawInputs() throws Exception {
+    @Test void entityDriverUsesSharedOwnerAndOverridesOnlyItsJugMaterial() throws Exception {
         String source=readRenderer();
-        int jugStart=source.indexOf("if (\"jug\".equals(profile.renderKind())");
-        int jugEnd=source.indexOf("} else {",jugStart);
-        assertTrue(jugStart>=0&&jugEnd>jugStart);
-        String jug=source.substring(jugStart,jugEnd);
+        assertTrue(source.contains("Runnable capture = () -> LooseCargoCaptureClient.observeModelDraw("));
+        assertTrue(source.contains("WorldItemPresentationRenderer.renderCameraFacing("));
+        assertTrue(source.contains("WorldItemPresentationRenderer.render(stack, profile"));
+        assertEquals(1,occurrences(source,"Sheets.cutoutBlockSheet()"));
+        assertFalse(source.contains("getModelRenderer().renderModel("));
+        assertFalse(source.contains("getItemRenderer().renderStatic("));
 
-        assertTrue(jug.contains("buffers.getBuffer(Sheets.cutoutBlockSheet())"));
-        assertFalse(jug.contains("RenderType.cutout()"));
-        assertFalse(jug.contains("chunkBufferLayers"));
-        assertEquals(1,occurrences(jug,"getModelRenderer().renderModel("));
-        assertTrue(jug.contains("pose.last(), consumer"));
-        assertTrue(jug.contains("null, model, red, green, blue, light, OverlayTexture.NO_OVERLAY"));
-        assertTrue(jug.indexOf("observeModelDraw(")<jug.indexOf("renderModel("));
-        assertTrue(jug.contains("JugItemAppearance.fillTier("));
-        assertTrue(jug.contains("JugItemAppearance.color("));
-
-        String nonJug=source.substring(jugEnd);
-        assertEquals(3,occurrences(nonJug,"getItemRenderer().renderStatic("),
-                "other item-renderer branches retain their existing entity pipeline");
+        String owner=read("src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/client/WorldItemPresentationRenderer.java");
+        assertTrue(owner.contains("RenderType jugRenderType"));
+        assertTrue(owner.contains("jugVertexConsumer(buffers, vertexAlpha, tintRgb, count, jugRenderType)"));
+        String compactOwner = owner.replaceAll("\\s+", "");
+        assertTrue(compactOwner.contains("presentationBuffers(buffers,alpha,tint,count).getBuffer(alpha==255&&tint==0xFFFFFF?jugRenderType:RenderType.entityTranslucent"));
+        assertTrue(owner.contains("float red = ((color >> 16) & 255) / 255f"));
+        assertTrue(owner.contains("float green = ((color >> 8) & 255) / 255f"));
+        assertTrue(owner.contains("float blue = (color & 255) / 255f"));
+        assertTrue(owner.contains("light, OverlayTexture.NO_OVERLAY"));
+        assertTrue(owner.contains("JugItemAppearance.fillTier("));
+        assertTrue(owner.contains("JugItemAppearance.color("));
+        assertTrue(owner.contains("RenderType.cutout()"),"default material remains for other callers");
     }
 
-    private static String readRenderer() throws Exception {
+    private static String readRenderer() throws Exception { return read("src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/client/LooseItemRenderer.java"); }
+    private static String read(String path) throws Exception {
         Path root=Path.of(System.getProperty("user.dir"));
-        while(root!=null&&!Files.exists(root.resolve("src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/client/LooseItemRenderer.java")))
+        while(root!=null&&!Files.exists(root.resolve(path)))
             root=root.getParent();
         assertNotNull(root,"workspace root");
-        return Files.readString(root.resolve("src/main/java/com/juicyslew/moonstation14/ms14/loose_objects/client/LooseItemRenderer.java"));
+        return Files.readString(root.resolve(path));
     }
 
     private static int occurrences(String source,String needle) {

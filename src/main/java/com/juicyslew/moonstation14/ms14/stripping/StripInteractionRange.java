@@ -18,3 +18,4 @@ public final class StripInteractionRange {
         return BodyInteractionAccess.rootWithinReach(actorRoot, targetRoot, BLOCKS);
     }
 }
+

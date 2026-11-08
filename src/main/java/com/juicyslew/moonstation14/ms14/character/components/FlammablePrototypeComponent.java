@@ -82,3 +82,4 @@ public record FlammablePrototypeComponent(float firestackFade, DamageSpecifierDa
 
     @Override public String type() { return TYPE; }
 }
+

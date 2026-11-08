@@ -11,9 +11,9 @@ class PointerWorkspaceRoutingTest {
         assertFalse(StoragePopupScreen.shouldDismissPointerWorkspace(1,true,false));
     }
 
-    @Test void outsideClickUsesGameplayOnlyForWireWithoutConstructionOverlay() {
+    @Test void outsideTransitionClickIsNeverReplayedAsGameplayUse() {
         assertFalse(StoragePopupScreen.shouldRouteOutsideClickToGameplay(true, true)); // lock; keep wire session
-        assertTrue(StoragePopupScreen.shouldRouteOutsideClickToGameplay(false, true)); // main wire-only world route
+        assertFalse(StoragePopupScreen.shouldRouteOutsideClickToGameplay(false, true)); // transition press is consumed
         assertFalse(StoragePopupScreen.shouldRouteOutsideClickToGameplay(true, false)); // overlay-only lock
     }
 

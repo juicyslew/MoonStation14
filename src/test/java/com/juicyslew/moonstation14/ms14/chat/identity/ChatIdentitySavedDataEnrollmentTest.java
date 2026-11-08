@@ -51,6 +51,22 @@ class ChatIdentitySavedDataEnrollmentTest {
         assertFalse(ledger.isDirty());
     }
 
+    @Test void durableBodyEnrollmentRoundTripsAndFailedWriteDoesNotPublish() throws Exception {
+        Path file = directory.resolve(ChatIdentitySavedData.DATA_NAME + ".dat");
+        var ledger = new ChatIdentitySavedData();
+        var key = new ChatIdentityRegistry.CharacterKey(UUID.randomUUID(), "body_123");
+        var body = ledger.allocateBodyCharacterDurably(file, key, "Kobold");
+        assertEquals(body, ledger.allocateBodyCharacterDurably(file, key, "Other"));
+        var restored = ChatIdentitySavedData.load(NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap()).getCompound("data"), null);
+        assertEquals("Kobold", restored.character(key).orElseThrow().name());
+        var rejected = new ChatIdentityRegistry.CharacterKey(UUID.randomUUID(), "body_456");
+        byte[] before = Files.readAllBytes(file);
+        assertThrows(IllegalStateException.class, () -> ledger.allocateBodyCharacterDurably(file, rejected, "Lizard",
+                () -> { throw new IOException("forced failure"); }));
+        assertTrue(ledger.character(rejected).isEmpty());
+        assertArrayEquals(before, Files.readAllBytes(file));
+    }
+
     @Test void failedAtomicMoveLeavesExistingLedgerUntouchedAndNewIdentityAbsent() throws Exception {
         Path file = directory.resolve(ChatIdentitySavedData.DATA_NAME + ".dat");
         var ledger = new ChatIdentitySavedData();

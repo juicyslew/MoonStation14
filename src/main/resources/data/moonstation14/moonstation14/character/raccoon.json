@@ -1,0 +1,1 @@
+{"parent":"moonstation14:supported_nonhostile_animal","host_entity_types":["moonstation14:raccoon"],"components":[{"type":"Species","label":"Raccoon"},{"type":"AnimalAppearance","model_ids":["raccoon"]},{"type":"EquipmentSlots","template":"moonstation14:pet"}]}

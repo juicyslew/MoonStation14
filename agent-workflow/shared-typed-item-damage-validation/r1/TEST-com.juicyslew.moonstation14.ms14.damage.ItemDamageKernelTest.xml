@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-10-21T14:26:20.428Z" hostname="DESKTOP-4F0ER3K" time="0.11">
+  <properties/>
+  <testcase name="unsupportedZeroAndEmptyDeltasAreNotApplicable()" classname="com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest" time="0.002"/>
+  <testcase name="realTomatoProfileResolvesAndNestedOverridesRetainInheritedImpact()" classname="com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest" time="0.091"/>
+  <testcase name="stackStateIsDefensivelyImmutableAndRejectsInvalidDamage()" classname="com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest" time="0.012"/>
+  <testcase name="landingDeltaIsIndependentOfImpactDeadlineAndAccumulatesForThreshold()" classname="com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest" time="0.001"/>
+  <testcase name="groupAndTypeAllowListsUseOrPolicyAcrossAllConsumers()" classname="com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest" time="0.001"/>
+  <testcase name="noHorizontalContactNoThresholdAndUnsupportedDamageAreIgnored()" classname="com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest" time="0.0"/>
+  <testcase name="invalidScaledModifierAwareImpactIsRejectedWithoutMutatingLedger()" classname="com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest" time="0.0"/>
+  <testcase name="horizontalOwnSpeedScalesAndUsesInclusiveCooldown()" classname="com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest" time="0.0"/>
+  <testcase name="zeroMinimumImpactSpeedIsRejectedByCompositionAndCodec()" classname="com.juicyslew.moonstation14.ms14.damage.ItemDamageKernelTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

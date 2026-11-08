@@ -85,3 +85,4 @@ public final class HealthAnalyzerWorkspace {
     public void endDrag() { windows.values().forEach(w->w.dragging=false); }
      private static void clamp(Window w,int sw,int sh){w.width=Math.max(1,Math.min(w.width,sw));w.height=Math.max(1,Math.min(w.height,sh));w.x=Math.max(0,Math.min(w.x,Math.max(0,sw-w.width)));w.y=Math.max(0,Math.min(w.y,Math.max(0,sh-w.height)));}
 }
+

@@ -53,7 +53,7 @@ public final class AirAlarmCandidates {
                     || device.isRemoved() || device.getLevel() != level || device.deviceId() == null
                     || device.kind() != block.kind() || !device.settingsValid()) continue;
             boolean linked = links.contains(new AirAlarmDeviceLinks.Link(level.dimension(), pos,
-                    block.kind(), device.deviceId()));
+                    AirAlarmDeviceLinks.EndpointRole.ventilation(block.kind()), device.deviceId()));
             found.add(new Candidate(device.deviceId(), block.kind(), pos, linked));
         }
         found.sort(Comparator.comparingDouble((Candidate candidate) -> candidate.pos().distSqr(origin))

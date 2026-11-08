@@ -1,0 +1,44 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml": {
+      "sha256": "a28ed494a096cf63f7887f45e4967e89600b60022fd2b49af22e131f9bafb385"
+    },
+    "Resources/Prototypes/Entities/Structures/base_structure.yml": {
+      "sha256": "885282720a0d19bbe9b858707e2fecd01b96e3dbfe58652355776f355a23302b"
+    }
+  },
+  "requestedLeafIds": [
+    "FoodBloonion"
+  ],
+  "capturedConcreteProductCount": 1,
+  "capturedAdditionalAncestorCount": 2,
+  "capturedRawRecordCount": 3,
+  "capturedEntityIds": [
+    "BaseStructure",
+    "BaseStructureDynamic",
+    "FoodBloonion"
+  ],
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "parentClosureVerifiedAgainstExisting81AndBloonionRows": true,
+  "fullUnionParentClosureRecordCount": 84,
+  "parentResolution": {
+    "FoodBloonion": "BaseStructureDynamic",
+    "BaseStructure": null,
+    "BaseStructureDynamic": "BaseStructure"
+  },
+  "overlapWithExisting81ReferenceIds": [],
+  "referencedExistingRowFiles": [
+    "additions-entity-rows.json",
+    "banana-orange-entity-rows.json",
+    "blue-pumpkin-entity-rows.json",
+    "conversion-entity-rows.json",
+    "egg-entity-rows.json",
+    "entity-rows.json",
+    "fruit-pit-entity-rows.json",
+    "melon-pumpkin-entity-rows.json",
+    "ordinary-medicinal-entity-rows.json"
+  ],
+  "rawRowsSha256": "0216b4676ef8fe500429871d8203ae32c8dd7efaafabf73cdf1e5b6065582362"
+}

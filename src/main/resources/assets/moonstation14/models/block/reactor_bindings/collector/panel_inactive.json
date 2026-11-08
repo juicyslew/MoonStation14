@@ -1,0 +1,220 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/power_collection/generation_singularity_collector/ca_off",
+    "particle": "moonstation14:block/power_collection/generation_singularity_collector/ca_off"
+  },
+  "elements": [
+    {
+      "name": "collector_lid",
+      "from": [
+        1,
+        8,
+        4
+      ],
+      "to": [
+        15,
+        10,
+        12
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            10.375,
+            0.125,
+            13.875,
+            0.625
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            2.875,
+            2.125,
+            3.375
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            10.375,
+            0.125,
+            13.875,
+            0.625
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            2.875,
+            2.125,
+            3.375
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            2.375,
+            2.875,
+            5.875,
+            4.875
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            2.375,
+            2.875,
+            5.875,
+            4.875
+          ]
+        }
+      }
+    },
+    {
+      "name": "collector_glass",
+      "from": [
+        1.7000000000000002,
+        10.0,
+        4.5
+      ],
+      "to": [
+        14.3,
+        10.16,
+        11.5
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            6.125,
+            2.875,
+            9.25,
+            3.0
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            9.5,
+            2.875,
+            11.25,
+            3.0
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            6.125,
+            2.875,
+            9.25,
+            3.0
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            9.5,
+            2.875,
+            11.25,
+            3.0
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            11.5,
+            2.875,
+            14.625,
+            4.625
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            5.125,
+            3.25,
+            6.875
+          ]
+        }
+      }
+    },
+    {
+      "name": "panel_rear_hinge",
+      "from": [
+        1.5,
+        10.0,
+        11.7
+      ],
+      "to": [
+        14.5,
+        11.0,
+        12.2
+      ],
+      "shade": true,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            10.625,
+            5.125,
+            13.875,
+            5.375
+          ]
+        },
+        "east": {
+          "texture": "#atlas",
+          "uv": [
+            14.125,
+            5.125,
+            14.25,
+            5.375
+          ]
+        },
+        "south": {
+          "texture": "#atlas",
+          "uv": [
+            10.625,
+            5.125,
+            13.875,
+            5.375
+          ]
+        },
+        "west": {
+          "texture": "#atlas",
+          "uv": [
+            14.125,
+            5.125,
+            14.25,
+            5.375
+          ]
+        },
+        "up": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            7.125,
+            3.375,
+            7.25
+          ]
+        },
+        "down": {
+          "texture": "#atlas",
+          "uv": [
+            0.125,
+            7.125,
+            3.375,
+            7.25
+          ]
+        }
+      }
+    }
+  ],
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

@@ -1,0 +1,8 @@
+Source: pinned SS14 checkout `Resources/Audio/Voice/Slime/slime_squish.ogg`
+Revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+Source URL: https://github.com/space-wizards/space-station-14/blob/c9df5ef5d675b0d1d226828bddf6b78c28502d91/Resources/Audio/Voice/Slime/slime_squish.ogg
+SHA-256: b596151e4cde4bb66c260c30374f18eb59c79ff06766c20eb152ac3deda70125
+License: CC-BY-SA-3.0
+Copyright: Taken from https://github.com/ParadiseSS13/Paradise/commit/60d27e07de73f0fe72f4cff78b9c4100fd1d3b19
+Source attribution: https://github.com/ParadiseSS13/Paradise
+Modifications: None; copied verbatim.

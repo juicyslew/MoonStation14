@@ -1,0 +1,80 @@
+{
+  "title": "Botany genetics M3A: supported stat mutation runtime",
+  "kind": "feature",
+  "acceptance_criteria": [
+    "Resolved source seed profiles retain inherited defaults and explicit PestTolerance, Viable, and Seedless values; live consumers honor viability, pest tolerance, seedless extraction denial, and zero-yield behavior.",
+    "Holder mutation level and modifier preserve fractional values, codec round-trip, source defaults, and clamping/reset lifecycle; modifiers affect mutation-level accumulation, not table odds.",
+    "A due cycle polls actual reagent metabolism first, then performs source-ordered typed mutation rolls with exactly one strict-double-less-than chance call per table entry, including odds zero and one; successful changes replace the current immutable genetics without changing previously emitted copies.",
+    "Supported numeric and boolean stat mutations match source float-bin midpoint-to-even rounding and integer-yield bias, use the existing PlantStatMutation owner, and retain unrelated profile values.",
+    "Living-target cycle preflight rejects failed chemical mutation resolution before partial mutation commit; empty/dead guards, current genes, growth, and copy-on-write behavior remain correct.",
+    "Source-ordered unsupported capabilities produce honest diagnostics; Slippery is reported unsupported, not stored as a genetic record, and its record consumer remains unimplemented; unsupported effect-body RNG consumption is outside the implemented parity boundary.",
+    "Actual UnstableMutagen metabolism with fixture holder modifier 3 triggers the first-cycle viable toggle and lifecycle reset; this fixture does not claim the upstream Left4Zed descriptor.",
+    "Separate registered native tests cover arranged stat-packet transmission, seedless extraction admission, and zero-yield behavior; baseline chemical roundtrip and 1000W/750W power regressions are preserved.",
+    "The visible fixture identifies its stat-modifier preset and actual pending/triggered source/status without presenting a gameplay genome scanner; gas, species, pollen, special capabilities, full catalog, and assets remain unimplemented.",
+    "Validation distinguishes focused automated evidence from unverified full mutation capability parity, full-suite, visual/connected-client, and owner acceptance.",
+    "The current main, JVM, and registered native fixture sources compile and the runtime jar artifact is produced."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/hands/network/BotanyHarvestAuthenticatedGameTests.java",
+  "manual_steps": [
+    "Run `/ms14 botany_fixture`; wait about 15 seconds, then inspect status for the stat-modifier preset and pending/triggered source. Inspect the stat fixture and chemical tray; use ordinary harvest/extraction, including seedless denial if the arranged fixture offers it."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Compile current main, JVM and native fixture sources and produce the current runtime jar artifact.",
+      "covers": [
+        "The current main, JVM, and registered native fixture sources compile and the runtime jar artifact is produced."
+      ],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.prototype.SeedProfileTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantChemicalMutationTest --tests com.juicyslew.moonstation14.ms14.reagent.PlantReagentMetabolismTest --tests com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest --tests com.juicyslew.moonstation14.ms14.botany.TrayRulesTest --tests com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.SeedExtractorEligibilityTest --tests com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Focused source profile, stat mutation/cycle, chemistry, metabolism, prototype consumer, output, lifecycle, extractor, and presentation unit coverage.",
+      "covers": [
+        "Resolved source seed profiles retain inherited defaults and explicit PestTolerance, Viable, and Seedless values; live consumers honor viability, pest tolerance, seedless extraction denial, and zero-yield behavior.",
+        "Holder mutation level and modifier preserve fractional values, codec round-trip, source defaults, and clamping/reset lifecycle; modifiers affect mutation-level accumulation, not table odds.",
+        "A due cycle polls actual reagent metabolism first, then performs source-ordered typed mutation rolls with exactly one strict-double-less-than chance call per table entry, including odds zero and one; successful changes replace the current immutable genetics without changing previously emitted copies.",
+        "Supported numeric and boolean stat mutations match source float-bin midpoint-to-even rounding and integer-yield bias, use the existing PlantStatMutation owner, and retain unrelated profile values.",
+        "Living-target cycle preflight rejects failed chemical mutation resolution before partial mutation commit; empty/dead guards, current genes, growth, and copy-on-write behavior remain correct.",
+        "Source-ordered unsupported capabilities produce honest diagnostics; Slippery is reported unsupported, not stored as a genetic record, and its record consumer remains unimplemented; unsupported effect-body RNG consumption is outside the implemented parity boundary.",
+        "Separate registered native tests cover arranged stat-packet transmission, seedless extraction admission, and zero-yield behavior; baseline chemical roundtrip and 1000W/750W power regressions are preserved.",
+        "Validation distinguishes focused automated evidence from unverified full mutation capability parity, full-suite, visual/connected-client, and owner acceptance."
+      ],
+      "source_files": [
+        "src/test/java/com/juicyslew/moonstation14/ms14/prototype/SeedProfileTest.java",
+        "src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantMutationTableTest.java",
+        "src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantMutationCycleTest.java",
+        "src/test/java/com/juicyslew/moonstation14/ms14/botany/PlantChemicalMutationTest.java",
+        "src/test/java/com/juicyslew/moonstation14/ms14/reagent/PlantReagentMetabolismTest.java",
+        "src/test/java/com/juicyslew/moonstation14/ms14/prototype/PrototypeRuntimeTest.java",
+        "src/test/java/com/juicyslew/moonstation14/ms14/botany/ProduceFactoryTest.java",
+        "src/test/java/com/juicyslew/moonstation14/ms14/botany/TrayRulesTest.java",
+        "src/test/java/com/juicyslew/moonstation14/ms14/botany/HydroponicsTrayLifecycleTest.java",
+        "src/test/java/com/juicyslew/moonstation14/ms14/botany/SeedExtractorEligibilityTest.java",
+        "src/test/java/com/juicyslew/moonstation14/ms14/examine/BotanyExaminePresentationTest.java"
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=interaction,prediction' --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Generic dispatch/reconciliation regression selectors only; they are not proof of native botany runtime behavior.",
+      "covers": ["Validation distinguishes focused automated evidence from unverified full mutation capability parity, full-suite, visual/connected-client, and owner acceptance."],
+      "selectors": ["interaction", "prediction"]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,botany-genetics,botany-chemical-mutation,botany-stat-mutation' '-Pms14GameTestDir=build/gametest-botany-stat-mutation-r5' --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "Focused registered native fixtures for live stat mutation and preserved botany/genetics/chemical regressions. M3A r4 had one required zero-yield failure; use a fresh r5 directory, preserve r1/r2/r3/r4 and owner configuration, and do not add automatic destructive cleanup.",
+      "covers": [
+        "Actual UnstableMutagen metabolism with fixture holder modifier 3 triggers the first-cycle viable toggle and lifecycle reset; this fixture does not claim the upstream Left4Zed descriptor.",
+        "Separate registered native tests cover arranged stat-packet transmission, seedless extraction admission, and zero-yield behavior; baseline chemical roundtrip and 1000W/750W power regressions are preserved.",
+        "The visible fixture identifies its stat-modifier preset and actual pending/triggered source/status without presenting a gameplay genome scanner; gas, species, pollen, special capabilities, full catalog, and assets remain unimplemented.",
+        "Validation distinguishes focused automated evidence from unverified full mutation capability parity, full-suite, visual/connected-client, and owner acceptance."
+      ],
+      "selectors": ["botany", "botany-genetics", "botany-chemical-mutation", "botany-stat-mutation"],
+      "log": "build/reports/botany-genetics/stat-mutation-gate-native.log"
+    }
+  ]
+}

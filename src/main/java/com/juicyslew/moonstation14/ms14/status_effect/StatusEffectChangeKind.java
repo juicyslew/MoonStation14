@@ -7,3 +7,4 @@ public enum StatusEffectChangeKind {
     CHANGED,
     REMOVED
 }
+

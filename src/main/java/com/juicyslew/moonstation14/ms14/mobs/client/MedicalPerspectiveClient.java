@@ -142,3 +142,4 @@ public final class MedicalPerspectiveClient {
         COMFORT_CAMERA.clear(); comfortEpoch = 0; comfortManualOptOut = false;
     }
 }
+

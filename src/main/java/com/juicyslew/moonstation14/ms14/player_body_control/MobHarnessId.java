@@ -9,3 +9,4 @@ public record MobHarnessId(UUID value) {
         Objects.requireNonNull(value, "value");
     }
 }
+

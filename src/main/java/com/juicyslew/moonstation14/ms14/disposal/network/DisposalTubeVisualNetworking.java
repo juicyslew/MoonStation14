@@ -20,3 +20,4 @@ public final class DisposalTubeVisualNetworking {
     public static void send(ServerPlayer player, DisposalTubeVisualPayload payload){PacketDistributor.sendToPlayer(player,payload);}
     public static void sendTracking(ServerLevel level, ChunkPos chunk, DisposalTubeVisualPayload payload){PacketDistributor.sendToPlayersTrackingChunk(level,chunk,payload);}
 }
+

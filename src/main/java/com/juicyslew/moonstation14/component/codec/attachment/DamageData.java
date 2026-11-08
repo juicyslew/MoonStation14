@@ -48,3 +48,4 @@ public final class DamageData {
         return obj instanceof DamageData other && damageMap.equals(other.damageMap);
     }
 }
+

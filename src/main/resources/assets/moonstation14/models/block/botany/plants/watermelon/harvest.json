@@ -1,0 +1,13 @@
+{
+  "loader": "neoforge:obj",
+  "model": "moonstation14:models/block/botany/plants/watermelon/harvest.obj",
+  "textures": {
+    "atlas": "moonstation14:block/botany/plants/watermelon/harvest",
+    "particle": "moonstation14:block/botany/plants/watermelon/harvest"
+  },
+  "flip_v": false,
+  "automatic_culling": false,
+  "shade_quads": true,
+  "ambientocclusion": true,
+  "render_type": "minecraft:cutout"
+}

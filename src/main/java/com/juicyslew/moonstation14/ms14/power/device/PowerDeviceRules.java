@@ -94,3 +94,4 @@ public final class PowerDeviceRules {
         public ApcProtectionState resetAt(long tick) { return new ApcProtectionState(0, tick, false); }
     }
 }
+

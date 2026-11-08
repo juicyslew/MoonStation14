@@ -1,0 +1,1 @@
+{"created":"2026-10-21T09:04:22.4086019-07:00","command":"compileJava compileTestJava compileGametestJava test --tests *BloodstreamWholeAdditionTest --tests *BloodReducerTest --tests *ReagentUnitsTest --tests *MeleeWeaponProfileTest"}

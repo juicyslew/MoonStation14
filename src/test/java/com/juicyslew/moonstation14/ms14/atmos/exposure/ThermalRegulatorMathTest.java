@@ -2,6 +2,9 @@ package com.juicyslew.moonstation14.ms14.atmos.exposure;
 
 import com.juicyslew.moonstation14.ms14.atmos.core.GasMixture;
 import com.juicyslew.moonstation14.ms14.atmos.core.GasType;
+import com.juicyslew.moonstation14.ms14.character.components.TemperatureDamageComponent;
+import com.google.gson.JsonParser;
+import com.mojang.serialization.JsonOps;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -103,5 +106,39 @@ class ThermalRegulatorMathTest {
         var intense = new ThermalRegulatorMath.Policy(310, 0, 1_000_000, 0, 0, 0, 0);
         assertEquals(ThermalRegulatorMath.MIN_BODY_KELVIN,
                 ThermalRegulatorMath.regulate(300, 2940, intense, 100, true, true));
+    }
+
+    @Test
+    void zeroKelvinColdThresholdIsAValidNoColdDamageBoundaryAndCodecAcceptsIt() {
+        var json = JsonParser.parseString("""
+                {"type":"TemperatureDamage","heat_damage_threshold_kelvin":500,
+                 "cold_damage_threshold_kelvin":0,"heat_damage_per_second":1.5,
+                 "cold_damage_per_second":0.1,"damage_cap":8}
+                """);
+        var sourcePolicy = TemperatureDamageComponent.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow().toProfile();
+        for (double temperature : new double[] {0, 1e-9, 2.7, 100, 260, 310.15}) {
+            assertEquals(0, ThermalExposureMath.damageAt(temperature, sourcePolicy, 1).cold(), "at " + temperature + " K");
+            assertFalse(BodyTemperatureSystem.thresholdDamage(temperature, sourcePolicy, 1).containsKey("cold"));
+        }
+        assertTrue(ThermalExposureMath.damageAt(501, sourcePolicy, 1).heat() > 0,
+                "the independently configured heat threshold still applies");
+        assertTrue(BodyTemperatureSystem.thresholdDamage(501, sourcePolicy, 1).containsKey("heat"));
+
+        assertThrows(IllegalArgumentException.class, () -> new ThermalExposureMath.DamageProfile(500, -1, 1.5, .1, 8));
+        assertThrows(IllegalArgumentException.class, () -> new ThermalExposureMath.DamageProfile(500, Double.NaN, 1.5, .1, 8));
+        assertThrows(IllegalArgumentException.class, () -> new ThermalExposureMath.DamageProfile(500, Double.POSITIVE_INFINITY, 1.5, .1, 8));
+        assertThrows(IllegalArgumentException.class, () -> ThermalExposureMath.damageAt(-1, sourcePolicy, 1));
+        assertThrows(RuntimeException.class, () -> TemperatureDamageComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("""
+                        {"type":"TemperatureDamage","heat_damage_threshold_kelvin":500,
+                         "cold_damage_threshold_kelvin":-1,"heat_damage_per_second":1.5,
+                         "cold_damage_per_second":0.1,"damage_cap":8}
+                        """)).getOrThrow());
+        assertThrows(RuntimeException.class, () -> TemperatureDamageComponent.CODEC.parse(JsonOps.INSTANCE,
+                JsonParser.parseString("""
+                        {"type":"TemperatureDamage","heat_damage_threshold_kelvin":500,
+                         "cold_damage_threshold_kelvin":600,"heat_damage_per_second":1.5,
+                         "cold_damage_per_second":0.1,"damage_cap":8}
+                        """)).getOrThrow());
     }
 }

@@ -1,0 +1,1294 @@
+{
+  "spec": "../model_spec.json",
+  "base_revision": "saved collection, not regeneration",
+  "parts_added": [
+    {
+      "name": "front_status_mullion_0",
+      "from": [
+        -6.1,
+        1.3,
+        -6.1
+      ],
+      "to": [
+        -5.8,
+        2.8,
+        -5.5
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "east": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "south": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "west": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "up": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "down": [
+          6,
+          110,
+          7,
+          111
+        ]
+      },
+      "surface": "trim"
+    },
+    {
+      "name": "front_divider_foot_highlight_0",
+      "from": [
+        -6.03,
+        1.1,
+        -6.18
+      ],
+      "to": [
+        -5.87,
+        1.5,
+        -6.1
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "east": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "south": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "west": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "up": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "down": [
+          14,
+          110,
+          15,
+          111
+        ]
+      },
+      "surface": "pale"
+    },
+    {
+      "name": "front_status_mullion_1",
+      "from": [
+        -3.8,
+        1.3,
+        -6.1
+      ],
+      "to": [
+        -3.4,
+        2.8,
+        -5.5
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "east": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "south": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "west": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "up": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "down": [
+          6,
+          110,
+          7,
+          111
+        ]
+      },
+      "surface": "trim"
+    },
+    {
+      "name": "front_divider_foot_highlight_1",
+      "from": [
+        -3.68,
+        1.1,
+        -6.18
+      ],
+      "to": [
+        -3.52,
+        1.5,
+        -6.1
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "east": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "south": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "west": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "up": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "down": [
+          14,
+          110,
+          15,
+          111
+        ]
+      },
+      "surface": "pale"
+    },
+    {
+      "name": "front_status_mullion_2",
+      "from": [
+        -1.4,
+        1.3,
+        -6.1
+      ],
+      "to": [
+        -1.0,
+        2.8,
+        -5.5
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "east": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "south": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "west": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "up": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "down": [
+          6,
+          110,
+          7,
+          111
+        ]
+      },
+      "surface": "trim"
+    },
+    {
+      "name": "front_divider_foot_highlight_2",
+      "from": [
+        -1.28,
+        1.1,
+        -6.18
+      ],
+      "to": [
+        -1.12,
+        1.5,
+        -6.1
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "east": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "south": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "west": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "up": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "down": [
+          14,
+          110,
+          15,
+          111
+        ]
+      },
+      "surface": "pale"
+    },
+    {
+      "name": "front_status_mullion_3",
+      "from": [
+        1.0,
+        1.3,
+        -6.1
+      ],
+      "to": [
+        1.4,
+        2.8,
+        -5.5
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "east": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "south": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "west": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "up": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "down": [
+          6,
+          110,
+          7,
+          111
+        ]
+      },
+      "surface": "trim"
+    },
+    {
+      "name": "front_divider_foot_highlight_3",
+      "from": [
+        1.12,
+        1.1,
+        -6.18
+      ],
+      "to": [
+        1.28,
+        1.5,
+        -6.1
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "east": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "south": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "west": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "up": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "down": [
+          14,
+          110,
+          15,
+          111
+        ]
+      },
+      "surface": "pale"
+    },
+    {
+      "name": "front_status_mullion_4",
+      "from": [
+        3.4,
+        1.3,
+        -6.1
+      ],
+      "to": [
+        3.8,
+        2.8,
+        -5.5
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "east": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "south": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "west": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "up": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "down": [
+          6,
+          110,
+          7,
+          111
+        ]
+      },
+      "surface": "trim"
+    },
+    {
+      "name": "front_divider_foot_highlight_4",
+      "from": [
+        3.52,
+        1.1,
+        -6.18
+      ],
+      "to": [
+        3.68,
+        1.5,
+        -6.1
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "east": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "south": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "west": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "up": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "down": [
+          14,
+          110,
+          15,
+          111
+        ]
+      },
+      "surface": "pale"
+    },
+    {
+      "name": "front_status_mullion_5",
+      "from": [
+        5.8,
+        1.3,
+        -6.1
+      ],
+      "to": [
+        6.1,
+        2.8,
+        -5.5
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "east": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "south": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "west": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "up": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "down": [
+          6,
+          110,
+          7,
+          111
+        ]
+      },
+      "surface": "trim"
+    },
+    {
+      "name": "front_divider_foot_highlight_5",
+      "from": [
+        5.87,
+        1.1,
+        -6.18
+      ],
+      "to": [
+        6.03,
+        1.5,
+        -6.1
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "east": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "south": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "west": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "up": [
+          14,
+          110,
+          15,
+          111
+        ],
+        "down": [
+          14,
+          110,
+          15,
+          111
+        ]
+      },
+      "surface": "pale"
+    },
+    {
+      "name": "front_status_lower_rail",
+      "from": [
+        -6.1,
+        1.0,
+        -6.1
+      ],
+      "to": [
+        6.1,
+        1.3,
+        -5.5
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "east": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "south": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "west": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "up": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "down": [
+          6,
+          110,
+          7,
+          111
+        ]
+      },
+      "surface": "trim"
+    },
+    {
+      "name": "front_status_upper_rail",
+      "from": [
+        -6.1,
+        2.8,
+        -6.1
+      ],
+      "to": [
+        6.1,
+        3.6,
+        -5.5
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "east": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "south": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "west": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "up": [
+          6,
+          110,
+          7,
+          111
+        ],
+        "down": [
+          6,
+          110,
+          7,
+          111
+        ]
+      },
+      "surface": "trim"
+    },
+    {
+      "name": "slot_harvest_dark_backing",
+      "from": [
+        3.8,
+        1.3,
+        -5.5
+      ],
+      "to": [
+        5.8,
+        2.8,
+        -5.45
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "east": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "south": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "west": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "up": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "down": [
+          2,
+          110,
+          3,
+          111
+        ]
+      },
+      "surface": "backing"
+    },
+    {
+      "name": "slot_health_dark_backing",
+      "from": [
+        1.4,
+        1.3,
+        -5.5
+      ],
+      "to": [
+        3.4,
+        2.8,
+        -5.45
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "east": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "south": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "west": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "up": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "down": [
+          2,
+          110,
+          3,
+          111
+        ]
+      },
+      "surface": "backing"
+    },
+    {
+      "name": "slot_alert_dark_backing",
+      "from": [
+        -1.0,
+        1.3,
+        -5.5
+      ],
+      "to": [
+        1.0,
+        2.8,
+        -5.45
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "east": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "south": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "west": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "up": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "down": [
+          2,
+          110,
+          3,
+          111
+        ]
+      },
+      "surface": "backing"
+    },
+    {
+      "name": "slot_nutrition_dark_backing",
+      "from": [
+        -3.4,
+        1.3,
+        -5.5
+      ],
+      "to": [
+        -1.4,
+        2.8,
+        -5.45
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "east": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "south": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "west": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "up": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "down": [
+          2,
+          110,
+          3,
+          111
+        ]
+      },
+      "surface": "backing"
+    },
+    {
+      "name": "slot_water_dark_backing",
+      "from": [
+        -5.8,
+        1.3,
+        -5.5
+      ],
+      "to": [
+        -3.8,
+        2.8,
+        -5.45
+      ],
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "group": "tray",
+      "uv": {
+        "north": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "east": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "south": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "west": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "up": [
+          2,
+          110,
+          3,
+          111
+        ],
+        "down": [
+          2,
+          110,
+          3,
+          111
+        ]
+      },
+      "surface": "backing"
+    }
+  ],
+  "swatches": {
+    "backing": [
+      2,
+      110,
+      3,
+      111
+    ],
+    "trim": [
+      6,
+      110,
+      7,
+      111
+    ],
+    "reveal": [
+      10,
+      110,
+      11,
+      111
+    ],
+    "pale": [
+      14,
+      110,
+      15,
+      111
+    ]
+  },
+  "disabled_face": "dark_undertray/north",
+  "source_order": [
+    {
+      "id": "harvest",
+      "center_x": 12.8,
+      "source": "harvest3",
+      "appearance": "PlantHolderVisuals.HarvestLight",
+      "source_crop": [
+        4,
+        27,
+        8,
+        30
+      ]
+    },
+    {
+      "id": "health",
+      "center_x": 10.4,
+      "source": "lowhealth3",
+      "appearance": "PlantHolderVisuals.HealthLight",
+      "source_crop": [
+        9,
+        27,
+        13,
+        30
+      ]
+    },
+    {
+      "id": "alert",
+      "center_x": 8.0,
+      "source": "alert3",
+      "appearance": "PlantHolderVisuals.AlertLight",
+      "source_crop": [
+        14,
+        27,
+        18,
+        30
+      ]
+    },
+    {
+      "id": "nutrition",
+      "center_x": 5.6,
+      "source": "lownutri3",
+      "appearance": "PlantHolderVisuals.NutritionLight",
+      "source_crop": [
+        19,
+        27,
+        23,
+        30
+      ]
+    },
+    {
+      "id": "water",
+      "center_x": 3.2,
+      "source": "lowwater3",
+      "appearance": "PlantHolderVisuals.WaterLight",
+      "source_crop": [
+        24,
+        27,
+        28,
+        30
+      ]
+    }
+  ],
+  "surface_bindings": "export/indicator_bindings.json",
+  "UUID_policy": "all23original IDs retained; named new cuboids stable UUIDv5"
+}

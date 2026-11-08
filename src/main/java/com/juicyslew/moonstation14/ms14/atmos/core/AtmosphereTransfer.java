@@ -71,3 +71,4 @@ public final class AtmosphereTransfer {
         return mixture.withThermalEnergy(Math.max(0.0, energy));
     }
 }
+

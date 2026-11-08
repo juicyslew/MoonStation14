@@ -1,0 +1,1 @@
+{"id":"revolver_cap_gun","parent":"moonstation14:base_toy_gun","gun":{"fire_rate":2,"projectile_speed":40,"use_key":true,"firing_mode":"SEMI_AUTO"},"revolver_ammo_provider":{"capacity":6,"fill_cartridge_prototype":"moonstation14:cartridge_cap","accepted_cartridge_tags":["moonstation14:cap"],"accepted_speedloader_tags":["moonstation14:toy"]}}

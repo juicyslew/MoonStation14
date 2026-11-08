@@ -1,0 +1,100 @@
+package com.juicyslew.moonstation14.ms14.actions;
+
+import com.juicyslew.moonstation14.ms14.actions.prototype.ActionHandler;
+import com.juicyslew.moonstation14.ms14.actions.prototype.ActionPrototype;
+import com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem;
+import com.juicyslew.moonstation14.ms14.character.components.VocalComponent;
+import com.juicyslew.moonstation14.ms14.effect.EmoteEffect;
+import com.juicyslew.moonstation14.ms14.effect.EffectResult;
+import com.juicyslew.moonstation14.ms14.effect.VocalScreamDelivery;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import com.juicyslew.moonstation14.ms14.lung.InternalsSystem;
+
+import java.util.Optional;
+
+/** Prepares supported body action effects before the caller commits cooldown state. */
+public final class BodyActionEffects {
+    private BodyActionEffects() { }
+
+    public static Optional<PreparedEffect> prepare(ServerPlayer player, LivingEntity body, ActionPrototype action) {
+        return prepare(player, body, action, null, 0L);
+    }
+
+    public static Optional<PreparedEffect> prepare(ServerPlayer player, LivingEntity body, ActionPrototype action,
+                                                   BodyActionDiscovery.Entry verifiedGrant) {
+        return prepare(player, body, action, verifiedGrant, 0L);
+    }
+
+    public static Optional<PreparedEffect> prepare(ServerPlayer player, LivingEntity body, ActionPrototype action,
+                                                   BodyActionDiscovery.Entry verifiedGrant, long originSequence) {
+        if (player == null || body == null || action == null || !(body.level() instanceof ServerLevel level))
+            return Optional.empty();
+        return switch (action.handler()) {
+            case COMBAT_TOGGLE -> CombatModeSystem.capability(body).isPresent()
+                    ? Optional.of(() -> {
+                        CombatModeSystem.ToggleResult result = CombatModeSystem.toggle(body);
+                        if (!result.success()) return false;
+                        player.sendSystemMessage(Component.translatable(result.enabled()
+                                ? "moonstation14.combat.enabled" : "moonstation14.combat.disabled"));
+                        return true;
+                    }) : Optional.empty();
+            case SCREAM -> CharacterIdentitySystem.resolveForActor(body)
+                    .flatMap(data -> data.component(VocalComponent.class))
+                    .filter(vocal -> EmoteEffect.plan(vocal.screamEmote(), true, body) != null)
+                    .map(vocal -> new PreparedScream(vocal, VocalScreamDelivery.resolve(vocal, level.getRandom().nextDouble())))
+                    .filter(prepared -> prepared.event() != null)
+                    .map(prepared -> (PreparedEffect) () -> EmoteEffect.applyVocalScream(prepared.vocal(), prepared.event(),
+                            body, level, EmoteEffect.SERVER) == EffectResult.APPLIED);
+            case DEBUG_PULSE -> Optional.of(() -> {
+                level.sendParticles(ParticleTypes.HAPPY_VILLAGER, body.getX(), body.getY() + body.getBbHeight() * 0.5,
+                        body.getZ(), 6, 0.25, 0.25, 0.25, 0.0);
+                player.sendSystemMessage(Component.translatable("moonstation14.action.debug_pulse"));
+                return true;
+            });
+            case REMOVE_SELF_ATTACHMENT -> Optional.of(() -> {
+                var result = com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.beginSelf(player, originSequence);
+                return result == com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.SelfRemovalResult.STARTED
+                        || result == com.juicyslew.moonstation14.ms14.hands.live.AttachedItemRemovalSystem.SelfRemovalResult.IN_PROGRESS;
+            });
+            case INTERNALS_TOGGLE -> {
+                if (verifiedGrant == null || !grantStillCurrent(body, verifiedGrant)
+                        || !verifiedGrant.providerKey().contains(":")) yield Optional.empty();
+                String token = verifiedGrant.providerKey().substring(verifiedGrant.providerKey().lastIndexOf(':') + 1);
+                 yield Optional.of(() -> {
+                     if (!grantStillCurrent(body, verifiedGrant)) return false;
+                     if (!InternalsSystem.toggle(body, token)) return false;
+                    // SS14 GasTankComponent.ConnectSound default: internals.ogg at +5 dB;
+                    // disconnect is intentionally silent. Only cue a successfully selected source.
+                    if (InternalsSystem.selectedTank(body).map(source -> source.token().equals(token)).orElse(false))
+                        com.juicyslew.moonstation14.ms14.audio.EntityAttachedSoundRouter.play(level, body,
+                                net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getKey(
+                                        com.juicyslew.moonstation14.sounds.ModSounds.INTERNALS_TOGGLE.get()),
+                                net.minecraft.sounds.SoundSource.PLAYERS,
+                                com.juicyslew.moonstation14.ms14.hands.live.ItemSlotAudio.decibels(5f), 1.0f);
+                    return true;
+                });
+            }
+            case MASK_TOGGLE -> verifiedGrant == null || !grantStillCurrent(body, verifiedGrant)
+                    ? Optional.empty() : Optional.of(() -> grantStillCurrent(body, verifiedGrant)
+                    && com.juicyslew.moonstation14.ms14.equipment.BreathMaskActions.toggleMask(body, verifiedGrant.providerKey()));
+        };
+    }
+
+    private static boolean grantStillCurrent(LivingEntity body, BodyActionDiscovery.Entry grant) {
+        var character = com.juicyslew.moonstation14.ms14.character.CharacterIdentitySystem.resolveForActor(body).orElse(null);
+        return character != null && BodyActionDiscovery.discover(body, body.getUUID(), character).stream()
+                .anyMatch(current -> current.actionId().equals(grant.actionId())
+                        && current.providerKey().equals(grant.providerKey()) && current.profile().equals(grant.profile()));
+    }
+
+    @FunctionalInterface
+    public interface PreparedEffect {
+        boolean apply();
+    }
+
+    private record PreparedScream(VocalComponent vocal, net.minecraft.sounds.SoundEvent event) { }
+}

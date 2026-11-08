@@ -65,3 +65,4 @@ public final class DeviceLinkService {
         if(origin!=null) graph.remembered(source).ifPresent(signal->invokeSingle(graph,origin,target,link,signal));
     }
 }
+

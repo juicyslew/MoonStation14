@@ -1,0 +1,216 @@
+[
+  {
+    "type": "entity",
+    "parent": [
+      "FoodInjectableBase",
+      "ItemHeftyBase"
+    ],
+    "id": "FoodEggBase",
+    "description": "An egg!",
+    "abstract": true,
+    "components": [
+      {
+        "type": "Tag",
+        "tags": [
+          "Egg",
+          "Meat"
+        ]
+      },
+      {
+        "type": "Edible",
+        "trash": [
+          "Eggshells"
+        ]
+      },
+      {
+        "type": "Sprite",
+        "sprite": "Objects/Consumable/Food/egg.rsi"
+      },
+      {
+        "type": "Item",
+        "sprite": "Objects/Consumable/Food/egg.rsi",
+        "size": "Tiny"
+      },
+      {
+        "type": "SolutionContainerManager",
+        "solutions": {
+          "food": {
+            "maxVol": 6,
+            "reagents": [
+              {
+                "ReagentId": "Egg",
+                "Quantity": 6
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "DrawableSolution",
+        "solution": "food"
+      },
+      {
+        "type": "SolutionSpiker",
+        "sourceSolution": "food",
+        "ignoreEmpty": true,
+        "popup": "spike-solution-egg"
+      },
+      {
+        "type": "DamageOnHighSpeedImpact",
+        "minimumSpeed": 0.1,
+        "damage": {
+          "types": {
+            "Blunt": 1
+          }
+        }
+      },
+      {
+        "type": "Damageable",
+        "damageContainer": "Biological"
+      },
+      {
+        "type": "Destructible",
+        "thresholds": [
+          {
+            "trigger": {
+              "__yaml_tag__": "!type:DamageTrigger",
+              "value": {
+                "damage": 1
+              }
+            },
+            "behaviors": [
+              {
+                "__yaml_tag__": "!type:PlaySoundBehavior",
+                "value": {
+                  "sound": {
+                    "collection": "desecration"
+                  }
+                }
+              },
+              {
+                "__yaml_tag__": "!type:SpillBehavior",
+                "value": {
+                  "solution": "food"
+                }
+              },
+              {
+                "__yaml_tag__": "!type:SpawnEntitiesBehavior",
+                "value": {
+                  "spawn": {
+                    "Eggshells": {
+                      "min": 1,
+                      "max": 1
+                    }
+                  }
+                }
+              },
+              {
+                "__yaml_tag__": "!type:DoActsBehavior",
+                "value": {
+                  "acts": [
+                    "Destruction"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "AtmosExposed"
+      },
+      {
+        "type": "Temperature"
+      },
+      {
+        "type": "TemperatureDamage"
+      },
+      {
+        "type": "InternalTemperature",
+        "thickness": 0.011,
+        "area": 0.04,
+        "conductivity": 0.456
+      }
+    ]
+  },
+  {
+    "type": "entity",
+    "name": "eggshells",
+    "parent": "BaseItem",
+    "id": "Eggshells",
+    "description": "You're walkin' on 'em bud.",
+    "components": [
+      {
+        "type": "Edible"
+      },
+      {
+        "type": "Sprite",
+        "sprite": "Objects/Consumable/Food/egg.rsi",
+        "state": "eggshells"
+      },
+      {
+        "type": "Item",
+        "size": "Tiny"
+      },
+      {
+        "type": "SolutionContainerManager",
+        "solutions": {
+          "food": {
+            "maxVol": 2,
+            "reagents": [
+              {
+                "ReagentId": "Egg",
+                "Quantity": 1
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "Tag",
+        "tags": [
+          "Egg",
+          "Trash"
+        ]
+      },
+      {
+        "type": "SpaceGarbage"
+      }
+    ]
+  },
+  {
+    "type": "entity",
+    "parent": "FoodEggBase",
+    "id": "FoodEgg",
+    "name": "egg",
+    "components": [
+      {
+        "type": "Sprite",
+        "layers": [
+          {
+            "state": "icon",
+            "map": [
+              "enum.DamageStateVisualLayers.Base"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "RandomSprite",
+        "available": [
+          {
+            "enum.DamageStateVisualLayers.Base": {
+              "icon": "",
+              "white": ""
+            }
+          }
+        ]
+      },
+      {
+        "type": "Construction",
+        "graph": "Egg",
+        "node": "start"
+      }
+    ]
+  }
+]

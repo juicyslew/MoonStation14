@@ -55,3 +55,4 @@ public abstract class ChatComponentUnifiedViewMixin {
                 minecraft != null && minecraft.level != null && minecraft.player != null);
     }
 }
+

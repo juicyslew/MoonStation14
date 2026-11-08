@@ -17,3 +17,4 @@ public record HumanoidProfileComponent(String species) implements CharacterCompo
     }
     @Override public String type() { return TYPE; }
 }
+

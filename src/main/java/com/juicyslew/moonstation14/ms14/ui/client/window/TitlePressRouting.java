@@ -14,3 +14,4 @@ public final class TitlePressRouting {
                 && mouseY >= artworkY && mouseY < (long) artworkY + titleHeight;
     }
 }
+

@@ -19,3 +19,4 @@ public final class StripTimingPolicy {
         return Math.max(1, (int) Math.ceil(seconds * 20.0));
     }
 }
+

@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "java_block",
+    "box_uv": false
+  },
+  "name": "hydroponics_tray_indicator_alert",
+  "model_identifier": "hydroponics_tray_indicator_alert",
+  "resolution": {
+    "width": 8,
+    "height": 8
+  },
+  "elements": [
+    {
+      "name": "status_alert_display",
+      "uuid": "81c27fa0-ac11-5eac-a422-ba86a09318ca",
+      "type": "cube",
+      "from": [
+        7.0,
+        1.3,
+        2.4800000000000004
+      ],
+      "to": [
+        9.0,
+        2.8,
+        2.4800000000000004
+      ],
+      "origin": [
+        8,
+        0,
+        8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "box_uv": false,
+      "autouv": 0,
+      "shade": true,
+      "visibility": true,
+      "export": true,
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            2,
+            2,
+            6,
+            5
+          ],
+          "texture": null
+        }
+      },
+      "rescale": false
+    }
+  ],
+  "outliner": [
+    {
+      "name": "hydroponics_tray_indicator_alert",
+      "uuid": "6f43e05a-bfe9-56f5-8288-69c0c9165dc9",
+      "origin": [
+        8,
+        0,
+        8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "children": [
+        {
+          "name": "indicator",
+          "uuid": "8863ea07-7c1f-5a43-b755-a54161646e24",
+          "origin": [
+            8,
+            0,
+            8
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "children": [
+            "81c27fa0-ac11-5eac-a422-ba86a09318ca"
+          ],
+          "visibility": true,
+          "export": true
+        }
+      ],
+      "visibility": true,
+      "export": true
+    }
+  ],
+  "textures": [
+    {
+      "uuid": "6c47ff67-bb0e-5f60-ba7d-57d53525e3ee",
+      "name": "alert.png",
+      "id": "0",
+      "mode": "bitmap",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAALklEQVR4nGP8v9rnPwMM3N0CoZV94EJMcBYOQFABC9xYZKORxFiQ7aONGwgqAAA/vgsJ/pcINwAAAABJRU5ErkJggg==",
+      "relative_path": "../../textures/indicators/alert_frame0.png",
+      "internal": true,
+      "width": 8,
+      "height": 8,
+      "uv_width": 8,
+      "uv_height": 8
+    }
+  ],
+  "animations": [],
+  "ambientocclusion": true
+}

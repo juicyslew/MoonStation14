@@ -22,6 +22,23 @@ class ItemLocationLedgerTest {
         return new ItemLocation.StorageCell(owner, "main", ItemLocation.Orientation.UNSPECIFIED, id);
     }
 
+    @Test void storageChildBatchRegistersAndCompensatesAtomically() {
+        var ledger = new ItemLocationLedger();
+        var parent = token("output-parent");
+        assertTrue(ledger.register(parent, new ItemLocation.MachineSlot(BODY, "outputSlot")).accepted());
+        var first = token("child-1"); var second = token("child-2");
+        var additions = new LinkedHashMap<ItemToken, ItemLocation>();
+        additions.put(first, cell(parent, "0,0")); additions.put(second, cell(parent, "1,0"));
+        var registered = ledger.registerBatch(ledger.snapshot().revision(), additions);
+        assertTrue(registered.accepted());
+        assertEquals(3, registered.snapshot().size());
+        var rejected = ledger.registerBatch(ledger.snapshot().revision(), Map.of(token("child-3"), cell(parent, "0,0")));
+        assertFalse(rejected.accepted());
+        assertEquals(3, ledger.snapshot().size(), "failed batch leaves every claim unchanged");
+        assertTrue(ledger.unregisterBatch(ledger.snapshot().revision(), additions).accepted());
+        assertEquals(1, ledger.snapshot().size());
+    }
+
     @Test void movesHandToWorldAndEquippedAndContainerWithExactRevision() {
         ItemLocationLedger ledger = new ItemLocationLedger();
         ItemToken item = token("item");

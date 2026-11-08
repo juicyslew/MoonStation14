@@ -17,3 +17,4 @@ public abstract class LivingEntityDamageKnockbackMixin {
         // calls (melee, projectiles, explosions, etc.) elsewhere retain vanilla behavior.
     }
 }
+

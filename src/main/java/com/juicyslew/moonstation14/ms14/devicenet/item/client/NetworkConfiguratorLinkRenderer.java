@@ -69,3 +69,4 @@ public final class NetworkConfiguratorLinkRenderer {
     private static void drawText(GuiGraphics g,Minecraft mc,int x,int y,Component value,int color,float glyphScale){g.pose().pushPose();g.pose().translate(x,y,0);g.pose().scale(glyphScale,glyphScale,1);g.drawString(mc.font,value,0,0,color,false);g.pose().popPose();}
     private static Component fit(Minecraft mc,Component value,int logicalWidth,float glyphScale){return Component.literal(mc.font.plainSubstrByWidth(value.getString(),ConfiguratorPaneLayout.textWidthBudget(logicalWidth,glyphScale)));}
 }
+

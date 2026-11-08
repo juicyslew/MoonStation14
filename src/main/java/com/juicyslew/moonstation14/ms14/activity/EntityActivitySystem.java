@@ -132,3 +132,4 @@ public final class EntityActivitySystem {
         return entity.getExistingDataOrNull(ModDataAttachments.ACTIVE_SYSTEMS.get());
     }
 }
+

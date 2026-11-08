@@ -17,3 +17,4 @@ public record ExaminerComponent(boolean skipChecks, boolean checkInRangeUnOcclud
     }));
     @Override public String type() { return TYPE; }
 }
+

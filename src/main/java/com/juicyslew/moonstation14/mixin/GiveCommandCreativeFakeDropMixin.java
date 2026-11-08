@@ -45,3 +45,4 @@ public abstract class GiveCommandCreativeFakeDropMixin {
                 .map(key -> "moonstation14".equals(key.location().getNamespace())).orElse(false);
     }
 }
+

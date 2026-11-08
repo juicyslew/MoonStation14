@@ -22,3 +22,4 @@ public record ConstructionRecipeData(String name, String description, String cat
     ).apply(i,ConstructionRecipeData::new));
     public ConstructionRecipeData { Objects.requireNonNull(name);Objects.requireNonNull(description);Objects.requireNonNull(category);Objects.requireNonNull(family);Objects.requireNonNull(icon);Objects.requireNonNull(graph);Objects.requireNonNull(startingNode);Objects.requireNonNull(targetNode);Objects.requireNonNull(outputKind); }
 }
+

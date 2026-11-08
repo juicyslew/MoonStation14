@@ -1,0 +1,5 @@
+Source: Space Station 14, Resources/Audio/Items/Culinary/chop.ogg
+Source revision: c9df5ef5d675b0d1d226828bddf6b78c28502d91
+SHA-256: 2DE449573174392A54B63B7289E835E7A3CD0C6CD3B1BD7CE4557B24940A7B0C
+The pinned Items/Culinary attribution manifest contains no file-specific entry for this sound.
+Author, original source and file-specific license remain unresolved. No blanket license is inferred.

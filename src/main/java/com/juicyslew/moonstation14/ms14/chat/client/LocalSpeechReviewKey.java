@@ -37,3 +37,4 @@ public final class LocalSpeechReviewKey {
         return REVIEW.getTranslatedKeyMessage().getString();
     }
 }
+

@@ -144,3 +144,4 @@ public final class LoadedSealedWallSegment {
         return chunk instanceof LevelChunk full ? full : null;
     }
 }
+

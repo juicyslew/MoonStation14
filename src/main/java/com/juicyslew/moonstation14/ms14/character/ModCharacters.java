@@ -205,3 +205,4 @@ public final class ModCharacters {
         return Map.copyOf(index);
     }
 }
+

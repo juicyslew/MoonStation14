@@ -35,3 +35,4 @@ public record ExamineRequest(long requestId, UUID actorUuid, long epoch, Examine
     private static UUID readOptionalUuid(RegistryFriendlyByteBuf buf) { return buf.readBoolean() ? buf.readUUID() : null; }
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
+

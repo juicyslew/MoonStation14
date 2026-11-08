@@ -1,0 +1,44 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/egg.yml": {
+      "sha256": "a405cdd2ff9582c4d4e3c58353d48b56af9a0236a4b2ec4070b7e1478779ab4b"
+    }
+  },
+  "requestedLeafIds": [
+    "FoodEggBase",
+    "FoodEgg",
+    "Eggshells"
+  ],
+  "capturedConcreteProductCount": 2,
+  "capturedAdditionalAncestorCount": 1,
+  "capturedRawRecordCount": 3,
+  "capturedEntityIds": [
+    "Eggshells",
+    "FoodEgg",
+    "FoodEggBase"
+  ],
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "parentClosureVerifiedAgainstExisting78AndEggRows": true,
+  "fullUnionParentClosureRecordCount": 81,
+  "parentResolution": {
+    "FoodEggBase": [
+      "FoodInjectableBase",
+      "ItemHeftyBase"
+    ],
+    "Eggshells": "BaseItem",
+    "FoodEgg": "FoodEggBase"
+  },
+  "overlapWithExisting78ReferenceIds": [],
+  "referencedExistingRowFiles": [
+    "entity-rows.json",
+    "additions-entity-rows.json",
+    "ordinary-medicinal-entity-rows.json",
+    "fruit-pit-entity-rows.json",
+    "blue-pumpkin-entity-rows.json",
+    "banana-orange-entity-rows.json",
+    "melon-pumpkin-entity-rows.json",
+    "conversion-entity-rows.json"
+  ]
+}

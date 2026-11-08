@@ -1,0 +1,1 @@
+{"id":"base_weapon_revolver","ammo_counter":true,"gun":{"fire_rate":1.5,"projectile_speed":40,"use_key":true,"firing_mode":"SEMI_AUTO","use_delay_seconds":0.66},"revolver_ammo_provider":{"capacity":6,"fill_cartridge_prototype":"moonstation14:cartridge_magnum","accepted_cartridge_tags":["moonstation14:magnum"],"accepted_speedloader_tags":["moonstation14:magnum"]}}

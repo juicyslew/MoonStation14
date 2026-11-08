@@ -34,3 +34,4 @@ public final class ItemUiAppearance {
                 com.juicyslew.moonstation14.ms14.loose_objects.appearance.JugItemAppearance.color(reagent, level));
     }
 }
+

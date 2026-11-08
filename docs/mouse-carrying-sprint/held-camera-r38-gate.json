@@ -1,0 +1,66 @@
+{
+  "title": "Held camera render-clock alignment and pickup reach: null-guard correction",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/PortableBodyCarrierOwnerGameTests.java",
+  "acceptance_criteria": [
+    "Canonical carrier view supplies explicit render-parent identity and its existing body-feet offset; snapshot codec retains this relation and unchanged non-carrier view fields.",
+    "Held camera translation follows the holder model's xOld/yOld/zOld sample at the same partial tick, cancelling independent body snapshot lead/noise while preserving native eye placement and detached-camera behavior.",
+    "Contained presentation uses stable committed identity rather than prediction tracker permission; correction is limited to the exact camera body and matching loaded parent and stops on cleared or missing association.",
+    "Client item and portable-living nominations reuse the server's physical pickup reach predicate, including null/non-finite rejection, retain aim tolerance and item priority, and leave block-use reach and server authority unchanged.",
+    "Camera mixin transforms successfully in a fresh isolated native client startup. Startup is not held-POV or connected visual acceptance.",
+    "Fresh focused JVM, full native and affected interaction/prediction readiness pass before packaging; same-holder escape transfer and remote release/jump presentation remain unresolved."
+  ],
+  "manual_steps": [
+    "As a playable mouse, be held by another player. Have the holder walk, sprint, stop/start, turn and jump; check smooth relative motion and no camera lead.",
+    "Check the previous camera distance/placement and free look. Repeat while critical if possible, then drop and pick up again; no stale holder offset should remain.",
+    "Check disposal-unit view/flush and catching moving mice/jugs near the reach boundary. Targets moving beyond server reach can still be denied.",
+    "Hand-transfer escape, remote drop glide and repeated-jump observer landings are not claimed fixed."
+  ],
+  "checks": [
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--tests", "*ContainedCameraPolicyTest", "--tests", "*OwnedViewRendererAnchorTest", "--tests", "*GhostControlPayloadsTest", "--tests", "*BodyItemTargetReachTest", "--rerun-tasks", "--console=plain"],
+      "rationale": "Fresh complete focused suite, including the r37 null-input failure, frame math, snapshot codec and reach edge cases; source guards alone do not prove live camera behavior.",
+      "covers": [
+        "Canonical carrier view supplies explicit render-parent identity and its existing body-feet offset; snapshot codec retains this relation and unchanged non-carrier view fields.",
+        "Held camera translation follows the holder model's xOld/yOld/zOld sample at the same partial tick, cancelling independent body snapshot lead/noise while preserving native eye placement and detached-camera behavior.",
+        "Contained presentation uses stable committed identity rather than prediction tracker permission; correction is limited to the exact camera body and matching loaded parent and stops on cleared or missing association.",
+        "Client item and portable-living nominations reuse the server's physical pickup reach predicate, including null/non-finite rejection, retain aim tolerance and item priority, and leave block-use reach and server authority unchanged."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-held-camera-r38", "--rerun-tasks", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-held-camera-r38/native.log",
+      "rationale": "Fresh full native run for shared snapshot/contained-view changes, real carrier producer, custody, medical, disposal and control regressions.",
+      "covers": [
+        "Canonical carrier view supplies explicit render-parent identity and its existing body-feet offset; snapshot codec retains this relation and unchanged non-carrier view fields.",
+        "Fresh focused JVM, full native and affected interaction/prediction readiness pass before packaging; same-holder escape transfer and remote release/jump presentation remain unresolved."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=interaction,prediction", "--console=plain"],
+      "selectors": ["interaction", "prediction"],
+      "rationale": "Affected admission and network presentation contracts; no authenticated admission or GPU acceptance claim.",
+      "covers": ["Fresh focused JVM, full native and affected interaction/prediction readiness pass before packaging; same-holder escape transfer and remote release/jump presentation remain unresolved."]
+    },
+    {
+      "kind": "launch-smoke",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runClient", "-Pms14ClientRunDir=build/client-held-camera-r38", "--console=plain"],
+      "log": "build/agent-workflow/mouse-carrying-sprint/reports/mouse-held-camera-r38/client.log",
+      "ready_patterns": ["Created: .*minecraft:textures/atlas/blocks\\.png"],
+      "error_patterns": ["InvalidInjectionException", "MixinApplyError", "InjectionError", "FATAL"],
+      "timeout": 120,
+      "rationale": "Serial isolated native client bootstrap catches invalid camera mixin signatures. Stop only the owned tree. Not connected or held-view visual proof.",
+      "covers": ["Camera mixin transforms successfully in a fresh isolated native client startup. Startup is not held-POV or connected visual acceptance."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Record packaged artifact only after all checks pass; no deployment or owner acceptance.",
+      "covers": ["Fresh focused JVM, full native and affected interaction/prediction readiness pass before packaging; same-holder escape transfer and remote release/jump presentation remain unresolved."]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "abstract": true,
+  "parent": "moonstation14:supported_animal_core",
+  "components": [
+    {"type":"Barotrauma","damage":{"types":{"blunt":0.15}},"maxDamage":200.0},
+    {"type":"Respirator","breath_interval_seconds":2.0,"breath_volume_liters":0.5,"max_saturation":5.0,"initial_saturation":5.0,"min_saturation":-2.0,"saturation_loss_per_update":2.0,"suffocation_threshold":0.0,"suffocation_damage_per_update":2.0,"suffocation_recovery_per_update":1.0,"suffocation_ignore_resistances":true}
+  ]
+}

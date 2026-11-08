@@ -1,0 +1,5 @@
+# Resolved mutation-target references
+
+`ModSeedProfiles.validateResolvedMutationReferences` checks each concrete resolved seed profile's `mutation_targets` against the seed-profile catalog in the same candidate snapshot. It runs on both staged reload candidates and decoded authoritative snapshots, before publication; absent seed catalogs remain valid for isolated prototype-manager fixtures. Validation is deliberately referential only: self-targets, cycles and repeated entries are legal, and empty lists remain valid.
+
+Because validation sees resolved leaves, inherited target lists are checked on concrete profiles, while true abstract prototypes are removed by the existing resolver. The exact reserved `moonstation14:defaults` entry is a template in the current catalog convention (it is not marked abstract); like the existing seed validator, this reference check exempts that template, while checking every concrete profile that inherits its fields. Failures identify the source seed and missing target. A rejected candidate leaves the previously published snapshot unchanged. This does not validate product composition or claim expanded catalog/runtime coverage.

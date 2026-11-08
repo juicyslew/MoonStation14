@@ -79,6 +79,24 @@ public final class ChatIdentitySavedData extends SavedData {
         return allocateCharacterDurably(ledgerPath(overworld), key);
     }
 
+    public ChatIdentityRegistry.Entry allocateBodyCharacterDurably(ServerLevel overworld, ChatIdentityRegistry.CharacterKey key, String publicName) {
+        return allocateBodyCharacterDurably(ledgerPath(overworld), key, publicName);
+    }
+
+    ChatIdentityRegistry.Entry allocateBodyCharacterDurably(Path file, ChatIdentityRegistry.CharacterKey key, String publicName) {
+        return allocateBodyCharacterDurably(file, key, publicName, () -> { });
+    }
+
+    ChatIdentityRegistry.Entry allocateBodyCharacterDurably(Path file, ChatIdentityRegistry.CharacterKey key, String publicName, BeforeMove beforeMove) {
+        return durableWrite(file, beforeMove, disk -> {
+            if (disk == null || disk.character(key).isEmpty()) return null;
+            ChatIdentityRegistry.Entry entry = character(key).orElseThrow();
+            if (!entry.equals(disk.character(key).orElseThrow()))
+                throw new IllegalStateException("Chat identity differs from durable entry");
+            return entry;
+        }, candidate -> candidate.allocateBodyCharacter(key, publicName));
+    }
+
     private Path ledgerPath(ServerLevel overworld) {
         requireOverworld(overworld);
         if (!overworld.getServer().isSameThread())

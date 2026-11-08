@@ -1,0 +1,64 @@
+{
+  "title": "Resolve mouse carrying and incoming main conflicts while retaining both feature sets",
+  "kind": "bugfix",
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/hands/live/PortableBodyCarrierOwnerGameTests.java",
+  "acceptance_criteria": [
+    "All original conflict paths are resolved without committing the merge; both branch feature registrations, configurations and tests remain present.",
+    "Portable-body identity, custody, escape, selected targeting, shared client routing and camera behavior compose with incoming harvest, pill/storage, ingestion and activation workflows through existing shared owners.",
+    "Singularity gravity, tether and external flight retain one movement owner per route; power authorization and native fixture geometry/session assertions retain both branches' behavior.",
+    "Fresh full JVM/native checks, UI/interaction/prediction readiness, isolated client startup and packaged artifact pass; connected owner review remains separate."
+  ],
+  "manual_steps": [
+    "Pick up, throw and immediately pull a mouse; compare critical/dead mice, hand-transfer escape, storage/disposal identity, analyzer and smooth held camera.",
+    "Harvest plants and use the incoming grinder, pills/canister storage and ChemMaster workflows; confirm hand contents, names, counts and cursor icons remain correct.",
+    "Check singularity gravity on controlled characters, NPCs and loose items; exercise radiation collector activation and powered airlock/device-button behavior."
+  ],
+  "checks": [
+    {
+      "kind": "command",
+      "argv": ["python", "-c", "import json,pathlib,subprocess; assert not subprocess.check_output(['git','ls-files','-u']).strip(), 'unmerged index entries remain'; json.loads(pathlib.Path('opencode.jsonc').read_text()); m=json.loads(pathlib.Path('src/main/resources/moonstation14.mixins.json').read_text()); x=m.get('mixins',[])+m.get('client',[])+m.get('server',[]); assert len(x)==len(set(x)), 'duplicate mixins'; print('No unmerged index entries; configuration parses; mixins unique')"],
+      "rationale": "Explicitly verify the requested index resolution and merged configuration structure, independently of compilation.",
+      "covers": ["All original conflict paths are resolved without committing the merge; both branch feature registrations, configurations and tests remain present."]
+    },
+    {
+      "kind": "junit",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "test", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "rationale": "Broad merge requires complete JVM compilation/tests, including movement, prototype, registration, UI and both branches' new feature coverage.",
+      "covers": ["All original conflict paths are resolved without committing the merge; both branch feature registrations, configurations and tests remain present."]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runGameTestServer", "-Pms14GameTestDir=build/gametest-mouse-main-merge-r1", "--rerun-tasks", "--no-build-cache", "--console=plain"],
+      "log": "build/agent-workflow/mouse-main-integration/reports/mouse-main-merge-r1/native.log",
+      "rationale": "Mandatory full native coverage for merged shared services and fixture changes; require fresh selection/counts and all-required-passed marker in fresh lifecycle isolation.",
+      "covers": [
+        "Portable-body identity, custody, escape, selected targeting, shared client routing and camera behavior compose with incoming harvest, pill/storage, ingestion and activation workflows through existing shared owners.",
+        "Singularity gravity, tether and external flight retain one movement owner per route; power authorization and native fixture geometry/session assertions retain both branches' behavior."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "featureReadiness", "-Pms14Readiness=ui,interaction,prediction", "--console=plain"],
+      "selectors": ["ui", "interaction", "prediction"],
+      "rationale": "Affected shared pointer, admission, movement and prediction contracts; not authenticated connected-owner or GPU acceptance.",
+      "covers": ["Fresh full JVM/native checks, UI/interaction/prediction readiness, isolated client startup and packaged artifact pass; connected owner review remains separate."]
+    },
+    {
+      "kind": "launch-smoke",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "runClient", "-Pms14ClientRunDir=build/client-mouse-main-merge-r1", "--console=plain"],
+      "log": "build/agent-workflow/mouse-main-integration/reports/mouse-main-merge-r1/client.log",
+      "ready_patterns": ["Created: .*minecraft:textures/atlas/blocks\\.png"],
+      "error_patterns": ["InvalidInjectionException", "MixinApplyError", "InjectionError", "FATAL"],
+      "timeout": 120,
+      "rationale": "Verify merged registrations and client/mixin startup with controlled owned-tree stop; not live gameplay or visual acceptance.",
+      "covers": ["Fresh full JVM/native checks, UI/interaction/prediction readiness, isolated client startup and packaged artifact pass; connected owner review remains separate."]
+    },
+    {
+      "kind": "build",
+      "argv": ["cmd.exe", "/d", "/c", "gradlew.bat", "jar", "--console=plain"],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"],
+      "rationale": "Bind merged package only after required checks; no deployment or merge completion.",
+      "covers": ["Fresh full JVM/native checks, UI/interaction/prediction readiness, isolated client startup and packaged artifact pass; connected owner review remains separate."]
+    }
+  ]
+}

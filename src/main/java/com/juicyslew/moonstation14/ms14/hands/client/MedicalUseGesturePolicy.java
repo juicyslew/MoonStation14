@@ -18,3 +18,4 @@ public final class MedicalUseGesturePolicy {
         return kind != Kind.NONE && validMedicalBody && !control && !windowPointer;
     }
 }
+

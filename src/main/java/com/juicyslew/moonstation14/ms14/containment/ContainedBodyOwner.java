@@ -16,6 +16,13 @@ public interface ContainedBodyOwner {
     Vec3 position();
     /** Position assigned to a particular contained body's feet; transit owners may align its eyes to the bore. */
     default Vec3 positionFor(LivingEntity body) { return position(); }
+    /** Shared Minecraft camera viewpoint for occupants whose native eye heights differ. */
+    static Vec3 positionForViewpoint(Vec3 viewpoint, LivingEntity body) {
+        return positionForViewpoint(viewpoint, body.getEyeHeight());
+    }
+    static Vec3 positionForViewpoint(Vec3 viewpoint, double eyeHeight) {
+        return viewpoint.add(0, net.minecraft.world.entity.player.Player.DEFAULT_EYE_HEIGHT - eyeHeight, 0);
+    }
     Stage stage();
     boolean isValid();
 
@@ -29,6 +36,8 @@ public interface ContainedBodyOwner {
     default ContainedBodyView view() {
         return new ContainedBodyView(identity(), java.util.Optional.empty(), true);
     }
+    /** Body-specific presentation; custody identity remains the owner's exact ledger token. */
+    default ContainedBodyView viewFor(LivingEntity body) { return view(); }
 
     /** Preserve unrelated payloads before a contained body detonates; fixture owners own nothing by default. */
     default void preserveContentsBeforeExplosion() { }
@@ -43,4 +52,8 @@ public interface ContainedBodyOwner {
 
     /** Called for a voluntary movement escape request; timing and eligibility belong to the owner. */
     boolean tryEscape(LivingEntity body);
+
+    /** Controlled-input provenance; autonomous and legacy callers use sequence zero by default. */
+    default boolean tryEscape(LivingEntity body, long originSequence) { return tryEscape(body); }
 }
+

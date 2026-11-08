@@ -1,0 +1,1 @@
+./gradlew compileJava compileTestJava compileGameTestJava test --tests com.juicyslew.moonstation14.ms14.botany.fixture.BotanyFixtureSignsTest --tests com.juicyslew.moonstation14.ms14.botany.BotanyTimingTraitPresetTest --tests com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest --rerun-tasks

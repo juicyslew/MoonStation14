@@ -1,6 +1,7 @@
 package com.juicyslew.moonstation14.mixin;
 
 import com.juicyslew.moonstation14.ms14.player_body_control.character.MindControlledMob;
+import com.juicyslew.moonstation14.ms14.player_body_control.character.NpcMovementDriven;
 import com.juicyslew.moonstation14.ms14.containment.ContainedBodyVisual;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -13,12 +14,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Mob.class)
-public abstract class MobMindHarnessOwnerMixin implements MindControlledMob, ContainedBodyVisual {
+public abstract class MobMindHarnessOwnerMixin implements MindControlledMob, NpcMovementDriven, ContainedBodyVisual {
     @Unique
     private static final EntityDataAccessor<Boolean> moonstation14$MOVEMENT_OWNED =
             SynchedEntityData.defineId(Mob.class, EntityDataSerializers.BOOLEAN);
     @Unique
     private static final EntityDataAccessor<Boolean> moonstation14$DISPOSAL_CONTAINED =
+            SynchedEntityData.defineId(Mob.class, EntityDataSerializers.BOOLEAN);
+    @Unique
+    private static final EntityDataAccessor<Boolean> moonstation14$NPC_MOVEMENT_DRIVEN =
             SynchedEntityData.defineId(Mob.class, EntityDataSerializers.BOOLEAN);
     @Unique
     private net.minecraft.world.level.Level moonstation14$physicalStepLevel;
@@ -29,6 +33,7 @@ public abstract class MobMindHarnessOwnerMixin implements MindControlledMob, Con
     private void moonstation14$defineMovementOwner(SynchedEntityData.Builder builder, CallbackInfo callback) {
         builder.define(moonstation14$MOVEMENT_OWNED, false);
         builder.define(moonstation14$DISPOSAL_CONTAINED, false);
+        builder.define(moonstation14$NPC_MOVEMENT_DRIVEN, false);
     }
 
     @Override
@@ -51,6 +56,17 @@ public abstract class MobMindHarnessOwnerMixin implements MindControlledMob, Con
     public void moonstation14$markPhysicalStep(net.minecraft.world.level.Level level, long serverTick) {
         moonstation14$physicalStepLevel = level;
         moonstation14$physicalStepTick = serverTick;
+    }
+
+    @Override
+    public boolean moonstation14$isNpcMovementDriven() {
+        return ((Mob) (Object) this).getEntityData().get(moonstation14$NPC_MOVEMENT_DRIVEN);
+    }
+
+    @Override
+    public void moonstation14$setNpcMovementDriven(boolean driven) {
+        Mob mob = (Mob) (Object) this;
+        if (!mob.level().isClientSide) mob.getEntityData().set(moonstation14$NPC_MOVEMENT_DRIVEN, driven);
     }
 
     @Override

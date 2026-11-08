@@ -1,0 +1,279 @@
+[
+  {
+    "id": "FoodCocoaBeans",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/ingredients.yml",
+    "record": {
+      "type": "entity",
+      "name": "cocoa beans",
+      "parent": "FoodProduceBase",
+      "id": "FoodCocoaBeans",
+      "description": "You can never have too much chocolate!",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "chocolate"
+          ]
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/cocoa.rsi",
+          "state": "produce-beans"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 14,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 2
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 1
+                },
+                {
+                  "ReagentId": "CocoaPowder",
+                  "Quantity": 2
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "CocoaPowder",
+                "Quantity": 2
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodCocoaPod",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "cocoa pod",
+      "parent": "FoodProduceBase",
+      "id": "FoodCocoaPod",
+      "description": "You can never have too much chocolate!",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "chocolate"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 14,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 2
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 1
+                },
+                {
+                  "ReagentId": "CocoaPowder",
+                  "Quantity": 1
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/cocoa.rsi"
+        },
+        {
+          "type": "Produce",
+          "seedId": "cocoa"
+        },
+        {
+          "type": "SpawnItemsOnUse",
+          "items": [
+            {
+              "id": "FoodCocoaBeans"
+            }
+          ],
+          "sound": {
+            "path": "/Audio/Effects/packetrip.ogg"
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodMeatBase",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/meat.yml",
+    "record": {
+      "type": "entity",
+      "abstract": true,
+      "parent": "FoodInjectableBase",
+      "id": "FoodMeatBase",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "meaty"
+          ]
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Consumable/Food/meat.rsi"
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 20,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 5
+                },
+                {
+                  "ReagentId": "UncookedAnimalProteins",
+                  "Quantity": 1
+                },
+                {
+                  "ReagentId": "Fat",
+                  "Quantity": 5
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Item",
+          "shape": [
+            "0,0,1,0"
+          ]
+        },
+        {
+          "type": "Fixtures",
+          "fixtures": {
+            "fix1": {
+              "shape": {
+                "__yaml_tag__": "!type:PhysShapeAabb",
+                "value": {
+                  "bounds": "-0.25,-0.25,0.25,0.25"
+                }
+              },
+              "density": 1,
+              "mask": [
+                "ItemMask"
+              ],
+              "restitution": 0.3,
+              "friction": 0.2
+            }
+          }
+        },
+        {
+          "type": "AtmosExposed"
+        },
+        {
+          "type": "Temperature",
+          "currentTemperature": 290
+        },
+        {
+          "type": "TemperatureDamage"
+        },
+        {
+          "type": "InternalTemperature",
+          "thickness": 0.02,
+          "area": 0.02
+        },
+        {
+          "type": "Material"
+        },
+        {
+          "type": "PhysicalComposition",
+          "materialComposition": {
+            "Meaterial": 300
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodMeatWheat",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/meat.yml",
+    "record": {
+      "type": "entity",
+      "parent": "FoodMeatBase",
+      "id": "FoodMeatWheat",
+      "name": "meatwheat clump",
+      "description": "This doesn't look like meat, but your standards aren't that high to begin with.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "falsemeat"
+          ]
+        },
+        {
+          "type": "Sprite",
+          "state": "clump"
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "reagents": [
+                {
+                  "ReagentId": "UncookedAnimalProteins",
+                  "Quantity": 1
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Item",
+          "size": "Tiny",
+          "shape": [
+            "0,0,0,0"
+          ],
+          "inhandVisuals": {
+            "left": [
+              {
+                "state": "generic-pink-inhand-left",
+                "color": "#934C64"
+              }
+            ],
+            "right": [
+              {
+                "state": "generic-pink-inhand-right",
+                "color": "#934C64"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+]

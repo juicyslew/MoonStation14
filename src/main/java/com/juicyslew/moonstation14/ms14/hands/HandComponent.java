@@ -123,3 +123,4 @@ public record HandComponent(List<Slot> hands, String activeHand)
 
     private record Raw(List<Slot> hands, String activeHand) { }
 }
+

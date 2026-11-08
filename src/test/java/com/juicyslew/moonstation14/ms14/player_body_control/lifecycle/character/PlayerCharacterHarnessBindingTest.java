@@ -57,11 +57,26 @@ class PlayerCharacterHarnessBindingTest {
     }
 
     @Test
-    void onlyTheHumanPrototypeCanBeBoundToAPlayerCharacterHarness() {
+    void bindingKeyValidationAllowsResolvedOrdinaryPrototypesButNotNull() {
         assertTrue(PlayerCharacterHarnessBinder.isSupportedPrototypeKey(ModCharacters.HUMAN_ID));
-        assertFalse(PlayerCharacterHarnessBinder.isSupportedPrototypeKey(
+        assertTrue(PlayerCharacterHarnessBinder.isSupportedPrototypeKey(
                 ResourceLocation.fromNamespaceAndPath("minecraft", "pig")));
         assertFalse(PlayerCharacterHarnessBinder.isSupportedPrototypeKey(null));
+    }
+
+    @Test
+    void ordinaryMobLifecycleBindingCodecRoundTripsAndRejectsMalformedIdentity() {
+        var binding = new PlayerCharacterBinding(UUID.randomUUID(), "role_1", UUID.randomUUID());
+        var ops = com.mojang.serialization.JsonOps.INSTANCE;
+        var encoded = PlayerCharacterBinding.CODEC.encodeStart(ops, binding).getOrThrow();
+        assertEquals(binding, PlayerCharacterBinding.CODEC.parse(ops, encoded).getOrThrow());
+        var malformed = new com.google.gson.JsonObject();
+        malformed.addProperty("account", "not-a-uuid");
+        malformed.addProperty("profile", "role_1");
+        malformed.addProperty("mind", UUID.randomUUID().toString());
+        assertTrue(PlayerCharacterBinding.CODEC.parse(ops, malformed).error().isPresent());
+        assertThrows(IllegalArgumentException.class,
+                () -> new PlayerCharacterBinding(UUID.randomUUID(), "bad/profile", UUID.randomUUID()));
     }
 
     @Test

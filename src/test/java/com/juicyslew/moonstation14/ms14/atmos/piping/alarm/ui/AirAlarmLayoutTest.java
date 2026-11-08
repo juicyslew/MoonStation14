@@ -13,7 +13,15 @@ class AirAlarmLayoutTest {
             var window = new AirAlarmLayout.Rect(l.x(), l.y(), l.width(), l.height());
             assertTrue(window.inside(0,0,viewport[0],viewport[1]));
             for (var r : List.of(l.detailBack(), l.detailTabs(), l.configure(), l.close(), l.search(), l.deviceRows(), l.refresh(), l.enabled(), l.mode(),
-                    l.numericEdit(), l.numericSubmit(), l.inset(), l.footer())) assertTrue(r.inside(l.x(),l.y(),l.width(),l.height()), r.toString());
+                    l.numericEdit(), l.numericSubmit(), l.inset(), l.footer(), l.autoMode(), l.monitorStats(), l.summary())) assertTrue(r.inside(l.x(),l.y(),l.width(),l.height()), r.toString());
+            for (int i=0;i<5;i++) assertTrue(l.alarmMode(i).inside(l.x(),l.y(),l.width(),l.height()));
+            for (int i=0;i<9;i++) assertTrue(l.gasReading(i).inside(l.x(),l.y(),l.width(),l.height()));
+            for (int i=0;i<5;i++) for(int j=i+1;j<5;j++) assertFalse(l.alarmMode(i).overlaps(l.alarmMode(j)));
+            assertFalse(l.autoMode().overlaps(l.monitorStats()));
+            assertFalse(l.summary().overlaps(l.search()));
+            for (int i=0;i<5;i++) assertFalse(l.alarmMode(i).overlaps(l.autoMode()));
+            for (int i=0;i<9;i++) assertFalse(l.monitorStats().overlaps(l.gasReading(i)));
+            for(int i=0;i<9;i++)for(int j=i+1;j<9;j++)assertFalse(l.gasReading(i).overlaps(l.gasReading(j)));
             assertTrue(l.search().inside(l.x(),l.y(),l.width(),l.height()));
             assertFalse(l.search().overlaps(l.deviceRows())); // MachineSearchList owns rows only; search is 22px above.
             assertEquals(l.width() - 23, l.close().x() - l.x());

@@ -100,3 +100,4 @@ public final class AtmosphereTransportDiagnosticCommand {
     }
     private static void send(CommandSourceStack source, String text) { source.sendSuccess(() -> Component.literal(text), false); }
 }
+

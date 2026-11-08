@@ -1,0 +1,52 @@
+{
+  "asset": "containment_vertical_states_r8",
+  "owner_approval": {
+    "status": "APPROVED",
+    "recorded": "2026-10-12",
+    "basis": "Owner explicitly approved R8 via 'Approve R8'. External saved approval remains false; no external acceptance claimed."
+  },
+  "external_candidate_acceptance": false,
+  "source_export": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\Asset Building Workspace\\assets\\Structures\\Power\\candidates\\containment_vertical_states_r8\\export",
+  "imported": [
+    {
+      "state": "default",
+      "path": "textures/block/reactor_r8/generation_singularity_containment/default.png",
+      "sha256": "ec905009559b9d91fcf326b5a9b4cf9533b2dd5923ba4aec1b7ea93d58a77052"
+    },
+    {
+      "state": "a1",
+      "path": "textures/block/reactor_r8/generation_singularity_containment/a1.png",
+      "sha256": "b9e8239fb61ce0e27135c7fb0187507cc80c77c59fe9f1d3d3e950fef67f1317"
+    },
+    {
+      "state": "a2",
+      "path": "textures/block/reactor_r8/generation_singularity_containment/a2.png",
+      "sha256": "2930e924565142d41c22516175a9c92862c14c2442f75222da52f6eca28da4c6"
+    },
+    {
+      "state": "a3",
+      "path": "textures/block/reactor_r8/generation_singularity_containment/a3.png",
+      "sha256": "a8342b8a93e1674dfa9b3d4ea296dc9d681e189fd315fc241db2b39bc1db6a98"
+    },
+    {
+      "state": "p1",
+      "path": "textures/block/reactor_r8/generation_singularity_containment/p1.png",
+      "sha256": "6b9816ee084649249918e01568e96b4cc7d70d784663af964a748d13672e6bd6"
+    },
+    {
+      "state": "p3",
+      "path": "textures/block/reactor_r8/generation_singularity_containment/p3.png",
+      "sha256": "2fedb277eaafc051a204a674f08dc819aaeb9853a562a977997e45fcc8244e7b"
+    },
+    {
+      "state": "p6",
+      "path": "textures/block/reactor_r8/generation_singularity_containment/p6.png",
+      "sha256": "41a146c2532fc85fb7e7da0cc26ce12766bf90b2f2fe17f6d04820d01e2b09fb"
+    },
+    {
+      "state": "on",
+      "path": "textures/block/reactor_r8/generation_singularity_containment/on.png",
+      "sha256": "7651d98c0c01d336ae7af64f5677907d50a15b1640b28acb9bd05dc75e7afb69"
+    }
+  ]
+}

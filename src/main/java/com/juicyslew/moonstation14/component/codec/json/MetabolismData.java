@@ -72,3 +72,4 @@ public record MetabolismData(List<EffectData> effects, Map<ResourceKey<ReagentDa
         }
     }
 }
+

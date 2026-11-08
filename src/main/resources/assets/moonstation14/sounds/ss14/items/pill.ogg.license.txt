@@ -1,0 +1,5 @@
+SS14 upstream source: Resources/Audio/Items/pill.ogg at commit c9df5ef5d675b0d1d226828bddf6b78c28502d91.
+Copied verbatim; SHA-256: EE30CB86FDDBA50AA5D1BCBD765076F9F8F265AE6B668DCCECFF74D237924203
+License: CC-BY-NC-3.0 (noncommercial use only).
+Copyright: Combined from “437480__ruanza__swallowing.wav” by RuanZA and part from “330657__diniunicorn__popping-pills.wav” by diniunicorn.
+Sources: https://freesound.org/people/RuanZA/sounds/437480/ and https://freesound.org/people/diniunicorn/sounds/330657/ . SS14 attribution: Resources/Audio/Items/attributions.yml.

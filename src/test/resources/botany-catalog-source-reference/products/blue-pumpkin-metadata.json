@@ -1,0 +1,33 @@
+{
+  "sourceRevision": "c9df5ef5d675b0d1d226828bddf6b78c28502d91",
+  "sourceFiles": {
+    "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml": {
+      "sha256": "a28ed494a096cf63f7887f45e4967e89600b60022fd2b49af22e131f9bafb385"
+    }
+  },
+  "requestedLeafIds": [
+    "FoodBluePumpkin"
+  ],
+  "capturedConcreteProductCount": 1,
+  "capturedAdditionalAncestorCount": 0,
+  "capturedRawRecordCount": 1,
+  "capturedEntityIds": [
+    "FoodBluePumpkin"
+  ],
+  "sourceRecordFormat": "Full parsed upstream YAML entity mappings; original field spelling/quantities retained. Boolean-tagged scalar mapping keys are preserved as their original lexical scalar strings (for example True and False); boolean scalar values remain booleans. Unknown YAML tags are encoded as {\"__yaml_tag__\": original tag, \"value\": recursively safe-constructed payload}; no tag instantiation or field removal.",
+  "jsonRoundTripStructurallyVerifiedAgainstParsedRows": true,
+  "parentClosureVerifiedAgainstExisting62ReferenceIdsAndBluePumpkinRows": true,
+  "fullUnionParentClosureRecordCount": 63,
+  "parentResolution": {
+    "FoodBluePumpkin": "FoodProduceBase"
+  },
+  "overlapWithExisting62ReferenceIds": [],
+  "parsedMappingEqualityVerified": true,
+  "opaqueYamlTagStringsVerified": [
+    "!type:DamageTrigger",
+    "!type:PlaySoundBehavior",
+    "!type:SpillBehavior",
+    "!type:DoActsBehavior"
+  ],
+  "rawRowsSha256": "4e2502e50bc935d654d480b89e2ba77fede31c4c3013019dfdab83df75d111d9"
+}

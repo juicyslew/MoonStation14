@@ -22,6 +22,6 @@ Pure registry tests cover attached and detached transfer paths; they do not exer
 
 ## Current sprint boundary and remaining gates
 
-Death/ineligibility recovery and camera cleanup are well-defined relevant work in this sprint. Detailed inventory, hands, equipment, speech/action contracts, role/profile/lobby systems, and the SS14 prototype importer require separately scoped milestones, consistent with the [next-systems roadmap](../../next-systems-roadmap.md).
+Death/ineligibility recovery and camera cleanup are well-defined relevant work in this sprint. Detailed inventory, hands, equipment, speech/action contracts, role/profile/lobby systems, and the SS14 prototype importer require separately scoped milestones, consistent with the [next-systems roadmap](../../project-reference/next-systems-roadmap.md).
 
 Carrier identity separation and retirement of the old default-off player controller remain ordered player-body-control sprint gates. They are not safe to patch before connected lifecycle evidence and supported mode/teleport proof exist. Preserve these gates without expanding the current bounded recovery work into those larger changes.

@@ -62,3 +62,4 @@ public final class BodyTemperatureAttachment
         return state.hashCode();
     }
 }
+

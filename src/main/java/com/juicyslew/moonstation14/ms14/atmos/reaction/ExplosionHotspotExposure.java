@@ -56,3 +56,4 @@ public final class ExplosionHotspotExposure {
         private static final Decision NONE = new Decision(false, 0, 0, 0);
     }
 }
+

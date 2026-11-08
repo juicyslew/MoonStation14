@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.Collection;
 import java.util.Set;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GlobalTestReporter;
+import net.minecraft.gametest.framework.LogTestReporter;
 import net.minecraft.gametest.framework.BeforeBatch;
 import net.minecraft.gametest.framework.AfterBatch;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -25,6 +27,7 @@ public final class GameTestTagRegistrar {
 
     @SubscribeEvent
     public static void register(RegisterGameTestsEvent event) {
+        GlobalTestReporter.replaceWith(new BoundedGameTestReporter(new LogTestReporter(), LogManager.getLogger()));
         Set<Method> methods = new HashSet<>();
         Set<Method> callbacks = new HashSet<>();
         for (ModFileScanData scan : ModList.get().getAllScanData()) {
@@ -46,7 +49,7 @@ public final class GameTestTagRegistrar {
 
         Set<String> requested = GameTestTagSelector.parse(System.getProperty("moonstation14.gameTestTags"));
         RegistrationSummary summary = registerMethods(methods, requested, callbacks, event::register);
-        LogManager.getLogger().info("GameTest tag preflight: {}/{} fixtures selected", summary.selected(), methods.size());
+        LogManager.getLogger().info(selectionPreflight(summary, methods.size()));
         LogManager.getLogger().info("GameTests {}: requested tags={}, available tags={}, selected/discovered={}, untagged={}",
                 requested.isEmpty() ? "FULL" : "FILTERED", requested.isEmpty() ? "<all>" : requested, summary.availableTags(),
                 summary.selected() + "/" + methods.size(), summary.untagged());
@@ -100,4 +103,8 @@ public final class GameTestTagRegistrar {
     }
 
     public record RegistrationSummary(Set<String> availableTags, int selected, int untagged) {}
+
+    public static String selectionPreflight(RegistrationSummary summary, int discovered) {
+        return "GameTest tag preflight: %d/%d fixtures selected".formatted(summary.selected(), discovered);
+    }
 }

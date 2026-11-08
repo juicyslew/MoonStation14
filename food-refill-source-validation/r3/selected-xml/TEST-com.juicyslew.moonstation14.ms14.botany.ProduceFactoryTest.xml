@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-10-21T12:31:11.025Z" hostname="DESKTOP-4F0ER3K" time="0.305">
+  <properties/>
+  <testcase name="generatedProduceWithoutFreshSourceGetsZeroInitialCapacityButKeepsGeneratedChemistry()" classname="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" time="0.247"/>
+  <testcase name="invalidHarvestInputsFailClosed()" classname="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" time="0.004"/>
+  <testcase name="harvestInstanceMetadataRoundTripsAndRejectsInvalidState()" classname="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" time="0.001"/>
+  <testcase name="mutationContributionTruncatesBeforeAddingFixedPointMinimum()" classname="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" time="0.0"/>
+  <testcase name="harvestChemistryUsesSeedFormulaAndExactCentTotal()" classname="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" time="0.002"/>
+  <testcase name="reagentCurrentStateCodecPreservesPartialAndEmptyValues()" classname="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" time="0.003"/>
+  <testcase name="wheatAndTomatoGenerationAndCapacityBaselinesRemainExact()" classname="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" time="0.011"/>
+  <testcase name="fixtureYieldAndPotencyPresetsTravelThroughRealProduceAndSeedPacketCarriers()" classname="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" time="0.015"/>
+  <testcase name="harvestUsesCapturedProduceMutationPayloadWithoutChangingGeneratedChemistry()" classname="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" time="0.002"/>
+  <testcase name="successfulMutationCycleFlowsCapturedPayloadThroughReferenceHarvestAndLooseResolver()" classname="com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest" time="0.016"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

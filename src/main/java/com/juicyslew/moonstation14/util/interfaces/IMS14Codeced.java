@@ -8,3 +8,4 @@ public interface IMS14Codeced<T> {
     public Codec<T> getCodec();
     public StreamCodec<RegistryFriendlyByteBuf, T> getStreamCodec();
 }
+

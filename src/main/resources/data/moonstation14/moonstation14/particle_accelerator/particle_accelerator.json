@@ -1,0 +1,5 @@
+{
+  "id": "moonstation14:particle_accelerator",
+  "type": "moonstation14:particle_accelerator",
+  "parent": "moonstation14:pa_base"
+}

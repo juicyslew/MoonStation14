@@ -16,12 +16,22 @@ public final class PostureClient {
     private static long lastMoveWishTick = Long.MIN_VALUE;
     private static int lastMoveWishMask;
     private static final java.util.Map<java.util.UUID, Boolean> LAST_POSE = new java.util.HashMap<>();
+    private static final RollInputPolicy ROLL_INPUT = RollInputPolicy.pending();
     private static final KeyMapping TOGGLE = new KeyMapping("key.moonstation14.toggle_prone",
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, "key.categories.moonstation14");
     private static final KeyMapping ROLL = new KeyMapping("key.moonstation14.roll_prone",
             com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.moonstation14");
     private PostureClient() { }
     public static void register(RegisterKeyMappingsEvent event) { event.register(TOGGLE); event.register(ROLL); }
+    @SubscribeEvent public static void onKey(net.neoforged.neoforge.client.event.InputEvent.Key event) {
+        if (!ROLL.matches(event.getKey(), event.getScanCode())) return;
+        Minecraft mc = Minecraft.getInstance();
+        ROLL_INPUT.syncContext(mc.level);
+        if (mc.level == null || mc.screen != null) { ROLL_INPUT.invalidateContext(); return; }
+        boolean menuOwnsChord = com.juicyslew.moonstation14.ms14.actions.client.BodyActionKeys.matches(
+                event.getKey(), event.getScanCode(), event.getModifiers());
+        ROLL_INPUT.keyEvent(event.getAction(), event.getModifiers(), ROLL.getKeyModifier(), menuOwnsChord);
+    }
     /** Whether another mapping currently aliases the configurable roll key. */
     public static boolean sharesRollKey(KeyMapping mapping) {
         return mapping != null && ROLL.getKey().equals(mapping.getKey());
@@ -43,6 +53,8 @@ public final class PostureClient {
             }
             LAST_POSE.keySet().retainAll(present);
         } else LAST_POSE.clear();
+        if (mc.level == null || mc.screen != null) ROLL_INPUT.invalidateContext();
+        else ROLL_INPUT.syncContext(mc.level);
         if (mc.player == null) { lastMoveWishMask = 0; return; }
         int moveWishMask = (mc.options.keyUp.isDown() ? 1 : 0) | (mc.options.keyDown.isDown() ? 2 : 0)
                 | (mc.options.keyLeft.isDown() ? 4 : 0) | (mc.options.keyRight.isDown() ? 8 : 0);
@@ -57,9 +69,10 @@ public final class PostureClient {
         }
         while (TOGGLE.consumeClick()) PacketDistributor.sendToServer(new PostureToggleRequest());
         while (ROLL.consumeClick()) {
-            long window = mc.getWindow().getWindow();
-            boolean turnOther = org.lwjgl.glfw.GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
-                    || org.lwjgl.glfw.GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
+            RollInputPolicy.Intent intent = ROLL_INPUT.poll();
+            boolean turnOther = intent == RollInputPolicy.Intent.OTHER;
+            boolean selfRoll = intent == RollInputPolicy.Intent.SELF;
+            if (!selfRoll && !turnOther) continue;
             if (!turnOther) {
                 PacketDistributor.sendToServer(new com.juicyslew.moonstation14.ms14.standing.PostureRollRequest(null));
                 if (directionalWish) {

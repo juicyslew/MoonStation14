@@ -50,7 +50,8 @@ public final class ThermalExposureMath {
                                 double heatDamagePerSecond, double coldDamagePerSecond, double damageCap) {
         public DamageProfile {
             requirePositiveFinite(heatDamageThresholdKelvin, "heatDamageThresholdKelvin");
-            requirePositiveFinite(coldDamageThresholdKelvin, "coldDamageThresholdKelvin");
+            if (!Double.isFinite(coldDamageThresholdKelvin) || coldDamageThresholdKelvin < 0)
+                throw new IllegalArgumentException("coldDamageThresholdKelvin must be finite and nonnegative");
             requirePositiveFinite(heatDamagePerSecond, "heatDamagePerSecond");
             requirePositiveFinite(coldDamagePerSecond, "coldDamagePerSecond");
             requirePositiveFinite(damageCap, "damageCap");
@@ -60,7 +61,8 @@ public final class ThermalExposureMath {
     }
 
     public static DamageAmounts damageAt(double bodyKelvin, DamageProfile profile, double seconds) {
-        requirePositiveFinite(bodyKelvin, "bodyKelvin");
+        if (!Double.isFinite(bodyKelvin) || bodyKelvin < 0)
+            throw new IllegalArgumentException("bodyKelvin must be finite and nonnegative");
         Objects.requireNonNull(profile, "profile");
         requirePositiveFinite(seconds, "seconds");
         double heat = bodyKelvin <= profile.heatDamageThresholdKelvin() ? 0 :

@@ -1,0 +1,35 @@
+{
+  "textures": {
+    "atlas": "moonstation14:block/power_collection/generation_singularity_collector/ca_o1",
+    "particle": "moonstation14:block/power_collection/generation_singularity_collector/ca_o1"
+  },
+  "elements": [
+    {
+      "name": "pressure_lamp_1",
+      "from": [
+        9.26,
+        1.0,
+        2.83
+      ],
+      "to": [
+        10.268,
+        4.5,
+        2.84
+      ],
+      "shade": false,
+      "faces": {
+        "north": {
+          "texture": "#atlas",
+          "uv": [
+            5.375,
+            5.75,
+            5.625,
+            6.625
+          ]
+        }
+      }
+    }
+  ],
+  "ambientocclusion": false,
+  "render_type": "minecraft:cutout"
+}

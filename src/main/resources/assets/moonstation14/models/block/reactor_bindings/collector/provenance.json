@@ -1,0 +1,87 @@
+{
+  "purpose": "Integration-only exact atlas tile composition; accepted source resources are read-only",
+  "acceptedRoot": "C:/Users/William/Documents/Minecraft Mod Dev Files/MoonStation14-agent-01/src/main/resources/assets/moonstation14/{models,textures}/block/power_collection/generation_singularity_collector",
+  "regions": {
+    "tank": {
+      "xywh": [
+        28,
+        45,
+        14,
+        8
+      ],
+      "source": "ca_tank.png",
+      "destination": "presence=1",
+      "copy": "RGBA exact",
+      "uvSource": "lower_controls north UV [3.5,5.125,6.625,6.625], source atlas scale 8"
+    },
+    "pressure": {
+      "xywh": [
+        43,
+        46,
+        2,
+        7
+      ],
+      "sourceByBand": [
+        "ca_o0.png frames 0 and 1",
+        "ca_o1.png",
+        "ca_o2.png",
+        "ca_o3.png"
+      ],
+      "destination": "pressure band tile",
+      "uvSource": "lower_controls north face; semantic LED changes across pressure textures"
+    },
+    "baseline": "ca_off.png full 128x128 replicated per frame; nonselected pixels unchanged"
+  },
+  "animation": "pressure0 copies accepted ca_o0.png.mcmeta; selected tile is copied frame-for-frame and tank/base repeated in both frames",
+  "derivedSha256": {
+    "tank1_pressure1.png": "1522CADE125B05F7C6E40513C76FA4BF20BCA36C096232B735504097194323EA",
+    "tank0_pressure2.png": "35173693B1AB6E2A4367D90E9DDC0F0887982BC7BAF48F0CE22F74E3D44F27D1",
+    "tank1_pressure3.png": "6D43F585C0E133C578CD68EB0627F8E9AFA19A40FC142128B60CE3AA3F13D123",
+    "tank1_pressure2.png": "0A6EAB5F16B875458699016BA5E060F81F81C0854C3FA3D0AA511E81D3C3D305",
+    "tank0_pressure0.png": "0687C5E8AA9329A899A0B1EDD09D57A6C425F50358E3FCBAD0512AF0D93637FF",
+    "tank0_pressure1.png": "3F212FB6746BC8C93A3C6792587CF53621374256F43FF63824DDAA367DFB4AF3",
+    "tank1_pressure0.png": "C240A95D73EF7E0A09C5546CF88A701F08F9CD96A97D85CFF05B87F1893F63F1",
+    "tank0_pressure0.png.mcmeta": "88F42FE1BACDB58E80436564EA1A7ED5230D612627ADA296A5012660D004DA6D",
+    "tank0_pressure3.png": "DBE3AC1E14F04F367DF61027B99DB1AB730A03F1A471F9286AAB5379A4053441"
+  },
+  "sourceModel": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\MoonStation14-agent-01\\src\\main\\resources\\assets\\moonstation14\\models\\block\\power_collection\\generation_singularity_collector\\static.json",
+  "sourceModelSha256": "28F5A1B4E09FC5F6BCF7B57DE8D4648DC4FDA9F0657B93A598968260723315C1",
+  "panelGeometrySource": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\MoonStation14-agent-01\\src\\main\\resources\\assets\\moonstation14\\models\\block\\power_collection\\generation_singularity_collector\\default.json",
+  "panelGeometrySourceSha256": "1F662AD82A0700E5F27ECDB6D3980B271173F4214F8CA1DA39D7C52E84E8091B",
+  "sourceSha256": {
+    "ca_off.png": "51EF1257E1EE20AD25C9FC5AE4D3ACD3B32D427CE67621514428C77BEB8B3166",
+    "ca_tank.png": "36A0F6C29EDEDC9C3721D8117766B1DB2D2883EF704ABA3C93F31D000808F102",
+    "ca_o0.png": "E1E9207577CA6DEA5CF601739B8A4FE41A44449CF7F7E10E69EF4E9A404696EA",
+    "ca_o0.png.mcmeta": "88F42FE1BACDB58E80436564EA1A7ED5230D612627ADA296A5012660D004DA6D",
+    "ca_o1.png": "FBF709F56A73611F1950EB7B1B0FEECF8C4C459C0816709A3AEAB2A26CB59471",
+    "ca_o2.png": "0E2D44E0707BFF985395B212F2CD192A12560E3E2253753373D1B4067C8A8A3B",
+    "ca_o3.png": "C2FC427FEF95F1E87561B42C63290DC024588D9A5FA06A200AA95817897148A3",
+    "ca_on.png": "0B205107782C51D5C9192BE51901740E479A198C89C69033057461558FB7EB0B",
+    "default.png": "51EF1257E1EE20AD25C9FC5AE4D3ACD3B32D427CE67621514428C77BEB8B3166"
+  },
+  "panelMaterialVerification": {
+    "basis": "raw default.json panel element UV regions",
+    "inactive": "ca_off equals default on every panel face",
+    "active": "ca_on equals default on every panel face except glass up face",
+    "activePatchPixels": "[92,23,117,37); exact accepted ca_on pixel region",
+    "decision": "Use ca_off and ca_on with raw default geometry; identical UV layout verified, no UV remapping"
+  },
+  "derivedModelSha256": {
+    "panel_active.json": "BBB7D9B3DEC9A1DEEBE538F48311DC191EBE7FC585ABF7A4560FF1509880C3FD",
+    "shell_tank1_pressure3.json": "96E33F804E0842537B5C9C6180FE2C11003FAAE9FE238C3A562EE5961D15B098",
+    "shell_tank1_pressure0.json": "6883A067147D6964CFB06E506F15492ABB78D7A7CB22A6154548F51D55675C6F",
+    "pressure_overlay_p1.json": "671BF34639B67168E7E053A658D5DC688395B0146630F88A88F98873B55FFB84",
+    "shell_tank0_pressure2.json": "F3F6D97E0DE8999DCC012AEB2629161CCE0F272C0A2C2AD8ABAED5EA05D7EE4E",
+    "pressure_overlay_p0.json": "7C43A17849CD90E4BEC24B088F1C77355DC354B2809961F8E9F51A4CE0C2CDDF",
+    "element_filters.txt": "F46AEF7EC6EAB612CED18D23C9C1F1C6D873F0B59BCA9573447F29C5B1FC4565",
+    "pressure_overlay_p2.json": "567519BDC39DB1C387588FAD8E19A4C05152A83764F37DC05681262A06C5D2CF",
+    "empty.json": "792589B184754D3E2A744AF97B717FA5DA65831EB44974E002D44B61B03B5B62",
+    "shell_tank1_pressure2.json": "70E63F8CE6526848AE386C967F98FDAC10CCD2D58A387045A3CFA69E1C007A00",
+    "panel_inactive.json": "538D49D91275F72A5EDD2678CE62FC72730A5448F51F746A93C9C5ECF67C87FD",
+    "shell_tank0_pressure1.json": "E80B78985EB2570CC06EAF1CE43B3A3487760620AB46E97FAC8B7C26C8237781",
+    "pressure_overlay_p3.json": "100BF3116EF435A77D1A2420807CBAA47A562E46EB16F238DDDB1EEE6C749593",
+    "shell_tank1_pressure1.json": "3ECBDAA917752001FB9541A59D2CDE68AF18919D835474F9841576D0ED0DE9FE",
+    "shell_tank0_pressure0.json": "614B9FCD32572307EFB25A7F13DD30D21EF0D0D42BA005D3279321E1062D5F6B",
+    "shell_tank0_pressure3.json": "6A07BDE5C572696DE8070B3F365AD9ED6D5C4236FB487477DDFD9165B9222D85"
+  }
+}

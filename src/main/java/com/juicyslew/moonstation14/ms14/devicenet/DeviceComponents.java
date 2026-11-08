@@ -105,3 +105,4 @@ public record DeviceComponents(Optional<Network> network, Optional<Connection> c
         public SoundOnOverload { Objects.requireNonNull(sound); if(!Float.isFinite(volumeModifier))throw new IllegalArgumentException("invalid overload volume modifier"); }
     }
 }
+

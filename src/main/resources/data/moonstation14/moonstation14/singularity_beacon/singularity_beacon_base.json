@@ -1,0 +1,9 @@
+{
+  "id": "moonstation14:singularity_beacon_base",
+  "abstract": true,
+  "power_watts": 5000,
+  "attractor_period_ticks": 40,
+  "attractor_range": 80,
+  "food_energy": 120,
+  "food_factor": 1
+}

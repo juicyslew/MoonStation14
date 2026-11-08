@@ -19,3 +19,4 @@ public final class ModConstruction {
     }
     public static ConstructionCatalog catalog(PrototypeCatalog<ConstructionGraphData> graphs, PrototypeCatalog<ConstructionRecipeData> recipes) { return new ConstructionCatalog(graphs,recipes); }
 }
+

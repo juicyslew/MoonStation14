@@ -40,8 +40,11 @@ public final class EquipmentRenderPlan {
             EquipmentItemData data = catalog.get(itemId);
             if (data != null) data.clothing().ifPresent(clothing -> {
                 var anchors = anchors(entry.id(), clothing.region());
-                if (!anchors.isEmpty()) garments.add(new Garment(entry.id(), itemId, clothing.region(),
-                        clothing.color(), anchors, layerOrder(entry.id()), clothing.wornModel()));
+                boolean lowered = com.juicyslew.moonstation14.ms14.equipment.BreathToolItemState.isLowered(stack);
+                var model = lowered ? data.breathMask().flatMap(EquipmentItemData.BreathMask::loweredWornModel)
+                        : clothing.wornModel();
+                if (!anchors.isEmpty() && (!lowered || model.isPresent())) garments.add(new Garment(entry.id(), itemId, clothing.region(),
+                        clothing.color(), anchors, layerOrder(entry.id()), model));
             });
         }
         return new Plan(hands, garments);

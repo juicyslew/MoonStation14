@@ -296,6 +296,13 @@ class StatusEffectStorageTest {
                 new StatusEffectPayload.MovementSpeedModifier(1.25f));
         StatusEffectInstance.STREAM_CODEC.encode(movementBuffer, movement);
         assertEquals(movement, StatusEffectInstance.STREAM_CODEC.decode(movementBuffer));
+
+        for (float factor : new float[]{0f, .5f, 1f}) {
+            StatusEffectPayload.FrictionModifier friction = new StatusEffectPayload.FrictionModifier(factor);
+            RegistryFriendlyByteBuf frictionBuffer = buffer();
+            StatusEffectPayload.STREAM_CODEC.encode(frictionBuffer, friction);
+            assertEquals(friction, StatusEffectPayload.STREAM_CODEC.decode(frictionBuffer));
+        }
         movementBuffer.release();
 
         RegistryFriendlyByteBuf componentBuffer = buffer();

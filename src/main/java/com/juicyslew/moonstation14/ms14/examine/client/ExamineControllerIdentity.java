@@ -17,3 +17,4 @@ public final class ExamineControllerIdentity {
         return a.controllerReference() != null || Objects.equals(a.stateSignature(), b.stateSignature());
     }
 }
+

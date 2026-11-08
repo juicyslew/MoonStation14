@@ -1,0 +1,414 @@
+[
+  {
+    "id": "FoodBanana",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "banana",
+      "parent": "FoodProduceBase",
+      "id": "FoodBanana",
+      "description": "Rich in potassium.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "banana"
+          ]
+        },
+        {
+          "type": "Edible",
+          "trash": [
+            "TrashBananaPeel"
+          ]
+        },
+        {
+          "type": "Butcherable",
+          "butcheringType": "Knife",
+          "spawned": [
+            {
+              "id": "TrashBananaPeel"
+            }
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 6,
+              "reagents": [
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 4
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 2
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/banana.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "banana"
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "JuiceBanana",
+                "Quantity": 10
+              }
+            ]
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit",
+            "Banana"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Burger": "Banana",
+            "Taco": "Banana"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodMimana",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "mimana",
+      "parent": "FoodProduceBase",
+      "id": "FoodMimana",
+      "description": "Mime's favorite.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "banana",
+            "nothing"
+          ]
+        },
+        {
+          "type": "Edible",
+          "trash": [
+            "TrashMimanaPeel"
+          ]
+        },
+        {
+          "type": "Butcherable",
+          "butcheringType": "Knife",
+          "spawned": [
+            {
+              "id": "TrashMimanaPeel"
+            }
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 7,
+              "reagents": [
+                {
+                  "ReagentId": "MuteToxin",
+                  "Quantity": 5
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 2
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/mimana.rsi"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "mimana"
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "JuiceBanana",
+                "Quantity": 10
+              },
+              {
+                "ReagentId": "Nothing",
+                "Quantity": 5
+              }
+            ]
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Burger": "Mimana",
+            "Taco": "Mimana"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "TrashBananaPeel",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "parent": "BaseItem",
+      "id": "TrashBananaPeel",
+      "name": "banana peel",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/banana.rsi",
+          "state": "peel"
+        },
+        {
+          "type": "Item",
+          "sprite": "Objects/Specific/Hydroponics/banana.rsi",
+          "heldPrefix": "peel"
+        },
+        {
+          "type": "Slippery"
+        },
+        {
+          "type": "StepTrigger",
+          "intersectRatio": 0.2
+        },
+        {
+          "type": "CollisionWake",
+          "enabled": false
+        },
+        {
+          "type": "Physics",
+          "bodyType": "Dynamic"
+        },
+        {
+          "type": "Fixtures",
+          "fixtures": {
+            "slips": {
+              "shape": {
+                "__yaml_tag__": "!type:PhysShapeAabb",
+                "value": {
+                  "bounds": "-0.2,-0.2,0.2,0.2"
+                }
+              },
+              "hard": false,
+              "layer": [
+                "SlipLayer"
+              ]
+            },
+            "fix1": {
+              "shape": {
+                "__yaml_tag__": "!type:PhysShapeAabb",
+                "value": {
+                  "bounds": "-0.2,-0.2,0.2,0.2"
+                }
+              },
+              "density": 30,
+              "mask": [
+                "ItemMask"
+              ]
+            }
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Recyclable",
+            "Trash",
+            "BananaPeel",
+            "Ruminant",
+            "WhitelistChameleon",
+            "HamsterWearable"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 4,
+              "reagents": [
+                {
+                  "ReagentId": "PulpedBananaPeel",
+                  "Quantity": 4
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Extractable",
+          "grindableSolutionName": "food"
+        },
+        {
+          "type": "SpaceGarbage"
+        },
+        {
+          "type": "Edible",
+          "requiresSpecialDigestion": true
+        },
+        {
+          "type": "Clothing",
+          "sprite": "Objects/Specific/Hydroponics/banana.rsi",
+          "equippedPrefix": "peel",
+          "slots": [
+            "HEAD"
+          ],
+          "quickEquip": false
+        }
+      ]
+    }
+  },
+  {
+    "id": "TrashMimanaPeel",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "parent": "TrashBananaPeel",
+      "id": "TrashMimanaPeel",
+      "name": "mimana peel",
+      "components": [
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/mimana.rsi",
+          "state": "peel"
+        },
+        {
+          "type": "Item",
+          "sprite": "Objects/Specific/Hydroponics/mimana.rsi",
+          "heldPrefix": "peel"
+        },
+        {
+          "type": "Clothing",
+          "sprite": "Objects/Specific/Hydroponics/mimana.rsi",
+          "equippedPrefix": "peel"
+        },
+        {
+          "type": "Slippery",
+          "slipSound": {
+            "path": "/Audio/Effects/slip.ogg",
+            "params": {
+              "volume": -100
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "FoodExtradimensionalOrange",
+    "sourcePath": "Resources/Prototypes/Entities/Objects/Consumable/Food/produce.yml",
+    "record": {
+      "type": "entity",
+      "name": "extradimensional orange",
+      "parent": "FoodProduceBase",
+      "id": "FoodExtradimensionalOrange",
+      "description": "You can hardly wrap your head around this thing.",
+      "components": [
+        {
+          "type": "FlavorProfile",
+          "flavors": [
+            "truenature"
+          ]
+        },
+        {
+          "type": "SolutionContainerManager",
+          "solutions": {
+            "food": {
+              "maxVol": 14,
+              "reagents": [
+                {
+                  "ReagentId": "Haloperidol",
+                  "Quantity": 5
+                },
+                {
+                  "ReagentId": "Nutriment",
+                  "Quantity": 5
+                },
+                {
+                  "ReagentId": "Vitamin",
+                  "Quantity": 4
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "Sprite",
+          "sprite": "Objects/Specific/Hydroponics/extradimensional_orange.rsi",
+          "scale": "0.5,0.5"
+        },
+        {
+          "type": "Item",
+          "heldPrefix": "produce"
+        },
+        {
+          "type": "Produce",
+          "seedId": "extradimensionalOrange"
+        },
+        {
+          "type": "PotencyVisuals",
+          "minimumScale": 0.5,
+          "maximumScale": 1
+        },
+        {
+          "type": "Extractable",
+          "juiceSolution": {
+            "reagents": [
+              {
+                "ReagentId": "JuiceOrange",
+                "Quantity": 10
+              }
+            ]
+          }
+        },
+        {
+          "type": "Tag",
+          "tags": [
+            "Fruit"
+          ]
+        },
+        {
+          "type": "FoodSequenceElement",
+          "entries": {
+            "Burger": "ExtradimensionalOrangeBurger",
+            "Taco": "ExtradimensionalOrange"
+          }
+        }
+      ]
+    }
+  }
+]

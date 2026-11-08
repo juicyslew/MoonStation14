@@ -32,3 +32,4 @@ public enum EntityActivity {
         return Math.floorMod(timeResidue + entityId, tickInterval) == 0;
     }
 }
+

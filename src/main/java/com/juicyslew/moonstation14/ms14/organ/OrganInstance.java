@@ -55,3 +55,4 @@ public record OrganInstance(UUID id, ResourceLocation prototype, OrganCategory c
         return new OrganInstance(id, prototype, category, Objects.requireNonNull(next));
     }
 }
+

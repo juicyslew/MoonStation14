@@ -1,0 +1,23 @@
+{
+  "request_id": "nonhostile-animals-r4r5-scoped-r3",
+  "snapshot_key": "6aee69be5047249a3687283e88e34da9a902ff08629eff1e846842396e37407c",
+  "delivery_digest": "582f8a7d8ceee3482d4b1b530113f2a30c0f568e4af5436697569cdeaba96185",
+  "reviewer": "animal-asset-transfer-review",
+  "decision": "ready_for_owner",
+  "findings": [
+    "Independent read-only reviewer confirmed 227 matching manifest/delivery rows: 43 models, 43 animations, 131 textures and 10 credits/provenance files; no duplicate destinations, mouse rows or hostile-name rows.",
+    "Raw manifest SHA256 f6c2e3ca6044e4f5df3d0b66223ffbc2b0469139ecf184452a65262ff121abec matches delivery metadata. The earlier 03c23fae hash was normalized-LF text, not a changed artifact.",
+    "Reviewer opened the listed mothroach and bat previews. This is transport review of owner-accepted R4/R5 artwork, not a new whole-collection visual certification or Minecraft/runtime validation.",
+    "Original source byte hashes were checked by the preparation helper and delivery transport; fresh target/source/receipt safeguards remain required before import. The unapplied complete-package delivery must not be used because it contains an existing modified mouse destination."
+  ],
+  "viewed_images": [
+    {
+      "path": "reviewed-images/mothroach-states.png",
+      "sha256": "a17a6f978a6260bf6907d51b19a95674c3ec84746cd812c7d84295809744400f"
+    },
+    {
+      "path": "reviewed-images/bat-states.png",
+      "sha256": "a039e82514bd47b4c31ff559bb59724bb502804017fd2825479c85963bb767a7"
+    }
+  ]
+}

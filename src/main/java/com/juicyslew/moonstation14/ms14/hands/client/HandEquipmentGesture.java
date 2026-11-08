@@ -10,6 +10,19 @@ public final class HandEquipmentGesture {
 
     record Drag(HandBarLayout.Layout.Tile source, String sourceSlotId, String handId, String token, String itemId,
                 int count, UUID accountId, UUID bodyId, long epoch, long revision) { }
+    /** Exact captured source membership, deliberately independent of transient presentation/pending state. */
+    static boolean sourceStillCurrent(Drag drag, BodyHandStateSnapshot proof) {
+        if (drag == null || proof == null || proof.reason() != BodyHandStateSnapshot.Reason.OK
+                || !proof.accountId().equals(drag.accountId()) || !proof.bodyId().equals(drag.bodyId())
+                || proof.epoch() != drag.epoch()) return false;
+        if (drag.sourceSlotId() != null)
+            return proof.equipment().stream().anyMatch(s -> s.id().equals(drag.sourceSlotId())
+                    && java.util.Objects.equals(s.token(), drag.token())
+                    && java.util.Objects.equals(s.itemId(), drag.itemId()) && s.count() == drag.count());
+        return proof.hands().stream().anyMatch(h -> h.id().equals(drag.handId())
+                && java.util.Objects.equals(h.token(), drag.token())
+                && java.util.Objects.equals(h.itemId(), drag.itemId()) && h.count() == drag.count());
+    }
     record Plan(BodyHandActionRequest.Action action, String handId) { }
     public record SlotPlan(BodyHandActionRequest.Action action, String handId, String slotId, String expectedToken) { }
     public record GearMovePlan(String sourceSlotId, String destinationSlotId, String handId, String expectedToken,
@@ -117,15 +130,16 @@ public final class HandEquipmentGesture {
                 || (drag.source() != HandBarLayout.Layout.Tile.FIRST && drag.source() != HandBarLayout.Layout.Tile.SECOND)
                 || (target != HandBarLayout.Layout.Tile.FIRST && target != HandBarLayout.Layout.Tile.SECOND)
                 || drag.source() == target || drag.count() <= 0 || !grid.canStore()) return null;
-        var source = drag.source() == HandBarLayout.Layout.Tile.FIRST ? view.first() : view.second();
+        var source = view.hand(drag.handId());
         var host = target == HandBarLayout.Layout.Tile.FIRST ? view.first() : view.second();
         if (source == null || host == null || !BodyHandClientPolicy.nominatedGridStoreEligible(
                 source, drag.token(), drag.itemId(), drag.count()) || !drag.handId().equals(source.id())
                 || host.token() == null || !host.token().equals(grid.host().hostToken())) return null;
         var id = net.minecraft.resources.ResourceLocation.tryParse(drag.itemId());
         if (id == null) return null;
+        var sourcePresentation = source.presentation();
         var fit = grid.occupancy().firstFit(drag.token(),
-                com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.clientForId(id));
+                com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.clientForPresentation(id, sourcePresentation));
         return fit.accepted() ? new HeldStorePlan(host.id(), host.token(), drag.token(),
                 fit.placement().anchor().x(), fit.placement().anchor().y(), fit.placement().rotation().degrees()) : null;
     }
@@ -140,7 +154,7 @@ public final class HandEquipmentGesture {
                 || drag.source() != HandBarLayout.Layout.Tile.FIRST && drag.source() != HandBarLayout.Layout.Tile.SECOND
                 || drag.count() <= 0 || "moonstation14:bag".equals(drag.itemId())
                 || "moonstation14:belt".equals(drag.itemId())) return null;
-        var hand = drag.source() == HandBarLayout.Layout.Tile.FIRST ? view.first() : view.second();
+        var hand = view.hand(drag.handId());
         var equipment = target == HandBarLayout.Layout.Tile.BACK ? view.back() : view.belt();
         var grid = target == HandBarLayout.Layout.Tile.BACK ? view.backGrid() : view.beltGrid();
         if (hand == null || !BodyHandClientPolicy.nominatedGridStoreEligible(hand, drag.token(), drag.itemId(), drag.count())
@@ -149,9 +163,10 @@ public final class HandEquipmentGesture {
                 || !grid.host().hostToken().equals(equipment.slot().token())) return null;
         var id = net.minecraft.resources.ResourceLocation.tryParse(drag.itemId());
         if (id == null) return null;
+        var sourcePresentation = hand.presentation();
         boolean fits = false;
         for (int y = 0; y < grid.host().height() && !fits; y++) for (int x = 0; x < grid.host().width(); x++)
-            if (grid.occupancy().place(drag.token(), com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.clientForId(id),
+            if (grid.occupancy().place(drag.token(), com.juicyslew.moonstation14.ms14.storage.grid.ItemFootprints.clientForPresentation(id, sourcePresentation),
                     new com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Cell(x, y),
                     com.juicyslew.moonstation14.ms14.storage.grid.GridGeometry.Rotation.DEG_0).accepted()) { fits = true; break; }
         if (!fits) return null;
@@ -208,16 +223,16 @@ public final class HandEquipmentGesture {
             return equipment.slot().token() != null ? new Plan(action, hand.id()) : null;
         }
         if (target == HandBarLayout.Layout.Tile.FIRST || target == HandBarLayout.Layout.Tile.SECOND) {
-            var source = drag.source() == HandBarLayout.Layout.Tile.FIRST ? view.first() : view.second();
+            var source = drag.handId() == null ? null : view.hand(drag.handId());
             var destination = target == HandBarLayout.Layout.Tile.FIRST ? view.first() : view.second();
-            if (drag.source() == target || source.token() == null || !drag.token().equals(source.token())
+            if (source == null || destination == null || drag.source() == target || source.token() == null || !drag.token().equals(source.token())
                     || !drag.itemId().equals(source.itemId()) || drag.count() != source.count()
                     || destination.token() != null) return null;
             return new Plan(BodyHandActionRequest.Action.TRANSFER_HAND, destination.id());
         }
         if (!view.activeHand().equals(drag.handId())) return null;
-        var hand = drag.source() == HandBarLayout.Layout.Tile.FIRST ? view.first() : view.second();
-        if (!hand.id().equals(drag.handId()) || !drag.token().equals(hand.token())
+        var hand = drag.handId() == null ? null : view.hand(drag.handId());
+        if (hand == null || !hand.id().equals(drag.handId()) || !drag.token().equals(hand.token())
                 || !drag.itemId().equals(hand.itemId()) || hand.count() != drag.count()) return null;
         var equipment = target == HandBarLayout.Layout.Tile.BACK ? view.back()
                 : target == HandBarLayout.Layout.Tile.BELT ? view.belt() : null;

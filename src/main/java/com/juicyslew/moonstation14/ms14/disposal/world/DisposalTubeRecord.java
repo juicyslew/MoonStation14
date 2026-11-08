@@ -24,3 +24,4 @@ public record DisposalTubeRecord(UUID id, BlockPos pos, String prototypeId, Disp
     /** Compatibility convenience: local-forward direction. */
     public Direction orientation() { return frame.forward(); }
 }
+

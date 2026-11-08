@@ -59,4 +59,14 @@ class GrenadeSoundPolicyTest {
         assertThrows(IllegalArgumentException.class, () -> new GrenadeSoundPayload(WORLD,
                 GrenadeSoundPayload.Mode.FAR, 1, 0, 0, .2f));
     }
+
+    @Test
+    void smallVariantCarriesSourceGainsAndAllowsNearFarOverlap() {
+        var near = GrenadeSoundPayload.smallNear(WORLD, 0, 0, 0);
+        var far = GrenadeSoundPayload.smallFar(WORLD);
+        assertEquals(GrenadeSoundPayload.SoundSet.SMALL, near.soundSet());
+        assertEquals(1f, near.gain());
+        assertEquals(1.258925f, far.gain());
+        assertThrows(IllegalArgumentException.class, () -> new GrenadeSoundPayload(WORLD, GrenadeSoundPayload.Mode.FAR, 0, 0, 0, 1.3f, GrenadeSoundPayload.SoundSet.SMALL));
+    }
 }

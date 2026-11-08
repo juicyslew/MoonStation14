@@ -28,6 +28,27 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class MedicalTreatmentGameTests {
     private MedicalTreatmentGameTests() { }
 
+    @GameTestTags({"medical-treatment", "medical-state"})
+    @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
+    public static void knownZeroDamageLedgerSurvivesBaselineReconciliation(GameTestHelper helper) {
+        var level = helper.getLevel();
+        Villager body = EntityType.VILLAGER.create(level);
+        require(body != null, "body created");
+        body.setNoAi(true);
+        require(level.addFreshEntity(body), "body added");
+        body.setData(ModDataAttachments.DAMAGE.get(), new com.juicyslew.moonstation14.component.codec.attachment.DamageData());
+        body.setHealth(body.getMaxHealth() / 2f);
+
+        for (int i = 0; i < 5; i++) {
+            DamageSystem.ensureBaseline(body);
+            require(DamageSystem.existingOrVanillaBaseline(body).isEmpty(), "known-zero ledger remains authoritative");
+            DamageSystem.reconcile(body);
+        }
+        require(body.getExistingDataOrNull(ModDataAttachments.DAMAGE.get()) != null, "known-zero ledger is retained");
+        require(body.getData(ModDataAttachments.DAMAGE.get()).getMap().isEmpty(), "reconciliation does not import native health");
+        helper.succeed();
+    }
+
     @GameTestTags({"medical-treatment", "audio"})
     @GameTest(template = "empty", templateNamespace = "moonstation14", timeoutTicks = 20)
     public static void resolvedMedicalSoundPoliciesHaveNativeSoundEvents(GameTestHelper helper) {

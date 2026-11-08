@@ -242,3 +242,4 @@ public final class MonstermosPressureEqualization {
     private static double span(double[] pressures){double lo=Double.POSITIVE_INFINITY,hi=Double.NEGATIVE_INFINITY;
         for(double p:pressures){lo=Math.min(lo,p);hi=Math.max(hi,p);}return pressures.length==0?0:hi-lo;}
 }
+

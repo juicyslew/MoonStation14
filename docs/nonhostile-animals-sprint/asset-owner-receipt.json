@@ -1,0 +1,7 @@
+{
+  "request_id": "nonhostile-animals-r4r5-scoped-r3",
+  "decision": "accepted",
+  "delivery_digest": "582f8a7d8ceee3482d4b1b530113f2a30c0f568e4af5436697569cdeaba96185",
+  "owner_reference": "William, this session: implement the remaining non-hostile creatures using the modeler's models; subsequently: The R4 and R5 models should be accepted now, you may continue your work.",
+  "note": "Records explicit artwork acceptance and authorization to import the unchanged in-scope dependency group for this sprint. Does not record Minecraft runtime validation, gameplay acceptance, deployment, commit or sprint closure."
+}

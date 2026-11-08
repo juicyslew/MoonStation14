@@ -5,3 +5,4 @@ package com.juicyslew.moonstation14.ms14.metabolism;
 public interface MetabolismEffectCallback {
     void execute(MetabolismEffectInvocation invocation);
 }
+

@@ -18,3 +18,4 @@ public record ExamineEntry(Visibility visibility, Component text, String group, 
         return new ExamineEntry(Visibility.DETAIL, text, group, priority);
     }
 }
+

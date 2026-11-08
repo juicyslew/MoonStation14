@@ -19,3 +19,4 @@ public class ConstructionResult {
         this.extraDropAmount = extraDropAmount;
     }
 }
+

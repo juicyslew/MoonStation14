@@ -29,3 +29,4 @@ public final class MedicalItemMergeStrategy implements PrototypeMergeStrategy {
         });
     }
 }
+

@@ -59,3 +59,4 @@ public record ReactiveComponent(List<ReactiveGroup> reactiveGroups,
         public String serialized() { return serialized; }
     }
 }
+

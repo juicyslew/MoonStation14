@@ -238,3 +238,4 @@ public final class PrototypeResolver {
         }
     }
 }
+

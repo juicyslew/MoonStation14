@@ -31,3 +31,4 @@ public final class BodyHandBootstrap {
         return LiveHands.initialize(body).isPresent() ? Result.INITIALIZED : Result.REJECTED;
     }
 }
+

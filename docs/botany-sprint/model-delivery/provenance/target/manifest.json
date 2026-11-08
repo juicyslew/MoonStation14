@@ -1,0 +1,8 @@
+{
+  "path": "C:\\Users\\William\\Documents\\Minecraft Mod Dev Files\\MoonStation14\\gradle.properties",
+  "sha256": "fea070a81b6e28019501a2b5d99bb3f01a4300ce46249e7e17367c27d8428cbb",
+  "scope": "main allowed reference mod, not sibling sprint implementation",
+  "minecraft": "1.21.1",
+  "neoforge": "21.1.224",
+  "binding_authority": "user-supplied source/contracts/RENDER-CONTRACT.md"
+}

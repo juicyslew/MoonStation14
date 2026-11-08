@@ -1,0 +1,62 @@
+{
+  "title": "M4A species-mutation foundation",
+  "kind": "feature",
+  "acceptance_criteria": [
+    "Resolved species changes use target species composition while preserving inherited instance biology and reconciling target chemistry immutably.",
+    "Species descriptors and mutation-target lists are immutable and survive profile copy/resolution.",
+    "Target choice is uniform over a nonempty list before target resolution; failure, ordering, and strict chance boundary are observable and deterministic where specified.",
+    "Species mutation atomically updates genetics and preserves adopted genes while applying target species identity/inherent chemistry.",
+    "Native explicit real-catalog cycle produces target species output through normal lifecycle.",
+    "Native authenticated existing driver verifies changed species through harvest, powered extraction packet, and normal replant.",
+    "Main, JVM-test, and native sources compile and runtime jar is produced.",
+    "Report five production targetless profiles, absent authentic mutation edge, open 65-family asset request, and unclaimed four leaves/catalog/special-output completion.",
+    "Report bounded foundation and pending full catalog, visual/client, showcase, and owner acceptance; no new manual species scenario is represented.",
+    "R8 M3C technical readiness is historical context, not M4A validation or owner acceptance."
+  ],
+  "fixture": "src/gametest/java/com/juicyslew/moonstation14/ms14/botany/PlantSpeciesMutationGameTests.java",
+  "manual_steps": [
+    "No new player-facing species scenario is available: production target lists are empty. Existing /ms14 botany_fixture A/B/C compares harvest modes, not species mutation; do not treat it as species/catalog validation."
+  ],
+  "checks": [
+    {
+      "kind": "build",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat compileJava compileTestJava compileGametestJava jar --rerun-tasks --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Compile all source sets and produce runtime jar.",
+      "covers": ["Main, JVM-test, and native sources compile and runtime jar is produced."],
+      "artifacts": ["build/libs/moonstation14-0.0.1.jar"]
+    },
+    {
+      "kind": "junit",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat test --tests com.juicyslew.moonstation14.ms14.atmos.core.GasMixtureTest --tests com.juicyslew.moonstation14.ms14.atmos.world.AtmosphereOwnershipSearchTest --tests com.juicyslew.moonstation14.ms14.botany.HydroponicsTrayLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantChemicalMutationTest --tests com.juicyslew.moonstation14.ms14.botany.PlantGasMetabolismTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationCycleTest --tests com.juicyslew.moonstation14.ms14.botany.PlantMutationTableTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceFactoryTest --tests com.juicyslew.moonstation14.ms14.botany.SeedExtractorEligibilityTest --tests com.juicyslew.moonstation14.ms14.botany.TrayRulesTest --tests com.juicyslew.moonstation14.ms14.examine.BotanyExaminePresentationTest --tests com.juicyslew.moonstation14.ms14.prototype.PrototypeRuntimeTest --tests com.juicyslew.moonstation14.ms14.prototype.SeedProfileTest --tests com.juicyslew.moonstation14.ms14.reagent.PlantReagentMetabolismTest --tests com.juicyslew.moonstation14.ms14.botany.PlantAutoHarvestLifecycleTest --tests com.juicyslew.moonstation14.ms14.botany.ProduceProfileTest --tests com.juicyslew.moonstation14.ms14.ingestion.IngestionProfileTest --tests com.juicyslew.moonstation14.ms14.botany.PlantSpeciesMutationTest --tests com.juicyslew.moonstation14.ms14.botany.PlantSpeciesMutationCycleTest --rerun --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Exact 17-class M3C baseline plus the two M4A species mutation tests; derive count from fresh XML.",
+      "covers": [
+        "Resolved species changes use target species composition while preserving inherited instance biology and reconciling target chemistry immutably.",
+        "Species descriptors and mutation-target lists are immutable and survive profile copy/resolution.",
+        "Target choice is uniform over a nonempty list before target resolution; failure, ordering, and strict chance boundary are observable and deterministic where specified.",
+        "Species mutation atomically updates genetics and preserves adopted genes while applying target species identity/inherent chemistry.",
+        "Report five production targetless profiles, absent authentic mutation edge, open 65-family asset request, and unclaimed four leaves/catalog/special-output completion."
+      ]
+    },
+    {
+      "kind": "readiness",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat featureReadiness '-Pms14Readiness=interaction,prediction' --info --no-configuration-cache; exit $LASTEXITCODE"],
+      "rationale": "Relevant regression selectors only; not mutation or native proof.",
+      "selectors": ["interaction", "prediction"],
+      "covers": [
+        "Report bounded foundation and pending full catalog, visual/client, showcase, and owner acceptance; no new manual species scenario is represented.",
+        "R8 M3C technical readiness is historical context, not M4A validation or owner acceptance."
+      ]
+    },
+    {
+      "kind": "gametest",
+      "argv": ["pwsh", "-NoProfile", "-Command", "./gradlew.bat runGameTestServer '-Pms14GameTestTags=botany,botany-genetics,botany-chemical-mutation,botany-stat-mutation,botany-gas-mutation,botany-auto-harvest,harvest-placement,botany-species-mutation' '-Pms14GameTestDir=build/gametest-botany-species-r1' --no-configuration-cache --no-build-cache; exit $LASTEXITCODE"],
+      "rationale": "Fresh targeted M4A world; retain the seven existing selectors and add species mutation coverage. Preserve prior worlds/configuration.",
+      "selectors": ["botany", "botany-genetics", "botany-chemical-mutation", "botany-stat-mutation", "botany-gas-mutation", "botany-auto-harvest", "harvest-placement", "botany-species-mutation"],
+      "log": "build/reports/botany-genetics/species-mutation-gate-native-r1.log",
+      "covers": [
+        "Native explicit real-catalog cycle produces target species output through normal lifecycle.",
+        "Native authenticated existing driver verifies changed species through harvest, powered extraction packet, and normal replant."
+      ]
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import com.juicyslew.moonstation14.ms14.atmos.reaction.ModGasReactions;
 import com.juicyslew.moonstation14.ms14.atmos.piping.prototype.ModVentilationDevices;
 import com.juicyslew.moonstation14.ms14.atmos.piping.alarm.prototype.ModAirAlarms;
 import com.juicyslew.moonstation14.ms14.character.ModCharacters;
+import com.juicyslew.moonstation14.ms14.actions.prototype.ModActionPrototypes;
 import com.juicyslew.moonstation14.ms14.chat.radio.ModRadioChannels;
 import com.juicyslew.moonstation14.ms14.chat.radio.RadioChannelData;
 import com.juicyslew.moonstation14.ms14.explosion.prototype.ExplosionData;
@@ -32,6 +33,7 @@ import com.juicyslew.moonstation14.ms14.status_effect.ModStatusEffects;
 import com.juicyslew.moonstation14.ms14.disposal.prototype.ModDisposals;
 import com.juicyslew.moonstation14.ms14.construction.tool.ModTools;
 import com.juicyslew.moonstation14.ms14.doors.prototype.ModAirlocks;
+import com.juicyslew.moonstation14.ms14.doors.prototype.ModFirelocks;
 import com.juicyslew.moonstation14.ms14.tools.ModToolProfiles;
 import com.juicyslew.moonstation14.ms14.puddle.ModPuddles;
 import com.mojang.serialization.JsonOps;
@@ -54,6 +56,47 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PrototypeRuntimeTest {
     @Test
+    void canisterResourcesResolveAbstractBaseAndConcreteProfilesIntoLiveState() {
+        var manager = new PrototypeManager();
+        var type = com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE;
+        manager.register(type);
+        var raw = new LinkedHashMap<ResourceLocation, JsonObject>();
+        for (String name : java.util.List.of("gas_canister_base", "storage_canister", "plasma_canister"))
+            raw.put(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.id(name), fixture("gas_canister", name));
+        manager.reload(type, raw);
+        var catalog = manager.snapshot(type);
+        assertEquals(2, catalog.asMap().size());
+        assertFalse(catalog.contains(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.BASE_ID));
+        var storage = catalog.get(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.STORAGE_ID);
+        var plasma = catalog.get(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.PLASMA_ID);
+        assertEquals(10.1325, storage.minReleasePressureKpa());
+        assertEquals(1013.25, plasma.maxReleasePressureKpa());
+        assertTrue(storage.initialMoles().isEmpty());
+        assertEquals(2769.36, plasma.initialMoles().get(GasType.PLASMA), 1e-6);
+        assertEquals(1.5, plasma.volumeCubicMeters());
+        assertEquals(293.15, plasma.temperatureKelvin(), 1e-3);
+
+        JsonObject override = fixture("gas_canister", "plasma_canister");
+        override.addProperty("volumeCubicMeters", 2.25);
+        override.addProperty("temperatureKelvin", 310.0);
+        override.addProperty("releasePressureKpa", 200.0);
+        raw.put(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.PLASMA_ID, override);
+        manager.reload(type, raw);
+        var resolvedOverride = manager.snapshot(type).get(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.PLASMA_ID);
+        var liveState = new com.juicyslew.moonstation14.ms14.atmos.tank.GasCanisterState(
+                com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.PLASMA_ID, resolvedOverride,
+                java.util.UUID.randomUUID(), new com.juicyslew.moonstation14.ms14.hands.transfer.ItemLocationLedger());
+        assertEquals(2.25, liveState.gas().volumeCubicMeters());
+        assertEquals(310.0, liveState.gas().temperatureKelvin(), 1e-3);
+        assertEquals(200.0, liveState.releasePressure());
+        var spent = new com.juicyslew.moonstation14.ms14.atmos.tank.GasCanisterState.Saved(liveState.profile(),
+                liveState.owner(), Map.of(), liveState.gas().temperatureKelvin(), liveState.gas().volumeCubicMeters(),
+                liveState.releasePressure(), true, liveState.revision(), liveState.slot().encode());
+        assertTrue(com.juicyslew.moonstation14.ms14.atmos.tank.GasCanisterState.restore(spent, resolvedOverride,
+                new com.juicyslew.moonstation14.ms14.hands.transfer.ItemLocationLedger()).gas().gasMoles().isEmpty());
+    }
+
+    @Test
     void serverAndClientCatalogsAreIndependentAndServerCleanupKeepsRegistrations() {
         PrototypeManager server = PrototypeRuntime.serverManager();
         PrototypeManager client = PrototypeRuntime.clientManager();
@@ -66,13 +109,22 @@ class PrototypeRuntimeTest {
                 ModAlerts.ALERT_TYPE, ModCharacters.CHARACTER_TYPE, ModOrgans.ORGAN_TYPE,
                 ModGasReactions.GAS_REACTION_TYPE, ModRadioChannels.RADIO_CHANNEL_TYPE,
                 ModVentilationDevices.VENTILATION_DEVICE_TYPE, ModAirAlarms.AIR_ALARM_TYPE,
+                com.juicyslew.moonstation14.ms14.atmos.monitor.ModAtmosAlarmThresholds.TYPE,
                 ModExplosions.EXPLOSION_TYPE, ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE,
                 ModDisposals.DISPOSAL_TYPE, ModTools.TOOL_TYPE, ModLooseObjectProfiles.PROFILE_TYPE, ModItemFootprints.TYPE));
         expectedTypes.add(ModIngestionProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles.TYPE);
         expectedTypes.add(ModDamageFeedback.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModWeightedRandomFillSolutions.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.botany.ModPlantMutations.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.medical.ModInjectorModes.TYPE);
         expectedTypes.add(ModAirlocks.TYPE);
+        expectedTypes.add(ModFirelocks.TYPE);
         expectedTypes.add(ModToolProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE);
@@ -83,13 +135,38 @@ class PrototypeRuntimeTest {
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.FREQUENCY_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.NETWORK_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.PORT_TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE);
         expectedTypes.add(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.containment.ModFieldGenerators.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.emitter.ModEmitters.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAccelerators.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAcceleratorParticles.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.radiation.ModRadiationCollectors.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.SingularityGeneratorProfile.TYPE);
+        expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay.TYPE);
+        expectedTypes.add(ModActionPrototypes.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.combat.throwing.ModThrownItemProfiles.TYPE);
+         expectedTypes.add(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE);
         assertEquals(expectedTypes, server.registeredTypes());
         assertEquals(expectedTypes, client.registeredTypes());
 
@@ -191,12 +268,15 @@ class PrototypeRuntimeTest {
                 constructionFixtures("construction_recipe"));
         server.reload(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE,
                 constructionFixtures("construction_entity"));
-        server.reload(ModAirlocks.TYPE, Map.of(ModAirlocks.STANDARD,
-                fixture("airlock", "standard_airlock"), id("base_airlock"), fixture("airlock", "base_airlock")));
+         server.reload(ModAirlocks.TYPE, Map.of(ModAirlocks.STANDARD,
+                 fixture("airlock", "standard_airlock"), id("base_airlock"), fixture("airlock", "base_airlock")));
+         server.reload(ModFirelocks.TYPE, Map.of(id("base_firelock"), fixture("firelock", "base_firelock"),
+                 ModFirelocks.STANDARD, fixture("firelock", "firelock"), id("base_structure"), fixture("firelock", "base_structure")));
         server.reload(ModToolProfiles.TYPE, Map.of(id("crowbar"), fixture("tool_profile", "crowbar"),
                 id("wirecutter"), fixture("tool_profile", "wirecutter"), id("screwdriver"), fixture("tool_profile", "screwdriver"),
                 id("multitool"), fixture("tool_profile", "multitool"), id("base_item"), fixture("tool_profile", "base_item"),
-                id("base_crowbar"), fixture("tool_profile", "base_crowbar")));
+                id("base_crowbar"), fixture("tool_profile", "base_crowbar"),
+                id("kitchen_knife"), fixture("tool_profile", "kitchen_knife")));
         ExplosionData explosion = explosion(2f);
         server.publishDecoded(ModExplosions.EXPLOSION_TYPE, Map.of(id("explosion-test"), explosion));
         LooseObjectProfile profile = new LooseObjectProfile(1, .5f, .1f, .55f, 0, "sphere", "generic",
@@ -218,28 +298,51 @@ class PrototypeRuntimeTest {
                 new com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData("hv_mv_substation","dead","on","charging","full","lack",0,appearanceShape),
                 com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.APC,
                 new com.juicyslew.moonstation14.ms14.power.device.PowerAppearanceData("apc","off","on","charging","full","lack",5,appearanceShape)));
+        server.publishDecoded(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE,
+                Map.of(id("level_1"), new com.juicyslew.moonstation14.ms14.singularity.SingularityVisualProfile(
+                        1, 1, 103680, 2, 20, 32)));
         server.reload(com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE,
                 Map.of(
                         com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.BASE_WALLMOUNT, fixture("signal_control", "base_wallmount"),
                         com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.BASE_WALLMOUNT_METALLIC, fixture("signal_control", "base_wallmount_metallic"),
                         com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.SIGNAL_BUTTON, fixture("signal_control", "signal_button"),
                         com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.SIGNAL_SWITCH, fixture("signal_control", "signal_switch")));
-        server.reload(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE,
+         server.reload(com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE,
                 Map.of(com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("localbase"), fixture("network_device_item", "localbase"),
                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("standardwireless15"), fixture("network_device_item", "standardwireless15"),
                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("configurator"), fixture("network_device_item", "configurator"),
-                        com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("advancedwireless50"), fixture("network_device_item", "advancedwireless50")));
-        Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
+                         com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.id("advancedwireless50"), fixture("network_device_item", "advancedwireless50")));
+         server.reload(com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE, Map.of(
+                 com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.BASE_ID,
+                 fixture("singularity_beacon", "singularity_beacon_base"),
+                 com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.DEFAULT_ID,
+                  fixture("singularity_beacon", "singularity_beacon")));
+         server.reload(ModActionPrototypes.TYPE, Map.of(
+                 id("base_action"), fixture("character_action", "base_action"),
+                 id("base_mental_action"), fixture("character_action", "base_mental_action"),
+                 id("combat_mode_toggle"), fixture("character_action", "combat_mode_toggle"),
+                 id("scream"), fixture("character_action", "scream"),
+                  id("debug_pulse"), fixture("character_action", "debug_pulse")));
+         var contactPolicy = new com.juicyslew.moonstation14.ms14.combat.BlockStructuralContactData(
+                 "minecraft:stone", new com.juicyslew.moonstation14.ms14.damage.DamageModifierData(
+                         Map.of("blunt", 0.5f), Map.of()));
+         server.publishDecoded(com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE,
+                 Map.of(id("stone"), contactPolicy));
+         Map<ResourceLocation, Map<ResourceLocation, JsonObject>> exported = server.encodePublishedCatalogs();
 
         assertEquals(Set.of(ModReagents.REAGENT_TYPE.typeId(), ModStatusEffects.STATUS_EFFECT_TYPE.typeId(),
                 ModAlerts.ALERT_TYPE.typeId(), ModCharacters.CHARACTER_TYPE.typeId(), ModOrgans.ORGAN_TYPE.typeId(),
                 ModGasReactions.GAS_REACTION_TYPE.typeId(), ModRadioChannels.RADIO_CHANNEL_TYPE.typeId(),
-                ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
+                 ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId(), ModAirAlarms.AIR_ALARM_TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.atmos.monitor.ModAtmosAlarmThresholds.TYPE.typeId(),
                 ModExplosions.EXPLOSION_TYPE.typeId(), ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId(),
                 ModDisposals.DISPOSAL_TYPE.typeId(), ModTools.TOOL_TYPE.typeId(),
                 ModLooseObjectProfiles.PROFILE_TYPE.typeId(), ModItemFootprints.TYPE.typeId(),
-                ModIngestionProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
-                ModAirlocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(), ModPuddles.TYPE.typeId(),
+                 ModIngestionProfiles.TYPE.typeId(), com.juicyslew.moonstation14.ms14.botany.ModSeedProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModProduceProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModBotanyMachineProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModTrayProfiles.TYPE.typeId(), ModDamageFeedback.TYPE.typeId(),
+                 ModAirlocks.TYPE.typeId(), ModFirelocks.TYPE.typeId(), ModToolProfiles.TYPE.typeId(), ModPuddles.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.jug.ModJugs.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.examine.scene.ModCelestialScenes.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.medical.ModMedicalItems.TYPE.typeId(),
@@ -247,16 +350,44 @@ class PrototypeRuntimeTest {
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.chemistry.beaker.ModBeakers.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.chemistry.output.ModChemContainers.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.chemistry.chemmaster.ModChemMasters.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.reagent.ModItemFoodSolutionProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModSeedItemProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModWeightedRandomFillSolutions.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.item_processing.ModExtractableProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.item_processing.ModItemProcessingProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModMeleeWeaponProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModGunProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModCartridgeProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModProjectileProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.combat.ModMeleeArcProfiles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.botany.ModPlantMutations.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.power.device.ModPowerAppearances.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.FREQUENCY_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.NETWORK_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.devicenet.ModDeviceNetworks.PORT_TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.devicenet.control.ModSignalControls.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.devicenet.ModNetworkDeviceItems.TYPE.typeId(),
                 com.juicyslew.moonstation14.ms14.equipment.ModInventoryTemplates.TYPE.typeId(),
-                com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE.typeId()), exported.keySet());
+                com.juicyslew.moonstation14.ms14.equipment.ModEquipmentItems.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.singularity.containment.ModFieldGenerators.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.singularity.emitter.ModEmitters.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAccelerators.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.singularity.pa.ModParticleAcceleratorParticles.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.radiation.ModRadiationCollectors.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.singularity.SingularityGeneratorProfile.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.singularity.ModSingularityGameplay.TYPE.typeId(),
+                 com.juicyslew.moonstation14.ms14.atmos.tank.ModGasTanks.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.atmos.tank.ModGasCanisters.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.BALL_TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.tesla.ModTeslaProfiles.MACHINE_TYPE.typeId(),
+                 ModActionPrototypes.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.ModBlockStructuralContacts.TYPE.typeId(),
+                  com.juicyslew.moonstation14.ms14.combat.throwing.ModThrownItemProfiles.TYPE.typeId()), exported.keySet());
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.GRAPH_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.RECIPE_TYPE.typeId()).size() > 0);
         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.construction.prototype.ModConstruction.ENTITY_TYPE.typeId()).size() > 0);
@@ -271,16 +402,46 @@ class PrototypeRuntimeTest {
         assertTrue(exported.get(ModRadioChannels.RADIO_CHANNEL_TYPE.typeId()).containsKey(id("common")));
         assertEquals(Set.of(ModVentilationDevices.VENT, ModVentilationDevices.SCRUBBER),
                  exported.get(ModVentilationDevices.VENTILATION_DEVICE_TYPE.typeId()).keySet());
-        assertEquals(Set.of(ModAirAlarms.AIR_ALARM), exported.get(ModAirAlarms.AIR_ALARM_TYPE.typeId()).keySet());
+         assertEquals(Set.of(ModAirAlarms.AIR_ALARM), exported.get(ModAirAlarms.AIR_ALARM_TYPE.typeId()).keySet());
+         assertEquals(Set.of(ModFirelocks.STANDARD), exported.get(ModFirelocks.TYPE.typeId()).keySet());
         assertTrue(exported.get(ModExplosions.EXPLOSION_TYPE.typeId()).containsKey(id("explosion-test")));
         assertTrue(exported.get(ModLooseObjectProfiles.PROFILE_TYPE.typeId()).containsKey(id("profile-test")));
         assertTrue(exported.get(ModDamageFeedback.TYPE.typeId()).containsKey(id("damage-feedback-test")));
+         assertTrue(exported.get(com.juicyslew.moonstation14.ms14.singularity.ModSingularityVisuals.TYPE.typeId())
+                 .containsKey(id("level_1")), "singularity visual profile family is registered and exported");
         ExplosiveSourceData source = new ExplosiveSourceData(380, 3, 10, id("default"));
         server.publishDecoded(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE, Map.of(id("source-test"), source));
         exported = server.encodePublishedCatalogs();
         assertTrue(exported.get(ModExplosiveSources.EXPLOSIVE_SOURCE_TYPE.typeId()).containsKey(id("source-test")));
 
-        client.publishEncodedCatalogs(exported);
+         client.publishEncodedCatalogs(exported);
+         assertEquals(contactPolicy, PrototypeRuntime.serverBlockStructuralContacts().get(id("stone")));
+         assertEquals(contactPolicy, PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
+         assertNotSame(PrototypeRuntime.serverBlockStructuralContacts().get(id("stone")),
+                 PrototypeRuntime.clientBlockStructuralContacts().get(id("stone")));
+         var serverActions = ModActionPrototypes.serverCatalog();
+         var clientActions = ModActionPrototypes.clientCatalog();
+         var combatAction = id("combat_mode_toggle");
+         var screamAction = id("scream");
+         assertFalse(serverActions.get(combatAction).checkCanInteract());
+         assertFalse(serverActions.get(combatAction).checkConsciousness());
+         assertEquals(200, serverActions.get(screamAction).useDelayTicks());
+         assertEquals(serverActions.get(combatAction), clientActions.get(combatAction));
+         assertNotSame(serverActions.get(combatAction), clientActions.get(combatAction));
+         assertEquals(serverActions.get(screamAction), clientActions.get(screamAction));
+         assertNotSame(serverActions.get(screamAction), clientActions.get(screamAction));
+         var serverBeacon = PrototypeRuntime.serverSingularityBeacons().get(
+                 com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.DEFAULT_ID);
+         var clientBeacon = PrototypeRuntime.clientSingularityBeacons().get(
+                 com.juicyslew.moonstation14.ms14.singularity.beacon.ModSingularityBeacons.DEFAULT_ID);
+         assertEquals(120, serverBeacon.foodEnergy());
+         assertEquals(5000, serverBeacon.powerWatts());
+         assertEquals(serverBeacon, clientBeacon);
+         assertNotSame(serverBeacon, clientBeacon);
+         assertEquals(PrototypeRuntime.serverFirelocks().get(ModFirelocks.STANDARD),
+                 PrototypeRuntime.clientFirelocks().get(ModFirelocks.STANDARD));
+         assertNotSame(PrototypeRuntime.serverFirelocks().get(ModFirelocks.STANDARD),
+                 PrototypeRuntime.clientFirelocks().get(ModFirelocks.STANDARD));
         var serverWelder = PrototypeRuntime.serverTools().get(ModTools.WELDER);
         assertEquals(serverWelder, PrototypeRuntime.clientTools().get(ModTools.WELDER));
         assertNotSame(serverWelder, PrototypeRuntime.clientTools().get(ModTools.WELDER));

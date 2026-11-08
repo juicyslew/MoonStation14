@@ -46,3 +46,4 @@ public final class EyeDamageReducer {
         return (long) floored;
     }
 }
+
